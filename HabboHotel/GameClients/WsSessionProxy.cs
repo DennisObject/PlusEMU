@@ -8,6 +8,7 @@ public class WsSessionProxy : WsSession
     public WsSessionProxy(WsServer server, GameClient client) : base(server)
     {
         _client = client;
+        _client.Id = Id;
         _client.SendCallback = args =>
         {
             if (!Socket.Connected) return false;

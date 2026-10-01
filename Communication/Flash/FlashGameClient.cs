@@ -60,13 +60,13 @@ public class FlashGameClient : GameClient
         EncodeInt16(memory, (short)messageId, 4);
     }
 
-    internal override (bool Complete, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer)
+    internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer)
     {
-        if (buffer.Length < 6) return default;
-        var length = DecodeInt32(buffer) - 2;
-        if (length + 6 > buffer.Length) return default;
-        buffer = buffer.Slice(4);
-        var messageId = (uint)DecodeInt16(buffer);
-        return (true, messageId, 6, length);
+        if (buffer.Length < 4) return default;
+        var declaredLength = DecodeInt32(buffer);
+        if (declaredLength < 2 || declaredLength > 500000) return (false, true, 0, 0, 0);
+        if (buffer.Length < 4 + declaredLength) return default;
+        var messageId = (uint)DecodeInt16(buffer.Slice(4));
+        return (true, false, messageId, 6, declaredLength - 2);
     }
 }

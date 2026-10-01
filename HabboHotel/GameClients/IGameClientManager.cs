@@ -10,7 +10,7 @@ public interface IGameClientManager
     void OnCycle();
     GameClient? GetClientByUserId(int userId);
     GameClient? GetClientByUsername(string username);
-    bool TryGetClient(int clientId, out GameClient client);
+    bool TryGetClient(Guid clientId, out GameClient client);
     bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername);
     Task<string> GetNameById(int id);
     IEnumerable<GameClient> GetClientsById(Dictionary<int, MessengerBuddy>.KeyCollection users);
@@ -20,6 +20,6 @@ public interface IGameClientManager
     void SendPacket(IServerPacket packet, string fuse = "");
     void LogClonesOut(int userId);
     void RegisterClient(GameClient client, int userId, string username);
-    void UnregisterClient(int userid, string username);
+    void UnregisterClient(GameClient client, int userId, string username);
     void CloseAll();
 }

@@ -34,6 +34,6 @@ public class ItemUpdateComposer : IServerPacket
         }
         packet.WriteInteger(-1);
         packet.WriteInteger(item.Definition.Modes > 1 ? 1 : 0);
-        packet.WriteUInt(item.OwnerId);
+        packet.WriteInteger(item.UserId);
     }
 }

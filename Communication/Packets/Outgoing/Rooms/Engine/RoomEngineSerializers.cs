@@ -14,7 +14,7 @@ public static class RoomEngineSerializers
         packet.WriteInteger(item.Rotation);
         packet.WriteString(FormattableString.Invariant($"{item.GetZ}"));
         packet.WriteString(FormattableString.Invariant($"{item.Definition.Height}"));
-        packet.WriteUInt(0);
+        packet.WriteInteger(FloorExtra(item));
         ItemBehaviourUtility.Serialize(packet, item.ExtraData, item.UniqueNumber, item.UniqueSeries);
         packet.WriteInteger(-1); // to-do: check
         packet.WriteInteger(item.Definition.Modes > 1 ? 1 : 0);
@@ -25,5 +25,52 @@ public static class RoomEngineSerializers
         packet.WriteInt(items.Count);
         foreach (var item in items)
             packet.Serialize(item);
+    }
+
+    internal static void WriteOwnerMap(IOutgoingPacket packet, IEnumerable<Item> items, int roomOwnerId, string? roomOwnerName)
+    {
+        var names = new Dictionary<int, string>();
+        foreach (var item in items)
+        {
+            var name = item.UserId == roomOwnerId ? roomOwnerName ?? "" : item.Username ?? "";
+            if (!names.TryGetValue(item.UserId, out var existing) || (existing.Length == 0 && name.Length > 0))
+                names[item.UserId] = name;
+        }
+
+        packet.WriteInteger(names.Count);
+        if (names.Remove(roomOwnerId, out var ownerName))
+        {
+            packet.WriteInteger(roomOwnerId);
+            packet.WriteString(ownerName);
+        }
+
+        foreach (var userId in names.Keys.OrderBy(id => id))
+        {
+            packet.WriteInteger(userId);
+            packet.WriteString(names[userId]);
+        }
+    }
+
+    // A 7-field gift stores its wrap id in the last char-5 field. The gift body uses that same number for both color and ribbon.
+    internal static int FloorExtra(Item item)
+    {
+        if (item.Definition.InteractionType == InteractionType.Gift)
+        {
+            var fields = item.LegacyDataString.Split((char)5);
+            if (fields.Length == 7 && int.TryParse(fields[6], out var wrap))
+            {
+                var style = (long)wrap * 1000 + wrap;
+                if (style is >= int.MinValue and <= int.MaxValue)
+                    return (int)style;
+            }
+        }
+        else if (item.Definition.InteractionType == InteractionType.MusicDisc)
+        {
+            var fields = item.LegacyDataString.Split('\n');
+            if (fields.Length >= 7 && int.TryParse(fields[6], out var songId))
+                return songId;
+        }
+
+        return 1;
     }
 }
