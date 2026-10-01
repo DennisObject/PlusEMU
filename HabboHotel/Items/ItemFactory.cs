@@ -21,10 +21,7 @@ public class ItemFactory : IItemFactory
         {
             OwnerId = (uint)habbo.Id,
             Definition = definition,
-            ExtraData = new LegacyDataFormat()
-            {
-                Data = extraData
-            },
+            ExtraData = FurniExtraData.Load(definition, extraData, keepLegacy: true),
             UniqueNumber = limitedNumber,
             UniqueSeries = limitedStack,
             GroupId = groupId
@@ -63,10 +60,7 @@ public class ItemFactory : IItemFactory
             Id = itemId,
             OwnerId = (uint)habbo.Id,
             Definition = definition,
-            ExtraData = new LegacyDataFormat()
-            {
-                Data = extraData
-            },
+            ExtraData = FurniExtraData.Load(definition, extraData, keepLegacy: true),
             UniqueNumber = limitedNumber,
             UniqueSeries = limitedStack
         }; using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
@@ -95,10 +89,7 @@ public class ItemFactory : IItemFactory
         {
             OwnerId = (uint)habbo.Id,
             Definition = definition,
-            ExtraData = new LegacyDataFormat()
-            {
-                Data = extraData
-            },
+            ExtraData = FurniExtraData.Load(definition, extraData, keepLegacy: true),
             UniqueNumber = limitedNumber,
             UniqueSeries = limitedStack,
         };
@@ -144,10 +135,7 @@ public class ItemFactory : IItemFactory
                 Id = Convert.ToUInt32(dbClient.InsertQuery()),
                 OwnerId = (uint)habbo.Id,
                 Definition = definition,
-                ExtraData = new LegacyDataFormat()
-                {
-                    Data = extraData
-                },
+                ExtraData = FurniExtraData.Load(definition, extraData, keepLegacy: true),
                 GroupId = groupId
             };
             if (groupId > 0)

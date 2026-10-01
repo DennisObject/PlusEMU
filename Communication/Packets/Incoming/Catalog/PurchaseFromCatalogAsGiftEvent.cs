@@ -54,8 +54,8 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
         var giftUser = StringCharFilter.Escape(packet.ReadString());
         var giftMessage = StringCharFilter.Escape(packet.ReadString().Replace(Convert.ToChar(5), ' '));
         var spriteId = packet.ReadInt();
-        var ribbon = packet.ReadInt();
-        var colour = packet.ReadInt();
+        var boxId = packet.ReadInt();
+        var ribbonId = packet.ReadInt();
         packet.ReadBool();
         if (_settingsManager.TryGetValue("room.item.gifts.enabled") != "1")
         {
@@ -112,40 +112,17 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
         }
         if (session.GetHabbo().SessionGiftBlocked)
             return Task.CompletedTask;
-        var extra_data = giftUser + Convert.ToChar(5) + giftMessage + Convert.ToChar(5) + session.GetHabbo().Id + Convert.ToChar(5) + item.Definition.Id + Convert.ToChar(5) + spriteId + Convert.ToChar(5) + ribbon +
-                 Convert.ToChar(5) + colour;
-        int newItemId;
-        using (var connection = _database.Connection())
+        var extra_data = GiftWrap.PresentData(giftUser, giftMessage, session.GetHabbo().Id, item.Definition.Id, spriteId, boxId, ribbonId);
+        string itemExtraData = null;
+        switch (item.Definition.InteractionType)
         {
-            //Insert the dummy item.
-            var InsertQuery = connection.Execute("INSERT INTO `items` (`base_item`,`user_id`,`extra_data`) VALUES (@baseId, @habboId, @extra_data)",
-                new { baseId = presentData.Id, habboId = habbo.Id, extra_data = extra_data });
-            newItemId = Convert.ToInt32(InsertQuery);
-            string itemExtraData = null;
-            switch (item.Definition.InteractionType)
-            {
                 case InteractionType.None:
                     itemExtraData = "";
                     break;
                 case InteractionType.Pet:
-                    try
-                    {
-                        var bits = data.Split('\n');
-                        var petName = bits[0];
-                        var race = bits[1];
-                        var color = bits[2];
-                        if (PetUtility.CheckPetName(petName))
-                            return Task.CompletedTask;
-                        if (race.Length > 2)
-                            return Task.CompletedTask;
-                        if (color.Length != 6)
-                            return Task.CompletedTask;
-                        _achievementManager.ProgressAchievement(session, "ACH_PetLover", 1);
-                    }
-                    catch
-                    {
+                    if (!GiftWrap.PetDataAccepted(data))
                         return Task.CompletedTask;
-                    }
+                    _achievementManager.ProgressAchievement(session, "ACH_PetLover", 1);
                     break;
                 case InteractionType.Floor:
                 case InteractionType.Wallpaper:
@@ -185,6 +162,14 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
                     itemExtraData = data;
                     break;
             }
+
+        int newItemId;
+        using (var connection = _database.Connection())
+        {
+            connection.Open();
+            connection.Execute("INSERT INTO `items` (`base_item`,`user_id`,`extra_data`) VALUES (@baseId, @habboId, @extra_data)",
+                new { baseId = presentData.Id, habboId = habbo.Id, extra_data = extra_data });
+            newItemId = Convert.ToInt32(connection.ExecuteScalar("SELECT LAST_INSERT_ID()"));
 
             //Insert the present, forever.
             connection.Execute("INSERT INTO `user_presents` (`item_id`,`base_id`,`extra_data`) VALUES (@itemId, @baseId, @extra_data)",

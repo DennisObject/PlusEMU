@@ -51,19 +51,10 @@ public static class RoomEngineSerializers
         }
     }
 
-    // A 7-field gift stores its wrap id in the last char-5 field. The gift body uses that same number for both color and ribbon.
     internal static int FloorExtra(Item item)
     {
         if (item.Definition.InteractionType == InteractionType.Gift)
-        {
-            var fields = item.LegacyDataString.Split((char)5);
-            if (fields.Length == 7 && int.TryParse(fields[6], out var wrap))
-            {
-                var style = (long)wrap * 1000 + wrap;
-                if (style is >= int.MinValue and <= int.MaxValue)
-                    return (int)style;
-            }
-        }
+            return GiftWrap.Style(item.LegacyDataString);
         else if (item.Definition.InteractionType == InteractionType.MusicDisc)
         {
             var fields = item.LegacyDataString.Split('\n');

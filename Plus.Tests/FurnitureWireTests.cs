@@ -13,12 +13,14 @@ public class FurnitureWireTests
     public void FloorItemExtraIsOneUnlessGiftOrDisc()
     {
         var plain = Floor(InteractionType.None, userId: 4);
-        var gift = Floor(InteractionType.Gift, userId: 4, legacy: Gift("4"));
+        var gift = Floor(InteractionType.Gift, userId: 4, legacy: Gift("4", "4"));
+        var mixedGift = Floor(InteractionType.Gift, userId: 4, legacy: Gift("3", "7"));
         var disc = Floor(InteractionType.MusicDisc, userId: 4, legacy: "a\nb\nc\nd\ne\nf\n77");
         var brokenDisc = Floor(InteractionType.MusicDisc, userId: 4, legacy: "no-song");
 
         Assert.Equal(1, Extra(plain));
         Assert.Equal(4004, Extra(gift));
+        Assert.Equal(3007, Extra(mixedGift));
         Assert.Equal(77, Extra(disc));
         Assert.Equal(1, Extra(brokenDisc));
     }
@@ -56,7 +58,7 @@ public class FurnitureWireTests
         table.Columns.Add("extra_data", typeof(string));
         table.Columns.Add("wall_pos", typeof(string));
         table.Columns.Add("username", typeof(string));
-        table.Rows.Add(8, 5, 1, 2, 0, 0, 0, 0.5, Gift("4"), ":w=1,1 l=1,1 r", "bob");
+        table.Rows.Add(8, 5, 1, 2, 0, 0, 0, 0.5, Gift("4", "4"), ":w=1,1 l=1,1 r", "bob");
         table.Rows.Add(9, 6, 0, 0, 0, 0, 0, 0, "", "", DBNull.Value);
 
         var definition = new ItemDefinition
@@ -101,7 +103,7 @@ public class FurnitureWireTests
         return (int)packet.Writes[7];
     }
 
-    private static string Gift(string wrap) => string.Join(((char)5).ToString(), "1", "hi", "2", "0", "0", "0", wrap);
+    private static string Gift(string color, string ribbon) => string.Join(((char)5).ToString(), "1", "hi", "2", "0", "0", color, ribbon);
 
     private static Item Floor(InteractionType type, int userId, string? legacy = null, string username = "")
     {

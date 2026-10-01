@@ -8,7 +8,7 @@ public class CrackableDataFormat : FurniObjectData
     public uint Hits;
     public uint Target;
 
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     public override FurniDataStructure StructureType => FurniDataStructure.Crackable;
     public override string Serialize() => $"{Regex.Escape(State)}\n{Hits}\n{Target}";

@@ -119,7 +119,7 @@ internal static class ItemBehaviourUtility
                 }
                 else
                 {
-                    var style = int.Parse(extraData[6]) * 1000 + int.Parse(extraData[6]);
+                    var style = GiftWrap.Style(item.LegacyDataString);
                     var purchaser = PlusEnvironment.Game.CacheManager.GenerateUser(Convert.ToInt32(extraData[2]));
                     if (purchaser == null)
                     {

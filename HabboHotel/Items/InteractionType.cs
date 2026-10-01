@@ -116,5 +116,6 @@ public enum InteractionType
     Counter,
     CameraPicture,
     FxProvider,
-    Exchange
+    Exchange,
+    Skateboard
 }
