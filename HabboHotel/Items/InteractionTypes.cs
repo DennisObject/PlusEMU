@@ -215,6 +215,8 @@ public static class InteractionTypes
                 return InteractionType.FxProvider;
             case "exchange":
                 return InteractionType.Exchange;
+            case "skateboard":
+                return InteractionType.Skateboard;
             case "pet":
                 return InteractionType.Pet;
             default:

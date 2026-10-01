@@ -46,6 +46,7 @@ public static class Program
 
         // Dependency Injection
         services.AddDefaultRules(typeof(Program).Assembly);
+        services.AddSingleton(TimeProvider.System);
 
         foreach (var plugin in pluginDefinitions)
             plugin.OnServicesConfigured();

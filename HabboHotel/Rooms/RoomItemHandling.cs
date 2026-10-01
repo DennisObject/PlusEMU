@@ -372,10 +372,11 @@ public class RoomItemHandling
                 using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
                 foreach (var item in _movedItems.Values.ToList())
                 {
-                    if (!string.IsNullOrEmpty(item.LegacyDataString))
+                    var serialized = item.ExtraData?.Serialize();
+                    if (!string.IsNullOrEmpty(serialized))
                     {
                         dbClient.SetQuery($"UPDATE `items` SET `extra_data` = @edata{item.Id} WHERE `id` = '{item.Id}' LIMIT 1");
-                        dbClient.AddParameter($"edata{item.Id}", item.ExtraData.Serialize());
+                        dbClient.AddParameter($"edata{item.Id}", serialized);
                         dbClient.RunQuery();
                     }
                     if (item.IsWallItem && (!item.Definition.ItemName.Contains("wallpaper_single") || !item.Definition.ItemName.Contains("floor_single") ||

@@ -33,7 +33,7 @@ public static class ItemLoader
         UserId = Convert.ToInt32(row["user_id"]),
         Username = Convert.ToString(row["username"]) ?? "",
         Definition = definition,
-        ExtraData = new LegacyDataFormat { Data = Convert.ToString(row["extra_data"]) ?? "" },
+        ExtraData = FurniExtraData.Load(definition, Convert.ToString(row["extra_data"]) ?? "", keepLegacy: true),
         GetX = Convert.ToInt32(row["x"]),
         GetY = Convert.ToInt32(row["y"]),
         GetZ = Convert.ToDouble(row["z"]),
@@ -64,7 +64,7 @@ public static class ItemLoader
                         Id = Convert.ToUInt32(row["id"]),
                         OwnerId = userId,
                         Definition = data,
-                        ExtraData = FurniObjectData.Empty, // TODO @80O: Load object data based on interaction type.
+                        ExtraData = FurniExtraData.Load(data, Convert.ToString(row["extra_data"]) ?? "", keepLegacy: false),
                         UniqueNumber = Convert.ToUInt32(row["limited_number"]),
                         UniqueSeries = Convert.ToUInt32(row["limited_stack"])
                     });

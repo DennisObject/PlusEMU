@@ -1,6 +1,8 @@
 ﻿using System.Data;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
+using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Items;
@@ -41,7 +43,7 @@ public class ItemDataManager : IItemDataManager
                             Type = string.Equals(row["type"].ToString(), "s", StringComparison.OrdinalIgnoreCase) ? ItemType.Floor : ItemType.Wall,
                             Width = Convert.ToInt32(row["width"]),
                             Length = Convert.ToInt32(row["length"]),
-                            Height = Convert.ToDouble(row["stack_height"]),
+                            Height = FurnitureNumbers.FromCell(row["stack_height"]),
                             Stackable = row["can_stack"].ToString() == "1",
                             Walkable = row["is_walkable"].ToString() == "1",
                             IsSeat = row["can_sit"].ToString() == "1",
@@ -50,14 +52,15 @@ public class ItemDataManager : IItemDataManager
                             AllowMarketplaceSell = row["allow_marketplace_sell"].ToString() == "1",
                             AllowGift = row["allow_gift"].ToString() == "1",
                             AllowInventoryStack = row["allow_inventory_stack"].ToString() == "1",
-                            InteractionType = InteractionTypes.GetTypeFromString(row["interaction_type"].ToString()),
+                            InteractionType = ReadInteractionType(Convert.ToString(row["item_name"]), Convert.ToString(row["interaction_type"])),
+                            WiredType = ReadWiredType(row["wired_id"]),
                             BehaviourData = Convert.ToInt32(row["behaviour_data"]),
                             Modes = Convert.ToInt32(row["interaction_modes_count"]),
                             VendingIds = (!string.IsNullOrEmpty(Convert.ToString(row["vending_ids"])) && Convert.ToString(row["vending_ids"]) != "0")
-                                ? Convert.ToString(row["vending_ids"]).Split(",").Select(int.Parse).ToList()
+                                ? Convert.ToString(row["vending_ids"]).Split(",").Select(FurnitureNumbers.ParseInt).ToList()
                                 : new(0),
                             AdjustableHeights = (!string.IsNullOrEmpty(Convert.ToString(row["height_adjustable"])) && Convert.ToString(row["height_adjustable"]) != "0")
-                                ? Convert.ToString(row["height_adjustable"]).Split(",").Select(double.Parse).ToList()
+                                ? Convert.ToString(row["height_adjustable"]).Split(",").Select(FurnitureNumbers.Parse).ToList()
                                 : new(0),
                             EffectId = Convert.ToInt32(row["effect_id"]),
                             IsRare = row["is_rare"].ToString() == "1",
@@ -88,5 +91,21 @@ public class ItemDataManager : IItemDataManager
                 return item;
         }
         return null;
+    }
+
+    internal static InteractionType ReadInteractionType(string itemName, string interactionType)
+    {
+        if (itemName is "sb_rail" or "sb_ramp" or "sb_block")
+            return InteractionType.Skateboard;
+        return InteractionTypes.GetTypeFromString(interactionType);
+    }
+
+    internal static WiredBoxType ReadWiredType(object cell)
+    {
+        if (cell is null or DBNull)
+            return WiredBoxType.None;
+        return int.TryParse(Convert.ToString(cell, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)
+            ? WiredBoxTypeUtility.FromWiredId(id)
+            : WiredBoxType.None;
     }
 }

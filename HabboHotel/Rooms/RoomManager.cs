@@ -16,19 +16,21 @@ public class RoomManager : IRoomManager
     private readonly ILanguageManager _languageManager;
 
     private readonly object _roomLoadingSync;
+    private readonly TimeProvider _clock;
 
     private readonly Dictionary<string, RoomModel> _roomModels;
 
     private readonly ConcurrentDictionary<uint, Room> _rooms;
 
-    private DateTime _cycleLastExecution;
+    private DateTimeOffset _cycleLastExecution;
 
 
-    public RoomManager(ILogger<RoomManager> logger, IDatabase database, ILanguageManager languageManager)
+    public RoomManager(ILogger<RoomManager> logger, IDatabase database, ILanguageManager languageManager, TimeProvider clock)
     {
         _logger = logger;
         _database = database;
         _languageManager = languageManager;
+        _clock = clock;
         _roomModels = new();
         _rooms = new();
         _roomLoadingSync = new();
@@ -40,15 +42,16 @@ public class RoomManager : IRoomManager
     {
         try
         {
-            var sinceLastTime = DateTime.Now - _cycleLastExecution;
-            if (sinceLastTime.TotalMilliseconds >= 500)
+            var now = _clock.GetLocalNow();
+            if (RoomCycle.IsDue(_cycleLastExecution, now))
             {
-                _cycleLastExecution = DateTime.Now;
+                _cycleLastExecution = now;
                 foreach (var room in _rooms.Values.ToList())
                 {
                     if (room.IsCrashed)
                         continue;
-                    if (room.ProcessTask == null || room.ProcessTask.IsCompleted)
+                    var tick = RoomCycle.Next(room.ProcessTask is { IsCompleted: false }, room.IsLagging);
+                    if (tick.Start)
                     {
                         room.ProcessTask?.Dispose();
                         room.ProcessTask = new(room.ProcessRoom);
@@ -57,8 +60,8 @@ public class RoomManager : IRoomManager
                     }
                     else
                     {
-                        room.IsLagging++;
-                        if (room.IsLagging >= 30)
+                        room.IsLagging = tick.Lag;
+                        if (tick.Crashed)
                         {
                             room.IsCrashed = true;
                             UnloadRoom(room.Id);

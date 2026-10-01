@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Buffers;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -45,12 +46,7 @@ public class PlusEnvironment : IPlusEnvironment
 
     public static DateTime ServerStarted;
 
-    private static readonly List<char> Allowedchars = new(new[]
-    {
-        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
-        'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
-        'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '.'
-    });
+    private static readonly SearchValues<char> AllowedChars = SearchValues.Create("abcdefghijklmnopqrstuvwxyz1234567890-.");
 
     private static readonly ConcurrentDictionary<int, Habbo> _usersCached = new();
 
@@ -125,16 +121,13 @@ public class PlusEnvironment : IPlusEnvironment
             //Make sure Rcon is connected before we allow clients to Connect.
             _rcon.Init(_rconConfiguration.Hostname, _rconConfiguration.Port, _rconConfiguration.AllowedAddresses);
 
-            //Accept connections.
-            _flashServer.Start();
-            _nitroServer.Start();
-
             _itemDataManager.Init();
-            // Allow services to self initialize
             foreach (var task in _startableTasks)
                 await task.Start();
 
             await _game.Init();
+            _flashServer.Start();
+            _nitroServer.Start();
             _game.StartGameLoop();
             var timeUsed = DateTime.Now - ServerStarted;
             Console.WriteLine();
@@ -207,7 +200,7 @@ public class PlusEnvironment : IPlusEnvironment
         return figure;
     }
 
-    private static bool IsValid(char character) => Allowedchars.Contains(character);
+    private static bool IsValid(char character) => AllowedChars.Contains(character);
 
     [Obsolete($"Use {nameof(IUserDataFactory.GetUsernameForHabboById)}")]
     public static string GetUsernameById(int userId)
