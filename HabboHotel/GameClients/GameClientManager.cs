@@ -20,7 +20,7 @@ public class GameClientManager : IGameClientManager
 
     private readonly Stopwatch _clientPingStopwatch;
 
-    private readonly ConcurrentDictionary<int, GameClient> _clients;
+    private readonly ConcurrentDictionary<Guid, GameClient> _clients;
 
     private readonly Queue _timedOutConnections;
     private readonly ConcurrentDictionary<int, GameClient> _userIdRegister;
@@ -52,7 +52,11 @@ public class GameClientManager : IGameClientManager
 
     public GameClient? GetClientByUsername(string username) => _usernameRegister.ContainsKey(username.ToLower()) ? _usernameRegister[username.ToLower()] : null;
 
-    public bool TryGetClient(int clientId, out GameClient client) => _clients.TryGetValue(clientId, out client);
+    public bool TryGetClient(Guid clientId, out GameClient client) => _clients.TryGetValue(clientId, out client);
+
+    public void TrackClient(GameClient client) => _clients.TryAdd(client.Id, client);
+
+    public void ReleaseClient(Guid clientId) => _clients.TryRemove(clientId, out _);
 
     public bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername)
     {

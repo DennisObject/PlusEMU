@@ -5,10 +5,13 @@ namespace Plus.HabboHotel.GameClients;
 public class TcpSessionProxy : TcpSession
 {
     private readonly GameClient _client;
-    public TcpSessionProxy(TcpServer server, GameClient client) : base(server)
+    private readonly IGameClientManager _clientManager;
+    public TcpSessionProxy(TcpServer server, GameClient client, IGameClientManager clientManager) : base(server)
     {
         _client = client;
+        _clientManager = clientManager;
         _client.Id = Id;
+        _clientManager.TrackClient(_client);
         _client.SendCallback = args =>
         {
             if (!Socket.Connected) return false;
@@ -29,7 +32,11 @@ public class TcpSessionProxy : TcpSession
         base.OnConnected();
     }
 
-    protected override void OnDisconnected() => _client.OnDisconnected();
+    protected override void OnDisconnected()
+    {
+        _clientManager.ReleaseClient(Id);
+        _client.OnDisconnected();
+    }
 
     protected override void OnReceived(byte[] buffer, long offset, long size) => _client.OnReceived(buffer, offset, size);
 }
