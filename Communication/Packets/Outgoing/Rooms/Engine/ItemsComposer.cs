@@ -19,12 +19,12 @@ public class ItemsComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(1);
-        packet.WriteInteger(_room.OwnerId);
-        packet.WriteString(_room.OwnerName);
+        packet.SerializeOwners(_objects.Select(GetOwnerId), _room);
         packet.WriteInteger(_objects.Length);
-        foreach (var item in _objects) WriteWallItem(packet, item, _room.OwnerId);
+        foreach (var item in _objects) WriteWallItem(packet, item, GetOwnerId(item));
     }
+
+    private int GetOwnerId(Item item) => item.UserId != 0 ? item.UserId : _room.OwnerId;
 
     private void WriteWallItem(IOutgoingPacket packet, Item item, int userId)
     {

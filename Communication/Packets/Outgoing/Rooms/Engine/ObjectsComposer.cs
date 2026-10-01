@@ -18,9 +18,7 @@ public class ObjectsComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(1);
-        packet.WriteInteger(_room.OwnerId);
-        packet.WriteString(_room.OwnerName);
+        packet.SerializeOwners(_objects.Select(item => item.UserId), _room);
         packet.Serialize(_objects);
     }
 }
