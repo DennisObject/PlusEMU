@@ -2,8 +2,12 @@
 
 public class HabboStats
 {
+    public HabboStats() : this(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+    {
+    }
+
     public HabboStats(int roomVisits, double onlineTime, int respect, int respectGiven, int giftsGiven, int giftsReceived, int dailyRespectPoints, int dailyPetRespectPoints, int achievementPoints,
-        int questId, int questProgress, int groupId, string respectsTimestamp, int forumPosts)
+        int questId, int questProgress, int favouriteGroupId, string respectsTimestamp, int forumPosts)
     {
         RoomVisits = roomVisits;
         OnlineTime = onlineTime;
@@ -16,7 +20,7 @@ public class HabboStats
         AchievementPoints = achievementPoints;
         QuestId = questId;
         QuestProgress = questProgress;
-        FavouriteGroupId = groupId;
+        FavouriteGroupId = favouriteGroupId;
         RespectsTimestamp = respectsTimestamp;
         ForumPosts = forumPosts;
     }
