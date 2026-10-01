@@ -259,7 +259,7 @@ public class Habbo
         }
         catch { }
         _disconnected = true;
-        PlusEnvironment.Game.ClientManager.UnregisterClient(Id, Username);
+        PlusEnvironment.Game.ClientManager.UnregisterClient(Client, Id, Username);
         if (!_habboSaved)
         {
             _habboSaved = true;

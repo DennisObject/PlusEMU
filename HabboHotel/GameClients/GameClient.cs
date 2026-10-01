@@ -13,6 +13,7 @@ public abstract class GameClient
 {
     private readonly IGameServer _server;
     private readonly IPacketFactory _packetFactory;
+    private readonly SemaphoreSlim _receiveLock = new(1, 1);
     private static readonly ILogger Log = LogManager.GetLogger("Plus.HabboHotel.GameClients.GameClient");
     private Habbo? _habbo;
 
@@ -46,51 +47,69 @@ public abstract class GameClient
 
     internal void OnDisconnected() => _habbo?.OnDisconnect();
 
-    internal abstract (bool Complete, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer);
+    internal abstract (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer);
     internal virtual async void OnReceived(byte[] buffer, long offset, long size)
     {
         if (size > int.MaxValue) throw new InvalidOperationException("");
-        await using var stream = PlusMemoryStream.GetStream(buffer.AsSpan().Slice((int) offset, (int) size));
-        var memory = stream.GetMemory().Slice(0, (int)stream.Length);
-
-        if (_incompleteStream != null)
+        await _receiveLock.WaitAsync();
+        try
         {
-            _incompleteStream.Write(memory.Span);
-            memory = _incompleteStream.GetMemory().Slice(0, (int)_incompleteStream.Length);
-        }
+            await using var stream = PlusMemoryStream.GetStream(buffer.AsSpan().Slice((int) offset, (int) size));
+            var memory = stream.GetBuffer().AsMemory().Slice(0, (int)stream.Length);
 
-        while (memory.Length > 0)
-        {
-            var (complete, messageId, headerLength, length) = GetMessageIdAndPacketLength(memory);
-            if (!complete)
+            if (_incompleteStream != null)
             {
-                _incompleteStream ??= PlusMemoryStream.GetStream(memory.Span);
-                break;
+                _incompleteStream.Position = _incompleteStream.Length;
+                _incompleteStream.Write(memory.Span);
+                memory = _incompleteStream.GetBuffer().AsMemory().Slice(0, (int)_incompleteStream.Length);
             }
 
-            try
+            while (memory.Length > 0)
             {
-                if (Revision.IncomingIdToInternalIdMapping.TryGetValue(messageId, out var internalMessageId))
+                var (complete, malformed, messageId, headerLength, length) = GetMessageIdAndPacketLength(memory);
+                if (malformed)
                 {
-                    await _server.PacketReceived(this, internalMessageId, _packetFactory.CreateIncomingPacket(memory.Slice(headerLength, length)));
+                    Disconnect();
+                    _incompleteStream?.Dispose();
+                    _incompleteStream = null;
+                    return;
                 }
-                else
-                {
-                    // TODO @80O: Add logging unknown packet received.
-                }
-            }
-            catch (Exception e)
-            {
-                // TODO @80O: Add logging when ILogger interface has been implemented
-            }
-            memory = memory.Slice(headerLength + length);
-            _incompleteStream?.Advance(headerLength + length);
-        }
 
-        if (memory.Length == 0)
+                if (!complete) break;
+
+                try
+                {
+                    if (Revision.IncomingIdToInternalIdMapping.TryGetValue(messageId, out var internalMessageId))
+                    {
+                        await _server.PacketReceived(this, internalMessageId, _packetFactory.CreateIncomingPacket(memory.Slice(headerLength, length)));
+                    }
+                    else
+                    {
+                        // TODO @80O: Add logging unknown packet received.
+                    }
+                }
+                catch (Exception e)
+                {
+                    // TODO @80O: Add logging when ILogger interface has been implemented
+                }
+                memory = memory.Slice(headerLength + length);
+            }
+
+            if (memory.Length == 0)
+            {
+                _incompleteStream?.Dispose();
+                _incompleteStream = null;
+            }
+            else
+            {
+                var tail = PlusMemoryStream.GetStream(memory.Span);
+                _incompleteStream?.Dispose();
+                _incompleteStream = tail;
+            }
+        }
+        finally
         {
-            _incompleteStream?.Dispose();
-            _incompleteStream = null;
+            _receiveLock.Release();
         }
     }
 

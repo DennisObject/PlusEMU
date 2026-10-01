@@ -13,7 +13,7 @@ public static class ItemLoader
         var items = new List<Item>();
         using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
         dbClient.SetQuery(
-            "SELECT `items`.*, COALESCE(`items_groups`.`group_id`, 0) AS `group_id` FROM `items` LEFT OUTER JOIN `items_groups` ON `items`.`id` = `items_groups`.`id` WHERE `items`.`room_id` = @rid;");
+            "SELECT `items`.*, COALESCE(`items_groups`.`group_id`, 0) AS `group_id`, `users`.`username` AS `username` FROM `items` LEFT OUTER JOIN `items_groups` ON `items`.`id` = `items_groups`.`id` LEFT OUTER JOIN `users` ON `users`.`id` = `items`.`user_id` WHERE `items`.`room_id` = @rid;");
         dbClient.AddParameter("rid", roomId);
         var table = dbClient.GetTable();
         if (table != null)
@@ -21,27 +21,28 @@ public static class ItemLoader
             foreach (DataRow row in table.Rows)
             {
                 if (PlusEnvironment.Game.ItemManager.Items.TryGetValue(Convert.ToUInt32(row["base_item"]), out var data))
-                {
-                    items.Add(new()
-                    {
-                        Id = Convert.ToUInt32(row["id"]),
-                        UserId = Convert.ToInt32(row["user_id"]),
-                        Definition = data,
-                        ExtraData = FurniObjectData.Empty,
-                        GetX = Convert.ToInt32(row["x"]),
-                        GetY = Convert.ToInt32(row["y"]),
-                        GetZ = Convert.ToDouble(row["z"]),
-                        Rotation = Convert.ToInt32(row["rot"]),
-                        UniqueNumber = Convert.ToUInt32(row["limited_number"]),
-                        UniqueSeries = Convert.ToUInt32(row["limited_stack"]),
-                        WallCoordinates = Convert.ToString(row["wall_pos"]),
-                        RoomId = roomId
-                    });
-                }
+                    items.Add(ReadRoomItem(row, roomId, data));
             }
         }
         return items;
     }
+
+    internal static Item ReadRoomItem(DataRow row, uint roomId, ItemDefinition definition) => new()
+    {
+        Id = Convert.ToUInt32(row["id"]),
+        UserId = Convert.ToInt32(row["user_id"]),
+        Username = Convert.ToString(row["username"]) ?? "",
+        Definition = definition,
+        ExtraData = new LegacyDataFormat { Data = Convert.ToString(row["extra_data"]) ?? "" },
+        GetX = Convert.ToInt32(row["x"]),
+        GetY = Convert.ToInt32(row["y"]),
+        GetZ = Convert.ToDouble(row["z"]),
+        Rotation = Convert.ToInt32(row["rot"]),
+        UniqueNumber = Convert.ToUInt32(row["limited_number"]),
+        UniqueSeries = Convert.ToUInt32(row["limited_stack"]),
+        WallCoordinates = Convert.ToString(row["wall_pos"]) ?? "",
+        RoomId = roomId
+    };
 
     public static List<InventoryItem> GetItemsForUser(uint userId)
     {

@@ -20,7 +20,7 @@ public class GameClientManager : IGameClientManager
 
     private readonly Stopwatch _clientPingStopwatch;
 
-    private readonly ConcurrentDictionary<int, GameClient> _clients;
+    private readonly ConcurrentDictionary<Guid, GameClient> _clients;
 
     private readonly Queue _timedOutConnections;
     private readonly ConcurrentDictionary<int, GameClient> _userIdRegister;
@@ -52,7 +52,7 @@ public class GameClientManager : IGameClientManager
 
     public GameClient? GetClientByUsername(string username) => _usernameRegister.ContainsKey(username.ToLower()) ? _usernameRegister[username.ToLower()] : null;
 
-    public bool TryGetClient(int clientId, out GameClient client) => _clients.TryGetValue(clientId, out client);
+    public bool TryGetClient(Guid clientId, out GameClient client) => _clients.TryGetValue(clientId, out client);
 
     public bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername)
     {
@@ -176,12 +176,28 @@ public class GameClientManager : IGameClientManager
             _userIdRegister[userId] = client;
         else
             _userIdRegister.TryAdd(userId, client);
+        _clients[client.Id] = client;
     }
 
-    public void UnregisterClient(int userid, string username)
+    public void UnregisterClient(GameClient client, int userId, string username)
     {
-        _userIdRegister.TryRemove(userid, out _);
-        _usernameRegister.TryRemove(username.ToLower(), out _);
+        if (client != null)
+            _clients.TryRemove(client.Id, out _);
+
+        if (_userIdRegister.TryGetValue(userId, out var byId) && CanDropRegistration(client, byId))
+            _userIdRegister.TryRemove(new KeyValuePair<int, GameClient>(userId, byId));
+
+        if (username != null && _usernameRegister.TryGetValue(username.ToLower(), out var byName) && CanDropRegistration(client, byName))
+            _usernameRegister.TryRemove(new KeyValuePair<string, GameClient>(username.ToLower(), byName));
+    }
+
+    private bool CanDropRegistration(GameClient client, GameClient stored)
+    {
+        if (ReferenceEquals(stored, client))
+            return true;
+        if (client != null)
+            return false;
+        return !_clients.TryGetValue(stored.Id, out var live) || !ReferenceEquals(live, stored);
     }
 
     public void CloseAll()

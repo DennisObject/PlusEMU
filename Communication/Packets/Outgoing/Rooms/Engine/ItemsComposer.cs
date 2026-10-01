@@ -19,14 +19,12 @@ public class ItemsComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(1);
-        packet.WriteInteger(_room.OwnerId);
-        packet.WriteString(_room.OwnerName);
+        RoomEngineSerializers.WriteOwnerMap(packet, _objects, _room.OwnerId, _room.OwnerName);
         packet.WriteInteger(_objects.Length);
-        foreach (var item in _objects) WriteWallItem(packet, item, _room.OwnerId);
+        foreach (var item in _objects) WriteWallItem(packet, item);
     }
 
-    private void WriteWallItem(IOutgoingPacket packet, Item item, int userId)
+    private void WriteWallItem(IOutgoingPacket packet, Item item)
     {
         packet.WriteString(item.Id.ToString());
         packet.WriteInteger(item.Definition.SpriteId);
@@ -41,6 +39,6 @@ public class ItemsComposer : IServerPacket
         ItemBehaviourUtility.GenerateWallExtradata(item, packet);
         packet.WriteInteger(-1);
         packet.WriteInteger(item.Definition.Modes > 1 ? 1 : 0);
-        packet.WriteInteger(userId);
+        packet.WriteInteger(item.UserId);
     }
 }
