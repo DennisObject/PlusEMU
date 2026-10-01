@@ -62,11 +62,13 @@ public class FlashGameClient : GameClient
 
     internal override (bool Complete, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer)
     {
-        if (buffer.Length < 6) return default;
-        var length = DecodeInt32(buffer) - 2;
-        if (length + 6 > buffer.Length) return default;
+        if (buffer.Length < 4) return default;
+        var declaredLength = DecodeInt32(buffer);
+        // A negative payload length signals an illegal frame to the receive path.
+        if (declaredLength < 2 || declaredLength > 500000) return (false, 0, 0, -1);
+        if (declaredLength + 4 > buffer.Length) return default;
         buffer = buffer.Slice(4);
         var messageId = (uint)DecodeInt16(buffer);
-        return (true, messageId, 6, length);
+        return (true, messageId, 6, declaredLength - 2);
     }
 }

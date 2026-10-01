@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Plus Emulator'">
+    <Compile Remove="tests/**/*.cs" />
+  </ItemGroup>
+</Project>

@@ -51,20 +51,30 @@ public abstract class GameClient
     {
         if (size > int.MaxValue) throw new InvalidOperationException("");
         await using var stream = PlusMemoryStream.GetStream(buffer.AsSpan().Slice((int) offset, (int) size));
-        var memory = stream.GetMemory().Slice(0, (int)stream.Length);
+        var memory = stream.GetBuffer().AsMemory(0, (int)stream.Length);
 
         if (_incompleteStream != null)
         {
+            _incompleteStream.Position = _incompleteStream.Length;
             _incompleteStream.Write(memory.Span);
-            memory = _incompleteStream.GetMemory().Slice(0, (int)_incompleteStream.Length);
+            memory = _incompleteStream.GetBuffer().AsMemory(0, (int)_incompleteStream.Length);
         }
 
         while (memory.Length > 0)
         {
             var (complete, messageId, headerLength, length) = GetMessageIdAndPacketLength(memory);
+            if (length < 0)
+            {
+                _incompleteStream?.Dispose();
+                _incompleteStream = null;
+                Disconnect();
+                return;
+            }
             if (!complete)
             {
-                _incompleteStream ??= PlusMemoryStream.GetStream(memory.Span);
+                var remainder = PlusMemoryStream.GetStream(memory.Span);
+                _incompleteStream?.Dispose();
+                _incompleteStream = remainder;
                 break;
             }
 
@@ -84,7 +94,6 @@ public abstract class GameClient
                 // TODO @80O: Add logging when ILogger interface has been implemented
             }
             memory = memory.Slice(headerLength + length);
-            _incompleteStream?.Advance(headerLength + length);
         }
 
         if (memory.Length == 0)
