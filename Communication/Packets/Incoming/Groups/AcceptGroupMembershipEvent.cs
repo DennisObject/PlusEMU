@@ -24,13 +24,11 @@ internal class AcceptGroupMembershipEvent : IPacketEvent
         if (!group.HasRequest(userId))
             return Task.CompletedTask;
         var habbo = PlusEnvironment.GetHabboById(userId);
-        if (habbo == null)
-        {
-            session.SendNotification("Oops, an error occurred whilst finding this user.");
-            return Task.CompletedTask;
-        }
         group.HandleRequest(userId, true);
-        session.Send(new GroupMemberUpdatedComposer(groupId, habbo, 2));
+        if (habbo != null)
+            session.Send(new GroupMemberUpdatedComposer(groupId, habbo, 2));
+        else
+            session.Send(new UnknownGroupComposer(group.Id, userId));
         return Task.CompletedTask;
     }
 }

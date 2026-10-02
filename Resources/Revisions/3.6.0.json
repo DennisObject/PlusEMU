@@ -408,6 +408,7 @@
     "UpdateFavouriteGroupComposer": 3403,
     "GroupMemberUpdatedComposer": 265,
     "GroupConfirmRemoveMemberComposer": 1876,
+    "GroupDeactivatedComposer": 3129,
     "RefreshFavouriteGroupComposer": 876,
     "ForumsListDataComposer": 3001,
     "ForumDataComposer": 3011,

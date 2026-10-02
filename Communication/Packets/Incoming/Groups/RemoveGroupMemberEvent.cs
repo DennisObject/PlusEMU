@@ -104,6 +104,29 @@ internal class RemoveGroupMemberEvent : IPacketEvent
                 group.TakeAdmin(userId);
             if (group.IsMember(userId))
                 group.DeleteMember(userId);
+            using (var connection = _database.Connection())
+            {
+                connection.Execute("UPDATE `user_statistics` SET `groupid` = 0 WHERE `id` = @userId AND `groupid` = @groupId", new { userId, groupId });
+            }
+            if (_roomManager.TryGetRoom(group.RoomId, out var room))
+            {
+                var user = room.GetRoomUserManager().GetRoomUserByHabbo(userId);
+                if (user != null)
+                {
+                    user.RemoveStatus("flatctrl 1");
+                    user.RemoveStatus("flatctrl 3");
+                    user.UpdateNeeded = true;
+                    user.GetClient()?.Send(new YouAreControllerComposer(0));
+                }
+            }
+            var removedClient = PlusEnvironment.Game.ClientManager.GetClientByUserId(userId);
+            if (removedClient != null)
+            {
+                var stats = removedClient.GetHabbo().HabboStats;
+                if (stats != null && stats.FavouriteGroupId == groupId) stats.FavouriteGroupId = 0;
+                removedClient.Send(new GroupInfoComposer(group, removedClient));
+                removedClient.Send(new RefreshFavouriteGroupComposer(userId));
+            }
             session.Send(new UnknownGroupComposer(group.Id, userId));
         }
         return Task.CompletedTask;

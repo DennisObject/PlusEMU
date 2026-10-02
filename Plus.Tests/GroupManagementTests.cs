@@ -63,7 +63,7 @@ public class GroupManagementTests : IDisposable
         Assert.Equal(group.Id, reader.ReadInt());
         Assert.Equal("Crew", reader.ReadString());
         Assert.Equal("desc", reader.ReadString());
-        reader.ReadInt();
+        Assert.Equal(42, reader.ReadInt());
         Assert.Equal(3, reader.ReadInt());
         Assert.Equal(4, reader.ReadInt());
         Assert.Equal(0, reader.ReadInt());
@@ -136,8 +136,8 @@ public class GroupManagementTests : IDisposable
         Assert.Contains("forum_enabled", string.Join("\n", _database.Statements));
         var headers = sent.Select(item => item.Header).ToList();
         var info = headers.IndexOf(ServerPacketHeader.GroupInfoComposer);
-        var manage = headers.IndexOf(ServerPacketHeader.ManageGroupComposer);
-        Assert.True(info >= 0 && manage > info);
+        Assert.True(info >= 0);
+        Assert.DoesNotContain(ServerPacketHeader.ManageGroupComposer, headers);
     }
 
     [Fact]
@@ -230,7 +230,8 @@ public class GroupManagementTests : IDisposable
         Assert.Equal(new[] { group.Id }, deleted);
         Assert.Contains("DELETE FROM `groups`", string.Join("\n", _database.Statements));
         Assert.False(unloaded);
-        Assert.NotEmpty(ownerSent);
+        var deactivated = ownerSent.Single(item => item.Header == ServerPacketHeader.GroupDeactivatedComposer);
+        Assert.Equal(group.Id, BinaryPrimitives.ReadInt32BigEndian(deactivated.Payload));
     }
 
     [Fact]
@@ -262,6 +263,7 @@ public class GroupManagementTests : IDisposable
             Assert.Equal(593u, incoming.GetProperty("RemoveGroupMemberEvent").GetUInt32());
             Assert.Equal(3593u, incoming.GetProperty("ConfirmRemoveGroupMemberEvent").GetUInt32());
             Assert.Equal(1876u, outgoing.GetProperty("GroupConfirmRemoveMemberComposer").GetUInt32());
+            Assert.Equal(3129u, outgoing.GetProperty("GroupDeactivatedComposer").GetUInt32());
         }
     }
 
@@ -286,7 +288,7 @@ public class GroupManagementTests : IDisposable
     {
         var group = NewGroup(hasForum: false);
         group.AddMember(8);
-        var rooms = Proxy<IRoomManager>((method, _) => throw new InvalidOperationException(method));
+        var rooms = UnloadedRooms();
         var (owner, sent) = Client(Owner());
         await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database).Parse(owner, Packet(group.Id, 8, true));
 
@@ -301,7 +303,7 @@ public class GroupManagementTests : IDisposable
     {
         var group = NewGroup(hasForum: false);
         group.AddMember(8);
-        var rooms = Proxy<IRoomManager>((method, _) => throw new InvalidOperationException(method));
+        var rooms = UnloadedRooms();
         var (owner, sent) = Client(Owner());
         await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database).Parse(owner, Packet(group.Id, 8));
 
@@ -318,7 +320,7 @@ public class GroupManagementTests : IDisposable
         group.AddMember(5);
         group.MakeAdmin(4);
         group.MakeAdmin(5);
-        var rooms = Proxy<IRoomManager>((method, _) => throw new InvalidOperationException(method));
+        var rooms = UnloadedRooms();
         var groups = GroupSource(group);
         var (admin, adminSent) = Client(new Habbo { Id = 4, Username = "Admin", Permissions = Rights() });
         await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(admin, Packet(group.Id, 7));
@@ -364,6 +366,31 @@ public class GroupManagementTests : IDisposable
         Assert.Contains("DELETE FROM `group_memberships`", string.Join("\n", _database.Statements));
         Assert.Contains(ServerPacketHeader.GroupInfoComposer, sent.Select(item => item.Header));
     }
+
+    [Fact]
+    public async Task OwnerCanManageOfflineMembersAndApplicants()
+    {
+        var group = NewGroup(hasForum: false);
+        group.Type = GroupType.Locked;
+        group.AddMember(8);
+        var (owner, sent) = Client(Owner());
+        var groups = GroupSource(group);
+        await new AcceptGroupMembershipEvent(groups).Parse(owner, Packet(group.Id, 8));
+        Assert.True(group.IsMember(8));
+        Assert.False(group.HasRequest(8));
+        await new GiveAdminRightsEvent(groups, UnloadedRooms()).Parse(owner, Packet(group.Id, 8));
+        Assert.True(group.IsAdmin(8));
+        await new TakeAdminRightsEvent(groups, UnloadedRooms()).Parse(owner, Packet(group.Id, 8));
+        Assert.False(group.IsAdmin(8));
+        Assert.Equal(3, sent.Count(item => item.Header == ServerPacketHeader.UnknownGroupComposer));
+    }
+
+    private static IRoomManager UnloadedRooms() => Proxy<IRoomManager>((method, args) =>
+    {
+        Assert.Equal("TryGetRoom", method);
+        args[1] = null;
+        return false;
+    });
 
     private Group NewGroup(bool hasForum)
     {

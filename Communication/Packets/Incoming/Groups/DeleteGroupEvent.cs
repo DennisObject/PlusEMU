@@ -1,4 +1,5 @@
-﻿using Plus.Core.Settings;
+﻿using Plus.Communication.Packets.Outgoing.Groups;
+using Plus.Core.Settings;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
@@ -44,6 +45,7 @@ internal class DeleteGroupEvent : IPacketEvent
         if (room != null)
             room.Group = null;
 
+        var memberIds = group.GetAllMembers.Append(session.GetHabbo().Id).Distinct().ToList();
         _groupManager.DeleteGroup(group.Id);
 
         using (var connection = _database.Connection())
@@ -52,13 +54,21 @@ internal class DeleteGroupEvent : IPacketEvent
             connection.Execute("DELETE FROM `group_memberships` WHERE `group_id` = @groupId", new { groupId = group.Id });
             connection.Execute("DELETE FROM `group_requests` WHERE `group_id` = @groupId", new { groupId = group.Id });
             connection.Execute("UPDATE `rooms` SET `group_id` = 0 WHERE `group_id` = @groupId LIMIT 1", new { groupId = group.Id });
-            connection.Execute("UPDATE `user_statistics` SET `groupid` = 0 WHERE `groupid` = @groupId LIMIT 1", new { groupId = group.Id });
+            connection.Execute("UPDATE `user_statistics` SET `groupid` = 0 WHERE `groupid` = @groupId", new { groupId = group.Id });
             connection.Execute("DELETE FROM `items_groups` WHERE `group_id` = @groupId", new { groupId = group.Id });
         }
 
         if (room != null)
             _roomManager.UnloadRoom(room.Id);
 
+        foreach (var memberId in memberIds)
+        {
+            var client = PlusEnvironment.Game.ClientManager.GetClientByUserId(memberId);
+            if (client == null) continue;
+            var stats = client.GetHabbo().HabboStats;
+            if (stats != null && stats.FavouriteGroupId == group.Id) stats.FavouriteGroupId = 0;
+            client.Send(new GroupDeactivatedComposer(group.Id));
+        }
         session.SendNotification("You have successfully deleted your group.");
         return Task.CompletedTask;
     }

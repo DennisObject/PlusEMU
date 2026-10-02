@@ -32,7 +32,7 @@ public class ManageGroupComposer : IServerPacket
         packet.WriteInteger(_group.Id);
         packet.WriteString(_group.Name);
         packet.WriteString(_group.Description);
-        packet.WriteInteger(1);
+        packet.WriteInteger((int)_group.RoomId);
         packet.WriteInteger(_group.Colour1);
         packet.WriteInteger(_group.Colour2);
         packet.WriteInteger(_group.Type == GroupType.Open ? 0 : _group.Type == GroupType.Locked ? 1 : 2);

@@ -80,7 +80,6 @@ internal class UpdateGroupSettingsEvent : IPacketEvent
             }
         }
         session.Send(new GroupInfoComposer(group, session));
-        session.Send(new ManageGroupComposer(group, group.Badge.Replace("b", "").Split('s')));
         return Task.CompletedTask;
     }
 }
