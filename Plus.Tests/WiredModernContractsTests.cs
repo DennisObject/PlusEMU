@@ -13,6 +13,7 @@ using Plus.HabboHotel.Items.Wired.Boxes.Conditions;
 using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.Instance;
 using Xunit;
 
 namespace Plus.Tests;
@@ -148,6 +149,99 @@ public class WiredModernContractsTests
     }
 
     [Fact]
+    public void CanonicalRandomNameKeepsExplicitLegacyCategoryAndFactoryWhenWiredIdIsConstructible()
+    {
+        var wiredType = ItemDataManager.ReadWiredType(41);
+        var definition = new ItemDefinition
+        {
+            ItemName = "wf_xtra_random", InteractionName = "wired_effect", WiredType = wiredType,
+            InteractionType = ItemDataManager.ReadInteractionType("wf_xtra_random", "wired_effect", wiredType)
+        };
+        Assert.Equal(InteractionType.WiredEffect, definition.InteractionType);
+        Assert.Equal(WiredBoxCategory.Addon, definition.WiredDescriptor!.Category);
+        var item = new Item { Id = 7, Definition = definition };
+        var legacy = new WiredComponent(null!);
+        var loaded = legacy.GenerateNewBox(item);
+        Assert.NotNull(loaded);
+        Assert.Equal(WiredBoxType.AddonRandomEffect, loaded.Type);
+        Assert.True(legacy.IsEffect(item));
+        Assert.True(legacy.AddBox(loaded));
+        Assert.Contains(loaded, legacy.GetEffects(loaded));
+        Assert.Equal(InteractionType.WiredAddon,
+            ItemDataManager.ReadInteractionType("wf_xtra_random", "wired_effect", WiredBoxType.None));
+        Assert.Equal(InteractionType.WiredSelector,
+            ItemDataManager.ReadInteractionType("wf_slc_furni_area", "wired_effect", ItemDataManager.ReadWiredType(34)));
+    }
+
+    [Fact]
+    public void RoomPublisherOwnsPersistenceAndPublicationWithoutHoldingTheBoxLock()
+    {
+        var box = new ConfiguredBox("wf_act_send_signal");
+        var original = box.Configuration;
+        var store = new RecordingStore();
+        Assert.False(WiredConfigurationSave.TrySave(box, new() { Text = "detached" }, store, out _,
+            publish: (live, validated, persist) =>
+            {
+                Assert.False(Monitor.IsEntered(live));
+                return false;
+            }));
+        Assert.Empty(store.Saved);
+        Assert.Same(original, box.Configuration);
+        store.Throw = true;
+        Assert.Throws<InvalidOperationException>(() => WiredConfigurationSave.TrySave(box, new() { Text = "failure" },
+            store, out _, publish: (live, validated, persist) =>
+            {
+                persist();
+                live.ApplyConfiguration(validated);
+                return true;
+            }));
+        Assert.Same(original, box.Configuration);
+        store.Throw = false;
+        Assert.True(WiredConfigurationSave.TrySave(box, new() { Text = "durable" }, store, out _,
+            publish: (live, validated, persist) =>
+            {
+                Assert.False(Monitor.IsEntered(live));
+                Assert.Same(original, live.Configuration);
+                persist();
+                Assert.Same(store.Saved.Single(), validated);
+                live.ApplyConfiguration(validated);
+                return true;
+            }));
+        Assert.Equal("durable", box.Configuration.Text);
+    }
+
+    [Fact]
+    public void SavePreparationCapturesSnapshotsBeforePureValidationAndDurablePublication()
+    {
+        var box = new ConfiguredBox("wf_act_match_to_sshot");
+        var original = box.Configuration;
+        var store = new RecordingStore();
+        var prepared = false;
+        Assert.True(WiredConfigurationSave.TrySave(box, new() { IntParams = [1, 0, 1], SelectedItems = [8] }, store,
+            out _, existsInRoom: id => id == 8, prepare: (live, proposed) =>
+            {
+                Assert.Same(original, live.Configuration);
+                Assert.Empty(store.Saved);
+                prepared = true;
+                return proposed with { Snapshots = [new(8, 5, 1, 2, 0.5, 4, "captured")] };
+            }, publish: (live, validated, persist) =>
+            {
+                Assert.True(prepared);
+                Assert.Equal("captured", box.ValidatedInput!.Snapshots.Single().State);
+                Assert.Same(original, live.Configuration);
+                persist();
+                live.ApplyConfiguration(validated);
+                return true;
+            }));
+        Assert.Equal("captured", store.Saved.Single().Snapshots.Single().State);
+        Assert.Equal("captured", box.Configuration.Snapshots.Single().State);
+        prepared = false;
+        Assert.False(WiredConfigurationSave.TrySave(box, new() { SelectedItems = [999] }, store, out _,
+            existsInRoom: id => id == 8, prepare: (_, proposed) => { prepared = true; return proposed; }));
+        Assert.False(prepared);
+    }
+
+    [Fact]
     public void LegacyCycleEffectWritesSelectionBeforeEditorCode()
     {
         var item = new Item { Id = 7, Definition = new() { SpriteId = 91 } };
@@ -221,8 +315,10 @@ public class WiredModernContractsTests
         public WiredBoxDescriptor Descriptor { get; }
         public WiredConfiguration Configuration { get; private set; } = new();
         public bool Reject { get; set; }
+        public WiredConfiguration? ValidatedInput { get; private set; }
         public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
         {
+            ValidatedInput = proposed;
             validated = proposed;
             error = Reject ? "Rejected by box validation." : string.Empty;
             return !Reject;

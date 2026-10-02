@@ -53,7 +53,7 @@ public class ItemDataManager : IItemDataManager
                             AllowMarketplaceSell = row["allow_marketplace_sell"].ToString() == "1",
                             AllowGift = row["allow_gift"].ToString() == "1",
                             AllowInventoryStack = row["allow_inventory_stack"].ToString() == "1",
-                            InteractionType = ReadInteractionType(Convert.ToString(row["item_name"]), Convert.ToString(row["interaction_type"])),
+                            InteractionType = ReadInteractionType(Convert.ToString(row["item_name"]), Convert.ToString(row["interaction_type"]), ReadWiredType(row["wired_id"])),
                             WiredType = ReadWiredType(row["wired_id"]),
                             InteractionName = Convert.ToString(row["interaction_type"]) ?? string.Empty,
                             BehaviourData = Convert.ToInt32(row["behaviour_data"]),
@@ -95,10 +95,14 @@ public class ItemDataManager : IItemDataManager
         return null;
     }
 
-    internal static InteractionType ReadInteractionType(string itemName, string interactionType)
+    internal static InteractionType ReadInteractionType(string itemName, string interactionType, WiredBoxType wiredType = WiredBoxType.None)
     {
         if (itemName is "sb_rail" or "sb_ramp" or "sb_block")
             return InteractionType.Skateboard;
+        // Explicit generic legacy rows keep their category; a canonical descriptor still guides modern factories.
+        if (WiredBoxTypeUtility.IsLegacyConstructible(wiredType)
+            && interactionType.ToLowerInvariant() is "wired_effect" or "wired_trigger" or "wired_condition")
+            return InteractionTypes.GetTypeFromString(interactionType);
         if (WiredBoxRegistry.TryGet(interactionType, out _) || WiredBoxRegistry.TryGet(itemName, out _))
             return InteractionTypes.GetTypeFromString(WiredBoxRegistry.TryGet(interactionType, out _) ? interactionType : itemName);
         return InteractionTypes.GetTypeFromString(interactionType);

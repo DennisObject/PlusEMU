@@ -4,29 +4,57 @@ namespace Plus.HabboHotel.Items.Wired.Configuration;
 public static class WiredConfigurationSave
 {
     public static bool TrySave(IWiredConfiguredItem box, WiredConfiguration proposed, IWiredConfigurationStore store,
-        out string error, Func<uint, bool>? existsInRoom = null)
+        out string error, Func<uint, bool>? existsInRoom = null,
+        Func<IWiredConfiguredItem, WiredConfiguration, Action, bool>? publish = null,
+        Func<IWiredConfiguredItem, WiredConfiguration, WiredConfiguration>? prepare = null)
     {
+        // A room publisher owns the engine lock; never acquire it while holding the per-box edit lock.
+        if (publish != null)
+            return TrySaveCore(box, proposed, store, out error, existsInRoom, publish, prepare);
         lock (box)
+            return TrySaveCore(box, proposed, store, out error, existsInRoom, null, prepare);
+    }
+
+    private static bool TrySaveCore(IWiredConfiguredItem box, WiredConfiguration proposed, IWiredConfigurationStore store,
+        out string error, Func<uint, bool>? existsInRoom,
+        Func<IWiredConfiguredItem, WiredConfiguration, Action, bool>? publish,
+        Func<IWiredConfiguredItem, WiredConfiguration, WiredConfiguration>? prepare)
+    {
+        error = "Invalid Wired configuration.";
+        if (box.Descriptor.Support != WiredBoxSupport.Implemented || !WiredLegacyProtocol.IsWithinLimits(proposed))
+            return false;
+        if (existsInRoom != null && (!proposed.SelectedItems.All(existsInRoom)
+            || !proposed.SecondarySelectedItems.All(existsInRoom)))
+            return false;
+        // Save-only read preparation captures snapshots without changing the live box. Hydration never calls this.
+        var prepared = prepare != null ? prepare(box, proposed) : proposed;
+        if (!WiredLegacyProtocol.IsWithinLimits(prepared)
+            || existsInRoom != null && (!prepared.SelectedItems.All(existsInRoom)
+                || !prepared.SecondarySelectedItems.All(existsInRoom)))
+            return false;
+        if (!box.TryValidateConfiguration(prepared, out var validated, out error))
+            return false;
+        if (!WiredLegacyProtocol.IsWithinLimits(validated)
+            || existsInRoom != null && (!validated.SelectedItems.All(existsInRoom)
+                || !validated.SecondarySelectedItems.All(existsInRoom)))
         {
-            error = "Invalid Wired configuration.";
-            if (box.Descriptor.Support != WiredBoxSupport.Implemented || !WiredLegacyProtocol.IsWithinLimits(proposed))
-                return false;
-            if (existsInRoom != null && (!proposed.SelectedItems.All(existsInRoom)
-                || !proposed.SecondarySelectedItems.All(existsInRoom)))
-                return false;
-            if (!box.TryValidateConfiguration(proposed, out var validated, out error))
-                return false;
-            if (!WiredLegacyProtocol.IsWithinLimits(validated)
-                || existsInRoom != null && (!validated.SelectedItems.All(existsInRoom)
-                    || !validated.SecondarySelectedItems.All(existsInRoom)))
+            error = "Invalid normalized Wired configuration.";
+            return false;
+        }
+        if (publish != null)
+        {
+            if (!publish(box, validated, () => store.Save(box.Item.Id, box.Descriptor, validated)))
             {
-                error = "Invalid normalized Wired configuration.";
+                error = "This Wired box is no longer attached to the room.";
                 return false;
             }
+        }
+        else
+        {
             store.Save(box.Item.Id, box.Descriptor, validated);
             box.ApplyConfiguration(validated);
-            error = string.Empty;
-            return true;
         }
+        error = string.Empty;
+        return true;
     }
 }
