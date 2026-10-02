@@ -774,6 +774,25 @@ public class ModernWiredRuntimeTests
         Assert.All(copies, item => Assert.Equal((2, 1, 2), (item.GetX, item.GetY, item.Rotation)));
     }
 
+    [Fact]
+    public void SnapshotPreparationPreservesSelectedPivotOrderAfterOriginalsDetach()
+    {
+        using var f = new TeleportFixture(); f.Target.Definition.Stackable = true;
+        var definition = MakeItem(5, "test").Definition; definition.Id = 5; definition.Stackable = true;
+        var manager = DispatchProxy.Create<IItemDataManager, RecordingProxy>(); ((RecordingProxy)(object)manager).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [5] = definition } : null; f.DefinitionManager = manager;
+        var firstInserted = MakeItem(10, "test"); firstInserted.Definition = definition; firstInserted.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); f.Items[10] = firstInserted;
+        var firstPicked = MakeItem(20, "test"); firstPicked.Definition = definition; firstPicked.SetState(2, 1, 0, Gamemap.GetAffectedTiles(1, 1, 2, 1, 0)); f.Items[20] = firstPicked;
+        var action = ActionBox(f.Room, "wf_act_place_furni");
+        var proposed = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with { SelectedItems = [20, 10], SecondarySelectedItems = [1], TemporaryPlacement = new(Location: WiredPlaceLocationType.CustomLocation) };
+        var captured = WiredRoomOperations.PrepareSnapshots(action, proposed); Assert.Equal(new uint[] { 20, 10 }, captured.Snapshots.Select(snapshot => snapshot.ItemId));
+        f.Items.TryRemove(10, out _); f.Items.TryRemove(20, out _);
+        Assert.True(action.TryValidateConfiguration(captured, out var config, out _)); action.ApplyConfiguration(config);
+        Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
+        var copies = f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray(); Assert.Equal(2, copies.Length);
+        Assert.Contains(copies, item => item.GetX == 1 && item.GetY == 1); Assert.Contains(copies, item => item.GetX == 0 && item.GetY == 1);
+        Assert.DoesNotContain(copies, item => item.GetX == 2);
+    }
+
     public class RecordingProxy : DispatchProxy
     {
         public Func<MethodInfo, object?[]?, object?> InvokeMethod = (_, _) => null;
