@@ -64,11 +64,15 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
                 var wired = room.GetWired();
                 if (WiredLegacyCustomEditor.IsCustom(box))
                 {
-                    if (!WiredLegacyProtocol.TryRead(packet, Envelope, out var proposed)
-                        || !WiredLegacyCustomEditor.TryPrepare(box, proposed, WiredLegacyCustomEditor.CreateCandidate,
-                            out var candidate, out _))
+                    if (!WiredLegacyProtocol.TryRead(packet, Envelope, out var proposed))
                     {
                         session.Send(new WiredValidationErrorComposer("Invalid custom Wired settings."));
+                        return Task.CompletedTask;
+                    }
+                    if (!WiredLegacyCustomEditor.TryPrepare(box, proposed, WiredLegacyCustomEditor.CreateCandidate,
+                        out var candidate, out var customError))
+                    {
+                        session.Send(new WiredValidationErrorComposer(customError));
                         return Task.CompletedTask;
                     }
                     if (!wired.PublishLegacy(box, candidate!, () => wired.SaveBox(candidate!)))

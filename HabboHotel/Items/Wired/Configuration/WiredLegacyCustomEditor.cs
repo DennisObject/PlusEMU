@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using Plus.Communication.Flash;
 using Plus.HabboHotel.Items.Wired.Boxes.Effects;
+using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 
 namespace Plus.HabboHotel.Items.Wired.Configuration;
 
@@ -10,13 +11,14 @@ namespace Plus.HabboHotel.Items.Wired.Configuration;
 public static class WiredLegacyCustomEditor
 {
     public static bool IsCustom(IWiredItem box) => box.Type is WiredBoxType.EffectGiveUserBadge
-        or WiredBoxType.EffectSetRollerSpeed or WiredBoxType.EffectRegenerateMaps;
+        or WiredBoxType.EffectSetRollerSpeed or WiredBoxType.EffectRegenerateMaps or WiredBoxType.TriggerUserSaysCommand;
 
     public static IWiredItem? CreateCandidate(IWiredItem original) => original.Type switch
     {
         WiredBoxType.EffectGiveUserBadge => new GiveUserBadgeBox(original.Instance, original.Item),
         WiredBoxType.EffectSetRollerSpeed => new SetRollerSpeedBox(original.Instance, original.Item),
         WiredBoxType.EffectRegenerateMaps => new RegenerateMapsBox(original.Instance, original.Item),
+        WiredBoxType.TriggerUserSaysCommand => new UserSaysCommandBox(original.Instance, original.Item),
         _ => null
     };
 
@@ -26,6 +28,13 @@ public static class WiredLegacyCustomEditor
         configuration = new();
         if (!IsCustom(box))
             return false;
+        if (box.Type == WiredBoxType.TriggerUserSaysCommand)
+        {
+            // Same dialog as speech, but command identity and dispatch remain the legacy command runtime.
+            descriptor = new("plus_legacy_command", WiredBoxCategory.Trigger, 0, 0, "Plus command trigger schema");
+            configuration = new() { IntParams = [0, 1, box.BoolData ? 1 : 0], Text = box.StringData ?? string.Empty };
+            return WiredLegacyProtocol.IsWithinLimits(configuration);
+        }
         var code = box.Type switch
         {
             WiredBoxType.EffectGiveUserBadge => 119,
@@ -52,6 +61,23 @@ public static class WiredLegacyCustomEditor
             || !proposed.SelectedItems.IsEmpty || !proposed.SecondarySelectedItems.IsEmpty
             || proposed.Delay != 0 || proposed.SelectionCode != 0)
             return false;
+        if (original.Type == WiredBoxType.TriggerUserSaysCommand)
+        {
+            if (proposed.IntParams.Length != 3 || proposed.IntParams[0] != 0 || proposed.IntParams[1] != 1
+                || proposed.IntParams[2] is < 0 or > 1)
+            {
+                error = "Command Wired supports the existing command match and hidden feedback settings only.";
+                return false;
+            }
+            var commandText = Encoding.UTF8.GetBytes(proposed.Text);
+            var commandBuffer = new byte[4 + 4 + 2 + commandText.Length + 4 + 4];
+            BinaryPrimitives.WriteInt32BigEndian(commandBuffer, 1);
+            BinaryPrimitives.WriteInt32BigEndian(commandBuffer.AsSpan(4), proposed.IntParams[2]);
+            BinaryPrimitives.WriteUInt16BigEndian(commandBuffer.AsSpan(8, 2), (ushort)commandText.Length);
+            commandText.CopyTo(commandBuffer.AsSpan(10));
+            return WiredLegacySave.TryPrepare(original, new FlashIncomingPacket { Buffer = commandBuffer },
+                WiredBoxCategory.Trigger, createCandidate, out candidate, out error);
+        }
         string text;
         if (original.Type == WiredBoxType.EffectSetRollerSpeed)
         {
