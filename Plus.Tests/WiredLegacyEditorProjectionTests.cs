@@ -53,6 +53,20 @@ public class WiredLegacyEditorProjectionTests
     }
 
     [Fact]
+    public void LegacyBlockedSpriteWarningsFollowTheDelayAndAreAbsentFromConditionEnvelopes()
+    {
+        foreach (var shape in new[] { 0, 1, 3 })
+        {
+            var original = Create(shape);
+            Assert.True(WiredLegacyEditorProjection.TryGetConfiguration(original, out var descriptor, out var configuration));
+            var packet = new RecordingPacket();
+            new WiredConfiguredConfigComposer(original.Item, descriptor, configuration, blockedItems: [77, 88]).Compose(packet);
+            Assert.Equal(shape == 3 ? new object[] { 0, 5 } : new object[] { 2, 77, 88 },
+                packet.Writes.TakeLast(shape == 3 ? 2 : 3));
+        }
+    }
+
+    [Fact]
     public void SnapshotReopenUsesStoredCoordinatesAndStateRatherThanCurrentFurniture()
     {
         var original = new MatchPositionBox(null!, Item())
@@ -87,6 +101,7 @@ public class WiredLegacyEditorProjectionTests
                 Assert.Same(descriptor, WiredBoxRegistry.All.Single(entry => entry.CanonicalName == descriptor.CanonicalName));
                 Assert.Equal(WiredBoxTypeUtility.GetWiredId(type), descriptor.EditorCode);
             }
+            Assert.True(WiredLegacyEditorProjection.TryGetConfiguration(box, out _, out _), type.ToString());
             count++;
         }
         Assert.Equal(50, count);

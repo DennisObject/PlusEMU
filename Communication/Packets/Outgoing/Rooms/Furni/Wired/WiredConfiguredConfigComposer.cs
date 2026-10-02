@@ -11,6 +11,7 @@ public sealed class WiredConfiguredConfigComposer : IServerPacket
     private readonly WiredBoxDescriptor _descriptor;
     private readonly WiredConfiguration _configuration;
     private readonly int _furniLimit;
+    private readonly IReadOnlyList<int> _blockedItems;
 
     public WiredConfiguredConfigComposer(IWiredConfiguredItem box)
         : this(box.Item, box.Descriptor,
@@ -19,13 +20,14 @@ public sealed class WiredConfiguredConfigComposer : IServerPacket
     }
 
     public WiredConfiguredConfigComposer(Item item, WiredBoxDescriptor descriptor, WiredConfiguration configuration,
-        int furniLimit = WiredConfigurationLimits.SelectedItems)
+        int furniLimit = WiredConfigurationLimits.SelectedItems, IReadOnlyList<int>? blockedItems = null)
     {
         _itemId = item.Id;
         _spriteId = item.Definition.SpriteId;
         _descriptor = descriptor;
         _configuration = configuration;
         _furniLimit = furniLimit;
+        _blockedItems = blockedItems ?? [];
     }
 
     // Use the existing revision translations for the three envelopes.
@@ -38,5 +40,5 @@ public sealed class WiredConfiguredConfigComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet) =>
         WiredLegacyProtocol.Write(packet, _itemId, _spriteId, _descriptor, _configuration,
-            _furniLimit, []);
+            _furniLimit, _blockedItems);
 }
