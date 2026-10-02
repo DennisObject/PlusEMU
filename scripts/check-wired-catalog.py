@@ -33,12 +33,12 @@ def fail_plan(manifest, ledger, snapshot, expected):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--assets', type=Path, required=True)
+    parser.add_argument('--asset-overlay', type=Path)
     parser.add_argument('--support-ledger', type=Path, required=True)
-    parser.add_argument('--allow-generic-appearance', action='store_true')
     args = parser.parse_args()
     manifest = json.loads(module.MANIFEST.read_text())
     ledger = json.loads(args.support_ledger.read_text())
-    module.validate_assets(manifest, args.assets)
+    module.validate_assets(manifest, args.assets, args.asset_overlay)
     module.validate_ledger(manifest, ledger)
     source = module.Database()
     try:
@@ -75,12 +75,12 @@ def main():
         db = CopiedDatabase()
         before = module.read_snapshot(db)
         assert before == snapshot, 'Schema copy did not preserve source rows.'
-        result = module.plan(manifest, ledger, before, args.allow_generic_appearance)
+        result = module.plan(manifest, ledger, before)
         db.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE; START TRANSACTION;')
         module.read_snapshot(db, True)
         db.query(module.statements(result))
         after = module.read_snapshot(db, True)
-        rerun = module.plan(manifest, ledger, after, args.allow_generic_appearance)
+        rerun = module.plan(manifest, ledger, after)
         assert not rerun['definitions'] and not rerun['offers'] and not rerun['new_page'], 'Import is not idempotent.'
         for table, rows in before.items():
             actual = {r['id']: r for r in after[table]}
@@ -98,21 +98,12 @@ def main():
         db.query(module.statements(result))
         db.query('COMMIT;')
         committed = module.read_snapshot(db)
-        rerun = module.plan(manifest, ledger, committed, args.allow_generic_appearance)
+        rerun = module.plan(manifest, ledger, committed)
         assert not rerun['offers'] and not rerun['definitions'], 'Committed rerun has mutations.'
         assert module.statements(rerun) == '', 'No-op rerun generated SQL.'
-        for entry in result['definitions']:
-            if entry.get('generic_visual'):
-                canonical = next(e for e in manifest['entries'] if e['name'] == entry['name'])
-                assert (entry['protocol_code'], entry['editor_code']) == (canonical['protocol_code'], canonical['editor_code']), 'Donor overwrote canonical protocol metadata.'
-                row = next(r for r in committed['furniture'] if r['item_name'] == entry['name'])
-                donor = next((r for r in committed['furniture'] if r['item_name'] == entry['generic_visual']), None)
-                donor_asset = next(e for e in manifest['entries'] if e['name'] == entry['generic_visual'])
-                assert (donor is None or row['id'] != donor['id']) and row['sprite_id'] == donor_asset['sprite_id'] and row['interaction_type'] == entry['interaction'], 'Generic identity collapsed into donor.'
-                assert all(row[k] == '0' for k in ('allow_trade', 'allow_marketplace_sell', 'allow_gift', 'allow_inventory_stack')), 'Generic aliases allow unsafe grouping/trading.'
         disabled = dict(ledger, boxes=[dict(row, support='DescriptorOnly') for row in ledger['boxes']],
                         auxiliaries=[dict(row, supported=False) for row in ledger.get('auxiliaries', [])])
-        unpublished = module.plan(manifest, disabled, before, args.allow_generic_appearance)
+        unpublished = module.plan(manifest, disabled, before)
         assert not unpublished['definitions'] and not unpublished['offers'], 'Unsupported boxes were published.'
         supported = result['reused'] or result['definitions']
         if supported:
@@ -127,6 +118,12 @@ def main():
             fail_plan(manifest, ledger, conflict, 'Ambiguous existing')
         owned_page = next((p for p in committed['catalog_pages'] if p['page_link'] == module.PAGE_LINK), None)
         if owned_page:
+            assert owned_page['caption'] == 'Recently Added', 'New page has the wrong user caption.'
+            published = {r['catalog_name']: r for r in committed['catalog_items'] if r['page_id'] == owned_page['id']}
+            assert all(e['name'] in published for e in result['definitions']), 'New definition is absent from Recently Added.'
+            for entry in result['definitions']:
+                row = next(r for r in committed['furniture'] if r['item_name'] == entry['name'])
+                assert row['sprite_id'] == entry['sprite_id'] and row['interaction_type'] == entry['interaction'], 'Original canonical server identity changed.'
             conflict = json.loads(json.dumps(committed))
             conflict['catalog_pages'].append(dict(owned_page, id=2000000000))
             fail_plan(manifest, ledger, conflict, 'Duplicate import page')
@@ -147,12 +144,12 @@ def main():
             raise AssertionError('ID exhaustion did not fail.')
         db.close(); db = CopiedDatabase()
         assert module.read_snapshot(db) == committed, 'ID exhaustion left partial data.'
-        print(json.dumps({'copied_rows': {k: len(v) for k, v in snapshot.items()},
+        print(json.dumps({'engine_commit': ledger['engineCommit'], 'factory_implemented': result['factory_implemented'], 'auxiliary_supported': result['auxiliary_supported'], 'copied_rows': {k: len(v) for k, v in snapshot.items()},
                          'new_definitions': len(result['definitions']), 'new_offers': len(result['offers']),
                          'reused_definitions': len(result['reused']), 'excluded': len(result['excluded']),
                          'checks': ['asset hashes/geometry/png', 'copied real MariaDB schema', 'existing rows and legacy IDs preserved',
                                     'rollback', 'disconnect rollback', 'committed idempotence', 'sprite/name conflicts' if supported else 'no supported identities to collide',
-                                    'page conflicts' if owned_page else 'no import page to collide', 'ID exhaustion rollback', 'unsupported excluded', 'generic alias restrictions' if args.allow_generic_appearance else 'original assets only']}))
+                                    'page conflicts' if owned_page else 'no import page to collide', 'ID exhaustion rollback', 'unsupported excluded', 'Recently Added/canonical identity' if owned_page else 'no unsupported page created', 'original assets only']}))
     finally:
         if db:
             db.close()

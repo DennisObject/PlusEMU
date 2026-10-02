@@ -262,8 +262,25 @@
       "protocol_code": 129,
       "editor_code": 54,
       "interaction": "wired_effect",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_act_show_message"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_act_click_conf",
+      "sprite_id": 18673,
+      "public_name": "WIRED Effect: Set Clicking Configurations",
+      "width": 1,
+      "length": 1,
+      "height": 0.65,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 74952,
+      "asset_sha256": "767a96a53550e03246aab0ffa4423b42cae3cc8bd732429b95e8943dbddaab17",
+      "icon_sha256": "cb2bd2a7ba22639546621f10bb32c3bdef2c2d3dfcd727d4a4d3f24f2725ff1e"
     },
     {
       "name": "wf_act_control_clock",
@@ -546,8 +563,25 @@
       "protocol_code": 137,
       "editor_code": 49,
       "interaction": "wired_effect",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_act_show_message"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_act_log",
+      "sprite_id": 17599,
+      "public_name": "WIRED Effect: Write to logs",
+      "width": 1,
+      "length": 1,
+      "height": 0.65,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 73909,
+      "asset_sha256": "10e356b6d591b47a7d90b03987373ce8a8e87cd897a28041eb4e64898de5d367",
+      "icon_sha256": "c275fc74770c85a9386b29b5bfb3be00f9be41ae5f6e17f89f991c59220d9793"
     },
     {
       "name": "wf_act_match_to_sshot",
@@ -578,8 +612,25 @@
       "protocol_code": 95,
       "editor_code": 57,
       "interaction": "wired_effect",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_act_show_message"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_act_move_furni_as_group",
+      "sprite_id": 18783,
+      "public_name": "WIRED Effect: Move Furni As Group",
+      "width": 1,
+      "length": 1,
+      "height": 0.65,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 75129,
+      "asset_sha256": "3b1847cc1d3766abcaf978161959e50fb6947c304aa71b9a44a2c47d0027c89c",
+      "icon_sha256": "7fb3f849c1cbc286dddfef9954df0f680c0e02a9c9c37cce51be3f3c506e6245"
     },
     {
       "name": "wf_act_move_furni_to",
@@ -725,8 +776,25 @@
       "protocol_code": 137,
       "editor_code": 50,
       "interaction": "wired_effect",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_act_show_message"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_act_neg_log",
+      "sprite_id": 17598,
+      "public_name": "WIRED Negative Effect: Write to logs",
+      "width": 1,
+      "length": 1,
+      "height": 0.65,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 73909,
+      "asset_sha256": "feae604817d30bd0550a4354f688b852d67007072dc248ce96ad9a547db3484d",
+      "icon_sha256": "d5bdeae372fd1eff9f1455e16ccabac0464ce8b331571803d0848ab1ddf963c1"
     },
     {
       "name": "wf_act_neg_send_signal",
@@ -757,8 +825,25 @@
       "protocol_code": 106,
       "editor_code": 55,
       "interaction": "wired_effect",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_act_show_message"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_act_place_furni",
+      "sprite_id": 18784,
+      "public_name": "WIRED Effect: Place Temporary Furni",
+      "width": 1,
+      "length": 1,
+      "height": 0.65,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 75129,
+      "asset_sha256": "62ec23906c65aea6078a9e65f277e2d41ffdb9a613449f83a77647da75ea21b1",
+      "icon_sha256": "d27f45be1acc008e028f0242a01863f4a98c4d97e79703c0523a71507b476d6d"
     },
     {
       "name": "wf_act_rel_mov",
@@ -789,8 +874,25 @@
       "protocol_code": 107,
       "editor_code": 56,
       "interaction": "wired_effect",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_act_show_message"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_act_remove_furni",
+      "sprite_id": 18785,
+      "public_name": "WIRED Effect: Remove Temporary Furni",
+      "width": 1,
+      "length": 1,
+      "height": 0.65,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 75129,
+      "asset_sha256": "093f7b3dfa4dc577a19af2c9b8124e4b4dcedd917895abd0b40933f30539fe81",
+      "icon_sha256": "7147b91e33f7df1bda88e0377ff98c8a51ea27e801a857de5cb024ccbd11d601"
     },
     {
       "name": "wf_act_remove_var",
@@ -936,8 +1038,25 @@
       "protocol_code": 138,
       "editor_code": 44,
       "interaction": "wired_effect",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_act_show_message"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_act_teleport_to_room",
+      "sprite_id": 16743,
+      "public_name": "WIRED Effect: Teleport to Room",
+      "width": 1,
+      "length": 1,
+      "height": 0.65,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 72781,
+      "asset_sha256": "bce0ec4c14be41dda901a26b6ed18cdc3b9de2c3a26337485c7f25b3111f8977",
+      "icon_sha256": "d3f33ceeeb0af025b47b74e9a39e40eb03ba37d472d461fb9ecfa97d04945270"
     },
     {
       "name": "wf_act_toggle_state",
@@ -2601,8 +2720,25 @@
       "protocol_code": 20,
       "editor_code": 24,
       "interaction": "wired_trigger",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_trg_enter_room"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_trg_click_user",
+      "sprite_id": 16878,
+      "public_name": "WIRED Trigger: User clicks User",
+      "width": 1,
+      "length": 1,
+      "height": 0.65,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 72864,
+      "asset_sha256": "866e6652cdcc93302de291289057e3189ac4d063df1b60a81562a62cbd32354c",
+      "icon_sha256": "bf6d9f4bc495ac92f70b6847edcb6adcbdcb0a956b33da7465ad2a83468666c1"
     },
     {
       "name": "wf_trg_clock_counter",
@@ -3047,8 +3183,25 @@
       "protocol_code": 83,
       "editor_code": 7,
       "interaction": "wired_variable",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_var_room"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_var_echo",
+      "sprite_id": 16910,
+      "public_name": "WIRED Variable: Echo",
+      "width": 1,
+      "length": 1,
+      "height": 1.2,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 72921,
+      "asset_sha256": "0a1071fd18ad5b0f38f76bd84d7147edaedb8c4cad3a600d721a97a3e6095051",
+      "icon_sha256": "5a37c82c84a71529e0bb5920367349443aa6d5c1bd4de9913cd103464ebacd74"
     },
     {
       "name": "wf_var_furni",
@@ -3079,8 +3232,25 @@
       "protocol_code": 108,
       "editor_code": 5,
       "interaction": "wired_variable",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_var_room"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_var_quest",
+      "sprite_id": 16877,
+      "public_name": "WIRED Variable: Quest",
+      "width": 1,
+      "length": 1,
+      "height": 1.2,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 72864,
+      "asset_sha256": "edd8f624f8292e961bcc65aa24a5ded90c52f018d98d1a31b80c0fe7776b21a4",
+      "icon_sha256": "e87d727d21daea48f438574460887ca37da870aa8203372541debc52e85c9968"
     },
     {
       "name": "wf_var_quest_chain",
@@ -3088,8 +3258,25 @@
       "protocol_code": 109,
       "editor_code": 6,
       "interaction": "wired_variable",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_var_room"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_var_quest_chain",
+      "sprite_id": 16879,
+      "public_name": "WIRED Variable: Quest Chain",
+      "width": 1,
+      "length": 1,
+      "height": 1.2,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 72864,
+      "asset_sha256": "33a74b38fa55f6b10076a95342ae46327c4fc0e877f5d48075c634d52512cb27",
+      "icon_sha256": "fd061d0f8cc56c7bccdeee56d38b59fe3d5ca77215130fc1ef7dbcffad2c6486"
     },
     {
       "name": "wf_var_reference",
@@ -3350,8 +3537,25 @@
       "protocol_code": 97,
       "editor_code": 22,
       "interaction": "wired_addon",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_xtra_or_eval"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_xtra_mov_curve",
+      "sprite_id": 18674,
+      "public_name": "WIRED Add-on: Movement Curve",
+      "width": 1,
+      "length": 1,
+      "height": 0.37,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 74952,
+      "asset_sha256": "ed35732a7dc6275c5175b0c1b254748ef1bb70d14a00d8b861e6b5e47fbd0db4",
+      "icon_sha256": "858f5794df358a4d2a79d3269d30ca5cddcb41e7fada68efc36e1b6622da0928"
     },
     {
       "name": "wf_xtra_mov_no_animation",
@@ -3451,8 +3655,25 @@
       "protocol_code": 136,
       "editor_code": 21,
       "interaction": "wired_addon",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_xtra_or_eval"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_xtra_rotate_to_dir",
+      "sprite_id": 18675,
+      "public_name": "WIRED Add-on: Projectile",
+      "width": 1,
+      "length": 1,
+      "height": 0.37,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 74952,
+      "asset_sha256": "8a1cf9a7ff90d988eaa52f68fd78c297a36d2f409a8a887b2cba87008d8e93cf",
+      "icon_sha256": "bb92ad8b4ed4108f5bd7b66743e18e5642223a10fa6b050859f1fbcfce66f0da"
     },
     {
       "name": "wf_xtra_text_input_variable",
@@ -3483,8 +3704,25 @@
       "protocol_code": 68,
       "editor_code": 19,
       "interaction": "wired_addon",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_xtra_or_eval"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_xtra_text_output_furni_name",
+      "sprite_id": 18495,
+      "public_name": "WIRED Text Add-on: Furni name placeholder",
+      "width": 1,
+      "length": 1,
+      "height": 0.37,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 74772,
+      "asset_sha256": "2259066517a3856b1c638b6cf0a439dc83ce36db5262362d069c44125633b359",
+      "icon_sha256": "23d6af37b5e39061a68cce458783c2610b031b432f42ee05942461cfe82bf408"
     },
     {
       "name": "wf_xtra_text_output_username",
@@ -3561,8 +3799,25 @@
       "protocol_code": 134,
       "editor_code": 1204,
       "interaction": "wired_addon",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_xtra_or_eval"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_xtra_varfx_boss",
+      "sprite_id": 19195,
+      "public_name": "Variable FX: Boss Health Bar",
+      "width": 1,
+      "length": 1,
+      "height": 1.0,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 75717,
+      "asset_sha256": "986d0b8c1b1624d61b6f45708be98011adf0df2d666a54b1684281afe1fdfd10",
+      "icon_sha256": "100226f9bb131a6753bf599c81f1a82db1fc688097c819ab918a98b74781bfc3"
     },
     {
       "name": "wf_xtra_var_fx_health",
@@ -3570,8 +3825,25 @@
       "protocol_code": 130,
       "editor_code": 1200,
       "interaction": "wired_addon",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_xtra_or_eval"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_xtra_varfx_hp",
+      "sprite_id": 19196,
+      "public_name": "Variable FX: Health Points",
+      "width": 1,
+      "length": 1,
+      "height": 0.95,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 75717,
+      "asset_sha256": "c3654f382ff4d24693f0d8371058ac2c71872d03c7b0efd853230d2cad69b879",
+      "icon_sha256": "31c2aceeebf29b71e3efe73e2c3525b33c7ab36efc5c9e5ff0381967f7e0b09c"
     },
     {
       "name": "wf_xtra_var_fx_level",
@@ -3579,8 +3851,25 @@
       "protocol_code": 132,
       "editor_code": 1202,
       "interaction": "wired_addon",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_xtra_or_eval"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_xtra_varfx_levelling",
+      "sprite_id": 19197,
+      "public_name": "Variable FX: Levelling Progress",
+      "width": 1,
+      "length": 1,
+      "height": 0.95,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 75717,
+      "asset_sha256": "abb31fa199f9385182eac14c5f2438eee4bb1d935b39974eae9c1cd6bb8164ae",
+      "icon_sha256": "bdc7cb8b83f1b8d2c89fdbd9fafa7d74b4e819ad529a0eef28461faa28774582"
     },
     {
       "name": "wf_xtra_var_fx_number",
@@ -3588,8 +3877,25 @@
       "protocol_code": 135,
       "editor_code": 1205,
       "interaction": "wired_addon",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_xtra_or_eval"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_xtra_varfx_number",
+      "sprite_id": 19198,
+      "public_name": "Variable FX: Number Display",
+      "width": 1,
+      "length": 1,
+      "height": 0.95,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 75717,
+      "asset_sha256": "af1d260bfdd4cf38c2f7dd9b6d3319f3571f558d38055676f12f8c09d6de580f",
+      "icon_sha256": "c9290500856308c6439cf5ebe0de6dd9f268a09c2b8f49bfc3271e9ca30f615b"
     },
     {
       "name": "wf_xtra_var_fx_progress",
@@ -3597,8 +3903,25 @@
       "protocol_code": 131,
       "editor_code": 1201,
       "interaction": "wired_addon",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_xtra_or_eval"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_xtra_varfx_prog",
+      "sprite_id": 19199,
+      "public_name": "Variable FX: Progress Bar",
+      "width": 1,
+      "length": 1,
+      "height": 0.95,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 75717,
+      "asset_sha256": "268e5b8a71ee2a7a74b0aa44ea493d4123ec2a8caa2aa0b8f3eac157b34cf4b4",
+      "icon_sha256": "c05ca000c31b889fa743edcf2eda48cfe7430f49ac3cd1a010851e8a17476953"
     },
     {
       "name": "wf_xtra_var_fx_status",
@@ -3606,8 +3929,25 @@
       "protocol_code": 133,
       "editor_code": 1203,
       "interaction": "wired_addon",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_xtra_or_eval"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_xtra_varfx_status",
+      "sprite_id": 19200,
+      "public_name": "Variable FX: Status Bar",
+      "width": 1,
+      "length": 1,
+      "height": 0.95,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 75717,
+      "asset_sha256": "a435d913690a68013210873783842328e59419dc6e24c5091b970ce0bac10bae",
+      "icon_sha256": "d2165bb86e7378edc45afd255f4a31f854dc8040dcfb7586ff8f3b9c5a9b6690"
     },
     {
       "name": "wf_xtra_var_lvlup_system",
@@ -3615,8 +3955,25 @@
       "protocol_code": 82,
       "editor_code": 1001,
       "interaction": "wired_addon",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_xtra_or_eval"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_xtra_var_lvlup_system",
+      "sprite_id": 16909,
+      "public_name": "Variable Add-on: Level-up System",
+      "width": 1,
+      "length": 1,
+      "height": 0.75,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 72921,
+      "asset_sha256": "6be0cdb220b929014a07ddf1762f1c73e5f6fd7129a244175f123b6e1566bfdb",
+      "icon_sha256": "2c4b1c48af04aa036f722c8ea67c0390658b0fd91056178e14ca76bd4190f46a"
     },
     {
       "name": "wf_xtra_var_text_connector",
@@ -3647,8 +4004,25 @@
       "protocol_code": 98,
       "editor_code": 1002,
       "interaction": "wired_addon",
-      "asset_status": "missing_furnidata",
-      "generic_visual_proposal": "wf_xtra_or_eval"
+      "asset_status": "verified",
+      "asset_source": "original_overlay",
+      "asset_classname": "wf_xtra_var_time_util",
+      "sprite_id": 16908,
+      "public_name": "Variable Add-on: Time Utilities",
+      "width": 1,
+      "length": 1,
+      "height": 0.75,
+      "default_direction": 0,
+      "directions": [
+        0,
+        90
+      ],
+      "extra_rot": false,
+      "can_sit": false,
+      "walkable": true,
+      "revision": 72921,
+      "asset_sha256": "815302944080b895765275afb36b8b94b3e18b3f1c2dc205c39554e1bff4a52c",
+      "icon_sha256": "0916a6c21f2921e4c4db4e3e5b281e840228540794d4bd4100a3ea010fc81738"
     },
     {
       "name": "wf_upcounter1",
@@ -3778,5 +4152,6 @@
       "revision": 69540,
       "asset_sha256": "67afa043ac9d4dd24f7fab6032a9988f78f08d455958e535af9ece694e540be0"
     }
-  ]
+  ],
+  "overlay_furnidata_sha256": "306b340f423abc762bbafc040ce447cc848769a69fa377de0209aa3abac7396c"
 }

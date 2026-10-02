@@ -5,11 +5,13 @@
 --
 -- Read-only default:
 -- python3 scripts/import-wired-catalog.py --assets /trusted/furniture \
---   --support-ledger Database/WiredCatalog/factory-support.json --report /tmp/wired-plan.json
+--   --asset-overlay /reviewed/private/furniture \
+--   --support-ledger /reviewed/factory-support.json --report /tmp/wired-plan.json
 --
 -- Only AFTER root review, opt in to the exact isolated preview project/volume:
 -- python3 scripts/import-wired-catalog.py --assets /trusted/furniture \
---   --support-ledger Database/WiredCatalog/factory-support.json \
+--   --asset-overlay /reviewed/private/furniture \
+--   --support-ledger /reviewed/factory-support.json \
 --   --expected-engine-commit FULL_REVIEWED_HASH --apply-isolated
 --
 -- Executing this file alone intentionally performs no writes. There is no live apply mode.
