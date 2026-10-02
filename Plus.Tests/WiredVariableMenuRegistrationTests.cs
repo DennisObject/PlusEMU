@@ -17,11 +17,11 @@ public class WiredVariableMenuRegistrationTests
     [InlineData("example.json")]
     public void ConcreteMenuHandlersHaveRealDispatchAndCollisionFreeProfileMappings(string profile)
     {
-        IPacketEvent[] handlers = [new WiredAllVariablesRequestEvent(), new WiredVariableHashesEvent(),
+        IPacketEvent[] handlers = [new WiredUserVariablesRequestEvent(), new WiredAllVariablesRequestEvent(), new WiredVariableHashesEvent(),
             new WiredVariableHoldersRequestEvent(), new WiredVariableHoldersPageEvent()];
         using var manager = new PacketManager(handlers, NullLogger<PacketManager>.Instance);
         var registered = (Dictionary<uint, IPacketEvent>)typeof(PacketManager).GetField("_incomingPackets", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!;
-        Assert.Equal(4, registered.Count);
+        Assert.Equal(5, registered.Count);
         var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
         foreach (var handler in handlers)
         {
@@ -31,7 +31,7 @@ public class WiredVariableMenuRegistrationTests
             Assert.Equal(id, revision.IncomingHeaders[name]);
             Assert.Single(revision.IncomingHeaders, pair => pair.Value == id);
         }
-        foreach (var name in new[] { nameof(ServerPacketHeader.WiredAllVariablesHashComposer),
+        foreach (var name in new[] { nameof(ServerPacketHeader.WiredUserVariablesDataComposer), nameof(ServerPacketHeader.WiredAllVariablesHashComposer),
             nameof(ServerPacketHeader.WiredAllVariablesDiffComposer), nameof(ServerPacketHeader.WiredVariableHoldersComposer),
             nameof(ServerPacketHeader.WiredVariableHoldersPageComposer) })
         {
@@ -39,9 +39,7 @@ public class WiredVariableMenuRegistrationTests
             Assert.Equal(id, revision.OutgoingHeaders[name]);
             Assert.Single(revision.OutgoingHeaders, pair => pair.Value == id);
         }
-        Assert.DoesNotContain("WiredUserVariablesRequestEvent", revision.IncomingHeaders.Keys);
         Assert.DoesNotContain("WiredUserVariableUpdateEvent", revision.IncomingHeaders.Keys);
         Assert.DoesNotContain("WiredUserVariableManageEvent", revision.IncomingHeaders.Keys);
-        Assert.DoesNotContain("WiredUserVariablesDataComposer", revision.OutgoingHeaders.Keys);
     }
 }
