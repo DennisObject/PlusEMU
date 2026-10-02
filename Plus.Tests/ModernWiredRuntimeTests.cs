@@ -5,6 +5,8 @@ using System.Runtime.CompilerServices;
 using Plus.Database;
 using Plus.Database.Interfaces;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern;
@@ -24,6 +26,110 @@ public sealed class ModernWiredDatabaseCollection;
 [Collection("Modern Wired database seam")]
 public class ModernWiredRuntimeTests
 {
+    private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null) =>
+        new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new());
+
+    [Fact]
+    public void AllImplementedEditorsHaveValidatedDefaults()
+    {
+        var (room, _, _) = World();
+        foreach (var name in WiredTriggerConfiguration.Events.Keys)
+            Assert.True(WiredTriggerConfiguration.TryValidate(name, WiredTriggerConfiguration.Defaults(name), out _, out _), name);
+        foreach (var name in WiredConditionConfiguration.PositiveNames.Concat(WiredConditionConfiguration.NegativeNames.Keys))
+            Assert.True(WiredConditionConfiguration.TryValidate(name, WiredConditionConfiguration.Defaults(name), out _, out _), name);
+        foreach (var name in WiredMovementActions.Names.Concat(WiredModernAction.OtherNames))
+            Assert.True(ActionBox(room, name).TryValidateConfiguration(WiredActionConfiguration.Defaults(name), out _, out _), name);
+    }
+
+    [Fact]
+    public void NegativeStackAndSplitSignalsCallRealOperationsWithSeparateRoles()
+    {
+        var (room, _, _) = World();
+        var antenna = MakeItem(1, "antenna"); var forwarded = MakeItem(2, "forwarded");
+        var clicked = new RoomUser(1, 0, 7, room);
+        var operations = new RecordingOperations();
+        var context = new WiredRuntimeContext(room, new(WiredEventKind.ClickUser) { TargetUser = clicked },
+            new(() => new[] { antenna, forwarded }, () => new[] { clicked }), operations);
+        var call = ActionBox(room, "wf_act_neg_call_stacks");
+        call.Item.SetState(2, 2, 0, Gamemap.GetAffectedTiles(1, 1, 2, 2, 0));
+        Assert.True(call.TryValidateConfiguration(new() { IntParams = [100], SelectedItems = [1] }, out var callConfig, out _));
+        call.ApplyConfiguration(callConfig);
+        Assert.True(call.IsNegative); Assert.True(call.Execute(context));
+        Assert.True(operations.CallNegative); Assert.Equal(new uint[] { 1 }, operations.Called);
+        call.Item.SetState(0, 0, 0, Gamemap.GetAffectedTiles(1, 1, 0, 0, 0));
+        Assert.False(call.Execute(context)); Assert.Empty(operations.Called);
+        var signal = ActionBox(room, "wf_act_neg_send_signal");
+        Assert.True(signal.TryValidateConfiguration(new() { IntParams = [1, 100, 11, 1, 1, 0], SelectedItems = [1], Text = "2" }, out var signalConfig, out _));
+        signal.ApplyConfiguration(signalConfig); Assert.True(signal.Execute(context));
+        var received = Assert.Single(operations.Signals);
+        Assert.True(received.Negative); Assert.Equal(new uint[] { 1 }, received.Receivers);
+        Assert.Equal(new uint[] { 2 }, received.Selection.FurniIds); Assert.Equal(new[] { 7 }, received.Selection.UserIds);
+    }
+
+    [Fact]
+    public void ConfiguredClockActionControlsActualAttachedClock()
+    {
+        var (room, _, _) = World(); var item = MakeItem(1, "wf_upcounter1");
+        var clocks = new WiredCounterController(); clocks.Attach(item);
+        var box = ActionBox(room, "wf_act_adjust_clock", clocks);
+        box.TryValidateConfiguration(new() { IntParams = [2, 100, 1, 3], SelectedItems = [1] }, out var config, out _);
+        box.ApplyConfiguration(config); Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [item], [])));
+        Assert.Equal(61500, clocks.ReadMilliseconds(item)); Assert.False(clocks.HasRunning);
+        clocks.Control(item, 0, 0); Assert.True(clocks.HasRunning); clocks.Forget(item); Assert.False(clocks.HasRunning);
+    }
+
+    [Fact]
+    public void LogActionWritesBoundedRoomMonitorAndEmptyTextHasNoEffect()
+    {
+        var (room, _, _) = World(); var log = new WiredRoomLog(2);
+        var box = ActionBox(room, "wf_act_neg_log", log: log);
+        box.TryValidateConfiguration(new() { IntParams = [1, 0], Text = "First" }, out var config, out _);
+        box.ApplyConfiguration(config); Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+        Assert.Equal("First", Assert.Single(log.Read(0, 10).Entries).Message);
+        log.Append(2, 100, "Second", DateTimeOffset.UtcNow); log.Append(1, 100, "Third", DateTimeOffset.UtcNow);
+        Assert.Equal(2, log.Read(0, 10).Total); Assert.Equal("Third", Assert.Single(log.Read(0, 10, 1, "third").Entries).Message);
+        box.ApplyConfiguration(config with { Text = "" }); Assert.False(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+    }
+
+    [Fact]
+    public void LegacyEditorConversionPreservesSavedSnapshotAndPlaceholderText()
+    {
+        var (room, _, _) = World(); var picked = MakeItem(1, "test");
+        var old = new MatchPositionBox(room, MakeItem(100, "wf_act_match_to_sshot"))
+            { StringData = "1;1;1", ItemsData = "1:2,1,3.25,4,old,raw,state" };
+        old.SetItems[1] = picked; picked.LegacyDataString = "changed";
+        Assert.True(WiredLegacyConfigurationAdapter.TryConvert(old, Descriptor("wf_act_match_to_sshot"), out var config));
+        Assert.Equal("old,raw,state", Assert.Single(config.Snapshots).State); Assert.Equal(3.25, config.Snapshots[0].Z);
+        var chat = new ShowMessageBox(room, MakeItem(101, "wf_act_show_message")) { StringData = "Hello %USERNAME%" };
+        Assert.True(WiredLegacyConfigurationAdapter.TryConvert(chat, Descriptor("wf_act_show_message"), out var converted));
+        Assert.Equal(new[] { 0, 0, 34, -1 }, converted.IntParams); Assert.Equal(chat.StringData, converted.Text);
+    }
+
+    [Fact]
+    public void ActiveChatAndMovementComposersPreserveParserFields()
+    {
+        var fields = new List<object>(); var packet = DispatchProxy.Create<IOutgoingPacket, RecordingProxy>();
+        ((RecordingProxy)(object)packet).InvokeMethod = (_, args) => { fields.Add(args![0]!); return null; };
+        new WiredChatComposer(7, "Hello", 252, 2, true).Compose(packet);
+        Assert.Equal(new object[] { 7, "Hello", 0, 252, 0, "", 5, "", "", "", "", "", "", "icon-prefix-name", 2 }, fields);
+        fields.Clear(); new WiredMovementComposer(1, 10, 0, 1, 1.25, 2, 2, 3.5, 4, 4, 750).Compose(packet);
+        Assert.Equal(new object[] { 1, 1, 0, 1, 2, 2, "1.25", "3.5", 10, 4, 750, 0, 0, 0 }, fields);
+        var (room, _, _) = World(); var box = ActionBox(room, "wf_act_show_message");
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [0, 0, 252, 2], Text = "Hello" }, out var config, out _));
+        Assert.Equal(2, config.IntParams[3]);
+        Assert.False(box.TryValidateConfiguration(config with { IntParams = [0, 0, 252, 3] }, out _, out _));
+    }
+
+    private sealed class RecordingOperations : IWiredRuntimeOperations
+    {
+        public uint[] Called = []; public bool CallNegative;
+        public List<(uint[] Receivers, WiredSelection Selection, bool Negative)> Signals = [];
+        public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false)
+        { Called = targets.Select(x => x.Id).ToArray(); CallNegative = negative; return Called.Length > 0; }
+        public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false)
+        { Signals.Add((receivers.Select(x => x.Id).ToArray(), selection.Copy(), negative)); return true; }
+        public void ResetTimers(IEnumerable<Item> targets) => throw new NotSupportedException();
+    }
     [Fact]
     public void ClockTicksAtHalfSecondsAndDisplaysOnlyWholeSeconds()
     {

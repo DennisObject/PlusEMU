@@ -81,7 +81,7 @@ public static class WiredRoomOperations
         rotation is >= 0 and <= 7 && (item.Definition.ExtraRot || rotation % 2 == 0);
 
     public static bool MoveItem(Room room, Item item, int x, int y, int? rotation = null,
-        double? height = null, bool keepAltitude = false, bool animate = true, WiredCollisionPolicy? collision = null)
+        double? height = null, bool keepAltitude = false, bool animate = true, WiredCollisionPolicy? collision = null, bool announce = true)
     {
         var rot = rotation ?? item.Rotation;
         var z = height ?? (keepAltitude ? item.GetZ : (double?)null);
@@ -94,7 +94,7 @@ public static class WiredRoomOperations
             return false;
         // The full placement path maintains map/index, moved-item persistence and room statuses.
         if (!room.GetRoomItemHandler().SetFloorItem(null!, item, x, y, rot, false, false,
-                !animate || rotationChanged, true, z ?? -1, collision))
+                announce && (!animate || rotationChanged), true, z ?? -1, collision))
             return false;
         if (animate)
             room.SendPacket(new SlideObjectBundleComposer(source.X, source.Y, sourceZ,

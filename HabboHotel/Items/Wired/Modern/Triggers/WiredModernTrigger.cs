@@ -30,7 +30,9 @@ public class WiredModernTrigger : WiredModernBox, IWiredContextualTrigger
         bool ItemMatches(bool state = false) => evt.EventItem is { } item
             && WiredTriggerPredicates.MatchesItem(config, item, Items(), state);
         bool BotMatches() => evt.Actor?.IsBot == true && !evt.Actor.IsPet
-            && Users(context, config, "bots", config.Text).Contains(evt.Actor);
+            && (config.UserSources["bots"] == 0
+                ? context.Targets.AllUsers().Any(user => ReferenceEquals(user, evt.Actor))
+                : Users(context, config, "bots", config.Text).Contains(evt.Actor));
         return name switch
         {
             "wf_trg_enter_room" or "wf_trg_leave_room" => evt.Actor != null && WiredTriggerPredicates.MatchesName(config, WiredModernCondition.Name(evt.Actor)),

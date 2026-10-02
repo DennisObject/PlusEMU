@@ -27,6 +27,30 @@ public static class WiredConditionConfiguration
     };
     public static bool Supports(string name) => PositiveNames.Contains(name) || NegativeNames.ContainsKey(name);
 
+    public static WiredConfiguration Defaults(string name)
+    {
+        var positive = NegativeNames.GetValueOrDefault(name, name);
+        ImmutableArray<int> parameters = positive switch
+        {
+            "wf_cnd_actor_dir" => [255, 0, 0], "wf_cnd_actor_in_group" => [0, 0, 0, 0],
+            "wf_cnd_actor_in_team" or "wf_cnd_has_handitem" or "wf_cnd_wearing_effect" => [0, 0, 1],
+            "wf_cnd_wearing_badge" => [0, 0], "wf_cnd_user_performs_action" => [1, 0, 0, 0, 1, 0, 0],
+            "wf_cnd_triggerer_match" => [1, 0, 0, 0, 0], "wf_cnd_trggrer_on_frn" => [100, 0, 0],
+            "wf_cnd_furnis_hv_avtrs" or "wf_cnd_has_furni_on" => [0, 100],
+            "wf_cnd_match_snapshot" => [0, 0, 0, 0, 100, 0], "wf_cnd_stuff_is" => [0, 0, 0],
+            "wf_cnd_has_altitude" => [1, 100, 0], "wf_cnd_valid_moves" => [],
+            "wf_cnd_slc_quantity" => [1, 0, 0, 0], "wf_cnd_user_count_in" => [1, 125, 0],
+            "wf_cnd_team_has_rank" => [1, 1, 0, 0], "wf_cnd_team_has_score" => [1, 1, 0, 0, 0],
+            "wf_cnd_counter_time_matches" => [1, 0, 0, 100, 0],
+            "wf_cnd_time_less_than" or "wf_cnd_time_more_than" => [0], "wf_cnd_date_rng_active" => [0, 0],
+            "wf_cnd_match_time" => [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "wf_cnd_match_date" => [127, 0, 1, 31, 4095, 0, DateTime.Now.Year, DateTime.Now.Year],
+            _ => throw new ArgumentException("Unknown condition.", nameof(name))
+        };
+        if (!TryValidate(name, new() { IntParams = parameters, Text = positive == "wf_cnd_has_altitude" ? "0" : "" }, out var config, out var error)) throw new InvalidOperationException(error);
+        return config;
+    }
+
     public static bool TryValidate(string name, WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         validated = proposed;
