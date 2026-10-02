@@ -22,7 +22,7 @@ public sealed class WiredMovementActions
 
     public bool Execute(string name, WiredConfiguration configuration, IReadOnlyList<Item> movers,
         IReadOnlyList<Item> targets, IReadOnlyList<RoomUser> users,
-        MoveFurniture move, MoveAvatar relocate, Action<Item, string> setState)
+        MoveFurniture move, MoveAvatar relocate, Action<Item, string> setState, MoveFurniture? moveBlockingUsers = null)
     {
         if (!WiredMovementConfiguration.TryValidate(name, configuration, out configuration, out _))
             return false;
@@ -53,11 +53,13 @@ public sealed class WiredMovementActions
                     var offset = WiredRoomOperations.Offset(direction);
                     var rotation = Param(1) switch
                     {
-                        1 => (item.Rotation + 2) % 8, 2 => (item.Rotation + 6) % 8,
-                        3 => (item.Rotation + (Random.Shared.Next(2) == 0 ? 2 : 6)) % 8,
+                        1 => (item.Rotation + 1) % 8, 2 => (item.Rotation + 2) % 8,
+                        3 => (item.Rotation + 7) % 8, 4 => (item.Rotation + 6) % 8,
+                        5 => (item.Rotation + 4) % 8,
+                        6 => (item.Rotation + Random.Shared.Next(1, 8)) % 8,
                         _ => item.Rotation
                     };
-                    affected |= move(item, item.GetX + offset.X, item.GetY + offset.Y, rotation, null);
+                    affected |= (Param(3) == 1 ? moveBlockingUsers ?? move : move)(item, item.GetX + offset.X, item.GetY + offset.Y, rotation, null);
                 }
                 break;
             case "wf_act_move_furni_as_group":
@@ -132,10 +134,11 @@ public sealed class WiredMovementActions
 
     private static int MovementDirection(int movement) => movement switch
     {
-        0 => -1, 1 => Random.Shared.Next(4) * 2,
-        2 => Random.Shared.Next(2) == 0 ? 2 : 6,
-        3 => Random.Shared.Next(2) == 0 ? 0 : 4,
-        // Current Octane/Polaris wire numbers differ from Turbo/old Plus for north/south.
-        4 => 4, 5 => 2, 6 => 0, 7 => 6, 8 => 1, 9 => 3, 10 => 5, 11 => 7, _ => -1
+        >= 0 and <= 7 => movement,
+        // Read-only conversion preserves old editor's random/none choices, absent from the current grid.
+        8 => Random.Shared.Next(4) * 2,
+        9 => Random.Shared.Next(2) == 0 ? 2 : 6,
+        10 => Random.Shared.Next(2) == 0 ? 0 : 4,
+        _ => -1
     };
 }

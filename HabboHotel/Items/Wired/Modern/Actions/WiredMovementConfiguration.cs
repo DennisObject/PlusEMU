@@ -42,7 +42,10 @@ public static class WiredMovementConfiguration
                 furni["movers"] = p[1];
                 break;
             case "wf_act_move_rotate":
-                if (p.Length != 3 || !Range(0, -1, 11) || !Range(1, -1, 3) || !Source(2)) return false;
+                if (p.Length is not (3 or 4) || !Range(0, -1, p.Length == 3 ? 11 : 10) || !Source(2)
+                    || !Range(1, 0, p.Length == 3 ? 3 : 6) || p.Length == 4 && !Range(3, 0, 1)) return false;
+                if (p.Length == 3)
+                    proposed = proposed with { IntParams = [p[0] switch { 0 => -1, 1 => 8, 2 => 9, 3 => 10, 4 => 4, 5 => 2, 6 => 0, 7 => 6, 8 => 1, 9 => 3, 10 => 5, 11 => 7, _ => -1 }, p[1] switch { 1 => 2, 2 => 4, 3 => 6, _ => 0 }, p[2], 0] };
                 furni["movers"] = p[2];
                 break;
             case "wf_act_move_furni_as_group":

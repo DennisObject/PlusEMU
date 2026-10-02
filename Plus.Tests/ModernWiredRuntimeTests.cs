@@ -216,6 +216,39 @@ public class ModernWiredRuntimeTests
         Assert.Equal(new Point(dx, dy), Assert.Single(moves));
     }
 
+    [Theory]
+    [InlineData(0, 0, -1)] [InlineData(1, 1, -1)] [InlineData(2, 1, 0)] [InlineData(3, 1, 1)]
+    [InlineData(4, 0, 1)] [InlineData(5, -1, 1)] [InlineData(6, -1, 0)] [InlineData(7, -1, -1)]
+    public void CurrentFourFieldMoveEditorUsesActualDirectionGrid(int direction, int dx, int dy)
+    {
+        var item = MakeItem(1, "test"); var moved = Point.Empty;
+        Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [direction, 0, 100, 0] }, [item], [], [],
+            (_, x, y, _, _) => { moved = new(x, y); return true; }, (_, _, _, _, _) => throw new Exception(), (_, _) => throw new Exception()));
+        Assert.Equal(new Point(dx, dy), moved);
+    }
+
+    [Theory]
+    [InlineData(0, 0)] [InlineData(1, 1)] [InlineData(2, 2)] [InlineData(3, 7)] [InlineData(4, 6)] [InlineData(5, 4)]
+    public void CurrentFourFieldMoveEditorUsesActualTurnLabels(int option, int expected)
+    {
+        var item = MakeItem(1, "test"); var rotation = -1;
+        Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [-1, option, 100, 1] }, [item], [], [],
+            (_, _, _, _, _) => throw new Exception("Flag must select occupied-user blocking path"), (_, _, _, _, _) => false, (_, _) => { },
+            (_, _, _, value, _) => { rotation = value; return true; }));
+        Assert.Equal(expected, rotation);
+    }
+
+    [Fact]
+    public void CurrentMoveCollisionFlagOverridesScopedThroughUsersInActualRoom()
+    {
+        var (room, map, items) = World(); var mover = MakeItem(1, "test"); items[1] = mover; map.AddToMap(mover);
+        var occupant = new RoomUser(1, 0, 7, room) { X = 1, Y = 1 }; map.AddUserToMap(occupant, new(1, 1));
+        var context = Context(room, new(WiredEventKind.Enter), [mover], [occupant]);
+        context.Policy.Addons.Physics = new(false, new HashSet<uint>(), new HashSet<int> { 7 }, new HashSet<uint>());
+        Assert.False(new WiredRoomMovement((_, _, _) => { }).MoveFurniture(context, mover, 1, 1, 0, null, blockOnUserCollision: true));
+        Assert.Equal(Point.Empty, mover.Coordinate);
+    }
+
     [Fact]
     public void RealScoreControllerPublishesPreviousValuesAndDistinctGameQuotas()
     {

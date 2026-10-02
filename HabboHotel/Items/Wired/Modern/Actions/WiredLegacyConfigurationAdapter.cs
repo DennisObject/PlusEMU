@@ -47,7 +47,7 @@ public static class WiredLegacyConfigurationAdapter
             case "wf_act_show_message": parameters = [0, 0, 34, -1]; break;
             case "wf_act_teleport_to": parameters = [0, source, 0]; text = ""; break;
             case "wf_act_toggle_state": parameters = [0, source]; text = ""; break;
-            case "wf_act_move_rotate": parameters = [Field(0) switch { 4 => 6, 6 => 4, var direction => direction }, Field(1), source]; text = ""; break;
+            case "wf_act_move_rotate": parameters = [Field(0) switch { 0 => -1, 1 => 8, 2 => 9, 3 => 10, 4 => 0, 5 => 2, 6 => 4, 7 => 6, _ => -1 }, Field(1) switch { 1 => 2, 2 => 4, 3 => 6, _ => 0 }, source, 0]; text = ""; break;
             case "wf_act_call_stacks": parameters = [source]; text = ""; break;
             case "wf_act_chase": case "wf_act_flee": parameters = [source]; text = ""; break;
             case "wf_act_match_to_sshot":
