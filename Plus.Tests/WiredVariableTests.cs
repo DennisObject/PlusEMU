@@ -141,6 +141,24 @@ public sealed class WiredVariableTests
     }
 
     [Fact]
+    public void RoomVariableEditorReopensCurrentDurableValueAndSeedDoesNotOverwriteIt()
+    {
+        var directory = new Directory(); directory.Definitions[10] = new(10, 1, 5, "global", WiredVariableTarget.Global, WiredVariableAvailability.Persistent, true, 7);
+        var store = new MemoryWiredVariableStore(); var module = new WiredVariableModule(1, directory, store, () => 1000);
+        var saved = new WiredConfiguration { IntParams = [10, 7], Text = "global" };
+        Assert.True(module.InitializeGlobal(10));
+        var editor = new WiredVariableEditor(module);
+        Assert.True(editor.SaveGlobalValue(10, 42));
+        var reloaded = new WiredVariableModule(1, directory, store, () => 2000);
+        Assert.True(reloaded.InitializeGlobal(10));
+        Assert.Equal(42, new WiredVariableEditor(reloaded).ForDisplay("wf_var_room", 10, saved).IntParams[1]);
+        Assert.Equal(7, saved.IntParams[1]);
+        directory.Owners[1] = 6;
+        Assert.False(editor.SaveGlobalValue(10, 99));
+        Assert.Equal(42, store.Read(new(10, WiredVariableTarget.Global, 0))!.Value);
+    }
+
+    [Fact]
     public void FailedCommitDoesNotPublishChange()
     {
         var directory = new Directory(); directory.Definitions[10] = User();
