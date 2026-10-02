@@ -121,6 +121,12 @@ internal static class WiredBoxTypeUtility
         }
     }
 
+    // Matches the existing GenerateNewBox switch; declared but absent boxes cannot force legacy classification.
+    public static bool IsLegacyConstructible(WiredBoxType type) => Enum.IsDefined(type)
+        && type is not (WiredBoxType.None or WiredBoxType.ConditionFurniTypeMatches
+            or WiredBoxType.ConditionFurniTypeDoesntMatch or WiredBoxType.EffectMoveFurniFromNearestUser
+            or WiredBoxType.EffectBotCommunicatesToUserBox);
+
     // Editor codes belong to the envelope; they are not furniture.wired_id values.
     public static int GetWiredId(WiredBoxType type) => type switch
     {
