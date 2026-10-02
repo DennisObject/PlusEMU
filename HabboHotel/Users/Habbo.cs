@@ -159,6 +159,8 @@ public class Habbo
 
     public uint TeleportingRoomId { get; set; }
 
+    public uint PendingFollowRoomId { get; set; }
+
     public bool HasSpoken { get; set; }
 
     public double LastAdvertiseReport { get; set; }

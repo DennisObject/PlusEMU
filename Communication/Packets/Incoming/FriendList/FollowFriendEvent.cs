@@ -28,6 +28,7 @@ internal class FollowFriendEvent : IPacketEvent
         }
         if (session.GetHabbo().CurrentRoom?.RoomId == client.GetHabbo().CurrentRoom?.RoomId)
             return Task.CompletedTask;
+        session.GetHabbo().PendingFollowRoomId = client.GetHabbo().CurrentRoom.RoomId;
         session.Send(new RoomForwardComposer(client.GetHabbo().CurrentRoom.RoomId));
         return Task.CompletedTask;
     }

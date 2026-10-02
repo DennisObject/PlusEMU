@@ -7,6 +7,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Session;
 using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Rooms.AI.Speech;
 using Plus.Core.FigureData;
@@ -227,6 +228,8 @@ public class RoomUserManager
                     item.UpdateState(false, true);
                     user.SetPos(item.GetX, item.GetY, item.GetZ);
                     user.SetRot(item.Rotation, false);
+                    if (session.GetHabbo().TeleporterId != 0)
+                        RewardTrackManager.Current?.Progress(session, RewardTrackActions.Teleport);
                     item.InteractingUser2 = session.GetHabbo().Id;
                     item.LegacyDataString = "0";
                     item.UpdateState(false, true);
@@ -278,6 +281,15 @@ public class RoomUserManager
             if (bot == null || bot.BotAi == null)
                 continue;
             bot.BotAi.OnUserEnterRoom(user);
+        }
+        if (session.GetHabbo().Id != _room.OwnerId)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.EnterOtherUsersRoom);
+        var pendingFollow = session.GetHabbo().PendingFollowRoomId;
+        if (pendingFollow != 0)
+        {
+            session.GetHabbo().PendingFollowRoomId = 0;
+            if (pendingFollow == _room.RoomId)
+                RewardTrackManager.Current?.Progress(session, RewardTrackActions.FollowFriend);
         }
         return true;
     }
@@ -1219,6 +1231,7 @@ public class RoomUserManager
                             {
                                 user.GetClient().GetHabbo().Effects.ApplyEffect(29);
                                 user.CurrentItemEffect = type;
+                                RewardTrackManager.Current?.Progress(user.GetClient(), RewardTrackActions.Swim);
                                 break;
                             }
                         case ItemEffectType.SwimLow:

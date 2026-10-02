@@ -1,6 +1,7 @@
 ﻿using Plus.Communication.Packets.Outgoing.Navigator;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Navigator;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Chat.Filter;
 
@@ -48,7 +49,11 @@ internal class CreateFlatEvent : IPacketEvent
         if (tradeSettings < 0 || tradeSettings > 2)
             tradeSettings = 0;
         var newRoom = _roomManager.CreateRoom(session, name, description, category, maxVisitors, tradeSettings, model);
-        if (newRoom != null) session.Send(new FlatCreatedComposer(newRoom.Id, name));
+        if (newRoom != null)
+        {
+            session.Send(new FlatCreatedComposer(newRoom.Id, name));
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.CreateRoom);
+        }
 
         session.GetHabbo().Messenger.NotifyChangesToFriends();
         return Task.CompletedTask;

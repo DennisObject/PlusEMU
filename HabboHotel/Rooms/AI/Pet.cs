@@ -4,6 +4,7 @@ using Plus.Database;
 using Plus.Communication.Packets.Outgoing.Pets;
 using Plus.Communication.Packets.Outgoing.Rooms.AI.Pets;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
+using Plus.HabboHotel.Quests;
 using Plus.Utilities;
 
 namespace Plus.HabboHotel.Rooms.AI;
@@ -155,22 +156,31 @@ public class Pet
 
     public void Addexperience(int amount)
     {
+        var before = Level;
         Experience = Experience + amount;
         if (Experience > 150000)
         {
             Experience = 150000;
             if (Room != null)
                 Room.SendPacket(new AddExperiencePointsComposer(PetId, VirtualId, amount));
-            return;
         }
-        if (DbState != PetDatabaseUpdateState.NeedsInsert)
-            DbState = PetDatabaseUpdateState.NeedsUpdate;
-        if (Room != null)
+        else
         {
-            Room.SendPacket(new AddExperiencePointsComposer(PetId, VirtualId, amount));
-            if (Experience >= ExperienceGoal)
-                Room.SendPacket(new ChatComposer(VirtualId, $"*leveled up to level {Level} *", 0, 0));
+            if (DbState != PetDatabaseUpdateState.NeedsInsert)
+                DbState = PetDatabaseUpdateState.NeedsUpdate;
+            if (Room != null)
+            {
+                Room.SendPacket(new AddExperiencePointsComposer(PetId, VirtualId, amount));
+                if (Experience >= ExperienceGoal)
+                    Room.SendPacket(new ChatComposer(VirtualId, $"*leveled up to level {Level} *", 0, 0));
+            }
         }
+        var gained = Level - before;
+        if (gained < 1 || OwnerId <= 0)
+            return;
+        var client = PlusEnvironment.Game.ClientManager.GetClientByUserId(OwnerId);
+        if (client != null)
+            RewardTrackManager.Current?.Progress(client, RewardTrackActions.PetLevel, gained);
     }
 
     public void PetEnergy(bool add)

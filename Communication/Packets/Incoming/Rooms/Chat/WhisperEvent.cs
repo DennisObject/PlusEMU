@@ -122,6 +122,8 @@ public class WhisperEvent : IPacketEvent
                 }
             }
         }
+        if (room.GetRoomUserManager().GetRoomUsers().Count > 1)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.ChatWithSomeone);
         return Task.CompletedTask;
     }
 }
