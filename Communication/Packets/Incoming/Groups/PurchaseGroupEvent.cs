@@ -30,27 +30,30 @@ internal class PurchaseGroupEvent : IPacketEvent
         var roomId = packet.ReadUInt();
         var mainColour = packet.ReadInt();
         var secondaryColour = packet.ReadInt();
-        packet.ReadInt(); //unknown
+        var badgeValueCount = packet.ReadInt();
+        if (badgeValueCount < 3 || badgeValueCount > 15 || badgeValueCount % 3 != 0 || packet.Buffer.Length != badgeValueCount * sizeof(int))
+            return Task.CompletedTask;
+        var badge = string.Empty;
+        for (var i = 0; i < badgeValueCount / 3; i++)
+            badge += BadgePartUtility.WorkBadgeParts(i == 0, packet.ReadInt().ToString(), packet.ReadInt().ToString(), packet.ReadInt().ToString());
         var groupCost = Convert.ToInt32(_settingsManager.TryGetValue("catalog.group.purchase.cost"));
         if (session.GetHabbo().Credits < groupCost)
         {
             session.Send(new BroadcastMessageAlertComposer($"A group costs {groupCost} credits! You only have {session.GetHabbo().Credits}!"));
             return Task.CompletedTask;
         }
-        session.GetHabbo().Credits -= groupCost;
-        session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
         if (!RoomFactory.TryGetData(roomId, out var room))
             return Task.CompletedTask;
         if (room == null || room.OwnerId != session.GetHabbo().Id || room.Group != null)
             return Task.CompletedTask;
-        var badge = string.Empty;
-        for (var i = 0; i < 5; i++) badge += BadgePartUtility.WorkBadgeParts(i == 0, packet.ReadInt().ToString(), packet.ReadInt().ToString(), packet.ReadInt().ToString());
         if (!_groupManager.TryCreateGroup(session.GetHabbo(), name, description, roomId, badge, mainColour, secondaryColour, out var group))
         {
             session.SendNotification(
                 "An error occured whilst trying to create this group.\n\nTry again. If you get this message more than once, report it at the link below.\r\rhttp://boonboards.com");
             return Task.CompletedTask;
         }
+        session.GetHabbo().Credits -= groupCost;
+        session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
         session.Send(new PurchaseOkComposer());
         room.Group = group;
         if (session.GetHabbo().CurrentRoom != room)
