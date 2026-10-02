@@ -15,16 +15,44 @@ internal sealed partial class WiredStackEngine
     private WiredRuntimeContext? _runtimeContext;
     private WiredRuntimeEvent? _legacyRuntimeEvent;
     public Action<WiredRuntimeEvent, long>? ObserveEvent { get; set; }
-    private readonly Queue<PendingSignal> _signals = new();
+    private readonly Queue<PendingDispatch> _dispatches = new();
+    private Func<bool>? _externalFastWork;
+    private Action<long>? _pollExternal;
+    private Action? _flushExternal;
+    private int? _queuedDepth;
+    public Action<IWiredConfiguredItem>? ConfigurationPublished { get; set; }
     private readonly Dictionary<uint, (int X, int Y, double Z)> _runtimePositions = [];
     private int _fastWork;
     private Action<bool>? _fastWorkObserver;
     private long _lastTimerPoll = -1;
+    private int _timerCursor;
 
-    public void BindRuntime(Room room, WiredTargetResolver targets, IWiredRuntimeOperations operations)
+    public void BindRuntime(Room room, WiredTargetResolver targets, IWiredRuntimeOperations operations,
+        Func<bool>? needsFast = null, Action<long>? poll = null, Action? flush = null)
     {
-        lock (_sync) { _runtimeRoom = room; _targets = targets; _operations = operations; }
+        lock (_sync)
+        {
+            _runtimeRoom = room; _targets = targets; _operations = operations;
+            _externalFastWork = needsFast; _pollExternal = poll; _flushExternal = flush;
+        }
     }
+
+    public long NowMilliseconds => _now();
+
+    public bool Mutate(Func<bool> mutation) => Pass(() =>
+    {
+        try { return mutation(); }
+        finally { UpdateFastWork(); }
+    });
+
+    public bool Enqueue(WiredRuntimeEvent @event, int? depth = null) => Pass(() =>
+    {
+        var eventDepth = depth ?? (_runtimeContext?.Depth ?? -1) + 1;
+        if (eventDepth > _limits.MaxDepth || _pending.Count + _dispatches.Count >= _limits.MaxPendingStacks) return false;
+        _dispatches.Enqueue(new(@event, eventDepth));
+        UpdateFastWork();
+        return true;
+    });
 
     public bool NeedsFastCycle => Volatile.Read(ref _fastWork) != 0;
 
@@ -38,7 +66,9 @@ internal sealed partial class WiredStackEngine
         if (_runtimeRoom == null) return false;
         RefreshStacks();
         ObserveEvent?.Invoke(@event, _now());
-        var root = CreateContext(@event, (_runtimeContext?.Depth ?? _context?.Depth ?? -1) + 1);
+        var depth = _queuedDepth ?? (_runtimeContext?.Depth ?? _context?.Depth ?? -1) + 1;
+        _queuedDepth = null; // The queue supplies only this dispatch; nested events must advance depth.
+        var root = CreateContext(@event, depth);
         if (root.Depth > _limits.MaxDepth) return false;
         var accepted = false;
         foreach (var trigger in _items.Values.OfType<IWiredContextualTrigger>()
@@ -61,11 +91,16 @@ internal sealed partial class WiredStackEngine
     public bool DispatchLegacy(WiredBoxType type, WiredRuntimeEvent? typed, object[] arguments) => Pass(() =>
     {
         var previous = _legacyRuntimeEvent;
+        var queuedDepth = _queuedDepth;
         _legacyRuntimeEvent = typed;
         try
         {
             var accepted = Dispatch(type, arguments);
-            if (typed != null) accepted |= Dispatch(typed);
+            if (typed != null)
+            {
+                _queuedDepth = queuedDepth;
+                accepted |= Dispatch(typed);
+            }
             return accepted;
         }
         finally { _legacyRuntimeEvent = previous; }
@@ -79,8 +114,11 @@ internal sealed partial class WiredStackEngine
         foreach (var item in targets.OrderBy(x => x.GetZ).ThenBy(x => x.Id).ToArray())
         {
             if (_remaining <= 0) break;
-            if (!_items.TryGetValue(item.Id, out var source) || !ReferenceEquals(source.Item, item) || !IsAttached(source)) continue;
-            if (!visited.Add((item.GetX, item.GetY))) continue;
+            if (!parent.Targets.ResolveFurni(parent, [item.Id], WiredSources.Selected, raw: true).Contains(item)) continue;
+            RefreshStacks();
+            if (!_stacks.TryGetValue((item.GetX, item.GetY), out var tile)) continue;
+            var source = tile.FirstOrDefault(IsAttached);
+            if (source == null || !visited.Add((item.GetX, item.GetY))) continue;
             var child = parent.Fork(parent.Event, parent.Depth + 1);
             child.Triggering = parent.Selected.Copy();
             child.Selected = child.Triggering.Copy();
@@ -98,15 +136,14 @@ internal sealed partial class WiredStackEngine
         var accepted = false;
         foreach (var receiver in receivers.DistinctBy(x => x.Id))
         {
-            if (_remaining <= 0 || _signals.Count + _pending.Count >= _limits.MaxPendingStacks) break;
+            if (_dispatches.Count + _pending.Count >= _limits.MaxPendingStacks) break;
             if (!live.TryGetValue(receiver.Id, out var attached) || !ReferenceEquals(receiver, attached)
                 || !string.Equals(receiver.Definition.InteractionName, "antenna", StringComparison.OrdinalIgnoreCase)) continue;
-            _remaining--;
-            var child = parent.Fork(new(WiredEventKind.Signal) { Actor = parent.Event.Actor, EventItem = receiver, Code = unchecked((int)receiver.Id) }, parent.Depth + 1);
+            var child = parent.Fork(new(WiredEventKind.Signal) { Actor = parent.Event.Kind == WiredEventKind.Leave ? null : parent.Event.Actor, EventItem = receiver, Code = unchecked((int)receiver.Id) }, parent.Depth + 1);
             child.Signal = new(selection, parent.Values);
             child.Triggering = selection.Copy();
             child.Selected = selection.Copy();
-            _signals.Enqueue(new(receiver, receiver.MovementGeneration, child, negative));
+            _dispatches.Enqueue(new(child.Event, child.Depth, new(receiver, receiver.MovementGeneration, child, negative)));
             accepted = true;
         }
         UpdateFastWork();
@@ -148,6 +185,7 @@ internal sealed partial class WiredStackEngine
         persist();
         CancelPending(original);
         original.ApplyConfiguration(validated);
+        ConfigurationPublished?.Invoke(original);
         ResetRuntimeTile(original.Item.GetX, original.Item.GetY);
         UpdateFastWork();
         return true;
@@ -161,6 +199,7 @@ internal sealed partial class WiredStackEngine
         candidate.ApplyConfiguration(validated);
         CancelPending(original);
         _items[original.Item.Id] = candidate;
+        ConfigurationPublished?.Invoke(candidate);
         ResetRuntimeTile(original.Item.GetX, original.Item.GetY);
         RefreshStacks();
         return true;
@@ -184,6 +223,7 @@ internal sealed partial class WiredStackEngine
     {
         if (_runtimeRoom == null || !NeedsFastCycle) return false;
         RefreshStacks();
+        DrainDueActions();
         RunRuntimeTimersAndSignals();
         DrainDueActions();
         UpdateFastWork();
@@ -343,7 +383,11 @@ internal sealed partial class WiredStackEngine
 
     private bool ExecuteRuntimeBody(IWiredItem box, WiredRuntimeContext context)
     {
-        if (box is IWiredContextualItem contextual) return RuntimeSupported(contextual) && contextual.Execute(context);
+        if (box is IWiredContextualItem contextual)
+        {
+            try { return RuntimeSupported(contextual) && contextual.Execute(context); }
+            finally { _flushExternal?.Invoke(); }
+        }
         var actor = context.Event.Actor;
         if (actor == null) return box.Execute([]);
         if (!context.Targets.ResolveUsers(context, [actor.VirtualId], WiredSources.Selected).Contains(actor)) return false;
@@ -353,13 +397,58 @@ internal sealed partial class WiredStackEngine
     private void RunRuntimeTimersAndSignals()
     {
         var now = _now();
+        // Finish accepted signals before creating new periodic work. Trigger predicates own
+        // their execution charge; dequeuing an envelope does not consume a second call.
+        while (_remaining > 0 && _dispatches.TryPeek(out var pending))
+        {
+            if (pending.Signal == null)
+            {
+                _dispatches.Dequeue();
+                if (pending.Event.EventItem is { } eventItem && !_targets!.AllFurni().Contains(eventItem)) continue;
+                var previousDepth = _queuedDepth;
+                _queuedDepth = pending.Depth;
+                try
+                {
+                    if (pending.Event.Kind == WiredEventKind.GameStart) DispatchLegacy(WiredBoxType.TriggerGameStarts, pending.Event, []);
+                    else if (pending.Event.Kind == WiredEventKind.GameEnd) DispatchLegacy(WiredBoxType.TriggerGameEnds, pending.Event, []);
+                    else Dispatch(pending.Event);
+                }
+                finally { _queuedDepth = previousDepth; }
+                continue;
+            }
+            var signal = pending.Signal;
+            var receiver = _targets!.AllFurni().FirstOrDefault(x => x.Id == signal.Receiver.Id);
+            if (!ReferenceEquals(receiver, signal.Receiver) || receiver.MovementGeneration != signal.Generation)
+            { _dispatches.Dequeue(); continue; }
+            signal.Triggers ??= _items.Values.OfType<IWiredContextualTrigger>()
+                .Where(x => RuntimeSupported(x) && x.Events.Contains(WiredEventKind.Signal)
+                    && x.Item.GetX == receiver.GetX && x.Item.GetY == receiver.GetY)
+                .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
+            if (signal.Next >= signal.Triggers.Length) { _dispatches.Dequeue(); continue; }
+            var trigger = signal.Triggers[signal.Next++];
+            if (signal.Next == signal.Triggers.Length) _dispatches.Dequeue();
+            if (!IsAttached(trigger) || trigger.Item.GetX != receiver.GetX || trigger.Item.GetY != receiver.GetY) continue;
+            var context = signal.Context.Fork(signal.Context.Event, signal.Context.Depth);
+            context.Signal = new(signal.Context.Signal!.Selection, signal.Context.Signal.Values);
+            context.Triggering = signal.Context.Triggering.Copy();
+            context.Selected = context.Triggering.Copy();
+            context.Trigger = trigger;
+            context.Capture(GetStack(trigger));
+            if (InvokeRuntime(trigger, context, () => trigger.Execute(context))) RunRuntimeStack(trigger, context, signal.Negative);
+        }
+        _pollExternal?.Invoke(now);
         if (_lastTimerPoll < 0 || now - _lastTimerPoll >= 50)
         {
             _lastTimerPoll = now;
             WiredRuntimeContext? snapshot = null;
-            foreach (var timer in _items.Values.OfType<IWiredTimedTrigger>().Where(RuntimeSupported).ToArray())
+            var timers = _items.Values.OfType<IWiredTimedTrigger>().Where(RuntimeSupported)
+                .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
+            for (var polled = 0; polled < timers.Length && _remaining > 0; polled++)
             {
-                if (_remaining <= 0) break;
+                _timerCursor %= timers.Length;
+                var timer = timers[_timerCursor];
+                _timerCursor = (_timerCursor + 1) % timers.Length;
+                if (!IsAttached(timer)) continue;
                 _remaining--;
                 try
                 {
@@ -371,24 +460,6 @@ internal sealed partial class WiredStackEngine
                     if (RunRuntimeStack(timer, context, null)) Flash(timer);
                 }
                 catch (Exception error) { _error(error); }
-            }
-        }
-        while (_remaining > 0 && _signals.TryDequeue(out var signal))
-        {
-            _remaining--;
-            var receiver = _targets!.AllFurni().FirstOrDefault(x => x.Id == signal.Receiver.Id);
-            if (!ReferenceEquals(receiver, signal.Receiver) || receiver.MovementGeneration != signal.Generation) continue;
-            foreach (var trigger in _items.Values.OfType<IWiredContextualTrigger>()
-                         .Where(x => RuntimeSupported(x) && x.Events.Contains(WiredEventKind.Signal)
-                             && x.Item.GetX == receiver.GetX && x.Item.GetY == receiver.GetY).ToArray())
-            {
-                var context = signal.Context.Fork(signal.Context.Event, signal.Context.Depth);
-                context.Signal = new(signal.Context.Signal!.Selection, signal.Context.Signal.Values);
-                context.Triggering = signal.Context.Triggering.Copy();
-                context.Selected = context.Triggering.Copy();
-                context.Trigger = trigger;
-                context.Capture(GetStack(trigger));
-                if (InvokeRuntime(trigger, context, () => trigger.Execute(context))) RunRuntimeStack(trigger, context, signal.Negative);
             }
         }
     }
@@ -419,11 +490,17 @@ internal sealed partial class WiredStackEngine
 
     private void UpdateFastWork()
     {
-        var required = _runtimeRoom != null && (_signals.Count > 0 || _items.Values.OfType<IWiredTimedTrigger>().Any(RuntimeSupported)
+        var required = _runtimeRoom != null && (_dispatches.Count > 0 || _externalFastWork?.Invoke() == true || _items.Values.OfType<IWiredTimedTrigger>().Any(RuntimeSupported)
             || _pending.Any(chain => chain.Context.Runtime != null));
         var next = required ? 1 : 0;
         if (Interlocked.Exchange(ref _fastWork, next) != next) _fastWorkObserver?.Invoke(required);
     }
 
-    private sealed record PendingSignal(Item Receiver, long Generation, WiredRuntimeContext Context, bool Negative);
+    private sealed record PendingDispatch(WiredRuntimeEvent Event, int Depth, PendingSignal? Signal = null);
+
+    private sealed record PendingSignal(Item Receiver, long Generation, WiredRuntimeContext Context, bool Negative)
+    {
+        public IWiredContextualTrigger[]? Triggers { get; set; }
+        public int Next { get; set; }
+    }
 }

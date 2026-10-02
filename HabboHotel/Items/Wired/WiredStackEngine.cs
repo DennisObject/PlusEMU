@@ -76,7 +76,7 @@ internal sealed partial class WiredStackEngine
             foreach (var entry in _schedule.UnorderedItems.ToArray()) CancelAuxiliary(entry.Element);
             _schedule.Clear();
             _pending.Clear();
-            _signals.Clear();
+            _dispatches.Clear();
             _runtimePositions.Clear();
             UpdateFastWork();
         }
@@ -90,9 +90,9 @@ internal sealed partial class WiredStackEngine
             _pending.RemoveWhere(chain => chain.Contains(box));
             PruneSchedule();
             var tile = (box.Item.GetX, box.Item.GetY);
-            var kept = _signals.Where(signal => (signal.Receiver.GetX, signal.Receiver.GetY) != tile).ToArray();
-            _signals.Clear();
-            foreach (var signal in kept) _signals.Enqueue(signal);
+            var kept = _dispatches.Where(pending => pending.Signal == null || (pending.Signal.Receiver.GetX, pending.Signal.Receiver.GetY) != tile).ToArray();
+            _dispatches.Clear();
+            foreach (var pending in kept) _dispatches.Enqueue(pending);
             UpdateFastWork();
         }
     }
@@ -103,7 +103,8 @@ internal sealed partial class WiredStackEngine
     public bool Dispatch(WiredBoxType type, params object[] arguments) => Pass(() =>
     {
         RefreshStacks();
-        var context = CreateContext((arguments ?? []).ToArray(), (_context?.Depth ?? -1) + 1);
+        var context = CreateContext((arguments ?? []).ToArray(), _queuedDepth ?? (_runtimeContext?.Depth ?? _context?.Depth ?? -1) + 1);
+        _queuedDepth = null;
         if (context.Depth > _limits.MaxDepth) return false;
         var matched = false;
         // Each registered trigger is visited once, even when a tile has several of the same type.
@@ -143,6 +144,7 @@ internal sealed partial class WiredStackEngine
     public void OnCycle() => Pass(() =>
     {
         RefreshStacks();
+        DrainDueActions();
         foreach (var box in _items.Values.ToArray())
         {
             // IWiredCycle remains the saved-delay contract; only periodic triggers tick.
@@ -173,7 +175,8 @@ internal sealed partial class WiredStackEngine
         if (_runtimeRoom != null && stack.Any(x => x is IWiredConfiguredItem))
         {
             var typed = _runtimeContext?.Fork(_runtimeContext.Event, context.Depth)
-                ?? CreateContext(_legacyRuntimeEvent ?? new(WiredEventKind.Periodic), context.Depth);
+                ?? CreateContext((_legacyRuntimeEvent ?? new(WiredEventKind.Periodic)) with
+                { Actor = context.ActorVisit as Plus.HabboHotel.Rooms.RoomUser ?? context.Arguments.FirstOrDefault() as Plus.HabboHotel.Rooms.RoomUser ?? _legacyRuntimeEvent?.Actor }, context.Depth);
             typed.Trigger = source;
             if (_runtimeContext == null) SeedEvent(typed);
             var accepted = RunRuntimeStack(source, typed, null, conditionActors);
@@ -207,11 +210,11 @@ internal sealed partial class WiredStackEngine
 
     private bool CanSchedule(IWiredItem[] actions)
     {
-        if (actions.Length > 0 && _pending.Count + _signals.Count >= _limits.MaxPendingStacks
+        if (actions.Length > 0 && _pending.Count + _dispatches.Count >= _limits.MaxPendingStacks
             && _pending.RemoveWhere(chain => !IsChainValid(chain)) > 0)
             PruneSchedule();
         // Preparation must happen synchronously; reject before acceptance if its calls cannot fit.
-        return (actions.Length == 0 || _pending.Count + _signals.Count < _limits.MaxPendingStacks)
+        return (actions.Length == 0 || _pending.Count + _dispatches.Count < _limits.MaxPendingStacks)
             && actions.Count(action => action is IWiredFiringPreparation) <= _remaining;
     }
 

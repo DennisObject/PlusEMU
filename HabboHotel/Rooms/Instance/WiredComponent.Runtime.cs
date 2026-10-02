@@ -1,0 +1,131 @@
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
+using Plus.HabboHotel.Items.Wired.Modern.Addons;
+using Plus.HabboHotel.Items.Wired.Modern.Conditions;
+using Plus.HabboHotel.Items.Wired.Modern.Selectors;
+using Plus.HabboHotel.Items.Wired.Modern.Triggers;
+using Plus.HabboHotel.Items.Wired.Runtime;
+using Plus.HabboHotel.Items.Wired.Variables;
+
+namespace Plus.HabboHotel.Rooms.Instance;
+
+public partial class WiredComponent
+{
+    private readonly WiredSelectorRoomState _selectorState = new();
+    private readonly WiredCounterController _counters = new();
+    private readonly WiredRoomLog _roomLog = new();
+    private readonly Dictionary<uint, Item> _counterItems = [];
+    private IWiredConfigurationStore? _configurationStore;
+    private Lazy<WiredRoomVariables>? _variables;
+    private IWiredConfigurationStore ConfigurationStore => _configurationStore ??= new WiredConfigurationStore(PlusEnvironment.DatabaseManager);
+    public WiredRoomVariables Variables => (_variables ??= new(() => new(_room,
+        PlusEnvironment.DatabaseManager, () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))).Value;
+
+    // Returns a detached concrete candidate. Registration and persistence belong to the loader/publisher.
+    public IWiredConfiguredItem? CreateConfiguredBox(Item item, WiredBoxDescriptor? descriptor = null)
+    {
+        // Plus command boxes retain CommandManager dispatch and its feedback; speech is a different behavior.
+        if (item.Definition.WiredType == WiredBoxType.TriggerUserSaysCommand) return null;
+        descriptor ??= item.Definition.WiredDescriptor;
+        if (descriptor == null) return null;
+        IWiredConfiguredItem? box = null;
+        WiredConfiguration? defaults = null;
+        if (descriptor.Category == WiredBoxCategory.Selector && WiredSelectorModule.Names.Contains(descriptor.CanonicalName))
+            box = new WiredSelectorBox(_room, item, descriptor, _selectorState, context => WiredSelectorVariableBridge.Create(context, Variables.Module));
+        else if (descriptor.Category == WiredBoxCategory.Addon && WiredAddonModule.Names.Contains(descriptor.CanonicalName))
+            box = new WiredAddonBox(_room, item, descriptor, _selectorState, context => WiredSelectorVariableBridge.Create(context, Variables.Module));
+        else if (descriptor.Category == WiredBoxCategory.Trigger && WiredTriggerConfiguration.Events.ContainsKey(descriptor.CanonicalName))
+        {
+            box = WiredTriggerConfiguration.IsTimed(descriptor.CanonicalName)
+                ? new WiredModernTimedTrigger(_room, item, descriptor) : new WiredModernTrigger(_room, item, descriptor);
+            defaults = WiredTriggerConfiguration.Defaults(descriptor.CanonicalName);
+        }
+        else if (descriptor.Category == WiredBoxCategory.Condition && WiredConditionConfiguration.Supports(descriptor.CanonicalName))
+        {
+            box = new WiredModernCondition(_room, item, descriptor, ReadCounterMilliseconds, () => DateTimeOffset.Now);
+            defaults = WiredConditionConfiguration.Defaults(descriptor.CanonicalName);
+        }
+        else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName))
+        {
+            box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event), DispatchWalkTransition, _roomLog);
+            defaults = WiredActionConfiguration.Defaults(descriptor.CanonicalName);
+        }
+        else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || descriptor.Category == WiredBoxCategory.Variable)
+            box = Variables.CreateBox(item);
+        if (box != null && defaults != null)
+        {
+            if (!box.TryValidateConfiguration(defaults, out var validated, out var error)) throw new InvalidDataException(error);
+            box.ApplyConfiguration(validated);
+        }
+        return box;
+    }
+
+    public WiredRoomLogPage ReadLogs(int page, int amount, int level = -1, string query = "") => _roomLog.Read(page, amount, level, query);
+
+    public void AttachRoomItem(Item item) => _engine.Mutate(() =>
+    {
+        if (WiredCounterController.Recognizes(item) && ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)
+            && (!_counterItems.TryGetValue(item.Id, out var previous) || !ReferenceEquals(previous, item)))
+        {
+            _counterItems[item.Id] = item;
+            _counters.Attach(item);
+        }
+        return true;
+    });
+
+    public void DetachRoomItem(Item item) => _engine.Mutate(() =>
+    {
+        _counters.Forget(item);
+        if (_counterItems.TryGetValue(item.Id, out var attached) && ReferenceEquals(attached, item)) _counterItems.Remove(item.Id);
+        if (_variables?.IsValueCreated == true) _variables.Value.ItemDetached(item.Id);
+        return true;
+    });
+
+    public bool TryUseCounter(Item item, int parameter) => _engine.Mutate(() =>
+    {
+        if (!WiredCounterController.Recognizes(item) || !ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)) return false;
+        AttachRoomItem(item);
+        var changed = _counters.Use(item, parameter, _engine.NowMilliseconds);
+        PublishCounterChanges(_counters.TakeChanges());
+        return changed;
+    });
+
+    private long? ReadCounterMilliseconds(Item item)
+    {
+        AttachRoomItem(item);
+        return ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item) ? _counters.ReadMilliseconds(item) : null;
+    }
+
+    private void PollCounters(long now)
+    {
+        foreach (var stale in _counterItems.Values.Where(item => !ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)).ToArray()) DetachRoomItem(stale);
+        PublishCounterChanges(_counters.Poll(now));
+        FlushExternalChanges();
+    }
+
+    private void FlushExternalChanges()
+    {
+        PublishCounterChanges(_counters.TakeChanges());
+        if (_variables?.IsValueCreated != true) return;
+        foreach (var change in _variables.Value.DrainChanges())
+            _engine.Enqueue(new(WiredEventKind.Variable)
+            {
+                Code = unchecked((int)change.Key.DefinitionId), Action = (int)change.Kind,
+                PreviousValue = change.Before?.Value ?? 0, Value = change.After?.Value ?? 0,
+                EventItem = change.Key.Target == WiredVariableTarget.Furni ? _room.GetRoomItemHandler().GetItem((uint)change.EntityId) : null,
+                TargetUser = change.Key.Target == WiredVariableTarget.User ? _room.GetRoomUserManager().GetRoomUserByVirtualId(change.EntityId) : null
+            }, change.Depth + 1);
+    }
+
+    private void PublishCounterChanges(IEnumerable<WiredCounterChange> changes)
+    {
+        foreach (var change in changes)
+        {
+            if (!ReferenceEquals(_room.GetRoomItemHandler().GetItem(change.Item.Id), change.Item)) continue;
+            if (change.DisplayChanged) change.Item.UpdateState();
+            _engine.Enqueue(change.Event);
+        }
+    }
+}
