@@ -283,6 +283,29 @@ public class ModernWiredRuntimeTests
         Assert.Empty(f.Errors);
     }
 
+    [Fact]
+    public void FloorPlacementAndRemovalAttachAndDetachActualCounterController()
+    {
+        using var fixture = new TeleportFixture();
+        var counter = MakeItem(500, "wf_upcounter1");
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(counter, fixture.Room);
+        var databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var original = databaseField.GetValue(null);
+        var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
+        var adapter = DispatchProxy.Create<IQueryAdapter, RecordingProxy>();
+        ((RecordingProxy)(object)database).InvokeMethod = (method, _) => method.Name == "GetQueryReactor" ? adapter : null;
+        try
+        {
+            databaseField.SetValue(null, database);
+            Assert.True(fixture.Room.GetRoomItemHandler().SetFloorItem(null!, counter, 2, 2, 0, true, false, false));
+            Assert.True(fixture.Room.GetWired().TryUseCounter(counter, 0));
+            fixture.Room.GetRoomItemHandler().RemoveFurniture(null!, counter.Id);
+            Assert.Null(fixture.Room.GetRoomItemHandler().GetItem(counter.Id));
+            Assert.False(fixture.Room.GetWired().TryUseCounter(counter, 0));
+        }
+        finally { databaseField.SetValue(null, original); }
+    }
+
     private static ConcurrentDictionary<int, RoomUser> RoomUsers(Room room) =>
         (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomUserManager())!;
     private static RoomUser Bot(Room room, int virtualId)

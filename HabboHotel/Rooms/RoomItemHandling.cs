@@ -101,7 +101,10 @@ public class RoomItemHandling
     public void LoadFurniture()
     {
         if (_floorItems.Count > 0)
+        {
+            foreach (var previous in _floorItems.Values) _room.GetWired()?.DetachRoomItem(previous);
             _floorItems.Clear();
+        }
         if (_wallItems.Count > 0)
             _wallItems.Clear();
         var items = ItemLoader.GetItemsForRoom(_room.Id, _room);
@@ -168,6 +171,7 @@ public class RoomItemHandling
         }
         foreach (var item in _floorItems.Values.ToList())
         {
+            _room.GetWired()?.AttachRoomItem(item);
             if (item.IsRoller)
                 GotRollers = true;
             else if (item.Definition.InteractionType == InteractionType.Moodlight)
@@ -239,6 +243,7 @@ public class RoomItemHandling
             _wallItems.TryRemove(item.Id, out item);
         else
         {
+            _room.GetWired()?.DetachRoomItem(item);
             _floorItems.TryRemove(item.Id, out item);
             //mFloorItems.OnCycle();
             _room.GetGameMap().RemoveFromMap(item);
@@ -567,6 +572,7 @@ public class RoomItemHandling
                 _room.SendPacket(new ObjectUpdateComposer(item));
         }
         _room.GetGameMap().AddToMap(item);
+        if (newItem && item.IsFloorItem) _room.GetWired()?.AttachRoomItem(item);
         if (item.Definition.IsSeat)
             updateRoomUserStatuses = true;
         if (updateRoomUserStatuses)
@@ -786,6 +792,7 @@ public class RoomItemHandling
         {
             if (item == null)
                 continue;
+            if (item.IsFloorItem) _room.GetWired()?.DetachRoomItem(item);
             item.Destroy();
         }
         _movedItems.Clear();
