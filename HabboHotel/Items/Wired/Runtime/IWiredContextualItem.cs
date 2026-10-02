@@ -19,6 +19,11 @@ public interface IWiredContextualTrigger : IWiredContextualItem
     bool HidesChat(WiredRuntimeContext context);
 }
 
+public interface IWiredClickTrigger : IWiredContextualTrigger
+{
+    (bool BlockMenu, bool DoNotRotate) ClickSettings(WiredRuntimeContext context);
+}
+
 public interface IWiredContextualSelector : IWiredConfiguredItem
 {
     WiredSelectorResult Select(WiredRuntimeContext context);

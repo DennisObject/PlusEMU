@@ -80,6 +80,12 @@ internal sealed partial class WiredStackEngine
                 var transfer = _dispatches.TryPeek(out var head) && ReferenceEquals(head, pending);
                 if (!ResumeFiring(pending.Current, transfer)) return false;
                 pending.Accepted |= pending.Current.Accepted;
+                if (pending.Event.Kind == WiredEventKind.ClickUser && pending.Current.Accepted && pending.Current.ConditionsPassed
+                    && pending.Current.Context.Trigger is IWiredClickTrigger clickTrigger)
+                {
+                    var settings = clickTrigger.ClickSettings(pending.Current.Context);
+                    pending.Click = new(true, pending.Click.BlockMenu || settings.BlockMenu, pending.Click.DoNotRotate || settings.DoNotRotate);
+                }
                 if (pending.Event.Kind == WiredEventKind.Speech && pending.Current.Accepted
                     && pending.Current.Context.Trigger is IWiredContextualTrigger speechTrigger)
                     pending.ConsumedChat |= speechTrigger.HidesChat(pending.Current.Context);
@@ -210,6 +216,7 @@ internal sealed partial class WiredStackEngine
             }
             conditionsPassed &= WiredConditionPolicyEvaluator.Matches(scoped.Mode, matched, grouped.Length, scoped.Count);
         }
+        firing.ConditionsPassed = conditionsPassed;
         if (negative is { } requested && (requested ? conditionsPassed : !conditionsPassed)) yield break;
         var actions = stack.Where(x => IsKind(x, InteractionType.WiredEffect) && x.Type != WiredBoxType.AddonRandomEffect
             && (x is IWiredContextualAction action && action.IsNegative) == (negative == null && !conditionsPassed)).ToArray();
@@ -290,7 +297,7 @@ internal sealed partial class WiredStackEngine
         public (IWiredItem Box, long Generation, int X, int Y, double Z)[] Positions { get; } = stack.Select(box => (box, box.Item.MovementGeneration, box.Item.GetX, box.Item.GetY, box.Item.GetZ)).ToArray();
         public IEnumerator<EvaluationStep> Steps { get; set; } = null!;
         public EvaluationStep? Next { get; set; }
-        public bool Accepted, Cancelled;
+        public bool Accepted, Cancelled, ConditionsPassed;
         public void Dispose() => Steps.Dispose();
     }
 }

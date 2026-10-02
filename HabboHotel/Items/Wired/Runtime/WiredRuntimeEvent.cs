@@ -23,3 +23,5 @@ public sealed record WiredRuntimeEvent(WiredEventKind Kind)
     public int X { get; init; }
     public int Y { get; init; }
 }
+
+public readonly record struct WiredClickResult(bool Triggered, bool BlockMenu, bool DoNotRotate);
