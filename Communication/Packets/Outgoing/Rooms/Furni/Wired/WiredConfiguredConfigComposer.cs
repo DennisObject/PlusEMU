@@ -15,7 +15,7 @@ public sealed class WiredConfiguredConfigComposer : IServerPacket
         _itemId = box.Item.Id;
         _spriteId = box.Item.Definition.SpriteId;
         _descriptor = box.Descriptor;
-        _configuration = box.Configuration;
+        _configuration = box is IWiredEditorConfigurationProvider editor ? editor.GetEditorConfiguration() : box.Configuration;
     }
 
     // Use the existing revision translations for the three envelopes.

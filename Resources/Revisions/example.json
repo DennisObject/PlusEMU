@@ -332,6 +332,8 @@
     "FlatControllerAddedComposer": 3493,
     "RoomRightsListComposer": 225,
     "WiredValidationErrorComposer": 156,
+    "WiredMovementsComposer": 3999,
+    "WiredFurniMoveStyleComposer": 5110,
     "WiredVariableFxConfigsComposer": 9473,
     "WiredVariableFxConfigsRemovedComposer": 9474,
     "WiredVariableFxStatusComposer": 9475,

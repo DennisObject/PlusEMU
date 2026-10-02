@@ -83,6 +83,22 @@ public class WiredModernContractsTests
     }
 
     [Fact]
+    public void EditorProjectionShowsCurrentValuesWithoutChangingSavedConfiguration()
+    {
+        var box = new ConfiguredBox("wf_var_room");
+        box.ApplyConfiguration(new() { Text = "saved metadata" });
+        var saved = box.Configuration;
+        box.EditorConfiguration = saved with { Text = "current value" };
+        var packet = new RecordingPacket();
+        new WiredConfiguredConfigComposer(box).Compose(packet);
+        Assert.Contains("current value", packet.Writes);
+        Assert.Same(saved, box.Configuration);
+        Assert.Equal("saved metadata", box.Configuration.Text);
+        Assert.NotEqual(ServerPacketHeader.TradingCompleteComposer, ServerPacketHeader.WiredClickSettingsComposer);
+        Assert.Equal(9477u, ServerPacketHeader.WiredClickSettingsComposer);
+    }
+
+    [Fact]
     public void FailedValidationOrPersistenceNeverPublishesNewLiveSettings()
     {
         var box = new ConfiguredBox("wf_act_send_signal");
@@ -165,8 +181,9 @@ public class WiredModernContractsTests
         Assert.NotNull(loaded);
         Assert.Equal(WiredBoxType.AddonRandomEffect, loaded.Type);
         Assert.True(legacy.IsEffect(item));
-        Assert.True(legacy.AddBox(loaded));
-        Assert.Contains(loaded, legacy.GetEffects(loaded));
+        var engine = new WiredStackEngine(() => 0, box => ReferenceEquals(box.Item, item), _ => true, _ => { }, _ => { });
+        Assert.True(engine.Add(loaded));
+        Assert.Contains(loaded, engine.GetBoxes(loaded, InteractionType.WiredEffect));
         Assert.Equal(InteractionType.WiredAddon,
             ItemDataManager.ReadInteractionType("wf_xtra_random", "wired_effect", WiredBoxType.None));
         Assert.Equal(InteractionType.WiredSelector,
@@ -305,7 +322,7 @@ public class WiredModernContractsTests
         }
     }
 
-    private sealed class ConfiguredBox : IWiredConfiguredItem
+    private sealed class ConfiguredBox : IWiredConfiguredItem, IWiredEditorConfigurationProvider
     {
         public ConfiguredBox(string name, WiredBoxSupport support = WiredBoxSupport.Implemented)
         {
@@ -314,6 +331,8 @@ public class WiredModernContractsTests
         }
         public WiredBoxDescriptor Descriptor { get; }
         public WiredConfiguration Configuration { get; private set; } = new();
+        public WiredConfiguration? EditorConfiguration { get; set; }
+        public WiredConfiguration GetEditorConfiguration() => EditorConfiguration ?? Configuration;
         public bool Reject { get; set; }
         public WiredConfiguration? ValidatedInput { get; private set; }
         public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
