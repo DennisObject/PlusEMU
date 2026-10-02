@@ -250,6 +250,37 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
+    public void RoomForwardingResolvesActualLinkSectionsPairsAndFallbackInOrder()
+    {
+        var link = MakeItem(1, "link"); link.ExtraData = new MapDataFormat(new() { ["internalLink"] = "23" });
+        Assert.Equal(new WiredRoomForwarding.Destination(23), WiredRoomForwarding.Resolve([link], "99", _ => throw new Exception(), _ => throw new Exception()));
+        link.ExtraData = new LegacyDataFormat { Data = "{\"room_linker\":{\"ItemId\":17}}" };
+        Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([link], "99", id => id == 17 ? 42u : 0, _ => throw new Exception()));
+        var tele = MakeItem(2, "tele"); tele.Definition.InteractionType = InteractionType.Teleport;
+        Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([tele], "99", id => id == 17 ? 42u : 0, id => id == 2 ? 17u : 0));
+        Assert.Equal(new WiredRoomForwarding.Destination(99), WiredRoomForwarding.Resolve([], "99", _ => 0, _ => 0));
+        Assert.Null(WiredRoomForwarding.Resolve([], "2147483648", _ => 0, _ => 0));
+    }
+
+    [Fact]
+    public void ConfiguredRoomForwardingSendsActualClientPacketAndLeavesRoomChecksToEntry()
+    {
+        using var fixture = new TeleportFixture(); var sent = 0;
+        fixture.Habbo.Client.SendCallback = _ => { sent++; return true; };
+        var action = ActionBox(fixture.Room, "wf_act_teleport_to_room");
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], Text = "42" }, out var config, out _));
+        action.ApplyConfiguration(config);
+        var context = Context(fixture.Room, new(WiredEventKind.Enter) { Actor = fixture.User }, [], [fixture.User]);
+        context.Triggering.UserIds.Add(fixture.User.VirtualId);
+        Assert.True(action.Execute(context));
+        Assert.Equal(1, sent); Assert.Same(fixture.Room, fixture.Habbo.CurrentRoom); Assert.False(fixture.Habbo.IsTeleporting);
+        fixture.Habbo.CurrentRoom = null;
+        Assert.False(action.Execute(context));
+        Assert.Equal(1, sent);
+        Assert.False(WiredMovementConfiguration.TryValidate("wf_act_rel_mov", new() { IntParams = [1, 1, 1, 0, 100], SelectedItems = [uint.MaxValue] }, out _, out _));
+    }
+
+    [Fact]
     public void RealScoreControllerPublishesPreviousValuesAndDistinctGameQuotas()
     {
         var (room, _, _) = World(); var state = new WiredGameState(); var scores = new List<WiredRuntimeEvent>();

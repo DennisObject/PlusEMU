@@ -12,7 +12,7 @@ public static class WiredMovementConfiguration
     {
         validated = proposed;
         error = "Invalid movement configuration.";
-        if (!WiredMovementActions.Names.Contains(name) || proposed.Version != WiredConfiguration.CurrentVersion
+        if (!WiredMovementActions.Names.Contains(name) || !WiredLegacyProtocol.IsWithinLimits(proposed) || proposed.Version != WiredConfiguration.CurrentVersion
             || proposed.Delay is < 0 or > 20 || proposed.IntParams.IsDefault
             || proposed.SelectedItems.IsDefault || proposed.SecondarySelectedItems.IsDefault
             || proposed.Snapshots.IsDefault || proposed.Text == null
