@@ -3,6 +3,7 @@ using Plus.Communication.Packets.Incoming.Rooms;
 using Plus.Communication.Packets.Outgoing.WiredVariables;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.WiredVariables;
@@ -13,7 +14,7 @@ public sealed class WiredUserVariableUpdateEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.CheckRights(session, false, true) || !TryRead(packet, false, out var request)) return Task.CompletedTask;
+        if (!WiredRoomSettings.For(room).CanModify(session) || !TryRead(packet, false, out var request)) return Task.CompletedTask;
         var menu = new WiredVariableMenu(room, room.GetWired().Variables);
         menu.Write(request!.Target, request.TargetId, request.DefinitionId, request.Value, WiredVariableMutation.Set, request.Token);
         session.Send(new WiredUserVariablesDataComposer(menu.Snapshot()));
@@ -40,12 +41,12 @@ public sealed class WiredUserVariableManageEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.CheckRights(session, false, true) || !WiredUserVariableUpdateEvent.TryRead(packet, true, out var request)) return Task.CompletedTask;
+        if (!WiredRoomSettings.For(room).CanModify(session) || !WiredUserVariableUpdateEvent.TryRead(packet, true, out var request)) return Task.CompletedTask;
         var menu = new WiredVariableMenu(room, room.GetWired().Variables);
         if (request!.Action == 2)
         {
             // This reaches offline holders, so ordinary wired editing or group rights are insufficient.
-            if (room.CheckRights(session, true, false)) menu.Clear(request.Target, request.DefinitionId);
+            if (WiredRoomSettings.For(room).CanManage(session)) menu.Clear(request.Target, request.DefinitionId);
         }
         else menu.Write(request.Target, request.TargetId, request.DefinitionId, request.Value,
             request.Action == 1 ? WiredVariableMutation.Remove : WiredVariableMutation.Replace);

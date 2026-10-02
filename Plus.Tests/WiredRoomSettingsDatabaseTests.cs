@@ -9,13 +9,16 @@ using Dapper;
 using MySqlConnector;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
+using Plus.Communication.Packets.Incoming.WiredVariables;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Database;
 using Plus.Database.Interfaces;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
+using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Settings;
+using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.Users;
@@ -40,7 +43,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
         output.WriteLine((string)((IDictionary<string, object>)schema)["Create Table"]);
         Assert.Equal(new[] { "room_id", "inspect_mask", "modify_mask", "timezone" }, connection.Query<string>(
             "SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='room_wired_settings' ORDER BY ORDINAL_POSITION"));
-        var users = new List<uint>(); uint roomId = 0, itemId = 0;
+        var users = new List<uint>(); uint roomId = 0, itemId = 0, variableId = 0, userVariableId = 0;
         var trigger = "wired_settings_probe_" + Guid.NewGuid().ToString("N")[..12];
         try
         {
@@ -51,7 +54,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
                 ["model_name"] = connection.QueryFirst<string>("SELECT id FROM room_models LIMIT 1") });
             var database = new PreviewDatabase(connectionString);
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-            room.Id = roomId; room.OwnerId = (int)ownerId; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
+            room.Id = roomId; room.Name = "Settings menu probe"; room.OwnerId = (int)ownerId; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
             var manager = new RoomUserManager(room); Set(room, "_roomUserManager", manager);
             var owner = Client(room, (int)ownerId, "owner", manager, 1);
             var guest = Client(room, (int)guestId, "guest", manager, 2);
@@ -96,6 +99,27 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             Assert.Empty(guest.Packets); Assert.Same(original, box.Configuration);
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_item_configurations WHERE item_id=@Id", new { Id = itemId }));
             await new WiredRoomSettingsSaveEvent(database).Parse(room, owner.Client, Packet(0, 2));
+            variableId = Insert(connection, "items", new() { ["user_id"] = ownerId, ["room_id"] = roomId,
+                ["base_item"] = connection.QueryFirst<uint>("SELECT id FROM furniture LIMIT 1"), ["extra_data"] = "", ["wall_pos"] = "" });
+            var variableConfig = new WiredConfiguration { IntParams = [10, 7], Text = "settings_menu_probe" };
+            connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@Id,'wf_var_room',1,@Json)",
+                new { Id = variableId, Json = JsonSerializer.Serialize(variableConfig) });
+            var variableItem = new Item { Id = variableId, RoomId = roomId, OwnerId = ownerId,
+                Definition = new() { ItemName = "wf_var_room", InteractionName = "wf_var_room", Type = ItemType.Floor } };
+            ((ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(itemHandler)!).TryAdd(variableId, variableItem);
+            var variables = new WiredRoomVariables(room, database, () => 1234);
+            Set(wired, "_variables", new Lazy<WiredRoomVariables>(() => variables));
+            var definition = variables.CreateBox(variableItem)!;
+            Assert.True(definition.TryValidateConfiguration(variableConfig, out variableConfig, out _));
+            definition.ApplyConfiguration(variableConfig); variables.ConfigurationLoaded(definition);
+            userVariableId = Insert(connection, "items", new() { ["user_id"] = ownerId, ["room_id"] = roomId,
+                ["base_item"] = connection.QueryFirst<uint>("SELECT id FROM furniture LIMIT 1"), ["extra_data"] = "", ["wall_pos"] = "" });
+            var userVariableConfig = new WiredConfiguration { IntParams = [1, 10], Text = "settings_clear_probe" };
+            connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@Id,'wf_var_user',1,@Json)",
+                new { Id = userVariableId, Json = JsonSerializer.Serialize(userVariableConfig) });
+            connection.Execute("INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at_ms,updated_at_ms) VALUES (@Id,0,@Holder,12,1234,1234)",
+                new { Id = userVariableId, Holder = guestId });
+            await AssertVariableMenuSettingsGates(room, settings, variables, owner.Client, guest.Client, guest.Packets, connection, variableId, userVariableId);
             var accepted = settings.Snapshot;
             owner.Packets.Clear(); guest.Packets.Clear();
             await new WiredMenuPermissionsSaveEvent(database).Parse(room, owner.Client, Packet(1, 1, "UTC"));
@@ -136,6 +160,13 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
                     connection.Execute("DELETE FROM wired_item_configurations WHERE item_id=@Id", new { Id = itemId });
                     connection.Execute("DELETE FROM items WHERE id=@Id", new { Id = itemId });
                 }
+                foreach (var definitionId in new[] { variableId, userVariableId }.Where(id => id != 0))
+                {
+                    connection.Execute("DELETE FROM wired_variable_values WHERE definition_id=@Id", new { Id = definitionId });
+                    connection.Execute("DELETE FROM wired_variable_locks WHERE definition_id=@Id", new { Id = definitionId });
+                    connection.Execute("DELETE FROM wired_item_configurations WHERE item_id=@Id", new { Id = definitionId });
+                    connection.Execute("DELETE FROM items WHERE id=@Id", new { Id = definitionId });
+                }
                 connection.Execute("DELETE FROM rooms WHERE id=@Id", new { Id = roomId });
             }
             foreach (var id in users) connection.Execute("DELETE FROM users WHERE id=@Id", new { Id = id });
@@ -148,13 +179,72 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
         var client = new FlashGameClient(null!, new FlashPacketFactory())
         {
             Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [ServerPacketHeader.WiredRoomSettingsDataComposer] = 5102,
-                [ServerPacketHeader.WiredEffectConfigComposer] = 1428, [ServerPacketHeader.WiredValidationErrorComposer] = 156 } },
+                [ServerPacketHeader.WiredEffectConfigComposer] = 1428, [ServerPacketHeader.WiredValidationErrorComposer] = 156,
+                [ServerPacketHeader.WiredAllVariablesHashComposer] = 1646, [ServerPacketHeader.WiredAllVariablesDiffComposer] = 2498,
+                [ServerPacketHeader.WiredVariableHoldersComposer] = 9462, [ServerPacketHeader.WiredVariableHoldersPageComposer] = 9461,
+                [ServerPacketHeader.WiredUserVariablesDataComposer] = 5103 } },
             SendCallback = args => { packets.Add(((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2)), new() { Buffer = args.MemoryBuffer[6..].ToArray() })); return true; }
         };
         client.SetHabbo(new Habbo { Id = id, Username = name, CurrentRoom = room, Client = client, Permissions = new([], []) });
         var actor = new RoomUser(id, roomId: room.Id, virtualId: virtualId, room: room); Set(actor, "_mClient", client);
         ((ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!).TryAdd(virtualId, actor);
         return (client, packets);
+    }
+    private static async Task AssertVariableMenuSettingsGates(Room room, WiredRoomSettings settings, WiredRoomVariables variables,
+        FlashGameClient owner, FlashGameClient guest, List<(uint Id, FlashIncomingPacket Payload)> packets, MySqlConnection connection, uint definitionId, uint clearDefinitionId)
+    {
+        var token = $"room:{definitionId}";
+        Assert.NotNull(variables.Catalog().Find(token));
+        room.UsersWithRights.Remove(guest.GetHabbo().Id);
+        Assert.False(room.CheckRights(guest, false, true));
+        Assert.True(settings.TrySave(owner, 1, 0, "Europe/Berlin", out _));
+        Assert.True(settings.CanInspect(guest)); Assert.False(settings.CanModify(guest));
+        Func<Task>[] reads = [
+            () => new WiredAllVariablesRequestEvent().Parse(room, guest, Packet()),
+            () => new WiredVariableHashesEvent().Parse(room, guest, Packet(0)),
+            () => new WiredVariableHoldersRequestEvent().Parse(room, guest, Packet(token)),
+            () => new WiredVariableHoldersPageEvent().Parse(room, guest, Packet(token, 1, 15, 0, -1)),
+            () => new WiredUserVariablesRequestEvent().Parse(room, guest, Packet())];
+        uint[] headers = [1646, 2498, 9462, 9461, 5103];
+        for (var index = 0; index < reads.Length; index++)
+        {
+            packets.Clear(); await reads[index](); Assert.NotEmpty(packets);
+            Assert.All(packets, packet => { Assert.Equal(headers[index], packet.Id); Assert.True(packet.Payload.HasDataRemaining()); });
+        }
+        Assert.Equal(7, Value());
+        packets.Clear();
+        await new WiredUserVariableUpdateEvent().Parse(room, guest, Packet(3, (int)room.Id, (int)definitionId, 99));
+        await new WiredUserVariableManageEvent().Parse(room, guest, Packet(0, 3, (int)room.Id, (int)definitionId, 88));
+        await new WiredUserVariableManageEvent().Parse(room, guest, Packet(2, 0, guest.GetHabbo().Id, (int)clearDefinitionId, 0));
+        Assert.Empty(packets); Assert.Equal(7, Value());
+
+        room.UsersWithRights.Add(guest.GetHabbo().Id);
+        Assert.True(settings.TrySave(owner, 2, 2, "Europe/Berlin", out _));
+        Assert.True(settings.CanModify(guest)); Assert.False(settings.CanManage(guest));
+        packets.Clear();
+        await new WiredUserVariableUpdateEvent().Parse(room, guest, Packet(3, (int)room.Id, (int)definitionId, 9));
+        Assert.Equal(9, Value()); Assert.Equal(5103u, Assert.Single(packets).Id);
+        packets.Clear();
+        await new WiredUserVariableManageEvent().Parse(room, guest, Packet(0, 3, (int)room.Id, (int)definitionId, 10));
+        Assert.Equal(10, Value()); Assert.Equal(5103u, Assert.Single(packets).Id);
+        packets.Clear();
+        await new WiredUserVariableManageEvent().Parse(room, guest, Packet(2, 0, guest.GetHabbo().Id, (int)clearDefinitionId, 0));
+        Assert.Equal(10, Value()); Assert.Equal(5103u, Assert.Single(packets).Id); // Editing never grants offline clear.
+        Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@Id", new { Id = clearDefinitionId }));
+
+        Assert.True(settings.TrySave(owner, 0, 0, "Europe/Berlin", out _));
+        Assert.True(room.CheckRights(guest, false, true)); Assert.False(settings.CanInspect(guest)); Assert.False(settings.CanModify(guest));
+        foreach (var read in reads) { packets.Clear(); await read(); Assert.Empty(packets); }
+        packets.Clear();
+        await new WiredUserVariableUpdateEvent().Parse(room, guest, Packet(3, (int)room.Id, (int)definitionId, 99));
+        await new WiredUserVariableManageEvent().Parse(room, guest, Packet(0, 3, (int)room.Id, (int)definitionId, 88));
+        Assert.Empty(packets); Assert.Equal(10, Value());
+        Assert.True(settings.CanManage(owner));
+        await new WiredUserVariableManageEvent().Parse(room, owner, Packet(2, 0, guest.GetHabbo().Id, (int)clearDefinitionId, 0));
+        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@Id", new { Id = clearDefinitionId }));
+        Assert.True(settings.TrySave(owner, 2, 2, "Europe/Berlin", out _));
+        room.UsersWithRights.Remove(guest.GetHabbo().Id);
+        int Value() => connection.ExecuteScalar<int>("SELECT value FROM wired_variable_values WHERE definition_id=@Id AND target_kind=3 AND holder_id=0", new { Id = definitionId });
     }
     private static FlashIncomingPacket Packet(params object[] values)
     {

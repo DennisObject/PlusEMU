@@ -2,6 +2,7 @@ using Plus.Communication.Packets.Outgoing.WiredVariables;
 using Plus.Communication.Packets.Incoming.Rooms;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.WiredVariables;
@@ -10,7 +11,7 @@ public sealed class WiredAllVariablesRequestEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.CheckRights(session, false, true) || packet.HasDataRemaining()) return Task.CompletedTask;
+        if (!WiredRoomSettings.For(room).CanInspect(session) || packet.HasDataRemaining()) return Task.CompletedTask;
         session.Send(new WiredAllVariablesHashComposer(room.GetWired().Variables.Catalog().Hash));
         return Task.CompletedTask;
     }
@@ -20,7 +21,7 @@ public sealed class WiredVariableHashesEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.CheckRights(session, false, true)) return Task.CompletedTask;
+        if (!WiredRoomSettings.For(room).CanInspect(session)) return Task.CompletedTask;
         if (!TryReadHashes(packet, out var hashes)) return Task.CompletedTask;
         foreach (var diff in room.GetWired().Variables.Catalog().Diff(hashes)) session.Send(new WiredAllVariablesDiffComposer(diff));
         return Task.CompletedTask;
@@ -46,7 +47,7 @@ public sealed class WiredVariableHoldersRequestEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.CheckRights(session, false, true)) return Task.CompletedTask;
+        if (!WiredRoomSettings.For(room).CanInspect(session)) return Task.CompletedTask;
         string id;
         try { id = packet.ReadString(); } catch (ArgumentException) { return Task.CompletedTask; }
         if (id.Length is < 1 or > 64 || packet.HasDataRemaining()) return Task.CompletedTask;
@@ -60,7 +61,7 @@ public sealed class WiredVariableHoldersPageEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.CheckRights(session, false, true)) return Task.CompletedTask;
+        if (!WiredRoomSettings.For(room).CanInspect(session)) return Task.CompletedTask;
         string id; int page, size, users, sort;
         try { id = packet.ReadString(); page = packet.ReadInt(); size = packet.ReadInt(); users = packet.ReadInt(); sort = packet.ReadInt(); }
         catch (ArgumentException) { return Task.CompletedTask; }
