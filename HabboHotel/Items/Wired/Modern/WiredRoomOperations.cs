@@ -24,8 +24,8 @@ public static class WiredRoomOperations
         if (box.Descriptor.CanonicalName is not ("wf_act_match_to_sshot" or "wf_act_place_furni"
             or "wf_cnd_match_snapshot" or "wf_cnd_not_match_snap" or "wf_trg_stuff_state" or "wf_trg_state_changed")) return proposed;
         var handler = box.Instance.GetRoomItemHandler();
-        var ids = proposed.SelectedItems.ToHashSet();
-        var picked = handler.GetFloor.Where(item => ids.Contains(item.Id)).ToArray();
+        var picked = proposed.SelectedItems.Distinct().Select(handler.GetItem)
+            .Where(item => item is { IsFloorItem: true }).ToArray();
         var templates = box.Descriptor.CanonicalName == "wf_act_place_furni" && proposed.TemporaryPlacement != null;
         return proposed with {
             Snapshots = templates && picked.Length == 0 ? proposed.Snapshots : picked.Select(Capture).ToImmutableArray(),
