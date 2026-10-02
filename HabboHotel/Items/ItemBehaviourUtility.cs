@@ -1,6 +1,7 @@
 ﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Items.DataFormat;
+using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Items;
@@ -15,10 +16,16 @@ internal static class ItemBehaviourUtility
 
     public static bool IsLimited(this InventoryItem item) => item.UniqueSeries > 0;
 
-    public static Item ToRoomObject(this InventoryItem item) => new()
+    /// <summary>
+    /// The habbo whose inventory holds the item owns it (items.user_id); InventoryItem.OwnerId can be stale after a
+    /// trade or zero after a pickup.
+    /// </summary>
+    public static Item ToRoomObject(this InventoryItem item, Habbo owner) => new()
     {
         Id = item.Id,
-        OwnerId = item.OwnerId,
+        OwnerId = (uint)owner.Id,
+        UserId = owner.Id,
+        Username = owner.Username,
         Definition = item.Definition,
         ExtraData = item.ExtraData,
         UniqueNumber = item.UniqueNumber,
