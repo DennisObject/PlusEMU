@@ -52,6 +52,7 @@ public static class WiredLegacyProtocol
         && configuration.Delay is >= 0 and <= WiredConfigurationLimits.DelayPulses
         && configuration.SelectionCode is >= 0 and <= WiredConfigurationLimits.SelectionCode
         && (configuration.ScoreQuotaPerGame is null or >= 1 and <= 10)
+        && (configuration.TemporaryPlacement?.IsWithinLimits() ?? true)
         && !configuration.VariableIds.IsDefault && configuration.VariableIds.Length <= WiredConfigurationLimits.IntParams
         && configuration.VariableIds.All(id => id != null && id.Length <= 1024)
         && !configuration.Snapshots.IsDefault && configuration.Snapshots.Length <= WiredConfigurationLimits.SelectedItems
