@@ -7,7 +7,11 @@ public sealed record WiredVariableWrite(WiredVariableValue? Before, WiredVariabl
     public bool Changed => Before != After;
 }
 public sealed record WiredVariableChange(uint RoomId, WiredVariableKey Key, WiredVariableChangeKind Kind,
-    WiredVariableValue? Before, WiredVariableValue? After, int EntityId, int Depth);
+    WiredVariableValue? Before, WiredVariableValue? After, int EntityId, int Depth)
+{
+    public int Origin { get; init; } // 0 Wired, 1 API, 2 creator tools; active editor mask bits.
+    public string InternalKey { get; init; } = "";
+}
 
 /// <summary>Mutate is atomic, including when no value exists. Failure throws before a change is published.</summary>
 public interface IWiredVariableStore

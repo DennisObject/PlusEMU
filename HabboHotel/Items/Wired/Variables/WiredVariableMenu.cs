@@ -30,7 +30,7 @@ public sealed class WiredVariableMenu(Room room, WiredRoomVariables variables)
             holder = frame.Holders.FirstOrDefault(x => x.Target == target && x.EntityId == targetId);
             if (holder == default) return false;
         }
-        var changed = variables.Module.Mutate(new(target, token.Length > 0 ? token : $"custom:{definitionId}"), holder, mutation, value, frame);
+        var changed = variables.Module.Mutate(new(target, token.Length > 0 ? token : $"custom:{definitionId}"), holder, mutation, value, frame, origin: 2);
         if (changed) variables.InvalidateFx();
         return changed;
     }

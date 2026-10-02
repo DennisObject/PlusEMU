@@ -21,6 +21,7 @@ public static class WiredVariableRuntimeFrames
         };
         var frame = new WiredVariableFrame(context.Room.Id, holders)
         {
+            RuntimeContext = context,
             Context = parent?.Context ?? new(),
             Trigger = Select(WiredVariableTarget.Furni, WiredSources.Trigger, []).Concat(Select(WiredVariableTarget.User, WiredSources.Trigger, [])).ToArray(),
             Signal = Select(WiredVariableTarget.Furni, WiredSources.Signal, []).Concat(Select(WiredVariableTarget.User, WiredSources.Signal, [])).ToArray(),

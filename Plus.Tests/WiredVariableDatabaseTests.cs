@@ -152,6 +152,11 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(fxUser, fxClient);
             var liveUsers = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(roomUsers)!;
             liveUsers[fxUser.VirtualId] = fxUser;
+            var signFrame = new WiredVariableFrame(room, [WiredVariableRuntimeFrames.UserHolder(fxUser)]);
+            var signReference = new WiredVariableReference(WiredVariableTarget.User, "internal:@sign");
+            Assert.Equal(-1, roomVariables.Module.Read(signReference, signFrame.Holders[0], signFrame)!.Value);
+            fxUser.SetStatus("sign", "7"); Assert.Equal(7, roomVariables.Module.Read(signReference, signFrame.Holders[0], signFrame)!.Value);
+            fxUser.RemoveStatus("sign"); Assert.Equal(-1, roomVariables.Module.Read(signReference, signFrame.Holders[0], signFrame)!.Value);
             var legacySnapshot = new WiredVariableMenu(liveRoom, roomVariables).Snapshot();
             Assert.Equal(holders[0].StableId, Assert.Single(legacySnapshot.Assignments).Key.HolderId);
             Assert.Single(legacySnapshot.Definitions);

@@ -20,6 +20,7 @@ public sealed class WiredVariableRuntimeFrameTests
         context.Policy.Addons.FurniLimit = 1; context.Policy.Addons.UserLimit = 1;
 
         var frame = WiredVariableRuntimeFrames.Create(context);
+        Assert.Same(context, frame.RuntimeContext);
         Assert.Equal(3, frame.Holders.Count(x => x.Target == WiredVariableTarget.Furni));
         Assert.Equal(3, frame.Holders.Count(x => x.Target == WiredVariableTarget.User));
         Assert.Single(frame.ResolveSource!(WiredVariableTarget.Furni, WiredSources.AllRoom, []));

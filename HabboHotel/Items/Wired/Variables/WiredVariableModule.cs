@@ -25,7 +25,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             if (committed.ValueWrite is not { } write) return;
             if (!committed.Definition.IsDurable) _active.Mutate(key, _ => write.After);
             if (write.Changed) _changes.Enqueue(new(committed.Definition.RoomId, key,
-                write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated, write.Before, write.After, 0, 1));
+                write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated, write.Before, write.After, 0, 1) { Origin = 2 });
         }
     }
 
@@ -79,11 +79,11 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     }
 
     public bool Mutate(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
-        int value, WiredVariableFrame frame) => Change(reference, holder, mutation, _ => value, frame);
+        int value, WiredVariableFrame frame, int origin = 0) => Change(reference, holder, mutation, _ => value, frame, origin);
 
     /// <summary>Arithmetic reads and writes the same locked value, including through references in another room.</summary>
     public bool Change(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
-        Func<int, int> transform, WiredVariableFrame frame)
+        Func<int, int> transform, WiredVariableFrame frame, int origin = 0)
     {
         lock (_gate)
         {
@@ -94,7 +94,15 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             {
                 if (mutation != WiredVariableMutation.Set) return false;
                 var current = builtins?.Read(builtin, holder, frame);
-                return current is not null && builtins!.Write(builtin, holder, transform(current.Value), frame);
+                if (current is null) return false;
+                var next = transform(current.Value);
+                if (next == current.Value || !builtins!.Write(builtin, holder, next, frame)) return false;
+                var after = builtins.Read(builtin, holder, frame);
+                if (after is not null && after.Value != current.Value)
+                    _changes.Enqueue(new(roomId, new(0, holder.Target, holder.StorageId), WiredVariableChangeKind.Updated,
+                        current, after, holder.EntityId, frame.Depth + 1)
+                    { Origin = origin, InternalKey = RoomWiredBuiltinVariables.Normalize(builtin.Token) });
+                return true;
             }
             var definition = resolved.Definition!;
             if (definition.IsDurable && (!holder.CanPersist || holder.Target == WiredVariableTarget.User && holder.StableId <= 0)) return false;
@@ -115,7 +123,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             if (!write.Changed) return false;
             _changes.Enqueue(new(definition.RoomId, key, write.After is null ? WiredVariableChangeKind.Removed :
                 write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
-                write.Before, write.After, holder.EntityId, frame.Depth + 1));
+                write.Before, write.After, holder.EntityId, frame.Depth + 1) { Origin = origin });
             return true;
         }
     }
@@ -170,7 +178,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
                 : new(value, before?.CreatedAtMs ?? nowMs(), nowMs()), definition.IsDurable ? resolved.Authorization : null);
             if (write.After is null) return false;
             if (write.Changed) _changes.Enqueue(new(definition.RoomId, key, write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
-                write.Before, write.After, 0, 1));
+                write.Before, write.After, 0, 1) { Origin = 2 });
             return true;
         }
     }
@@ -211,7 +219,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             foreach (var (key, value) in removed)
             {
                 var entityId = frame.Holders.FirstOrDefault(x => x.Target == key.Target && x.StorageId == key.HolderId).EntityId;
-                _changes.Enqueue(new(definition.RoomId, key, WiredVariableChangeKind.Removed, value, null, entityId, frame.Depth + 1));
+                _changes.Enqueue(new(definition.RoomId, key, WiredVariableChangeKind.Removed, value, null, entityId, frame.Depth + 1) { Origin = 2 });
             }
             return removed.Count;
         }

@@ -39,6 +39,7 @@ public sealed partial class WiredRoomVariables
     {
         if (item.Definition.WiredDescriptor is { } descriptor)
         {
+            if (descriptor.CanonicalName == "wf_trg_var_changed") return new WiredVariableChangedTrigger(_room, item, descriptor);
             if (descriptor.CanonicalName == "wf_xtra_text_input_variable") return new WiredVariableTextInputBox(_room, item, descriptor);
             if (WiredVariableMetadataBox.Supports(descriptor.CanonicalName)) return new WiredVariableMetadataBox(_room, item, descriptor);
             if (WiredVariableAddonBox.Supports(descriptor.CanonicalName)) return new WiredVariableAddonBox(_room, item, descriptor, Module,

@@ -12,6 +12,7 @@ public readonly record struct WiredVariableHolder(WiredVariableTarget Target, lo
 public sealed class WiredVariableFrame(uint roomId, IReadOnlyList<WiredVariableHolder> holders)
 {
     public uint RoomId { get; } = roomId;
+    public Plus.HabboHotel.Items.Wired.Runtime.WiredRuntimeContext? RuntimeContext { get; init; }
     public IReadOnlyList<WiredVariableHolder> Holders { get; } = holders;
     public MemoryWiredVariableStore Context { get; init; } = new();
     public IReadOnlyList<WiredVariableHolder> Trigger { get; init; } = [];
