@@ -114,6 +114,8 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                 break;
             case InteractionType.GuildItem:
             case InteractionType.GuildGate:
+                if (FurniExtraData.RejectsClientImage(new[] { extraData }))
+                    extraData = "";
                 break;
             case InteractionType.Pet:
                 if (!PetUtility.TryReadPurchase(extraData, out _, out _, out _))

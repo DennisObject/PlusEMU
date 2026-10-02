@@ -1,0 +1,17 @@
+{
+  "name": "plus-trusted-camera-renderer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "start": "node server.mjs",
+    "test": "node --test security.test.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.63.0",
+    "strip-json-comments": "5.0.3"
+  },
+  "devDependencies": {
+    "vite": "8.3.0"
+  }
+}

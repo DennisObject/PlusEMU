@@ -20,7 +20,7 @@ public class AchievementLevelFactory : IAchievementLevelFactory
             var level = new AchievementLevel(row.Level, row.RewardPixels, row.RewardPoints, row.ProgressNeeded);
 
             if (achievements.ContainsKey(row.GroupName!))
-                row.AddLevel(level);
+                achievements[row.GroupName!].AddLevel(level);
             else
             {
                 row.AddLevel(level);

@@ -1,8 +1,9 @@
+using Plus.HabboHotel.Camera;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Camera;
 
-internal class RenderRoomThumbnailEvent : IPacketEvent
+public sealed class RenderRoomThumbnailEvent(ICameraService camera) : IPacketEvent
 {
-    public Task Parse(GameClient session, IIncomingPacket packet) => throw new NotImplementedException();
+    public Task Parse(GameClient session, IIncomingPacket packet) => camera.Handle(session, packet, true);
 }

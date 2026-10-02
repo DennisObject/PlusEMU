@@ -24,6 +24,8 @@ internal class SaveBrandingItemEvent : IPacketEvent
             var count = packet.ReadInt();
             var values = new List<string>(Math.Max(count, 0));
             for (var i = 1; i <= count; i++) values.Add(packet.ReadString());
+            if (FurniExtraData.RejectsClientImage(values))
+                return Task.CompletedTask;
             var map = item.ExtraData as MapDataFormat ?? new MapDataFormat();
             map.Store(FurniExtraData.Branding(values));
             item.ExtraData = map;

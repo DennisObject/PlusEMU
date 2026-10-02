@@ -19,12 +19,24 @@ public static class RoomEngineSerializers
         packet.WriteInteger(-1); // to-do: check
         packet.WriteInteger(item.Definition.Modes > 1 ? 1 : 0);
         packet.WriteInteger(item.UserId);
+        WriteFurnitureMetadata(packet, item);
     }
     public static void Serialize(this IOutgoingPacket packet, ICollection<Item> items)
     {
         packet.WriteInt(items.Count);
         foreach (var item in items)
             packet.Serialize(item);
+    }
+
+    internal static void WriteFurnitureMetadata(IOutgoingPacket packet, Item item)
+    {
+        packet.WriteInteger(item.Definition.Stackable ? 1 : 0);
+        packet.WriteInteger(item.Definition.IsSeat ? 1 : 0);
+        packet.WriteInteger(item.Definition.InteractionType == InteractionType.Bed ? 1 : 0);
+        packet.WriteInteger(item.Definition.Walkable ? 1 : 0);
+        packet.WriteInteger(item.Definition.Width);
+        packet.WriteInteger(item.Definition.Length);
+        packet.WriteInteger(0); // No linked teleport target is advertised.
     }
 
     internal static void WriteOwnerMap(IOutgoingPacket packet, IEnumerable<Item> items, int roomOwnerId, string? roomOwnerName)

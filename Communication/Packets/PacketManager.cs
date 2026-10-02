@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Plus.Communication.Attributes;
 using Plus.Communication.Packets.Incoming;
+using Plus.Communication.Packets.Incoming.Camera;
 using Plus.HabboHotel.GameClients;
 using System.Diagnostics;
 using System.Reflection;
@@ -74,7 +75,10 @@ public sealed class PacketManager : IPacketManager, IDisposable
             return;
 
         var task = pak.Parse(session, packet); 
-        await task.WaitAsync(_maximumRunTimeInSec, _cancellationTokenSource.Token).ContinueWith(t =>
+        // The trusted camera renderer has its own bounded deadline. Other packet limits stay unchanged.
+        var timeout = pak is RenderRoomEvent or RenderRoomThumbnailEvent
+            ? TimeSpan.FromSeconds(30) : _maximumRunTimeInSec;
+        await task.WaitAsync(timeout, _cancellationTokenSource.Token).ContinueWith(t =>
         {
             if (t.IsFaulted && t.Exception != null)
             {

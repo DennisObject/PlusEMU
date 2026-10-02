@@ -278,3 +278,7 @@ __pycache__/
 # !tools/packages.config
 
 .DS_Store
+
+# Server-minted camera media
+/camera/
+/camera-media/

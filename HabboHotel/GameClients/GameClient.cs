@@ -46,7 +46,15 @@ public abstract class GameClient
         _server = server;
     }
 
-    internal void OnDisconnected() => _habbo?.OnDisconnect();
+    internal event Action? CameraContextEnded;
+    internal void EndCameraContext() => CameraContextEnded?.Invoke();
+
+    internal void OnDisconnected()
+    {
+        IsAuthenticated = false;
+        EndCameraContext();
+        _habbo?.OnDisconnect();
+    }
 
     internal abstract (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer);
     internal virtual async void OnReceived(byte[] buffer, long offset, long size)
@@ -122,6 +130,7 @@ public abstract class GameClient
     {
         if (_habbo != null) throw new InvalidOperationException();
         _habbo = habbo;
+        IsAuthenticated = true;
     }
 
     public void Send(IServerPacket composer)

@@ -296,6 +296,7 @@ public class RoomUserManager
                 session.Send(new CloseConnectionComposer());
             if (session.GetHabbo().TentId > 0)
                 session.GetHabbo().TentId = 0;
+            session.EndCameraContext();
             session.GetHabbo().CurrentRoom = null;
             var user = GetRoomUserByHabbo(session.GetHabbo().Id);
             if (user != null)
