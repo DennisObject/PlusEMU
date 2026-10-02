@@ -15,6 +15,8 @@ public sealed record WiredConfiguration
     public ImmutableArray<uint> SelectedItems { get; init; } = [];
     public int Delay { get; init; }
     public int SelectionCode { get; init; }
+    // Server-side per-user, per-game limit. Null preserves legacy unlimited scoring; this is not an editor int slot.
+    public int? ScoreQuotaPerGame { get; init; }
     public ImmutableArray<uint> SecondarySelectedItems { get; init; } = [];
     public ImmutableDictionary<string, int> FurniSources { get; init; } = ImmutableDictionary<string, int>.Empty;
     public ImmutableDictionary<string, int> UserSources { get; init; } = ImmutableDictionary<string, int>.Empty;
