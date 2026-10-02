@@ -82,7 +82,9 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
                     extra["is_maxed"] = level.IsMaxed ? "true" : "false";
                     if (binding.Level is not null) { min = level.Start; max = level.Next; }
                 }
-                var key = new WiredVariableFxKey(binding.Config.Id, binding.Variable.Token, binding.Config.UserFx, holder.EntityId);
+                var wireVariable = WiredVariableModule.TryDefinitionId(binding.Variable.Token, out var definitionId)
+                    ? (binding.Config.UserFx ? "user:" : "furni:") + definitionId : binding.Variable.Token;
+                var key = new WiredVariableFxKey(binding.Config.Id, wireVariable, binding.Config.UserFx, holder.EntityId);
                 identities[key] = holder;
                 wanted[key] = new(key, !state.Holders.TryGetValue(key, out var previousHolder) || previousHolder != holder, value.Value, min, max, extra.ToImmutable());
             }

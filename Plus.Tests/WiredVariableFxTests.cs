@@ -58,7 +58,7 @@ public sealed class WiredVariableFxTests
         var first = tracker.Update(viewer, frame, [binding!], [holder], _ => 0);
         Assert.True(first.InitializeAll); Assert.Single(first.Configs);
         var status = Assert.Single(first.Statuses);
-        Assert.Equal(7, status.Key.EntityId); Assert.Equal(200, status.Max); Assert.Equal(25, status.Value);
+        Assert.Equal(7, status.Key.EntityId); Assert.Equal("user:10", status.Key.VariableId); Assert.Equal(200, status.Max); Assert.Equal(25, status.Value);
         Assert.Equal(new uint[] { 9473, 9475 }, WiredVariableFxComposer.ComposeBatch(first).Select(x => x.MessageId));
         var retry = tracker.Update(viewer, frame, [binding!], [holder], _ => 0);
         Assert.Single(retry.Configs); Assert.Single(retry.Statuses); // Failed send was not acknowledged.

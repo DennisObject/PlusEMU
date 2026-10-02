@@ -6,7 +6,7 @@ using Plus.HabboHotel.Rooms;
 namespace Plus.HabboHotel.Items.Wired.Variables;
 
 /// <summary>One room's production variable state. The room facade owns and calls these lifecycle methods.</summary>
-public sealed class WiredRoomVariables
+public sealed partial class WiredRoomVariables
 {
     private readonly Room _room;
     private readonly Func<long> _nowMs;
@@ -16,7 +16,9 @@ public sealed class WiredRoomVariables
     public WiredVariableEditor Editor { get; }
     public WiredVariableFxTracker Fx { get; }
     public IReadOnlyCollection<WiredVariableDefinitionBox> Definitions => _definitions.Values.ToArray();
-    public WiredVariableCatalog Catalog() => new(Module.DescribeDefinitions(_definitions.Keys));
+    public WiredVariableCatalog Catalog() => new(Module.DescribeDefinitions(_definitions.Keys).Select(description =>
+        description with { TextConnector = MetadataOn(description.Definition.ItemId, "wf_xtra_var_text_connector")?.TextConnector
+            ?? new Dictionary<int, string>() }).ToArray());
     public bool FxDirty { get; private set; } = true;
 
     public WiredRoomVariables(Room room, IDatabase database, Func<long> nowMs,
@@ -30,10 +32,12 @@ public sealed class WiredRoomVariables
         _persistence = new(database, Module, nowMs);
     }
 
-    public IWiredConfiguredItem? CreateBox(Item item) => WiredVariableBoxFactory.Create(_room, item, Module, _nowMs, _persistence);
+    public IWiredConfiguredItem? CreateBox(Item item) => item.Definition.WiredDescriptor is { } descriptor && WiredVariableMetadataBox.Supports(descriptor.CanonicalName)
+        ? new WiredVariableMetadataBox(_room, item, descriptor) : WiredVariableBoxFactory.Create(_room, item, Module, _nowMs, _persistence);
     /// <summary>Call after hydration from the companion configuration store. Database failures must abort activation.</summary>
     public void ConfigurationLoaded(IWiredConfiguredItem box)
     {
+        if (box is WiredVariableMetadataBox metadata) { _metadata[box.Item.Id] = metadata; FxDirty = true; return; }
         if (box is not WiredVariableDefinitionBox definition || !definition.HasPersistedConfiguration) return;
         _definitions[box.Item.Id] = definition;
         if (definition.Descriptor.CanonicalName == "wf_var_room" && !Module.InitializeGlobal(box.Item.Id))
@@ -43,6 +47,7 @@ public sealed class WiredRoomVariables
     /// <summary>Memory-only publication hook, called after atomic persistence and ApplyConfiguration.</summary>
     public void ConfigurationSaved(IWiredConfiguredItem box)
     {
+        if (box is WiredVariableMetadataBox metadata) _metadata[box.Item.Id] = metadata;
         if (box is WiredVariableDefinitionBox definition)
         {
             _definitions[box.Item.Id] = definition;
@@ -57,6 +62,7 @@ public sealed class WiredRoomVariables
     }
     public void ItemDetached(uint itemId)
     {
+        _metadata.Remove(itemId);
         _definitions.Remove(itemId); Module.DetachDefinition(itemId);
         HolderLeft(new(WiredVariableTarget.Furni, itemId, checked((int)itemId)));
     }

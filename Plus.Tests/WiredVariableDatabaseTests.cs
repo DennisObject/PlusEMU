@@ -2,6 +2,13 @@ using System.Data;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Runtime.CompilerServices;
+using System.Reflection;
+using System.Collections.Concurrent;
+using System.Buffers.Binary;
+using Plus.Communication.Flash;
+using Plus.Communication.Revisions;
+using Plus.Communication.Packets.Outgoing;
+using Plus.HabboHotel.Users;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
@@ -117,6 +124,47 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             var liveRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); liveRoom.Id = room; liveRoom.OwnerId = (int)owner;
             var atomicDb = new ProbeDatabase(connectionString);
             var roomVariables = new WiredRoomVariables(liveRoom, atomicDb, () => 5000);
+            var itemHandler = new RoomItemHandling(liveRoom);
+            typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, itemHandler);
+            var roomUsers = new RoomUserManager(liveRoom);
+            typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, roomUsers);
+            var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(itemHandler)!;
+            var userDefinitionItem = new Item { Id = items[0], OwnerId = owner, Definition = new() { InteractionName = "wf_var_user" } };
+            floor[userDefinitionItem.Id] = userDefinitionItem;
+            var userDefinition = roomVariables.CreateBox(userDefinitionItem)!;
+            userDefinition.ApplyConfiguration(new() { IntParams = [1, 10], Text = "probe0" }); roomVariables.ConfigurationLoaded(userDefinition);
+            var fxItemId = Insert(admin, "items", new() { ["user_id"] = owner, ["room_id"] = room, ["base_item"] = baseItem, ["extra_data"] = "", ["wall_pos"] = "" }); items.Add(fxItemId);
+            var fxItem = new Item { Id = fxItemId, OwnerId = owner, Definition = new() { InteractionName = "wf_xtra_var_fx_health" } }; floor[fxItem.Id] = fxItem;
+            var fxBox = Assert.IsType<WiredVariableMetadataBox>(roomVariables.CreateBox(fxItem)); roomVariables.ConfigurationLoaded(fxBox);
+            var sentFx = new List<uint>();
+            var fxClient = new FlashGameClient(null!, new FlashPacketFactory())
+            {
+                Revision = new Revision { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
+                {
+                    [9473] = 9473, [9474] = 9474, [9475] = 9475, [9476] = 9476
+                } },
+                SendCallback = args => { sentFx.Add(BinaryPrimitives.ReadUInt16BigEndian(args.MemoryBuffer.Span.Slice(4, 2))); return true; }
+            };
+            var fxPlayer = new Habbo { Id = (int)holders[0].StableId, Client = fxClient, CurrentRoom = liveRoom }; fxClient.SetHabbo(fxPlayer);
+            var fxUser = new RoomUser(fxPlayer.Id, 0, holders[0].EntityId, liveRoom);
+            typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(fxUser, fxClient);
+            var fxFrame = new WiredVariableFrame(room, [holders[0]]);
+            var viewers = new[] { new WiredVariableFxViewer(fxUser, [holders[0]]) };
+            Assert.True(roomVariables.FlushFx(fxFrame, viewers, (client, packet) => client.Send(packet), exception => throw exception));
+            Assert.Equal(new uint[] { 9473, 9475 }, sentFx); sentFx.Clear(); atomicDb.Commands = 0;
+            Assert.False(roomVariables.FlushFx(fxFrame, viewers, (client, packet) => client.Send(packet), exception => throw exception));
+            Assert.Equal(0, atomicDb.Commands); Assert.Empty(sentFx);
+            roomVariables.InvalidateFx();
+            var failedSend = false;
+            roomVariables.Fx.RemoveViewer(fxPlayer.Id);
+            roomVariables.FlushFx(fxFrame, viewers, (_, _) => throw new IOException("Injected enqueue failure"), _ => failedSend = true);
+            Assert.True(failedSend); Assert.True(roomVariables.FxDirty);
+            roomVariables.FlushFx(fxFrame, viewers, (client, packet) => client.Send(packet), exception => throw exception);
+            Assert.Equal(new uint[] { 9473, 9475 }, sentFx); sentFx.Clear();
+            fxItem.SetState(1, 1, 0, []);
+            roomVariables.FlushFx(fxFrame, viewers, (client, packet) => client.Send(packet), exception => throw exception);
+            Assert.Equal(new uint[] { 9476 }, sentFx);
+            output.WriteLine("Actual room FX binding/composition: initial configs/status, unchanged flush zero SQL, enqueue-failure retry, and moved-off-variable removal passed.");
             var global = Assert.IsType<WiredVariableDefinitionBox>(roomVariables.CreateBox(new Item
             { Id = globalItem, Definition = new() { InteractionName = "wf_var_room" } }));
             Assert.Same(global, WiredBoxLoading.Select(null, global, null));
