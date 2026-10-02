@@ -9,6 +9,7 @@ using Plus.HabboHotel;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.Users;
@@ -46,7 +47,9 @@ public class PlacedFurniRoomTests : IDisposable
         Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", false, 0, false)));
         Set("_roomItemHandling", new RoomItemHandling(_room));
         Set("_roomUserManager", new RoomUserManager(_room));
-        Set("_wiredComponent", new WiredComponent(_room));
+        var wired = new WiredComponent(_room);
+        typeof(WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, new EmptyConfigurationStore());
+        Set("_wiredComponent", wired);
         _client.SetHabbo(new Habbo { Id = 7, Username = "owner", CurrentRoom = _room });
 
         var rooms = Proxy<IRoomManager>((method, args) =>
@@ -140,6 +143,12 @@ public class PlacedFurniRoomTests : IDisposable
     {
         public Func<string, object?[], object?> Call = null!;
         protected override object? Invoke(MethodInfo? method, object?[]? args) => Call(method!.Name, args!);
+    }
+
+    private sealed class EmptyConfigurationStore : IWiredConfigurationStore
+    {
+        public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => null;
+        public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) { }
     }
 
     private sealed class TestClient : GameClient
