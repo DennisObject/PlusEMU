@@ -3,11 +3,13 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Modern.Conditions;
 using Plus.HabboHotel.Items.Wired.Modern.Triggers;
+using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 using Xunit;
@@ -152,6 +154,7 @@ public class ModernWiredBehaviorTests
         item.LegacyDataString = "on,with,separators";
         var snapshot = WiredRoomOperations.Capture(item);
         Assert.Equal(42u, snapshot.DefinitionId);
+        Assert.Equal("on,with,separators", snapshot.State);
         item.GetX = 8;
         Assert.True(WiredRoomOperations.MatchesSnapshot(item, snapshot, true, true, false, true));
         Assert.False(WiredRoomOperations.MatchesSnapshot(item, snapshot, false, false, true, false));
@@ -254,7 +257,7 @@ public class ModernWiredBehaviorTests
 
     private static Item Item(uint id, int x, int y) => new()
     {
-        Id = id, GetX = x, GetY = y, LegacyDataString = "0",
+        Id = id, GetX = x, GetY = y, ExtraData = new LegacyDataFormat { Data = "0" },
         Definition = new() { Type = ItemType.Floor, Width = 1, Length = 1, Modes = 2,
             AdjustableHeights = [], VendingIds = [], ItemName = "test", PublicName = "test" }
     };

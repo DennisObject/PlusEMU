@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Collections.Immutable;
 using System.Globalization;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.Items.Wired.Configuration;
@@ -6,9 +7,26 @@ using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Items.Wired.Modern;
 
+public sealed record WiredCollisionPolicy(IReadOnlySet<uint> ThroughFurni, IReadOnlySet<int> ThroughUsers,
+    IReadOnlySet<uint> BlockingFurni)
+{
+    public bool BlocksUsers(IEnumerable<RoomUser> users) => users.Any(user => !ThroughUsers.Contains(user.VirtualId));
+    public bool BlocksFurni(Item item) => BlockingFurni.Contains(item.Id)
+        || !item.Definition.Stackable && !ThroughFurni.Contains(item.Id);
+}
+
 /// <summary>Movement and queries share the same footprint and placement checks.</summary>
 public static class WiredRoomOperations
 {
+    /// <summary>Save preparation only: capture current picked items before pure validation. Never call while loading.</summary>
+    public static WiredConfiguration PrepareSnapshots(IWiredConfiguredItem box, WiredConfiguration proposed)
+    {
+        if (box.Descriptor.CanonicalName is not ("wf_act_match_to_sshot" or "wf_act_place_furni"
+            or "wf_cnd_match_snapshot" or "wf_cnd_not_match_snap" or "wf_trg_stuff_state" or "wf_trg_state_changed")) return proposed;
+        var ids = proposed.SelectedItems.ToHashSet();
+        return proposed with { Snapshots = box.Instance.GetRoomItemHandler().GetFloor
+            .Where(item => ids.Contains(item.Id)).Select(Capture).ToImmutableArray() };
+    }
     public static Point Offset(int direction) => direction switch
     {
         0 => new(0, -1), 1 => new(1, -1), 2 => new(1, 0), 3 => new(1, 1),
@@ -34,7 +52,7 @@ public static class WiredRoomOperations
             .Any(other => other.Id != item.Id && other.GetZ >= item.TotalHeight);
 
     public static bool CanMoveItem(Room room, Item item, int x, int y, int rotation,
-        double? height = null, bool throughUsers = false, bool throughFurni = false)
+        double? height = null, bool throughUsers = false, bool throughFurni = false, WiredCollisionPolicy? collision = null)
     {
         if (!item.IsFloorItem || room.GetRoomItemHandler().GetItem(item.Id) != item
             || !ValidRotation(item, rotation) || height is { } z && (!double.IsFinite(z) || z < 0 || z > 80))
@@ -45,10 +63,11 @@ public static class WiredRoomOperations
         {
             if (!map.ValidTile(point.X, point.Y) || map.Model.SqState[point.X, point.Y] != SquareState.Open)
                 return false;
-            if (!throughUsers && !item.Definition.IsSeat && map.GetRoomUsers(point).Count != 0)
+            if (!throughUsers && !item.Definition.IsSeat && (collision?.BlocksUsers(map.GetRoomUsers(point)) ?? map.GetRoomUsers(point).Count != 0))
                 return false;
             var others = map.GetCoordinatedItems(point).Where(other => other.Id != item.Id).ToArray();
-            if (!throughFurni && others.Any(other => !other.Definition.Stackable))
+            if (others.Any(other => collision?.BlockingFurni.Contains(other.Id) == true)
+                || !throughFurni && others.Any(other => collision?.BlocksFurni(other) ?? !other.Definition.Stackable))
                 return false;
             var top = height ?? Math.Max(map.Model.SqFloorHeight[point.X, point.Y],
                 others.Select(other => other.TotalHeight).DefaultIfEmpty(0).Max());
@@ -62,11 +81,11 @@ public static class WiredRoomOperations
         rotation is >= 0 and <= 7 && (item.Definition.ExtraRot || rotation % 2 == 0);
 
     public static bool MoveItem(Room room, Item item, int x, int y, int? rotation = null,
-        double? height = null, bool keepAltitude = false, bool animate = true)
+        double? height = null, bool keepAltitude = false, bool animate = true, WiredCollisionPolicy? collision = null)
     {
         var rot = rotation ?? item.Rotation;
         var z = height ?? (keepAltitude ? item.GetZ : (double?)null);
-        if (!CanMoveItem(room, item, x, y, rot, z))
+        if (!CanMoveItem(room, item, x, y, rot, z, collision: collision))
             return false;
         var source = new Point(item.GetX, item.GetY);
         var sourceZ = item.GetZ;
@@ -75,7 +94,7 @@ public static class WiredRoomOperations
             return false;
         // The full placement path maintains map/index, moved-item persistence and room statuses.
         if (!room.GetRoomItemHandler().SetFloorItem(null!, item, x, y, rot, false, false,
-                !animate || rotationChanged, true, z ?? -1))
+                !animate || rotationChanged, true, z ?? -1, collision))
             return false;
         if (animate)
             room.SendPacket(new SlideObjectBundleComposer(source.X, source.Y, sourceZ,

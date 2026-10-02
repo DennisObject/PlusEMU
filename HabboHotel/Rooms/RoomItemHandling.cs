@@ -396,8 +396,18 @@ public class RoomItemHandling
         }
     }
 
-    public bool SetFloorItem(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses = false, double height = -1)
+    public bool SetFloorItem(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses = false, double height = -1, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision = null)
     {
+        bool HasBlockingUsers(int x, int y) => wiredCollision == null
+            ? _room.GetGameMap().SquareHasUsers(x, y)
+            : wiredCollision.BlocksUsers(_room.GetGameMap().GetRoomUsers(new(x, y)));
+        if (wiredCollision != null)
+        {
+            foreach (var point in Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.Footprint(item, newX, newY, newRot))
+                if (!_room.GetGameMap().ValidTile(point.X, point.Y)
+                    || _room.GetGameMap().GetCoordinatedItems(point).Any(other => other.Id != item.Id && wiredCollision.BlocksFurni(other)))
+                    return false;
+        }
         var needsReAdd = false;
         if (newItem)
         {
@@ -414,7 +424,7 @@ public class RoomItemHandling
         if (!newItem)
             needsReAdd = _room.GetGameMap().RemoveFromMap(item);
         var affectedTiles = Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, newRot);
-        if (!_room.GetGameMap().ValidTile(newX, newY) || _room.GetGameMap().SquareHasUsers(newX, newY) && !item.Definition.IsSeat)
+        if (!_room.GetGameMap().ValidTile(newX, newY) || HasBlockingUsers(newX, newY) && !item.Definition.IsSeat)
         {
             if (needsReAdd)
                 _room.GetGameMap().AddToMap(item);
@@ -423,7 +433,7 @@ public class RoomItemHandling
         foreach (var tile in affectedTiles.Values)
         {
             if (!_room.GetGameMap().ValidTile(tile.X, tile.Y) ||
-                _room.GetGameMap().SquareHasUsers(tile.X, tile.Y) && !item.Definition.IsSeat)
+                HasBlockingUsers(tile.X, tile.Y) && !item.Definition.IsSeat)
             {
                 if (needsReAdd) _room.GetGameMap().AddToMap(item);
                 return false;
@@ -457,7 +467,7 @@ public class RoomItemHandling
                 {
                     foreach (var tile in affectedTiles.Values)
                     {
-                        if (_room.GetGameMap().GetRoomUsers(new(tile.X, tile.Y)).Count > 0)
+                        if (wiredCollision == null ? _room.GetGameMap().GetRoomUsers(new(tile.X, tile.Y)).Count > 0 : HasBlockingUsers(tile.X, tile.Y))
                         {
                             if (needsReAdd)
                                 _room.GetGameMap().AddToMap(item);
@@ -488,7 +498,7 @@ public class RoomItemHandling
                         continue;
                     if (I.Definition == null)
                         continue;
-                    if (!I.Definition.Stackable)
+                    if (!I.Definition.Stackable && (wiredCollision == null || !wiredCollision.ThroughFurni.Contains(I.Id)))
                     {
                         if (needsReAdd)
                         {
