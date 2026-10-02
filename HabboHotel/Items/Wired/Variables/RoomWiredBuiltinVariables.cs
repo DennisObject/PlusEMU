@@ -64,6 +64,14 @@ public sealed class RoomWiredBuiltinVariables(Room room,
 
     public bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame)
     {
+        var changed = Write(reference, holder, value, frame, out var completed);
+        if (changed) completed?.Invoke();
+        return changed;
+    }
+
+    public bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame, out Action? completed)
+    {
+        completed = null;
         if (reference.Target != holder.Target || frame.RoomId != room.Id || !frame.Contains(holder)) return false;
         var key = Normalize(reference.Token);
         if (holder.Target == WiredVariableTarget.User)
@@ -92,7 +100,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
                 || !int.TryParse(item.LegacyDataString, out var previous) || previous == value) return false;
             item.LegacyDataString = value.ToString(CultureInfo.InvariantCulture);
             item.UpdateState();
-            stateChanged?.Invoke(item, frame);
+            if (stateChanged is not null) completed = () => stateChanged(item, frame);
             return true;
         }
         return engineWrite?.Invoke(reference with { Token = $"internal:{key}" }, holder, value, frame) == true;

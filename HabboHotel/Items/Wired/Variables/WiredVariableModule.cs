@@ -89,47 +89,55 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     public bool Change(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
         Func<int, int> transform, WiredVariableFrame frame, int origin = 0)
     {
-        lock (_gate)
+        Action? completed;
+        bool changed;
+        lock (_gate) changed = ChangeLocked(reference, holder, mutation, transform, frame, origin, out completed);
+        if (changed) completed?.Invoke();
+        return changed;
+    }
+
+    private bool ChangeLocked(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
+        Func<int, int> transform, WiredVariableFrame frame, int origin, out Action? completed)
+    {
+        completed = null;
+        if (frame.Depth >= 32 || !ValidateHolder(reference, holder, frame)) return false;
+        var resolved = Resolve(reference, true);
+        if (resolved is null) return false;
+        if (resolved.Builtin is { } builtin)
         {
-            if (frame.Depth >= 32 || !ValidateHolder(reference, holder, frame)) return false;
-            var resolved = Resolve(reference, true);
-            if (resolved is null) return false;
-            if (resolved.Builtin is { } builtin)
-            {
-                if (mutation != WiredVariableMutation.Set) return false;
-                var current = builtins?.Read(builtin, holder, frame);
-                if (current is null) return false;
-                var next = transform(current.Value);
-                if (next == current.Value || !builtins!.Write(builtin, holder, next, frame)) return false;
-                var after = builtins.Read(builtin, holder, frame);
-                if (after is not null && after.Value != current.Value)
-                    _changes.Enqueue(new(roomId, new(0, holder.Target, holder.StorageId), WiredVariableChangeKind.Updated,
-                        current, after, holder.EntityId, frame.Depth + 1)
-                    { Origin = origin, InternalKey = RoomWiredBuiltinVariables.Normalize(builtin.Token) });
-                return true;
-            }
-            var definition = resolved.Definition!;
-            if (definition.IsDurable && (!holder.CanPersist || holder.Target == WiredVariableTarget.User && holder.StableId <= 0)) return false;
-            if (mutation == WiredVariableMutation.Set && !definition.HasValue) return false;
-            if (definition.Target == WiredVariableTarget.Global && mutation != WiredVariableMutation.Set) return false;
-            var key = Key(definition, holder);
-            var write = Store(definition, frame).Mutate(key, previous =>
-            {
-                var current = previous ?? (definition.Target == WiredVariableTarget.Global ? new(definition.InitialValue, 0, 0) : null);
-                if (mutation == WiredVariableMutation.Give && current is not null) return previous;
-                if (mutation is WiredVariableMutation.Set or WiredVariableMutation.Remove && current is null) return previous;
-                if (mutation == WiredVariableMutation.Remove) return null;
-                var next = definition.HasValue ? transform(current?.Value ?? 0) : 1;
-                if (mutation == WiredVariableMutation.Set && previous is not null && previous.Value == next) return previous;
-                var now = nowMs();
-                return new(next, previous?.CreatedAtMs ?? now, now);
-            }, definition.IsDurable ? resolved.Authorization : null);
-            if (!write.Changed) return false;
-            _changes.Enqueue(new(definition.RoomId, key, write.After is null ? WiredVariableChangeKind.Removed :
-                write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
-                write.Before, write.After, holder.EntityId, frame.Depth + 1) { Origin = origin });
+            if (mutation != WiredVariableMutation.Set) return false;
+            var current = builtins?.Read(builtin, holder, frame);
+            if (current is null) return false;
+            var next = transform(current.Value);
+            if (next == current.Value || !builtins!.Write(builtin, holder, next, frame, out completed)) return false;
+            var after = builtins.Read(builtin, holder, frame);
+            if (after is not null && after.Value != current.Value)
+                _changes.Enqueue(new(roomId, new(0, holder.Target, holder.StorageId), WiredVariableChangeKind.Updated,
+                    current, after, holder.EntityId, frame.Depth + 1)
+                { Origin = origin, InternalKey = RoomWiredBuiltinVariables.Normalize(builtin.Token) });
             return true;
         }
+        var definition = resolved.Definition!;
+        if (definition.IsDurable && (!holder.CanPersist || holder.Target == WiredVariableTarget.User && holder.StableId <= 0)) return false;
+        if (mutation == WiredVariableMutation.Set && !definition.HasValue) return false;
+        if (definition.Target == WiredVariableTarget.Global && mutation != WiredVariableMutation.Set) return false;
+        var key = Key(definition, holder);
+        var write = Store(definition, frame).Mutate(key, previous =>
+        {
+            var current = previous ?? (definition.Target == WiredVariableTarget.Global ? new(definition.InitialValue, 0, 0) : null);
+            if (mutation == WiredVariableMutation.Give && current is not null) return previous;
+            if (mutation is WiredVariableMutation.Set or WiredVariableMutation.Remove && current is null) return previous;
+            if (mutation == WiredVariableMutation.Remove) return null;
+            var next = definition.HasValue ? transform(current?.Value ?? 0) : 1;
+            if (mutation == WiredVariableMutation.Set && previous is not null && previous.Value == next) return previous;
+            var now = nowMs();
+            return new(next, previous?.CreatedAtMs ?? now, now);
+        }, definition.IsDurable ? resolved.Authorization : null);
+        if (!write.Changed) return false;
+        _changes.Enqueue(new(definition.RoomId, key, write.After is null ? WiredVariableChangeKind.Removed :
+            write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
+            write.Before, write.After, holder.EntityId, frame.Depth + 1) { Origin = origin });
+        return true;
     }
 
     /// <summary>Publish a complete speech match into one firing only after every destination is authorized.</summary>

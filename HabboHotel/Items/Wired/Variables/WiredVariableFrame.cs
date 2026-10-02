@@ -30,4 +30,10 @@ public interface IWiredBuiltinVariables
     bool HasValue(WiredVariableReference reference) => RoomWiredBuiltinVariables.HasNumericValue(reference);
     WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame);
     bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame);
+    /// <summary>Returns a local notification which the module invokes only after releasing its value lock.</summary>
+    bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame, out Action? completed)
+    {
+        completed = null;
+        return Write(reference, holder, value, frame);
+    }
 }
