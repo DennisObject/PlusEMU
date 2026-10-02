@@ -119,6 +119,8 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             var roomVariables = new WiredRoomVariables(liveRoom, atomicDb, () => 5000);
             var global = Assert.IsType<WiredVariableDefinitionBox>(roomVariables.CreateBox(new Item
             { Id = globalItem, Definition = new() { InteractionName = "wf_var_room" } }));
+            Assert.Same(global, WiredBoxLoading.Select(null, global, null));
+            Assert.False(global.HasPersistedConfiguration);
             var engine = new WiredStackEngine(() => 5000, box => ReferenceEquals(box, global), _ => true, _ => { }, _ => { }); engine.Add(global);
             void SaveGlobal(WiredConfiguration candidate) => Assert.True(WiredConfigurationSave.TrySave(global, candidate, new RejectConfigurationStore(), out _, publish: engine.PublishConfigured));
             var original = new WiredConfiguration { IntParams = [10, 7], Text = "atomic" };
