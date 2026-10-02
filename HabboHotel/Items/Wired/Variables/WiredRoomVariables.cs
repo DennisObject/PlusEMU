@@ -39,6 +39,7 @@ public sealed partial class WiredRoomVariables
     {
         if (item.Definition.WiredDescriptor is { } descriptor)
         {
+            if (descriptor.CanonicalName == "wf_xtra_text_input_variable") return new WiredVariableTextInputBox(_room, item, descriptor);
             if (WiredVariableMetadataBox.Supports(descriptor.CanonicalName)) return new WiredVariableMetadataBox(_room, item, descriptor);
             if (WiredVariableAddonBox.Supports(descriptor.CanonicalName)) return new WiredVariableAddonBox(_room, item, descriptor, Module,
                 id => MetadataOn(id, "wf_xtra_var_text_connector")?.TextConnector ?? new Dictionary<int, string>());
@@ -48,6 +49,7 @@ public sealed partial class WiredRoomVariables
     /// <summary>Call after hydration from the companion configuration store. Database failures must abort activation.</summary>
     public void ConfigurationLoaded(IWiredConfiguredItem box)
     {
+        if (box is WiredVariableTextInputBox textInput) { _textInputs[box.Item.Id] = textInput; return; }
         if (box is WiredVariableMetadataBox metadata) { _metadata[box.Item.Id] = metadata; FxDirty = true; return; }
         if (box is not WiredVariableDefinitionBox definition || !definition.HasPersistedConfiguration) return;
         _definitions[box.Item.Id] = definition;
@@ -58,6 +60,7 @@ public sealed partial class WiredRoomVariables
     /// <summary>Memory-only publication hook, called after atomic persistence and ApplyConfiguration.</summary>
     public void ConfigurationSaved(IWiredConfiguredItem box)
     {
+        if (box is WiredVariableTextInputBox textInput) _textInputs[box.Item.Id] = textInput;
         if (box is WiredVariableMetadataBox metadata) _metadata[box.Item.Id] = metadata;
         if (box is WiredVariableDefinitionBox definition)
         {
@@ -81,6 +84,7 @@ public sealed partial class WiredRoomVariables
     }
     private void ItemDetached(uint itemId, WiredVariableHolder? holder)
     {
+        _textInputs.Remove(itemId);
         _metadata.Remove(itemId);
         _definitions.Remove(itemId); Module.DetachDefinition(itemId);
         if (holder is { } detached) HolderLeft(detached);
