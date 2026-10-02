@@ -8,6 +8,7 @@ public static class WiredActionConfiguration
     // Raw current-editor fields; the concrete box validates and decodes named roles before publication.
     public static WiredConfiguration Defaults(string name)
     {
+        if (WiredTemporaryFurnitureActions.Supports(name)) return WiredTemporaryFurnitureActions.Defaults(name);
         if (name == "wf_act_teleport_to_room") return WiredRoomForwarding.Defaults();
         if (WiredBotActions.Names.Contains(name)) return WiredBotActions.Defaults(name);
         ImmutableArray<int> parameters = name switch

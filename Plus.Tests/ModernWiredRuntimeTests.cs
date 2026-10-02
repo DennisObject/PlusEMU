@@ -385,6 +385,7 @@ public class ModernWiredRuntimeTests
         public readonly RoomUser User; public readonly Habbo Habbo; public readonly Item Target;
         public readonly WiredModernAction Action; public readonly WiredModernTrigger Trigger;
         public readonly WiredStackEngine Engine; public readonly List<Exception> Errors = [];
+        public IItemDataManager? DefinitionManager;
         private readonly object? _originalGame; private long _now;
         public TeleportFixture(int cap = 100)
         {
@@ -392,7 +393,7 @@ public class ModernWiredRuntimeTests
             var gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
             _originalGame = gameField.GetValue(null);
             var clients = new GameClientManager(null!, null!); var game = DispatchProxy.Create<IGame, RecordingProxy>();
-            ((RecordingProxy)(object)game).InvokeMethod = (method, _) => method.Name == "get_ClientManager" ? clients : null;
+            ((RecordingProxy)(object)game).InvokeMethod = (method, _) => method.Name == "get_ClientManager" ? clients : method.Name == "get_ItemManager" ? DefinitionManager : null;
             gameField.SetValue(null, game);
             var client = new FlashGameClient(null!, new FlashPacketFactory())
             {
@@ -665,6 +666,112 @@ public class ModernWiredRuntimeTests
         context = Context(fixture.Room, new(WiredEventKind.Enter) { Actor = bot }, fixture.Items.Values.ToArray(), [fixture.User, bot]);
         context.SelectorPool.UserIds.Add(fixture.User.VirtualId);
         Assert.True(action.Execute(context)); Assert.Equal(4, fixture.User.CarryItemId);
+    }
+
+    [Fact]
+    public void TemporaryPlacementMoveRemoveUsesRealMapsWithoutPersistence()
+    {
+        var (room, map, items) = World();
+        var handler = room.GetRoomItemHandler();
+        var definition = MakeItem(1, "test").Definition; definition.Stackable = true;
+        var databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var original = databaseField.GetValue(null);
+        var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
+        ((RecordingProxy)(object)database).InvokeMethod = (method, _) => throw new InvalidOperationException("Temporary path opened SQL: " + method.Name);
+        try
+        {
+            databaseField.SetValue(null, database);
+            var item = Assert.IsType<Item>(handler.PlaceTemporaryFloorItem(definition, 1, 0, 0, 0, 0, "1"));
+            Assert.True(item.IsTemporary); Assert.True(handler.OwnsTemporary(item)); Assert.Equal(-1, unchecked((int)item.Id));
+            Assert.Same(room, item.GetRoom()); Assert.Same(item, items[item.Id]); Assert.Equal("1", item.LegacyDataString);
+            Assert.Contains(item, map.GetCoordinatedItems(new(0, 0)));
+            Assert.True(WiredRoomOperations.MoveItem(room, item, 1, 1, animate: false));
+            Assert.DoesNotContain(item, map.GetCoordinatedItems(new(0, 0))); Assert.Contains(item, map.GetCoordinatedItems(new(1, 1)));
+            Assert.True(handler.RemoveTemporaryFloorItem(item)); Assert.False(handler.OwnsTemporary(item));
+            Assert.False(items.ContainsKey(item.Id)); Assert.DoesNotContain(item, map.GetCoordinatedItems(new(1, 1)));
+            Assert.False(handler.RemoveTemporaryFloorItem(item));
+            var replacement = Assert.IsType<Item>(handler.PlaceTemporaryFloorItem(definition, 1, 0, 0, 0));
+            Assert.Equal(-2, unchecked((int)replacement.Id));
+            Assert.False(handler.RemoveTemporaryFloorItem(MakeItem(replacement.Id, "test")));
+            handler.UpdateItem(replacement);
+            handler.Dispose(); // No temporary extra-data or coordinate SQL during unload.
+        }
+        finally { databaseField.SetValue(null, original); }
+    }
+
+    [Fact]
+    public void TemporaryPlacementChecksFullFootprintHeightAndRoomLimit()
+    {
+        var (room, map, _) = World(); var handler = room.GetRoomItemHandler();
+        var wide = MakeItem(1, "test").Definition; wide.Length = 2; wide.Stackable = true;
+        Assert.Null(handler.PlaceTemporaryFloorItem(wide, 1, 2, 2, 0));
+        var footprint = Gamemap.GetAffectedTiles(wide.Length, wide.Width, 0, 0, 0).Values.First();
+        map.Model.SqState[footprint.X, footprint.Y] = SquareState.Blocked;
+        Assert.Null(handler.PlaceTemporaryFloorItem(wide, 1, 0, 0, 0, 0));
+        map.Model.SqState[footprint.X, footprint.Y] = SquareState.Open;
+        var definition = MakeItem(1, "test").Definition; definition.Stackable = true; definition.Height = 1;
+        Assert.Null(handler.PlaceTemporaryFloorItem(definition, 1, 0, 0, 0, 80));
+        definition.Height = 0;
+        for (var i = 0; i < RoomItemHandling.TemporaryItemLimit; i++)
+            Assert.NotNull(handler.PlaceTemporaryFloorItem(definition, 1, 0, 0, 0, 0));
+        Assert.Null(handler.PlaceTemporaryFloorItem(definition, 1, 0, 0, 0));
+        Assert.Equal(RoomItemHandling.TemporaryItemLimit, handler.GetFloor.Count);
+    }
+
+    [Theory]
+    [InlineData(0)] [InlineData(1)]
+    public void TemporaryRemovalEditorModesProtectPermanentAndMismatchedIdentities(int mode)
+    {
+        using var f = new TeleportFixture(); var handler = f.Room.GetRoomItemHandler(); var def = MakeItem(3, "test").Definition; def.Stackable = true;
+        var permanent = MakeItem(uint.MaxValue, "test"); f.Items[permanent.Id] = permanent;
+        var item = Assert.IsType<Item>(handler.PlaceTemporaryFloorItem(def, 1, 2, 2, 0));
+        Assert.Equal(-2, unchecked((int)item.Id)); // A real permanent high-uint item owns the -1 bit pattern.
+        var action = ActionBox(f.Room, "wf_act_remove_furni");
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [mode, 0] }, out var config, out _)); action.ApplyConfiguration(config);
+        var ctx = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]); ctx.Triggering.FurniIds.UnionWith([permanent.Id, item.Id]);
+        Assert.True(action.Execute(ctx)); Assert.Same(permanent, handler.GetItem(permanent.Id)); Assert.Null(handler.GetItem(item.Id));
+        Assert.False(action.Execute(ctx));
+    }
+
+    [Fact]
+    public void SnapshotPlacementCopiesDetachedTemplatesWithRelativeGeometryAndAltitude()
+    {
+        using var f = new TeleportFixture(); var manager = DispatchProxy.Create<IItemDataManager, RecordingProxy>();
+        var def = MakeItem(5, "test").Definition; def.Id = 5; def.Stackable = true;
+        ((RecordingProxy)(object)manager).InvokeMethod = (m, _) => m.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [5] = def } : null;
+        f.DefinitionManager = manager; f.Target.Definition.Stackable = true;
+        var action = ActionBox(f.Room, "wf_act_place_furni");
+        var proposed = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with {
+            TemporaryPlacement = new(Location: WiredPlaceLocationType.CustomLocation, Altitude: WiredPlaceAltitudeType.CustomAltitude, OffsetAltitudeHundredths: 125),
+            SecondarySelectedItems = [1], Snapshots = [new(900, 5, 7, 7, 3, 0, "1"), new(901, 5, 8, 7, 4, 2, "0")]
+        };
+        Assert.True(action.TryValidateConfiguration(proposed, out var config, out _)); action.ApplyConfiguration(config);
+        var context = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]);
+        Assert.True(action.Execute(context));
+        var copies = f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).OrderBy(item => item.GetX).ToArray();
+        Assert.Equal(2, copies.Length); Assert.Equal((1, 1, 1.25, "1"), (copies[0].GetX, copies[0].GetY, copies[0].GetZ, copies[0].LegacyDataString));
+        Assert.Equal((2, 1, 1.25, 2), (copies[1].GetX, copies[1].GetY, copies[1].GetZ, copies[1].Rotation));
+        var prepared = WiredRoomOperations.PrepareSnapshots(action, proposed with { SelectedItems = [copies[0].Id], SecondarySelectedItems = [copies[1].Id] });
+        Assert.Empty(prepared.SelectedItems); Assert.Empty(prepared.SecondarySelectedItems);
+        var template = Assert.Single(prepared.Snapshots); Assert.Equal(5u, template.DefinitionId); Assert.Equal("1", template.State);
+        Assert.Equal(prepared.Snapshots, WiredRoomOperations.PrepareSnapshots(action, prepared).Snapshots);
+        Assert.False(action.TryValidateConfiguration(proposed with { SelectedItems = [copies[0].Id] }, out _, out _)); // Static ephemeral references cannot survive a reload.
+        Assert.True(f.Room.GetRoomItemHandler().RemoveTemporaryFloorItem(copies[0]));
+        Assert.True(action.TryValidateConfiguration(prepared with { TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude) }, out config, out _)); action.ApplyConfiguration(config);
+        Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
+    }
+
+    [Fact]
+    public void CurrentSixPlacementEditorKeepsQuantityAndAbsoluteLocationMeanings()
+    {
+        using var f = new TeleportFixture(); var manager = DispatchProxy.Create<IItemDataManager, RecordingProxy>();
+        var def = MakeItem(5, "test").Definition; def.Id = 5; def.Stackable = true;
+        ((RecordingProxy)(object)manager).InvokeMethod = (m, _) => m.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [5] = def } : null; f.DefinitionManager = manager;
+        var action = ActionBox(f.Room, "wf_act_place_furni");
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [5, 3, 1, 2, 1, 2] }, out var config, out _)); action.ApplyConfiguration(config);
+        Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
+        var copies = f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray(); Assert.Equal(3, copies.Length);
+        Assert.All(copies, item => Assert.Equal((2, 1, 2), (item.GetX, item.GetY, item.Rotation)));
     }
 
     public class RecordingProxy : DispatchProxy
