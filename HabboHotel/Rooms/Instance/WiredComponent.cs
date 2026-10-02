@@ -24,13 +24,17 @@ public class WiredComponent
             box => ReferenceEquals(_room.GetRoomItemHandler().GetItem(box.Item.Id), box.Item),
             IsActorPresent,
             OnEvent, ExceptionLogger.LogWiredException,
-            WiredEngineLimits.FromSettings(key => PlusEnvironment.SettingsManager?.TryGetValue(key) ?? "0"));
+            WiredEngineLimits.FromSettings(key => PlusEnvironment.SettingsManager?.TryGetValue(key) ?? "0"),
+            CaptureActorVisit);
     }
 
     public void OnCycle() => _engine.OnCycle();
 
     internal bool IsActorPresent(object[] arguments) => arguments.Length == 0 || arguments[0] is not Habbo player
         || player.InRoom && ReferenceEquals(player.CurrentRoom, _room);
+
+    internal object? CaptureActorVisit(object[] arguments) => arguments.Length > 0 && arguments[0] is Habbo player
+        ? _room.GetRoomUserManager()?.GetRoomUserByHabbo(player.Id) : null;
 
     public bool RunStack(IWiredItem source, params object[] arguments) => _engine.RunStack(source, arguments);
 

@@ -1,11 +1,19 @@
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
+using System.Reflection;
+using Plus.Communication.Flash;
+using Plus.Communication.Revisions;
+using Plus.Communication.Packets.Outgoing;
 using System.Runtime.CompilerServices;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Effects;
+using Plus.HabboHotel.Users.Permissions;
 using Xunit;
 
 namespace Plus.Tests;
@@ -457,6 +465,258 @@ public class WiredStackEngineTests
             Assert.Null(wired.LoadWiredBox(new Item { Definition = Definition(InteractionType.None, type) }));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void KickWarningPrecedesGraceAndProtectedActorsAreNeverScheduled(bool protectedActor)
+    {
+        var actor = ActorRoom(protectedActor);
+        var wired = new WiredComponent(actor.Room);
+        var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
+        var trigger = fixture.Trigger();
+        var kick = fixture.Add(new KickUserBox(actor.Room,
+            new Item { Definition = Definition(InteractionType.WiredEffect, WiredBoxType.EffectKickUser) })
+            { StringData = "You will be removed" });
+
+        Assert.True(fixture.Engine.RunStack(trigger, [actor.Player]));
+        Assert.Equal(new[] { ServerPacketHeader.WhisperComposer }, actor.Packets);
+        Assert.Same(actor.Room, actor.Player.CurrentRoom);
+        fixture.Advance(1499);
+        Assert.Single(actor.Packets);
+        fixture.Advance(1);
+        Assert.Equal(1, actor.Packets.Count(id => id == ServerPacketHeader.WhisperComposer));
+        Assert.Equal(protectedActor ? 0 : 1, actor.Packets.Count(id => id == ServerPacketHeader.CloseConnectionComposer));
+        Assert.Empty(fixture.Errors);
+    }
+
+    [Fact]
+    public void TeleportGlowBeginsWhenFiringIsAcceptedBeforeItsDelay()
+    {
+        var actor = ActorRoom();
+        var wired = new WiredComponent(actor.Room);
+        var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
+        var trigger = fixture.Trigger();
+        var teleport = fixture.Add(new TeleportUserBox(actor.Room,
+            new Item { Definition = Definition(InteractionType.WiredEffect, WiredBoxType.EffectTeleportToFurni) })
+            { Delay = 2 });
+        var target = new Item { Id = 100 };
+        teleport.SetItems.TryAdd(target.Id, target);
+
+        Assert.True(fixture.Engine.RunStack(trigger, [actor.Player]));
+        Assert.Equal(4, actor.Player.Effects.CurrentEffect);
+        Assert.Equal(new[] { ServerPacketHeader.AvatarEffectComposer }, actor.Packets);
+        Assert.DoesNotContain(teleport.Item.Id, fixture.Flashes);
+        fixture.Advance(999);
+        Assert.DoesNotContain(teleport.Item.Id, fixture.Flashes);
+        Assert.Equal(4, actor.Player.Effects.CurrentEffect);
+        Assert.Empty(fixture.Errors);
+    }
+
+    [Fact]
+    public void PreparationRunsOncePerAcceptedActorAndRejectionHasNoFeedback()
+    {
+        var fixture = new Fixture(limits: new() { MaxPendingStacks = 2 });
+        var trigger = fixture.Trigger();
+        var condition = fixture.Condition(_ => true);
+        var prepared = fixture.Add(new PreparedBox { Delay = 1 });
+        var alice = new object();
+        var bob = new object();
+        Assert.True(fixture.Engine.RunStack(trigger, [alice]));
+        Assert.True(fixture.Engine.RunStack(trigger, [bob]));
+        Assert.False(fixture.Engine.RunStack(trigger, [new object()]));
+        Assert.Equal(new[] { alice, bob }, prepared.Preparations.Select(args => args[0]));
+        Assert.Empty(prepared.Calls);
+        fixture.Advance(500);
+        Assert.Equal(new[] { alice, bob }, prepared.Calls.Select(args => args[0]));
+        condition.Body = _ => false;
+        Assert.False(fixture.Engine.RunStack(trigger, [new object()]));
+        Assert.Equal(2, prepared.Preparations.Count);
+    }
+
+    [Fact]
+    public void PreparationUsesTheExecutionBudgetAndRemainingActionsResume()
+    {
+        var fixture = new Fixture(limits: new() { MaxExecutionsPerPass = 2 });
+        var trigger = fixture.Trigger();
+        var prepared = fixture.Add(new PreparedBox { Delay = 1 });
+        var first = fixture.Effect();
+        var second = fixture.Effect();
+        fixture.Engine.RunStack(trigger, []);
+        Assert.Single(prepared.Preparations);
+        Assert.Single(first.Calls);
+        Assert.Empty(second.Calls);
+        fixture.Advance(500);
+        Assert.Single(second.Calls);
+        Assert.Single(prepared.Calls);
+    }
+
+    [Fact]
+    public void LeavingAndReenteringTheSameRoomCancelsThePreviousVisit()
+    {
+        var actor = ActorRoom();
+        var wired = new WiredComponent(actor.Room);
+        var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
+        var trigger = fixture.Trigger();
+        var effect = fixture.Effect(delay: 4);
+        var previousVisit = wired.CaptureActorVisit([actor.Player]);
+        fixture.Engine.RunStack(trigger, [actor.Player]);
+        actor.Player.CurrentRoom = null;
+        actor.Users.Clear();
+        actor.Player.CurrentRoom = actor.Room;
+        var newVisit = new RoomUser(actor.Player.Id, 0, 1, actor.Room);
+        SetPrivate(newVisit, "_mClient", actor.Player.Client);
+        actor.Users.TryAdd(1, newVisit);
+        Assert.NotSame(previousVisit, wired.CaptureActorVisit([actor.Player]));
+
+        fixture.Advance(2000);
+        Assert.Empty(effect.Calls);
+        Assert.True(fixture.Engine.RunStack(trigger, [actor.Player]));
+        fixture.Advance(2000);
+        Assert.Single(effect.Calls);
+    }
+
+    [Fact]
+    public void MovingSourceAwayAndBackThroughSetStateCancelsItsOldFiring()
+    {
+        var fixture = new Fixture();
+        var trigger = fixture.Trigger();
+        var effect = fixture.Effect(delay: 4);
+        fixture.Engine.RunStack(trigger, []);
+        trigger.Item.SetState(7, 0, trigger.Item.GetZ, []);
+        trigger.Item.SetState(0, 0, trigger.Item.GetZ, []);
+        Assert.Equal(2, trigger.Item.MovementGeneration);
+
+        fixture.Advance(2000);
+        Assert.Empty(effect.Calls);
+        fixture.Engine.RunStack(trigger, []);
+        fixture.Advance(2000);
+        Assert.Single(effect.Calls);
+    }
+
+    [Fact]
+    public void SourceMovementReleasesPendingCapacityBeforeTheOldDeadline()
+    {
+        var fixture = new Fixture(limits: new() { MaxPendingStacks = 1 });
+        var trigger = fixture.Trigger();
+        var effect = fixture.Effect(delay: 4);
+        Assert.True(fixture.Engine.RunStack(trigger, ["old"]));
+        trigger.Item.SetState(7, 0, trigger.Item.GetZ, []);
+        trigger.Item.SetState(0, 0, trigger.Item.GetZ, []);
+        Assert.True(fixture.Engine.RunStack(trigger, ["new"]));
+        fixture.Advance(2000);
+        Assert.Equal("new", Assert.Single(effect.Calls)[0]);
+    }
+
+    [Fact]
+    public void SettingUnchangedSourceCoordinatesDoesNotCancelPendingWork()
+    {
+        var fixture = new Fixture();
+        var trigger = fixture.Trigger();
+        var effect = fixture.Effect(delay: 1);
+        fixture.Engine.RunStack(trigger, []);
+        trigger.Item.SetState(0, 0, trigger.Item.GetZ, []);
+        trigger.Item.SetState(0, 0, double.PositiveInfinity, []);
+        Assert.Equal(0, trigger.Item.MovementGeneration);
+        fixture.Advance(500);
+        Assert.Single(effect.Calls);
+    }
+
+    [Theory]
+    [InlineData(1, 500)]
+    [InlineData(2, 2000)]
+    public void ActionsAcrossFiringsFollowGlobalDeadlineHeightAndItemOrder(int secondDelay, int elapsed)
+    {
+        var fixture = new Fixture();
+        var trigger = fixture.Trigger();
+        var observed = new List<string>();
+        fixture.Effect(delay: 1, execute: args => { observed.Add($"first-{args[0]}"); return true; });
+        fixture.Effect(delay: secondDelay, execute: args => { observed.Add($"second-{args[0]}"); return true; });
+        fixture.Engine.RunStack(trigger, ["Alice"]);
+        fixture.Engine.RunStack(trigger, ["Bob"]);
+        fixture.Advance(elapsed);
+        Assert.Equal(new[] { "first-Alice", "first-Bob", "second-Alice", "second-Bob" }, observed);
+    }
+
+    [Fact]
+    public void EqualDeadlinesAcrossTilesUseItemIdBeforeFiringSequence()
+    {
+        var fixture = new Fixture();
+        var observed = new List<string>();
+        var lowTrigger = fixture.Trigger();
+        var low = fixture.Effect(delay: 1, execute: _ => { observed.Add("low"); return true; });
+        var highTrigger = fixture.Trigger();
+        highTrigger.Item.GetX = 1;
+        var high = fixture.Effect(delay: 1, execute: _ => { observed.Add("high"); return true; });
+        high.Item.GetX = 1;
+        low.Item.GetZ = high.Item.GetZ = 2;
+        fixture.Engine.RunStack(highTrigger, []);
+        fixture.Engine.RunStack(lowTrigger, []);
+        fixture.Advance(500);
+        Assert.Equal(new[] { "low", "high" }, observed);
+    }
+
+    [Fact]
+    public void InsufficientPreparationBudgetRejectsBeforeChatAcceptance()
+    {
+        var fixture = new Fixture(limits: new() { MaxExecutionsPerPass = 1 });
+        var trigger = fixture.Trigger();
+        fixture.Condition(_ => true);
+        var prepared = fixture.Add(new PreparedBox { Delay = 1 });
+        var accepted = false;
+        Assert.False(fixture.Engine.RunStack(trigger, [], () => accepted = true));
+        Assert.False(accepted);
+        Assert.Empty(prepared.Preparations);
+        fixture.Advance(500);
+        Assert.Empty(prepared.Calls);
+    }
+
+    [Fact]
+    public void BudgetDeferralRetainsGlobalDeadlinesAndFiringOrder()
+    {
+        var fixture = new Fixture(limits: new() { MaxExecutionsPerPass = 1 });
+        var trigger = fixture.Trigger();
+        var observed = new List<string>();
+        fixture.Effect(delay: 1, execute: args => { observed.Add($"first-{args[0]}"); return true; });
+        fixture.Effect(delay: 2, execute: args => { observed.Add($"second-{args[0]}"); return true; });
+        fixture.Engine.RunStack(trigger, ["Alice"]);
+        fixture.Engine.RunStack(trigger, ["Bob"]);
+        fixture.Advance(2000);
+        for (var i = 0; i < 3; i++) fixture.Engine.OnCycle();
+        Assert.Equal(new[] { "first-Alice", "first-Bob", "second-Alice", "second-Bob" }, observed);
+    }
+
+    private static void SetPrivate(object target, string field, object value) =>
+        target.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(target, value);
+
+    private static (Room Room, Habbo Player, ConcurrentDictionary<int, RoomUser> Users, List<uint> Packets) ActorRoom(bool protectedActor = false)
+    {
+        var room = EmptyRoom();
+        var manager = new RoomUserManager(room);
+        SetPrivate(room, "_roomUserManager", manager);
+        var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
+            .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
+        var packets = new List<uint>();
+        var client = new FlashGameClient(null!, new FlashPacketFactory())
+        {
+            Revision = new Revision { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
+            {
+                [ServerPacketHeader.WhisperComposer] = ServerPacketHeader.WhisperComposer,
+                [ServerPacketHeader.CloseConnectionComposer] = ServerPacketHeader.CloseConnectionComposer,
+                [ServerPacketHeader.AvatarEffectComposer] = ServerPacketHeader.AvatarEffectComposer,
+                [ServerPacketHeader.UserRemoveComposer] = ServerPacketHeader.UserRemoveComposer
+            } },
+            SendCallback = args => { packets.Add(BinaryPrimitives.ReadUInt16BigEndian(args.MemoryBuffer.Span.Slice(4, 2))); return true; }
+        };
+        var player = new Habbo { Id = 1, Username = "actor", CurrentRoom = room, Client = client,
+            Permissions = new PermissionComponent(protectedActor ? ["mod_tool"] : [], []), Effects = new EffectsComponent() };
+        client.SetHabbo(player);
+        SetPrivate(player.Effects, "_habbo", player);
+        var visit = new RoomUser(player.Id, 0, 0, room);
+        SetPrivate(visit, "_mClient", client);
+        users.TryAdd(0, visit);
+        return (room, player, users, packets);
+    }
+
     private static Room EmptyRoom() => (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
 
     private static ItemDefinition Definition(InteractionType kind, WiredBoxType type) => new()
@@ -473,10 +733,11 @@ public class WiredStackEngineTests
         public List<uint> Flashes { get; } = [];
         public List<Exception> Errors { get; } = [];
         public WiredStackEngine Engine { get; }
-        public Fixture(Func<object[], bool>? actorPresent = null, WiredEngineLimits? limits = null) =>
+        public Fixture(Func<object[], bool>? actorPresent = null, WiredEngineLimits? limits = null,
+            Func<object[], object?>? actorVisit = null) =>
             Engine = new(() => Now, box => !Detached.Contains(box.Item.Id), actorPresent ?? (_ => true),
-                item => Flashes.Add(item.Id), Errors.Add, limits);
-        public T Add<T>(T box) where T : Box
+                item => Flashes.Add(item.Id), Errors.Add, limits, actorVisit);
+        public T Add<T>(T box) where T : IWiredItem
         {
             box.Item.Id = ++_nextId;
             box.Item.GetZ = _nextId;
@@ -506,12 +767,18 @@ public class WiredStackEngineTests
         public bool Execute(params object[] arguments) { Calls.Add(arguments.ToArray()); return Body(arguments); }
     }
 
-    private sealed class DelayedBox() : Box(InteractionType.WiredEffect, WiredBoxType.EffectShowMessage), IWiredCycle
+    private class DelayedBox() : Box(InteractionType.WiredEffect, WiredBoxType.EffectShowMessage), IWiredCycle
     {
         public int Delay { get; set; }
         public int TickCount { get; set; }
         public int Cycles { get; private set; }
         public bool OnCycle() { Cycles++; return true; }
+    }
+
+    private sealed class PreparedBox : DelayedBox, IWiredFiringPreparation
+    {
+        public List<object[]> Preparations { get; } = [];
+        public bool Prepare(params object[] arguments) { Preparations.Add(arguments.ToArray()); return true; }
     }
 
     private sealed class PeriodicBox() : Box(InteractionType.WiredTrigger, WiredBoxType.TriggerRepeat), IWiredCycle

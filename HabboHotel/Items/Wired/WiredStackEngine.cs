@@ -7,11 +7,12 @@ internal sealed class WiredStackEngine
     private readonly object _sync = new();
     private readonly Dictionary<uint, IWiredItem> _items = new();
     private readonly Dictionary<(int X, int Y), IWiredItem[]> _stacks = new();
-    private readonly PriorityQueue<ActionChain, (long Due, long Order)> _schedule = new();
+    private readonly PriorityQueue<ScheduledAction, (long Due, double Height, uint Id, long Firing)> _schedule = new();
     private readonly HashSet<ActionChain> _pending = new();
     private readonly Func<long> _now;
     private readonly Func<IWiredItem, bool> _attached;
     private readonly Func<object[], bool> _actorPresent;
+    private readonly Func<object[], object?>? _actorVisit;
     private readonly Action<Item> _flash;
     private readonly Action<Exception> _error;
     private readonly WiredEngineLimits _limits;
@@ -19,14 +20,16 @@ internal sealed class WiredStackEngine
     private int _passDepth;
     private int _remaining;
     private long _sequence;
+    private bool _draining;
 
     public WiredStackEngine(Func<long> now, Func<IWiredItem, bool> attached,
         Func<object[], bool> actorPresent, Action<Item> flash, Action<Exception> error,
-        WiredEngineLimits? limits = null)
+        WiredEngineLimits? limits = null, Func<object[], object?>? actorVisit = null)
     {
         _now = now;
         _attached = attached;
         _actorPresent = actorPresent;
+        _actorVisit = actorVisit;
         _flash = flash;
         _error = error;
         _limits = limits ?? new();
@@ -70,9 +73,7 @@ internal sealed class WiredStackEngine
         lock (_sync)
         {
             _pending.RemoveWhere(chain => chain.Contains(box));
-            var kept = _schedule.UnorderedItems.Where(x => _pending.Contains(x.Element)).ToArray();
-            _schedule.Clear();
-            foreach (var entry in kept) _schedule.Enqueue(entry.Element, entry.Priority);
+            PruneSchedule();
         }
     }
 
@@ -82,7 +83,7 @@ internal sealed class WiredStackEngine
     public bool Dispatch(WiredBoxType type, params object[] arguments) => Pass(() =>
     {
         RefreshStacks();
-        var context = new WiredExecutionContext((arguments ?? []).ToArray(), (_context?.Depth ?? -1) + 1);
+        var context = CreateContext((arguments ?? []).ToArray(), (_context?.Depth ?? -1) + 1);
         if (context.Depth > _limits.MaxDepth) return false;
         var matched = false;
         // Each registered trigger is visited once, even when a tile has several of the same type.
@@ -97,12 +98,12 @@ internal sealed class WiredStackEngine
     });
 
     public bool RunStack(IWiredItem source, object[] arguments, Action? onAccepted = null) => Pass(() =>
-        RunStackCore(source, new(arguments.ToArray(), _context?.Depth ?? 0), null, onAccepted));
+        RunStackCore(source, CreateContext(arguments.ToArray(), _context?.Depth ?? 0), null, onAccepted));
 
     // Legacy repeaters gate each condition on any room actor independently, then run actorless
     // room actions once. This quantifier is intentional and covered separately from actor events.
     public bool RunPeriodicStack(IWiredItem source, object[][] actors) => Pass(() =>
-        RunStackCore(source, new([], 0), actors, null));
+        RunStackCore(source, CreateContext([], 0), actors, null));
 
     public bool CallStacks(IEnumerable<Item> targets, object[] arguments) => Pass(() =>
     {
@@ -114,7 +115,7 @@ internal sealed class WiredStackEngine
         {
             if (!_items.TryGetValue(target.Id, out var box) || !IsAttached(box)) continue;
             if (!visited.Add((target.GetX, target.GetY))) continue;
-            matched |= RunStackCore(box, new(arguments.ToArray(), depth), null, null);
+            matched |= RunStackCore(box, CreateContext(arguments.ToArray(), depth), null, null);
         }
         return matched;
     });
@@ -136,12 +137,7 @@ internal sealed class WiredStackEngine
                 catch (Exception e) { _error(e); }
             }
         }
-        var now = _now();
-        while (_remaining > 0 && _schedule.TryPeek(out _, out var priority) && priority.Due <= now)
-        {
-            var chain = _schedule.Dequeue();
-            ContinueChain(chain, now);
-        }
+        DrainDueActions();
         return true;
     });
 
@@ -149,7 +145,7 @@ internal sealed class WiredStackEngine
         object[][]? conditionActors, Action? onAccepted)
     {
         var firedAt = _now();
-        if (context.Depth > _limits.MaxDepth || !_actorPresent(context.Arguments)) return false;
+        if (context.Depth > _limits.MaxDepth || !IsActorPresent(context)) return false;
         var stack = GetStack(source);
         if (stack.Length == 0) return false;
         var conditions = stack.Where(x => IsKind(x, InteractionType.WiredCondition)).ToArray();
@@ -158,7 +154,7 @@ internal sealed class WiredStackEngine
             if (_remaining <= 0) return false;
             var passed = conditionActors == null
                 ? Execute(condition, context)
-                : conditionActors.Any(actor => Execute(condition, new(actor, context.Depth)));
+                : conditionActors.Any(actor => Execute(condition, CreateContext(actor, context.Depth)));
             if (!passed) return false;
             Flash(condition);
         }
@@ -170,61 +166,100 @@ internal sealed class WiredStackEngine
             foreach (var addon in addons) Flash(addon);
             actions = actions.Length == 0 ? [] : [actions[Random.Shared.Next(actions.Length)]];
         }
-        if (actions.Length > 0 && _pending.Count >= _limits.MaxPendingStacks) return false;
+        if (!CanSchedule(actions)) return false;
         onAccepted?.Invoke();
         Flash(source);
-        if (actions.Length > 0)
-        {
-            var scheduled = actions.Select(action => new ScheduledAction(action, firedAt + GetDelay(action)))
-                .OrderBy(action => action.Due).ThenBy(action => action.Box.Item.GetZ)
-                .ThenBy(action => action.Box.Item.Id).ToArray();
-            var chain = new ActionChain(source, stack, scheduled, context);
-            _pending.Add(chain);
-            ContinueChain(chain, _now());
-        }
         // This is synchronous stack acceptance (including chat consumption), not action success.
+        return ScheduleActions(source, stack, actions, context, firedAt: firedAt);
+    }
+
+    private bool CanSchedule(IWiredItem[] actions)
+    {
+        if (actions.Length > 0 && _pending.Count >= _limits.MaxPendingStacks
+            && _pending.RemoveWhere(chain => !IsChainValid(chain)) > 0)
+            PruneSchedule();
+        // Preparation must happen synchronously; reject before acceptance if its calls cannot fit.
+        return (actions.Length == 0 || _pending.Count < _limits.MaxPendingStacks)
+            && actions.Count(action => action is IWiredFiringPreparation) <= _remaining;
+    }
+
+    private bool IsChainValid(ActionChain chain) => IsAttached(chain.Source)
+        && chain.Source.Item.MovementGeneration == chain.MovementGeneration
+        && (chain.Source.Item.GetX, chain.Source.Item.GetY) == chain.Tile
+        && IsActorPresent(chain.Context);
+
+    // Shared by stack pipelines inside a room-engine pass. Delay is captured per firing.
+    internal bool ScheduleActions(IWiredItem source, IWiredItem[] capturedStack, IWiredItem[] actions,
+        WiredExecutionContext context, Func<IWiredItem, long>? delayMilliseconds = null, long? firedAt = null)
+    {
+        if (!CanSchedule(actions)) return false;
+        if (actions.Length == 0) return true;
+        var chain = new ActionChain(source, capturedStack, context, actions.Length);
+        var firing = ++_sequence;
+        var startedAt = firedAt ?? _now();
+        _pending.Add(chain);
+        foreach (var action in actions)
+        {
+            if (!_pending.Contains(chain)) break;
+            var due = startedAt + Math.Max(0, (delayMilliseconds ?? GetDelay)(action));
+            if (action is IWiredFiringPreparation preparation
+                && !Invoke(action, context, () => preparation.Prepare(context.Arguments)))
+            {
+                if (--chain.Remaining == 0) _pending.Remove(chain);
+                continue;
+            }
+            var scheduled = new ScheduledAction(chain, action);
+            _schedule.Enqueue(scheduled, (due, action.Item.GetZ, action.Item.Id, firing));
+        }
+        DrainDueActions();
         return true;
     }
 
-    private void ContinueChain(ActionChain chain, long now)
+    private void PruneSchedule()
     {
-        while (chain.Next < chain.Actions.Length)
-        {
-            if (!_pending.Contains(chain)) return;
-            if (!IsAttached(chain.Source) || (chain.Source.Item.GetX, chain.Source.Item.GetY) != chain.Tile
-                || !_actorPresent(chain.Context.Arguments))
-            {
-                _pending.Remove(chain);
-                return;
-            }
-            var scheduled = chain.Actions[chain.Next];
-            var action = scheduled.Box;
-            if (!IsAttached(action) || (action.Item.GetX, action.Item.GetY) != chain.Tile)
-            {
-                chain.Next++;
-                continue;
-            }
-            if (_remaining <= 0)
-            {
-                Enqueue(chain, Math.Max(scheduled.Due, now));
-                return;
-            }
-            if (scheduled.Due > now)
-            {
-                Enqueue(chain, scheduled.Due);
-                return;
-            }
-            Execute(action, chain.Context);
-            Flash(action);
-            chain.Next++;
-            // Preserve Octane/Plus independent delays: every action's deadline belongs to the
-            // firing, so an earlier delayed action cannot postpone an otherwise immediate one.
-            now = _now();
-        }
-        _pending.Remove(chain);
+        var kept = _schedule.UnorderedItems.Where(x => _pending.Contains(x.Element.Chain)).ToArray();
+        _schedule.Clear();
+        foreach (var entry in kept) _schedule.Enqueue(entry.Element, entry.Priority);
     }
 
-    private void Enqueue(ActionChain chain, long due) => _schedule.Enqueue(chain, (due, ++_sequence));
+    private void DrainDueActions()
+    {
+        // Nested stack calls enqueue their actions, and the active drain keeps global ordering.
+        if (_draining) return;
+        _draining = true;
+        var prune = false;
+        try
+        {
+            while (_remaining > 0 && _schedule.TryPeek(out _, out var priority) && priority.Due <= _now())
+            {
+                var scheduled = _schedule.Dequeue();
+                var chain = scheduled.Chain;
+                if (!_pending.Contains(chain)) continue;
+                if (!IsChainValid(chain))
+                {
+                    _pending.Remove(chain);
+                    prune = true;
+                    continue;
+                }
+                var action = scheduled.Box;
+                try
+                {
+                    if (!IsAttached(action) || (action.Item.GetX, action.Item.GetY) != chain.Tile) continue;
+                    Execute(action, chain.Context);
+                    Flash(action);
+                }
+                finally
+                {
+                    if (--chain.Remaining == 0) _pending.Remove(chain);
+                }
+            }
+        }
+        finally
+        {
+            if (prune) PruneSchedule();
+            _draining = false;
+        }
+    }
 
     private static long GetDelay(IWiredItem action) => action is IWiredActionDelay intrinsic
         ? Math.Max(0, intrinsic.DelayMilliseconds)
@@ -236,13 +271,22 @@ internal sealed class WiredStackEngine
         catch (Exception e) { _error(e); }
     }
 
-    private bool Execute(IWiredItem box, WiredExecutionContext context)
+    private WiredExecutionContext CreateContext(object[] arguments, int depth) =>
+        new(arguments, depth, _actorVisit?.Invoke(arguments));
+
+    private bool IsActorPresent(WiredExecutionContext context) => _actorPresent(context.Arguments)
+        && (_actorVisit == null || ReferenceEquals(context.ActorVisit, _actorVisit(context.Arguments)));
+
+    private bool Execute(IWiredItem box, WiredExecutionContext context) =>
+        Invoke(box, context, () => box.Execute(context.Arguments));
+
+    private bool Invoke(IWiredItem box, WiredExecutionContext context, Func<bool> body)
     {
-        if (_remaining <= 0 || !IsAttached(box) || !_actorPresent(context.Arguments)) return false;
+        if (_remaining <= 0 || !IsAttached(box) || !IsActorPresent(context)) return false;
         _remaining--;
         var previous = _context;
         _context = context;
-        try { return box.Execute(context.Arguments); }
+        try { return body(); }
         catch (Exception e) { _error(e); return false; }
         finally { _context = previous; }
     }
@@ -280,16 +324,16 @@ internal sealed class WiredStackEngine
         }
     }
 
-    private sealed record ScheduledAction(IWiredItem Box, long Due);
+    private sealed record ScheduledAction(ActionChain Chain, IWiredItem Box);
 
     private sealed class ActionChain(IWiredItem source, IWiredItem[] stack,
-        ScheduledAction[] actions, WiredExecutionContext context)
+        WiredExecutionContext context, int remaining)
     {
         public IWiredItem Source { get; } = source;
         public (int, int) Tile { get; } = (source.Item.GetX, source.Item.GetY);
-        public ScheduledAction[] Actions { get; } = actions;
+        public long MovementGeneration { get; } = source.Item.MovementGeneration;
         public WiredExecutionContext Context { get; } = context;
-        public int Next { get; set; }
+        public int Remaining { get; set; } = remaining;
         public bool Contains(IWiredItem box) => stack.Contains(box);
     }
 }

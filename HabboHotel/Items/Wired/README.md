@@ -29,9 +29,9 @@ of Turbo's complete wired catalogue.
   the execution budget. This preserves Plus/Octane independent effect timing instead of
   adopting Turbo's cumulative chain delays, which would change existing rooms. Legacy
   shared flags and inconsistent tick offsets no longer collapse or postpone firings.
-- Each firing retains its own actor. Room identity is checked before every legacy action:
-  leaving or changing rooms cancels the rest of that actor's chain. Actorless repeater
-  effects still execute once. The repeater intentionally preserves its legacy quantifier:
+- Each firing retains its own actor and captures the actual RoomUser visit reference.
+  Leaving, changing rooms or re-entering cancels the old visit's remaining actions. Actorless
+  repeater effects still execute once. The repeater intentionally preserves its legacy quantifier:
   **each condition must match some room actor**, and different conditions may match
   different actors. A failed condition now resets the repeater timer instead of polling
   every cycle. Game start/end conditions, previously ignored, now gate effects per actor.
@@ -39,12 +39,14 @@ of Turbo's complete wired catalogue.
   actions. Stack calls deduplicate selected tiles and use the same conditions/random/
   scheduling pipeline with a depth guard, including across delayed calls.
 - The kick effect retains its intrinsic 1500ms grace independently of its stored delay.
-  Its message now accompanies the actual removal. Teleport's glow is applied when the
-  action executes rather than while it waits. Match-position applies each selected item's
-  saved snapshot once, checks attachment correctly and accepts the five-field state tuple.
+  Its eligibility and warning are prepared synchronously when the firing is accepted;
+  removal happens after the grace period. Teleport's glow likewise begins at firing.
+  These legacy preparation hooks run once per selected action and actor. Match-position applies
+  each selected item's saved snapshot once, checks attachment correctly and accepts the five-field state tuple.
 - Pickup/removal cancels captured pending stacks, including removal followed by re-addition.
-  Moving the source cancels its old chain; moving an action away skips that action. The tile
-  index is rebuilt at engine seams to observe mutable X/Y/Z without new owner hooks.
+  Moving the source cancels its old chain even if it returns before the next engine pass;
+  Item.SetState tracks movement generations. Moving an action away skips that action. The
+  tile index is rebuilt at engine seams to observe mutable X/Y/Z without new owner hooks.
   Cleanup drops pending work. A successful `SaveBox` cancels chains containing any box in
   the captured stack. Legacy `HandleSave` still mutates outside the engine lock; atomic
   parse/validate/apply integration remains the protocol owner's follow-up.
@@ -54,9 +56,11 @@ of Turbo's complete wired catalogue.
 Optional existing `server_settings` keys are read when the room engine is created:
 `wired.max_depth` (default 32), `wired.max_executions_per_pass` (default 10000), and
 `wired.max_pending_stacks` (default 10000). Missing/nonpositive values use those defaults.
-The execution budget counts individual trigger, condition and action calls; action chains
-that exhaust the budget resume on later room cycles. The pending limit includes active
-chains so nested calls cannot exceed it before their caller is queued.
+The execution budget counts individual trigger, condition, firing preparation and action calls.
+Actions that exhaust the budget resume on later room cycles. Individual actions share a global
+queue ordered by due time, captured height, item ID and firing sequence, including late ticks.
+The pending limit includes active chains so nested calls cannot exceed it before their caller
+is queued.
 
 `Plus.Tests/WiredStackEngineTests.cs` exercises the real engine with fake boxes, a controlled
 clock, and the production actor-room check. It covers condition gating, random actor
@@ -64,5 +68,7 @@ retention, trigger result aggregation, synchronous chat acceptance, independent/
 ordering, late ticks, repeated and concurrent firings, room changes, detachment, movement,
 save cancellation, cleanup, failure continuation, repeater quantifiers, pipeline stack calls,
 delayed recursion and per-action/pending budgets. Factory coverage checks the complete
-50-box inventory and retained configuration properties. It does not prove network-visible
+50-box inventory and retained configuration properties. Synthetic room/client fixtures also
+check the real kick warning/removal packet order, protected kick actors and firing-time
+teleport glow. These checks do not prove network-visible
 furniture movement or live gameplay; no running room/database was used for these checks.

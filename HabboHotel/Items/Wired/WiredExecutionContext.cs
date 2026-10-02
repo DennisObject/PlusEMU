@@ -1,4 +1,4 @@
 namespace Plus.HabboHotel.Items.Wired;
 
 // A firing owns its arguments; delayed actions and stack calls never store an actor on a box.
-internal sealed record WiredExecutionContext(object[] Arguments, int Depth);
+internal sealed record WiredExecutionContext(object[] Arguments, int Depth, object? ActorVisit = null);
