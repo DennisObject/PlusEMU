@@ -115,6 +115,8 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     {
         var item = FindItem(holder);
         if (item is null) return null;
+        // Wall coordinates require the native parser and captured-reference checks in engineRead.
+        if (item.IsWallItem && key is "@position.x" or "@position.y" or "@altitude" or "@rotation" or "@wallitem_offset") return null;
         return key switch
         {
             "@id" => unchecked((int)item.Id), "@owner_id" => checked((int)item.OwnerId),
