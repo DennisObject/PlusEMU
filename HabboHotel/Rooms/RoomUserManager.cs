@@ -515,7 +515,7 @@ public class RoomUserManager
         using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
         foreach (var pet in GetPets().ToList())
         {
-            if (pet == null)
+            if (pet == null || pet.PetId <= 0)
                 continue;
             if (pet.DbState == PetDatabaseUpdateState.NeedsInsert)
             {

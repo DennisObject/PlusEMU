@@ -40,20 +40,7 @@ public class PetInformationComposer : IServerPacket
             packet.WriteInteger(1); //3 on hab
             packet.WriteBoolean(_pet.Saddle > 0);
             packet.WriteBoolean(false);
-            packet.WriteInteger(0); //5 on hab
-            packet.WriteInteger(_pet.AnyoneCanRide); // Anyone can ride horse
-            packet.WriteInteger(0);
-            packet.WriteInteger(0); //512 on hab
-            packet.WriteInteger(0); //1536
-            packet.WriteInteger(0); //2560
-            packet.WriteInteger(0); //3584
-            packet.WriteInteger(0);
-            packet.WriteString("");
-            packet.WriteBoolean(false);
-            packet.WriteInteger(-1); //255 on hab
-            packet.WriteInteger(-1);
-            packet.WriteInteger(-1);
-            packet.WriteBoolean(false);
+            WriteStatus(packet, _pet.AnyoneCanRide);
         }
         else if (_habbo != null)
         {
@@ -74,21 +61,22 @@ public class PetInformationComposer : IServerPacket
             packet.WriteInteger(1); //3 on hab
             packet.WriteBoolean(false);
             packet.WriteBoolean(false);
-            packet.WriteInteger(0); //5 on hab
-            packet.WriteInteger(0); // Anyone can ride horse
-            packet.WriteInteger(0);
-            packet.WriteInteger(0); //512 on hab
-            packet.WriteInteger(0); //1536
-            packet.WriteInteger(0); //2560
-            packet.WriteInteger(0); //3584
-            packet.WriteInteger(0);
-            packet.WriteString("");
-            packet.WriteBoolean(false);
-            packet.WriteInteger(-1); //255 on hab
-            packet.WriteInteger(-1);
-            packet.WriteInteger(-1);
-            packet.WriteBoolean(false);
+            WriteStatus(packet, 0);
         }
+    }
+
+    private static void WriteStatus(IOutgoingPacket packet, int publiclyRideable)
+    {
+        packet.WriteInteger(0); // Skill threshold count.
+        packet.WriteInteger(publiclyRideable);
+        packet.WriteBoolean(false); // Breedable.
+        packet.WriteBoolean(true); // Fully grown.
+        packet.WriteBoolean(false); // Dead.
+        packet.WriteInteger(0); // Unknown rarity.
+        packet.WriteInteger(-1); // Maximum time to live.
+        packet.WriteInteger(-1); // Remaining time to live.
+        packet.WriteInteger(-1); // Remaining grow time.
+        packet.WriteBoolean(false); // Publicly breedable.
     }
 
     public PetInformationComposer(Habbo habbo)

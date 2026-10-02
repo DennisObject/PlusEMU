@@ -116,25 +116,8 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             case InteractionType.GuildGate:
                 break;
             case InteractionType.Pet:
-                try
-                {
-                    var bits = extraData.Split('\n');
-                    var petName = bits[0];
-                    var race = bits[1];
-                    var color = bits[2];
-                    if (!PetUtility.CheckPetName(petName))
-                        return;
-                    if (race.Length > 2)
-                        return;
-                    if (color.Length != 6)
-                        return;
-                    _achievementManager.ProgressAchievement(session, "ACH_PetLover", 1);
-                }
-                catch (Exception e)
-                {
-                    ExceptionLogger.LogException(e);
+                if (!PetUtility.TryReadPurchase(extraData, out _, out _, out _))
                     return;
-                }
                 break;
             case InteractionType.Floor:
             case InteractionType.Wallpaper:
@@ -200,22 +183,29 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             limitedEditionSells = item.LimitedEditionSells;
             limitedEditionStack = item.LimitedEditionStack;
         }
-        if (item.CostCredits > 0)
+        var productType = item.Definition.InteractionType == InteractionType.Pet ? "p" : item.Definition.Type.ToString().ToLower();
+        void ChargePurchase()
         {
-            session.GetHabbo().Credits -= totalCreditsCost;
-            session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+            if (item.CostCredits > 0)
+            {
+                session.GetHabbo().Credits -= totalCreditsCost;
+                session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+            }
+            if (item.CostPixels > 0)
+            {
+                session.GetHabbo().Duckets -= totalPixelCost;
+                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, session.GetHabbo().Duckets)); //Love you, Tom.
+            }
+            if (item.CostDiamonds > 0)
+            {
+                session.GetHabbo().Diamonds -= totalDiamondCost;
+                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, 0, 5));
+            }
         }
-        if (item.CostPixels > 0)
-        {
-            session.GetHabbo().Duckets -= totalPixelCost;
-            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, session.GetHabbo().Duckets)); //Love you, Tom.
-        }
-        if (item.CostDiamonds > 0)
-        {
-            session.GetHabbo().Diamonds -= totalDiamondCost;
-            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, 0, 5));
-        }
-        switch (item.Definition.Type.ToString().ToLower())
+
+        if (productType != "p")
+            ChargePurchase();
+        switch (productType)
         {
             default:
                 var generatedGenericItems = new List<Item>();
@@ -353,27 +343,32 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             }
             case "p":
             {
-                var petData = extraData.Split('\n');
-                var pet = PetUtility.CreatePet(session.GetHabbo().Id, petData[0], item.Definition.BehaviourData, petData[1], petData[2]);
-                if (pet != null)
+                if (!PetUtility.TryReadPurchase(extraData, out var petName, out var race, out var color))
+                    return;
+
+                var pet = PetUtility.CreatePet(_database, session.GetHabbo().Id, petName, item.Definition.BehaviourData, race, color, inventory: session.GetHabbo().Inventory.Pets);
+                if (pet == null || pet.PetId <= 0)
                 {
-                    if (session.GetHabbo().Inventory.Pets.AddPet(pet))
+                    session.SendNotification("Oops! There was an error whilst purchasing this pet.");
+                    return;
+                }
+
+                ChargePurchase();
+                pet.RoomId = 0;
+                pet.PlacedInRoom = false;
+                session.Send(new FurniListNotificationComposer((uint)pet.PetId, 3));
+                session.Send(new PetInventoryComposer(session.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
+                if (_itemManager.Items.TryGetValue(320, out var petFood))
+                {
+                    var food = _itemFactory.CreateSingleItemNullable(petFood, session.GetHabbo(), "", "").ToInventoryItem();
+                    if (food != null)
                     {
-                        pet.RoomId = 0;
-                        pet.PlacedInRoom = false;
-                        session.Send(new FurniListNotificationComposer((uint)pet.PetId, 3));
-                        session.Send(new PetInventoryComposer(session.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
-                        if (_itemManager.Items.TryGetValue(320, out var petFood))
-                        {
-                            var food = _itemFactory.CreateSingleItemNullable(petFood, session.GetHabbo(), "", "").ToInventoryItem();
-                            if (food != null)
-                            {
-                                session.GetHabbo().Inventory.Furniture.AddItem(food);
-                                session.Send(new FurniListNotificationComposer(food.Id, 1));
-                            }
-                        }
+                        session.GetHabbo().Inventory.Furniture.AddItem(food);
+                        session.Send(new FurniListNotificationComposer(food.Id, 1));
                     }
                 }
+
+                _achievementManager.ProgressAchievement(session, "ACH_PetLover", 1);
                 break;
             }
         }

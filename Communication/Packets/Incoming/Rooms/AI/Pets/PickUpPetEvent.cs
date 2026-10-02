@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Inventory.Pets;
+﻿using Plus.HabboHotel.Rooms.AI;
+using Plus.Communication.Packets.Outgoing.Inventory.Pets;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -50,6 +51,9 @@ internal class PickUpPetEvent : RoomPacketEvent
             session.SendWhisper("You can only pickup your own pets, to kick a pet you must have room rights.");
             return Task.CompletedTask;
         }
+        var data = pet.PetData;
+        if (data == null || data.PetId <= 0 || !data.TrySaveRoom(_database, 0, 0, 0))
+            return Task.CompletedTask;
         if (pet.RidingHorse)
         {
             var userRiding = room.GetRoomUserManager().GetRoomUserByVirtualId(pet.HorseId);
@@ -62,29 +66,13 @@ internal class PickUpPetEvent : RoomPacketEvent
             else
                 pet.RidingHorse = false;
         }
-        var data = pet.PetData;
-        if (data != null)
-        {
-            using var dbClient = _database.GetQueryReactor();
-            dbClient.RunQuery($"UPDATE `bots` SET `room_id` = '0', `x` = '0', `Y` = '0', `Z` = '0' WHERE `id` = '{data.PetId}' LIMIT 1");
-            dbClient.RunQuery(
-                $"UPDATE `bots_petdata` SET `experience` = '{data.Experience}', `energy` = '{data.Energy}', `nutrition` = '{data.Nutrition}', `respect` = '{data.Respect}' WHERE `id` = '{data.PetId}' LIMIT 1");
-        }
-        if (data.OwnerId != session.GetHabbo().Id)
-        {
-            var target = _clientManager.GetClientByUserId(data.OwnerId);
-            if (target != null)
-            {
-                if (target.GetHabbo().Inventory.Pets.AddPet(pet.PetData))
-                {
-                    pet.PetData.RoomId = 0;
-                    pet.PetData.PlacedInRoom = false;
-                    room.GetRoomUserManager().RemoveBot(pet.VirtualId, false);
-                    target.Send(new PetInventoryComposer(target.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
-                    return Task.CompletedTask;
-                }
-            }
-        }
+        data.RoomId = 0;
+        data.PlacedInRoom = false;
+        data.DbState = PetDatabaseUpdateState.Updated;
+        var owner = data.OwnerId == session.GetHabbo().Id ? session : _clientManager.GetClientByUserId(data.OwnerId);
+        if (owner != null && owner.GetHabbo().Inventory.Pets.AddPet(data))
+            owner.Send(new PetInventoryComposer(owner.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
+
         room.GetRoomUserManager().RemoveBot(pet.VirtualId, false);
         return Task.CompletedTask;
     }

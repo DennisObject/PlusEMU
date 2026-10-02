@@ -1,5 +1,4 @@
-﻿using Dapper;
-using Plus.Communication.Packets.Incoming.Rooms;
+﻿using Plus.Communication.Packets.Incoming.Rooms;
 using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Database;
@@ -44,38 +43,20 @@ internal class CheckGnomeNameEvent : RoomPacketEvent
         var x = item.GetX;
         var y = item.GetY;
 
-        //Quickly delete it from the database.
-        using (var connection = _database.Connection())
-        {
-            connection.Execute("DELETE FROM `items` WHERE `id` = @ItemId LIMIT 1", new { ItemId = item.Id});
-        }
-
-        //Remove the item.
-        room.GetRoomItemHandler().RemoveFurniture(session, item.Id);
-
-        //Apparently we need this for success.
-        session.Send(new CheckGnomeNameComposer(petName, 0));
-
         //Create the pet here.
-        var pet = PetUtility.CreatePet(session.GetHabbo().Id, petName, 26, "30", "ffffff");
+        var pet = PetUtility.CreatePet(_database, session.GetHabbo().Id, petName, 26, "30", "ffffff", item, RandomClothing());
         if (pet == null)
         {
             session.SendNotification("Oops, an error occoured. Please report this!");
             return Task.CompletedTask;
         }
+        room.GetRoomItemHandler().RemoveFurniture(session, item.Id);
+        session.Send(new CheckGnomeNameComposer(petName, 0));
         var rndSpeechList = new List<RandomSpeech>();
-        pet.RoomId = room.RoomId;
-        pet.GnomeClothing = RandomClothing();
-
-        //Update the pets gnome clothing.
-        using (var connection = _database.Connection())
-        {
-            connection.Execute("UPDATE `bots_petdata` SET `gnome_clothing` = @GnomeClothing WHERE `id` = @PetId LIMIT 1", new { GnomeClothing = pet.GnomeClothing, PetId = pet.PetId });
-        }
 
         //Make a RoomUser of the pet.
         room.GetRoomUserManager()
-            .DeployBot(new(pet.PetId, pet.RoomId, "pet", "freeroam", pet.Name, "", pet.Look, x, y, 0, 0, 0, 0, 0, 0, ref rndSpeechList, "", 0, pet.OwnerId, false, 0, false, 0), pet);
+            .DeployBot(new(pet.PetId, pet.RoomId, "pet", "freeroam", pet.Name, "", pet.Look, x, y, pet.Z, 0, 0, 0, 0, 0, ref rndSpeechList, "", 0, pet.OwnerId, false, 0, false, 0), pet);
 
         //Give the food.
         if (_itemDataManager.Items.TryGetValue(320, out var petFood))
