@@ -172,7 +172,7 @@ def plan(manifest, ledger, snapshot):
     page = pages[0] if pages else None
     expected_page = dict(parent_id=-1, caption='Recently Added', page_layout='default_3x3', min_rank=1,
                          visible=1, enabled=1, icon_image=1, min_vip=0, order_num=999,
-                         page_strings_1='catalog_wired_headline1|',
+                         page_strings_1='catalog_wired_header1|',
                          page_strings_2='Wired furniture available in this engine.|')
     if page and any(page[key] != value for key, value in expected_page.items()):
         raise ValueError('Import page link belongs to a different page configuration.')
@@ -233,7 +233,7 @@ def statements(result):
     if result['new_page']:
         sql += [insert('catalog_pages', dict(parent_id=-1, caption='Recently Added', icon_image=1,
                  visible=1, enabled=1, min_rank=1, min_vip=0, order_num=999, page_link=PAGE_LINK,
-                 page_layout='default_3x3', page_strings_1='catalog_wired_headline1|',
+                 page_layout='default_3x3', page_strings_1='catalog_wired_header1|',
                  page_strings_2='Wired furniture available in this engine.|')), 'SET @wired_page=LAST_INSERT_ID();']
     elif result['offers']:
         sql.append(f"SET @wired_page={result['page_id']};")

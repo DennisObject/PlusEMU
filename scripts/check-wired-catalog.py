@@ -119,6 +119,7 @@ def main():
         owned_page = next((p for p in committed['catalog_pages'] if p['page_link'] == module.PAGE_LINK), None)
         if owned_page:
             assert owned_page['caption'] == 'Recently Added', 'New page has the wrong user caption.'
+            assert owned_page['page_strings_1'] == 'catalog_wired_header1|', 'New page does not reference the genuine wired header asset.'
             published = {r['catalog_name']: r for r in committed['catalog_items'] if r['page_id'] == owned_page['id']}
             assert all(e['name'] in published for e in result['definitions']), 'New definition is absent from Recently Added.'
             for entry in result['definitions']:
