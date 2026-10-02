@@ -1,4 +1,4 @@
-using Plus.Communication.Packets.Outgoing.Groups;
+﻿using Plus.Communication.Packets.Outgoing.Groups;
 using Plus.Communication.Packets.Outgoing.Rooms.Permissions;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
