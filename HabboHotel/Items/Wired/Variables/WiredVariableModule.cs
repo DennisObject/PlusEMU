@@ -15,6 +15,38 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     private readonly object _gate = new();
     public uint RoomId => roomId;
 
+    /// <summary>Capture once per FX/menu flush, share across viewers, then dispose. Never retain across room changes.</summary>
+    public WiredVariableReadSnapshot CaptureReads(IEnumerable<WiredVariableReference> references, WiredVariableFrame frame)
+    {
+        lock (_gate)
+        {
+            if (frame.RoomId != roomId) throw new ArgumentException("The frame belongs to another room.", nameof(frame));
+            var authority = new ReadDirectory(directory);
+            var resolved = references.Distinct().ToDictionary(x => x, x => Resolve(x, false, authority));
+            var holders = frame.Holders.Concat([new(WiredVariableTarget.Global, 0, 0), new(WiredVariableTarget.Context, 0, 0)]).Distinct().ToArray();
+            var requests = new List<(WiredVariableReference Reference, WiredVariableHolder Holder, Resolved Resolved)>();
+            foreach (var (reference, resolution) in resolved)
+                if (resolution is not null)
+                    foreach (var holder in holders)
+                        if (ValidateHolder(reference, holder, frame) && (resolution.Definition?.IsDurable != true || holder.CanPersist))
+                            requests.Add((reference, holder, resolution));
+            var values = new Dictionary<WiredVariableKey, WiredVariableValue>();
+            foreach (var group in requests.Where(x => x.Resolved.Definition is not null).GroupBy(x => Store(x.Resolved.Definition!, frame)))
+                foreach (var value in group.Key.ReadMany(group.Select(x => Key(x.Resolved.Definition!, x.Holder)).Distinct().ToArray()))
+                    values[value.Key] = value.Value;
+            var captured = new Dictionary<(WiredVariableReference, WiredVariableHolder), WiredVariableValue>();
+            foreach (var (reference, holder, resolution) in requests)
+            {
+                var definition = resolution.Definition;
+                var value = resolution.Builtin is { } builtin ? builtins?.Read(builtin, holder, frame)
+                    : values.GetValueOrDefault(Key(definition!, holder))
+                        ?? (definition!.Target == WiredVariableTarget.Global ? new(definition.InitialValue, 0, 0) : null);
+                if (value is not null) captured[(reference, holder)] = value;
+            }
+            return new(roomId, captured);
+        }
+    }
+
     public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)
     {
         lock (_gate)
@@ -126,21 +158,22 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     private IWiredVariableStore Store(WiredVariableDefinition definition, WiredVariableFrame frame) =>
         definition.Target == WiredVariableTarget.Context ? frame.Context : definition.IsDurable ? durable : _active;
 
-    private Resolved? Resolve(WiredVariableReference reference, bool writing)
+    private Resolved? Resolve(WiredVariableReference reference, bool writing, IWiredVariableDirectory? readDirectory = null)
     {
+        var authority = readDirectory ?? directory;
         var visited = new HashSet<uint>();
         var lineage = ImmutableArray.CreateBuilder<WiredVariableDefinition>();
         var expectedRoom = roomId;
-        var owner = directory.GetRoomOwner(roomId);
+        var owner = authority.GetRoomOwner(roomId);
         if (owner is null or 0) return null;
         while (true)
         {
             if (reference.Token.StartsWith("internal:", StringComparison.Ordinal))
                 return expectedRoom == roomId ? new(null, reference, null) : null;
             if (!TryDefinitionId(reference.Token, out var id) || !visited.Add(id) || visited.Count > 32) return null;
-            var definition = directory.Find(id);
+            var definition = authority.Find(id);
             if (definition is null || definition.RoomId != expectedRoom || definition.Target != reference.Target
-                || definition.OwnerId != owner || directory.GetRoomOwner(expectedRoom) != owner) return null;
+                || definition.OwnerId != owner || authority.GetRoomOwner(expectedRoom) != owner) return null;
             lineage.Add(definition);
             if (definition.Link is not { } link) return new(definition, null, new(roomId, owner.Value, lineage.ToImmutable()));
             if (writing && link.ReadOnly) return null;
@@ -149,7 +182,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             {
                 if (reference.Target is not (WiredVariableTarget.User or WiredVariableTarget.Global)
                     || !TryDefinitionId(link.Source.Token, out var sourceId)) return null;
-                var source = directory.Find(sourceId);
+                var source = authority.Find(sourceId);
                 if (source is null || source.Availability != WiredVariableAvailability.Shared || source.Link is not null) return null;
             }
             expectedRoom = link.SourceRoomId;
@@ -162,4 +195,20 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             NumberStyles.None, CultureInfo.InvariantCulture, out id) && id > 0;
 
     private sealed record Resolved(WiredVariableDefinition? Definition, WiredVariableReference? Builtin, WiredVariableAuthorization? Authorization);
+
+    private sealed class ReadDirectory(IWiredVariableDirectory source) : IWiredVariableDirectory
+    {
+        private readonly Dictionary<uint, WiredVariableDefinition?> _definitions = [];
+        private readonly Dictionary<uint, uint?> _owners = [];
+        public WiredVariableDefinition? Find(uint itemId)
+        {
+            if (!_definitions.TryGetValue(itemId, out var value)) _definitions[itemId] = value = source.Find(itemId);
+            return value;
+        }
+        public uint? GetRoomOwner(uint roomId)
+        {
+            if (!_owners.TryGetValue(roomId, out var value)) _owners[roomId] = value = source.GetRoomOwner(roomId);
+            return value;
+        }
+    }
 }

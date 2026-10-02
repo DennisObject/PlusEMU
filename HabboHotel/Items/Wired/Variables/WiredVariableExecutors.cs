@@ -107,6 +107,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, Func<l
         if (target is WiredVariableTarget.Context or WiredVariableTarget.Global)
             return [new(target, 0, 0)];
         var source = target == WiredVariableTarget.User ? userSource : furniSource;
+        if (frame.ResolveSource is { } resolve) return resolve(target, source, picked).Where(frame.Contains).Distinct();
         var selected = picked.ToHashSet();
         var candidates = source switch
         {

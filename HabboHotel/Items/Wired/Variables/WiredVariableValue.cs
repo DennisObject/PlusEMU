@@ -13,6 +13,12 @@ public sealed record WiredVariableChange(uint RoomId, WiredVariableKey Key, Wire
 public interface IWiredVariableStore
 {
     WiredVariableValue? Read(WiredVariableKey key);
+    IReadOnlyDictionary<WiredVariableKey, WiredVariableValue> ReadMany(IReadOnlyCollection<WiredVariableKey> keys)
+    {
+        var requested = keys.ToHashSet();
+        return keys.Select(x => x.DefinitionId).Distinct().SelectMany(GetHolders)
+            .Where(x => requested.Contains(x.Key)).ToDictionary();
+    }
     WiredVariableWrite Mutate(WiredVariableKey key, Func<WiredVariableValue?, WiredVariableValue?> update, WiredVariableAuthorization? authorization = null);
     IReadOnlyDictionary<WiredVariableKey, WiredVariableValue> GetHolders(uint definitionId);
     int DeleteDefinition(uint definitionId);

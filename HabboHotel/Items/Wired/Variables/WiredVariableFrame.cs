@@ -12,6 +12,7 @@ public sealed class WiredVariableFrame(uint roomId, IReadOnlyList<WiredVariableH
     public IReadOnlyList<WiredVariableHolder> Trigger { get; init; } = [];
     public IReadOnlyList<WiredVariableHolder> Signal { get; init; } = [];
     public List<WiredVariableHolder> Selector { get; } = [];
+    public Func<WiredVariableTarget, int, IEnumerable<uint>, IEnumerable<WiredVariableHolder>>? ResolveSource { get; init; }
     public int Depth { get; init; }
     public string? ChatText { get; init; }
     public bool Contains(WiredVariableHolder holder) => holder.Target is WiredVariableTarget.Global or WiredVariableTarget.Context

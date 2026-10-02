@@ -12,6 +12,9 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
 {
     private readonly Dictionary<long, Viewer> _viewers = [];
     private readonly Dictionary<long, (WiredVariableFxBatch Batch, Viewer State)> _pending = [];
+    public WiredVariableReadSnapshot CaptureReads(WiredVariableFrame frame, IReadOnlyList<WiredVariableFxBinding> bindings) =>
+        variables.CaptureReads(bindings.SelectMany(x => new[] { x.Variable, x.OverrideMin, x.OverrideMax, x.Audience })
+            .OfType<WiredVariableReference>(), frame);
     public void RemoveViewer(long stableUserId) { _viewers.Remove(stableUserId); _pending.Remove(stableUserId); }
     /// <summary>Call only after every packet in the batch was successfully sent. A failed send leaves the batch retryable.</summary>
     public bool Acknowledge(long stableUserId, WiredVariableFxBatch batch)
@@ -24,8 +27,13 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
 
     public WiredVariableFxBatch Update(WiredVariableHolder viewer, WiredVariableFrame frame,
         IReadOnlyList<WiredVariableFxBinding> bindings, IReadOnlyList<WiredVariableHolder> readyHolders,
-        Func<WiredVariableHolder, int> team)
+        Func<WiredVariableHolder, int> team, WiredVariableReadSnapshot? reads = null)
     {
+        if (reads is null)
+        {
+            using var snapshot = CaptureReads(frame, bindings);
+            return Update(viewer, frame, bindings, readyHolders, team, snapshot);
+        }
         if (viewer.Target != WiredVariableTarget.User || !viewer.CanPersist || !frame.Contains(viewer))
             throw new ArgumentException("FX viewer must be a present player.", nameof(viewer));
         if (!_viewers.TryGetValue(viewer.StableId, out var state)) state = new();
@@ -39,11 +47,11 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
             foreach (var holder in readyHolders)
             {
                 if (wanted.Count >= maxStatuses) break;
-                if (holder.Target != binding.Variable.Target || !frame.Contains(holder) || !CanSee(binding, viewer, holder, frame, team)) continue;
-                var value = variables.Read(binding.Variable, holder, frame);
+                if (holder.Target != binding.Variable.Target || !frame.Contains(holder) || !CanSee(binding, viewer, holder, frame, team, reads)) continue;
+                var value = reads.Read(binding.Variable, holder, frame);
                 if (value is null) continue;
-                var min = ReadOverride(binding.OverrideMin, holder, frame);
-                var max = ReadOverride(binding.OverrideMax, holder, frame);
+                var min = ReadOverride(binding.OverrideMin, holder, frame, reads);
+                var max = ReadOverride(binding.OverrideMax, holder, frame, reads);
                 if (min is not null || max is not null)
                 {
                     min ??= binding.Config.Min; max ??= binding.Config.Max;
@@ -80,14 +88,14 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
         return batch;
     }
 
-    private long? ReadOverride(WiredVariableReference? reference, WiredVariableHolder holder, WiredVariableFrame frame)
+    private static long? ReadOverride(WiredVariableReference? reference, WiredVariableHolder holder, WiredVariableFrame frame, WiredVariableReadSnapshot reads)
     {
         if (reference is null) return null;
         var target = reference.Target == WiredVariableTarget.Global ? new(WiredVariableTarget.Global, 0, 0) : holder;
-        return variables.Read(reference, target, frame)?.Value;
+        return reads.Read(reference, target, frame)?.Value;
     }
-    private bool CanSee(WiredVariableFxBinding binding, WiredVariableHolder viewer, WiredVariableHolder holder,
-        WiredVariableFrame frame, Func<WiredVariableHolder, int> team)
+    private static bool CanSee(WiredVariableFxBinding binding, WiredVariableHolder viewer, WiredVariableHolder holder,
+        WiredVariableFrame frame, Func<WiredVariableHolder, int> team, WiredVariableReadSnapshot reads)
     {
         var visibility = !binding.Config.UserFx && binding.Visibility is 0 or 1 ? 2 : binding.Visibility;
         return visibility switch
@@ -95,8 +103,8 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
             0 => viewer.StableId == holder.StableId,
             1 => viewer.StableId == holder.StableId || team(holder) != 0 && team(holder) == team(viewer),
             2 => true,
-            3 => binding.Audience is { } audience && variables.Read(audience, viewer, frame) is not null,
-            4 => binding.Audience is { } audience && variables.Read(audience, viewer, frame)?.Value == binding.AudienceValue,
+            3 => binding.Audience is { } audience && reads.Read(audience, viewer, frame) is not null,
+            4 => binding.Audience is { } audience && reads.Read(audience, viewer, frame)?.Value == binding.AudienceValue,
             _ => false
         };
     }

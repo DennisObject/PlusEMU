@@ -20,6 +20,28 @@ public sealed class DatabaseWiredVariableStore(IDatabase database) : IWiredVaria
         return connection.QuerySingleOrDefault<WiredVariableValue>(ReadSql, key);
     }
 
+    public IReadOnlyDictionary<WiredVariableKey, WiredVariableValue> ReadMany(IReadOnlyCollection<WiredVariableKey> keys)
+    {
+        var result = new Dictionary<WiredVariableKey, WiredVariableValue>();
+        if (keys.Count == 0) return result;
+        var requested = keys.ToHashSet();
+        using var connection = database.Connection();
+        connection.Open();
+        foreach (var group in keys.GroupBy(x => x.DefinitionId))
+        {
+            var rows = connection.Query<Row>("""
+                SELECT target_kind AS Target,holder_id AS HolderId,value AS Value,created_at_ms AS CreatedAtMs,updated_at_ms AS UpdatedAtMs
+                FROM wired_variable_values WHERE definition_id=@definitionId AND holder_id IN @holderIds
+                """, new { definitionId = group.Key, holderIds = group.Select(x => x.HolderId).Distinct().ToArray() });
+            foreach (var row in rows)
+            {
+                var key = new WiredVariableKey(group.Key, row.Target, row.HolderId);
+                if (requested.Contains(key)) result[key] = new(row.Value, row.CreatedAtMs, row.UpdatedAtMs);
+            }
+        }
+        return result;
+    }
+
     public WiredVariableWrite Mutate(WiredVariableKey key, Func<WiredVariableValue?, WiredVariableValue?> update, WiredVariableAuthorization? authorization = null)
     {
         using var connection = database.Connection();
