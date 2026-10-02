@@ -106,6 +106,70 @@ public class BotRoamingTests
     }
 
     [Fact]
+    public void GateCloseAndOpenUpdateTheCacheAndTemporarySteps()
+    {
+        var (room, map) = Create("000\r000\r000", 1, 1);
+        var stress = Bot(room, allowOverride: true);
+        var placed = Bot(room, allowOverride: true, temporary: false);
+        var from = new Vector2D(1, 2);
+        var gate = new Vector2D(2, 2);
+
+        Assert.Contains(new Point(2, 2), map.WalkableSquares());
+        Assert.True(map.IsValidStep(from, gate, true, true, false, stress));
+        Assert.True(map.IsValidStep2(stress, from, gate, true, true));
+
+        map.SetFloorStatus(2, 2, 0);
+        Assert.Equal(0, map.GameMap[2, 2]);
+        Assert.DoesNotContain(new Point(2, 2), map.WalkableSquares());
+        Assert.False(map.IsValidStep(from, gate, true, true, false, stress));
+        Assert.False(map.IsValidStep2(stress, from, gate, true, true));
+        Assert.True(map.IsValidStep2(placed, from, gate, true, true));
+
+        map.SetFloorStatus(2, 2, 1);
+        Assert.Equal(1, map.GameMap[2, 2]);
+        Assert.Contains(new Point(2, 2), map.WalkableSquares());
+        Assert.True(map.IsValidStep(from, gate, true, true, false, stress));
+        Assert.True(map.IsValidStep2(stress, from, gate, true, true));
+
+        map.GameMap[2, 2] = 0;
+        Assert.Contains(new Point(2, 2), map.WalkableSquares());
+        Assert.True(map.IsValidStep2(stress, from, gate, true, true));
+        var seenStress = false;
+        for (var i = 0; i < 200; i++)
+        {
+            Assert.True(map.TryGetRandomWalkableSquare(out var live));
+            Assert.NotEqual(new Point(2, 2), live);
+            Assert.True(map.TryGetRandomWalkableSquare(true, out var open));
+            if (open == new Point(2, 2))
+                seenStress = true;
+        }
+        Assert.True(seenStress);
+    }
+
+    [Fact]
+    public void OrdinaryGenericBotDoesNotTargetAnOccupiedTile()
+    {
+        var (room, map) = Create("000\r000\r000", 1, 1);
+        map.GameMap[0, 0] = 0;
+        var user = Bot(room, allowOverride: false, temporary: false);
+        user.SetPos(1, 2, 0);
+        user.GoalX = -1;
+        user.GoalY = -1;
+        var ai = new GenericBot(user.VirtualId);
+        ai.Init(user.BotData.BotId, user.VirtualId, 1, user, room);
+        var timer = typeof(GenericBot).GetField("_actionTimer", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(timer);
+        for (var i = 0; i < 200; i++)
+        {
+            timer.SetValue(ai, 0);
+            ai.OnTimerTick();
+            var goal = new Point(user.GoalX, user.GoalY);
+            Assert.NotEqual(new Point(0, 0), goal);
+            Assert.Equal(1, map.GameMap[goal.X, goal.Y]);
+        }
+    }
+
+    [Fact]
     public void FloorStatusChangesInvalidateTheCachedTargets()
     {
         var (_, map) = Create("000\r000\r000", 1, 1);
