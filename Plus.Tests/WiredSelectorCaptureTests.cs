@@ -92,7 +92,8 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         f.Addon("wf_xtra_text_output_username", new() { IntParams = [2, 200], Text = "u\t," });
         var seen = new List<string>();
         f.Action(ctx => { seen.Add(ctx.Policy.FormatText(ctx, "$(u)")); return true; }, delay: 1);
-        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = first });
+        // The selected target can depart while this actorless firing remains valid.
+        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter));
         Assert.Equal(1, f.WorldCaptures);
         f.Users.Remove(first);
         f.User(1);
