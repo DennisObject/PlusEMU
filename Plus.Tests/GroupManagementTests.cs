@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.Data;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -296,6 +297,50 @@ public class GroupManagementTests : IDisposable
         var body = sent.Single(item => item.Header == ServerPacketHeader.UnknownGroupComposer).Payload;
         Assert.Equal(group.Id, BinaryPrimitives.ReadInt32BigEndian(body));
         Assert.Equal(8, BinaryPrimitives.ReadInt32BigEndian(body.AsSpan(4)));
+    }
+
+    [Fact]
+    public async Task KickClearsFavouriteAndHomeroomRights()
+    {
+        var group = NewGroup(hasForum: false);
+        group.AddMember(8);
+        group.MakeAdmin(8);
+        var stats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, group.Id, "", 0);
+        var targetHabbo = new Habbo { Id = 8, Username = "Target", Permissions = Rights(), HabboStats = stats };
+        var (_, targetSent) = Client(targetHabbo);
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        var manager = new RoomUserManager(room);
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
+        var roomUser = new RoomUser(8, group.RoomId, 3, room);
+        roomUser.SetStatus("flatctrl 1", "");
+        roomUser.SetStatus("flatctrl 3", "");
+        var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
+            .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
+        users.TryAdd(roomUser.VirtualId, roomUser);
+        targetHabbo.CurrentRoom = room;
+        var rooms = Proxy<IRoomManager>((method, args) =>
+        {
+            Assert.Equal("TryGetRoom", method);
+            args[1] = room;
+            return true;
+        });
+        var (owner, sent) = Client(Owner());
+        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database).Parse(owner, Packet(group.Id, 8, true));
+
+        Assert.False(group.IsAdmin(8));
+        Assert.False(group.IsMember(8));
+        Assert.Equal(0, stats.FavouriteGroupId);
+        Assert.Contains("UPDATE `user_statistics` SET `groupid` = 0", string.Join("\n", _database.Statements));
+        Assert.DoesNotContain("flatctrl 1", roomUser.Statusses.Keys);
+        Assert.DoesNotContain("flatctrl 3", roomUser.Statusses.Keys);
+        var targetHeaders = targetSent.Select(item => item.Header).ToList();
+        Assert.Contains(ServerPacketHeader.YouAreControllerComposer, targetHeaders);
+        Assert.Contains(ServerPacketHeader.UpdateFavouriteGroupComposer, targetHeaders);
+        Assert.Contains(ServerPacketHeader.RefreshFavouriteGroupComposer, targetHeaders);
+        Assert.Contains(ServerPacketHeader.GroupInfoComposer, targetHeaders);
+        var refresh = sent.Single(item => item.Header == ServerPacketHeader.UnknownGroupComposer).Payload;
+        Assert.Equal(group.Id, BinaryPrimitives.ReadInt32BigEndian(refresh));
+        Assert.Equal(8, BinaryPrimitives.ReadInt32BigEndian(refresh.AsSpan(4)));
     }
 
     [Fact]

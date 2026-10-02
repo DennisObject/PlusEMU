@@ -122,10 +122,22 @@ internal class RemoveGroupMemberEvent : IPacketEvent
             var removedClient = PlusEnvironment.Game.ClientManager.GetClientByUserId(userId);
             if (removedClient != null)
             {
-                var stats = removedClient.GetHabbo().HabboStats;
-                if (stats != null && stats.FavouriteGroupId == groupId) stats.FavouriteGroupId = 0;
+                var habbo = removedClient.GetHabbo();
+                var stats = habbo.HabboStats;
+                if (stats != null && stats.FavouriteGroupId == groupId)
+                {
+                    stats.FavouriteGroupId = 0;
+                    if (habbo.CurrentRoom != null)
+                    {
+                        var favouriteUser = habbo.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(userId);
+                        if (favouriteUser != null)
+                            habbo.CurrentRoom.SendPacket(new UpdateFavouriteGroupComposer(group, favouriteUser.VirtualId));
+                        habbo.CurrentRoom.SendPacket(new RefreshFavouriteGroupComposer(userId));
+                    }
+                    else
+                        removedClient.Send(new RefreshFavouriteGroupComposer(userId));
+                }
                 removedClient.Send(new GroupInfoComposer(group, removedClient));
-                removedClient.Send(new RefreshFavouriteGroupComposer(userId));
             }
             session.Send(new UnknownGroupComposer(group.Id, userId));
         }
