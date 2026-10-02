@@ -1,5 +1,7 @@
-﻿using System.Collections.Concurrent;
-using System.Data;
+﻿using System.Data;
+using System.Diagnostics;
+using Plus.Core;
+using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Boxes;
@@ -12,41 +14,46 @@ namespace Plus.HabboHotel.Rooms.Instance;
 public class WiredComponent
 {
     private readonly Room _room;
-    private readonly ConcurrentDictionary<uint, IWiredItem> _wiredItems;
+    private readonly WiredStackEngine _engine;
 
     public WiredComponent(Room instance) //, RoomItem Items)
     {
         _room = instance;
-        _wiredItems = new();
+        _engine = new(
+            () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
+            box => ReferenceEquals(_room.GetRoomItemHandler().GetItem(box.Item.Id), box.Item),
+            IsActorPresent,
+            OnEvent, ExceptionLogger.LogWiredException,
+            WiredEngineLimits.FromSettings(key => PlusEnvironment.SettingsManager?.TryGetValue(key) ?? "0"),
+            CaptureActorVisit);
     }
 
-    public void OnCycle()
-    {
-        var start = DateTime.Now;
-        foreach (var item in _wiredItems.ToList())
-        {
-            var selectedItem = _room.GetRoomItemHandler().GetItem(item.Value.Item.Id);
-            if (selectedItem == null)
-                TryRemove(item.Key);
-            if (item.Value is IWiredCycle)
-            {
-                var cycle = (IWiredCycle)item.Value;
-                if (cycle.TickCount <= 0)
-                    cycle.OnCycle();
-                else
-                    cycle.TickCount--;
-            }
-        }
-        var span = DateTime.Now - start;
-        if (span.Milliseconds > 400)
-        {
-            //log.Warn("<Room " + _room.Id + "> Wired took " + Span.TotalMilliseconds + "ms to execute - Rooms lagging behind");
-        }
-    }
+    public void OnCycle() => _engine.OnCycle();
 
-    public IWiredItem LoadWiredBox(Item item)
+    internal bool IsActorPresent(object[] arguments) => arguments.Length == 0 || arguments[0] is not Habbo player
+        || player.InRoom && ReferenceEquals(player.CurrentRoom, _room);
+
+    internal object? CaptureActorVisit(object[] arguments) => arguments.Length > 0 && arguments[0] is Habbo player
+        ? _room.GetRoomUserManager()?.GetRoomUserByHabbo(player.Id) : null;
+
+    public bool RunStack(IWiredItem source, params object[] arguments) => _engine.RunStack(source, arguments);
+
+    internal bool RunStack(IWiredItem source, object[] arguments, Action onAccepted) =>
+        _engine.RunStack(source, arguments, onAccepted);
+
+    internal bool RunPeriodicStack(IWiredItem source, object[][] actors) => _engine.RunPeriodicStack(source, actors);
+
+    internal bool CallStacks(IEnumerable<Item> targets, params object[] arguments) => _engine.CallStacks(targets, arguments);
+
+    public IWiredItem? LoadWiredBox(Item item)
     {
         var newBox = GenerateNewBox(item);
+        if (newBox == null)
+        {
+            NLog.LogManager.GetLogger("Wired").Warn("Unsupported wired type {0} on item {1} in room {2}",
+                item.Definition.WiredType, item.Id, _room.Id);
+            return null;
+        }
         DataRow row = null;
         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
         {
@@ -106,7 +113,7 @@ public class WiredComponent
         return newBox;
     }
 
-    public IWiredItem GenerateNewBox(Item item)
+    public IWiredItem? GenerateNewBox(Item item)
     {
         switch (item.Definition.WiredType)
         {
@@ -258,69 +265,11 @@ public class WiredComponent
         return false;
     }
 
-    public bool TriggerEvent(WiredBoxType type, params object[] @params)
-    {
-        var finished = false;
-        try
-        {
-            if (type == WiredBoxType.TriggerUserSays)
-            {
-                var ranBoxes = new List<IWiredItem>();
-                foreach (var box in _wiredItems.Values.ToList())
-                {
-                    if (box == null)
-                        continue;
-                    if (box.Type == WiredBoxType.TriggerUserSays)
-                    {
-                        if (!ranBoxes.Contains(box))
-                            ranBoxes.Add(box);
-                    }
-                }
-                var message = Convert.ToString(@params[1]);
-                foreach (var box in ranBoxes.ToList())
-                {
-                    if (box == null)
-                        continue;
-                    if (message.Contains($" {box.StringData}") || message.Contains($"{box.StringData} ") || message == box.StringData) finished = box.Execute(@params);
-                }
-                return finished;
-            }
-            foreach (var box in _wiredItems.Values.ToList())
-            {
-                if (box == null)
-                    continue;
-                if (box.Type == type && IsTrigger(box.Item)) finished = box.Execute(@params);
-            }
-        }
-        catch
-        {
-            //log.Error("Error when triggering Wired Event: " + e);
-            return false;
-        }
-        return finished;
-    }
+    public bool TriggerEvent(WiredBoxType type, params object[] @params) => _engine.Dispatch(type, @params);
 
-    public ICollection<IWiredItem> GetTriggers(IWiredItem item)
-    {
-        var items = new List<IWiredItem>();
-        foreach (var I in _wiredItems.Values)
-        {
-            if (IsTrigger(I.Item) && I.Item.GetX == item.Item.GetX && I.Item.GetY == item.Item.GetY)
-                items.Add(I);
-        }
-        return items;
-    }
+    public ICollection<IWiredItem> GetTriggers(IWiredItem item) => _engine.GetBoxes(item, InteractionType.WiredTrigger);
 
-    public ICollection<IWiredItem> GetEffects(IWiredItem item)
-    {
-        var items = new List<IWiredItem>();
-        foreach (var I in _wiredItems.Values)
-        {
-            if (IsEffect(I.Item) && I.Item.GetX == item.Item.GetX && I.Item.GetY == item.Item.GetY)
-                items.Add(I);
-        }
-        return items.OrderBy(x => x.Item.GetZ).ToList();
-    }
+    public ICollection<IWiredItem> GetEffects(IWiredItem item) => _engine.GetBoxes(item, InteractionType.WiredEffect);
 
     public IWiredItem GetRandomEffect(ICollection<IWiredItem> effects)
     {
@@ -354,16 +303,7 @@ public class WiredComponent
         return true;
     }
 
-    public ICollection<IWiredItem> GetConditions(IWiredItem item)
-    {
-        var items = new List<IWiredItem>();
-        foreach (var I in _wiredItems.Values)
-        {
-            if (IsCondition(I.Item) && I.Item.GetX == item.Item.GetX && I.Item.GetY == item.Item.GetY)
-                items.Add(I);
-        }
-        return items;
-    }
+    public ICollection<IWiredItem> GetConditions(IWiredItem item) => _engine.GetBoxes(item, InteractionType.WiredCondition);
 
     public void OnEvent(Item item)
     {
@@ -399,19 +339,14 @@ public class WiredComponent
         dbClient.AddParameter("string", item.StringData);
         dbClient.AddParameter("bool", item.BoolData ? "1" : "0");
         dbClient.RunQuery();
+        _engine.CancelPending(item);
     }
 
-    public bool AddBox(IWiredItem item) => _wiredItems.TryAdd(item.Item.Id, item);
+    public bool AddBox(IWiredItem item) => _engine.Add(item);
 
-    public bool TryRemove(uint itemId)
-    {
-        return _wiredItems.TryRemove(itemId, out _);
-    }
+    public bool TryRemove(uint itemId) => _engine.Remove(itemId);
 
-    public bool TryGet(uint id, out IWiredItem item) => _wiredItems.TryGetValue(id, out item);
+    public bool TryGet(uint id, out IWiredItem item) => _engine.TryGet(id, out item);
 
-    public void Cleanup()
-    {
-        _wiredItems.Clear();
-    }
+    public void Cleanup() => _engine.Clear();
 }
