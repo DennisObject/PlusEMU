@@ -1,12 +1,13 @@
 using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Items.Wired.Variables;
 
-/// <summary>Concrete scalar action/condition adapter. Engine must pass the firing's WiredVariableFrame.</summary>
-public sealed class WiredVariableConfiguredBox : IWiredConfiguredItem
+/// <summary>Concrete scalar action/condition adapter; refresh live holders while retaining the firing's context values.</summary>
+public sealed class WiredVariableConfiguredBox : IWiredContextualItem
 {
     private readonly WiredVariableExecutors _executors;
     public WiredVariableConfiguredBox(Room room, Item item, WiredBoxDescriptor descriptor, WiredVariableExecutors executors)
@@ -37,5 +38,11 @@ public sealed class WiredVariableConfiguredBox : IWiredConfiguredItem
     }
     public bool Execute(params object[] arguments) => arguments.OfType<WiredVariableFrame>().FirstOrDefault() is { } frame
         && _executors.Execute(Descriptor.CanonicalName, Configuration, frame);
+    public bool Execute(WiredRuntimeContext context)
+    {
+        if (!ReferenceEquals(context.Room, Instance)) return false;
+        context.VariableFrame = WiredVariableRuntimeFrames.Create(context, context.VariableFrame);
+        return _executors.Execute(Descriptor.CanonicalName, context.ConfigurationOf(this), context.VariableFrame);
+    }
     public void HandleSave(IIncomingPacket packet) => throw new InvalidOperationException("Configured boxes must use validated configuration persistence.");
 }
