@@ -43,6 +43,13 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
                 session.Send(new WiredValidationErrorComposer("You do not have permission to configure Wired rewards."));
                 return Task.CompletedTask;
             }
+            var rewardName = box is IWiredConfiguredItem rewardBox ? rewardBox.Descriptor.CanonicalName
+                : WiredLegacyEditorProjection.TryGetDescriptor(box, out var rewardDescriptor) ? rewardDescriptor.CanonicalName : null;
+            if (rewardName == "wf_act_give_reward" && !session.GetHabbo().Permissions.HasRight("mod_tool"))
+            {
+                session.Send(new WiredValidationErrorComposer("You do not have permission to configure Wired rewards."));
+                return Task.CompletedTask;
+            }
             if (box is IWiredConfiguredItem configured)
             {
                 if (!WiredLegacyProtocol.TryRead(packet, Envelope, out var proposed))
@@ -78,6 +85,28 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
                     if (!wired.PublishLegacy(box, candidate!, () => wired.SaveBox(candidate!)))
                     {
                         session.Send(new WiredValidationErrorComposer("This Wired box is no longer attached to the room."));
+                        return Task.CompletedTask;
+                    }
+                }
+                else if (WiredLegacyEditorProjection.TryGetDescriptor(box, out var descriptor))
+                {
+                    if (!WiredLegacyProtocol.TryRead(packet, Envelope, out var proposed))
+                    {
+                        session.Send(new WiredValidationErrorComposer("Invalid Wired settings."));
+                        return Task.CompletedTask;
+                    }
+                    var candidate = wired.CreateConfiguredBox(selectedItem, descriptor);
+                    if (candidate == null)
+                    {
+                        session.Send(new WiredValidationErrorComposer("This Wired behavior cannot be configured yet."));
+                        return Task.CompletedTask;
+                    }
+                    if (!WiredConfigurationSave.TrySave(candidate, proposed, new WiredConfigurationStore(database), out var error,
+                        id => room.GetRoomItemHandler().GetItem(id) != null,
+                        publish: (detached, validated, persist) => wired.PublishPromotion(box, detached, validated, persist),
+                        prepare: WiredRoomOperations.PrepareSnapshots))
+                    {
+                        session.Send(new WiredValidationErrorComposer(error));
                         return Task.CompletedTask;
                     }
                 }
