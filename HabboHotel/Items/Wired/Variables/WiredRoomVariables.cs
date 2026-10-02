@@ -26,11 +26,12 @@ public sealed partial class WiredRoomVariables
 
     public WiredRoomVariables(Room room, IDatabase database, Func<long> nowMs,
         Func<WiredVariableReference, WiredVariableHolder, WiredVariableFrame, int?>? builtinRead = null,
-        Func<WiredVariableReference, WiredVariableHolder, int, WiredVariableFrame, bool>? builtinWrite = null)
+        Func<WiredVariableReference, WiredVariableHolder, int, WiredVariableFrame, bool>? builtinWrite = null,
+        Action<Item, WiredVariableFrame>? stateChanged = null)
     {
         _room = room; _nowMs = nowMs;
         Module = new(room.Id, new DatabaseWiredVariableDirectory(database), new DatabaseWiredVariableStore(database), nowMs,
-            new RoomWiredBuiltinVariables(room, builtinRead, builtinWrite), ResolveDerived);
+            new RoomWiredBuiltinVariables(room, builtinRead, builtinWrite, stateChanged), ResolveDerived);
         Editor = new(Module); Fx = new(Module);
         _persistence = new(database, Module, nowMs);
     }

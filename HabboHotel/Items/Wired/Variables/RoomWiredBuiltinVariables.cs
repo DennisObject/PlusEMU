@@ -11,7 +11,8 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 /// </summary>
 public sealed class RoomWiredBuiltinVariables(Room room,
     Func<WiredVariableReference, WiredVariableHolder, WiredVariableFrame, int?>? engineRead = null,
-    Func<WiredVariableReference, WiredVariableHolder, int, WiredVariableFrame, bool>? engineWrite = null) : IWiredBuiltinVariables
+    Func<WiredVariableReference, WiredVariableHolder, int, WiredVariableFrame, bool>? engineWrite = null,
+    Action<Item, WiredVariableFrame>? stateChanged = null) : IWiredBuiltinVariables
 {
     /// <summary>Source capabilities, independent of whether a particular holder currently has the variable.</summary>
     public static bool HasNumericValue(WiredVariableReference reference)
@@ -87,9 +88,11 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         if (holder.Target == WiredVariableTarget.Furni && key == "@state")
         {
             var item = FindItem(holder);
-            if (item is null || value < 0 || item.Definition.Modes <= value) return false;
+            if (item is null || value < 0 || item.Definition.Modes <= value
+                || !int.TryParse(item.LegacyDataString, out var previous) || previous == value) return false;
             item.LegacyDataString = value.ToString(CultureInfo.InvariantCulture);
             item.UpdateState();
+            stateChanged?.Invoke(item, frame);
             return true;
         }
         return engineWrite?.Invoke(reference with { Token = $"internal:{key}" }, holder, value, frame) == true;
