@@ -9,7 +9,7 @@ public sealed class WiredRuntimeContext
 {
     private readonly Dictionary<uint, WiredConfiguration> _configurations = [];
     internal Dictionary<(int Source, string Saved, int Limit), uint[]> FurniSubsets { get; } = [];
-    internal Dictionary<(int Source, string Saved, string? Name, int Limit), int[]> UserSubsets { get; } = [];
+    internal Dictionary<(int Source, string Saved, string? Name, int Limit, string Triggered), int[]> UserSubsets { get; } = [];
     internal Dictionary<uint, Item> FurniIdentity { get; } = [];
     internal Dictionary<int, RoomUser> UserIdentity { get; } = [];
     public Room Room { get; }
@@ -57,6 +57,8 @@ public sealed class WiredRuntimeContext
             Policy = parent.Policy;
             SelectorPool = parent.SelectorPool;
             Values = parent.Values;
+            FurniSubsets = parent.FurniSubsets;
+            UserSubsets = parent.UserSubsets;
         }
     }
 

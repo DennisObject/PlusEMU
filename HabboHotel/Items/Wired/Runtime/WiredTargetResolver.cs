@@ -65,7 +65,8 @@ public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnu
         };
         if (!raw && source != WiredSources.Selector && context.Policy.Addons.UserLimit is > 0 and var limit)
         {
-            var key = (source, string.Join(',', savedIds), name, limit);
+            var key = (source, string.Join(',', savedIds), name, limit,
+                source == WiredSources.Trigger ? string.Join(',', ids.Order()) : "");
             if (!context.UserSubsets.TryGetValue(key, out var subset))
             {
                 subset = ids.Distinct().ToArray();

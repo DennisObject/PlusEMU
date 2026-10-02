@@ -6,6 +6,8 @@ using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Boxes;
 using Plus.HabboHotel.Items.Wired.Boxes.Conditions;
 using Plus.HabboHotel.Items.Wired.Boxes.Effects;
@@ -13,7 +15,7 @@ using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
-public class WiredComponent : IWiredRuntimeOperations
+public partial class WiredComponent : IWiredRuntimeOperations
 {
     private readonly Room _room;
     private readonly WiredStackEngine _engine;
@@ -32,7 +34,21 @@ public class WiredComponent : IWiredRuntimeOperations
             () => _room.GetRoomItemHandler().GetFloor,
             () => _room.GetRoomUserManager().GetUserList(),
             id => _room.GetRoomItemHandler().GetItem(id),
-            id => _room.GetRoomUserManager().GetRoomUserByVirtualId(id)), this);
+            id => _room.GetRoomUserManager().GetRoomUserByVirtualId(id)), this,
+            () => _counters.HasRunning, PollCounters, FlushExternalChanges);
+        _engine.ObserveEvent = (evt, now) =>
+        {
+            _selectorState.Observe(evt, now);
+            if (evt.Kind == WiredEventKind.Leave && evt.Actor != null)
+            {
+                WiredAvatarState.For(_room).Forget(evt.Actor);
+                if (_variables?.IsValueCreated == true) _variables.Value.HolderLeft(WiredVariableRuntimeFrames.UserHolder(evt.Actor));
+            }
+        };
+        _engine.ConfigurationPublished = box =>
+        {
+            if (_variables?.IsValueCreated == true) _variables.Value.ConfigurationSaved(box);
+        };
     }
 
     public void OnCycle() => _engine.OnCycle();
@@ -82,6 +98,25 @@ public class WiredComponent : IWiredRuntimeOperations
     public IWiredItem? LoadWiredBox(Item item)
     {
         var newBox = GenerateNewBox(item);
+        if (item.Definition.WiredDescriptor is { } descriptor)
+        {
+            try
+            {
+                var selected = WiredBoxLoading.Select(newBox, CreateConfiguredBox(item, descriptor), ConfigurationStore.Load(item.Id, descriptor));
+                if (selected is IWiredConfiguredItem configured)
+                {
+                    if (_variables?.IsValueCreated == true) _variables.Value.ConfigurationLoaded(configured);
+                    if (!AddBox(configured)) return null;
+                    return configured;
+                }
+                newBox = selected;
+            }
+            catch (Exception error)
+            {
+                NLog.LogManager.GetLogger("Wired").Error(error, "Cannot load Wired configuration for item {0} in room {1}; saved bytes retained", item.Id, _room.Id);
+                return null;
+            }
+        }
         if (newBox == null)
         {
             NLog.LogManager.GetLogger("Wired").Warn("Unsupported wired type {0} on item {1} in room {2}",
@@ -406,5 +441,13 @@ public class WiredComponent : IWiredRuntimeOperations
 
     public bool TryGet(uint id, out IWiredItem item) => _engine.TryGet(id, out item);
 
-    public void Cleanup() => _engine.Clear();
+    public void Cleanup()
+    {
+        _engine.Clear();
+        _selectorState.Reset();
+        WiredAvatarState.For(_room).Clear();
+        _counters.Clear();
+        _counterItems.Clear();
+        _roomLog.Clear();
+    }
 }

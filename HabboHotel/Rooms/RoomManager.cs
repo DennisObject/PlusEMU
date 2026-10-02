@@ -73,7 +73,7 @@ public class RoomManager : IRoomManager
             if (now - _wiredLastExecution >= RoomCycle.WiredInterval)
             {
                 _wiredLastExecution = now;
-                if (!fullPass)
+                if (!fullPass && !_fastWiredRooms.IsEmpty)
                     foreach (var room in _fastWiredRooms.Values)
                         RoomCycle.TryStart(room, room.ProcessWiredOnly);
             }

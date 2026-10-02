@@ -449,6 +449,129 @@ public class WiredRuntimeEngineTests
         Assert.Equal(1, cancelled); Assert.Equal(0, executed);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OrdinaryFloorAnchorsCallTileStacksForBothConditionBranches(bool negative)
+    {
+        var f = new Fixture();
+        f.Trigger();
+        var anchor = f.Furni(x: 3);
+        var target = f.Trigger(WiredEventKind.Signal, x: 3);
+        f.Add(new Box(WiredBoxCategory.Condition) { Body = _ => !negative }, x: 3);
+        var effect = f.Action(x: 3);
+        f.Action(ctx =>
+        {
+            Assert.True(f.Engine.CallStacks(ctx, [anchor, target.Item], negative));
+            f.Furniture.Remove(anchor);
+            Assert.False(f.Engine.CallStacks(ctx, [anchor], negative));
+            return true;
+        });
+        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter)));
+        Assert.Equal(1, effect.Calls);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void LoaderRetainsLegacyPayloadWithoutSidecarAndRejectsInvalidSidecar()
+    {
+        var legacy = new LegacyRepeater { StringData = "old;payload", ItemsData = "7:1:2:3:0.5", BoolData = true, Delay = 4 };
+        var configured = new Box(WiredBoxCategory.Trigger) { Configuration = new() { Text = "modern" } };
+        Assert.Same(legacy, WiredBoxLoading.Select(legacy, configured, null));
+        Assert.Equal("old;payload", legacy.StringData);
+        Assert.Equal("7:1:2:3:0.5", legacy.ItemsData);
+        Assert.Equal(4, legacy.Delay);
+        Assert.True(legacy.BoolData);
+        Assert.Same(configured, WiredBoxLoading.Select(legacy, configured, new() { Text = "saved" }));
+        Assert.Equal("saved", configured.Configuration.Text);
+        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(legacy, null, new()));
+        var invalid = new InvalidConfigured();
+        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(legacy, invalid, new() { Text = "invalid bytes" }));
+        Assert.Equal("old;payload", legacy.StringData);
+        Assert.Equal("", invalid.Configuration.Text);
+    }
+    private sealed class InvalidConfigured() : Box(WiredBoxCategory.Action)
+    {
+        public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
+        { validated = proposed; error = "Invalid configuration"; return false; }
+    }
+
+    [Fact]
+    public void BudgetOneProgressesAcceptedWorkBeforeIdleTimersAndRotatesPolling()
+    {
+        var f = new Fixture(new() { MaxExecutionsPerPass = 1 });
+        f.Trigger();
+        var action = f.Action();
+        var timers = Enumerable.Range(0, 4).Select(i => f.Add(new Timer { Idle = true }, x: i + 2)).ToArray();
+        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter)));
+        Assert.Equal(0, action.Calls);
+        for (var i = 0; i < 5; i++) f.Advance(50);
+        Assert.Equal(1, action.Calls);
+        Assert.All(timers, timer => Assert.Equal(1, timer.Polls));
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void BudgetOneProgressesAcceptedSignalsThroughTriggerAndAction()
+    {
+        var f = new Fixture(new() { MaxExecutionsPerPass = 1 });
+        var antenna = f.Furni("antenna", x: 3);
+        f.Trigger(); f.Trigger(WiredEventKind.Signal, x: 3);
+        f.Add(new Timer { Idle = true }, x: 4);
+        var action = f.Action(x: 3);
+        f.Action(ctx => f.Engine.SendSignal(ctx, [antenna], new()));
+        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter));
+        for (var i = 0; i < 3; i++) f.Advance(50);
+        Assert.Equal(1, action.Calls);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void PeriodicActorConditionsAndActionShareFurnitureCacheButActorSourcesRemainDistinct()
+    {
+        var f = new Fixture();
+        var items = new[] { f.Furni(), f.Furni() };
+        var alice = f.User(1); var bob = f.User(2);
+        var repeater = new LegacyRepeater { Item = f.Furni(), Instance = f.Room };
+        repeater.Item.Definition.InteractionType = InteractionType.WiredTrigger;
+        f.Engine.Add(repeater);
+        f.Add(new Addon { ApplyBody = ctx => { ctx.Policy.Addons.FurniLimit = 1; ctx.Policy.Addons.UserLimit = 1; return true; } });
+        var seen = new List<uint>();
+        f.Add(new Box(WiredBoxCategory.Condition) { Body = ctx =>
+        {
+            seen.Add(ctx.Targets.ResolveFurni(ctx, items.Select(x => x.Id), WiredSources.Selected).Single().Id);
+            Assert.Equal(ctx.Event.Actor, ctx.Targets.ResolveUsers(ctx, [], WiredSources.Trigger).Single());
+            return ReferenceEquals(ctx.Event.Actor, bob);
+        }});
+        f.Action(ctx =>
+        {
+            seen.Add(ctx.Targets.ResolveFurni(ctx, items.Select(x => x.Id), WiredSources.Selected).Single().Id);
+            Assert.Empty(ctx.Targets.ResolveUsers(ctx, [], WiredSources.Trigger));
+            return true;
+        });
+        for (var i = 0; i < 30; i++)
+        {
+            seen.Clear();
+            Assert.True(f.Engine.RunPeriodicStack(repeater, [[alice], [bob]]));
+            Assert.Single(seen.Distinct());
+        }
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void QueuedEventDepthDoesNotLeakIntoNestedDispatches()
+    {
+        var f = new Fixture(new() { MaxDepth = 2 });
+        f.Trigger();
+        var nested = true;
+        var action = f.Action(_ => nested = f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter)));
+        Assert.True(f.Engine.Enqueue(new(WiredEventKind.Enter), 2));
+        f.Advance(50);
+        Assert.Equal(1, action.Calls);
+        Assert.False(nested);
+        Assert.Empty(f.Errors);
+    }
+
     private sealed class Picker : IWiredActionPicker
     {
         public int Calls;
@@ -509,7 +632,7 @@ public class WiredRuntimeEngineTests
         public void HandleSave(IIncomingPacket packet) => throw new NotSupportedException();
         public bool Execute(params object[] arguments) => throw new InvalidOperationException("Modern box requires context");
         public bool Execute(WiredRuntimeContext context) { Calls++; return Body(context); }
-        public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
+        public virtual bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
         { validated = proposed; error = ""; return true; }
         public void ApplyConfiguration(WiredConfiguration validated) => Configuration = validated;
     }
@@ -522,7 +645,8 @@ public class WiredRuntimeEngineTests
     private sealed class Timer() : Trigger(WiredEventKind.Periodic), IWiredTimedTrigger
     {
         public int Polls;
-        public WiredRuntimeEvent? Poll(long nowMilliseconds) { Polls++; return new(WiredEventKind.Periodic) { EventItem = Item }; }
+        public bool Idle;
+        public WiredRuntimeEvent? Poll(long nowMilliseconds) { Polls++; if (Idle) return null; return new(WiredEventKind.Periodic) { EventItem = Item }; }
         public void Reset(long nowMilliseconds) { }
     }
     private sealed class Selector() : Box(WiredBoxCategory.Selector), IWiredContextualSelector
