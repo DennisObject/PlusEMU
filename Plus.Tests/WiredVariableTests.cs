@@ -149,6 +149,9 @@ public sealed class WiredVariableTests
         Assert.True(module.InitializeGlobal(10));
         var editor = new WiredVariableEditor(module);
         Assert.True(editor.SaveGlobalValue(10, 42));
+        module.DrainChanges();
+        Assert.True(editor.SaveGlobalValue(10, 42));
+        Assert.Empty(module.DrainChanges());
         var reloaded = new WiredVariableModule(1, directory, store, () => 2000);
         Assert.True(reloaded.InitializeGlobal(10));
         Assert.Equal(42, new WiredVariableEditor(reloaded).ForDisplay("wf_var_room", 10, saved).IntParams[1]);

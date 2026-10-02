@@ -13,6 +13,5 @@ public sealed class WiredVariableEditor(WiredVariableModule variables)
     }
 
     /// <summary>After a definition configuration save, persist its explicit room value through normal authorization and change events.</summary>
-    public bool SaveGlobalValue(uint definitionId, int value) => variables.Mutate(new(WiredVariableTarget.Global, $"custom:{definitionId}"),
-        new(WiredVariableTarget.Global, 0, 0), WiredVariableMutation.Set, value, new(variables.RoomId, []));
+    public bool SaveGlobalValue(uint definitionId, int value) => variables.SaveGlobalValue(definitionId, value);
 }
