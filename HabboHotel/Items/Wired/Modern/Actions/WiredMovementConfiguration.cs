@@ -1,0 +1,123 @@
+using System.Collections.Immutable;
+using System.Globalization;
+using Plus.HabboHotel.Items.Wired.Configuration;
+
+namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
+
+/// <summary>Validates the current Octane editors and decodes named source roles without changing wire fields.</summary>
+public static class WiredMovementConfiguration
+{
+    public static bool TryValidate(string name, WiredConfiguration proposed,
+        out WiredConfiguration validated, out string error)
+    {
+        validated = proposed;
+        error = "Invalid movement configuration.";
+        if (!WiredMovementActions.Names.Contains(name) || proposed.Version != WiredConfiguration.CurrentVersion
+            || proposed.Delay is < 0 or > 20 || proposed.IntParams.IsDefault
+            || proposed.SelectedItems.IsDefault || proposed.SecondarySelectedItems.IsDefault
+            || proposed.Snapshots.IsDefault || proposed.Text == null
+            || proposed.SelectedItems.Length > 100 || proposed.SecondarySelectedItems.Length > 100
+            || proposed.SelectedItems.Any(id => id == 0) || proposed.SecondarySelectedItems.Any(id => id == 0)
+            || proposed.Text.Length > 4000)
+            return false;
+
+        var p = proposed.IntParams;
+        bool Range(int index, int min, int max) => p[index] >= min && p[index] <= max;
+        bool Source(int index) => p[index] is 0 or 100 or 200 or 201;
+        bool Users(int index) => p[index] is 0 or 11 or 200 or 201;
+        var furni = ImmutableDictionary.CreateBuilder<string, int>();
+        var users = ImmutableDictionary.CreateBuilder<string, int>();
+        var secondary = proposed.SecondarySelectedItems;
+
+        switch (name.ToLowerInvariant())
+        {
+            case "wf_act_rel_mov":
+                if (p.Length != 5 || !Range(0, 0, 1) || !Range(1, 0, 20)
+                    || !Range(2, 0, 1) || !Range(3, 0, 20) || !Source(4)) return false;
+                furni["movers"] = p[4];
+                break;
+            case "wf_act_set_altitude":
+                if (p.Length != 2 || !Range(0, 0, 2) || !Source(1)
+                    || !WiredRoomOperations.TryAltitude(proposed.Text, out var altitude) || altitude > 40) return false;
+                furni["movers"] = p[1];
+                break;
+            case "wf_act_move_rotate":
+                if (p.Length != 3 || !Range(0, 0, 7) || !Range(1, 0, 3) || !Source(2)) return false;
+                furni["movers"] = p[2];
+                break;
+            case "wf_act_move_furni_as_group":
+                if (p.Length != 2 || !Range(0, 0, 7) || !Source(1)) return false;
+                furni["movers"] = p[1];
+                break;
+            case "wf_act_furni_to_furni":
+                if (p.Length != 2 || !Source(0) || !Source(1)
+                    || !TryItemIds(proposed.Text, out secondary)) return false;
+                furni["movers"] = p[0];
+                furni["targets"] = p[1];
+                break;
+            case "wf_act_furni_to_user":
+                if (p.Length != 2 || !Source(0) || !Users(1)) return false;
+                furni["movers"] = p[0];
+                users["users"] = p[1];
+                break;
+            case "wf_act_move_furni_to":
+                if (p.Length != 3 || p[0] is not (0 or 2 or 4 or 6)
+                    || !Range(1, 1, 5) || !Source(2)) return false;
+                // This legacy editor moves the event's furni toward resolved target picks.
+                furni["movers"] = 0;
+                furni["targets"] = p[2];
+                break;
+            case "wf_act_match_to_sshot":
+                if (p.Length != 5 || Enumerable.Range(0, 4).Any(index => !Range(index, 0, 1)) || !Source(4)
+                    || proposed.Snapshots.Any(snapshot => snapshot == null || !double.IsFinite(snapshot.Z)
+                        || snapshot.Z is < 0 or > 80)) return false;
+                furni["movers"] = p[4];
+                break;
+            case "wf_act_toggle_state":
+                if (p.Length != 2 || !Range(0, 0, 1) || !Source(1)) return false;
+                furni["movers"] = p[1];
+                break;
+            case "wf_act_toggle_to_rnd":
+                if (p.Length != 1 || !Source(0)) return false;
+                furni["movers"] = p[0];
+                break;
+            case "wf_act_teleport_to":
+                if (p.Length != 3 || !Range(0, 0, 1) || !Source(1) || !Users(2)) return false;
+                furni["targets"] = p[1];
+                users["users"] = p[2];
+                break;
+            case "wf_act_user_to_furni":
+                if (p.Length != 3 || !Source(0) || !Users(1) || !Range(2, 0, 2)) return false;
+                furni["targets"] = p[0];
+                users["users"] = p[1];
+                break;
+            default:
+                return false;
+        }
+
+        validated = proposed with
+        {
+            FurniSources = furni.ToImmutable(), UserSources = users.ToImmutable(),
+            SelectedItems = proposed.SelectedItems.Distinct().ToImmutableArray(),
+            SecondarySelectedItems = secondary.Distinct().ToImmutableArray()
+        };
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool TryItemIds(string text, out ImmutableArray<uint> ids)
+    {
+        var builder = ImmutableArray.CreateBuilder<uint>();
+        foreach (var field in text.Split([';', ',', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (builder.Count >= 100 || !uint.TryParse(field, NumberStyles.None, CultureInfo.InvariantCulture, out var id) || id == 0)
+            {
+                ids = [];
+                return false;
+            }
+            builder.Add(id);
+        }
+        ids = builder.ToImmutable();
+        return true;
+    }
+}
