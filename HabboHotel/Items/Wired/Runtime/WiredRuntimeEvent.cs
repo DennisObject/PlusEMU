@@ -1,4 +1,5 @@
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Items.Wired.Variables;
 
 namespace Plus.HabboHotel.Items.Wired.Runtime;
 
@@ -17,6 +18,7 @@ public sealed record WiredRuntimeEvent(WiredEventKind Kind)
     public string Message { get; init; } = "";
     public int Action { get; init; }
     public int Code { get; init; }
+    public WiredVariableChange? VariableChange { get; init; }
     public long PreviousValue { get; init; }
     public long Value { get; init; }
     public int Team { get; init; }
