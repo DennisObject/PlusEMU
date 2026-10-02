@@ -65,7 +65,9 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, Func<l
         if (name is "wf_cnd_has_var" or "wf_cnd_neg_has_var")
         {
             var outcomes = targets.Select(target => variables.Read(reference, target, frame) is not null).ToArray();
-            return Quantify(outcomes.Select(x => name == "wf_cnd_neg_has_var" ? !x : x), p[^1]);
+            if (outcomes.Length == 0) return false;
+            var matches = Quantify(outcomes, p[^1]);
+            return name == "wf_cnd_neg_has_var" ? !matches : matches;
         }
         if (name == "wf_cnd_var_age_match")
         {
@@ -82,22 +84,32 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, Func<l
                 return p[2] == 0 ? age < duration : age > duration;
             }), p[^1]);
         }
-        var operand = p[3];
+        var operands = new List<(WiredVariableHolder Holder, int Value)>();
         if (p[2] == 1 && !(name == "wf_act_change_var_val" && WiredVariableArithmetic.IsUnary(p[1])))
         {
             var operandReference = new WiredVariableReference((WiredVariableTarget)p[4], tokens[1]);
             var picked = tokens.Length > 2 ? tokens[2].Split(';', StringSplitOptions.RemoveEmptyEntries).Select(uint.Parse) : configuration.SecondarySelectedItems;
-            var found = Select(frame, operandReference.Target, p[7], p[8], picked)
-                .Select(target => variables.Read(operandReference, target, frame)).FirstOrDefault(value => value is not null);
-            if (found is null) return false;
-            operand = found.Value;
+            using var reads = variables.CaptureReads([operandReference], frame);
+            foreach (var source in Select(frame, operandReference.Target, p[7], p[8], picked))
+                if (reads.Read(operandReference, source, frame) is { } value) operands.Add((source, value.Value));
+            if (operands.Count == 0) return false;
+        }
+        int Operand(WiredVariableHolder target, int index)
+        {
+            if (operands.Count == 0) return p[3];
+            foreach (var source in operands)
+                if (source.Holder == target) return source.Value;
+            return operands[index < operands.Count ? index : 0].Value;
         }
         if (name == "wf_cnd_var_val_match")
-            return Quantify(targets.Select(target => variables.Read(reference, target, frame) is { } value
-                && WiredVariablePredicates.Compare(p[1], value.Value, operand)), p[^1]);
+            return Quantify(targets.Select((target, index) => variables.Read(reference, target, frame) is { } value
+                && WiredVariablePredicates.Compare(p[1], value.Value, Operand(target, index))), p[^1]);
         var any = false;
-        foreach (var target in targets)
-            any |= variables.Change(reference, target, WiredVariableMutation.Set, current => WiredVariableArithmetic.Apply(p[1], current, operand), frame);
+        for (var index = 0; index < targets.Length; index++)
+        {
+            var operand = Operand(targets[index], index);
+            any |= variables.Change(reference, targets[index], WiredVariableMutation.Set, current => WiredVariableArithmetic.Apply(p[1], current, operand), frame);
+        }
         return any;
     }
 

@@ -11,7 +11,7 @@ internal class MoodlightUpdateEvent : RoomPacketEvent
         if (!room.CheckRights(session, true) || room.MoodlightData == null)
             return Task.CompletedTask;
         var item = room.GetRoomItemHandler().GetItem(room.MoodlightData.ItemId);
-        if (item == null || item.Definition.InteractionType != InteractionType.Moodlight)
+        if (item == null || item.IsTemporary || item.Definition.InteractionType != InteractionType.Moodlight)
             return Task.CompletedTask;
         var preset = packet.ReadInt();
         var backgroundMode = packet.ReadInt();

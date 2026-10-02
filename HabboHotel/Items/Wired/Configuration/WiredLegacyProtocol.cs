@@ -46,9 +46,9 @@ public static class WiredLegacyProtocol
         && configuration.Text != null && configuration.Text.Length <= WiredConfigurationLimits.TextCharacters
         && Encoding.UTF8.GetByteCount(configuration.Text) <= ushort.MaxValue
         && !configuration.SelectedItems.IsDefault && configuration.SelectedItems.Length <= WiredConfigurationLimits.SelectedItems
-        && configuration.SelectedItems.All(id => id > 0 && id <= int.MaxValue)
+        && configuration.SelectedItems.All(id => id > 0)
         && !configuration.SecondarySelectedItems.IsDefault && configuration.SecondarySelectedItems.Length <= WiredConfigurationLimits.SelectedItems
-        && configuration.SecondarySelectedItems.All(id => id > 0 && id <= int.MaxValue)
+        && configuration.SecondarySelectedItems.All(id => id > 0)
         && configuration.Delay is >= 0 and <= WiredConfigurationLimits.DelayPulses
         && configuration.SelectionCode is >= 0 and <= WiredConfigurationLimits.SelectionCode
         && (configuration.ScoreQuotaPerGame is null or >= 1 and <= 10)

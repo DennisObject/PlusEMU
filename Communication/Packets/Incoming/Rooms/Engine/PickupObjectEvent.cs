@@ -30,7 +30,7 @@ internal class PickupObjectEvent : IPacketEvent
         packet.ReadInt(); //unknown
         var itemId = packet.ReadUInt();
         var item = room.GetRoomItemHandler().GetItem(itemId);
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return;
         if (item.Definition.InteractionType == InteractionType.Postit)
             return;

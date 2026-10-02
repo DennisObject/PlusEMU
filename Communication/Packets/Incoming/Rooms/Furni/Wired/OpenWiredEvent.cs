@@ -22,7 +22,7 @@ internal sealed class OpenWiredEvent : RoomPacketEvent
         if (packet.HasDataRemaining())
             return Task.CompletedTask;
         var item = room.GetRoomItemHandler().GetItem(id);
-        if (item?.IsWired == true)
+        if (item is { IsWired: true, IsTemporary: false })
             item.Interactor.OnTrigger(session, item, 0, true);
         return Task.CompletedTask;
     }

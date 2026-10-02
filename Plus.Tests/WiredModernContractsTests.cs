@@ -59,7 +59,9 @@ public class WiredModernContractsTests
         Assert.False(packet.HasDataRemaining());
         Assert.False(WiredLegacyProtocol.TryRead(Incoming(101), WiredBoxCategory.Action, out _));
         Assert.False(WiredLegacyProtocol.TryRead(Incoming(0, "x", 0, -1, 0), WiredBoxCategory.Action, out _));
-        Assert.False(WiredLegacyProtocol.TryRead(Incoming(0, "x", 1, -1, 0, 0), WiredBoxCategory.Action, out _));
+        Assert.False(WiredLegacyProtocol.TryRead(Incoming(0, "x", 1, 0, 0, 0), WiredBoxCategory.Action, out _));
+        Assert.True(WiredLegacyProtocol.TryRead(Incoming(0, "x", 1, -1, 0, 0), WiredBoxCategory.Action, out var highId));
+        Assert.Equal(new uint[] { uint.MaxValue }, highId.SelectedItems); // Room identity owns temporary validation.
         Assert.False(WiredLegacyProtocol.TryRead(Incoming(0, "x", 0, 0, 0, 123), WiredBoxCategory.Action, out _));
         Assert.False(WiredLegacyProtocol.TryRead(Incoming(2, 1), WiredBoxCategory.Action, out _));
     }

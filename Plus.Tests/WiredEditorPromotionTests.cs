@@ -31,6 +31,107 @@ public class WiredEditorPromotionTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task ActualSaveHandlerAllowsTemporaryTemplateCaptureOnlyForTypedPlaceAndPublishesAfterDurability(bool typed)
+    {
+        var database = new MemoryDatabase();
+        var (room, wired, _) = Room();
+        var map = new Gamemap(room, new RoomModel("template-test", 0, 0, 0, 0, "000\r000\r000", false, 0, true));
+        Set(room, "_gamemap", map); typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
+        typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);
+        var item = new Item { Id = 7, ExtraData = new LegacyDataFormat { Data = "1" }, Definition = new()
+            { ItemName = "wf_act_place_furni", Type = ItemType.Floor } };
+        Floor(room).TryAdd(7, item);
+        var box = wired.CreateConfiguredBox(item)!;
+        var initial = new WiredConfiguration { IntParams = [32, 1, 0, 0, 0, 0],
+            TemporaryPlacement = typed ? new(OffsetX: 1) : null, SecondarySelectedItems = [8],
+            FurniSources = System.Collections.Immutable.ImmutableDictionary<string, int>.Empty.Add("target", 100) };
+        Assert.True(box.TryValidateConfiguration(initial, out initial, out var error), error);
+        box.ApplyConfiguration(initial); Assert.True(wired.AddBox(box));
+        var prototype = room.GetRoomItemHandler().PlaceTemporaryFloorItem(new() { Id = 32, ItemName = "prototype", Type = ItemType.Floor,
+            Length = 1, Width = 1, Stackable = true, Walkable = true }, 42, 1, 1, 0, 0, "prototype-state")!;
+        Assert.True(room.GetRoomItemHandler().OwnsTemporary(prototype));
+        var packets = new List<uint>(); var client = SaveClient(room, packets);
+        var handler = new SaveWiredEffectConfigEvent(database);
+        database.FailWrites = true;
+        await handler.Parse(client, ActionPacket([32, 2, 0, 0, 0, 0], [prototype.Id]));
+        Assert.Equal(new uint[] { 156 }, packets); Assert.Same(initial, box.Configuration); Assert.Empty(database.Rows);
+        database.FailWrites = false; packets.Clear();
+        await handler.Parse(client, ActionPacket([32, 2, 0, 0, 0, 0], [prototype.Id]));
+        if (!typed)
+        {
+            Assert.Equal(new uint[] { 156 }, packets); Assert.Same(initial, box.Configuration); Assert.Empty(database.Rows);
+            return;
+        }
+        Assert.Equal(new uint[] { 1155 }, packets); Assert.Empty(box.Configuration.SelectedItems);
+        Assert.Equal(new uint[] { 8 }, box.Configuration.SecondarySelectedItems);
+        Assert.Equal(initial.TemporaryPlacement, box.Configuration.TemporaryPlacement);
+        Assert.Equal(100, box.Configuration.FurniSources["target"]);
+        var snapshot = Assert.Single(box.Configuration.Snapshots);
+        Assert.Equal(prototype.Id, snapshot.ItemId); Assert.Equal(32u, snapshot.DefinitionId); Assert.Equal("prototype-state", snapshot.State);
+        Assert.Equal((1, 1), (snapshot.X, snapshot.Y));
+        Assert.Single(database.Rows); Assert.True(room.GetRoomItemHandler().RemoveTemporaryFloorItem(prototype));
+        packets.Clear();
+        await handler.Parse(client, ActionPacket([32, 3, 0, 0, 0, 0], []));
+        Assert.Equal(new uint[] { 1155 }, packets); Assert.Equal(snapshot, Assert.Single(box.Configuration.Snapshots));
+        Assert.Equal(initial.TemporaryPlacement, box.Configuration.TemporaryPlacement);
+        Assert.All(database.Writes, sql => Assert.StartsWith("INSERT INTO wired_item_configurations", sql));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ActualStaticSaveAcceptsPermanentHighIdAndRejectsTemporaryIdentity(bool temporary)
+    {
+        var database = new MemoryDatabase(); var (room, wired, _) = Room();
+        var item = new Item { Id = 7, ExtraData = new LegacyDataFormat { Data = "1" }, Definition = new()
+            { ItemName = "wf_act_toggle_state", Type = ItemType.Floor } };
+        Floor(room).TryAdd(7, item); var box = wired.CreateConfiguredBox(item)!; Assert.True(wired.AddBox(box));
+        var high = new Item { Id = uint.MaxValue - 10, IsTemporary = temporary, Definition = new() { Type = ItemType.Floor } };
+        Floor(room).TryAdd(high.Id, high);
+        var prior = box.Configuration; var packets = new List<uint>();
+        await new SaveWiredEffectConfigEvent(database).Parse(SaveClient(room, packets), ActionPacket([0, 100], [high.Id]));
+        Assert.Equal(new uint[] { temporary ? 156u : 1155u }, packets);
+        if (temporary) { Assert.Same(prior, box.Configuration); Assert.Empty(database.Rows); }
+        else { Assert.Equal(new uint[] { high.Id }, box.Configuration.SelectedItems); Assert.Single(database.Rows); }
+    }
+
+    [Fact]
+    public async Task ActualCurrentScoreSavePreservesNamedQuotaWithoutReinterpretingArithmeticFields()
+    {
+        var database = new MemoryDatabase(); var (room, wired, _) = Room();
+        var item = new Item { Id = 7, ExtraData = new LegacyDataFormat { Data = "1" }, Definition = new()
+            { ItemName = "wf_act_give_score", Type = ItemType.Floor } };
+        Floor(room).TryAdd(7, item); var box = wired.CreateConfiguredBox(item)!;
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0, 0], ScoreQuotaPerGame = 3 }, out var prior, out var error), error);
+        box.ApplyConfiguration(prior); Assert.True(wired.AddBox(box));
+        var packets = new List<uint>();
+        await new SaveWiredEffectConfigEvent(database).Parse(SaveClient(room, packets), ActionPacket([4, 1, 0], []));
+        Assert.Equal(new uint[] { 1155 }, packets); Assert.Equal(3, box.Configuration.ScoreQuotaPerGame);
+        Assert.Equal(new[] { 4, 1, 0 }, box.Configuration.IntParams);
+    }
+
+    private static FlashGameClient SaveClient(Room room, List<uint> packets)
+    {
+        var client = new FlashGameClient(null!, new FlashPacketFactory())
+        {
+            Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
+                { [ServerPacketHeader.WiredValidationErrorComposer] = 156, [ServerPacketHeader.HideWiredConfigComposer] = 1155 } },
+            SendCallback = args => { packets.Add((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2))); return true; }
+        };
+        client.SetHabbo(new Habbo { Username = "owner", CurrentRoom = room, Permissions = new([], []) }); return client;
+    }
+
+    private static FlashIncomingPacket ActionPacket(int[] parameters, uint[] selected)
+    {
+        using var stream = PlusMemoryStream.GetStream(); var packet = new FlashOutgoingPacket(stream);
+        packet.WriteUInteger(7); packet.WriteInteger(parameters.Length); foreach (var value in parameters) packet.WriteInteger(value);
+        packet.WriteString(""); packet.WriteInteger(selected.Length); foreach (var id in selected) packet.WriteUInteger(id);
+        packet.WriteInteger(0); packet.WriteInteger(0); return new() { Buffer = stream.ToArray().AsMemory(6) };
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task RewardStaffAuthorizationUsesCanonicalDescriptorEvenWhenLegacyTypeAndWiredIdAreZero(bool staff)
     {
         var (room, wired, _) = Room();

@@ -11,7 +11,7 @@ internal class OneWayGateEvent : IPacketEvent
         if (room == null)
             return Task.CompletedTask;
         var item = room.GetRoomItemHandler().GetItem(packet.ReadUInt());
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return Task.CompletedTask;
         var hasRights = room.CheckRights(session);
         if (item.Definition.InteractionType == InteractionType.OneWayGate)
