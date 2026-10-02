@@ -160,9 +160,9 @@ internal static class WiredBoxTypeUtility
         WiredBoxType.EffectBotFollowsUserBox => 25,
         WiredBoxType.EffectBotChangesClothesBox => 26,
         WiredBoxType.EffectBotCommunicatesToUserBox => 27,
-        WiredBoxType.EffectSetRollerSpeed => 7, // Legacy text editor; modern schema needs a configured adapter.
-        WiredBoxType.EffectRegenerateMaps => 7,
-        WiredBoxType.EffectGiveUserBadge => 7, // Preserve the legacy text-only save handler.
+        WiredBoxType.EffectSetRollerSpeed => 88,
+        WiredBoxType.EffectRegenerateMaps => 123,
+        WiredBoxType.EffectGiveUserBadge => 119,
         WiredBoxType.ConditionMatchStateAndPosition => 0,
         WiredBoxType.ConditionFurniHasUsers => 1,
         WiredBoxType.ConditionTriggererOnFurni => 2,

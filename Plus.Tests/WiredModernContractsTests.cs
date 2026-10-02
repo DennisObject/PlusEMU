@@ -314,8 +314,8 @@ public class WiredModernContractsTests
         Assert.Equal(2, WiredBoxTypeUtility.GetWiredId(WiredBoxType.ConditionTriggererOnFurni));
         Assert.Equal(7, WiredBoxTypeUtility.GetWiredId(WiredBoxType.ConditionFurniHasFurni));
         Assert.Equal(19, WiredBoxTypeUtility.GetWiredId(WiredBoxType.EffectKickUser));
-        Assert.Equal(7, WiredBoxTypeUtility.GetWiredId(WiredBoxType.EffectSetRollerSpeed));
-        Assert.Equal(7, WiredBoxTypeUtility.GetWiredId(WiredBoxType.EffectGiveUserBadge));
+        Assert.Equal(88, WiredBoxTypeUtility.GetWiredId(WiredBoxType.EffectSetRollerSpeed));
+        Assert.Equal(119, WiredBoxTypeUtility.GetWiredId(WiredBoxType.EffectGiveUserBadge));
     }
 
     private static FlashIncomingPacket Incoming(params object[] values)

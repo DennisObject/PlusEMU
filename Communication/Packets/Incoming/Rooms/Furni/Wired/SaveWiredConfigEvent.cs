@@ -7,6 +7,7 @@ using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Modern;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
 
@@ -51,7 +52,8 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
                 }
                 var store = new WiredConfigurationStore(database);
                 if (!WiredConfigurationSave.TrySave(configured, proposed, store, out var error,
-                    id => room.GetRoomItemHandler().GetItem(id) != null))
+                    id => room.GetRoomItemHandler().GetItem(id) != null,
+                    publish: room.GetWired().PublishConfigured, prepare: WiredRoomOperations.PrepareSnapshots))
                 {
                     session.Send(new WiredValidationErrorComposer(error));
                     return Task.CompletedTask;
@@ -59,9 +61,29 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
             }
             else
             {
-                // Legacy boxes keep their existing per-box packet parser and persistence format.
-                box.HandleSave(packet);
-                room.GetWired().SaveBox(box);
+                var wired = room.GetWired();
+                if (WiredLegacyCustomEditor.IsCustom(box))
+                {
+                    if (!WiredLegacyProtocol.TryRead(packet, Envelope, out var proposed)
+                        || !WiredLegacyCustomEditor.TryPrepare(box, proposed, WiredLegacyCustomEditor.CreateCandidate,
+                            out var candidate, out _))
+                    {
+                        session.Send(new WiredValidationErrorComposer("Invalid custom Wired settings."));
+                        return Task.CompletedTask;
+                    }
+                    if (!wired.PublishLegacy(box, candidate!, () => wired.SaveBox(candidate!)))
+                    {
+                        session.Send(new WiredValidationErrorComposer("This Wired box is no longer attached to the room."));
+                        return Task.CompletedTask;
+                    }
+                }
+                else if (!WiredLegacySave.TrySave(box, packet, Envelope, original => wired.GenerateNewBox(original.Item),
+                    (original, candidate) => wired.PublishLegacy(original, candidate, () => wired.SaveBox(candidate)),
+                    out var error, id => room.GetRoomItemHandler().GetItem(id) != null))
+                {
+                    session.Send(new WiredValidationErrorComposer(error));
+                    return Task.CompletedTask;
+                }
             }
             // Octane treats this empty packet as save success. Send it only after persistence succeeds.
             session.Send(new HideWiredConfigComposer());
