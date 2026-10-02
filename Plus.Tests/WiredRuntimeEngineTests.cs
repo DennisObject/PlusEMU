@@ -696,6 +696,58 @@ public class WiredRuntimeEngineTests
         Assert.False(called); Assert.False(f.Engine.NeedsFastCycle); Assert.Empty(f.Errors);
     }
 
+    [Fact]
+    public void LiveWallClickResolvesEventItemWithoutExpandingFloorSelectors()
+    {
+        var f = new Fixture(); var actor = f.User(1); var wall = f.Furni();
+        f.Furniture.Remove(wall); f.Walls.Add(wall);
+        f.Trigger(WiredEventKind.ClickFurni).Body = ctx =>
+        {
+            Assert.Equal(wall, Assert.Single(ctx.Targets.ResolveFurni(ctx, [], WiredSources.Trigger)));
+            Assert.DoesNotContain(wall, ctx.Targets.AllFurni()); return true;
+        };
+        var action = f.Action();
+        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.ClickFurni) { Actor = actor, EventItem = wall }));
+        f.Advance(50); Assert.Equal(1, action.Calls);
+        f.Walls.Remove(wall);
+        Assert.False(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.ClickFurni) { Actor = actor, EventItem = wall }));
+        Assert.Equal(1, action.Calls); Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void SpeechCaptureRunsBeforeLiteralPredicateAndSharesFiringValues()
+    {
+        var f = new Fixture(); var actor = f.User(1);
+        var trigger = f.Trigger(WiredEventKind.Speech); trigger.Hide = true; trigger.Body = _ => false;
+        f.Engine.CaptureSpeech = (ctx, _) => { ctx.Values["captured"] = 42; return true; };
+        var action = f.Action(ctx => { Assert.Equal(42, ctx.Values["captured"]); return true; });
+        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Speech) { Actor = actor, Message = "set42" }));
+        f.Advance(50); Assert.Equal(0, trigger.Calls); Assert.Equal(1, action.Calls); Assert.Empty(f.Errors);
+    }
+
+    [Theory]
+    [InlineData(WiredSources.Selected)]
+    [InlineData(WiredSources.Snapshot)]
+    public void ReallocatedTemporaryIdCannotRebindStaticSelectionButDynamicSourcesRemainUsable(int source)
+    {
+        var f = new Fixture(); var id = uint.MaxValue - 10;
+        var old = new Item { Id = id, IsTemporary = true, Definition = new() };
+        f.Furniture.Add(old);
+        var savedIds = new[] { old.Id };
+        f.Furniture.Remove(old);
+        var current = new Item { Id = id, IsTemporary = true, Definition = new() };
+        var permanent = new Item { Id = uint.MaxValue - 20, Definition = new() };
+        f.Furniture.Add(current); f.Furniture.Add(permanent);
+        var ctx = new WiredRuntimeContext(f.Room, new(WiredEventKind.Enter),
+            new(() => f.Furniture, () => []), f);
+        Assert.Empty(ctx.Targets.ResolveFurni(ctx, savedIds, source, raw: true));
+        Assert.Equal(permanent, Assert.Single(ctx.Targets.ResolveFurni(ctx, [permanent.Id], source)));
+        ctx.Triggering.FurniIds.Add(current.Id); ctx.SelectorPool.FurniIds.Add(current.Id);
+        ctx.Signal = new(new([current.Id], []), new Dictionary<string,long>());
+        foreach (var dynamicSource in new[] { WiredSources.Trigger, WiredSources.Selector, WiredSources.Signal })
+            Assert.Equal(current, Assert.Single(ctx.Targets.ResolveFurni(ctx, [], dynamicSource)));
+    }
+
     private sealed class Picker : IWiredActionPicker
     {
         public int Calls;
@@ -707,6 +759,7 @@ public class WiredRuntimeEngineTests
     {
         public readonly Room Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         public readonly List<Item> Furniture = [];
+        public readonly List<Item> Walls = [];
         public readonly List<RoomUser> Users = [];
         public readonly List<Exception> Errors = [];
         public WiredStackEngine Engine { get; }
@@ -717,7 +770,7 @@ public class WiredRuntimeEngineTests
         {
             Engine = new(() => Now, box => Furniture.Contains(box.Item), _ => true, _ => { }, Errors.Add, limits);
             Engine.BindRuntime(Room, new(() => { FurnitureReads++; return Furniture; }, () => { UserReads++; return Users; },
-                id => Furniture.FirstOrDefault(x => x.Id == id), id => Users.FirstOrDefault(x => x.VirtualId == id)), this);
+                id => Furniture.Concat(Walls).FirstOrDefault(x => x.Id == id), id => Users.FirstOrDefault(x => x.VirtualId == id)), this);
         }
         public Item Furni(string interaction = "", int x = 0)
         {

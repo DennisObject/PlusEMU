@@ -8,6 +8,8 @@ public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnu
 {
     public Item[] AllFurni() => furni().ToArray();
     public RoomUser[] AllUsers() => users().ToArray();
+    public bool IsAttached(Item item) => ReferenceEquals(item,
+        findFurni == null ? furni().FirstOrDefault(candidate => candidate.Id == item.Id) : findFurni(item.Id));
 
     public Item[] ResolveFurni(WiredRuntimeContext context, IEnumerable<uint> saved, int source, bool raw = false)
     {
@@ -21,6 +23,9 @@ public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnu
             WiredSources.AllRoom => AllFurni().Select(x => x.Id),
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unknown furniture source")
         };
+        // Static editor picks never acquire ownership of transient furniture, including after ID reuse.
+        if (source is WiredSources.Selected or WiredSources.Snapshot)
+            ids = ids.Where(id => context.FurniIdentity.TryGetValue(id, out var picked) && !picked.IsTemporary);
         if (!raw && source != WiredSources.Selector && context.Policy.Addons.FurniLimit is > 0 and var limit)
         {
             var key = (source, string.Join(',', savedIds), limit);
@@ -36,7 +41,8 @@ public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnu
         var wanted = ids.ToHashSet();
         var candidates = findFurni == null ? AllFurni().Where(x => wanted.Contains(x.Id))
             : wanted.Select(findFurni).OfType<Item>();
-        return candidates.Where(x => wanted.Contains(x.Id) && context.FurniIdentity.TryGetValue(x.Id, out var original)
+        return candidates.Where(x => wanted.Contains(x.Id) && (source is not (WiredSources.Selected or WiredSources.Snapshot) || !x.IsTemporary)
+            && context.FurniIdentity.TryGetValue(x.Id, out var original)
             && ReferenceEquals(x, original)).ToArray();
     }
 
