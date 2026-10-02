@@ -20,7 +20,7 @@ internal class MoveWallItemEvent : RoomPacketEvent
         var itemId = packet.ReadUInt();
         var wallPositionData = packet.ReadString();
         var item = room.GetRoomItemHandler().GetItem(itemId);
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return Task.CompletedTask;
         try
         {

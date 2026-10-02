@@ -1,5 +1,6 @@
 ﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
 
@@ -18,7 +19,13 @@ public class WiredEffectConfigComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-
+        if (WiredLegacyCustomEditor.IsCustom(_box))
+        {
+            if (!WiredLegacyCustomEditor.TryGetConfiguration(_box, out var descriptor, out var configuration))
+                throw new InvalidDataException("Invalid stored custom Wired settings.");
+            WiredLegacyProtocol.Write(packet, _box.Item.Id, _box.Item.Definition.SpriteId, descriptor, configuration, 0, []);
+            return;
+        }
         packet.WriteBoolean(false);
         packet.WriteInteger(15);
         packet.WriteInteger(_box.SetItems.Count);

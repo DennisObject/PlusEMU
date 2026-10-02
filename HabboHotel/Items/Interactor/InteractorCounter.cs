@@ -1,4 +1,5 @@
 ﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
@@ -6,6 +7,11 @@ internal class InteractorCounter : IFurniInteractor
 {
     public void OnPlace(GameClient session, Item item)
     {
+        if (WiredCounterController.Recognizes(item))
+        {
+            item.GetRoom().GetWired().AttachRoomItem(item);
+            return;
+        }
         item.LegacyDataString = "30";
         item.UpdateState();
     }
@@ -15,6 +21,11 @@ internal class InteractorCounter : IFurniInteractor
     public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
     {
         if (!hasRights) return;
+        if (WiredCounterController.Recognizes(item))
+        {
+            item.GetRoom().GetWired().TryUseCounter(item, request);
+            return;
+        }
         var oldValue = 0;
         if (!int.TryParse(item.LegacyDataString, out oldValue))
         {

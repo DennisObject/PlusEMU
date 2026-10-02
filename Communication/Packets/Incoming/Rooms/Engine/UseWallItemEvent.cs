@@ -18,7 +18,7 @@ internal class UseWallItemEvent : RoomPacketEvent
     {
         var itemId = packet.ReadUInt();
         var item = room.GetRoomItemHandler().GetItem(itemId);
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return Task.CompletedTask;
         var hasRights = room.CheckRights(session, false, true);
         var request = packet.ReadInt();

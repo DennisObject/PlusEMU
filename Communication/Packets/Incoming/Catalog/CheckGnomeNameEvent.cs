@@ -27,7 +27,7 @@ internal class CheckGnomeNameEvent : RoomPacketEvent
     {
         var itemId = packet.ReadUInt();
         var item = room.GetRoomItemHandler().GetItem(itemId);
-        if (item == null || item.Definition == null || (item.OwnerId != session.GetHabbo().Id && item.UserId != session.GetHabbo().Id) || item.Definition.InteractionType != InteractionType.GnomeBox)
+        if (item == null || item.IsTemporary || item.Definition == null || (item.OwnerId != session.GetHabbo().Id && item.UserId != session.GetHabbo().Id) || item.Definition.InteractionType != InteractionType.GnomeBox)
             return Task.CompletedTask;
         var petName = packet.ReadString();
         if (string.IsNullOrEmpty(petName))
