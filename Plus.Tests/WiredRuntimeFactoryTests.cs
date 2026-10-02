@@ -1,4 +1,7 @@
 using System.Runtime.CompilerServices;
+using System.Reflection;
+using System.Collections.Immutable;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
@@ -61,6 +64,38 @@ public sealed class WiredRuntimeFactoryTests
         Assert.Equal(name, candidate.Descriptor.CanonicalName);
         Assert.Null(definition.WiredDescriptor);
         Assert.False(facade.TryGet(1, out _));
+    }
+
+    [Theory]
+    [InlineData(WiredBoxType.TriggerUserSays, "wf_trg_says_something", "hello", 3)]
+    [InlineData(WiredBoxType.EffectTeleportToFurni, "wf_act_teleport_to", "", 3)]
+    public void CustomNameLoadsCanonicalSidecarThroughLegacyDescriptor(WiredBoxType type, string name, string text, int count)
+    {
+        var room = Room();
+        var handler = new RoomItemHandling(room);
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
+        var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handler)!;
+        var item = new Item { Id = 10, Definition = new() { ItemName = "legacy_custom_name", WiredType = type } };
+        floor[item.Id] = item;
+        var facade = new WiredComponent(room);
+        var config = new WiredConfiguration { Text = text, IntParams = Enumerable.Repeat(0, count).ToImmutableArray() };
+        var store = new SidecarStore(name, config);
+        typeof(WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(facade, store);
+        var loaded = Assert.IsAssignableFrom<IWiredConfiguredItem>(facade.LoadWiredBox(item));
+        Assert.Equal(name, loaded.Descriptor.CanonicalName);
+        Assert.Equal(text, loaded.Configuration.Text);
+        Assert.True(store.WasRead);
+        Assert.Null(item.Definition.WiredDescriptor);
+        Assert.True(facade.TryGet(item.Id, out var registered));
+        Assert.Same(loaded, registered);
+    }
+
+    private sealed class SidecarStore(string name, WiredConfiguration config) : IWiredConfigurationStore
+    {
+        public bool WasRead;
+        public WiredConfiguration? Load(uint id, WiredBoxDescriptor descriptor)
+        { Assert.Equal(10u, id); Assert.Equal(name, descriptor.CanonicalName); WasRead = true; return config; }
+        public void Save(uint id, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new NotSupportedException();
     }
 
     [Fact]
