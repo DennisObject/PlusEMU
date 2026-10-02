@@ -28,6 +28,12 @@ priority queue and per-pass budget. Normal delays remain independent half-second
 ordered execution is opt-in. False results continue, unless an explicit stop-on-success
 policy requests otherwise. Queued events, signal envelopes and action chains share one pending limit;
 recursive calls/signals carry depth. Signal payloads copy selections and scalar values.
+Queued events reserve one pending slot for each matched stack before acceptance.
+Predicates and accepted evaluations resume from their next stage without replaying selectors,
+stateful policies or conditions. Matching triggers/configured stacks retain object identity;
+editing or moving a captured box cancels its unfinished work. A completing evaluation transfers
+its reserved slot into the action chain. Synchronous speech/command gates fail closed when
+the configured pass budget cannot finish their decision; chat is never consumed later.
 Accepted due work drains before fresh timer polling; timer polling rotates across boxes
 when the per-pass budget cannot visit them all. Signal triggers resume across passes.
 Auxiliary cancellation restores transient state exactly once without another timer.
