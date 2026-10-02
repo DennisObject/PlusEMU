@@ -1,4 +1,5 @@
 using Plus.HabboHotel.Items.Wired.Runtime;
+using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Items.Wired.Variables;
