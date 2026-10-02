@@ -1,6 +1,9 @@
 using System.Data;
 using Dapper;
 using Microsoft.Extensions.Logging;
+using Plus.Communication.Packets;
+using Plus.Communication.Packets.Outgoing.Inventory.Badges;
+using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.Communication.Packets.Outgoing.Quests;
 using Plus.Core;
@@ -8,6 +11,7 @@ using Plus.Database;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Badges;
 using Plus.Utilities;
 
 namespace Plus.HabboHotel.Quests;
@@ -81,7 +85,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                     if (!SaveProgress(habbo.Id, track.Id, step, state.Premium))
                         continue;
                     state.Apply(step);
-                    session.Send(new RewardTrackProgressComposer(track.Id, step.TaskId, step.Count, state.Points));
+                    SendTrackPacket(session, new RewardTrackProgressComposer(track.Id, step.TaskId, step.Count, state.Points));
                     _logger.LogInformation("Reward track progress user {UserId} task {TaskId} count {Count} points {Points}", habbo.Id, step.TaskId, step.Count, step.PointsGranted);
                 }
             }
@@ -108,24 +112,23 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                     continue;
                 views.Add(new RewardTrackView(track, StateFor(habbo.Id, track.Id)));
             }
-            session.Send(new RewardTracksComposer(false, views, false));
+            SendTrackPacket(session, new RewardTracksComposer(false, views, false));
         }
     }
 
-    public async Task Claim(GameClient session, string trackId, string prizeId)
+    public Task Claim(GameClient session, string trackId, string prizeId)
     {
         if (session == null)
-            return;
+            return Task.CompletedTask;
         var habbo = session.GetHabbo();
         if (habbo == null)
-            return;
-        string? badge = null;
+            return Task.CompletedTask;
         lock (Gate(habbo.Id))
         {
             if (!EnsureUser(habbo.Id))
             {
                 _logger.LogError("Reward track claim load failed for user {UserId}", habbo.Id);
-                return;
+                return Task.CompletedTask;
             }
             var track = FindActive(Snapshot(), trackId);
             var state = track == null ? null : StateFor(habbo.Id, track.Id);
@@ -133,16 +136,17 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
             if (result != RewardTrackResults.Ok || track == null || state == null)
             {
                 LogClaim(habbo.Id, trackId, prizeId, result);
-                session.Send(new RewardTrackClaimResultComposer(trackId, prizeId, result));
-                return;
+                SendTrackPacket(session, new RewardTrackClaimResultComposer(trackId, prizeId, result));
+                return Task.CompletedTask;
             }
             var prize = track.GetPrize(prizeId);
             if (prize == null)
             {
                 LogClaim(habbo.Id, trackId, prizeId, RewardTrackResults.Unknown);
-                session.Send(new RewardTrackClaimResultComposer(trackId, prizeId, RewardTrackResults.Unknown));
-                return;
+                SendTrackPacket(session, new RewardTrackClaimResultComposer(trackId, prizeId, RewardTrackResults.Unknown));
+                return Task.CompletedTask;
             }
+            string? badge = null;
             var credits = 0;
             var duckets = 0;
             var diamonds = 0;
@@ -161,11 +165,30 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                     diamonds = prize.RewardAmount;
                     break;
             }
-            if (!StoreClaim(habbo, track.Id, prize.Id, credits, duckets, diamonds))
-                return;
+            // A badge prize without a grantable definition would commit a claim that never pays out.
+            if (badge != null && !TryResolveBadge(habbo, badge, out badge))
+            {
+                _logger.LogError("Reward track prize {PrizeId} badge {Badge} has no grantable definition", prize.Id, prize.ExtraParams);
+                LogClaim(habbo.Id, trackId, prizeId, RewardTrackResults.Unknown);
+                SendTrackPacket(session, new RewardTrackClaimResultComposer(trackId, prizeId, RewardTrackResults.Unknown));
+                return Task.CompletedTask;
+            }
+            if (!StoreClaim(habbo, track.Id, prize.Id, credits, duckets, diamonds, badge))
+            {
+                // Nothing was committed; the prize stays claimable so the player can retry.
+                LogClaim(habbo.Id, trackId, prizeId, RewardTrackResults.Unknown);
+                SendTrackPacket(session, new RewardTrackClaimResultComposer(trackId, prizeId, RewardTrackResults.Unknown));
+                return Task.CompletedTask;
+            }
             state.MarkClaimed(prize.Id);
+            if (badge != null && !habbo.Inventory.Badges.HasBadge(badge))
+            {
+                habbo.Inventory.Badges.AddBadge(new Badge(badge, 0));
+                session.Send(new BadgesComposer(habbo.Id, habbo.Inventory.Badges.Badges));
+                session.Send(new FurniListNotificationComposer(1, 4));
+            }
             LogClaim(habbo.Id, trackId, prizeId, RewardTrackResults.Ok);
-            session.Send(new RewardTrackClaimResultComposer(trackId, prizeId, RewardTrackResults.Ok));
+            SendTrackPacket(session, new RewardTrackClaimResultComposer(trackId, prizeId, RewardTrackResults.Ok));
             if (credits > 0)
                 session.Send(new CreditBalanceComposer(habbo.Credits));
             if (duckets > 0)
@@ -173,18 +196,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
             if (diamonds > 0)
                 session.Send(new HabboActivityPointNotificationComposer(habbo.Diamonds, diamonds, 5));
         }
-        if (badge == null)
-            return;
-        try
-        {
-            await _badgeManager.GiveBadge(habbo, badge);
-            if (!habbo.Inventory.Badges.HasBadge(badge))
-                _logger.LogWarning("Reward track badge {Badge} was not added for user {UserId}", badge, habbo.Id);
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "Reward track badge grant failed for user {UserId}", habbo.Id);
-        }
+        return Task.CompletedTask;
     }
 
     public void PurchasePremium(GameClient session, string trackId)
@@ -214,7 +226,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                 if (quote.Result != RewardTrackResults.Ok || track == null || state == null)
                 {
                     LogPremium(habbo.Id, trackId, quote.Result);
-                    session.Send(new RewardTrackPremiumPurchaseResultComposer(trackId, quote.Result, quote.Points));
+                    SendTrackPacket(session, new RewardTrackPremiumPurchaseResultComposer(trackId, quote.Result, quote.Points));
                     return;
                 }
                 var costCredits = Math.Max(0, track.PremiumCostCredits);
@@ -224,7 +236,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                     if (!denied)
                         return;
                     LogPremium(habbo.Id, trackId, RewardTrackResults.NotEnoughCurrency);
-                    session.Send(new RewardTrackPremiumPurchaseResultComposer(trackId, RewardTrackResults.NotEnoughCurrency, state.Points));
+                    SendTrackPacket(session, new RewardTrackPremiumPurchaseResultComposer(trackId, RewardTrackResults.NotEnoughCurrency, state.Points));
                     return;
                 }
                 habbo.Credits = quote.Credits;
@@ -235,12 +247,23 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                 if (costDiamonds > 0)
                     session.Send(new HabboActivityPointNotificationComposer(habbo.Diamonds, -costDiamonds, 5));
                 LogPremium(habbo.Id, trackId, RewardTrackResults.Ok);
-                session.Send(new RewardTrackPremiumPurchaseResultComposer(trackId, RewardTrackResults.Ok, state.Points));
+                SendTrackPacket(session, new RewardTrackPremiumPurchaseResultComposer(trackId, RewardTrackResults.Ok, state.Points));
             }
         }
     }
 
-    private bool StoreClaim(Habbo habbo, string trackId, string prizeId, int credits, int duckets, int diamonds)
+    private bool TryResolveBadge(Habbo habbo, string code, out string badge)
+    {
+        badge = code;
+        if (!_badgeManager.Badges.TryGetValue(code.ToUpper(), out var definition))
+            return false;
+        if (definition.RequiredRight.Length > 0 && !habbo.Permissions.HasRight(definition.RequiredRight))
+            return false;
+        badge = definition.Code;
+        return true;
+    }
+
+    private bool StoreClaim(Habbo habbo, string trackId, string prizeId, int credits, int duckets, int diamonds, string? badge)
     {
         var currency = credits != 0 || duckets != 0 || diamonds != 0;
         if (currency)
@@ -252,7 +275,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                     _logger.LogError("Reward track claim skipped because the wallet is closed for user {UserId}", habbo.Id);
                     return false;
                 }
-                if (!InsertClaim(habbo.Id, trackId, prizeId, credits, duckets, diamonds))
+                if (!InsertClaim(habbo.Id, trackId, prizeId, credits, duckets, diamonds, badge))
                     return false;
                 if (credits != 0)
                     habbo.Credits += credits;
@@ -263,10 +286,10 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                 return true;
             }
         }
-        return InsertClaim(habbo.Id, trackId, prizeId, 0, 0, 0);
+        return InsertClaim(habbo.Id, trackId, prizeId, 0, 0, 0, badge);
     }
 
-    private bool InsertClaim(int userId, string trackId, string prizeId, int credits, int duckets, int diamonds)
+    private bool InsertClaim(int userId, string trackId, string prizeId, int credits, int duckets, int diamonds, string? badge)
     {
         try
         {
@@ -281,6 +304,13 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                 connection.Execute(
                     "UPDATE users SET credits = credits + @credits, activity_points = activity_points + @duckets, vip_points = vip_points + @diamonds WHERE id = @userId",
                     new { userId, credits, duckets, diamonds }, transaction);
+            }
+            if (badge != null)
+            {
+                // Same transaction as the claim row; an owned badge keeps its slot.
+                connection.Execute(
+                    "INSERT INTO user_badges (user_id, badge_id, badge_slot) VALUES (@userId, @badge, 0) ON DUPLICATE KEY UPDATE badge_slot = badge_slot",
+                    new { userId, badge }, transaction);
             }
             transaction.Commit();
             return true;
@@ -509,6 +539,14 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
             }
             return gate;
         }
+    }
+
+    // A revision without reward-track headers (NITRO-1-6-6) can't take these packets; sending one would throw
+    // inside the login handler and drop the client.
+    private static void SendTrackPacket(GameClient session, IServerPacket composer)
+    {
+        if (session.Revision?.InternalIdToOutgoingIdMapping?.ContainsKey(composer.MessageId) == true)
+            session.Send(composer);
     }
 
     private void LogClaim(int userId, string trackId, string prizeId, int result) =>

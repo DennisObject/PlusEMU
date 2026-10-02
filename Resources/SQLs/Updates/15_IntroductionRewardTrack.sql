@@ -191,3 +191,8 @@ INSERT IGNORE INTO reward_track_prizes
 (track_id, id, required_points, product_item_type_id, reward_type, extra_params, reward_amount, premium, sort_order) VALUES
 ('introduction', 'track_champ', 50, 4, 'badge', 'ACH_RewardTracksCompleted1', 1, 0, 1),
 ('introduction', 'track_champ_premium', 200, 4, 'badge', 'ACH_RewardTracksCompleted2', 1, 1, 2);
+
+-- Official achievement badges (badge_name_ACH_RewardTracksCompleted "Track Champ %roman%"); claims need their definitions.
+INSERT IGNORE INTO badge_definitions (code, required_right) VALUES
+('ACH_RewardTracksCompleted1', ''),
+('ACH_RewardTracksCompleted2', '');

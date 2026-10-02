@@ -134,7 +134,7 @@ public class RewardTrackTests
 
         AssertClient("3.6.0.json", 9450, 1111, 3022, 2327, 9451, 9452, 2248);
         AssertClient("1.6.6.json", 0, 0, 0, 0, 0, 0, 0);
-        AssertClient("OCTANE-3-6-0-FLOOR-20260909.json", 0, 0, 0, 0, 0, 0, 0);
+        AssertClient("OCTANE-3-6-0-FLOOR-20260909.json", 9450, 1111, 3022, 2327, 9451, 9452, 2248);
     }
 
     [Fact]

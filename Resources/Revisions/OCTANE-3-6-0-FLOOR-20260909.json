@@ -280,9 +280,9 @@
     "UnseenResetCategoryEvent": 3493,
     "UnseenResetItemsEvent": 2343,
     "SendMessengerMessageEvent": 4902,
-    "GetRewardTracksEvent": 0,
-    "ClaimRewardTrackPrizeEvent": 0,
-    "PurchaseRewardTrackPremiumEvent": 0
+    "GetRewardTracksEvent": 9450,
+    "ClaimRewardTrackPrizeEvent": 1111,
+    "PurchaseRewardTrackPremiumEvent": 3022
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -555,9 +555,9 @@
     "MessengerMessageAckComposer": 4902,
     "MessengerMessageFailedComposer": 4903,
     "MessengerMessageComposer": 4904,
-    "RewardTracksComposer": 0,
-    "RewardTrackClaimResultComposer": 0,
-    "RewardTrackProgressComposer": 0,
-    "RewardTrackPremiumPurchaseResultComposer": 0
+    "RewardTracksComposer": 2327,
+    "RewardTrackClaimResultComposer": 9451,
+    "RewardTrackProgressComposer": 9452,
+    "RewardTrackPremiumPurchaseResultComposer": 2248
   }
 }

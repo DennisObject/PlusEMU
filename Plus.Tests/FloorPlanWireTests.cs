@@ -63,14 +63,22 @@ public class FloorPlanWireTests
             "GetOccupiedTilesEvent",
             "GetRoomEntryTileEvent",
             "UpdateFloorPropertiesEvent",
-            "GetMarketplaceConfigurationEvent"
+            "GetMarketplaceConfigurationEvent",
+            // Reward tracks exist on the Octane client only; RewardTrackTests pins their ids.
+            "GetRewardTracksEvent",
+            "ClaimRewardTrackPrizeEvent",
+            "PurchaseRewardTrackPremiumEvent"
         };
         var changedOutgoing = new HashSet<string>
         {
             "RoomOccupiedTilesComposer",
             "RoomEntryTileComposer",
             "RoomVisualizationSettingsComposer",
-            "FloorHeightMapComposer"
+            "FloorHeightMapComposer",
+            "RewardTracksComposer",
+            "RewardTrackClaimResultComposer",
+            "RewardTrackProgressComposer",
+            "RewardTrackPremiumPurchaseResultComposer"
         };
         Assert.Equal(legacy.IncomingHeaders.Keys.OrderBy(key => key), hybrid.IncomingHeaders.Keys.OrderBy(key => key));
         Assert.Equal(legacy.OutgoingHeaders.Keys.OrderBy(key => key), hybrid.OutgoingHeaders.Keys.OrderBy(key => key));
