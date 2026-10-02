@@ -20,7 +20,7 @@ internal class AddStickyNoteEvent : RoomPacketEvent
         try
         {
             var wallPossition = room.GetRoomItemHandler().WallPositionCheck($":{locationData.Split(':')[1]}");
-            var roomItem = item.ToRoomObject();
+            var roomItem = item.ToRoomObject(session.GetHabbo());
             roomItem.WallCoordinates = wallPossition;
             if (room.GetRoomItemHandler().SetWallItem(session, roomItem))
             {

@@ -1,18 +1,30 @@
+using System.Buffers.Binary;
+using System.Data;
+using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Plus.Communication.Flash;
+using Plus.Communication.Packets.Incoming.Rooms.Engine;
+using Plus.Communication.Packets.Incoming.Rooms.Furni.Stickys;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Revisions;
 using Plus.Database;
+using Plus.Core.Settings;
 using Plus.Database.Interfaces;
 using Plus.HabboHotel;
+using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Inventory;
+using Plus.HabboHotel.Users.Permissions;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 using Xunit;
 
@@ -35,6 +47,7 @@ public class PlacedFurniRoomTests : IDisposable
     private readonly object? _previousDatabase;
     private readonly Room _room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
     private readonly TestClient _client = new();
+    private readonly IDatabase _database;
 
     public PlacedFurniRoomTests()
     {
@@ -50,7 +63,8 @@ public class PlacedFurniRoomTests : IDisposable
         var wired = new WiredComponent(_room);
         typeof(WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, new EmptyConfigurationStore());
         Set("_wiredComponent", wired);
-        _client.SetHabbo(new Habbo { Id = 7, Username = "owner", CurrentRoom = _room });
+        _room.GetGameMap().GenerateMaps();
+        _client.SetHabbo(new Habbo { Id = 7, Username = "owner", CurrentRoom = _room, Permissions = new PermissionComponent(new(), new()) });
 
         var rooms = Proxy<IRoomManager>((method, args) =>
         {
@@ -68,7 +82,13 @@ public class PlacedFurniRoomTests : IDisposable
             _ => throw new InvalidOperationException(method)
         }));
         var query = Proxy<IQueryAdapter>((_, _) => null);
-        _databaseField.SetValue(null, Proxy<IDatabase>((method, _) => method == "GetQueryReactor" ? query : throw new InvalidOperationException(method)));
+        _database = Proxy<IDatabase>((method, _) => method switch
+        {
+            "GetQueryReactor" => query,
+            "Connection" => new NoOpConnection(),
+            _ => throw new InvalidOperationException(method)
+        });
+        _databaseField.SetValue(null, _database);
     }
 
     [Fact]
@@ -109,6 +129,50 @@ public class PlacedFurniRoomTests : IDisposable
         Assert.Equal(new[] { composer }, _client.Sent);
     }
 
+    [Fact]
+    public async Task PlacedInventoryFurniGoesBackToTheOwnersInventory()
+    {
+        // A traded item still carries the sender as OwnerId; the inventory holding it is the owner.
+        Inventory(new InventoryItem { Id = 30, OwnerId = 99, Definition = Furni(30, InteractionType.None, WiredBoxType.None).Definition });
+
+        await PlaceObject().Parse(_room, _client, ClientPacket("30 1 1 0"));
+        var placed = _room.GetRoomItemHandler().GetItem(30);
+        Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
+
+        _client.Sent.Clear();
+        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+            .Parse(_client, ClientPacket(0, 30));
+
+        Assert.Null(_room.GetRoomItemHandler().GetItem(30));
+        Assert.NotNull(_client.GetHabbo().Inventory.Furniture.GetItem(30));
+        Assert.Contains(ServerPacketHeader.FurniListUpdateComposer, _client.Sent);
+        Assert.Equal((7, "owner", 7u), (placed.UserId, placed.Username, placed.OwnerId));
+    }
+
+    [Fact]
+    public async Task PlacingAnItemNoLongerInTheInventoryIsIgnored()
+    {
+        Inventory(new InventoryItem { Id = 30, Definition = Furni(30, InteractionType.None, WiredBoxType.None).Definition });
+
+        await PlaceObject().Parse(_room, _client, ClientPacket("31 1 1 0"));
+
+        Assert.Empty(_room.GetRoomItemHandler().GetWallAndFloor);
+        Assert.NotNull(_client.GetHabbo().Inventory.Furniture.GetItem(30));
+        Assert.Empty(_client.Sent);
+    }
+
+    [Fact]
+    public async Task PlacedStickyNoteKeepsItsOwner()
+    {
+        var sticky = Furni(31, InteractionType.Postit, WiredBoxType.None, ItemType.Wall);
+        Inventory(new InventoryItem { Id = 31, Definition = sticky.Definition });
+
+        await new AddStickyNoteEvent().Parse(_room, _client, ClientPacket(31, ":w=1,1 l=0,0 l"));
+
+        var placed = _room.GetRoomItemHandler().GetItem(31);
+        Assert.Equal((7, "owner", 7u), (placed.UserId, placed.Username, placed.OwnerId));
+    }
+
     private static Item Furni(uint id, InteractionType interaction, WiredBoxType wired, ItemType type = ItemType.Floor) => new()
     {
         Id = id,
@@ -129,6 +193,39 @@ public class PlacedFurniRoomTests : IDisposable
         }
     };
 
+    private static PlaceObjectEvent PlaceObject() =>
+        new(Proxy<IRoomManager>((_, _) => null), Proxy<ISettingsManager>((_, _) => "500"), Proxy<IAchievementManager>((_, _) => null));
+
+    private void Inventory(InventoryItem item) =>
+        _client.GetHabbo().Inventory = new InventoryComponent
+        {
+            Furniture = new FurnitureInventoryComponent(item.IsFloorItem ? [item] : [], item.IsWallItem ? [item] : [])
+        };
+
+    /// <summary>A Flash packet body of big-endian ints and short-prefixed UTF-8 strings.</summary>
+    private static FlashIncomingPacket ClientPacket(params object[] values)
+    {
+        using var stream = new MemoryStream();
+        foreach (var value in values)
+        {
+            if (value is string text)
+            {
+                var bytes = Encoding.UTF8.GetBytes(text);
+                var length = new byte[2];
+                BinaryPrimitives.WriteInt16BigEndian(length, (short)bytes.Length);
+                stream.Write(length);
+                stream.Write(bytes);
+            }
+            else
+            {
+                var bytes = new byte[4];
+                BinaryPrimitives.WriteInt32BigEndian(bytes, (int)value);
+                stream.Write(bytes);
+            }
+        }
+        return new FlashIncomingPacket { Buffer = stream.ToArray() };
+    }
+
     private void Set(string field, object value) =>
         typeof(Room).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_room, value);
 
@@ -142,7 +239,79 @@ public class PlacedFurniRoomTests : IDisposable
     public class TestProxy : DispatchProxy
     {
         public Func<string, object?[], object?> Call = null!;
-        protected override object? Invoke(MethodInfo? method, object?[]? args) => Call(method!.Name, args!);
+        protected override object? Invoke(MethodInfo? method, object?[]? args) =>
+            Call(method!.Name, args!) ?? (method.ReturnType.IsValueType && method.ReturnType != typeof(void) ? Activator.CreateInstance(method.ReturnType) : null);
+    }
+
+    /// <summary>Accepts Dapper writes without a database.</summary>
+    private sealed class NoOpConnection : DbConnection
+    {
+        private ConnectionState _state = ConnectionState.Closed;
+        [AllowNull] public override string ConnectionString { get; set; } = "";
+        public override string Database => "";
+        public override string DataSource => "";
+        public override string ServerVersion => "";
+        public override ConnectionState State => _state;
+        public override void ChangeDatabase(string databaseName) { }
+        public override void Close() => _state = ConnectionState.Closed;
+        public override void Open() => _state = ConnectionState.Open;
+        protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => throw new NotSupportedException();
+        protected override DbCommand CreateDbCommand() => new NoOpCommand { Connection = this };
+    }
+
+    private sealed class NoOpCommand : DbCommand
+    {
+        [AllowNull] public override string CommandText { get; set; } = "";
+        public override int CommandTimeout { get; set; }
+        public override CommandType CommandType { get; set; }
+        public override bool DesignTimeVisible { get; set; }
+        public override UpdateRowSource UpdatedRowSource { get; set; }
+        protected override DbConnection? DbConnection { get; set; }
+        protected override DbParameterCollection DbParameterCollection { get; } = new NoOpParameters();
+        protected override DbTransaction? DbTransaction { get; set; }
+        public override void Cancel() { }
+        public override int ExecuteNonQuery() => 1;
+        public override object? ExecuteScalar() => null;
+        public override void Prepare() { }
+        protected override DbParameter CreateDbParameter() => new NoOpParameter();
+        protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior) => throw new NotSupportedException();
+    }
+
+    private sealed class NoOpParameter : DbParameter
+    {
+        public override DbType DbType { get; set; }
+        public override ParameterDirection Direction { get; set; }
+        public override bool IsNullable { get; set; }
+        [AllowNull] public override string ParameterName { get; set; } = "";
+        public override int Size { get; set; }
+        [AllowNull] public override string SourceColumn { get; set; } = "";
+        public override bool SourceColumnNullMapping { get; set; }
+        public override object? Value { get; set; }
+        public override void ResetDbType() { }
+    }
+
+    private sealed class NoOpParameters : DbParameterCollection
+    {
+        private readonly List<DbParameter> _items = [];
+        public override int Count => _items.Count;
+        public override object SyncRoot => _items;
+        public override int Add(object value) { _items.Add((DbParameter)value); return _items.Count - 1; }
+        public override void AddRange(Array values) { foreach (var value in values) Add(value); }
+        public override void Clear() => _items.Clear();
+        public override bool Contains(object value) => _items.Contains((DbParameter)value);
+        public override bool Contains(string value) => IndexOf(value) >= 0;
+        public override void CopyTo(Array array, int index) => ((System.Collections.ICollection)_items).CopyTo(array, index);
+        public override System.Collections.IEnumerator GetEnumerator() => _items.GetEnumerator();
+        public override int IndexOf(object value) => _items.IndexOf((DbParameter)value);
+        public override int IndexOf(string parameterName) => _items.FindIndex(p => p.ParameterName == parameterName);
+        public override void Insert(int index, object value) => _items.Insert(index, (DbParameter)value);
+        public override void Remove(object value) => _items.Remove((DbParameter)value);
+        public override void RemoveAt(int index) => _items.RemoveAt(index);
+        public override void RemoveAt(string parameterName) => RemoveAt(IndexOf(parameterName));
+        protected override DbParameter GetParameter(int index) => _items[index];
+        protected override DbParameter GetParameter(string parameterName) => _items[IndexOf(parameterName)];
+        protected override void SetParameter(int index, DbParameter value) => _items[index] = value;
+        protected override void SetParameter(string parameterName, DbParameter value) => _items[IndexOf(parameterName)] = value;
     }
 
     private sealed class EmptyConfigurationStore : IWiredConfigurationStore
