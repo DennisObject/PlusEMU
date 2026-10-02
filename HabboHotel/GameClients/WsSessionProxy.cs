@@ -13,7 +13,9 @@ public class WsSessionProxy : WsSession
         {
             if (!Socket.Connected) return false;
             var buffer = args.MemoryBuffer.ToArray();
-            return SendBinaryAsync(buffer, 0, buffer.Length);
+            SendBinaryAsync(buffer, 0, buffer.Length);
+            // The WebSocket queue owns a copy; no SocketAsyncEventArgs operation is pending.
+            return false;
         };
         _client.DisconnectRequested = () => Disconnect();
     }

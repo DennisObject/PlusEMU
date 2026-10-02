@@ -287,28 +287,19 @@ public class RoomUser
             return;
         if (!IsBot)
             return;
-        if (IsPet)
+        var packet = new ChatComposer(VirtualId, message, 0, IsPet ? 0 : colour == 0 ? 2 : colour);
+        GameClient.SendBroadcast(packet, GetRecipients());
+
+        IEnumerable<GameClient> GetRecipients()
         {
-            foreach (var user in GetRoom().GetRoomUserManager().GetUserList().ToList())
+            foreach (var user in GetRoom().GetRoomUserManager().GetRoomUsers())
             {
-                if (user == null || user.IsBot)
-                    continue;
-                if (user.GetClient() == null || user.GetClient().GetHabbo() == null)
-                    return;
-                if (!user.GetClient().GetHabbo().AllowPetSpeech)
-                    user.GetClient().Send(new ChatComposer(VirtualId, message, 0, 0));
-            }
-        }
-        else
-        {
-            foreach (var user in GetRoom().GetRoomUserManager().GetUserList().ToList())
-            {
-                if (user == null || user.IsBot)
-                    continue;
-                if (user.GetClient() == null || user.GetClient().GetHabbo() == null)
-                    return;
-                if (!user.GetClient().GetHabbo().AllowBotSpeech)
-                    user.GetClient().Send(new ChatComposer(VirtualId, message, 0, colour == 0 ? 2 : colour));
+                var client = user?.GetClient();
+                var habbo = client?.GetHabbo();
+                if (habbo == null)
+                    yield break;
+                if (!(IsPet ? habbo.AllowPetSpeech : habbo.AllowBotSpeech))
+                    yield return client;
             }
         }
     }

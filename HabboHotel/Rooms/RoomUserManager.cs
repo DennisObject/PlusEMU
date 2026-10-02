@@ -420,10 +420,13 @@ public class RoomUserManager
 
     private void RemoveRoomUser(RoomUser user)
     {
-        if (user.SetStep)
-            _room.GetGameMap().GameMap[user.SetX, user.SetY] = user.SqState;
-        else
-            _room.GetGameMap().GameMap[user.X, user.Y] = user.SqState;
+        if (!user.IsBot || !user.BotData.IsTemporary)
+        {
+            if (user.SetStep)
+                _room.GetGameMap().GameMap[user.SetX, user.SetY] = user.SqState;
+            else
+                _room.GetGameMap().GameMap[user.X, user.Y] = user.SqState;
+        }
         _room.GetGameMap().RemoveUserFromMap(user, new(user.X, user.Y));
         _room.SendPacket(new UserRemoveComposer(user.VirtualId));
         RoomUser toRemove = null;
@@ -476,9 +479,13 @@ public class RoomUserManager
 
     public List<RoomUser> GetRoomUsers()
     {
-        var list = new List<RoomUser>();
-        list = GetUserList().Where(x => !x.IsBot).ToList();
-        return list;
+        var users = new List<RoomUser>();
+        foreach (var entry in _users)
+        {
+            if (!entry.Value.IsBot)
+                users.Add(entry.Value);
+        }
+        return users;
     }
 
     public List<RoomUser> GetRoomUserByRank(int minRank)
@@ -574,9 +581,9 @@ public class RoomUserManager
         var roomUsers = GetUserList();
         if (roomUsers == null)
             return;
-        foreach (var user in roomUsers.ToList())
+        foreach (var user in roomUsers)
         {
-            if (user == null || !user.UpdateNeeded || users.Contains(user))
+            if (user == null || !user.UpdateNeeded)
                 continue;
             user.UpdateNeeded = false;
             users.Add(user);
@@ -587,7 +594,7 @@ public class RoomUserManager
 
     public void UpdateUserStatusses()
     {
-        foreach (var user in GetUserList().ToList())
+        foreach (var user in GetUserList())
         {
             if (user == null)
                 continue;
@@ -627,7 +634,7 @@ public class RoomUserManager
         try
         {
             var toRemove = new List<RoomUser>();
-            foreach (var user in GetUserList().ToList())
+            foreach (var user in GetUserList())
             {
                 if (user == null)
                     continue;
@@ -858,16 +865,20 @@ public class RoomUserManager
                                     horse.SetZ = nextZ;
                                 }
                             }
-                            _room.GetGameMap().GameMap[user.X, user.Y] = user.SqState; // REstore the old one
-                            user.SqState = _room.GetGameMap().GameMap[user.SetX, user.SetY]; //Backup the new one
-                            if (!_room.RoomBlockingEnabled)
+                            // Stress bots overlap without owning a walkability-grid reservation.
+                            if (!user.IsBot || !user.BotData.IsTemporary)
                             {
-                                var users = _room.GetRoomUserManager().GetUserForSquare(nextX, nextY);
-                                if (users != null)
-                                    _room.GetGameMap().GameMap[nextX, nextY] = 0;
+                                _room.GetGameMap().GameMap[user.X, user.Y] = user.SqState; // REstore the old one
+                                user.SqState = _room.GetGameMap().GameMap[user.SetX, user.SetY]; //Backup the new one
+                                if (!_room.RoomBlockingEnabled)
+                                {
+                                    var users = _room.GetRoomUserManager().GetUserForSquare(nextX, nextY);
+                                    if (users != null)
+                                        _room.GetGameMap().GameMap[nextX, nextY] = 0;
+                                }
+                                else
+                                    _room.GetGameMap().GameMap[nextX, nextY] = 1;
                             }
-                            else
-                                _room.GetGameMap().GameMap[nextX, nextY] = 1;
                         }
                     }
                     if (!user.RidingHorse)

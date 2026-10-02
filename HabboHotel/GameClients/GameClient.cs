@@ -31,6 +31,7 @@ public abstract class GameClient
 
     public Revision Revision { get; set; }
 
+    // True only when the supplied args have a pending operation that will raise Completed.
     internal Func<SocketAsyncEventArgs, bool> SendCallback { get; set; }
     internal Action? DisconnectRequested { get; set; }
 
@@ -124,17 +125,60 @@ public abstract class GameClient
     public void Send(IServerPacket composer)
     {
         var outgoingMessageId = Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
-        var stream = PlusMemoryStream.GetStream();
-        stream.Position = 0;
+        SendEncoded(EncodePacket(composer, outgoingMessageId));
+        LogPacket(composer, outgoingMessageId);
+    }
+
+    // Encoding belongs to this broadcast only: composers can reference mutable room state.
+    internal static void SendBroadcast(IServerPacket composer, IEnumerable<GameClient> clients)
+    {
+        var encodedPackets = new Dictionary<(Revision, IPacketFactory, Type, uint), byte[]>();
+        foreach (var client in clients)
+        {
+            var outgoingMessageId = client.Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
+            var key = (client.Revision, client._packetFactory, client.GetType(), outgoingMessageId);
+            if (!encodedPackets.TryGetValue(key, out var buffer))
+            {
+                buffer = client.EncodePacket(composer, outgoingMessageId);
+                encodedPackets.Add(key, buffer);
+            }
+            client.SendEncoded(buffer);
+            client.LogPacket(composer, outgoingMessageId);
+        }
+    }
+
+    private byte[] EncodePacket(IServerPacket composer, uint outgoingMessageId)
+    {
+        using var stream = PlusMemoryStream.GetStream();
         var packet = _packetFactory.CreateOutgoingPacket(stream);
         composer.Compose(packet);
-        var args = new SocketAsyncEventArgs();
-        var memory = stream.GetBuffer().AsMemory().Slice(0, (int)stream.Length);
+        var memory = stream.GetBuffer().AsMemory(0, (int)stream.Length);
         CreateHeader(memory, outgoingMessageId);
-        args.SetBuffer(memory);
-        SendCallback(args);
-        Log.Debug($"Send Packet: {composer.GetType().Name} (EmuId: {composer.MessageId}, ClientId: {outgoingMessageId})");
-        stream.Dispose();
+        // Socket.SendAsync can outlive this stream; never hand its pooled buffer to a send.
+        return memory.ToArray();
+    }
+
+    private void SendEncoded(byte[] buffer)
+    {
+        var args = new SocketAsyncEventArgs();
+        args.SetBuffer(buffer.AsMemory());
+        args.Completed += static (_, completed) => completed.Dispose();
+        try
+        {
+            if (!SendCallback(args))
+                args.Dispose();
+        }
+        catch
+        {
+            args.Dispose();
+            throw;
+        }
+    }
+
+    private void LogPacket(IServerPacket composer, uint outgoingMessageId)
+    {
+        if (Log.IsDebugEnabled)
+            Log.Debug($"Send Packet: {composer.GetType().Name} (EmuId: {composer.MessageId}, ClientId: {outgoingMessageId})");
     }
 
     public abstract void CreateHeader(Memory<byte> memory, uint messageId);
