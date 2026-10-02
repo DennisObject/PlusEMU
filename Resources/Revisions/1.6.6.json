@@ -268,7 +268,18 @@
     "UpdateForumSettingsEvent": 2214,
     "GetRoomRightsEvent": 3385,
     "SendMsgEvent": 3567,
-    "CloseTicketEvent": 2067
+    "CloseTicketEvent": 2067,
+    "TriggerHabbiconEvent": 9417,
+    "GetHabbiconShopDataEvent": 9460,
+    "GetHabbiconInfoEvent": 9461,
+    "BuyHabbiconEvent": 9462,
+    "BuyHabbiconCollectionEvent": 9463,
+    "ClaimHabbiconEvent": 9464,
+    "FavoriteHabbiconEvent": 9465,
+    "UnfavoriteHabbiconEvent": 9466,
+    "UnseenResetCategoryEvent": 3493,
+    "UnseenResetItemsEvent": 2343,
+    "SendMessengerMessageEvent": 4902
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -532,6 +543,14 @@
     "NavigatorSettingsComposer": 2875,
     "MessengerInitComposer": 1605,
     "PollContentsComposer": 3826,
-    "PollOfferComposer": 1074
+    "PollOfferComposer": 1074,
+    "RoomUseHabbiconComposer": 9410,
+    "UserHabbiconsComposer": 9465,
+    "UserHabbiconStatusChangedComposer": 9466,
+    "HabbiconShopDataComposer": 9467,
+    "HabbiconInfoComposer": 9463,
+    "MessengerMessageAckComposer": 4902,
+    "MessengerMessageFailedComposer": 4903,
+    "MessengerMessageComposer": 4904
   }
 }

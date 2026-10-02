@@ -132,8 +132,14 @@ public class QuestManager : IQuestManager
             session.GetHabbo().HabboStats.QuestId = 0;
             session.GetHabbo().QuestLastCompleted = quest.Id;
             session.Send(new QuestCompletedComposer(session, quest));
-            session.GetHabbo().Duckets += quest.Reward;
-            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, quest.Reward));
+            lock (session.GetHabbo().WalletSync)
+            {
+                if (!session.GetHabbo().WalletClosed)
+                {
+                    session.GetHabbo().Duckets += quest.Reward;
+                    session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, quest.Reward));
+                }
+            }
             GetList(session, null);
         }
     }

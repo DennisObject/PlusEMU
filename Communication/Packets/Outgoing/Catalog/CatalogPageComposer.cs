@@ -47,7 +47,16 @@ public class CatalogPageComposer : IServerPacket
                     packet.WriteInteger(0); // Type of PixelCost
                 }
                 packet.WriteBoolean(ItemUtility.CanGiftItem(item));
-                if (item.Definition.InteractionType == InteractionType.Deal || item.Definition.InteractionType == InteractionType.Roomdeal)
+                if (item.HabbiconId > 0)
+                {
+                    packet.WriteInteger(1);
+                    packet.WriteString("habbicon");
+                    packet.WriteInteger(item.HabbiconId);
+                    packet.WriteString(item.HabbiconId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    packet.WriteInteger(1);
+                    packet.WriteBoolean(false);
+                }
+                else if (item.Definition.InteractionType == InteractionType.Deal || item.Definition.InteractionType == InteractionType.Roomdeal)
                 {
                     CatalogDeal deal = null;
                     if (!PlusEnvironment.Game.Catalog.TryGetDeal(item.Definition.BehaviourData, out deal))
@@ -106,6 +115,8 @@ public class CatalogPageComposer : IServerPacket
                 packet.WriteBoolean(ItemUtility.CanSelectAmount(item));
                 packet.WriteBoolean(false); // TODO: Figure out
                 packet.WriteString(""); //previewImage -> e.g; catalogue/pet_lion.png
+                packet.WriteString(item.HabbiconId > 0 ? string.Empty : item.ItemId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                packet.WriteBoolean(item.HaveOffer);
             }
         }
         else

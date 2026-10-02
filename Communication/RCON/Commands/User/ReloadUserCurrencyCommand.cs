@@ -31,63 +31,67 @@ internal class ReloadUserCurrencyCommand : IRconCommand
         if (string.IsNullOrEmpty(Convert.ToString(parameters[1])))
             return Task.FromResult(false);
         var currency = Convert.ToString(parameters[1]);
-        switch (currency)
+        lock (client.GetHabbo().WalletSync)
         {
-            default:
-                return Task.FromResult(false);
-            case "coins":
-            case "credits":
+            if (client.GetHabbo().WalletClosed) return Task.FromResult(false);
+            switch (currency)
             {
-                int credits;
-                using (var dbClient = _database.GetQueryReactor())
+                default:
+                    return Task.FromResult(false);
+                case "coins":
+                case "credits":
                 {
-                    dbClient.SetQuery("SELECT `credits` FROM `users` WHERE `id` = @id LIMIT 1");
-                    dbClient.AddParameter("id", userId);
-                    credits = dbClient.GetInteger();
+                    int credits;
+                    using (var dbClient = _database.GetQueryReactor())
+                    {
+                        dbClient.SetQuery("SELECT `credits` FROM `users` WHERE `id` = @id LIMIT 1");
+                        dbClient.AddParameter("id", userId);
+                        credits = dbClient.GetInteger();
+                    }
+                    client.GetHabbo().Credits = credits;
+                    client.Send(new CreditBalanceComposer(client.GetHabbo().Credits));
+                    break;
                 }
-                client.GetHabbo().Credits = credits;
-                client.Send(new CreditBalanceComposer(client.GetHabbo().Credits));
-                break;
-            }
-            case "pixels":
-            case "duckets":
-            {
-                int duckets;
-                using (var dbClient = _database.GetQueryReactor())
+                case "pixels":
+                case "duckets":
                 {
-                    dbClient.SetQuery("SELECT `activity_points` FROM `users` WHERE `id` = @id LIMIT 1");
-                    dbClient.AddParameter("id", userId);
-                    duckets = dbClient.GetInteger();
+                    int duckets;
+                    using (var dbClient = _database.GetQueryReactor())
+                    {
+                        dbClient.SetQuery("SELECT `activity_points` FROM `users` WHERE `id` = @id LIMIT 1");
+                        dbClient.AddParameter("id", userId);
+                        duckets = dbClient.GetInteger();
+                    }
+                    client.GetHabbo().Duckets = duckets;
+                    client.Send(new HabboActivityPointNotificationComposer(client.GetHabbo().Duckets, duckets));
+                    break;
                 }
-                client.GetHabbo().Duckets = duckets;
-                client.Send(new HabboActivityPointNotificationComposer(client.GetHabbo().Duckets, duckets));
-                break;
-            }
-            case "diamonds":
-            {
-                int diamonds;
-                using (var dbClient = _database.GetQueryReactor())
+                case "diamonds":
                 {
-                    dbClient.SetQuery("SELECT `vip_points` FROM `users` WHERE `id` = @id LIMIT 1");
-                    dbClient.AddParameter("id", userId);
-                    diamonds = dbClient.GetInteger();
+                    int diamonds;
+                    using (var dbClient = _database.GetQueryReactor())
+                    {
+                        dbClient.SetQuery("SELECT `vip_points` FROM `users` WHERE `id` = @id LIMIT 1");
+                        dbClient.AddParameter("id", userId);
+                        diamonds = dbClient.GetInteger();
+                    }
+                    client.GetHabbo().Diamonds = diamonds;
+                    client.Send(new HabboActivityPointNotificationComposer(diamonds, 0, 5));
+                    break;
                 }
-                client.GetHabbo().Diamonds = diamonds;
-                client.Send(new HabboActivityPointNotificationComposer(diamonds, 0, 5));
-                break;
-            }
-            case "gotw":
-            {
-                int gotw;
-                using (var dbClient = _database.GetQueryReactor())
+                case "gotw":
                 {
-                    dbClient.SetQuery("SELECT `gotw_points` FROM `users` WHERE `id` = @id LIMIT 1");
-                    dbClient.AddParameter("id", userId);
-                    gotw = dbClient.GetInteger();
+                    int gotw;
+                    using (var dbClient = _database.GetQueryReactor())
+                    {
+                        dbClient.SetQuery("SELECT `gotw_points` FROM `users` WHERE `id` = @id LIMIT 1");
+                        dbClient.AddParameter("id", userId);
+                        gotw = dbClient.GetInteger();
+                    }
+                    client.GetHabbo().GotwPoints = gotw;
+                    client.Send(new HabboActivityPointNotificationComposer(gotw, 0, 103));
+                    break;
                 }
-                client.GetHabbo().GotwPoints = gotw;
-                client.Send(new HabboActivityPointNotificationComposer(gotw, 0, 103));
-                break;
             }
         }
         return Task.FromResult(true);

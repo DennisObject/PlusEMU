@@ -5,6 +5,7 @@ namespace Plus.HabboHotel.Catalog;
 public class CatalogItem
 {
     public int Id { get; set; }
+    public int HabbiconId { get; set; }
     public uint ItemId { get; set; }
     public ItemDefinition Definition { get; set; }
     public int Amount { get; set; }

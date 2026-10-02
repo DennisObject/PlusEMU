@@ -17,12 +17,15 @@ using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Users.Effects;
 using Dapper;
+using Plus.HabboHotel.Habbicons;
+using Plus.Communication.Packets.Outgoing.Habbicons;
 
 namespace Plus.Communication.Packets.Incoming.Catalog;
 
 public class PurchaseFromCatalogEvent : IPacketEvent
 {
     private readonly ICatalogManager _catalogManager;
+    private readonly IHabbiconService _habbicons;
     private readonly IDatabase _database;
     private readonly ISettingsManager _settingsManager;
     private readonly IAchievementManager _achievementManager;
@@ -36,9 +39,11 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         IAchievementManager achievementManager,
         IItemDataManager itemManager,
         IBadgeManager badgeManager,
-        IItemFactory itemFactory)
+        IItemFactory itemFactory,
+        IHabbiconService habbicons)
     {
         _catalogManager = catalogManager;
+        _habbicons = habbicons;
         _database = database;
         _settingsManager = settingsManager;
         _achievementManager = achievementManager;
@@ -71,6 +76,26 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             }
             else
                 return;
+        }
+        if (item.HabbiconId > 0)
+        {
+            try
+            {
+                if (amount != 1 || item.Amount != 1 || item.IsLimited) throw new HabbiconRejected(1);
+                var change = _habbicons.BuyCatalog(session.GetHabbo(), item.HabbiconId, item.CostCredits, item.CostPixels, item.CostDiamonds);
+                HabbiconMessages.Publish(session, change);
+                session.Send(new PurchaseOkComposer());
+            }
+            catch (HabbiconRejected rejected)
+            {
+                session.Send(new PurchaseErrorComposer(rejected.Code));
+            }
+            catch (MySqlConnector.MySqlException exception)
+            {
+                ExceptionLogger.LogException(exception);
+                session.Send(new PurchaseErrorComposer(5));
+            }
+            return;
         }
         if (amount < 1 || amount > 100 || !item.HaveOffer)
             amount = 1;

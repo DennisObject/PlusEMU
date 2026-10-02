@@ -65,13 +65,14 @@ public class CatalogManager : ICatalogManager, IStartable
 
         using var connection = _database.Connection();
 
-        var items = await connection.QueryAsync<CatalogItem>("SELECT `id`,`item_id`,`catalog_name`,`cost_credits`,`cost_pixels`,`cost_diamonds`,`amount`,`page_id`,`limited_sells`,`limited_stack`,`offer_active`,`extradata`,`badge`,`offer_id` FROM `catalog_items`");
+        var items = await connection.QueryAsync<CatalogItem>("SELECT `id`,`item_id`,`catalog_name`,`cost_credits`,`cost_pixels`,`cost_diamonds`,`amount`,`page_id`,`limited_sells`,`limited_stack`,`offer_active` = '1' AS HaveOffer,`extradata`,`badge`,`offer_id`,`habbicon_id` FROM `catalog_items`");
         foreach(CatalogItem item in items)
         {
             if (item.Amount <= 0)
                 continue;
 
-            if (!_itemDataManager.Items.TryGetValue(item.ItemId, out ItemDefinition? definition))
+            ItemDefinition? definition = null;
+            if (item.HabbiconId <= 0 && !_itemDataManager.Items.TryGetValue(item.ItemId, out definition))
             {
                 _logger.LogError("Couldn't load Catalog Item " + item.ItemId + ", no furniture record found.");
                 continue;
