@@ -331,6 +331,13 @@ public class Room : RoomData
         }
     }
 
+    internal void ProcessWiredOnly()
+    {
+        if (IsCrashed || MDisposed) return;
+        try { GetWired().OnFastCycle(); }
+        catch (Exception e) { ExceptionLogger.LogException(e); }
+    }
+
     public void ProcessRoom()
     {
         if (IsCrashed || MDisposed)

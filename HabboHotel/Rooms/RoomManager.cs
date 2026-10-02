@@ -23,6 +23,8 @@ public class RoomManager : IRoomManager
     private readonly ConcurrentDictionary<uint, Room> _rooms;
 
     private DateTimeOffset _cycleLastExecution;
+    private DateTimeOffset _wiredLastExecution;
+    private readonly ConcurrentDictionary<uint, Room> _fastWiredRooms = new();
 
 
     public RoomManager(ILogger<RoomManager> logger, IDatabase database, ILanguageManager languageManager, TimeProvider clock)
@@ -43,7 +45,8 @@ public class RoomManager : IRoomManager
         try
         {
             var now = _clock.GetLocalNow();
-            if (RoomCycle.IsDue(_cycleLastExecution, now))
+            var fullPass = RoomCycle.IsDue(_cycleLastExecution, now);
+            if (fullPass)
             {
                 _cycleLastExecution = now;
                 foreach (var room in _rooms.Values.ToList())
@@ -53,9 +56,7 @@ public class RoomManager : IRoomManager
                     var tick = RoomCycle.Next(room.ProcessTask is { IsCompleted: false }, room.IsLagging);
                     if (tick.Start)
                     {
-                        room.ProcessTask?.Dispose();
-                        room.ProcessTask = new(room.ProcessRoom);
-                        room.ProcessTask.Start();
+                        RoomCycle.TryStart(room, room.ProcessRoom);
                         room.IsLagging = 0;
                     }
                     else
@@ -68,6 +69,13 @@ public class RoomManager : IRoomManager
                         }
                     }
                 }
+            }
+            if (now - _wiredLastExecution >= RoomCycle.WiredInterval)
+            {
+                _wiredLastExecution = now;
+                if (!fullPass)
+                    foreach (var room in _fastWiredRooms.Values)
+                        RoomCycle.TryStart(room, room.ProcessWiredOnly);
             }
         }
         catch (Exception e)
@@ -145,7 +153,12 @@ public class RoomManager : IRoomManager
 
     public void UnloadRoom(uint roomId)
     {
-        if (_rooms.TryRemove(roomId, out var room)) room.Dispose();
+        if (_rooms.TryRemove(roomId, out var room))
+        {
+            room.GetWired().ObserveFastWork(null);
+            _fastWiredRooms.TryRemove(roomId, out _);
+            room.Dispose();
+        }
     }
 
     public bool TryLoadRoom(uint roomId, out Room room)
@@ -181,6 +194,12 @@ public class RoomManager : IRoomManager
             var myInstance = new Room(data);
             if (_rooms.TryAdd(roomId, myInstance))
             {
+                myInstance.GetWired().ObserveFastWork(required =>
+                {
+                    if (required && _rooms.TryGetValue(roomId, out var attached) && ReferenceEquals(attached, myInstance))
+                        _fastWiredRooms[roomId] = myInstance;
+                    else _fastWiredRooms.TryRemove(roomId, out _);
+                });
                 room = myInstance;
                 return true;
             }
