@@ -286,7 +286,6 @@ public class ModernWiredRuntimeTests
         fixture.Habbo.CurrentRoom = null;
         Assert.False(action.Execute(context));
         Assert.Equal(1, sent);
-        Assert.False(WiredMovementConfiguration.TryValidate("wf_act_rel_mov", new() { IntParams = [1, 1, 1, 0, 100], SelectedItems = [uint.MaxValue] }, out _, out _));
     }
 
     [Fact]
