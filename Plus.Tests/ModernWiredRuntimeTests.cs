@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Data;
 using System.Drawing;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -916,7 +917,10 @@ public class ModernWiredRuntimeTests
             roomId = ModernWiredDatabaseProbe.Insert(admin, "rooms", new() { ["owner"] = userId.ToString(), ["caption"] = "Disposable atomic reward probe", ["model_name"] = admin.QueryFirst<string>("SELECT id FROM room_models LIMIT 1") });
             var baseId = admin.QueryFirst<uint>("SELECT id FROM furniture WHERE type='s' LIMIT 1");
             boxId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
-            var box = MakeItem(boxId, "wf_act_give_reward"); box.OwnerId = userId; box.RoomId = roomId;
+            var loadedRows = new DataTable();
+            using (var reader = admin.ExecuteReader("SELECT items.*,users.username FROM items JOIN users ON users.id=items.user_id WHERE items.id=@boxId", new { boxId }))
+                loadedRows.Load(reader);
+            var box = ItemLoader.ReadRoomItem(Assert.Single(loadedRows.Rows.Cast<DataRow>()), roomId, MakeItem(boxId, "wf_act_give_reward").Definition);
             f.Habbo.Id = checked((int)userId); f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
             var sent = 0; ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
             var definition = MakeItem(baseId, "probe_product").Definition; definition.Id = baseId;
@@ -924,6 +928,11 @@ public class ModernWiredRuntimeTests
             ((RecordingProxy)(object)definitions).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [baseId] = definition } : method.Name == "GetItemByName" ? definition : null;
             var database = new ModernWiredDatabaseProbe.ProbeDatabase(connectionString); var store = new WiredRewardStore(database);
             var config = WiredRewards.Defaults() with { Text = $"1,furni#{baseId},100" };
+            var loadedOwner = box.OwnerId;
+            box.OwnerId = userId + 1;
+            Assert.Equal(8, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 100).Reason);
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
+            box.OwnerId = loadedOwner;
             var grant = store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 100);
             Assert.Equal(5, grant.Reason); Assert.Equal(0, sent); Assert.Empty(f.Habbo.Inventory.Furniture.GetItems);
             Assert.Equal(1, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE id=@id AND user_id=@user AND room_id=0", new { id = grant.Furniture!.Id, user = userId }));
