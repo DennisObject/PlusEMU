@@ -12,8 +12,8 @@ public static class WiredVariableRuntimeFrames
         IEnumerable<WiredVariableHolder> Furni(IEnumerable<Item> items) => items.Select(item =>
             new WiredVariableHolder(WiredVariableTarget.Furni, item.Id, checked((int)item.Id), item.Id > 0 && item.OwnerId > 0));
         IEnumerable<WiredVariableHolder> Users(IEnumerable<RoomUser> users) => users.Select(UserHolder);
-        var holders = Furni(context.Targets.ResolveFurni(context, [], WiredSources.AllRoom))
-            .Concat(Users(context.Targets.ResolveUsers(context, [], WiredSources.AllRoom))).ToArray();
+        var holders = Furni(context.Targets.ResolveFurni(context, [], WiredSources.AllRoom, raw: true))
+            .Concat(Users(context.Targets.ResolveUsers(context, [], WiredSources.AllRoom, raw: true))).ToArray();
         IEnumerable<WiredVariableHolder> Select(WiredVariableTarget target, int source, IEnumerable<uint> picked) => target switch
         {
             WiredVariableTarget.Furni => Furni(context.Targets.ResolveFurni(context, picked, source)),
