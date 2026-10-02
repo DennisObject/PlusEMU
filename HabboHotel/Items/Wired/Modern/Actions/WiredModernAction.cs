@@ -14,11 +14,13 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     private readonly Action<WiredRuntimeEvent> _publish;
     private readonly WiredRoomMovement _movement;
     private readonly WiredRoomLog _roomLog;
+    private readonly WiredDirectionalActions _directions = new();
     private static readonly Logger Log = LogManager.GetLogger("Wired");
     public static readonly IReadOnlySet<string> OtherNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "wf_act_control_clock", "wf_act_adjust_clock", "wf_act_reset_timers", "wf_act_call_stacks", "wf_act_neg_call_stacks",
-        "wf_act_send_signal", "wf_act_neg_send_signal", "wf_act_log", "wf_act_neg_log", "wf_act_show_message", "wf_act_click_conf"
+        "wf_act_send_signal", "wf_act_neg_send_signal", "wf_act_log", "wf_act_neg_log", "wf_act_show_message", "wf_act_click_conf",
+        "wf_act_chase", "wf_act_flee", "wf_act_move_to_dir", "wf_act_move_rotate_user", "wf_act_freeze", "wf_act_unfreeze"
     };
     public static bool Supports(string name) => WiredMovementActions.Names.Contains(name) || OtherNames.Contains(name);
     public bool IsNegative => Descriptor.CanonicalName is "wf_act_neg_call_stacks" or "wf_act_neg_send_signal" or "wf_act_neg_log";
@@ -43,6 +45,19 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         var secondary = proposed.SecondarySelectedItems;
         switch (name)
         {
+            case "wf_act_freeze":
+                if (p.Length != 3 || p[0] is not (0 or 218 or 12 or 11 or 53 or 163) || p[1] is < 0 or > 1 || !U(2)) return false;
+                users["users"] = p[2]; break;
+            case "wf_act_unfreeze":
+                if (p.Length != 1 || !U(0)) return false; users["users"] = p[0]; break;
+            case "wf_act_chase": case "wf_act_flee":
+                if (p.Length != 1 || !F(0)) return false; furni["items"] = p[0]; break;
+            case "wf_act_move_to_dir":
+                if (p.Length != 4 || p[0] is < 0 or > 7 || p[1] is < 0 or > 6 || !F(2) || p[3] is < 0 or > 1) return false;
+                furni["items"] = p[2]; break;
+            case "wf_act_move_rotate_user":
+                if (p.Length != 3 || p[0] is < -1 or > 7 || p[1] is < -1 or > 9 || !U(2)) return false;
+                users["users"] = p[2]; break;
             case "wf_act_control_clock":
                 if (p.Length != 2 || p[0] is < 0 or > 4 || !F(1)) return false; furni["items"] = p[1]; break;
             case "wf_act_adjust_clock":
@@ -94,6 +109,54 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         var changed = false;
         switch (name)
         {
+            case "wf_act_freeze": case "wf_act_unfreeze":
+                var avatarState = WiredAvatarState.For(context.Room);
+                foreach (var user in Users(context, config, "users"))
+                    changed |= name == "wf_act_freeze" ? avatarState.FreezeUser(user, Param(config, 0), Param(config, 1) == 1) : avatarState.Thaw(user);
+                return changed;
+            case "wf_act_chase": case "wf_act_flee":
+                foreach (var item in items)
+                {
+                    var nearest = WiredDirectionalActions.Nearest(item, context.Targets.AllUsers());
+                    if (nearest == null)
+                    {
+                        if (name == "wf_act_flee") continue;
+                        var random = WiredRoomOperations.Offset(Random.Shared.Next(4) * 2);
+                        changed |= _movement.MoveFurniture(context, item, item.GetX + random.X, item.GetY + random.Y, item.Rotation, null);
+                        continue;
+                    }
+                    if (name == "wf_act_chase" && Math.Max(Math.Abs(nearest.X - item.GetX), Math.Abs(nearest.Y - item.GetY)) <= 1)
+                    {
+                        _publish(new(WiredEventKind.Collision) { Actor = nearest, EventItem = item }); changed = true; continue;
+                    }
+                    var candidates = WiredDirectionalActions.Steps(item, nearest, name == "wf_act_flee").ToArray();
+                    if (name == "wf_act_flee" && candidates.Length == 0) candidates = [new(item.GetX + Random.Shared.Next(-1, 2), item.GetY)];
+                    foreach (var candidate in name == "wf_act_chase" ? candidates.Take(1) : candidates)
+                        if (_movement.MoveFurniture(context, item, candidate.X, candidate.Y, item.Rotation, null)) { changed = true; break; }
+                }
+                return changed;
+            case "wf_act_move_to_dir":
+                _directions.Retain(context.Targets.AllFurni());
+                foreach (var item in items)
+                    changed |= _directions.MoveHeading(item, Param(config, 0), Param(config, 1), Param(config, 3) == 1,
+                        (x, y) => _movement.MoveFurniture(context, item, x, y, item.Rotation, null),
+                        (x, y) => context.Room.GetGameMap().ValidTile(x, y) ? context.Room.GetGameMap().GetRoomUsers(new(x, y)).ToArray() : [],
+                        (furni, actor) => _publish(new(WiredEventKind.Collision) { Actor = actor, EventItem = furni }));
+                return changed;
+            case "wf_act_move_rotate_user":
+                foreach (var user in Users(context, config, "users"))
+                {
+                    if (Param(config, 0) >= 0)
+                    {
+                        var offset = WiredRoomOperations.Offset(Param(config, 0));
+                        changed |= _movement.MoveAvatar(context, user, user.X + offset.X, user.Y + offset.Y, true);
+                    }
+                    if (Param(config, 1) < 0) continue;
+                    var rotation = WiredDirectionalActions.AvatarRotation(user.RotBody, Param(config, 1));
+                    if (user.RotBody == rotation && user.RotHead == rotation) continue;
+                    user.RotBody = rotation; user.RotHead = rotation; user.UpdateNeeded = true; changed = true;
+                }
+                return changed;
             case "wf_act_control_clock":
                 foreach (var item in items) changed |= _clocks.Control(item, Param(config, 0), context.NowMilliseconds);
                 return changed;
@@ -148,9 +211,13 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         var scheduled = context.Room.GetWired().ScheduleAux(context, delay, () =>
         {
             if (context.Targets.ResolveFurni(context, [target.Id], 100, raw: true).Any(attached => ReferenceEquals(attached, target)))
+            {
+                WiredAvatarState.For(context.Room).Thaw(user, teleport: true);
                 _movement.MoveAvatar(context, user, target.GetX, target.GetY, false);
+            }
         });
         if (!scheduled) return false;
+        if (user.IsBot) return true; // Plus bot effects have no durable current-effect state to lease.
         var restore = WiredTemporaryEffects.For(context.Room).Acquire(user,
             () => user.IsBot ? 0 : user.GetClient()?.GetHabbo()?.Effects?.CurrentEffect ?? 0, user.ApplyEffect,
             () => context.Targets.ResolveUsers(context, [user.VirtualId], 100, raw: true).Any(attached => ReferenceEquals(attached, user)));

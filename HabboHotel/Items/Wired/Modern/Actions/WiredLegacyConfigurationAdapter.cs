@@ -21,6 +21,23 @@ public static class WiredLegacyConfigurationAdapter
         var snapshots = ImmutableArray<WiredFurniSnapshot>.Empty;
         switch (descriptor.CanonicalName)
         {
+            case "wf_act_kick_user": parameters = [0]; break;
+            case "wf_act_mute_triggerer":
+                parameters = [Field(0), 0]; text = text.Contains(';') ? text[(text.IndexOf(';') + 1)..] : ""; break;
+            case "wf_act_join_team": parameters = [2, Field(0, 1), 0, 0]; text = ""; break; // Old Plus joined Freeze teams.
+            case "wf_act_leave_team": parameters = [0]; text = ""; break;
+            case "wf_act_bot_teleport": case "wf_act_bot_move": parameters = [source, 100]; break;
+            case "wf_act_bot_clothes": parameters = [100]; break; // Old Plus already stores name TAB figure.
+            case "wf_act_bot_follow_avatar":
+                parameters = [Field(0), 0, 100]; text = text.Contains(';') ? text[(text.IndexOf(';') + 1)..] : ""; break;
+            case "wf_act_bot_give_handitem": parameters = [Field(1), 0, 100]; text = fields[0]; break;
+            case "wf_act_bot_talk":
+                // Old Plus only retained a bot name; its unfinished save/executor never retained or spoke text.
+                parameters = [0, 100, -1]; text += "\t"; break;
+            case "wf_act_give_reward":
+                // The old Plus reward box never stored rewards. A nonempty custom row has no known schema.
+                if (text.Length != 0) return false;
+                parameters = [0, 0, 0, 1, 0]; break;
             case "wf_trg_says_something": parameters = [0, 1, original.BoolData ? 1 : 0]; break;
             case "wf_trg_enter_room": parameters = []; break;
             case "wf_trg_periodically": parameters = [Math.Max(1, delay)]; text = ""; delay = 0; break;
@@ -30,7 +47,7 @@ public static class WiredLegacyConfigurationAdapter
             case "wf_act_show_message": parameters = [0, 0, 34, -1]; break;
             case "wf_act_teleport_to": parameters = [0, source, 0]; text = ""; break;
             case "wf_act_toggle_state": parameters = [0, source]; text = ""; break;
-            case "wf_act_move_rotate": parameters = [Field(0), Field(1), source]; text = ""; break;
+            case "wf_act_move_rotate": parameters = [Field(0) switch { 4 => 6, 6 => 4, var direction => direction }, Field(1), source]; text = ""; break;
             case "wf_act_call_stacks": parameters = [source]; text = ""; break;
             case "wf_act_chase": case "wf_act_flee": parameters = [source]; text = ""; break;
             case "wf_act_match_to_sshot":

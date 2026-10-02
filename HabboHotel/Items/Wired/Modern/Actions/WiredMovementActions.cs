@@ -135,6 +135,7 @@ public sealed class WiredMovementActions
         0 => -1, 1 => Random.Shared.Next(4) * 2,
         2 => Random.Shared.Next(2) == 0 ? 2 : 6,
         3 => Random.Shared.Next(2) == 0 ? 0 : 4,
-        4 => 0, 5 => 2, 6 => 4, 7 => 6, _ => -1
+        // Current Octane/Polaris wire numbers differ from Turbo/old Plus for north/south.
+        4 => 4, 5 => 2, 6 => 0, 7 => 6, 8 => 1, 9 => 3, 10 => 5, 11 => 7, _ => -1
     };
 }
