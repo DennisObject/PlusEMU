@@ -5,6 +5,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Rooms.Games.Freeze;
@@ -16,6 +17,7 @@ namespace Plus.HabboHotel.Rooms;
 
 public class RoomUser
 {
+    public WiredRoomEntrySnapshot WiredRoomEntry { get; internal set; }
     private GameClient _mClient;
     private Room _mRoom;
 
@@ -272,6 +274,7 @@ public class RoomUser
         {
             IsAsleep = false;
             GetRoom().SendPacket(new SleepComposer(this, false));
+            GetRoom().GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = this, Action = (int)WiredAvatarAction.Awake });
         }
     }
 

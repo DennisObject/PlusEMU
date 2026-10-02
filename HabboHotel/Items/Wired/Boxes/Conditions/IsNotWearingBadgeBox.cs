@@ -16,7 +16,7 @@ internal class IsNotWearingBadgeBox : IWiredItem
 
     public Room Instance { get; set; }
     public Item Item { get; set; }
-    public WiredBoxType Type => WiredBoxType.ConditionIsWearingBadge;
+    public WiredBoxType Type => WiredBoxType.ConditionIsNotWearingBadge;
     public ConcurrentDictionary<uint, Item> SetItems { get; set; }
     public string StringData { get; set; }
     public bool BoolData { get; set; }

@@ -20,7 +20,7 @@ internal class SetMannequinNameEvent : IPacketEvent
         var itemId = packet.ReadUInt();
         var name = packet.ReadString();
         var item = session.GetHabbo().CurrentRoom.GetRoomItemHandler().GetItem(itemId);
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return Task.CompletedTask;
         if (item.LegacyDataString.Contains(Convert.ToChar(5)))
         {

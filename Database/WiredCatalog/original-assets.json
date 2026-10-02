@@ -1,0 +1,970 @@
+{
+  "retrieved_at": "2026-10-02T10:46:15.944742+00:00",
+  "source": "https://habbofurni.com/furniture?categoryFilter=wired",
+  "registry_commit": "58a2ee4767379dc72e037cab4c061ff33066c0f5",
+  "entries": [
+    {
+      "canonical_name": "wf_act_click_conf",
+      "asset_classname": "wf_act_click_conf",
+      "sprite_id": 18673,
+      "revision": 74952,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_act_click_conf",
+      "view_url": "https://habbofurni.com/furniture/175845",
+      "site_record_id": 175845,
+      "site_export_id_rejected": 175845,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/74952/wf_act_click_conf.swf",
+      "swf_path": "swf/wf_act_click_conf.swf",
+      "swf_sha256": "023db01e9eeeb6f569af8c3bd0aac0d61edf96232e5ff602c705dacdc440e425",
+      "swf_bytes": 11106,
+      "metadata_path": "metadata/wf_act_click_conf.json",
+      "metadata_sha256": "17d0249cb89470e7dd719555b3c3cbfd5333c6baf1d256a0c16cee8e62d275a7",
+      "public_page_sha256": "689cf464386e9202004667213abf9d8c31215ba4319acfe1092a9d9ea905233d",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.65
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/74952/wf_act_click_conf_icon.png",
+      "icon_path": "icons/wf_act_click_conf_icon.png",
+      "icon_sha256": "cb2bd2a7ba22639546621f10bb32c3bdef2c2d3dfcd727d4a4d3f24f2725ff1e",
+      "icon_bytes": 426,
+      "nitro_path": "nitro/wf_act_click_conf.nitro",
+      "nitro_sha256": "767a96a53550e03246aab0ffa4423b42cae3cc8bd732429b95e8943dbddaab17",
+      "nitro_bytes": 15636,
+      "sprite_frames": 5,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_act_log",
+      "asset_classname": "wf_act_log",
+      "sprite_id": 17599,
+      "revision": 73909,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_act_log",
+      "view_url": "https://habbofurni.com/furniture/164601",
+      "site_record_id": 164601,
+      "site_export_id_rejected": 164601,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/73909/wf_act_log.swf",
+      "swf_path": "swf/wf_act_log.swf",
+      "swf_sha256": "284041b421b965fc87ea9d78c93c8e2fb8b9151ab2fe26a1d3185c89cb619bf3",
+      "swf_bytes": 9273,
+      "metadata_path": "metadata/wf_act_log.json",
+      "metadata_sha256": "a23211a0798328abc382d33353f816db37a9ac2bd7fb7ad586c6d8e64d335f15",
+      "public_page_sha256": "529c1e21a7d738dc75451c36774072d91e22f88166e0d1c4180dcc22e0b4b063",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.65
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/73909/wf_act_log_icon.png",
+      "icon_path": "icons/wf_act_log_icon.png",
+      "icon_sha256": "c275fc74770c85a9386b29b5bfb3be00f9be41ae5f6e17f89f991c59220d9793",
+      "icon_bytes": 262,
+      "nitro_path": "nitro/wf_act_log.nitro",
+      "nitro_sha256": "10e356b6d591b47a7d90b03987373ce8a8e87cd897a28041eb4e64898de5d367",
+      "nitro_bytes": 13115,
+      "sprite_frames": 5,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_act_move_furni_as_group",
+      "asset_classname": "wf_act_move_furni_as_group",
+      "sprite_id": 18783,
+      "revision": 75129,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_act_move_furni_as_group",
+      "view_url": "https://habbofurni.com/furniture/176896",
+      "site_record_id": 176896,
+      "site_export_id_rejected": 176896,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/75129/wf_act_move_furni_as_group.swf",
+      "swf_path": "swf/wf_act_move_furni_as_group.swf",
+      "swf_sha256": "c6bbcea03ec0a0a2977b58e944a487c73c6786ed2fafe9b6feafdaf2a9fd671d",
+      "swf_bytes": 46157,
+      "metadata_path": "metadata/wf_act_move_furni_as_group.json",
+      "metadata_sha256": "d8867fbe8c654d2efb8978d5ac04515f17f84f352ba8b4dbb06781be39b19e74",
+      "public_page_sha256": "3480cbabdc26fc6a9c0d657aca6d690fe60b359ac881d6ebf69a8d085530f2d9",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.65
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/75129/wf_act_move_furni_as_group_icon.png",
+      "icon_path": "icons/wf_act_move_furni_as_group_icon.png",
+      "icon_sha256": "7fb3f849c1cbc286dddfef9954df0f680c0e02a9c9c37cce51be3f3c506e6245",
+      "icon_bytes": 324,
+      "nitro_path": "nitro/wf_act_move_furni_as_group.nitro",
+      "nitro_sha256": "3b1847cc1d3766abcaf978161959e50fb6947c304aa71b9a44a2c47d0027c89c",
+      "nitro_bytes": 96034,
+      "sprite_frames": 40,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_act_neg_log",
+      "asset_classname": "wf_act_neg_log",
+      "sprite_id": 17598,
+      "revision": 73909,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_act_neg_log",
+      "view_url": "https://habbofurni.com/furniture/164600",
+      "site_record_id": 164600,
+      "site_export_id_rejected": 164600,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/73909/wf_act_neg_log.swf",
+      "swf_path": "swf/wf_act_neg_log.swf",
+      "swf_sha256": "2675f7c9c8759c4b666e71bfbb1d287a8ad18928ce175d6d6ebd509646707e43",
+      "swf_bytes": 9238,
+      "metadata_path": "metadata/wf_act_neg_log.json",
+      "metadata_sha256": "6645e07e211ef9d11ae810b759a28f465307dfdc497eb4cc7721148adbcbdc24",
+      "public_page_sha256": "0610b07c9c5ff749ccb73d7d0e93ac7ed543c30dfbf3e44552383518394c9d28",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.65
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/73909/wf_act_neg_log_icon.png",
+      "icon_path": "icons/wf_act_neg_log_icon.png",
+      "icon_sha256": "d5bdeae372fd1eff9f1455e16ccabac0464ce8b331571803d0848ab1ddf963c1",
+      "icon_bytes": 258,
+      "nitro_path": "nitro/wf_act_neg_log.nitro",
+      "nitro_sha256": "feae604817d30bd0550a4354f688b852d67007072dc248ce96ad9a547db3484d",
+      "nitro_bytes": 13131,
+      "sprite_frames": 5,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_act_place_furni",
+      "asset_classname": "wf_act_place_furni",
+      "sprite_id": 18784,
+      "revision": 75129,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_act_place_furni",
+      "view_url": "https://habbofurni.com/furniture/176897",
+      "site_record_id": 176897,
+      "site_export_id_rejected": 176897,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/75129/wf_act_place_furni.swf",
+      "swf_path": "swf/wf_act_place_furni.swf",
+      "swf_sha256": "e1c7762f240b1fd2558fd2d70ea51cec17045795e7be06066f0dca269976d233",
+      "swf_bytes": 41012,
+      "metadata_path": "metadata/wf_act_place_furni.json",
+      "metadata_sha256": "8d4edc3222897105daa0f66fd93dfbc4770aad80758b721d65dc9f159a29839e",
+      "public_page_sha256": "300b97cf1c3934a5fb5a4fd47e896cbc77956013e8180c4d443c4e4ece7156a9",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.65
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/75129/wf_act_place_furni_icon.png",
+      "icon_path": "icons/wf_act_place_furni_icon.png",
+      "icon_sha256": "d27f45be1acc008e028f0242a01863f4a98c4d97e79703c0523a71507b476d6d",
+      "icon_bytes": 300,
+      "nitro_path": "nitro/wf_act_place_furni.nitro",
+      "nitro_sha256": "62ec23906c65aea6078a9e65f277e2d41ffdb9a613449f83a77647da75ea21b1",
+      "nitro_bytes": 75519,
+      "sprite_frames": 32,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_act_remove_furni",
+      "asset_classname": "wf_act_remove_furni",
+      "sprite_id": 18785,
+      "revision": 75129,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_act_remove_furni",
+      "view_url": "https://habbofurni.com/furniture/176898",
+      "site_record_id": 176898,
+      "site_export_id_rejected": 176898,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/75129/wf_act_remove_furni.swf",
+      "swf_path": "swf/wf_act_remove_furni.swf",
+      "swf_sha256": "f8c5129cb6b0c23684be9fabd086822b34e383d747a75055a358be051df3905c",
+      "swf_bytes": 40145,
+      "metadata_path": "metadata/wf_act_remove_furni.json",
+      "metadata_sha256": "c4857be250f66fafe42cc9a92dd5373963ff25b746e834fa2160788c2bd7f8d3",
+      "public_page_sha256": "b1b303ce4033116df3a7573dcc300813befdbe1b9eb007a24d65dac495028634",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.65
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/75129/wf_act_remove_furni_icon.png",
+      "icon_path": "icons/wf_act_remove_furni_icon.png",
+      "icon_sha256": "7147b91e33f7df1bda88e0377ff98c8a51ea27e801a857de5cb024ccbd11d601",
+      "icon_bytes": 298,
+      "nitro_path": "nitro/wf_act_remove_furni.nitro",
+      "nitro_sha256": "093f7b3dfa4dc577a19af2c9b8124e4b4dcedd917895abd0b40933f30539fe81",
+      "nitro_bytes": 69289,
+      "sprite_frames": 30,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_act_teleport_to_room",
+      "asset_classname": "wf_act_teleport_to_room",
+      "sprite_id": 16743,
+      "revision": 72781,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_act_teleport_to_room",
+      "view_url": "https://habbofurni.com/furniture/155770",
+      "site_record_id": 155770,
+      "site_export_id_rejected": 155770,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/72781/wf_act_teleport_to_room.swf",
+      "swf_path": "swf/wf_act_teleport_to_room.swf",
+      "swf_sha256": "cce66ba77d7a41a1ab5525115f85e60a9bb28cb2a7ad6825c9ffb23e177f0331",
+      "swf_bytes": 20439,
+      "metadata_path": "metadata/wf_act_teleport_to_room.json",
+      "metadata_sha256": "93d3ed201a0433804f5011cd8d2a1e56571a293a8104c835d8816a60c47b3690",
+      "public_page_sha256": "40ae6ff781225edf62ad6a58b1f0dcca293322e832da34d8e1a81cf0ab44a5e7",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.65
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/72781/wf_act_teleport_to_room_icon.png",
+      "icon_path": "icons/wf_act_teleport_to_room_icon.png",
+      "icon_sha256": "d3f33ceeeb0af025b47b74e9a39e40eb03ba37d472d461fb9ecfa97d04945270",
+      "icon_bytes": 291,
+      "nitro_path": "nitro/wf_act_teleport_to_room.nitro",
+      "nitro_sha256": "bce0ec4c14be41dda901a26b6ed18cdc3b9de2c3a26337485c7f25b3111f8977",
+      "nitro_bytes": 49454,
+      "sprite_frames": 21,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_trg_click_user",
+      "asset_classname": "wf_trg_click_user",
+      "sprite_id": 16878,
+      "revision": 72864,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_trg_click_user",
+      "view_url": "https://habbofurni.com/furniture/156957",
+      "site_record_id": 156957,
+      "site_export_id_rejected": 156957,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/72864/wf_trg_click_user.swf",
+      "swf_path": "swf/wf_trg_click_user.swf",
+      "swf_sha256": "56c1ff368acca18400bc8b0d1ef1846def3e48b1084ae46b17b27da7078f6643",
+      "swf_bytes": 12846,
+      "metadata_path": "metadata/wf_trg_click_user.json",
+      "metadata_sha256": "9172f93613b74e5e3af6ffe7fe989291693be1c5d548141a37080b4ed5836cb1",
+      "public_page_sha256": "4ca56f85fc8d056553c09e710364a1968d8c11a654f86602c72aed41415e99b1",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.65
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/72864/wf_trg_click_user_icon.png",
+      "icon_path": "icons/wf_trg_click_user_icon.png",
+      "icon_sha256": "bf6d9f4bc495ac92f70b6847edcb6adcbdcb0a956b33da7465ad2a83468666c1",
+      "icon_bytes": 351,
+      "nitro_path": "nitro/wf_trg_click_user.nitro",
+      "nitro_sha256": "866e6652cdcc93302de291289057e3189ac4d063df1b60a81562a62cbd32354c",
+      "nitro_bytes": 18228,
+      "sprite_frames": 6,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_var_echo",
+      "asset_classname": "wf_var_echo",
+      "sprite_id": 16910,
+      "revision": 72921,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_var_echo",
+      "view_url": "https://habbofurni.com/furniture/157313",
+      "site_record_id": 157313,
+      "site_export_id_rejected": 157313,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/72921/wf_var_echo.swf",
+      "swf_path": "swf/wf_var_echo.swf",
+      "swf_sha256": "d4833a31f8429f1ffc603c53a6be6d4f2bc731d921147b633b9ca1cdfa0ae21d",
+      "swf_bytes": 38510,
+      "metadata_path": "metadata/wf_var_echo.json",
+      "metadata_sha256": "4db41244aafdccab3e2f01c4ba88f270c57504fdfbefab9c28786d2879846deb",
+      "public_page_sha256": "971ff587dde031c41714fb1c068c2220c3508952e7937680f48c16104f06e1e1",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.2
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/72921/wf_var_echo_icon.png",
+      "icon_path": "icons/wf_var_echo_icon.png",
+      "icon_sha256": "5a37c82c84a71529e0bb5920367349443aa6d5c1bd4de9913cd103464ebacd74",
+      "icon_bytes": 384,
+      "nitro_path": "nitro/wf_var_echo.nitro",
+      "nitro_sha256": "0a1071fd18ad5b0f38f76bd84d7147edaedb8c4cad3a600d721a97a3e6095051",
+      "nitro_bytes": 73982,
+      "sprite_frames": 27,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_var_quest",
+      "asset_classname": "wf_var_quest",
+      "sprite_id": 16877,
+      "revision": 72864,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_var_quest",
+      "view_url": "https://habbofurni.com/furniture/156956",
+      "site_record_id": 156956,
+      "site_export_id_rejected": 156956,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/72864/wf_var_quest.swf",
+      "swf_path": "swf/wf_var_quest.swf",
+      "swf_sha256": "ee712ae62b50c613dc702ce41431c28b6287f300804d9b8f30a389f7e25ef7f7",
+      "swf_bytes": 73972,
+      "metadata_path": "metadata/wf_var_quest.json",
+      "metadata_sha256": "a0b0b075a5f96bc94b131dd12880838302a1c39197713834f5da51e11854c3f3",
+      "public_page_sha256": "82d99573800b9351b79006924413cd5fcdf75a8dce92eab2a5cbbf03fc318a80",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.2
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/72864/wf_var_quest_icon.png",
+      "icon_path": "icons/wf_var_quest_icon.png",
+      "icon_sha256": "e87d727d21daea48f438574460887ca37da870aa8203372541debc52e85c9968",
+      "icon_bytes": 375,
+      "nitro_path": "nitro/wf_var_quest.nitro",
+      "nitro_sha256": "edd8f624f8292e961bcc65aa24a5ded90c52f018d98d1a31b80c0fe7776b21a4",
+      "nitro_bytes": 146624,
+      "sprite_frames": 53,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_var_quest_chain",
+      "asset_classname": "wf_var_quest_chain",
+      "sprite_id": 16879,
+      "revision": 72864,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_var_quest_chain",
+      "view_url": "https://habbofurni.com/furniture/156958",
+      "site_record_id": 156958,
+      "site_export_id_rejected": 156958,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/72864/wf_var_quest_chain.swf",
+      "swf_path": "swf/wf_var_quest_chain.swf",
+      "swf_sha256": "57e759338204b094282199942f71cc7e7f0eefeac2099eae7cecafe2a7b0022b",
+      "swf_bytes": 74038,
+      "metadata_path": "metadata/wf_var_quest_chain.json",
+      "metadata_sha256": "89c86b2dfa783dca823efea2d77b0ab823585f89cc23cf8ab70614e8fad28475",
+      "public_page_sha256": "17bd5261a7a9d623c73156b10c24cc7bf25ec741e1f336dbb992ca7b7e87fb5c",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.2
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/72864/wf_var_quest_chain_icon.png",
+      "icon_path": "icons/wf_var_quest_chain_icon.png",
+      "icon_sha256": "fd061d0f8cc56c7bccdeee56d38b59fe3d5ca77215130fc1ef7dbcffad2c6486",
+      "icon_bytes": 375,
+      "nitro_path": "nitro/wf_var_quest_chain.nitro",
+      "nitro_sha256": "33a74b38fa55f6b10076a95342ae46327c4fc0e877f5d48075c634d52512cb27",
+      "nitro_bytes": 152592,
+      "sprite_frames": 53,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_xtra_mov_curve",
+      "asset_classname": "wf_xtra_mov_curve",
+      "sprite_id": 18674,
+      "revision": 74952,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_xtra_mov_curve",
+      "view_url": "https://habbofurni.com/furniture/175846",
+      "site_record_id": 175846,
+      "site_export_id_rejected": 175846,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/74952/wf_xtra_mov_curve.swf",
+      "swf_path": "swf/wf_xtra_mov_curve.swf",
+      "swf_sha256": "20e74806203f01fdfa9015582e6c68225360932f0f58ffd76a13905a52635556",
+      "swf_bytes": 20413,
+      "metadata_path": "metadata/wf_xtra_mov_curve.json",
+      "metadata_sha256": "6b938911123d036f1afefb59aaa136ca9ae87b7b2e362f280bbfd81c379bdc19",
+      "public_page_sha256": "7f1f509dc4ab7fac8ea89702b6a88b6818d9c1e91bfb4402d9f66fa7ea779446",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.37
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/74952/wf_xtra_mov_curve_icon.png",
+      "icon_path": "icons/wf_xtra_mov_curve_icon.png",
+      "icon_sha256": "858f5794df358a4d2a79d3269d30ca5cddcb41e7fada68efc36e1b6622da0928",
+      "icon_bytes": 433,
+      "nitro_path": "nitro/wf_xtra_mov_curve.nitro",
+      "nitro_sha256": "ed35732a7dc6275c5175b0c1b254748ef1bb70d14a00d8b861e6b5e47fbd0db4",
+      "nitro_bytes": 31321,
+      "sprite_frames": 19,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_xtra_text_output_furni_name",
+      "asset_classname": "wf_xtra_text_output_furni_name",
+      "sprite_id": 18495,
+      "revision": 74772,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_xtra_text_output_furni_name",
+      "view_url": "https://habbofurni.com/furniture/174005",
+      "site_record_id": 174005,
+      "site_export_id_rejected": 174005,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/74772/wf_xtra_text_output_furni_name.swf",
+      "swf_path": "swf/wf_xtra_text_output_furni_name.swf",
+      "swf_sha256": "91aaceb68cb9c04bf70f884c026744b7199f52102be9242c076136e1c233fe06",
+      "swf_bytes": 17473,
+      "metadata_path": "metadata/wf_xtra_text_output_furni_name.json",
+      "metadata_sha256": "4866ec470a5f9eac78b279708b19d7b249c8e2095d825d59100a68c4cbe9feda",
+      "public_page_sha256": "b68594dd3445ee2df67f847fcab70e0827ef5f6f34e49ef89ea4cc3310e2b7cf",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.37
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/74772/wf_xtra_text_output_furni_name_icon.png",
+      "icon_path": "icons/wf_xtra_text_output_furni_name_icon.png",
+      "icon_sha256": "23d6af37b5e39061a68cce458783c2610b031b432f42ee05942461cfe82bf408",
+      "icon_bytes": 251,
+      "nitro_path": "nitro/wf_xtra_text_output_furni_name.nitro",
+      "nitro_sha256": "2259066517a3856b1c638b6cf0a439dc83ce36db5262362d069c44125633b359",
+      "nitro_bytes": 30377,
+      "sprite_frames": 17,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_xtra_var_fx_boss",
+      "asset_classname": "wf_xtra_varfx_boss",
+      "sprite_id": 19195,
+      "revision": 75717,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_xtra_varfx_boss",
+      "view_url": "https://habbofurni.com/furniture/181264",
+      "site_record_id": 181264,
+      "site_export_id_rejected": 181264,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_boss.swf",
+      "swf_path": "swf/wf_xtra_varfx_boss.swf",
+      "swf_sha256": "fb63eab42218226c3a45ddf3096f80a7cc89722bd685c75f4e8c9e5156ddfe74",
+      "swf_bytes": 6826,
+      "metadata_path": "metadata/wf_xtra_varfx_boss.json",
+      "metadata_sha256": "eb9516ec3a5e37b092b139e872d74ec3a507ea4820015356188cf483255b7145",
+      "public_page_sha256": "8df1b539cbf2944292be87f983596743613cb669197c9565677bf480e5a0ed0d",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_boss_icon.png",
+      "icon_path": "icons/wf_xtra_varfx_boss_icon.png",
+      "icon_sha256": "100226f9bb131a6753bf599c81f1a82db1fc688097c819ab918a98b74781bfc3",
+      "icon_bytes": 320,
+      "nitro_path": "nitro/wf_xtra_varfx_boss.nitro",
+      "nitro_sha256": "986d0b8c1b1624d61b6f45708be98011adf0df2d666a54b1684281afe1fdfd10",
+      "nitro_bytes": 8405,
+      "sprite_frames": 3,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_xtra_var_fx_health",
+      "asset_classname": "wf_xtra_varfx_hp",
+      "sprite_id": 19196,
+      "revision": 75717,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_xtra_varfx_hp",
+      "view_url": "https://habbofurni.com/furniture/181265",
+      "site_record_id": 181265,
+      "site_export_id_rejected": 181265,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_hp.swf",
+      "swf_path": "swf/wf_xtra_varfx_hp.swf",
+      "swf_sha256": "7cfc1d0a198ad0d00916983425197234ada77f5368ca8a75480f51f4ffd1bec2",
+      "swf_bytes": 6879,
+      "metadata_path": "metadata/wf_xtra_varfx_hp.json",
+      "metadata_sha256": "31da655ed5f1db66554edd386c6cf93ec076453596eaaef9690469f00a79b87c",
+      "public_page_sha256": "ab2747b03988172e2ed8469f2090452df41ae238903449db7c10c7dd95bd017e",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.95
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_hp_icon.png",
+      "icon_path": "icons/wf_xtra_varfx_hp_icon.png",
+      "icon_sha256": "31c2aceeebf29b71e3efe73e2c3525b33c7ab36efc5c9e5ff0381967f7e0b09c",
+      "icon_bytes": 338,
+      "nitro_path": "nitro/wf_xtra_varfx_hp.nitro",
+      "nitro_sha256": "c3654f382ff4d24693f0d8371058ac2c71872d03c7b0efd853230d2cad69b879",
+      "nitro_bytes": 8146,
+      "sprite_frames": 3,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_xtra_var_fx_level",
+      "asset_classname": "wf_xtra_varfx_levelling",
+      "sprite_id": 19197,
+      "revision": 75717,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_xtra_varfx_levelling",
+      "view_url": "https://habbofurni.com/furniture/181266",
+      "site_record_id": 181266,
+      "site_export_id_rejected": 181266,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_levelling.swf",
+      "swf_path": "swf/wf_xtra_varfx_levelling.swf",
+      "swf_sha256": "85485ecb5670291932efb9b3bcd3007528cd8c36aa77d5b6c9efb83ff3fecde8",
+      "swf_bytes": 6806,
+      "metadata_path": "metadata/wf_xtra_varfx_levelling.json",
+      "metadata_sha256": "9e4ece4f28c565b05b247804173165e8ea3a9f26dca9b580dba017c7737e530b",
+      "public_page_sha256": "c54d753679c0002f387099a60447645a1bd50473b5f9f7a2d2d62687f6b24e63",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.95
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_levelling_icon.png",
+      "icon_path": "icons/wf_xtra_varfx_levelling_icon.png",
+      "icon_sha256": "bdc7cb8b83f1b8d2c89fdbd9fafa7d74b4e819ad529a0eef28461faa28774582",
+      "icon_bytes": 323,
+      "nitro_path": "nitro/wf_xtra_varfx_levelling.nitro",
+      "nitro_sha256": "abb31fa199f9385182eac14c5f2438eee4bb1d935b39974eae9c1cd6bb8164ae",
+      "nitro_bytes": 8340,
+      "sprite_frames": 3,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_xtra_var_fx_number",
+      "asset_classname": "wf_xtra_varfx_number",
+      "sprite_id": 19198,
+      "revision": 75717,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_xtra_varfx_number",
+      "view_url": "https://habbofurni.com/furniture/181267",
+      "site_record_id": 181267,
+      "site_export_id_rejected": 181267,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_number.swf",
+      "swf_path": "swf/wf_xtra_varfx_number.swf",
+      "swf_sha256": "8f1b9e9bc37fcd875f540e1e5b512b3128a88e9a5c117f7a77abf449f2d320f1",
+      "swf_bytes": 9380,
+      "metadata_path": "metadata/wf_xtra_varfx_number.json",
+      "metadata_sha256": "10779984b3621eb9fe4ef0389cd1d30649029c605c0f4e7206b73bf087adc9e5",
+      "public_page_sha256": "0534bf7e3003702a383526991609aabae23452d31545d0be9b95ec5259d958e1",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.95
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_number_icon.png",
+      "icon_path": "icons/wf_xtra_varfx_number_icon.png",
+      "icon_sha256": "c9290500856308c6439cf5ebe0de6dd9f268a09c2b8f49bfc3271e9ca30f615b",
+      "icon_bytes": 309,
+      "nitro_path": "nitro/wf_xtra_varfx_number.nitro",
+      "nitro_sha256": "af1d260bfdd4cf38c2f7dd9b6d3319f3571f558d38055676f12f8c09d6de580f",
+      "nitro_bytes": 14617,
+      "sprite_frames": 5,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_xtra_var_fx_progress",
+      "asset_classname": "wf_xtra_varfx_prog",
+      "sprite_id": 19199,
+      "revision": 75717,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_xtra_varfx_prog",
+      "view_url": "https://habbofurni.com/furniture/181268",
+      "site_record_id": 181268,
+      "site_export_id_rejected": 181268,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_prog.swf",
+      "swf_path": "swf/wf_xtra_varfx_prog.swf",
+      "swf_sha256": "4229c898bf323eaa7c32dd8c33007a89ded5d9984edb0193cd76ee6e7c75a28e",
+      "swf_bytes": 6697,
+      "metadata_path": "metadata/wf_xtra_varfx_prog.json",
+      "metadata_sha256": "80ca64b9cbda5f9f2de5ad1cb966fcf0cbbbf63c34c5cdd243e207cd47d6c5c5",
+      "public_page_sha256": "e558d1711160d5f071859bfa61abade9395dd7393525bd0659e2bb3d63ea49f5",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.95
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_prog_icon.png",
+      "icon_path": "icons/wf_xtra_varfx_prog_icon.png",
+      "icon_sha256": "c05ca000c31b889fa743edcf2eda48cfe7430f49ac3cd1a010851e8a17476953",
+      "icon_bytes": 281,
+      "nitro_path": "nitro/wf_xtra_varfx_prog.nitro",
+      "nitro_sha256": "268e5b8a71ee2a7a74b0aa44ea493d4123ec2a8caa2aa0b8f3eac157b34cf4b4",
+      "nitro_bytes": 8193,
+      "sprite_frames": 3,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_xtra_var_fx_status",
+      "asset_classname": "wf_xtra_varfx_status",
+      "sprite_id": 19200,
+      "revision": 75717,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_xtra_varfx_status",
+      "view_url": "https://habbofurni.com/furniture/181269",
+      "site_record_id": 181269,
+      "site_export_id_rejected": 181269,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_status.swf",
+      "swf_path": "swf/wf_xtra_varfx_status.swf",
+      "swf_sha256": "e27d942f38cc21d5b051f0e275f4d88612f9f4d4125d6574c732f817b75aae24",
+      "swf_bytes": 6844,
+      "metadata_path": "metadata/wf_xtra_varfx_status.json",
+      "metadata_sha256": "2601276ea1e7dae3bd3955dd9681415ed87176568983638474d836c0013e79f0",
+      "public_page_sha256": "32b0ee94e0f51a271885141a86ea8a6897e65bba79196537dd90a4bf5a092078",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.95
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/75717/wf_xtra_varfx_status_icon.png",
+      "icon_path": "icons/wf_xtra_varfx_status_icon.png",
+      "icon_sha256": "d2165bb86e7378edc45afd255f4a31f854dc8040dcfb7586ff8f3b9c5a9b6690",
+      "icon_bytes": 348,
+      "nitro_path": "nitro/wf_xtra_varfx_status.nitro",
+      "nitro_sha256": "a435d913690a68013210873783842328e59419dc6e24c5091b970ce0bac10bae",
+      "nitro_bytes": 8510,
+      "sprite_frames": 3,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_xtra_var_lvlup_system",
+      "asset_classname": "wf_xtra_var_lvlup_system",
+      "sprite_id": 16909,
+      "revision": 72921,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_xtra_var_lvlup_system",
+      "view_url": "https://habbofurni.com/furniture/157312",
+      "site_record_id": 157312,
+      "site_export_id_rejected": 157312,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/72921/wf_xtra_var_lvlup_system.swf",
+      "swf_path": "swf/wf_xtra_var_lvlup_system.swf",
+      "swf_sha256": "1d7d6f57fef4af94eeaf2a629318678b810f84cc960c8a7398abf0b7f90e9bc5",
+      "swf_bytes": 7550,
+      "metadata_path": "metadata/wf_xtra_var_lvlup_system.json",
+      "metadata_sha256": "1036594ebd34b0b599f3cb6985a4383314822e9ffd61a533f5ee0ba51da431de",
+      "public_page_sha256": "201efe15e143af456bbe8ac46016631d82d2d58085c44d32051c0d8920338f3a",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.75
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/72921/wf_xtra_var_lvlup_system_icon.png",
+      "icon_path": "icons/wf_xtra_var_lvlup_system_icon.png",
+      "icon_sha256": "2c4b1c48af04aa036f722c8ea67c0390658b0fd91056178e14ca76bd4190f46a",
+      "icon_bytes": 1919,
+      "nitro_path": "nitro/wf_xtra_var_lvlup_system.nitro",
+      "nitro_sha256": "6be0cdb220b929014a07ddf1762f1c73e5f6fd7129a244175f123b6e1566bfdb",
+      "nitro_bytes": 8154,
+      "sprite_frames": 4,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_xtra_var_time_util",
+      "asset_classname": "wf_xtra_var_time_util",
+      "sprite_id": 16908,
+      "revision": 72921,
+      "inventory_url": "https://habbofurni.com/furniture?categoryFilter=wired&search=wf_xtra_var_time_util",
+      "view_url": "https://habbofurni.com/furniture/157311",
+      "site_record_id": 157311,
+      "site_export_id_rejected": 157311,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/72921/wf_xtra_var_time_util.swf",
+      "swf_path": "swf/wf_xtra_var_time_util.swf",
+      "swf_sha256": "35fc575babe7722515870e4c5737d4f03cb03aca16049c9c7f897b887bee2be3",
+      "swf_bytes": 7539,
+      "metadata_path": "metadata/wf_xtra_var_time_util.json",
+      "metadata_sha256": "cd010f23487a173e626475e5413659049fdfa39c6b3601dc2e79a8bac48e3545",
+      "public_page_sha256": "6ae74d0f6d8de21e15facf75803051f212dbc90a920146874d546ba9ae3f3c6f",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.75
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/72921/wf_xtra_var_time_util_icon.png",
+      "icon_path": "icons/wf_xtra_var_time_util_icon.png",
+      "icon_sha256": "0916a6c21f2921e4c4db4e3e5b281e840228540794d4bd4100a3ea010fc81738",
+      "icon_bytes": 1942,
+      "nitro_path": "nitro/wf_xtra_var_time_util.nitro",
+      "nitro_sha256": "815302944080b895765275afb36b8b94b3e18b3f1c2dc205c39554e1bff4a52c",
+      "nitro_bytes": 7536,
+      "sprite_frames": 4,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    },
+    {
+      "canonical_name": "wf_xtra_rotate_to_dir",
+      "asset_classname": "wf_xtra_rotate_to_dir",
+      "sprite_id": 18675,
+      "revision": 74952,
+      "inventory_url": "https://habbofurni.com/furniture?search=wf_xtra_rotate_to_dir",
+      "view_url": "https://habbofurni.com/furniture/175847",
+      "site_record_id": 175847,
+      "site_export_id_rejected": 175847,
+      "sprite_id_evidence": "unambiguous public revision-history Furni id; export record id rejected",
+      "swf_url": "https://habbofurni.com/furni_assets/74952/wf_xtra_rotate_to_dir.swf",
+      "swf_path": "swf/wf_xtra_rotate_to_dir.swf",
+      "swf_sha256": "aa51cbaa999f1defec85472f33274eb713567caa34e37d702f32c77222693b0e",
+      "swf_bytes": 22509,
+      "metadata_path": "metadata/wf_xtra_rotate_to_dir.json",
+      "metadata_sha256": "ce9b31d4332271a21eb2f8ee9e2aef9b47d2ed14cf5a2e97673ca20b163c5cfc",
+      "public_page_sha256": "b29b742ff160e6b552bd8c7f8949395c6766c5ee38792724045901c5767bb096",
+      "model": {
+        "dimensions": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.37
+        },
+        "directions": [
+          0,
+          90
+        ],
+        "logic_type": "furniture_multistate",
+        "visualization_type": "furniture_animated"
+      },
+      "conversion_status": "native_nitro_verified",
+      "icon_url": "https://habbofurni.com/furni_assets/74952/wf_xtra_rotate_to_dir_icon.png",
+      "icon_path": "icons/wf_xtra_rotate_to_dir_icon.png",
+      "icon_sha256": "bb92ad8b4ed4108f5bd7b66743e18e5642223a10fa6b050859f1fbcfce66f0da",
+      "icon_bytes": 300,
+      "nitro_path": "nitro/wf_xtra_rotate_to_dir.nitro",
+      "nitro_sha256": "8a1cf9a7ff90d988eaa52f68fd78c297a36d2f409a8a887b2cba87008d8e93cf",
+      "nitro_bytes": 35531,
+      "sprite_frames": 22,
+      "client_metadata_normalizations": [
+        "partcolors.color:null/absent -> [] (empty original color list)"
+      ]
+    }
+  ],
+  "blocked": [],
+  "base_furnidata_sha256": "5eb50b571e3879f5383afb7e9408a1bdfe8d8b0238927fff34466bee30e1089e",
+  "overlay_furnidata_sha256": "306b340f423abc762bbafc040ce447cc848769a69fa377de0209aa3abac7396c",
+  "preserved_floor_entries": 13689,
+  "added_floor_entries": 22,
+  "all_other_furnidata_sections_preserved": true,
+  "converter": {
+    "repository": "https://github.com/billsonnn/nitro-converter",
+    "commit": "e0a1800a83feda5f9b1b5cfde7fed0181de7b06f",
+    "yarn_lock_sha256": "ba5a8fd9da1dd844f5850c9f5dd6478dd4c245c8067cb4c8bc3cf5faa8adadb7"
+  },
+  "alias_evidence": {
+    "repository": "Polaris-Emulator",
+    "commit": "34bc0d49511c659fd0054d35d957669ebd6ce9ed",
+    "path": "Emulator/src/main/java/com/eu/habbo/habbohotel/items/ItemManager.java",
+    "meaning": "Six var_fx canonical and varfx original names register the same concrete variable-effect interaction."
+  }
+}

@@ -21,7 +21,7 @@ internal class GetGroupFurniSettingsEvent : IPacketEvent
         var itemId = packet.ReadUInt();
         var groupId = packet.ReadInt();
         var item = session.GetHabbo().CurrentRoom.GetRoomItemHandler().GetItem(itemId);
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return Task.CompletedTask;
         if (item.Definition.InteractionType != InteractionType.GuildGate)
             return Task.CompletedTask;

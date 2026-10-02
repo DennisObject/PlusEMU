@@ -1,4 +1,5 @@
 ﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Runtime;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Engine;
 
@@ -12,11 +13,15 @@ internal class MoveAvatarEvent : IPacketEvent
         if (room == null)
             return Task.CompletedTask;
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
-        if (user == null || !user.CanWalk)
+        if (user == null)
             return Task.CompletedTask;
         var moveX = packet.ReadInt();
         var moveY = packet.ReadInt();
-        if (moveX == user.X && moveY == user.Y)
+        if (!room.GetGameMap().ValidTile(moveX, moveY))
+            return Task.CompletedTask;
+        if (!user.IsBot)
+            room.GetWired().Dispatch(new(WiredEventKind.ClickTile) { Actor = user, X = moveX, Y = moveY });
+        if (!user.CanWalk || moveX == user.X && moveY == user.Y)
             return Task.CompletedTask;
         if (user.RidingHorse)
         {

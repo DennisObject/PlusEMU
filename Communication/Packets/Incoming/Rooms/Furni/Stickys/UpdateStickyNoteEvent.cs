@@ -9,7 +9,7 @@ internal class UpdateStickyNoteEvent : RoomPacketEvent
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         var item = room.GetRoomItemHandler().GetItem(packet.ReadUInt());
-        if (item == null || item.Definition.InteractionType != InteractionType.Postit)
+        if (item == null || item.IsTemporary || item.Definition.InteractionType != InteractionType.Postit)
             return Task.CompletedTask;
         var color = packet.ReadString();
         var text = packet.ReadString();

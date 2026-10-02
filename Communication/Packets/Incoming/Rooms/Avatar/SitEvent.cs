@@ -1,4 +1,5 @@
 ﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Runtime;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Avatar;
 
@@ -8,11 +9,16 @@ internal class SitEvent : IPacketEvent
     {
         if (!session.GetHabbo().InRoom)
             return Task.CompletedTask;
-        var user = session.GetHabbo().CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
+        var posture = packet.ReadInt();
+        if (posture is not (0 or 1))
+            return Task.CompletedTask;
+        var room = session.GetHabbo().CurrentRoom;
+        var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         if (user == null)
             return Task.CompletedTask;
         if (user.Statusses.ContainsKey("lie") || user.IsLying || user.RidingHorse || user.IsWalking) return Task.CompletedTask;
-        if (!user.Statusses.ContainsKey("sit"))
+        var wasSitting = user.IsSitting;
+        if (posture == 1 && !user.Statusses.ContainsKey("sit"))
         {
             if (user.RotBody % 2 == 0)
             {
@@ -37,7 +43,7 @@ internal class SitEvent : IPacketEvent
                 user.UpdateNeeded = true;
             }
         }
-        else if (user.IsSitting)
+        else if (posture == 0 && user.IsSitting)
         {
             user.Z += 0.35;
             user.Statusses.Remove("sit");
@@ -45,6 +51,9 @@ internal class SitEvent : IPacketEvent
             user.IsSitting = false;
             user.UpdateNeeded = true;
         }
+        if (wasSitting != user.IsSitting)
+            room.GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = user,
+                Action = (int)(user.IsSitting ? WiredAvatarAction.Sit : WiredAvatarAction.Stand), Code = -1 });
         return Task.CompletedTask;
     }
 }

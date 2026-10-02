@@ -18,7 +18,7 @@ internal class UpdateMagicTileEvent : IPacketEvent
         var itemId = packet.ReadUInt();
         var decimalHeight = packet.ReadInt();
         var item = room.GetRoomItemHandler().GetItem(itemId);
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return Task.CompletedTask;
         item.GetZ = decimalHeight / 100.0;
         room.SendPacket(new ObjectUpdateComposer(item));

@@ -23,7 +23,7 @@ internal class FriendFurniConfirmLockEvent : IPacketEvent
         if (room == null)
             return Task.CompletedTask;
         var item = room.GetRoomItemHandler().GetItem(pId);
-        if (item == null || item.Definition == null || item.Definition.InteractionType != InteractionType.Lovelock)
+        if (item == null || item.IsTemporary || item.Definition == null || item.Definition.InteractionType != InteractionType.Lovelock)
             return Task.CompletedTask;
         var userOneId = item.InteractingUser;
         var userTwoId = item.InteractingUser2;

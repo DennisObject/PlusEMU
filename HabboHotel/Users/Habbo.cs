@@ -27,6 +27,7 @@ namespace Plus.HabboHotel.Users;
 
 public class Habbo
 {
+    internal uint WiredRoomNetworkDestination { get; set; }
     public HabboStats HabboStats { get; set; }
 
     private readonly DateTime _timeCached;

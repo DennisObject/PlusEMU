@@ -1,5 +1,6 @@
 ﻿using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 
@@ -30,6 +31,8 @@ internal class DanceEvent : RoomPacketEvent
         var previousDance = user.DanceId;
         user.DanceId = danceId;
         room.SendPacket(new DanceComposer(user, danceId));
+        if (danceId > 0)
+            room.GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = user, Action = (int)WiredAvatarAction.Dance, Code = danceId });
         if (danceId >= 1 && danceId <= 4 && danceId != previousDance)
             RewardTrackManager.Current?.Progress(session, RewardTrackActions.Dance);
         _questManager.ProgressUserQuest(session, QuestType.SocialDance);

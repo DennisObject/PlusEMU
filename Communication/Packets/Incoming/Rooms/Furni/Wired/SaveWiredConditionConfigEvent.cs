@@ -1,5 +1,9 @@
-﻿namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
+using Plus.Database;
+using Plus.HabboHotel.Items.Wired.Configuration;
 
-internal class SaveWiredConditionConfigEvent : SaveWiredConfigEvent
+namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
+
+internal class SaveWiredConditionConfigEvent(IDatabase database) : SaveWiredConfigEvent(database)
 {
+    protected override WiredBoxCategory Envelope => WiredBoxCategory.Condition;
 }

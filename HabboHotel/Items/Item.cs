@@ -5,6 +5,7 @@ using Plus.Core;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Interactor;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Games.Freeze;
@@ -17,6 +18,7 @@ namespace Plus.HabboHotel.Items;
 public class Item
 {
     public uint Id { get; set; }
+    public bool IsTemporary { get; internal init; }
     public uint OwnerId { get; set; }
     public uint RoomId { get; set; }
     public ItemDefinition Definition { get; set; }
@@ -264,8 +266,13 @@ public class Item
     {
         get
         {
+            if (Definition.WiredDescriptor != null)
+                return true;
             switch (Definition.InteractionType)
             {
+                case InteractionType.WiredSelector:
+                case InteractionType.WiredAddon:
+                case InteractionType.WiredVariable:
                 case InteractionType.WiredEffect:
                 case InteractionType.WiredTrigger:
                 case InteractionType.WiredCondition:
@@ -288,8 +295,13 @@ public class Item
         return sides;
     }
 
+    private long _movementGeneration;
+    internal long MovementGeneration => Interlocked.Read(ref _movementGeneration);
+
     public void SetState(int pX, int pY, double pZ, Dictionary<int, ThreeDCoord> tiles)
     {
+        if (GetX != pX || GetY != pY || !double.IsInfinity(pZ) && GetZ != pZ)
+            Interlocked.Increment(ref _movementGeneration);
         GetX = pX;
         GetY = pY;
         if (!double.IsInfinity(pZ)) GetZ = pZ;
@@ -865,6 +877,7 @@ public class Item
                     }
                     case InteractionType.Counter:
                     {
+                        if (WiredCounterController.Recognizes(this)) break;
                         if (string.IsNullOrEmpty(LegacyDataString))
                             break;
                         var seconds = 0;
@@ -939,6 +952,9 @@ public class Item
                         UpdateState();
                         break;
                     }
+                    case InteractionType.WiredSelector:
+                    case InteractionType.WiredAddon:
+                    case InteractionType.WiredVariable:
                     case InteractionType.WiredEffect:
                     case InteractionType.WiredTrigger:
                     case InteractionType.WiredCondition:
@@ -1094,6 +1110,12 @@ public class Item
             else
                 GetRoom().SendPacket(new ItemUpdateComposer(this));
         }
+    }
+
+    internal void BindTemporaryRoom(Room room)
+    {
+        if (!IsTemporary || RoomId != room.RoomId) throw new InvalidOperationException("Only a temporary item in this room can be bound.");
+        _room = room;
     }
 
     [Obsolete]
