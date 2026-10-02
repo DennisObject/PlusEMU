@@ -11,6 +11,9 @@ public class ItemDefinition
     public string ItemName { get; set; }
     public string PublicName { get; set; }
     public ItemType Type { get; set; }
+
+    /// <summary>The furniture row's type letter: s, i, p, e, r or b. Purchase reads this; <see cref="Type"/> only distinguishes floor and wall.</summary>
+    public string ProductType { get; set; } = "s";
     public FurniCategory Category { get; set; } = FurniCategory.Default;
     public int Width { get; set; }
     public int Length { get; set; }

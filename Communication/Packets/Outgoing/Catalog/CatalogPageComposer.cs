@@ -66,7 +66,12 @@ public class CatalogPageComposer : IServerPacket
                         packet.WriteInteger(deal.ItemDataList.Count);
                         foreach (var dealItem in deal.ItemDataList.ToList())
                         {
-                            packet.WriteString(dealItem.Definition.Type.ToString());
+                            packet.WriteString(dealItem.Definition.ProductType);
+                            if (dealItem.Definition.ProductType == "b")
+                            {
+                                packet.WriteString(dealItem.Definition.ItemName);
+                                continue;
+                            }
                             packet.WriteInteger(dealItem.Definition.SpriteId);
                             packet.WriteString("");
                             packet.WriteInteger(dealItem.Amount);
@@ -82,8 +87,8 @@ public class CatalogPageComposer : IServerPacket
                         packet.WriteString("b");
                         packet.WriteString(item.Badge);
                     }
-                    packet.WriteString(item.Definition.Type.ToCharCode().ToLower());
-                    if (item.Definition.Type.ToString().ToLower() == "b")
+                    packet.WriteString(item.Definition.ProductType);
+                    if (item.Definition.ProductType == "b")
                     {
                         //This is just a badge, append the name.
                         packet.WriteString(item.Definition.ItemName);
@@ -115,23 +120,24 @@ public class CatalogPageComposer : IServerPacket
                 packet.WriteBoolean(ItemUtility.CanSelectAmount(item));
                 packet.WriteBoolean(false); // TODO: Figure out
                 packet.WriteString(""); //previewImage -> e.g; catalogue/pet_lion.png
-                packet.WriteString(item.HabbiconId > 0 ? string.Empty : item.ItemId.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                packet.WriteBoolean(item.HaveOffer);
+                packet.WriteString("");
+                packet.WriteBoolean(item.HabbiconId > 0 ? item.HaveOffer : true);
             }
         }
         else
             packet.WriteInteger(0);
         packet.WriteInteger(-1);
         packet.WriteBoolean(false);
-        packet.WriteInteger(PlusEnvironment.Game.Catalog.Promotions.ToList().Count); //Count
-        foreach (var promotion in PlusEnvironment.Game.Catalog.Promotions.ToList())
+        var promotions = PlusEnvironment.Game.Catalog.Promotions.ToList();
+        packet.WriteInteger(promotions.Count);
+        foreach (var promotion in promotions)
         {
             packet.WriteInteger(promotion.Id);
             packet.WriteString(promotion.Title);
             packet.WriteString(promotion.Image);
-            packet.WriteInteger(promotion.Unknown);
+            packet.WriteInteger(0);
             packet.WriteString(promotion.PageLink);
-            packet.WriteInteger(promotion.ParentId);
+            packet.WriteInteger(0);
         }
     }
 }

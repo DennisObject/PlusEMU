@@ -578,88 +578,98 @@ public class Room : RoomData
 
     public void Dispose()
     {
-        SendPacket(new CloseConnectionComposer());
-        if (!MDisposed)
+        if (MDisposed)
+            return;
+        IsCrashed = false;
+        MDisposed = true;
+        // Drop every user before the managers are destroyed. A habbo left
+        // pointing at this room makes the next enter throw and disconnect.
+        if (_roomUserManager != null)
         {
-            IsCrashed = false;
-            MDisposed = true;
-            /* TODO: Needs reviewing */
-            try
+            foreach (var user in _roomUserManager.GetRoomUsers().ToList())
             {
-                if (ProcessTask != null && ProcessTask.IsCompleted)
-                    ProcessTask.Dispose();
+                var client = user?.GetClient();
+                if (client == null)
+                    continue;
+                _roomUserManager.RemoveUserFromRoom(client, true);
             }
-            catch { }
-            TonerData = null;
-            MoodlightData = null;
-            if (MutedUsers.Count > 0)
-                MutedUsers.Clear();
-            if (_tents.Count > 0)
-                _tents.Clear();
-            if (UsersWithRights.Count > 0)
-                UsersWithRights.Clear();
-            if (_gameManager != null)
-            {
-                _gameManager.Dispose();
-                _gameManager = null;
-            }
-            if (_freeze != null)
-            {
-                _freeze.Dispose();
-                _freeze = null;
-            }
-            if (_soccer != null)
-            {
-                _soccer.Dispose();
-                _soccer = null;
-            }
-            if (_banzai != null)
-            {
-                _banzai.Dispose();
-                _banzai = null;
-            }
-            if (_gamemap != null)
-            {
-                _gamemap.Dispose();
-                _gamemap = null;
-            }
-            if (_gameItemHandler != null)
-            {
-                _gameItemHandler.Dispose();
-                _gameItemHandler = null;
-            }
-
-            // Room Data?
-            if (Teambanzai != null)
-            {
-                Teambanzai.Dispose();
-                Teambanzai = null;
-            }
-            if (Teamfreeze != null)
-            {
-                Teamfreeze.Dispose();
-                Teamfreeze = null;
-            }
-            if (_roomUserManager != null)
-            {
-                _roomUserManager.Dispose();
-                _roomUserManager = null;
-            }
-            if (_roomItemHandling != null)
-            {
-                _roomItemHandling.Dispose();
-                _roomItemHandling = null;
-            }
-            if (WordFilterList.Count > 0)
-                WordFilterList.Clear();
-            if (_filterComponent != null)
-                _filterComponent.Cleanup();
-            if (_wiredComponent != null)
-                _wiredComponent.Cleanup();
-            if (_bansComponent != null)
-                _bansComponent.Cleanup();
-            if (_tradingComponent != null)
-                _tradingComponent.Cleanup();
         }
+        /* TODO: Needs reviewing */
+        try
+        {
+            if (ProcessTask != null && ProcessTask.IsCompleted)
+                ProcessTask.Dispose();
+        }
+        catch { }
+        TonerData = null;
+        MoodlightData = null;
+        if (MutedUsers.Count > 0)
+            MutedUsers.Clear();
+        if (_tents.Count > 0)
+            _tents.Clear();
+        if (UsersWithRights.Count > 0)
+            UsersWithRights.Clear();
+        if (_gameManager != null)
+        {
+            _gameManager.Dispose();
+            _gameManager = null;
+        }
+        if (_freeze != null)
+        {
+            _freeze.Dispose();
+            _freeze = null;
+        }
+        if (_soccer != null)
+        {
+            _soccer.Dispose();
+            _soccer = null;
+        }
+        if (_banzai != null)
+        {
+            _banzai.Dispose();
+            _banzai = null;
+        }
+        if (_gamemap != null)
+        {
+            _gamemap.Dispose();
+            _gamemap = null;
+        }
+        if (_gameItemHandler != null)
+        {
+            _gameItemHandler.Dispose();
+            _gameItemHandler = null;
+        }
+
+        // Room Data?
+        if (Teambanzai != null)
+        {
+            Teambanzai.Dispose();
+            Teambanzai = null;
+        }
+        if (Teamfreeze != null)
+        {
+            Teamfreeze.Dispose();
+            Teamfreeze = null;
+        }
+        if (_roomUserManager != null)
+        {
+            _roomUserManager.Dispose();
+            _roomUserManager = null;
+        }
+        if (_roomItemHandling != null)
+        {
+            _roomItemHandling.Dispose();
+            _roomItemHandling = null;
+        }
+        if (WordFilterList.Count > 0)
+            WordFilterList.Clear();
+        if (_filterComponent != null)
+            _filterComponent.Cleanup();
+        if (_wiredComponent != null)
+            _wiredComponent.Cleanup();
+        if (_bansComponent != null)
+            _bansComponent.Cleanup();
+        if (_tradingComponent != null)
+            _tradingComponent.Cleanup();
     }
 }

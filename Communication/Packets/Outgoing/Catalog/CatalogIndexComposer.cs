@@ -49,6 +49,7 @@ public class CatalogIndexComposer : IServerPacket
         packet.WriteBoolean(true);
         packet.WriteInteger(0);
         packet.WriteInteger(-1);
+        packet.WriteInteger(-1);
         packet.WriteString("root");
         packet.WriteString(string.Empty);
         packet.WriteInteger(0);
@@ -60,6 +61,7 @@ public class CatalogIndexComposer : IServerPacket
         packet.WriteBoolean(page.Visible);
         packet.WriteInteger(page.Icon);
         packet.WriteInteger(-1);
+        packet.WriteInteger(page.ParentId);
         packet.WriteString(page.Link);
         packet.WriteString(page.Caption);
         packet.WriteInteger(0);
@@ -71,6 +73,7 @@ public class CatalogIndexComposer : IServerPacket
         packet.WriteBoolean(page.Visible);
         packet.WriteInteger(page.Icon);
         packet.WriteInteger(page.Id);
+        packet.WriteInteger(page.ParentId);
         packet.WriteString(page.Link);
         packet.WriteString(page.Caption);
         packet.WriteInteger(page.ItemOffers.Count);

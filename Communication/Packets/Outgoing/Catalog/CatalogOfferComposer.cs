@@ -49,8 +49,8 @@ public class CatalogOfferComposer : IServerPacket
                 packet.WriteString("b");
                 packet.WriteString(_item.Badge);
             }
-            packet.WriteString(_item.Definition.Type.ToString());
-            if (_item.Definition.Type.ToString().ToLower() == "b")
+            packet.WriteString(_item.Definition.ProductType);
+            if (_item.Definition.ProductType == "b")
                 packet.WriteString(_item.Definition.ItemName); //Badge name.
             else
             {
@@ -82,7 +82,7 @@ public class CatalogOfferComposer : IServerPacket
         packet.WriteBoolean(ItemUtility.CanSelectAmount(_item));
         packet.WriteBoolean(false); // TODO: Figure out
         packet.WriteString(""); //previewImage -> e.g; catalogue/pet_lion.png
-        packet.WriteString(_item.HabbiconId > 0 ? string.Empty : _item.ItemId.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        packet.WriteBoolean(_item.HaveOffer);
+        packet.WriteString("");
+        packet.WriteBoolean(_item.HabbiconId > 0 ? _item.HaveOffer : true);
     }
 }

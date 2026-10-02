@@ -35,13 +35,15 @@ public class ItemDataManager : IItemDataManager
                 {
                     try
                     {
+                        var productType = Convert.ToString(row["type"])?.ToLowerInvariant() ?? "s";
                         var definition = new ItemDefinition
                         {
                             Id = Convert.ToUInt32(row["id"]),
                             SpriteId = Convert.ToInt32(row["sprite_id"]),
                             ItemName = Convert.ToString(row["item_name"]),
                             PublicName = Convert.ToString(row["public_name"]),
-                            Type = string.Equals(row["type"].ToString(), "s", StringComparison.OrdinalIgnoreCase) ? ItemType.Floor : ItemType.Wall,
+                            ProductType = productType,
+                            Type = productType == "s" ? ItemType.Floor : ItemType.Wall,
                             Width = Convert.ToInt32(row["width"]),
                             Length = Convert.ToInt32(row["length"]),
                             Height = FurnitureNumbers.FromCell(row["stack_height"]),
