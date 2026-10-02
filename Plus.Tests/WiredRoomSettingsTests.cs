@@ -145,7 +145,7 @@ public class WiredRoomSettingsTests
             if (profile == "example.json" && handler is WiredMenuPermissionsSaveEvent)
             {
                 Assert.False(revision.IncomingHeaders.ContainsKey(name));
-                Assert.Equal(1936u, revision.IncomingHeaders["SaveFloorPlanModelEvent"]);
+                Assert.Equal(1936u, revision.IncomingHeaders["UpdateFloorPropertiesEvent"]);
                 continue;
             }
             var wire = handler is WiredMenuPermissionsSaveEvent ? 1936u : id;
