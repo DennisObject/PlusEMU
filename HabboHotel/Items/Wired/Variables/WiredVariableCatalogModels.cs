@@ -51,6 +51,8 @@ public sealed class WiredVariableCatalog(IReadOnlyList<WiredVariableDescription>
 }
 public sealed record WiredVariableCatalogDiff(int Hash, bool LastChunk, IReadOnlyList<string> Removed,
     IReadOnlyList<WiredVariableDescription> Changed);
+public sealed record WiredVariableMenuSnapshot(uint RoomId, IReadOnlyList<WiredVariableDescription> Definitions,
+    IReadOnlyList<WiredVariableStoredHolder> Assignments);
 public sealed record WiredVariableStoredHolder(WiredVariableKey Key, string Name, WiredVariableValue Value);
 public sealed record WiredVariableHolderPage(int Total, int Page, int PageSize, IReadOnlyList<WiredVariableStoredHolder> Holders);
 

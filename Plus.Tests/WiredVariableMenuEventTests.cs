@@ -24,7 +24,7 @@ public sealed class WiredVariableMenuEventTests
     public async Task AllMenuHandlersRejectUnauthorizedClientsBeforeReadingOrOpeningDatabase()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        RoomPacketEvent[] handlers = [new WiredAllVariablesRequestEvent(), new WiredVariableHashesEvent(),
+        RoomPacketEvent[] handlers = [new WiredUserVariablesRequestEvent(), new WiredAllVariablesRequestEvent(), new WiredVariableHashesEvent(),
             new WiredVariableHoldersRequestEvent(), new WiredVariableHoldersPageEvent()];
         foreach (var handler in handlers)
         {

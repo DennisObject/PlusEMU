@@ -148,6 +148,11 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             var fxPlayer = new Habbo { Id = (int)holders[0].StableId, Client = fxClient, CurrentRoom = liveRoom }; fxClient.SetHabbo(fxPlayer);
             var fxUser = new RoomUser(fxPlayer.Id, 0, holders[0].EntityId, liveRoom);
             typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(fxUser, fxClient);
+            var liveUsers = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(roomUsers)!;
+            liveUsers[fxUser.VirtualId] = fxUser;
+            var legacySnapshot = new WiredVariableMenu(liveRoom, roomVariables).Snapshot();
+            Assert.Equal(holders[0].StableId, Assert.Single(legacySnapshot.Assignments).Key.HolderId);
+            Assert.Single(legacySnapshot.Definitions);
             var fxFrame = new WiredVariableFrame(room, [holders[0]]);
             var viewers = new[] { new WiredVariableFxViewer(fxUser, [holders[0]]) };
             Assert.True(roomVariables.FlushFx(fxFrame, viewers, (client, packet) => client.Send(packet), exception => throw exception));

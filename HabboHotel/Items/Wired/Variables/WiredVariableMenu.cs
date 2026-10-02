@@ -7,6 +7,25 @@ public sealed class WiredVariableMenu(Room room, WiredRoomVariables variables)
 {
     public WiredVariableCatalog Catalog() => variables.Catalog();
 
+    public WiredVariableMenuSnapshot Snapshot()
+    {
+        var catalog = Catalog(); var (frame, _) = LiveHolders(WiredVariableTarget.Global);
+        var references = catalog.Variables.Where(x => x.Definition.Target != WiredVariableTarget.Context)
+            .Select(x => new WiredVariableReference(x.Definition.Target, x.Definition.Token)).ToArray();
+        using var reads = variables.Module.CaptureReads(references, frame);
+        var assignments = new List<WiredVariableStoredHolder>();
+        foreach (var variable in catalog.Variables.Where(x => x.Definition.Target != WiredVariableTarget.Context))
+        {
+            var reference = new WiredVariableReference(variable.Definition.Target, variable.Definition.Token);
+            var holders = variable.Definition.Target == WiredVariableTarget.Global ? [new WiredVariableHolder(WiredVariableTarget.Global, 0, 0)]
+                : frame.Holders.Where(x => x.Target == variable.Definition.Target).ToArray();
+            foreach (var holder in holders)
+                if (reads.Read(reference, holder, frame) is { } value)
+                    assignments.Add(new(new(variable.Definition.ItemId, holder.Target, holder.StableId), "", value));
+        }
+        return new(room.Id, catalog.Variables, ToWireHolders(assignments));
+    }
+
     public WiredVariableHolderPage Page(WiredVariableDescription variable, int page, int size, int userFilter, int sort)
     {
         var (frame, names) = LiveHolders(variable.Definition.Target);
