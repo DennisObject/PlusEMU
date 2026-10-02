@@ -296,7 +296,13 @@
     "SendMessengerMessageEvent": 4902,
     "GetRewardTracksEvent": 0,
     "ClaimRewardTrackPrizeEvent": 0,
-    "PurchaseRewardTrackPremiumEvent": 0
+    "PurchaseRewardTrackPremiumEvent": 0,
+    "InitCameraEvent": 796,
+    "PhotoCompetitionEvent": 3959,
+    "PublishPhotoEvent": 2068,
+    "PurchasePhotoEvent": 2408,
+    "RenderRoomEvent": 3226,
+    "RenderRoomThumbnailEvent": 1982
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -591,6 +597,12 @@
     "RewardTracksComposer": 0,
     "RewardTrackClaimResultComposer": 0,
     "RewardTrackProgressComposer": 0,
-    "RewardTrackPremiumPurchaseResultComposer": 0
+    "RewardTrackPremiumPurchaseResultComposer": 0,
+    "InitCameraComposer": 3878,
+    "CameraStorageUrlComposer": 3696,
+    "CameraPurchaseOKComposer": 2783,
+    "CameraPublishStatusComposer": 2057,
+    "CompetitionStatusComposer": 133,
+    "ThumbnailStatusComposer": 3595
   }
 }

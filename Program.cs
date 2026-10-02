@@ -9,6 +9,7 @@ using Plus.Communication.Flash;
 using Plus.Communication.Nitro;
 using Plus.Communication.RCON;
 using Plus.Database;
+using Plus.HabboHotel.Camera;
 using Plus.Plugins;
 using Plus.Utilities.DependencyInjection;
 using Scrutor;
@@ -43,6 +44,7 @@ public static class Program
         services.AddConfiguration<NitroServerConfiguration>(configuration.GetSection("Nitro"));
         services.AddConfiguration<DatabaseConfiguration>(configuration.GetSection("Database"));
         services.AddConfiguration<RconConfiguration>(configuration.GetSection("Rcon"));
+        services.AddConfiguration<CameraConfiguration>(configuration.GetSection("Camera"));
 
         // Dependency Injection
         services.AddDefaultRules(typeof(Program).Assembly);

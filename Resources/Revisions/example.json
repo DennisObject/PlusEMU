@@ -291,7 +291,13 @@
     "UnfavoriteHabbiconEvent": 9466,
     "UnseenResetCategoryEvent": 3493,
     "UnseenResetItemsEvent": 2343,
-    "SendMessengerMessageEvent": 4902
+    "SendMessengerMessageEvent": 4902,
+    "InitCameraEvent": 9700,
+    "PhotoCompetitionEvent": 9701,
+    "PublishPhotoEvent": 9702,
+    "PurchasePhotoEvent": 9703,
+    "RenderRoomEvent": 9704,
+    "RenderRoomThumbnailEvent": 9705
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 3531,
@@ -579,6 +585,12 @@
     "HabbiconInfoComposer": 9463,
     "MessengerMessageAckComposer": 4902,
     "MessengerMessageFailedComposer": 4903,
-    "MessengerMessageComposer": 4904
+    "MessengerMessageComposer": 4904,
+    "InitCameraComposer": 9700,
+    "CameraStorageUrlComposer": 9701,
+    "CameraPurchaseOKComposer": 9702,
+    "CameraPublishStatusComposer": 9703,
+    "CompetitionStatusComposer": 9704,
+    "ThumbnailStatusComposer": 9705
   }
 }

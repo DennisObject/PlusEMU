@@ -25,5 +25,174 @@
             "127.0.0.1",
             "localhost"
         ]
+    },
+    "Camera": {
+        "RendererUrl": "http://127.0.0.1:3921/render",
+        "Bearer": "",
+        "OutputDirectory": "camera",
+        "TimeoutSeconds": 15,
+        "MaxConcurrency": 2,
+        "Effects": [
+            {
+                "Name": "dark_sepia",
+                "MinLevel": 0
+            },
+            {
+                "Name": "increase_saturation",
+                "MinLevel": 0
+            },
+            {
+                "Name": "increase_contrast",
+                "MinLevel": 0
+            },
+            {
+                "Name": "shadow_multiply_02",
+                "MinLevel": 0
+            },
+            {
+                "Name": "color_1",
+                "MinLevel": 1
+            },
+            {
+                "Name": "hue_bright_sat",
+                "MinLevel": 1
+            },
+            {
+                "Name": "hearts_hardlight_02",
+                "MinLevel": 1
+            },
+            {
+                "Name": "texture_overlay",
+                "MinLevel": 1
+            },
+            {
+                "Name": "pinky_nrm",
+                "MinLevel": 1
+            },
+            {
+                "Name": "color_2",
+                "MinLevel": 2
+            },
+            {
+                "Name": "night_vision",
+                "MinLevel": 2
+            },
+            {
+                "Name": "stars_hardlight_02",
+                "MinLevel": 2
+            },
+            {
+                "Name": "coffee_mpl",
+                "MinLevel": 2
+            },
+            {
+                "Name": "security_hardlight",
+                "MinLevel": 3
+            },
+            {
+                "Name": "bluemood_mpl",
+                "MinLevel": 3
+            },
+            {
+                "Name": "rusty_mpl",
+                "MinLevel": 3
+            },
+            {
+                "Name": "decr_conrast",
+                "MinLevel": 4
+            },
+            {
+                "Name": "green_2",
+                "MinLevel": 4
+            },
+            {
+                "Name": "alien_hrd",
+                "MinLevel": 4
+            },
+            {
+                "Name": "color_3",
+                "MinLevel": 5
+            },
+            {
+                "Name": "color_4",
+                "MinLevel": 5
+            },
+            {
+                "Name": "toxic_hrd",
+                "MinLevel": 5
+            },
+            {
+                "Name": "hypersaturated",
+                "MinLevel": 6
+            },
+            {
+                "Name": "Yellow",
+                "MinLevel": 6
+            },
+            {
+                "Name": "misty_hrd",
+                "MinLevel": 6
+            },
+            {
+                "Name": "x_ray",
+                "MinLevel": 7
+            },
+            {
+                "Name": "decrease_saturation",
+                "MinLevel": 7
+            },
+            {
+                "Name": "drops_mpl",
+                "MinLevel": 8
+            },
+            {
+                "Name": "shiny_hrd",
+                "MinLevel": 9
+            },
+            {
+                "Name": "glitter_hrd",
+                "MinLevel": 10
+            },
+            {
+                "Name": "frame_gold",
+                "MinLevel": 10
+            },
+            {
+                "Name": "frame_gray_4",
+                "MinLevel": 10
+            },
+            {
+                "Name": "frame_black_2",
+                "MinLevel": 10
+            },
+            {
+                "Name": "frame_wood_2",
+                "MinLevel": 10
+            },
+            {
+                "Name": "finger_nrm",
+                "MinLevel": 10
+            },
+            {
+                "Name": "color_5",
+                "MinLevel": 10
+            },
+            {
+                "Name": "black_white_negative",
+                "MinLevel": 10
+            },
+            {
+                "Name": "blue",
+                "MinLevel": 10
+            },
+            {
+                "Name": "red",
+                "MinLevel": 10
+            },
+            {
+                "Name": "green",
+                "MinLevel": 10
+            }
+        ]
     }
 }

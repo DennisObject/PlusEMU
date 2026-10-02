@@ -419,6 +419,13 @@ public static class ClientPacketHeader
     public const uint UnseenResetCategoryEvent = 3493;
     public const uint UnseenResetItemsEvent = 2343;
     public const uint SendMessengerMessageEvent = 4902;
+    // Camera internal IDs; wire IDs are revision-specific.
+    public const uint InitCameraEvent = 9700;
+    public const uint PhotoCompetitionEvent = 9701;
+    public const uint PublishPhotoEvent = 9702;
+    public const uint PurchasePhotoEvent = 9703;
+    public const uint RenderRoomEvent = 9704;
+    public const uint RenderRoomThumbnailEvent = 9705;
     public const uint GetRewardTracksEvent = 48000;
     public const uint ClaimRewardTrackPrizeEvent = 48001;
     public const uint PurchaseRewardTrackPremiumEvent = 48002;

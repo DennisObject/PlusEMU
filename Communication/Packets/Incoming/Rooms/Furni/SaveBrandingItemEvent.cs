@@ -22,11 +22,14 @@ internal class SaveBrandingItemEvent : IPacketEvent
         if (item.Definition.InteractionType == InteractionType.Background)
         {
             var count = packet.ReadInt();
-            var values = new List<string>(Math.Max(count, 0));
+            if (count < 0 || count > 128 || count % 2 != 0) return Task.CompletedTask;
+            var values = new List<string>(count);
             for (var i = 1; i <= count; i++) values.Add(packet.ReadString());
-            var map = item.ExtraData as MapDataFormat ?? new MapDataFormat();
-            map.Store(FurniExtraData.Branding(values));
-            item.ExtraData = map;
+            if (FurniExtraData.RejectsClientImage(values))
+                return Task.CompletedTask;
+            var data = new Dictionary<string, string> { ["state"] = "0" };
+            for (var index = 0; index < values.Count; index += 2) data[values[index]] = values[index + 1];
+            item.ExtraData = new MapDataFormat(data);
         }
         else if (item.Definition.InteractionType == InteractionType.FxProvider)
         {

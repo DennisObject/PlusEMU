@@ -35,5 +35,6 @@ public class ItemUpdateComposer : IServerPacket
         packet.WriteInteger(-1);
         packet.WriteInteger(item.Definition.Modes > 1 ? 1 : 0);
         packet.WriteInteger(item.UserId);
+        RoomEngineSerializers.WriteFurnitureMetadata(packet, item);
     }
 }

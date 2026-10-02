@@ -159,7 +159,10 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
                     itemExtraData = $"{data}{Convert.ToChar(9)}{session.GetHabbo().Username}{Convert.ToChar(9)}{DateTime.Now.Day}-{DateTime.Now.Month}-{DateTime.Now.Year}";
                     break;
                 default:
-                    itemExtraData = data;
+                    itemExtraData = item.Definition.InteractionType is InteractionType.CameraPicture or InteractionType.Background
+                        || FurniExtraData.RejectsClientImage(new[] { data })
+                        ? ""
+                        : data;
                     break;
             }
 

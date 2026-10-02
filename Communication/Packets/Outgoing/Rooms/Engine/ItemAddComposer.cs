@@ -22,6 +22,7 @@ public class ItemAddComposer : IServerPacket
         packet.WriteInteger(-1);
         packet.WriteInteger(_item.Definition.Modes > 1 ? 1 : 0); // Type New R63 ('use bottom')
         packet.WriteInteger(_item.UserId);
+        RoomEngineSerializers.WriteFurnitureMetadata(packet, _item);
         packet.WriteString(_item.Username);
     }
 }

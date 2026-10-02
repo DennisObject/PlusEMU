@@ -339,6 +339,13 @@ public static class ServerPacketHeader
     public const uint MessengerMessageAckComposer = 4902;
     public const uint MessengerMessageFailedComposer = 4903;
     public const uint MessengerMessageComposer = 4904;
+    // Camera internal IDs; wire IDs are revision-specific.
+    public const uint InitCameraComposer = 9700;
+    public const uint CameraStorageUrlComposer = 9701;
+    public const uint CameraPurchaseOKComposer = 9702;
+    public const uint CameraPublishStatusComposer = 9703;
+    public const uint CompetitionStatusComposer = 9704;
+    public const uint ThumbnailStatusComposer = 9705;
     public const uint RewardTracksComposer = 48003;
     public const uint RewardTrackClaimResultComposer = 48004;
     public const uint RewardTrackProgressComposer = 48005;

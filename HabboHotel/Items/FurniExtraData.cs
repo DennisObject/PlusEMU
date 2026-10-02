@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
@@ -5,6 +6,40 @@ namespace Plus.HabboHotel.Items;
 
 internal static class FurniExtraData
 {
+    private static readonly HashSet<string> ClientImageKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "w", "url", "id", "imageUrl", "href", "src", "clickUrl"
+    };
+
+    private static readonly Regex ExternalAddress = new(
+        @"(?:https?:|data:|blob:|javascript:|file:|//)|\u0000",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    private static readonly Regex EmbeddedImageKey = new(
+        "\"(?:w|url|id|imageUrl|href|src|clickUrl)\"\\s*:",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    public static bool RejectsClientImage(IReadOnlyList<string> values)
+    {
+        for (var index = 0; index < values.Count; index++)
+        {
+            var value = values[index] ?? "";
+            if (index % 2 == 0 && ClientImageKeys.Contains(value))
+                return true;
+            if (ExternalAddress.IsMatch(value) || EmbeddedImageKey.IsMatch(value))
+                return true;
+        }
+
+        // Branding is decoded by MapDataFormat.Store. Validate exactly that representation
+        // as well, including escaped keys, values and injected pair separators.
+        var decoded = new MapDataFormat();
+        try { decoded.Store(Branding(values)); }
+        catch (ArgumentException) { return true; }
+        return decoded.Data.Any(pair => ClientImageKeys.Contains(pair.Key)
+            || ExternalAddress.IsMatch(pair.Key) || ExternalAddress.IsMatch(pair.Value)
+            || EmbeddedImageKey.IsMatch(pair.Key) || EmbeddedImageKey.IsMatch(pair.Value));
+    }
+
     public static IFurniObjectData Load(ItemDefinition definition, string stored, bool keepLegacy)
     {
         stored ??= "";
