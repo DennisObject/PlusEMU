@@ -102,7 +102,7 @@ internal sealed partial class WiredStackEngine
             if (!live.TryGetValue(receiver.Id, out var attached) || !ReferenceEquals(receiver, attached)
                 || !string.Equals(receiver.Definition.InteractionName, "antenna", StringComparison.OrdinalIgnoreCase)) continue;
             _remaining--;
-            var child = parent.Fork(new(WiredEventKind.Signal) { EventItem = receiver, Code = unchecked((int)receiver.Id) }, parent.Depth + 1);
+            var child = parent.Fork(new(WiredEventKind.Signal) { Actor = parent.Event.Actor, EventItem = receiver, Code = unchecked((int)receiver.Id) }, parent.Depth + 1);
             child.Signal = new(selection, parent.Values);
             child.Triggering = selection.Copy();
             child.Selected = selection.Copy();
@@ -200,7 +200,7 @@ internal sealed partial class WiredStackEngine
         context.Selected = context.Triggering.Copy();
     }
 
-    private bool RunRuntimeStack(IWiredItem source, WiredRuntimeContext context, bool? negative)
+    private bool RunRuntimeStack(IWiredItem source, WiredRuntimeContext context, bool? negative, object[][]? conditionActors = null)
     {
         if (context.Depth > _limits.MaxDepth || !IsAttached(source)) return false;
         var stack = GetStack(source);
@@ -230,11 +230,31 @@ internal sealed partial class WiredStackEngine
         var scoped = context.Policy.Addons.Conditions;
         var grouped = scoped == null ? [] : conditions.Where(c => scoped.ConditionIds.Contains(c.Item.Id)).ToArray();
         var ordinary = scoped == null ? conditions : conditions.Except(grouped).ToArray();
+        bool Evaluate(IWiredItem condition)
+        {
+            if (conditionActors == null)
+                return InvokeRuntime(condition, context, () => ExecuteRuntimeBody(condition, context));
+            foreach (var arguments in conditionActors)
+            {
+                if (_remaining <= 0) return false;
+                if (condition is not IWiredContextualItem)
+                {
+                    if (Execute(condition, CreateContext(arguments, context.Depth))) return true;
+                    continue;
+                }
+                var actor = arguments.OfType<RoomUser>().FirstOrDefault() ?? _actorVisit?.Invoke(arguments) as RoomUser;
+                if (actor == null || !context.UserIdentity.TryGetValue(actor.VirtualId, out var original)
+                    || !ReferenceEquals(actor, original)) continue;
+                var actorContext = context.ForActor(actor);
+                if (InvokeRuntime(condition, actorContext, () => ExecuteRuntimeBody(condition, actorContext))) return true;
+            }
+            return false;
+        }
         var matched = 0;
         foreach (var condition in ordinary)
         {
             if (_remaining <= 0) return false;
-            if (InvokeRuntime(condition, context, () => ExecuteRuntimeBody(condition, context))) matched++;
+            if (Evaluate(condition)) matched++;
         }
         var passed = MatchConditions(context.Policy, matched, ordinary.Length);
         if (scoped != null)
@@ -243,7 +263,7 @@ internal sealed partial class WiredStackEngine
             foreach (var condition in grouped)
             {
                 if (_remaining <= 0) return false;
-                if (InvokeRuntime(condition, context, () => ExecuteRuntimeBody(condition, context))) matched++;
+                if (Evaluate(condition)) matched++;
             }
             passed &= WiredConditionPolicyEvaluator.Matches(scoped.Mode, matched, grouped.Length, scoped.Count);
         }

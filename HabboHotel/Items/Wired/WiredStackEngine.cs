@@ -170,13 +170,13 @@ internal sealed partial class WiredStackEngine
         if (context.Depth > _limits.MaxDepth || !IsActorPresent(context)) return false;
         var stack = GetStack(source);
         if (stack.Length == 0) return false;
-        if (_runtimeRoom != null && conditionActors == null && stack.Any(x => x is IWiredConfiguredItem))
+        if (_runtimeRoom != null && stack.Any(x => x is IWiredConfiguredItem))
         {
             var typed = _runtimeContext?.Fork(_runtimeContext.Event, context.Depth)
                 ?? CreateContext(_legacyRuntimeEvent ?? new(WiredEventKind.Periodic), context.Depth);
             typed.Trigger = source;
             if (_runtimeContext == null) SeedEvent(typed);
-            var accepted = RunRuntimeStack(source, typed, null);
+            var accepted = RunRuntimeStack(source, typed, null, conditionActors);
             if (accepted) onAccepted?.Invoke();
             return accepted;
         }
@@ -207,11 +207,11 @@ internal sealed partial class WiredStackEngine
 
     private bool CanSchedule(IWiredItem[] actions)
     {
-        if (actions.Length > 0 && _pending.Count >= _limits.MaxPendingStacks
+        if (actions.Length > 0 && _pending.Count + _signals.Count >= _limits.MaxPendingStacks
             && _pending.RemoveWhere(chain => !IsChainValid(chain)) > 0)
             PruneSchedule();
         // Preparation must happen synchronously; reject before acceptance if its calls cannot fit.
-        return (actions.Length == 0 || _pending.Count < _limits.MaxPendingStacks)
+        return (actions.Length == 0 || _pending.Count + _signals.Count < _limits.MaxPendingStacks)
             && actions.Count(action => action is IWiredFiringPreparation) <= _remaining;
     }
 
@@ -320,8 +320,12 @@ internal sealed partial class WiredStackEngine
     private WiredExecutionContext CreateContext(object[] arguments, int depth) =>
         new(arguments, depth, _actorVisit?.Invoke(arguments));
 
-    private bool IsActorPresent(WiredExecutionContext context) => context.Runtime != null || _actorPresent(context.Arguments)
-        && (_actorVisit == null || ReferenceEquals(context.ActorVisit, _actorVisit(context.Arguments)));
+    private bool IsActorPresent(WiredExecutionContext context) => context.Runtime is { } runtime
+        ? runtime.Event.Kind == WiredEventKind.Leave || runtime.Event.Actor == null
+            || runtime.Targets.ResolveUsers(runtime, [runtime.Event.Actor.VirtualId], WiredSources.Selected, raw: true)
+                .Contains(runtime.Event.Actor)
+        : _actorPresent(context.Arguments)
+            && (_actorVisit == null || ReferenceEquals(context.ActorVisit, _actorVisit(context.Arguments)));
 
     private bool Execute(IWiredItem box, WiredExecutionContext context) =>
         Invoke(box, context, () => context.Runtime is { } runtime
