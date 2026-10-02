@@ -283,9 +283,40 @@ public class ModernWiredRuntimeTests
         context.Triggering.UserIds.Add(fixture.User.VirtualId);
         Assert.True(action.Execute(context));
         Assert.Equal(1, sent); Assert.Same(fixture.Room, fixture.Habbo.CurrentRoom); Assert.False(fixture.Habbo.IsTeleporting);
+        Assert.Equal(42u, fixture.Habbo.WiredRoomNetworkDestination);
         fixture.Habbo.CurrentRoom = null;
         Assert.False(action.Execute(context));
         Assert.Equal(1, sent);
+    }
+
+    [Fact]
+    public void ActualForwardingRecordsNetworkEntryOnlyAfterPacketSendAndDestinationConsumesIt()
+    {
+        using var f = new TeleportFixture();
+        var action = ActionBox(f.Room, "wf_act_teleport_to_room");
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], Text = "42" }, out var config, out _));
+        action.ApplyConfiguration(config);
+        var context = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, [], [f.User]);
+        context.Triggering.UserIds.Add(f.User.VirtualId);
+        f.Habbo.CurrentRoom = null;
+        Assert.False(action.Execute(context)); Assert.Equal(0u, f.Habbo.WiredRoomNetworkDestination);
+        f.Habbo.CurrentRoom = f.Room;
+        f.Habbo.Client.SendCallback = _ => throw new IOException("forward enqueue failed");
+        Assert.Throws<IOException>(() => action.Execute(context));
+        Assert.Equal(0u, f.Habbo.WiredRoomNetworkDestination);
+        f.Habbo.Client.SendCallback = _ => true;
+        Assert.True(action.Execute(context));
+        Assert.Equal(42u, f.Habbo.WiredRoomNetworkDestination);
+        var (destination, _, _) = World(); destination.Id = 42;
+        f.Habbo.Gender = "M"; f.Habbo.Look = "test"; f.Habbo.Motto = "";
+        f.Habbo.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
+        f.Habbo.Permissions = new([], []);
+        Assert.True(destination.GetRoomUserManager().AddAvatarToRoom(f.Habbo.Client));
+        var joined = Assert.IsType<RoomUser>(destination.GetRoomUserManager().GetRoomUserByHabbo(f.Habbo.Id));
+        Assert.NotSame(f.User, joined);
+        Assert.Equal(new WiredRoomEntrySnapshot(WiredRoomEntryMethod.RoomNetwork, 0), joined.WiredRoomEntry);
+        Assert.Equal(0u, f.Habbo.WiredRoomNetworkDestination);
+        Assert.Equal(default, WiredRoomEntrySnapshot.Capture(destination, f.Habbo));
     }
 
     [Fact]

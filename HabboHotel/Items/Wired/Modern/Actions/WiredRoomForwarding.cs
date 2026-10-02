@@ -74,6 +74,7 @@ public static class WiredRoomForwarding
             habbo.TeleportingRoomId = target.TeleporterId == 0 ? 0 : target.RoomId;
             habbo.TeleporterId = target.TeleporterId;
             client.Send(new RoomForwardComposer(target.RoomId));
+            context.Room.GetWired().RecordRoomNetworkForward(user, target.RoomId);
             forwarded = true;
         }
         return forwarded;
