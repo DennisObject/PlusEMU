@@ -28,7 +28,7 @@ internal class KickBotsCommand : IChatCommand
         }
         foreach (var user in room.GetRoomUserManager().GetUserList().ToList())
         {
-            if (user == null || user.IsPet || !user.IsBot)
+            if (user == null || user.IsPet || !user.IsBot || user.BotData.IsTemporary)
                 continue;
             RoomUser botUser = null;
             if (!room.GetRoomUserManager().TryGetBot(user.BotData.Id, out botUser))

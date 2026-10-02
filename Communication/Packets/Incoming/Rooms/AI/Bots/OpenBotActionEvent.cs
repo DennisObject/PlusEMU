@@ -14,7 +14,7 @@ internal class OpenBotActionEvent : IPacketEvent
         var room = session.GetHabbo().CurrentRoom;
         if (room == null)
             return Task.CompletedTask;
-        if (!room.GetRoomUserManager().TryGetBot(botId, out var botUser))
+        if (!room.GetRoomUserManager().TryGetBot(botId, out var botUser) || botUser.BotData.IsTemporary)
             return Task.CompletedTask;
         var botSpeech = "";
         foreach (var speech in botUser.BotData.RandomSpeech.ToList()) botSpeech += $"{speech.Message}\n";

@@ -8,6 +8,8 @@ using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.Rooms.AI.Speech;
+using Plus.Core.FigureData;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Rooms.Trading;
@@ -19,6 +21,12 @@ namespace Plus.HabboHotel.Rooms;
 
 public class RoomUserManager
 {
+    public const int MaxStressBots = 1000;
+    private readonly object _stressSync = new();
+    private readonly Queue<(int Amount, int OwnerId, Action<string> Reply)> _stressRequests = new();
+    private bool _disposed;
+    private int _nextStressBotId;
+
     private ConcurrentDictionary<int, RoomUser> _bots;
     private ConcurrentDictionary<int, RoomUser> _pets;
 
@@ -44,11 +52,64 @@ public class RoomUserManager
 
     public int PetCount { get; private set; }
 
+    // Requests are bounded and applied on the cycle thread, before its user snapshot.
+    public bool QueueStressBots(int amount, int ownerId, Action<string> reply)
+    {
+        if (amount < 0 || amount > MaxStressBots)
+            return false;
+        lock (_stressSync)
+        {
+            if (_disposed || _stressRequests.Count >= 8)
+                return false;
+            _stressRequests.Enqueue((amount, ownerId, reply));
+            return true;
+        }
+    }
+
+    internal void ProcessStressBots()
+    {
+        lock (_stressSync)
+        {
+            if (_disposed || !_stressRequests.TryDequeue(out var request))
+                return;
+            var temporary = _bots.Values.Where(user => user.BotData.IsTemporary).ToList();
+            if (request.Amount == 0)
+            {
+                foreach (var user in temporary)
+                {
+                    _room.GetGameMap().RemoveUserFromMap(user, user.Coordinate);
+                    RemoveBot(user.VirtualId, false);
+                }
+                request.Reply($"Cleared {temporary.Count} temporary stress bots.");
+                return;
+            }
+            if (temporary.Count + request.Amount > MaxStressBots)
+            {
+                request.Reply($"This room has {temporary.Count} stress bots; the limit is {MaxStressBots}. Use :stress bots clear first.");
+                return;
+            }
+            var model = _room.GetGameMap().Model;
+            for (var i = 0; i < request.Amount; i++)
+            {
+                // Negative IDs cannot collide with database/inventory bots.
+                var id = --_nextStressBotId;
+                var speeches = new List<RandomSpeech> { new($"Stress bot {-id} checking room traffic.", id) };
+                var bot = new RoomBot(id, _room.RoomId, "generic", "freeroam", $"Stress {-id}", "Temporary stress bot",
+                    IFigureDataManager.DefaultFigure, model.DoorX, model.DoorY, model.DoorZ, model.DoorOrientation,
+                    0, 0, 0, 0, ref speeches, "M", 0, request.OwnerId, true, 60, false, 0) { IsTemporary = true };
+                var user = DeployBot(bot, null);
+                user.AllowOverride = true;
+                user.BotAi.OnSelfEnterRoom();
+            }
+            request.Reply($"Created {request.Amount} temporary stress bots ({temporary.Count + request.Amount}/{MaxStressBots}). Use :stress bots clear to remove them.");
+        }
+    }
+
     public RoomUser DeployBot(RoomBot bot, Pet pet)
     {
-        var user = new RoomUser(0, _room.RoomId, _primaryPrivateUserId++, _room);
-        bot.VirtualId = _primaryPrivateUserId;
-        var personalId = _secondaryPrivateUserId++;
+        var user = new RoomUser(0, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room);
+        bot.VirtualId = user.VirtualId;
+        var personalId = Interlocked.Increment(ref _secondaryPrivateUserId) - 1;
         user.InternalRoomId = personalId;
         _users.TryAdd(personalId, user);
         var model = _room.GetGameMap().Model;
@@ -126,12 +187,12 @@ public class RoomUserManager
             return false;
         if (_users.Any(u => u.Value.UserId == session.GetHabbo().Id))
             return false;
-        var user = new RoomUser(session.GetHabbo().Id, _room.RoomId, _primaryPrivateUserId++, _room);
+        var user = new RoomUser(session.GetHabbo().Id, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room);
         if (user == null || user.GetClient() == null)
             return false;
         user.UserId = session.GetHabbo().Id;
         session.GetHabbo().TentId = 0;
-        var personalId = _secondaryPrivateUserId++;
+        var personalId = Interlocked.Increment(ref _secondaryPrivateUserId) - 1;
         user.InternalRoomId = personalId;
         session.GetHabbo().CurrentRoom = _room;
         if (!_users.TryAdd(personalId, user))
@@ -479,7 +540,7 @@ public class RoomUserManager
         using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
         foreach (var user in GetRoomUsers().ToList())
         {
-            if (user == null || !user.IsBot)
+            if (user == null || !user.IsBot || user.BotData.IsTemporary)
                 continue;
             if (user.IsBot)
             {
@@ -552,6 +613,17 @@ public class RoomUserManager
     }
 
     public void OnCycle()
+    {
+        lock (_stressSync)
+        {
+            if (_disposed)
+                return;
+            ProcessStressBots();
+            CycleUsers();
+        }
+    }
+
+    private void CycleUsers()
     {
         var userCounter = 0;
         try
@@ -1173,6 +1245,18 @@ public class RoomUserManager
     public ICollection<RoomUser> GetUserList() => _users.Values;
 
     public void Dispose()
+    {
+        lock (_stressSync)
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            _stressRequests.Clear();
+            DisposeUsers();
+        }
+    }
+
+    private void DisposeUsers()
     {
         UpdatePets();
         UpdateBots();
