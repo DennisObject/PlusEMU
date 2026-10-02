@@ -52,7 +52,8 @@ public partial class WiredComponent
             box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event), DispatchWalkTransition, _roomLog);
             defaults = WiredActionConfiguration.Defaults(descriptor.CanonicalName);
         }
-        else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || descriptor.Category == WiredBoxCategory.Variable)
+        else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || WiredVariableMetadataBox.Supports(descriptor.CanonicalName)
+            || WiredVariableAddonBox.Supports(descriptor.CanonicalName) || descriptor.Category == WiredBoxCategory.Variable)
             box = Variables.CreateBox(item);
         if (box != null && defaults != null)
         {
@@ -61,6 +62,17 @@ public partial class WiredComponent
         }
         return box;
     }
+
+    public void BeforeActorLeaves(RoomUser actor) => _engine.Mutate(() =>
+    {
+        WiredTemporaryEffects.For(_room).Forget(actor);
+        _engine.ActorLeaving(actor);
+        WiredAvatarState.For(_room).Thaw(actor);
+        WiredAvatarState.For(_room).Forget(actor);
+        WiredBotTargets.For(_room).Forget(actor);
+        WiredGameState.For(_room).Forget(actor);
+        return true;
+    });
 
     public WiredRoomLogPage ReadLogs(int page, int amount, int level = -1, string query = "") => _roomLog.Read(page, amount, level, query);
 
@@ -72,6 +84,12 @@ public partial class WiredComponent
             _counterItems[item.Id] = item;
             _counters.Attach(item);
         }
+        if (item.IsTemporary && ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)
+            && !_engine.TryGet(item.Id, out _))
+        {
+            var box = CreateConfiguredBox(item) ?? GenerateNewBox(item);
+            if (box != null) AddBox(box);
+        }
         return true;
     });
 
@@ -79,7 +97,8 @@ public partial class WiredComponent
     {
         _counters.Forget(item);
         if (_counterItems.TryGetValue(item.Id, out var attached) && ReferenceEquals(attached, item)) _counterItems.Remove(item.Id);
-        if (_variables?.IsValueCreated == true) _variables.Value.ItemDetached(item.Id);
+        if (_variables?.IsValueCreated == true) _variables.Value.ItemDetached(item);
+        _engine.Remove(item.Id);
         return true;
     });
 
@@ -102,6 +121,9 @@ public partial class WiredComponent
     {
         foreach (var stale in _counterItems.Values.Where(item => !ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)).ToArray()) DetachRoomItem(stale);
         PublishCounterChanges(_counters.Poll(now));
+        if (WiredBotTargets.For(_room).HasTargets)
+            foreach (var arrival in WiredBotTargets.For(_room).Poll(_room))
+                if (!_engine.Enqueue(arrival)) NLog.LogManager.GetLogger("Wired").Warn("Wired arrival queue full in room {0}", _room.Id);
         FlushExternalChanges();
     }
 
@@ -112,7 +134,7 @@ public partial class WiredComponent
         foreach (var change in _variables.Value.DrainChanges())
             _engine.Enqueue(new(WiredEventKind.Variable)
             {
-                Code = unchecked((int)change.Key.DefinitionId), Action = (int)change.Kind,
+                Code = unchecked((int)change.Key.DefinitionId), Action = (int)change.Kind, VariableChange = change,
                 PreviousValue = change.Before?.Value ?? 0, Value = change.After?.Value ?? 0,
                 EventItem = change.Key.Target == WiredVariableTarget.Furni ? _room.GetRoomItemHandler().GetItem((uint)change.EntityId) : null,
                 TargetUser = change.Key.Target == WiredVariableTarget.User ? _room.GetRoomUserManager().GetRoomUserByVirtualId(change.EntityId) : null
@@ -124,6 +146,8 @@ public partial class WiredComponent
         foreach (var change in changes)
         {
             if (!ReferenceEquals(_room.GetRoomItemHandler().GetItem(change.Item.Id), change.Item)) continue;
+            if (change.Event.Kind == WiredEventKind.GameStart)
+            { _room.GetGameManager().Reset(); WiredGameState.For(_room).ResetQuotas(); }
             if (change.DisplayChanged) change.Item.UpdateState();
             _engine.Enqueue(change.Event);
         }

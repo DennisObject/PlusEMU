@@ -35,13 +35,15 @@ public partial class WiredComponent : IWiredRuntimeOperations
             () => _room.GetRoomUserManager().GetUserList(),
             id => _room.GetRoomItemHandler().GetItem(id),
             id => _room.GetRoomUserManager().GetRoomUserByVirtualId(id)), this,
-            () => _counters.HasRunning, PollCounters, FlushExternalChanges);
+            () => _counters.HasRunning || WiredBotTargets.For(_room).HasTargets, PollCounters, FlushExternalChanges);
         _engine.ObserveEvent = (evt, now) =>
         {
             _selectorState.Observe(evt, now);
             if (evt.Kind == WiredEventKind.Leave && evt.Actor != null)
             {
                 WiredAvatarState.For(_room).Forget(evt.Actor);
+                WiredBotTargets.For(_room).Forget(evt.Actor);
+                WiredGameState.For(_room).Forget(evt.Actor);
                 if (_variables?.IsValueCreated == true) _variables.Value.HolderLeft(WiredVariableRuntimeFrames.UserHolder(evt.Actor));
             }
         };
@@ -56,7 +58,11 @@ public partial class WiredComponent : IWiredRuntimeOperations
     internal void OnFastCycle() => _engine.OnFastCycle();
     internal bool NeedsFastCycle => _engine.NeedsFastCycle;
     internal void ObserveFastWork(Action<bool>? observer) => _engine.ObserveFastWork(observer);
-    public bool Dispatch(WiredRuntimeEvent @event) => _engine.Dispatch(@event);
+    public bool Dispatch(WiredRuntimeEvent @event)
+    {
+        if (@event.Kind == WiredEventKind.GameStart) WiredGameState.For(_room).ResetQuotas();
+        return _engine.Dispatch(@event);
+    }
     public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) =>
         _engine.CallStacks(context, targets, negative);
     public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) =>
@@ -339,6 +345,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public bool TriggerEvent(WiredBoxType type, params object[] arguments)
     {
+        if (type == WiredBoxType.TriggerGameStarts) WiredGameState.For(_room).ResetQuotas();
         WiredEventKind? kind = type switch
         {
             WiredBoxType.TriggerRoomEnter => WiredEventKind.Enter,
@@ -446,8 +453,11 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public void Cleanup()
     {
+        WiredTemporaryEffects.For(_room).Clear();
         _engine.Clear();
         _selectorState.Reset();
+        WiredBotTargets.For(_room).Clear();
+        WiredGameState.For(_room).Clear();
         WiredAvatarState.For(_room).Clear();
         _counters.Clear();
         _counterItems.Clear();

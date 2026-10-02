@@ -58,6 +58,23 @@ internal sealed partial class WiredStackEngine
         return true;
     });
 
+    public void ActorLeaving(RoomUser actor) => Pass(() =>
+    {
+        if (_activeFiring?.Context.Event.Kind != WiredEventKind.Leave && ReferenceEquals(_activeFiring?.Context.Event.Actor, actor))
+            _activeFiring!.Cancelled = true;
+        _pending.RemoveWhere(chain => chain.Context.Runtime?.Event.Kind != WiredEventKind.Leave
+            && (ReferenceEquals(chain.Context.Runtime?.Event.Actor, actor) || ReferenceEquals(chain.Context.ActorVisit, actor)));
+        PruneSchedule(); // Cancellation runs while the original visit can still restore transient effects.
+        var kept = _dispatches.Where(pending => pending.Event.Kind == WiredEventKind.Leave
+            || !ReferenceEquals(pending.Event.Actor, actor)).ToArray();
+        foreach (var pending in _dispatches.Except(kept)) pending.Current?.Dispose();
+        foreach (var pending in _dispatches) pending.IsQueued = false;
+        _dispatches.Clear(); _queuedSlots = 0;
+        foreach (var pending in kept) QueueDispatch(pending);
+        UpdateFastWork();
+        return true;
+    });
+
     public bool NeedsFastCycle => Volatile.Read(ref _fastWork) != 0;
 
     public void ObserveFastWork(Action<bool>? observer)
