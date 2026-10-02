@@ -8,7 +8,7 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 /// Durable writes complete before changes enter the queue. The directory remains the authority on ownership/placement.
 /// </summary>
 public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory directory, IWiredVariableStore durable,
-    Func<long> nowMs, IWiredBuiltinVariables? builtins = null)
+    Func<long> nowMs, IWiredBuiltinVariables? builtins = null, Func<WiredVariableReference, WiredVariableDerivation?>? derive = null)
 {
     private readonly MemoryWiredVariableStore _active = new();
     private readonly Queue<WiredVariableChange> _changes = new();
@@ -55,6 +55,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
                 var value = resolution.Builtin is { } builtin ? builtins?.Read(builtin, holder, frame)
                     : values.GetValueOrDefault(Key(definition!, holder))
                         ?? (definition!.Target == WiredVariableTarget.Global ? new(definition.InitialValue, 0, 0) : null);
+                if (value is not null && resolution.Convert is { } convert) value = convert(value);
                 if (value is not null) captured[(reference, holder)] = value;
             }
             return new(roomId, captured);
@@ -72,7 +73,8 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             var definition = resolved.Definition!;
             if (definition.IsDurable && !holder.CanPersist) return null;
             var stored = Store(definition, frame).Read(Key(definition, holder));
-            return stored ?? (definition.Target == WiredVariableTarget.Global ? new(definition.InitialValue, 0, 0) : null);
+            var value = stored ?? (definition.Target == WiredVariableTarget.Global ? new(definition.InitialValue, 0, 0) : null);
+            return value is not null && resolved.Convert is { } convert ? convert(value) : value;
         }
     }
 
@@ -248,6 +250,12 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     private Resolved? Resolve(WiredVariableReference reference, bool writing, IWiredVariableDirectory? readDirectory = null)
     {
         var authority = readDirectory ?? directory;
+        if (derive?.Invoke(reference) is { } derived)
+        {
+            if (writing || derived.Source == reference) return null;
+            var source = Resolve(derived.Source, false, authority);
+            return source is null || derived.RequiresValue && source.Definition?.HasValue != true ? null : source with { Convert = derived.Convert };
+        }
         var visited = new HashSet<uint>();
         var lineage = ImmutableArray.CreateBuilder<WiredVariableDefinition>();
         var expectedRoom = roomId;
@@ -281,7 +289,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         uint.TryParse(token.StartsWith("custom:", StringComparison.Ordinal) ? token[7..] : token,
             NumberStyles.None, CultureInfo.InvariantCulture, out id) && id > 0;
 
-    private sealed record Resolved(WiredVariableDefinition? Definition, WiredVariableReference? Builtin, WiredVariableAuthorization? Authorization);
+    private sealed record Resolved(WiredVariableDefinition? Definition, WiredVariableReference? Builtin, WiredVariableAuthorization? Authorization, Func<WiredVariableValue, WiredVariableValue?>? Convert = null);
 
     private sealed class ReadDirectory(IWiredVariableDirectory source) : IWiredVariableDirectory
     {

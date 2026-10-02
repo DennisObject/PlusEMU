@@ -18,7 +18,7 @@ public sealed partial class WiredRoomVariables
 
     private WiredVariableMetadataBox? MetadataOn(uint definitionId, string name)
     {
-        if (!_definitions.TryGetValue(definitionId, out var definition)) return null;
+        if (!_definitions.TryGetValue(definitionId, out var definition) || !IsAttached(definition.Item)) return null;
         return _metadata.Values.Where(x => x.Descriptor.CanonicalName == name && IsAttached(x.Item)
             && x.Item.GetX == definition.Item.GetX && x.Item.GetY == definition.Item.GetY)
             .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).FirstOrDefault();

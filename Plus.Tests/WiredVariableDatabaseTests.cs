@@ -227,6 +227,40 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             output.WriteLine("Atomic definition/global save: configuration-command failure, value-command failure, owner race and stale sidecar rejected without active publication or events; successful combined commit passed.");
             output.WriteLine("Active global rollback and concurrent first sidecar/value save passed: one winner, one rejected stale save, one event.");
 
+            var levelItem = new Item { Id = 1100000000, Definition = new() { InteractionName = "wf_xtra_var_lvlup_system" } };
+            var timeItem = new Item { Id = 1100000001, Definition = new() { InteractionName = "wf_xtra_var_time_util" } };
+            floor[levelItem.Id] = levelItem; floor[timeItem.Id] = timeItem;
+            var levelBox = Assert.IsType<WiredVariableMetadataBox>(roomVariables.CreateBox(levelItem));
+            levelBox.ApplyConfiguration(new() { Text = "{\"mode\":1,\"stepSize\":10,\"maxLevel\":10,\"subvariables\":[0,2]}" });
+            roomVariables.ConfigurationLoaded(levelBox);
+            var timeBox = Assert.IsType<WiredVariableMetadataBox>(roomVariables.CreateBox(timeItem));
+            timeBox.ApplyConfiguration(new() { IntParams = [(1 << 2) | (1 << 21), 1] }); roomVariables.ConfigurationLoaded(timeBox);
+            var levelId = WiredRoomVariables.SyntheticId(WiredVariableTarget.User, items[0], 0, false)!.Value;
+            var timeId = WiredRoomVariables.SyntheticId(WiredVariableTarget.User, items[0], 21, true)!.Value;
+            var levelRef = new WiredVariableReference(WiredVariableTarget.User, $"custom:{levelId}");
+            Assert.Equal(3, roomVariables.Module.Read(levelRef, holders[0], frame)!.Value);
+            Assert.Equal(1, roomVariables.Module.Read(new(WiredVariableTarget.User, $"custom:{timeId}"), holders[0], frame)!.Value);
+            Assert.False(roomVariables.Module.Mutate(levelRef, holders[0], WiredVariableMutation.Set, 99, frame));
+            Assert.Contains(roomVariables.Catalog().Variables, x => x.Definition.ItemId == levelId && x.ReadOnly && !x.CanReadTimestamps);
+            atomicDb.Commands = 0;
+            using (var reads = roomVariables.Module.CaptureReads([levelRef, new(WiredVariableTarget.User, $"custom:{timeId}")], frame))
+                foreach (var holder in holders) Assert.Equal(3, reads.Read(levelRef, holder, frame)!.Value);
+            Assert.Equal(3, atomicDb.Commands); // One owner, one base definition, one bulk value query for both derived fields.
+            admin.Execute("UPDATE rooms SET owner=@changed WHERE id=@room", new { changed = "0", room });
+            Assert.Null(roomVariables.Module.Read(levelRef, holders[0], frame));
+            admin.Execute("UPDATE rooms SET owner=@owner WHERE id=@room", new { owner = owner.ToString(), room });
+            levelItem.SetState(1, 0, 0, []);
+            Assert.Null(roomVariables.Module.Read(levelRef, holders[0], frame));
+            var questItem = new Item { Id = 1100000002, Definition = new() { InteractionName = "wf_var_quest" } }; floor[questItem.Id] = questItem;
+            var questBox = Assert.IsType<WiredVariableMetadataBox>(roomVariables.CreateBox(questItem));
+            questBox.ApplyConfiguration(new() { IntParams = [50] }); roomVariables.ConfigurationLoaded(questBox);
+            Assert.Equal(25, roomVariables.Module.Read(levelRef, holders[0], frame)!.Value);
+            Assert.Contains(roomVariables.Catalog().Variables, x => x.Definition.ItemId == levelId && x.Definition.Name == "probe0.progress");
+            Assert.Empty(store.GetHolders(levelId)); Assert.Empty(store.GetHolders(timeId));
+            roomVariables.ItemDetached(questItem); floor.TryRemove(questItem.Id, out _);
+            roomVariables.ItemDetached(levelItem); roomVariables.ItemDetached(timeItem); floor.TryRemove(levelItem.Id, out _); floor.TryRemove(timeItem.Id, out _);
+            output.WriteLine("Derived level/time catalog and public reads: real base values, read-only mutation rejection, 400 derived values in 3 SQL commands, owner revocation and moved metadata invalidation passed.");
+
             var clearDb = new ProbeDatabase(connectionString);
             var clearModule = new WiredVariableModule(room, directory, new DatabaseWiredVariableStore(clearDb), () => 7000);
             clearDb.FailSqlPrefix = "DELETE FROM wired_variable_values";
