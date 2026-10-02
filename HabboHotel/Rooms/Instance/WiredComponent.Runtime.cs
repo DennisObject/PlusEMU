@@ -21,7 +21,7 @@ public partial class WiredComponent
     private Lazy<WiredRoomVariables>? _variables;
     private IWiredConfigurationStore ConfigurationStore => _configurationStore ??= new WiredConfigurationStore(PlusEnvironment.DatabaseManager);
     public WiredRoomVariables Variables => (_variables ??= new(() => new(_room,
-        PlusEnvironment.DatabaseManager, () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin))).Value;
+        PlusEnvironment.DatabaseManager, () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged))).Value;
 
     // Returns a detached concrete candidate. Registration and persistence belong to the loader/publisher.
     public IWiredConfiguredItem? CreateConfiguredBox(Item item, WiredBoxDescriptor? descriptor = null)

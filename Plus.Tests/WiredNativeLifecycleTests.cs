@@ -206,6 +206,28 @@ public sealed class WiredNativeLifecycleTests
         f.Wired.Cleanup(); Assert.Null(f.Wired.Variables.Module.Read(reference, holder, frame));
     }
 
+    [Fact]
+    public void NativeBuiltinStateCompletionPublishesOnceForCreatorAndFiringFrames()
+    {
+        var f = new World(); f.PrepareVariables(); var item = f.Item(3);
+        var triggerItem = f.Item(1); triggerItem.Definition.InteractionName = "wf_trg_state_changed";
+        var trigger = f.Wired.CreateConfiguredBox(triggerItem)!;
+        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [item.Id] }, out var config, out var error), error);
+        trigger.ApplyConfiguration(config); Assert.True(f.Wired.AddBox(trigger));
+        var effect = f.Effect(); var holder = WiredVariableRuntimeFrames.FurniHolder(item);
+        var reference = new WiredVariableReference(WiredVariableTarget.Furni, "internal:@state");
+        Assert.True(f.Wired.Variables.Module.Mutate(reference, holder, WiredVariableMutation.Set, 1, new(1, [holder])));
+        f.Wired.OnFastCycle(); Assert.Equal(1, effect.Calls);
+        Assert.False(f.Wired.Variables.Module.Mutate(reference, holder, WiredVariableMutation.Set, 1, new(1, [holder])));
+        f.Wired.OnCycle(); Assert.Equal(1, effect.Calls);
+        Assert.True(f.Wired.Variables.Module.Mutate(reference, holder, WiredVariableMutation.Set, 0, WiredVariableRuntimeFrames.Create(f.Context())));
+        f.Wired.OnFastCycle(); Assert.Equal(2, effect.Calls);
+        f.Remove(item); var replacement = f.Item(item.Id);
+        f.Wired.PublishBuiltinStateChanged(item, new(1, [holder]));
+        f.Wired.OnCycle(); Assert.Equal(2, effect.Calls);
+        Assert.Equal("0", replacement.LegacyDataString);
+    }
+
     private sealed class World
     {
         public Room Room { get; } = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
@@ -231,7 +253,7 @@ public sealed class WiredNativeLifecycleTests
             // Keep native variable read/write behavior; isolate only storage authority for these non-SQL regressions.
             var variables = Wired.Variables;
             var module = new WiredVariableModule(Room.Id, new OwnerDirectory(), new MemoryWiredVariableStore(), () => 0,
-                new RoomWiredBuiltinVariables(Room, engineRead: Wired.ReadBuiltin, engineWrite: Wired.WriteBuiltin));
+                new RoomWiredBuiltinVariables(Room, engineRead: Wired.ReadBuiltin, engineWrite: Wired.WriteBuiltin, stateChanged: Wired.PublishBuiltinStateChanged));
             typeof(WiredRoomVariables).GetField("<Module>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(variables, module);
         }
         public void Remove(Item item) => _items.TryRemove(item.Id, out _);

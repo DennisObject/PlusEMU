@@ -1,5 +1,7 @@
+using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items.Wired.Runtime;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -49,6 +51,17 @@ public partial class WiredComponent
         }
         return false;
     }
+
+    // Module.Change invokes this completion only after releasing its value lock.
+    internal void PublishBuiltinStateChanged(Item item, WiredVariableFrame frame) => _engine.Mutate(() =>
+    {
+        if (frame.RoomId != _room.Id || !_targets.IsAttached(item)) return false;
+        var context = frame.RuntimeContext;
+        var actor = context?.Event.Kind == WiredEventKind.Leave ? null : context?.Event.Actor;
+        if (actor != null && !ReferenceEquals(_room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId), actor)) return false;
+        QueueRuntimeEvent(new(WiredEventKind.StateChanged) { EventItem = item, Actor = actor }, frame.Depth + 1);
+        return true;
+    });
 
     private static bool Rotate(RoomUser user, int direction)
     {
