@@ -1001,10 +1001,33 @@ public class ModernWiredRuntimeTests
             variableId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
             admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@variableId,'wf_var_furni',1,@config)", new { variableId, config = System.Text.Json.JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1, 1], Text = "spawnvalue" }) });
             f.Room.Id = roomId; f.Room.OwnerId = (int)userId;
+            f.Target.Definition.Stackable = true;
             var definition = MakeItem(baseId, "probe").Definition; definition.Id = baseId; definition.Stackable = true;
             var definitions = DispatchProxy.Create<IItemDataManager, RecordingProxy>(); ((RecordingProxy)(object)definitions).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [baseId] = definition } : null; f.DefinitionManager = definitions;
             dbField.SetValue(null, new ModernWiredDatabaseProbe.ProbeDatabase(connectionString));
-            var action = ActionBox(f.Room, "wf_act_place_furni"); action.Item.OwnerId = userId;
+            var spawnId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
+            var loadedRows = new DataTable();
+            using (var reader = admin.ExecuteReader("SELECT items.*,users.username FROM items JOIN users ON users.id=items.user_id WHERE items.id=@spawnId", new { spawnId }))
+                loadedRows.Load(reader);
+            var action = ActionBox(f.Room, "wf_act_place_furni");
+            action.Item = ItemLoader.ReadRoomItem(Assert.Single(loadedRows.Rows.Cast<DataRow>()), roomId, action.Item.Definition);
+            f.Items[spawnId] = action.Item;
+            var removals = new List<byte[]>();
+            f.Habbo.Client.SendCallback = args =>
+            {
+                var packet = args.MemoryBuffer.ToArray();
+                if (FlashGameClient.DecodeInt16(packet.AsMemory(4, 2)) == ServerPacketHeader.ObjectRemoveComposer) removals.Add(packet);
+                return true;
+            };
+            Assert.True(action.TryValidateConfiguration(new() { IntParams = [(int)baseId, 1, 1, 1, 2, 0] }, out var raw, out _));
+            action.ApplyConfiguration(raw);
+            Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
+            var literal = Assert.Single(f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary));
+            Assert.Equal(userId, literal.OwnerId); Assert.Equal((int)userId, literal.UserId);
+            Assert.True(f.Room.GetRoomItemHandler().RemoveTemporaryFloorItem(literal));
+            var removal = new FlashIncomingPacket { Buffer = Assert.Single(removals).AsMemory(6) };
+            Assert.Equal(unchecked((int)literal.Id).ToString(), removal.ReadString()); Assert.False(removal.ReadBool());
+            Assert.Equal((int)userId, removal.ReadInt()); Assert.Equal(0, removal.ReadInt()); Assert.False(removal.HasDataRemaining());
             var config = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with {
                 TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude, SpawnWithVariable: true, Value: 37),
                 VariableIds = [$"custom:{variableId}"], Snapshots = [new(0, baseId, 1, 1, 0, 0, "1"), new(0, baseId, 2, 1, 0, 0, "0")]
@@ -1013,6 +1036,7 @@ public class ModernWiredRuntimeTests
             var context = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]); context.VariableFrame = new(roomId, []);
             Assert.True(action.Execute(context));
             var copies = f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray(); Assert.Equal(2, copies.Length);
+            Assert.All(copies, item => { Assert.Equal(userId, item.OwnerId); Assert.Equal((int)userId, item.UserId); });
             var holders = copies.Select(WiredVariableRuntimeFrames.FurniHolder).ToArray(); Assert.NotEqual(holders[0].StorageId, holders[1].StorageId);
             var frame = new WiredVariableFrame(roomId, holders); var module = f.Room.GetWired().Variables.Module; var reference = new WiredVariableReference(WiredVariableTarget.Furni, $"custom:{variableId}");
             Assert.All(holders, holder => Assert.Equal(37, module.Read(reference, holder, frame)!.Value));
