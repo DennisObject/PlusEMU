@@ -16,6 +16,7 @@ namespace Plus.HabboHotel.Items;
 public class Item
 {
     public uint Id { get; set; }
+    public bool IsTemporary { get; internal init; }
     public uint OwnerId { get; set; }
     public uint RoomId { get; set; }
     public ItemDefinition Definition { get; set; }
@@ -1104,6 +1105,12 @@ public class Item
             else
                 GetRoom().SendPacket(new ItemUpdateComposer(this));
         }
+    }
+
+    internal void BindTemporaryRoom(Room room)
+    {
+        if (!IsTemporary || RoomId != room.RoomId) throw new InvalidOperationException("Only a temporary item in this room can be bound.");
+        _room = room;
     }
 
     [Obsolete]
