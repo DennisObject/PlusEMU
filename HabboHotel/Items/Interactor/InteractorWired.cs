@@ -32,6 +32,15 @@ public class InteractorWired : IFurniInteractor
                 session.Send(new WiredValidationErrorComposer("This Wired box is not implemented."));
             return;
         }
+        if (WiredLegacyCustomEditor.IsCustom(box) || WiredLegacyEditorProjection.TryGetDescriptor(box, out _))
+        {
+            if (WiredLegacyEditorProjection.TryGetConfiguration(box, out var descriptor, out var configuration))
+                session.Send(new WiredConfiguredConfigComposer(item, descriptor, configuration,
+                    WiredLegacyCustomEditor.IsCustom(box) ? 0 : WiredConfigurationLimits.SelectedItems));
+            else
+                session.Send(new WiredValidationErrorComposer("Unable to read the saved settings for this Wired editor."));
+            return;
+        }
         item.LegacyDataString = "1";
         item.UpdateState(false, true);
         item.RequestUpdate(2, true);
