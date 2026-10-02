@@ -143,6 +143,41 @@ public class StressBotTests
         Assert.NotEmpty(PathFinder.FindPath(walking, true, map, new(walking.X, walking.Y), new(2, 2)));
     }
 
+    [Fact]
+    public async Task ConcurrentNormalAndStressDeploymentsKeepVirtualLookupAndClearConsistent()
+    {
+        var (manager, _) = CreateRoom();
+        using var start = new Barrier(2);
+        manager.QueueStressBots(500, 7, _ => { });
+        var stress = Task.Run(() =>
+        {
+            start.SignalAndWait();
+            manager.ProcessStressBots();
+        });
+        var normal = Task.Run(() =>
+        {
+            start.SignalAndWait();
+            Parallel.For(1, 501, id =>
+            {
+                var speeches = new List<Plus.HabboHotel.Rooms.AI.Speech.RandomSpeech>();
+                manager.DeployBot(new(id, 0, "generic", "stand", $"Regular {id}", "", "hd-180-1",
+                    1, 1, 0, 0, 0, 0, 0, 0, ref speeches, "M", 0, 7, false, 60, false, 0), null!);
+            });
+        });
+        await Task.WhenAll(stress, normal);
+
+        Assert.Equal(1000, manager.GetUserList().Count);
+        Assert.All(manager.GetUserList(), user =>
+        {
+            Assert.Equal(user.VirtualId, user.InternalRoomId);
+            Assert.Same(user, manager.GetRoomUserByVirtualId(user.VirtualId));
+        });
+        manager.QueueStressBots(0, 7, _ => { });
+        manager.ProcessStressBots();
+        Assert.Equal(500, manager.GetUserList().Count);
+        Assert.All(manager.GetUserList(), user => Assert.False(user.BotData.IsTemporary));
+    }
+
     // Bypass Room's DB-loading constructor while retaining its real user manager and map.
     private static (RoomUserManager Manager, Gamemap Map) CreateRoom()
     {

@@ -32,7 +32,6 @@ public class RoomUserManager
 
     private int _primaryPrivateUserId;
     private Room _room;
-    private int _secondaryPrivateUserId;
     private ConcurrentDictionary<int, RoomUser> _users;
 
     public int UserCount;
@@ -45,7 +44,6 @@ public class RoomUserManager
         _pets = new();
         _bots = new();
         _primaryPrivateUserId = 0;
-        _secondaryPrivateUserId = 0;
         PetCount = 0;
         UserCount = 0;
     }
@@ -109,7 +107,7 @@ public class RoomUserManager
     {
         var user = new RoomUser(0, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room);
         bot.VirtualId = user.VirtualId;
-        var personalId = Interlocked.Increment(ref _secondaryPrivateUserId) - 1;
+        var personalId = user.VirtualId;
         user.InternalRoomId = personalId;
         _users.TryAdd(personalId, user);
         var model = _room.GetGameMap().Model;
@@ -192,7 +190,7 @@ public class RoomUserManager
             return false;
         user.UserId = session.GetHabbo().Id;
         session.GetHabbo().TentId = 0;
-        var personalId = Interlocked.Increment(ref _secondaryPrivateUserId) - 1;
+        var personalId = user.VirtualId;
         user.InternalRoomId = personalId;
         session.GetHabbo().CurrentRoom = _room;
         if (!_users.TryAdd(personalId, user))
