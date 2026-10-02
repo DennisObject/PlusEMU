@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -8,7 +7,6 @@ namespace Plus.HabboHotel.Items.Wired.Boxes.Effects;
 
 internal class TeleportUserBox : IWiredItem, IWiredCycle
 {
-    private readonly Queue _queue;
     private int _delay;
 
     public TeleportUserBox(Room instance, Item item)
@@ -16,7 +14,6 @@ internal class TeleportUserBox : IWiredItem, IWiredCycle
         Instance = instance;
         Item = item;
         SetItems = new();
-        _queue = new();
         TickCount = Delay;
     }
 
@@ -32,24 +29,8 @@ internal class TeleportUserBox : IWiredItem, IWiredCycle
 
     public int TickCount { get; set; }
 
-    public bool OnCycle()
-    {
-        if (_queue.Count == 0 || SetItems.Count == 0)
-        {
-            _queue.Clear();
-            TickCount = Delay;
-            return true;
-        }
-        while (_queue.Count > 0)
-        {
-            var player = (Habbo)_queue.Dequeue();
-            if (player == null || player.CurrentRoom != Instance)
-                continue;
-            TeleportUser(player);
-        }
-        TickCount = Delay;
-        return true;
-    }
+    // Delayed firings are independently retained by the room engine.
+    public bool OnCycle() => false;
 
     public Room Instance { get; set; }
     public Item Item { get; set; }
@@ -80,11 +61,11 @@ internal class TeleportUserBox : IWiredItem, IWiredCycle
         if (@params == null || @params.Length == 0)
             return false;
         var player = (Habbo)@params[0];
-        if (player == null)
+        if (player == null || player.CurrentRoom != Instance || SetItems.Count == 0)
             return false;
         if (player.Effects != null)
             player.Effects.ApplyEffect(4);
-        _queue.Enqueue(player);
+        TeleportUser(player);
         return true;
     }
 

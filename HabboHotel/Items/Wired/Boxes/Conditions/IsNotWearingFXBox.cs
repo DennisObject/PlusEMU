@@ -16,7 +16,7 @@ internal class IsNotWearingFxBox : IWiredItem
 
     public Room Instance { get; set; }
     public Item Item { get; set; }
-    public WiredBoxType Type => WiredBoxType.ConditionIsWearingFx;
+    public WiredBoxType Type => WiredBoxType.ConditionIsNotWearingFx;
     public ConcurrentDictionary<uint, Item> SetItems { get; set; }
     public string StringData { get; set; }
     public bool BoolData { get; set; }

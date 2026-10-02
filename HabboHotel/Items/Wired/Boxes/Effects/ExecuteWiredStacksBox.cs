@@ -50,29 +50,6 @@ internal class ExecuteWiredStacksBox : IWiredItem
         var player = (Habbo)@params[0];
         if (player == null)
             return false;
-        foreach (var item in SetItems.Values.ToList())
-        {
-            if (item == null || !Instance.GetRoomItemHandler().GetFloor.Contains(item) || !item.IsWired)
-                continue;
-            if (Instance.GetWired().TryGet(item.Id, out var wiredItem))
-            {
-                if (wiredItem.Type == WiredBoxType.EffectExecuteWiredStacks)
-                    continue;
-                var effects = Instance.GetWired().GetEffects(wiredItem);
-                if (effects.Count > 0)
-                {
-                    foreach (var effectItem in effects.ToList())
-                    {
-                        if (SetItems.ContainsKey(effectItem.Item.Id) && effectItem.Item.Id != item.Id)
-                            continue;
-                        if (effectItem.Type == WiredBoxType.EffectExecuteWiredStacks)
-                            continue;
-                        effectItem.Execute(player);
-                    }
-                }
-            }
-            else continue;
-        }
-        return true;
+        return Instance.GetWired().CallStacks(SetItems.Values, player);
     }
 }

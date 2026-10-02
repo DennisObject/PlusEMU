@@ -29,63 +29,15 @@ internal class RepeaterBox : IWiredItem, IWiredCycle
 
     public bool OnCycle()
     {
-        var success = false;
-        ICollection<RoomUser> avatars = Instance.GetRoomUserManager().GetRoomUsers().ToList();
-        var effects = Instance.GetWired().GetEffects(this);
-        var conditions = Instance.GetWired().GetConditions(this);
-        foreach (var condition in conditions.ToList())
-        {
-            foreach (var avatar in avatars.ToList())
-            {
-                if (avatar == null || avatar.GetClient() == null || avatar.GetClient().GetHabbo() == null)
-                    continue;
-                if (!condition.Execute(avatar.GetClient().GetHabbo()))
-                    continue;
-                success = true;
-            }
-            if (!success)
-                return false;
-            success = false;
-            Instance.GetWired().OnEvent(condition.Item);
-        }
-        success = false;
-
-        //Check the ICollection to find the random addon effect.
-        var hasRandomEffectAddon = effects.Count(x => x.Type == WiredBoxType.AddonRandomEffect) > 0;
-        if (hasRandomEffectAddon)
-        {
-            //Okay, so we have a random addon effect, now lets get the IWiredItem and attempt to execute it.
-            var randomBox = effects.FirstOrDefault(x => x.Type == WiredBoxType.AddonRandomEffect);
-            if (!randomBox.Execute())
-                return false;
-
-            //Success! Let's get our selected box and continue.
-            var selectedBox = Instance.GetWired().GetRandomEffect(effects.ToList());
-            if (!selectedBox.Execute())
-                return false;
-
-            //Woo! Almost there captain, now lets broadcast the update to the room instance.
-            if (Instance != null)
-            {
-                Instance.GetWired().OnEvent(randomBox.Item);
-                Instance.GetWired().OnEvent(selectedBox.Item);
-            }
-        }
-        else
-        {
-            foreach (var effect in effects.ToList())
-            {
-                if (!effect.Execute())
-                    continue;
-                success = true;
-                if (!success)
-                    return false;
-                if (Instance != null)
-                    Instance.GetWired().OnEvent(effect.Item);
-            }
-        }
+        // The timer always resets, including a blocked stack; a failed condition does not
+        // turn this into a trigger that polls on every room cycle.
         TickCount = Delay;
-        return true;
+        var actors = Instance.GetRoomUserManager().GetRoomUsers()
+            .Select(user => user?.GetClient()?.GetHabbo())
+            .Where(player => player != null)
+            .Select(player => new object[] { player })
+            .ToArray();
+        return Instance.GetWired().RunPeriodicStack(this, actors);
     }
 
     public Room Instance { get; set; }

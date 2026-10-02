@@ -10,15 +10,12 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
 {
     private int _delay;
 
-    private bool _requested;
-
     public MatchPositionBox(Room instance, Item item)
     {
         Instance = instance;
         Item = item;
         SetItems = new();
         TickCount = Delay;
-        _requested = false;
     }
 
     public int Delay
@@ -33,70 +30,8 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
 
     public int TickCount { get; set; }
 
-    public bool OnCycle()
-    {
-        if (!_requested || string.IsNullOrEmpty(StringData) || StringData == "0;0;0" || SetItems.Count == 0)
-            return false;
-        foreach (var item in SetItems.Values.ToList())
-        {
-            if (Instance.GetRoomItemHandler().GetFloor == null && !Instance.GetRoomItemHandler().GetFloor.Contains(item))
-                continue;
-            foreach (var I in ItemsData.Split(';'))
-            {
-                if (string.IsNullOrEmpty(I))
-                    continue;
-                var itemId = Convert.ToInt32(I.Split(':')[0]);
-                var ii = Instance.GetRoomItemHandler().GetItem(Convert.ToUInt32(itemId));
-                if (ii == null)
-                    continue;
-                var partsString = I.Split(':');
-                try
-                {
-                    if (string.IsNullOrEmpty(partsString[0]) || string.IsNullOrEmpty(partsString[1]))
-                        continue;
-                }
-                catch
-                {
-                    continue;
-                }
-                var part = partsString[1].Split(',');
-                try
-                {
-                    if (int.Parse(StringData.Split(';')[0]) == 1) //State
-                    {
-                        if (part.Length >= 4)
-                            SetState(ii, part[4]);
-                        else
-                            SetState(ii, "1");
-                    }
-                }
-                catch (Exception e)
-                {
-                    ExceptionLogger.LogWiredException(e);
-                }
-                try
-                {
-                    if (int.Parse(StringData.Split(';')[1]) == 1) //Direction
-                        SetRotation(ii, Convert.ToInt32(part[3]));
-                }
-                catch (Exception e)
-                {
-                    ExceptionLogger.LogWiredException(e);
-                }
-                try
-                {
-                    if (int.Parse(StringData.Split(';')[2]) == 1) //Position
-                        SetPosition(ii, Convert.ToInt32(part[0]), Convert.ToInt32(part[1]), Convert.ToDouble(part[2]));
-                }
-                catch (Exception e)
-                {
-                    ExceptionLogger.LogWiredException(e);
-                }
-            }
-        }
-        _requested = false;
-        return true;
-    }
+    // Scheduling belongs to the room engine; this contract is retained for saved delays.
+    public bool OnCycle() => false;
 
     public Room Instance { get; set; }
 
@@ -133,10 +68,66 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
 
     public bool Execute(params object[] @params)
     {
-        if (!_requested)
+        if (string.IsNullOrEmpty(StringData) || StringData == "0;0;0" || SetItems.Count == 0)
+            return false;
+        foreach (var item in SetItems.Values.ToList())
         {
-            TickCount = Delay;
-            _requested = true;
+            if (Instance.GetRoomItemHandler().GetFloor == null || !Instance.GetRoomItemHandler().GetFloor.Contains(item))
+                continue;
+            foreach (var I in ItemsData.Split(';'))
+            {
+                if (string.IsNullOrEmpty(I))
+                    continue;
+                var itemId = Convert.ToInt32(I.Split(':')[0]);
+                if (itemId != item.Id)
+                    continue;
+                var ii = Instance.GetRoomItemHandler().GetItem(Convert.ToUInt32(itemId));
+                if (ii == null)
+                    continue;
+                var partsString = I.Split(':');
+                try
+                {
+                    if (string.IsNullOrEmpty(partsString[0]) || string.IsNullOrEmpty(partsString[1]))
+                        continue;
+                }
+                catch
+                {
+                    continue;
+                }
+                var part = partsString[1].Split(',');
+                try
+                {
+                    if (int.Parse(StringData.Split(';')[0]) == 1) //State
+                    {
+                        if (part.Length >= 5)
+                            SetState(ii, part[4]);
+                        else
+                            SetState(ii, "1");
+                    }
+                }
+                catch (Exception e)
+                {
+                    ExceptionLogger.LogWiredException(e);
+                }
+                try
+                {
+                    if (int.Parse(StringData.Split(';')[1]) == 1) //Direction
+                        SetRotation(ii, Convert.ToInt32(part[3]));
+                }
+                catch (Exception e)
+                {
+                    ExceptionLogger.LogWiredException(e);
+                }
+                try
+                {
+                    if (int.Parse(StringData.Split(';')[2]) == 1) //Position
+                        SetPosition(ii, Convert.ToInt32(part[0]), Convert.ToInt32(part[1]), Convert.ToDouble(part[2]));
+                }
+                catch (Exception e)
+                {
+                    ExceptionLogger.LogWiredException(e);
+                }
+            }
         }
         return true;
     }

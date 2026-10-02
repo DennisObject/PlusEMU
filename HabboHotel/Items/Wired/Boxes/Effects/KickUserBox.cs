@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
@@ -7,9 +6,8 @@ using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Items.Wired.Boxes.Effects;
 
-internal class KickUserBox : IWiredItem, IWiredCycle
+internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay
 {
-    private readonly Queue _toKick;
 
     public KickUserBox(Room instance, Item item)
     {
@@ -17,36 +15,16 @@ internal class KickUserBox : IWiredItem, IWiredCycle
         Item = item;
         SetItems = new();
         TickCount = Delay;
-        _toKick = new();
         if (SetItems.Count > 0)
             SetItems.Clear();
     }
 
     public int TickCount { get; set; }
     public int Delay { get; set; }
+    public long DelayMilliseconds => 1500;
 
-    public bool OnCycle()
-    {
-        if (Instance == null)
-            return false;
-        if (_toKick.Count == 0)
-        {
-            TickCount = 3;
-            return true;
-        }
-        lock (_toKick.SyncRoot)
-        {
-            while (_toKick.Count > 0)
-            {
-                var player = (Habbo)_toKick.Dequeue();
-                if (player == null || !player.InRoom || player.CurrentRoom != Instance)
-                    continue;
-                Instance.GetRoomUserManager().RemoveUserFromRoom(player.Client, true);
-            }
-        }
-        TickCount = 3;
-        return true;
-    }
+    // The legacy kick grace period is scheduled by the room, not a shared actor queue.
+    public bool OnCycle() => false;
 
     public Room Instance { get; set; }
     public Item Item { get; set; }
@@ -67,26 +45,18 @@ internal class KickUserBox : IWiredItem, IWiredCycle
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length != 1)
+        if (@params.Length != 1 || @params[0] is not Habbo player || player.CurrentRoom != Instance)
             return false;
-        var player = (Habbo)@params[0];
-        if (player == null)
+        var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
+        if (user == null)
             return false;
-        if (TickCount <= 0)
-            TickCount = 3;
-        if (!_toKick.Contains(player))
+        if (player.Permissions.HasRight("mod_tool") || Instance.OwnerId == player.Id)
         {
-            var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
-            if (user == null)
-                return false;
-            if (player.Permissions.HasRight("mod_tool") || Instance.OwnerId == player.Id)
-            {
-                player.Client.Send(new WhisperComposer(user.VirtualId, "Wired Kick Exception: Unkickable Player", 0, 0));
-                return false;
-            }
-            _toKick.Enqueue(player);
-            player.Client.Send(new WhisperComposer(user.VirtualId, StringData, 0, 0));
+            player.Client.Send(new WhisperComposer(user.VirtualId, "Wired Kick Exception: Unkickable Player", 0, 0));
+            return false;
         }
+        player.Client.Send(new WhisperComposer(user.VirtualId, StringData, 0, 0));
+        Instance.GetRoomUserManager().RemoveUserFromRoom(player.Client, true);
         return true;
     }
 }
