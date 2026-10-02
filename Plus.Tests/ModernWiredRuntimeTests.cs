@@ -7,6 +7,16 @@ using Plus.Database.Interfaces;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Boxes.Effects;
+using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel;
+using Plus.HabboHotel.Rooms.Instance;
+using Plus.HabboHotel.Rooms.Games.Teams;
+using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Effects;
+using Plus.Communication.Flash;
+using Plus.Communication.Revisions;
+using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern;
@@ -37,7 +47,7 @@ public class ModernWiredRuntimeTests
             Assert.True(WiredTriggerConfiguration.TryValidate(name, WiredTriggerConfiguration.Defaults(name), out _, out _), name);
         foreach (var name in WiredConditionConfiguration.PositiveNames.Concat(WiredConditionConfiguration.NegativeNames.Keys))
             Assert.True(WiredConditionConfiguration.TryValidate(name, WiredConditionConfiguration.Defaults(name), out _, out _), name);
-        foreach (var name in WiredMovementActions.Names.Concat(WiredModernAction.OtherNames))
+        foreach (var name in WiredMovementActions.Names.Concat(WiredModernAction.OtherNames).Concat(WiredBotActions.Names))
             Assert.True(ActionBox(room, name).TryValidateConfiguration(WiredActionConfiguration.Defaults(name), out _, out _), name);
     }
 
@@ -148,6 +158,19 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
+    public void TemporaryEffectsLifecycleReleasesOnlyAttachedUnchangedVisits()
+    {
+        var (room, _, _) = World(); var user = new RoomUser(1, 0, 7, room);
+        var effects = new WiredTemporaryEffects(); var current = 8; var attached = true;
+        var restore = effects.Acquire(user, () => current, value => current = value, () => attached);
+        effects.Forget(user); Assert.Equal(8, current); current = 12; restore(); Assert.Equal(12, current);
+        effects.Acquire(user, () => current, value => current = value, () => attached);
+        effects.Clear(); Assert.Equal(12, current);
+        effects.Acquire(user, () => current, value => current = value, () => attached);
+        attached = false; current = -1; effects.Clear(); Assert.Equal(-1, current);
+    }
+
+    [Fact]
     public void HeadingRemembersTurnAndStopDoesNotInventMovement()
     {
         var item = MakeItem(1, "test"); var directions = new WiredDirectionalActions(); var attempts = new List<Point>();
@@ -191,6 +214,123 @@ public class ModernWiredRuntimeTests
         Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [raw, 0, 100] }, [item], [], [],
             (_, x, y, _, _) => { moves.Add(new(x, y)); return true; }, (_, _, _, _, _) => false, (_, _) => throw new Exception()));
         Assert.Equal(new Point(dx, dy), Assert.Single(moves));
+    }
+
+    [Fact]
+    public void RealScoreControllerPublishesPreviousValuesAndDistinctGameQuotas()
+    {
+        var (room, _, _) = World(); var state = new WiredGameState(); var scores = new List<WiredRuntimeEvent>();
+        Assert.True(state.GiveScore(room, 1, 7, Team.Red, 10, 1, scores.Add));
+        Assert.False(state.GiveScore(room, 1, 7, Team.Red, 10, 1, scores.Add));
+        Assert.True(state.GiveScore(room, 1, 8, Team.Red, -20, 1, scores.Add));
+        Assert.Equal(10, scores[1].PreviousValue); Assert.Equal(0, scores[1].Value); Assert.Equal(0, room.GetGameManager().Points[1]);
+        Assert.True(state.GiveScore(room, 2, 7, Team.Red, 2, 1, scores.Add));
+        state.ResetQuotas(); Assert.True(state.GiveScore(room, 1, 7, Team.Red, 3, 1, scores.Add));
+        for (var index = 0; index < 12; index++) Assert.True(state.GiveScore(room, 3, 7, Team.Red, 1, null, scores.Add));
+        Assert.Equal(17, room.GetGameManager().Points[1]);
+    }
+
+    [Fact]
+    public void BotArrivalUsesActualRoomIdentityAndOnlyFiresOnce()
+    {
+        var (room, _, items) = World(); var bot = Bot(room, 7); var target = MakeItem(1, "test"); items[1] = target;
+        RoomUsers(room)[7] = bot; var targets = new WiredBotTargets(); targets.Walk(bot, target);
+        bot.SetPos(2, 2, 0); Assert.Empty(targets.Poll(room));
+        bot.SetPos(0, 0, 0); Assert.Equal(WiredEventKind.BotReachedFurni, Assert.Single(targets.Poll(room)).Kind);
+        Assert.Empty(targets.Poll(room)); Assert.False(targets.HasTargets);
+        targets.Walk(bot, target); items[1] = MakeItem(1, "replacement");
+        Assert.Empty(targets.Poll(room)); Assert.False(targets.HasTargets);
+        var user = new RoomUser(1, 0, 8, room) { X = 1, Y = 0 }; RoomUsers(room)[8] = user;
+        targets.Follow(bot, user); Assert.Same(user, Assert.Single(targets.Poll(room)).TargetUser); Assert.Empty(targets.Poll(room));
+        RoomUsers(room)[8] = new RoomUser(1, 0, 8, room); Assert.Empty(targets.Poll(room)); Assert.False(targets.HasTargets);
+    }
+
+    [Fact]
+    public void BotValidationPreservesWidthAndFigureChecksActualTurboShape()
+    {
+        Assert.True(WiredBotActions.TryValidate("wf_act_bot_talk_to_avatar", new() { IntParams = [1, 11, 100, 2], Text = "Alice\tHello" }, out var config, out _));
+        Assert.Equal(11, config.UserSources["users"]); Assert.Equal(100, config.UserSources["bots"]); Assert.Equal(2, config.IntParams[3]);
+        Assert.True(WiredBotActions.FigureWellFormed("hd-180-1.ch-210-66")); Assert.False(WiredBotActions.FigureWellFormed("hd-180-script"));
+    }
+
+    [Fact]
+    public void ActualTeleportRestoresImmediatelyWhenSharedQueueCannotAcceptCleanup()
+    {
+        using var f = new TeleportFixture(2);
+        f.Fire(); Assert.Equal(8, f.User.CurrentEffect); Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        f.Advance(500); Assert.Equal(new Point(1, 1), f.User.Coordinate); Assert.Equal(8, f.User.CurrentEffect); Assert.Empty(f.Errors);
+    }
+
+    [Theory]
+    [InlineData("target")] [InlineData("source")] [InlineData("save")] [InlineData("visit")]
+    public void ActualTeleportCancelsOrRejectsRemovedTargetSourceAndAvatarVisit(string change)
+    {
+        using var f = new TeleportFixture(); f.Fire(); Assert.Equal(4, f.User.CurrentEffect);
+        if (change == "target") f.Items.TryRemove(f.Target.Id, out _);
+        if (change == "source") f.Engine.Remove(f.Trigger.Item.Id);
+        if (change == "save") Assert.True(f.Engine.PublishConfigured(f.Action, f.Action.Configuration with { IntParams = [1, 100, 0] }, () => { }));
+        if (change == "visit") { RoomUsers(f.Room)[7] = new RoomUser(1, 0, 7, f.Room); f.Habbo.Effects.CurrentEffect = -1; }
+        f.Advance(1500); Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Equal(change == "visit" ? -1 : 8, f.Habbo.Effects.CurrentEffect); Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void ActualOverlappingTeleportsAndLaterEffectChangesPreserveTheRightEffect()
+    {
+        using var f = new TeleportFixture(); f.Fire(); f.Fire(); Assert.Equal(4, f.User.CurrentEffect);
+        f.Advance(1500); Assert.Equal(8, f.User.CurrentEffect);
+        f.User.SetPos(0, 0, 0); f.Fire(); f.Habbo.Effects.ApplyEffect(12); f.Advance(1500); Assert.Equal(12, f.User.CurrentEffect);
+        Assert.Empty(f.Errors);
+    }
+
+    private static ConcurrentDictionary<int, RoomUser> RoomUsers(Room room) =>
+        (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomUserManager())!;
+    private static RoomUser Bot(Room room, int virtualId)
+    {
+        var bot = new RoomUser(0, 0, virtualId, room) { BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot)) };
+        bot.BotData.Name = "Alice"; bot.BotData.Look = "hd-180-1"; bot.BotData.Gender = "M"; return bot;
+    }
+    private sealed class TeleportFixture : IDisposable
+    {
+        public readonly Room Room; public readonly ConcurrentDictionary<uint, Item> Items;
+        public readonly RoomUser User; public readonly Habbo Habbo; public readonly Item Target;
+        public readonly WiredModernAction Action; public readonly WiredModernTrigger Trigger;
+        public readonly WiredStackEngine Engine; public readonly List<Exception> Errors = [];
+        private readonly object? _originalGame; private long _now;
+        public TeleportFixture(int cap = 100)
+        {
+            (Room, _, Items) = World();
+            var gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
+            _originalGame = gameField.GetValue(null);
+            var clients = new GameClientManager(null!, null!); var game = DispatchProxy.Create<IGame, RecordingProxy>();
+            ((RecordingProxy)(object)game).InvokeMethod = (method, _) => method.Name == "get_ClientManager" ? clients : null;
+            gameField.SetValue(null, game);
+            var client = new FlashGameClient(null!, new FlashPacketFactory())
+            {
+                Revision = new Revision { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
+                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id) },
+                SendCallback = _ => true
+            };
+            Habbo = (Habbo)RuntimeHelpers.GetUninitializedObject(typeof(Habbo)); Habbo.Id = 1; Habbo.Username = "Alice"; Habbo.CurrentRoom = Room;
+            Habbo.Client = client; Habbo.Effects = new(); typeof(EffectsComponent).GetField("_habbo", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Habbo.Effects, Habbo);
+            Habbo.Effects.CurrentEffect = 8; client.SetHabbo(Habbo); clients.RegisterClient(client, 1, "Alice");
+            User = new(1, 0, 7, Room); RoomUsers(Room)[7] = User;
+            Room.GetGameMap().AddUserToMap(User, new(0, 0));
+            var wired = new WiredComponent(Room);
+            Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
+            Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
+            typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
+            typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Room, wired);
+            Target = MakeItem(1, "test"); Target.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); Items[1] = Target;
+            Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room")); Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
+            Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
+                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new());
+            Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _); Action.ApplyConfiguration(config);
+            Items[101] = Trigger.Item; Items[100] = Action.Item; Engine.Add(Trigger); Engine.Add(Action);
+        }
+        public void Fire() => Assert.True(Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = User }));
+        public void Advance(int milliseconds) { _now += milliseconds; Engine.OnFastCycle(); }
+        public void Dispose() { Engine.Clear(); typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, _originalGame); }
     }
     [Fact]
     public void ClockTicksAtHalfSecondsAndDisplaysOnlyWholeSeconds()

@@ -46,9 +46,9 @@ public sealed record WiredClickSettingsComposer(int UserOption, int FurniOption)
 }
 
 /// <summary>Active Octane chat parser includes the colour/prefix extension and optional bubble width.</summary>
-public sealed record WiredChatComposer(int VirtualId, string Message, int BubbleStyle, int BubbleWidth, bool Private) : IServerPacket
+public sealed record WiredChatComposer(int VirtualId, string Message, int BubbleStyle, int BubbleWidth, bool Private, bool Shout = false) : IServerPacket
 {
-    public uint MessageId => Private ? ServerPacketHeader.WhisperComposer : ServerPacketHeader.ChatComposer;
+    public uint MessageId => Private ? ServerPacketHeader.WhisperComposer : Shout ? ServerPacketHeader.ShoutComposer : ServerPacketHeader.ChatComposer;
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(VirtualId); packet.WriteString(Message); packet.WriteInteger(0); packet.WriteInteger(BubbleStyle);

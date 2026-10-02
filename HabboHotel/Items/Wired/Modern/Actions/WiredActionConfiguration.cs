@@ -8,8 +8,11 @@ public static class WiredActionConfiguration
     // Raw current-editor fields; the concrete box validates and decodes named roles before publication.
     public static WiredConfiguration Defaults(string name)
     {
+        if (WiredBotActions.Names.Contains(name)) return WiredBotActions.Defaults(name);
         ImmutableArray<int> parameters = name switch
         {
+            "wf_act_join_team" => [0, 1, 0, 0], "wf_act_leave_team" or "wf_act_kick_user" => [0],
+            "wf_act_give_score" => [1, 0, 0], "wf_act_give_score_tm" => [1, 0, 1], "wf_act_mute_triggerer" => [1, 0],
             "wf_act_freeze" => [218, 0, 0], "wf_act_unfreeze" => [0],
             "wf_act_chase" or "wf_act_flee" => [100], "wf_act_move_to_dir" => [0, 0, 100, 0],
             "wf_act_move_rotate_user" => [-1, -1, 0],

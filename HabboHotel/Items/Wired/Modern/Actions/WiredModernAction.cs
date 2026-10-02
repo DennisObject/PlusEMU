@@ -5,6 +5,8 @@ using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.Games.Teams;
+using Plus.Utilities;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
@@ -20,9 +22,10 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     {
         "wf_act_control_clock", "wf_act_adjust_clock", "wf_act_reset_timers", "wf_act_call_stacks", "wf_act_neg_call_stacks",
         "wf_act_send_signal", "wf_act_neg_send_signal", "wf_act_log", "wf_act_neg_log", "wf_act_show_message", "wf_act_click_conf",
-        "wf_act_chase", "wf_act_flee", "wf_act_move_to_dir", "wf_act_move_rotate_user", "wf_act_freeze", "wf_act_unfreeze"
+        "wf_act_chase", "wf_act_flee", "wf_act_move_to_dir", "wf_act_move_rotate_user", "wf_act_freeze", "wf_act_unfreeze",
+        "wf_act_join_team", "wf_act_leave_team", "wf_act_give_score", "wf_act_give_score_tm", "wf_act_kick_user", "wf_act_mute_triggerer"
     };
-    public static bool Supports(string name) => WiredMovementActions.Names.Contains(name) || OtherNames.Contains(name);
+    public static bool Supports(string name) => WiredMovementActions.Names.Contains(name) || OtherNames.Contains(name) || WiredBotActions.Names.Contains(name);
     public bool IsNegative => Descriptor.CanonicalName is "wf_act_neg_call_stacks" or "wf_act_neg_send_signal" or "wf_act_neg_log";
     public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
         Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog) : base(room, item, descriptor)
@@ -34,6 +37,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         var name = Descriptor.CanonicalName;
+        if (WiredBotActions.Names.Contains(name)) return WiredBotActions.TryValidate(name, proposed, out validated, out error);
         if (WiredMovementActions.Names.Contains(name)) return WiredMovementConfiguration.TryValidate(name, proposed, out validated, out error);
         validated = proposed; error = "Invalid action configuration.";
         if (!WiredLegacyProtocol.IsWithinLimits(proposed)) return false;
@@ -45,6 +49,15 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         var secondary = proposed.SecondarySelectedItems;
         switch (name)
         {
+            case "wf_act_join_team":
+                if (p.Length != 4 || p[0] is < 0 or > 2 || p[1] is < 1 or > 4 || !U(2) || p[3] is < 0 or > 2) return false; users["users"] = p[2]; break;
+            case "wf_act_leave_team": case "wf_act_kick_user":
+                if (p.Length != 1 || !U(0)) return false; users["users"] = p[0]; break;
+            case "wf_act_give_score": case "wf_act_give_score_tm":
+                if (p.Length != 3 || p[0] is < 1 or > 1000 || p[1] is < 0 or > 1 || (name == "wf_act_give_score" ? !U(2) : p[2] is < 1 or > 4)) return false;
+                if (name == "wf_act_give_score") users["users"] = p[2]; break;
+            case "wf_act_mute_triggerer":
+                if (p.Length != 2 || p[0] is < 1 or > 100000 || !U(1)) return false; users["users"] = p[1]; break;
             case "wf_act_freeze":
                 if (p.Length != 3 || p[0] is not (0 or 218 or 12 or 11 or 53 or 163) || p[1] is < 0 or > 1 || !U(2)) return false;
                 users["users"] = p[2]; break;
@@ -95,6 +108,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         var config = context.ConfigurationOf(this);
         if (!TryValidateConfiguration(config, out config, out _)) return false;
         var name = Descriptor.CanonicalName;
+        if (WiredBotActions.Names.Contains(name)) return WiredBotActions.Execute(name, context, config, _movement);
         if (WiredMovementActions.Names.Contains(name))
             return new WiredMovementActions().Execute(name, config,
                 config.FurniSources.ContainsKey("movers") ? Furni(context, config, "movers") : [],
@@ -109,6 +123,35 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         var changed = false;
         switch (name)
         {
+            case "wf_act_join_team": case "wf_act_leave_team":
+                foreach (var user in Users(context, config, "users"))
+                    changed |= name == "wf_act_join_team"
+                        ? WiredGameState.For(context.Room).Join(context.Room, user, Param(config, 0), (Team)Param(config, 1), Param(config, 3), context.Targets.AllUsers())
+                        : WiredGameState.For(context.Room).Leave(context.Room, user);
+                return changed;
+            case "wf_act_give_score": case "wf_act_give_score_tm":
+                var amount = Param(config, 0) * (Param(config, 1) == 1 ? -1 : 1);
+                if (name == "wf_act_give_score_tm")
+                {
+                    var playerId = context.Event.Actor is { IsBot: false } actor ? actor.HabboId : 0;
+                    if (config.ScoreQuotaPerGame.HasValue && playerId == 0) return false;
+                    return WiredGameState.For(context.Room).GiveScore(context.Room, Item.Id, playerId, (Team)Param(config, 2), amount, config.ScoreQuotaPerGame, _publish);
+                }
+                foreach (var user in Users(context, config, "users").Where(user => !user.IsBot))
+                    changed |= WiredGameState.For(context.Room).GiveScore(context.Room, Item.Id, user.HabboId, user.Team, amount, config.ScoreQuotaPerGame,
+                        score => _publish(score with { Actor = user }));
+                return changed;
+            case "wf_act_kick_user": case "wf_act_mute_triggerer":
+                foreach (var user in Users(context, config, "users").Where(user => !user.IsBot))
+                {
+                    var client = user.GetClient(); var player = client?.GetHabbo();
+                    if (player == null || client == null || player.Id == context.Room.OwnerId || player.Permissions.HasRight("mod_tool")) continue;
+                    if (config.Text.Length > 0) client.Send(new WiredChatComposer(user.VirtualId, FormatLegacyText(context, user, config.Text), 34, -1, true));
+                    if (name == "wf_act_kick_user") context.Room.GetRoomUserManager().RemoveUserFromRoom(client, true, true);
+                    else context.Room.MutedUsers[player.Id] = UnixTimestamp.GetNow() + Param(config, 0) * 60;
+                    changed = true;
+                }
+                return changed;
             case "wf_act_freeze": case "wf_act_unfreeze":
                 var avatarState = WiredAvatarState.For(context.Room);
                 foreach (var user in Users(context, config, "users"))
