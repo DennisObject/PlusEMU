@@ -33,7 +33,7 @@ internal class OpenGiftEvent : IPacketEvent
             return Task.CompletedTask;
         var presentId = packet.ReadUInt();
         var present = room.GetRoomItemHandler().GetItem(presentId);
-        if (present == null)
+        if (present == null || present.IsTemporary)
             return Task.CompletedTask;
         if (present.UserId != session.GetHabbo().Id)
             return Task.CompletedTask;

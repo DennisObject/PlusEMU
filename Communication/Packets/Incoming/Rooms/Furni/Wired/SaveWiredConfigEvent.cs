@@ -27,7 +27,7 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
         {
             var itemId = packet.ReadUInt();
             var selectedItem = room.GetRoomItemHandler().GetItem(itemId);
-            if (selectedItem == null || !room.GetWired().TryGet(itemId, out var box))
+            if (selectedItem == null || selectedItem.IsTemporary || !room.GetWired().TryGet(itemId, out var box))
                 return Task.CompletedTask;
             var actualEnvelope = box is IWiredConfiguredItem configuredItem ? configuredItem.Descriptor.Envelope
                 : selectedItem.Definition.InteractionType == InteractionType.WiredTrigger ? WiredBoxCategory.Trigger
