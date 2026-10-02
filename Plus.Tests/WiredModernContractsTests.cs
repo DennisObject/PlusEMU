@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Plus.Communication.Flash;
@@ -176,14 +178,18 @@ public class WiredModernContractsTests
         Assert.Equal(InteractionType.WiredEffect, definition.InteractionType);
         Assert.Equal(WiredBoxCategory.Addon, definition.WiredDescriptor!.Category);
         var item = new Item { Id = 7, Definition = definition };
-        var legacy = new WiredComponent(null!);
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        var handling = room.GetRoomItemHandler();
+        var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling)
+            .GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handling)!;
+        Assert.True(floor.TryAdd(item.Id, item));
+        var legacy = new WiredComponent(room);
         var loaded = legacy.GenerateNewBox(item);
         Assert.NotNull(loaded);
         Assert.Equal(WiredBoxType.AddonRandomEffect, loaded.Type);
         Assert.True(legacy.IsEffect(item));
-        var engine = new WiredStackEngine(() => 0, box => ReferenceEquals(box.Item, item), _ => true, _ => { }, _ => { });
-        Assert.True(engine.Add(loaded));
-        Assert.Contains(loaded, engine.GetBoxes(loaded, InteractionType.WiredEffect));
+        Assert.True(legacy.AddBox(loaded));
+        Assert.Contains(loaded, legacy.GetEffects(loaded));
         Assert.Equal(InteractionType.WiredAddon,
             ItemDataManager.ReadInteractionType("wf_xtra_random", "wired_effect", WiredBoxType.None));
         Assert.Equal(InteractionType.WiredSelector,
