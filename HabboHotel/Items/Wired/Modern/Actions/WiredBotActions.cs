@@ -53,7 +53,8 @@ public static class WiredBotActions
         var bots = source == 0 ? context.Event.Actor is { IsBot: true, IsPet: false } actor
                 && context.Targets.AllUsers().Any(user => ReferenceEquals(user, actor)) ? new[] { actor } : []
             : context.Targets.ResolveUsers(context, [], source, botName).Where(user => user.IsBot && !user.IsPet).ToArray();
-        if (bots.Length == 0) return false;
+        var optionalUnnamedHandItem = name == "wf_act_bot_give_handitem" && source == 0 && botName.Length == 0;
+        if (bots.Length == 0 && !optionalUnnamedHandItem) return false;
         var users = config.UserSources.TryGetValue("users", out var userSource)
             ? context.Targets.ResolveUsers(context, [], userSource).Where(user => !user.IsBot).ToArray() : [];
         var items = config.FurniSources.TryGetValue("items", out var furniSource) ? context.Targets.ResolveFurni(context, config.SelectedItems, furniSource) : [];
