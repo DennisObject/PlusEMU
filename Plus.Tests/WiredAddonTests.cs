@@ -10,6 +10,32 @@ public sealed class WiredAddonTests
     private static WiredAddonInputs Input(long now = 0) => new(World(), Inputs(), now);
 
     [Fact]
+    public void PolicyAddonsDoNotConsumeActionHistoryUntilTheEnginePicksAndResetRestartsIt()
+    {
+        var unseen = new WiredAddonModule("wf_xtra_unseen", Config());
+        var first = new WiredAddonPolicy();
+        unseen.Apply(Input(), first);
+        var second = new WiredAddonPolicy();
+        unseen.Apply(Input(), second);
+        Assert.Equal(1u, Assert.Single(second.ActionPicker!.Pick([1, 2])));
+        Assert.Equal(2u, Assert.Single(first.ActionPicker!.Pick([1, 2])));
+        unseen.Reset();
+        Assert.Equal(1u, Assert.Single(first.ActionPicker.Pick([1, 2])));
+        new WiredAddonModule("wf_xtra_exec_in_order", Config()).Apply(Input(), first);
+        new WiredAddonModule("wf_xtra_mov_no_animation", Config()).Apply(Input(), first);
+        Assert.True(first.ExecuteInOrder);
+        Assert.True(first.DisableAnimation);
+    }
+
+    [Fact]
+    public void FurnitureTextNamesPreserveTheSavedSelectionOrderAndCustomSeparator()
+    {
+        var policy = new WiredAddonPolicy();
+        new WiredAddonModule("wf_xtra_text_output_furni_name", Config([2, 100], [3, 2], "items\t;")).Apply(Input(), policy);
+        Assert.Equal("Lamp;High chair", policy.FormatText(Input(), "$(items)"));
+    }
+
+    [Fact]
     public void ExecutionLimitUsesSlidingMillisecondsAndResetsOnLifecycleChange()
     {
         var addon = new WiredAddonModule("wf_xtra_execution_limit", Config([2, 1250]));
@@ -140,12 +166,18 @@ public sealed class WiredAddonTests
         var one = WiredMovementPolicy.Resolve(policy, World().Furni[0], 3, 3, 10);
         Assert.Equal(5, one.Rotation);
         Assert.Equal(0, one.Height);
-        Assert.Equal(-50, one.CurveStrength);
+        Assert.Equal(80, one.CurveStrength);
         Assert.Equal(5, one.AnimationDistanceOffset);
         var two = WiredMovementPolicy.Resolve(policy, World().Furni[1], 3, 3, 10);
         Assert.Null(two.Rotation);
         Assert.Equal(80, two.CurveStrength);
         Assert.Equal(0, two.AnimationDistanceOffset);
+        Assert.Equal(10, WiredMovementPolicy.Resolve(policy, World().Furni[0], 3, 3, 10, explicitHeight: true).Height);
+        policy.Curve = null;
+        var projectileOnly = WiredMovementPolicy.Resolve(policy, World().Furni[0], 100, 3, 10);
+        Assert.Equal(-50, projectileOnly.CurveStrength);
+        Assert.Equal(7, projectileOnly.CurveType);
+        Assert.Equal(-92, projectileOnly.AnimationDistanceOffset);
         Assert.Equal(new[] { 1 }, WiredMovementPolicy.CarriedUsers(new(false, new HashSet<int> { 1, 4 }), World().Furni[0], World(), (id, _) => id == 1).Select(x => x.Id));
     }
 

@@ -6,7 +6,9 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Addons;
 public sealed record WiredAddonVariableRequest(int Target, string Token, int UserSource, int FurniSource,
     WiredConfiguration Configuration);
 public sealed record WiredAddonInputs(WiredSelectorWorld World, WiredSelectorInputs Selection, long NowMs,
-    Func<WiredAddonVariableRequest, long?>? ReadVariable = null);
+    Func<WiredAddonVariableRequest, long?>? ReadVariable = null,
+    Func<int, WiredConfiguration, IEnumerable<uint>>? ResolveFurni = null,
+    Func<int, IEnumerable<int>>? ResolveUsers = null);
 
 /// <summary>One instance per placed addon; Reset is required on configure, move and pickup.</summary>
 public sealed class WiredAddonModule
@@ -51,8 +53,10 @@ public sealed class WiredAddonModule
     {
         var c = snapshot is null ? Configuration : WiredAddonConfiguration.Normalize(Name, snapshot);
         int P(int index) => WiredSelectorSources.Param(c, index);
-        HashSet<uint> Furni(int source) => WiredSelectorSources.Furni(source, c, input.Selection, input.World).ToHashSet();
-        HashSet<int> Users(int source) => WiredSelectorSources.Users(source, input.Selection, input.World).ToHashSet();
+        HashSet<uint> Furni(int source) => (input.ResolveFurni?.Invoke(source, c)
+            ?? WiredSelectorSources.Furni(source, c, input.Selection, input.World)).ToHashSet();
+        HashSet<int> Users(int source) => (input.ResolveUsers?.Invoke(source)
+            ?? WiredSelectorSources.Users(source, input.Selection, input.World)).ToHashSet();
         switch (Name)
         {
             case "wf_xtra_anim_time": policy.AnimationTimeMs = P(0); break;
@@ -85,13 +89,17 @@ public sealed class WiredAddonModule
                     IEnumerable<string> names;
                     if (Name == "wf_xtra_text_output_furni_name")
                     {
-                        var ids = WiredSelectorSources.Furni(P(1), c, current.Selection, current.World).ToHashSet();
-                        names = current.World.Furni.Where(x => ids.Contains(x.Id)).Select(x => x.Name);
+                        var byId = current.World.Furni.ToDictionary(x => x.Id);
+                        names = (current.ResolveFurni?.Invoke(P(1), c)
+                            ?? WiredSelectorSources.Furni(P(1), c, current.Selection, current.World))
+                            .Where(byId.ContainsKey).Select(id => byId[id].Name);
                     }
                     else
                     {
-                        var ids = WiredSelectorSources.Users(P(1), current.Selection, current.World).ToHashSet();
-                        names = current.World.Users.Where(x => ids.Contains(x.Id)).Select(x => x.Name);
+                        var byId = current.World.Users.ToDictionary(x => x.Id);
+                        names = (current.ResolveUsers?.Invoke(P(1))
+                            ?? WiredSelectorSources.Users(P(1), current.Selection, current.World))
+                            .Where(byId.ContainsKey).Select(id => byId[id].Name);
                     }
                     var value = P(0) == 2 ? string.Join(parts[1], names) : names.FirstOrDefault() ?? "";
                     return text.Replace(token, value, StringComparison.Ordinal);
@@ -109,7 +117,7 @@ public sealed class WiredAddonModule
                 var distance = (WiredProjectileDistance)P(14);
                 long? tiles = P(15) == 1 ? ReadVariable(input, P(17), c.Text.Split('\t').ElementAtOrDefault(1) ?? "", P(21), P(22), c) : P(16);
                 if (tiles is null) distance = WiredProjectileDistance.Normal;
-                policy.Projectile = new(c.SelectedItems.ToHashSet(), P(0) == 1 ? P(1) : null, P(10),
+                policy.Projectile = new(Furni(100), P(0) == 1 ? P(1) : null, P(10),
                     P(18) == 0 ? null : P(18), distance, (int)Math.Clamp(tiles ?? 0, -64, 64));
                 break;
             }

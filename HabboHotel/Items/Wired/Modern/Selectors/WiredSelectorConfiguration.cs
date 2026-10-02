@@ -18,6 +18,7 @@ public static class WiredSelectorConfiguration
         {
             0 or 200 or 201 => P(index),
             100 when !secondary && !users => 100,
+            11 when users => 11,
             101 when secondary => 101,
             _ => 0
         };
