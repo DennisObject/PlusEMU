@@ -62,7 +62,8 @@ public static class PathFinder
             {
                 tmp = current.Position + (diag ? DiagMovePoints[i] : NoDiagMovePoints[i]);
                 var isFinalMove = tmp.X == end.X && tmp.Y == end.Y;
-                if (map.IsValidStep(new(current.Position.X, current.Position.Y), tmp, isFinalMove, user.AllowOverride))
+                var from = new Vector2D(current.Position.X, current.Position.Y);
+                if (map.IsValidStep(from, tmp, isFinalMove, user.AllowOverride, false, user))
                 {
                     if (pfMap[tmp.X, tmp.Y] == null)
                     {

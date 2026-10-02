@@ -13,6 +13,8 @@ public class Gamemap
     private ConcurrentDictionary<Point, List<uint>> _coordinatedItems;
     private double[,] _itemHeightMap;
     private Room _room;
+    private byte[,] _structuralMap;
+    private Point[] _roamTargets;
     private ConcurrentDictionary<Point, List<RoomUser>> _userMap;
 
     public Gamemap(Room room, RoomModel model)
@@ -24,6 +26,10 @@ public class Gamemap
         _coordinatedItems = new();
         _itemHeightMap = new double[Model.MapSizeX, Model.MapSizeY];
         _userMap = new();
+        // Floor that stays valid while RoomUserManager zeroes live tiles under standing users.
+        GameMap = new byte[Model.MapSizeX, Model.MapSizeY];
+        FillFloorStates(GameMap);
+        _structuralMap = (byte[,])GameMap.Clone();
     }
 
     public bool DiagonalEnabled { get; set; }
@@ -91,26 +97,133 @@ public class Gamemap
         return new();
     }
 
+    public bool TryGetRandomWalkableSquare(out Point square) => TryGetRandomWalkableSquare(false, out square);
+
+    public bool TryGetRandomWalkableSquare(bool ignoreOccupancy, out Point square)
+    {
+        var targets = ignoreOccupancy ? RoamTargets() : LiveOpenTiles();
+        if (targets.Length == 0)
+        {
+            square = default;
+            return false;
+        }
+        square = targets[Random.Shared.Next(targets.Length)];
+        return true;
+    }
+
     public Point GetRandomWalkableSquare()
     {
-        var walkableSquares = new List<Point>();
-        for (var y = 0; y < GameMap.GetUpperBound(1); y++)
+        if (TryGetRandomWalkableSquare(out var square))
+            return square;
+        // Invalid-door repair still expects a point when the model has no floor.
+        return new(0, 0);
+    }
+
+    internal Point[] WalkableSquares() => RoamTargets();
+
+    private Point[] LiveOpenTiles()
+    {
+        if (GameMap == null || Model == null)
+            return Array.Empty<Point>();
+        var width = GameMap.GetLength(0);
+        var height = GameMap.GetLength(1);
+        var targets = new List<Point>();
+        for (var y = 0; y < height; y++)
         {
-            for (var x = 0; x < GameMap.GetUpperBound(0); x++)
+            for (var x = 0; x < width; x++)
             {
-                if (StaticModel.DoorX != x && StaticModel.DoorY != y && GameMap[x, y] == 1)
-                    walkableSquares.Add(new(x, y));
+                if (x == Model.DoorX && y == Model.DoorY)
+                    continue;
+                if (GameMap[x, y] == 1)
+                    targets.Add(new(x, y));
             }
         }
-        var randomNumber = Random.Shared.Next(0, walkableSquares.Count + 1);
-        var i = 0;
-        foreach (var coord in walkableSquares.ToList())
+        return targets.ToArray();
+    }
+
+    private Point[] RoamTargets()
+    {
+        var cached = _roamTargets;
+        if (cached != null)
+            return cached;
+        var map = _structuralMap ?? GameMap;
+        if (map == null || Model == null)
+            return _roamTargets = Array.Empty<Point>();
+        var width = map.GetLength(0);
+        var height = map.GetLength(1);
+        var targets = new List<Point>();
+        for (var y = 0; y < height; y++)
         {
-            if (i == randomNumber)
-                return coord;
-            i++;
+            for (var x = 0; x < width; x++)
+            {
+                if (x == Model.DoorX && y == Model.DoorY)
+                    continue;
+                // Freeroam historically picked open floor only, not seats or beds.
+                if (map[x, y] == 1)
+                    targets.Add(new(x, y));
+            }
         }
-        return new(0, 0);
+        return _roamTargets = targets.ToArray();
+    }
+
+    private void FillFloorStates(byte[,] map)
+    {
+        var width = map.GetLength(0);
+        var height = map.GetLength(1);
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                if (x == Model.DoorX && y == Model.DoorY)
+                    map[x, y] = 3;
+                else if (Model.SqState != null && x < Model.SqState.GetLength(0) && y < Model.SqState.GetLength(1) && Model.SqState[x, y] == SquareState.Open)
+                    map[x, y] = 1;
+                else if (Model.SqState != null && x < Model.SqState.GetLength(0) && y < Model.SqState.GetLength(1) && Model.SqState[x, y] == SquareState.Seat)
+                    map[x, y] = 2;
+                else
+                    map[x, y] = 0;
+            }
+        }
+    }
+
+    private void CopyStructural()
+    {
+        if (GameMap == null)
+            return;
+        _structuralMap = (byte[,])GameMap.Clone();
+        _roamTargets = null;
+    }
+
+    private void WriteStructural(int x, int y, byte state)
+    {
+        var map = _structuralMap;
+        if (map == null || (uint)x >= (uint)map.GetLength(0) || (uint)y >= (uint)map.GetLength(1))
+            return;
+        if (map[x, y] == state)
+            return;
+        map[x, y] = state;
+        _roamTargets = null;
+    }
+
+    private byte StructuralTile(int x, int y)
+    {
+        var map = _structuralMap ?? GameMap;
+        if (map == null || (uint)x >= (uint)map.GetLength(0) || (uint)y >= (uint)map.GetLength(1))
+            return 0;
+        return map[x, y];
+    }
+
+    public bool IsValidBotStep(Vector2D from, Vector2D to, bool endOfPath)
+    {
+        if (!ValidTile(to.X, to.Y))
+            return false;
+        var state = StructuralTile(to.X, to.Y);
+        if (state != 1 && !(endOfPath && state is 2 or 3))
+            return false;
+        var heightDiff = SqAbsoluteHeight(to.X, to.Y) - SqAbsoluteHeight(from.X, from.Y);
+        if (heightDiff > 1.5)
+            return false;
+        return true;
     }
 
 
@@ -145,6 +258,7 @@ public class Gamemap
         else if (Model.SqState[x, y] == SquareState.Open)
             GameMap[x, y] = 1;
         else if (Model.SqState[x, y] == SquareState.Seat) GameMap[x, y] = 2;
+        WriteStructural(x, y, GameMap[x, y]);
     }
 
     public void UpdateMapForItem(Item item)
@@ -237,11 +351,16 @@ public class Gamemap
         }
         Array.Clear(tmpItems, 0, tmpItems.Length);
         tmpItems = null;
+        // Snapshot before standing users zero their tiles. Later steps must not rebuild roam targets.
+        CopyStructural();
         if (!_room.RoomBlockingEnabled)
         {
             foreach (var user in _room.GetRoomUserManager().GetUserList().ToList())
             {
                 if (user == null)
+                    continue;
+                // Temporary bots never restore a walkability reservation, so a regen must not freeze their tile.
+                if (user.BotData?.IsTemporary == true)
                     continue;
                 user.SqState = GameMap[user.X, user.Y];
                 GameMap[user.X, user.Y] = 0;
@@ -250,6 +369,7 @@ public class Gamemap
         try
         {
             GameMap[Model.DoorX, Model.DoorY] = 3;
+            WriteStructural(Model.DoorX, Model.DoorY, 3);
         }
         catch { }
     }
@@ -318,6 +438,7 @@ public class Gamemap
             // Set bad maps
             if (item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall)
                 GameMap[coord.X, coord.Y] = 3;
+            WriteStructural(coord.X, coord.Y, GameMap[coord.X, coord.Y]);
         }
         catch (Exception e)
         {
@@ -647,6 +768,7 @@ public class Gamemap
     public void SetFloorStatus(int x, int y, byte status)
     {
         GameMap[x, y] = status;
+        WriteStructural(x, y, status);
     }
 
     public double GetHeightForSquareFromData(Point coord)
@@ -776,6 +898,10 @@ public class Gamemap
             return false;
         if (!ValidTile(to.X, to.Y))
             return false;
+        // Execution, not only path search. Temporary stress bots keep AllowOverride so
+        // crowded tiles stay usable. Walls and height still apply; only occupancy is ignored.
+        if (@override && user.BotData?.IsTemporary == true)
+            return IsValidBotStep(from, to, endOfPath);
         if (@override)
             return true;
         /*
@@ -847,12 +973,16 @@ public class Gamemap
         return true;
     }
 
-    public bool IsValidStep(Vector2D from, Vector2D to, bool endOfPath, bool overriding, bool roller = false)
+    public bool IsValidStep(Vector2D from, Vector2D to, bool endOfPath, bool overriding, bool roller = false, RoomUser? user = null)
     {
         if (!ValidTile(to.X, to.Y))
             return false;
         if (overriding)
+        {
+            if (user?.BotData?.IsTemporary == true)
+                return IsValidBotStep(from, to, endOfPath);
             return true;
+        }
         /*
          * 0 = blocked
          * 1 = open
@@ -1099,6 +1229,8 @@ public class Gamemap
         Array.Clear(EffectMap, 0, EffectMap.Length);
         Array.Clear(_itemHeightMap, 0, _itemHeightMap.Length);
         _userMap = null;
+        _structuralMap = null;
+        _roamTargets = null;
         GameMap = null;
         EffectMap = null;
         _itemHeightMap = null;

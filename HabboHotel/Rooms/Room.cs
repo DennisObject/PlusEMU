@@ -528,16 +528,19 @@ public class Room : RoomData
             return;
         try
         {
-            var users = _roomUserManager.GetUserList().ToList();
-            if (_roomUserManager == null || users == null)
+            if (_roomUserManager == null)
                 return;
-            foreach (var user in users)
+            GameClient.SendBroadcast(packet, GetRecipients());
+
+            IEnumerable<GameClient> GetRecipients()
             {
-                if (user?.GetClient() == null || user.IsBot)
-                    continue;
-                if (withRightsOnly && !CheckRights(user.GetClient()))
-                    continue;
-                user.GetClient().Send(packet);
+                foreach (var user in _roomUserManager.GetRoomUsers())
+                {
+                    var client = user?.GetClient();
+                    if (client == null || withRightsOnly && !CheckRights(client))
+                        continue;
+                    yield return client;
+                }
             }
         }
         catch (Exception e)

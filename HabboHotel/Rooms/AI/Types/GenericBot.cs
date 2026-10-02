@@ -14,7 +14,14 @@ public class GenericBot : BotAi
         _virtualId = virtualId;
     }
 
-    public override void OnSelfEnterRoom() { }
+    public override void OnSelfEnterRoom()
+    {
+        if (GetBotData().IsTemporary)
+        {
+            _speechTimer = Random.Shared.Next(1, GetBotData().SpeakingInterval + 1);
+            _actionTimer = Random.Shared.Next(1, 15);
+        }
+    }
 
     public override void OnSelfLeaveRoom(bool kicked) { }
 
@@ -48,7 +55,6 @@ public class GenericBot : BotAi
             _speechTimer--;
         if (_actionTimer <= 0)
         {
-            Point nextCoord;
             switch (GetBotData().WalkingMode.ToLower())
             {
                 default:
@@ -88,8 +94,8 @@ public class GenericBot : BotAi
                     }
                     else if (GetBotData().TargetUser == 0)
                     {
-                        nextCoord = GetRoom().GetGameMap().GetRandomWalkableSquare();
-                        GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y);
+                        if (GetRoom().GetGameMap().TryGetRandomWalkableSquare(GetBotData().IsTemporary, out var nextCoord))
+                            GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y, GetBotData().IsTemporary);
                     }
                     break;
                 case "specified_range":

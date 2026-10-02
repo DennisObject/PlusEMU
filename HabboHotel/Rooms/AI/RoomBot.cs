@@ -7,6 +7,8 @@ namespace Plus.HabboHotel.Rooms.AI;
 
 public class RoomBot
 {
+    public bool IsTemporary { get; init; }
+
     public BotAiType AiType;
 
     public bool AutomaticChat;

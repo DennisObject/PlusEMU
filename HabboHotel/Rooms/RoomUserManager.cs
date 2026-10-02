@@ -8,6 +8,8 @@ using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.Rooms.AI.Speech;
+using Plus.Core.FigureData;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Rooms.Trading;
@@ -19,12 +21,17 @@ namespace Plus.HabboHotel.Rooms;
 
 public class RoomUserManager
 {
+    public const int MaxStressBots = 1000;
+    private readonly object _stressSync = new();
+    private readonly Queue<(int Amount, int OwnerId, Action<string> Reply)> _stressRequests = new();
+    private bool _disposed;
+    private int _nextStressBotId;
+
     private ConcurrentDictionary<int, RoomUser> _bots;
     private ConcurrentDictionary<int, RoomUser> _pets;
 
     private int _primaryPrivateUserId;
     private Room _room;
-    private int _secondaryPrivateUserId;
     private ConcurrentDictionary<int, RoomUser> _users;
 
     public int UserCount;
@@ -37,18 +44,70 @@ public class RoomUserManager
         _pets = new();
         _bots = new();
         _primaryPrivateUserId = 0;
-        _secondaryPrivateUserId = 0;
         PetCount = 0;
         UserCount = 0;
     }
 
     public int PetCount { get; private set; }
 
+    // Requests are bounded and applied on the cycle thread, before its user snapshot.
+    public bool QueueStressBots(int amount, int ownerId, Action<string> reply)
+    {
+        if (amount < 0 || amount > MaxStressBots)
+            return false;
+        lock (_stressSync)
+        {
+            if (_disposed || _stressRequests.Count >= 8)
+                return false;
+            _stressRequests.Enqueue((amount, ownerId, reply));
+            return true;
+        }
+    }
+
+    internal void ProcessStressBots()
+    {
+        lock (_stressSync)
+        {
+            if (_disposed || !_stressRequests.TryDequeue(out var request))
+                return;
+            var temporary = _bots.Values.Where(user => user.BotData.IsTemporary).ToList();
+            if (request.Amount == 0)
+            {
+                foreach (var user in temporary)
+                {
+                    _room.GetGameMap().RemoveUserFromMap(user, user.Coordinate);
+                    RemoveBot(user.VirtualId, false);
+                }
+                request.Reply($"Cleared {temporary.Count} temporary stress bots.");
+                return;
+            }
+            if (temporary.Count + request.Amount > MaxStressBots)
+            {
+                request.Reply($"This room has {temporary.Count} stress bots; the limit is {MaxStressBots}. Use :stress bots clear first.");
+                return;
+            }
+            var model = _room.GetGameMap().Model;
+            for (var i = 0; i < request.Amount; i++)
+            {
+                // Negative IDs cannot collide with database/inventory bots.
+                var id = --_nextStressBotId;
+                var speeches = new List<RandomSpeech> { new($"Stress bot {-id} checking room traffic.", id) };
+                var bot = new RoomBot(id, _room.RoomId, "generic", "freeroam", $"Stress {-id}", "Temporary stress bot",
+                    IFigureDataManager.DefaultFigure, model.DoorX, model.DoorY, model.DoorZ, model.DoorOrientation,
+                    0, 0, 0, 0, ref speeches, "M", 0, request.OwnerId, true, 60, false, 0) { IsTemporary = true };
+                var user = DeployBot(bot, null);
+                user.AllowOverride = true;
+                user.BotAi.OnSelfEnterRoom();
+            }
+            request.Reply($"Created {request.Amount} temporary stress bots ({temporary.Count + request.Amount}/{MaxStressBots}). Use :stress bots clear to remove them.");
+        }
+    }
+
     public RoomUser DeployBot(RoomBot bot, Pet pet)
     {
-        var user = new RoomUser(0, _room.RoomId, _primaryPrivateUserId++, _room);
-        bot.VirtualId = _primaryPrivateUserId;
-        var personalId = _secondaryPrivateUserId++;
+        var user = new RoomUser(0, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room);
+        bot.VirtualId = user.VirtualId;
+        var personalId = user.VirtualId;
         user.InternalRoomId = personalId;
         _users.TryAdd(personalId, user);
         var model = _room.GetGameMap().Model;
@@ -126,12 +185,12 @@ public class RoomUserManager
             return false;
         if (_users.Any(u => u.Value.UserId == session.GetHabbo().Id))
             return false;
-        var user = new RoomUser(session.GetHabbo().Id, _room.RoomId, _primaryPrivateUserId++, _room);
+        var user = new RoomUser(session.GetHabbo().Id, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room);
         if (user == null || user.GetClient() == null)
             return false;
         user.UserId = session.GetHabbo().Id;
         session.GetHabbo().TentId = 0;
-        var personalId = _secondaryPrivateUserId++;
+        var personalId = user.VirtualId;
         user.InternalRoomId = personalId;
         session.GetHabbo().CurrentRoom = _room;
         if (!_users.TryAdd(personalId, user))
@@ -361,10 +420,13 @@ public class RoomUserManager
 
     private void RemoveRoomUser(RoomUser user)
     {
-        if (user.SetStep)
-            _room.GetGameMap().GameMap[user.SetX, user.SetY] = user.SqState;
-        else
-            _room.GetGameMap().GameMap[user.X, user.Y] = user.SqState;
+        if (!user.IsBot || !user.BotData.IsTemporary)
+        {
+            if (user.SetStep)
+                _room.GetGameMap().GameMap[user.SetX, user.SetY] = user.SqState;
+            else
+                _room.GetGameMap().GameMap[user.X, user.Y] = user.SqState;
+        }
         _room.GetGameMap().RemoveUserFromMap(user, new(user.X, user.Y));
         _room.SendPacket(new UserRemoveComposer(user.VirtualId));
         RoomUser toRemove = null;
@@ -417,9 +479,13 @@ public class RoomUserManager
 
     public List<RoomUser> GetRoomUsers()
     {
-        var list = new List<RoomUser>();
-        list = GetUserList().Where(x => !x.IsBot).ToList();
-        return list;
+        var users = new List<RoomUser>();
+        foreach (var entry in _users)
+        {
+            if (!entry.Value.IsBot)
+                users.Add(entry.Value);
+        }
+        return users;
     }
 
     public List<RoomUser> GetRoomUserByRank(int minRank)
@@ -479,7 +545,7 @@ public class RoomUserManager
         using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
         foreach (var user in GetRoomUsers().ToList())
         {
-            if (user == null || !user.IsBot)
+            if (user == null || !user.IsBot || user.BotData.IsTemporary)
                 continue;
             if (user.IsBot)
             {
@@ -515,9 +581,9 @@ public class RoomUserManager
         var roomUsers = GetUserList();
         if (roomUsers == null)
             return;
-        foreach (var user in roomUsers.ToList())
+        foreach (var user in roomUsers)
         {
-            if (user == null || !user.UpdateNeeded || users.Contains(user))
+            if (user == null || !user.UpdateNeeded)
                 continue;
             user.UpdateNeeded = false;
             users.Add(user);
@@ -528,7 +594,7 @@ public class RoomUserManager
 
     public void UpdateUserStatusses()
     {
-        foreach (var user in GetUserList().ToList())
+        foreach (var user in GetUserList())
         {
             if (user == null)
                 continue;
@@ -553,11 +619,22 @@ public class RoomUserManager
 
     public void OnCycle()
     {
+        lock (_stressSync)
+        {
+            if (_disposed)
+                return;
+            ProcessStressBots();
+            CycleUsers();
+        }
+    }
+
+    private void CycleUsers()
+    {
         var userCounter = 0;
         try
         {
             var toRemove = new List<RoomUser>();
-            foreach (var user in GetUserList().ToList())
+            foreach (var user in GetUserList())
             {
                 if (user == null)
                     continue;
@@ -788,16 +865,20 @@ public class RoomUserManager
                                     horse.SetZ = nextZ;
                                 }
                             }
-                            _room.GetGameMap().GameMap[user.X, user.Y] = user.SqState; // REstore the old one
-                            user.SqState = _room.GetGameMap().GameMap[user.SetX, user.SetY]; //Backup the new one
-                            if (!_room.RoomBlockingEnabled)
+                            // Stress bots overlap without owning a walkability-grid reservation.
+                            if (!user.IsBot || !user.BotData.IsTemporary)
                             {
-                                var users = _room.GetRoomUserManager().GetUserForSquare(nextX, nextY);
-                                if (users != null)
-                                    _room.GetGameMap().GameMap[nextX, nextY] = 0;
+                                _room.GetGameMap().GameMap[user.X, user.Y] = user.SqState; // REstore the old one
+                                user.SqState = _room.GetGameMap().GameMap[user.SetX, user.SetY]; //Backup the new one
+                                if (!_room.RoomBlockingEnabled)
+                                {
+                                    var users = _room.GetRoomUserManager().GetUserForSquare(nextX, nextY);
+                                    if (users != null)
+                                        _room.GetGameMap().GameMap[nextX, nextY] = 0;
+                                }
+                                else
+                                    _room.GetGameMap().GameMap[nextX, nextY] = 1;
                             }
-                            else
-                                _room.GetGameMap().GameMap[nextX, nextY] = 1;
                         }
                     }
                     if (!user.RidingHorse)
@@ -1173,6 +1254,18 @@ public class RoomUserManager
     public ICollection<RoomUser> GetUserList() => _users.Values;
 
     public void Dispose()
+    {
+        lock (_stressSync)
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            _stressRequests.Clear();
+            DisposeUsers();
+        }
+    }
+
+    private void DisposeUsers()
     {
         UpdatePets();
         UpdateBots();

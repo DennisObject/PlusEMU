@@ -23,7 +23,7 @@ internal class PickUpBotEvent : IPacketEvent
         var room = session.GetHabbo().CurrentRoom;
         if (room == null)
             return Task.CompletedTask;
-        if (!room.GetRoomUserManager().TryGetBot(botId, out var botUser))
+        if (!room.GetRoomUserManager().TryGetBot(botId, out var botUser) || botUser.BotData.IsTemporary)
             return Task.CompletedTask;
         if (session.GetHabbo().Id != botUser.BotData.OwnerId && !session.GetHabbo().Permissions.HasRight("bot_place_any_override"))
         {

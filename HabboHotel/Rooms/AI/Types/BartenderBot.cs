@@ -96,7 +96,6 @@ internal class BartenderBot : BotAi
             _speechTimer--;
         if (_actionTimer <= 0)
         {
-            Point nextCoord;
             switch (GetBotData().WalkingMode.ToLower())
             {
                 default:
@@ -136,8 +135,8 @@ internal class BartenderBot : BotAi
                     }
                     else if (GetBotData().TargetUser == 0)
                     {
-                        nextCoord = GetRoom().GetGameMap().GetRandomWalkableSquare();
-                        GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y);
+                        if (GetRoom().GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
+                            GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y);
                     }
                     break;
                 case "specified_range":

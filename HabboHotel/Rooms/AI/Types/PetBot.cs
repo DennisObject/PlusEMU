@@ -33,10 +33,7 @@ public class PetBot : BotAi
 
     public override void OnSelfEnterRoom()
     {
-        var nextCoord = GetRoom().GetGameMap().GetRandomWalkableSquare();
-        //int randomX = PlusEnvironment.GetRandomNumber(0, GetRoom().Model.MapSizeX);
-        //int randomY = PlusEnvironment.GetRandomNumber(0, GetRoom().Model.MapSizeY);
-        if (GetRoomUser() != null)
+        if (GetRoomUser() != null && GetRoom().GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
             GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y);
     }
 
@@ -97,8 +94,7 @@ public class PetBot : BotAi
                 {
                     // Remove Status
                     RemovePetStatus();
-                    var nextCoord = GetRoom().GetGameMap().GetRandomWalkableSquare();
-                    if (GetRoomUser().CanWalk)
+                    if (GetRoomUser().CanWalk && GetRoom().GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
                         GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y);
                 }
             }
@@ -153,8 +149,8 @@ public class PetBot : BotAi
 
                         //int randomX = PlusEnvironment.GetRandomNumber(0, GetRoom().Model.MapSizeX);
                         //int randomY = PlusEnvironment.GetRandomNumber(0, GetRoom().Model.MapSizeY);
-                        var nextCoord = GetRoom().GetGameMap().GetRandomWalkableSquare();
-                        pet.MoveTo(nextCoord.X, nextCoord.Y);
+                        if (GetRoom().GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
+                            pet.MoveTo(nextCoord.X, nextCoord.Y);
                         pet.PetData.Addexperience(10); // Give XP
                         break;
                     case 2:

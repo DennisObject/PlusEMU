@@ -62,7 +62,7 @@ public class TeamManager
                         if (BlueTeam.Count == 5)
                         {
                             foreach (var sser in room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY))) sser.SqState = 0;
-                            room.GetGameMap().GameMap[item.GetX, item.GetY] = 0;
+                            room.GetGameMap().SetFloorStatus(item.GetX, item.GetY, 0);
                         }
                     }
                     else if (item.Definition.InteractionType.Equals(InteractionType.Banzaigatered))
@@ -72,7 +72,7 @@ public class TeamManager
                         if (RedTeam.Count == 5)
                         {
                             foreach (var sser in room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY))) sser.SqState = 0;
-                            room.GetGameMap().GameMap[item.GetX, item.GetY] = 0;
+                            room.GetGameMap().SetFloorStatus(item.GetX, item.GetY, 0);
                         }
                     }
                     else if (item.Definition.InteractionType.Equals(InteractionType.Banzaigategreen))
@@ -83,7 +83,7 @@ public class TeamManager
                         {
                             foreach (var sser in room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY)))
                                 sser.SqState = 0;
-                            room.GetGameMap().GameMap[item.GetX, item.GetY] = 0;
+                            room.GetGameMap().SetFloorStatus(item.GetX, item.GetY, 0);
                         }
                     }
                     else if (item.Definition.InteractionType.Equals(InteractionType.Banzaigateyellow))
@@ -94,7 +94,7 @@ public class TeamManager
                         {
                             foreach (var sser in room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY)))
                                 sser.SqState = 0;
-                            room.GetGameMap().GameMap[item.GetX, item.GetY] = 0;
+                            room.GetGameMap().SetFloorStatus(item.GetX, item.GetY, 0);
                         }
                     }
                 }
@@ -165,7 +165,7 @@ public class TeamManager
                         {
                             foreach (var sser in room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY)))
                                 sser.SqState = 1;
-                            room.GetGameMap().GameMap[item.GetX, item.GetY] = 1;
+                            room.GetGameMap().SetFloorStatus(item.GetX, item.GetY, 1);
                         }
                     }
                     else if (item.Definition.InteractionType.Equals(InteractionType.Banzaigatered))
@@ -176,7 +176,7 @@ public class TeamManager
                         {
                             foreach (var sser in room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY)))
                                 sser.SqState = 1;
-                            room.GetGameMap().GameMap[item.GetX, item.GetY] = 1;
+                            room.GetGameMap().SetFloorStatus(item.GetX, item.GetY, 1);
                         }
                     }
                     else if (item.Definition.InteractionType.Equals(InteractionType.Banzaigategreen))
@@ -187,7 +187,7 @@ public class TeamManager
                         {
                             foreach (var sser in room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY)))
                                 sser.SqState = 1;
-                            room.GetGameMap().GameMap[item.GetX, item.GetY] = 1;
+                            room.GetGameMap().SetFloorStatus(item.GetX, item.GetY, 1);
                         }
                     }
                     else if (item.Definition.InteractionType.Equals(InteractionType.Banzaigateyellow))
@@ -198,7 +198,7 @@ public class TeamManager
                         {
                             foreach (var sser in room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY)))
                                 sser.SqState = 1;
-                            room.GetGameMap().GameMap[item.GetX, item.GetY] = 1;
+                            room.GetGameMap().SetFloorStatus(item.GetX, item.GetY, 1);
                         }
                     }
                 }
