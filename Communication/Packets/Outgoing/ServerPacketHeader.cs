@@ -320,4 +320,8 @@ public static class ServerPacketHeader
     public const uint MessengerMessageAckComposer = 4902;
     public const uint MessengerMessageFailedComposer = 4903;
     public const uint MessengerMessageComposer = 4904;
+    public const uint RewardTracksComposer = 48003;
+    public const uint RewardTrackClaimResultComposer = 48004;
+    public const uint RewardTrackProgressComposer = 48005;
+    public const uint RewardTrackPremiumPurchaseResultComposer = 48006;
 }

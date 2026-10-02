@@ -3,6 +3,7 @@ using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Messenger;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Quests;
 
 namespace Plus.HabboHotel.Friends;
 
@@ -66,6 +67,7 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
         if (target == null)
         {
             await _messengerDataLoader.LogPrivateOfflineMessage(habbo.Id, args.Friend.Id, args.Message);
+            RewardTrackManager.Current?.Progress(habbo.Client, RewardTrackActions.SendMessengerMessage);
             return;
         }
 
@@ -85,6 +87,7 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
         var friend = messenger.GetFriend(habbo.Id);
         if (friend == null) return;
         messenger.ReceiveMessage(friend, args.Message);
+        RewardTrackManager.Current?.Progress(habbo.Client, RewardTrackActions.SendMessengerMessage);
     }
 
     private async Task OnFriendsUpdated(Habbo habbo, MessengerBuddiesModifiedEventArgs args)
@@ -132,6 +135,7 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
         else if (args.FriendRequestModificationType == FriendRequestModificationType.Sent)
         {
             await _messengerDataLoader.RegisterFriendRequest(habbo.Id, args.Request.ToId);
+            RewardTrackManager.Current?.Progress(habbo.Client, RewardTrackActions.RequestFriend);
             var target = _gameClientManager.GetClientByUserId(args.Request.ToId);
             if (target != null)
             {

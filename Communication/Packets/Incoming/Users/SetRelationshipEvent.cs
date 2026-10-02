@@ -2,6 +2,7 @@
 using Plus.Database;
 using Plus.HabboHotel.Friends;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Quests;
 
 namespace Plus.Communication.Packets.Incoming.Users;
 
@@ -34,8 +35,11 @@ internal class SetRelationshipEvent : IPacketEvent
             return;
         }
 
+        var previous = friend.Relationship;
         friend.Relationship = type;
         await _messengerDataLoader.SetRelationship(session.GetHabbo().Id, friend.Id, friend.Relationship);
+        if (type != 0 && type != previous)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.SetRelationshipStatus);
         session.GetHabbo().Messenger.UpdateFriend(friend);
         return;
     }

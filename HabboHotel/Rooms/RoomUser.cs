@@ -5,6 +5,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Rooms.Games.Freeze;
 using Plus.HabboHotel.Rooms.Games.Teams;
@@ -457,12 +458,15 @@ public class RoomUser
 
     public void CarryItem(int item)
     {
+        var previous = CarryItemId;
         CarryItemId = item;
         if (item > 0)
             CarryTimer = 240;
         else
             CarryTimer = 0;
         GetRoom().SendPacket(new CarryObjectComposer(VirtualId, item));
+        if (previous == 0 && item > 0 && !IsBot)
+            RewardTrackManager.Current?.Progress(GetClient(), RewardTrackActions.FindHandItem);
     }
 
 

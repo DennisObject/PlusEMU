@@ -1,6 +1,7 @@
 using Plus.Communication.Packets.Outgoing.Users;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Quests;
 
 namespace Plus.Communication.Packets.Incoming.Inventory.Badges;
 
@@ -28,7 +29,11 @@ internal class SetActivatedBadgesEvent : IPacketEvent
         }
 
         var habbo = session.GetHabbo();
+        var worn = new HashSet<string>(habbo.Inventory.Badges.EquippedBadges.Select(badge => badge.Code), StringComparer.OrdinalIgnoreCase);
         await _badgeManager.UpdateUserBadges(habbo, badgeUpdates);
+        var added = habbo.Inventory.Badges.EquippedBadges.Count(badge => !worn.Contains(badge.Code));
+        if (added > 0)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.WearBadge, added);
 
         var equippedBadges = habbo.Inventory.Badges.EquippedBadges;
 

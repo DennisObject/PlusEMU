@@ -111,8 +111,28 @@ public class FloorPlanWireTests
         Assert.Equal(FloorPlanWire.StockRendererRevision, stock.Name);
         Assert.Equal(FloorPlanWire.HybridRevision, floor.Name);
         Assert.NotEqual(stock.Name, floor.Name);
-        Assert.Equal(supported.IncomingHeaders.OrderBy(pair => pair.Key), stock.IncomingHeaders.OrderBy(pair => pair.Key));
-        Assert.Equal(supported.OutgoingHeaders.OrderBy(pair => pair.Key), stock.OutgoingHeaders.OrderBy(pair => pair.Key));
+        Assert.Equal(supported.IncomingHeaders.Keys.OrderBy(key => key), stock.IncomingHeaders.Keys.OrderBy(key => key));
+        Assert.Equal(supported.OutgoingHeaders.Keys.OrderBy(key => key), stock.OutgoingHeaders.Keys.OrderBy(key => key));
+        var rewardHeaders = new HashSet<string>
+        {
+            "GetRewardTracksEvent",
+            "ClaimRewardTrackPrizeEvent",
+            "PurchaseRewardTrackPremiumEvent",
+            "RewardTracksComposer",
+            "RewardTrackClaimResultComposer",
+            "RewardTrackProgressComposer",
+            "RewardTrackPremiumPurchaseResultComposer"
+        };
+        foreach (var (name, wire) in supported.IncomingHeaders)
+        {
+            if (!rewardHeaders.Contains(name))
+                Assert.Equal(wire, stock.IncomingHeaders[name]);
+        }
+        foreach (var (name, wire) in supported.OutgoingHeaders)
+        {
+            if (!rewardHeaders.Contains(name))
+                Assert.Equal(wire, stock.OutgoingHeaders[name]);
+        }
         Assert.All(stock.IncomingHeaders.Keys, name => Assert.Contains(name, incomingHeaders.Keys));
         Assert.All(stock.OutgoingHeaders.Keys, name => Assert.Contains(name, outgoingHeaders.Keys));
         Assert.Equal(stock.IncomingHeaders.Values.Where(wire => wire > 0).Count(), stock.IncomingHeaders.Values.Where(wire => wire > 0).Distinct().Count());

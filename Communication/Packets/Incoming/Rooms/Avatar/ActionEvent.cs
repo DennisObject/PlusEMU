@@ -31,6 +31,8 @@ public class ActionEvent : RoomPacketEvent
             user.IsAsleep = true;
             room.SendPacket(new SleepComposer(user, true));
         }
+        if (action == 1)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.Wave);
         _questManager.ProgressUserQuest(session, QuestType.SocialWave);
         return Task.CompletedTask;
     }

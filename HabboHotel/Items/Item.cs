@@ -5,6 +5,7 @@ using Plus.Core;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Interactor;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Games.Freeze;
 using Plus.HabboHotel.Rooms.Games.Teams;
@@ -553,6 +554,8 @@ public class Item
                                                     // Set pos
                                                     user.SetPos(item.GetX, item.GetY, item.GetZ);
                                                     user.SetRot(item.Rotation, false);
+                                                    if (!user.IsBot)
+                                                        RewardTrackManager.Current?.Progress(user.GetClient(), RewardTrackActions.Teleport);
 
                                                     // Force tele effect update (dirty)
                                                     item.LegacyDataString = "2";

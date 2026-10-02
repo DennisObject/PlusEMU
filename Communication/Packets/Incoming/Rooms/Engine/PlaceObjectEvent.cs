@@ -4,6 +4,7 @@ using Plus.Core.Settings;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Engine;
@@ -102,6 +103,7 @@ internal class PlaceObjectEvent : RoomPacketEvent
                 session.Send(new FurniListRemoveComposer(itemId));
                 if (session.GetHabbo().Id == room.OwnerId)
                     _achievementManager.ProgressAchievement(session, "ACH_RoomDecoFurniCount", 1);
+                RewardTrackManager.Current?.Progress(session, RewardTrackActions.PlaceItem);
                 if (item.IsWired)
                 {
                     try
@@ -133,6 +135,7 @@ internal class PlaceObjectEvent : RoomPacketEvent
                         session.Send(new FurniListRemoveComposer(itemId));
                         if (session.GetHabbo().Id == room.OwnerId)
                             _achievementManager.ProgressAchievement(session, "ACH_RoomDecoFurniCount", 1);
+                        RewardTrackManager.Current?.Progress(session, RewardTrackActions.PlaceItem);
                     }
                 }
                 catch

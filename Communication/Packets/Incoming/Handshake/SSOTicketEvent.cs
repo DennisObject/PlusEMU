@@ -16,6 +16,7 @@ using Plus.HabboHotel.Cache;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rewards;
 using Plus.HabboHotel.Subscriptions;
 using Plus.HabboHotel.Users.Authentication;
@@ -118,6 +119,7 @@ public class SsoTicketEvent : IPacketEvent
             if (_settingsManager.TryGetValue("user.login.message.enabled") == "1")
                 session.Send(new MotdNotificationComposer(_languageManager.TryGetValue("user.login.message")));
             await _rewardManager.CheckRewards(session);
+            RewardTrackManager.Current?.SendTracks(session);
         }
     }
 }
