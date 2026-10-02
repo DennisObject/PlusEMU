@@ -292,8 +292,13 @@ public class Item
         return sides;
     }
 
+    private long _movementGeneration;
+    internal long MovementGeneration => Interlocked.Read(ref _movementGeneration);
+
     public void SetState(int pX, int pY, double pZ, Dictionary<int, ThreeDCoord> tiles)
     {
+        if (GetX != pX || GetY != pY || !double.IsInfinity(pZ) && GetZ != pZ)
+            Interlocked.Increment(ref _movementGeneration);
         GetX = pX;
         GetY = pY;
         if (!double.IsInfinity(pZ)) GetZ = pZ;

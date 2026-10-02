@@ -5,7 +5,7 @@ using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Items.Wired.Boxes.Effects;
 
-internal class TeleportUserBox : IWiredItem, IWiredCycle
+internal class TeleportUserBox : IWiredItem, IWiredCycle, IWiredFiringPreparation
 {
     private int _delay;
 
@@ -56,7 +56,7 @@ internal class TeleportUserBox : IWiredItem, IWiredCycle
         Delay = packet.ReadInt();
     }
 
-    public bool Execute(params object[] @params)
+    public bool Prepare(params object[] @params)
     {
         if (@params == null || @params.Length == 0)
             return false;
@@ -65,6 +65,13 @@ internal class TeleportUserBox : IWiredItem, IWiredCycle
             return false;
         if (player.Effects != null)
             player.Effects.ApplyEffect(4);
+        return true;
+    }
+
+    public bool Execute(params object[] @params)
+    {
+        if (@params.Length == 0 || @params[0] is not Habbo player || player.CurrentRoom != Instance || SetItems.Count == 0)
+            return false;
         TeleportUser(player);
         return true;
     }

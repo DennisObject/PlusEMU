@@ -6,7 +6,7 @@ using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Items.Wired.Boxes.Effects;
 
-internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay
+internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay, IWiredFiringPreparation
 {
 
     public KickUserBox(Room instance, Item item)
@@ -43,7 +43,7 @@ internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay
         StringData = message;
     }
 
-    public bool Execute(params object[] @params)
+    public bool Prepare(params object[] @params)
     {
         if (@params.Length != 1 || @params[0] is not Habbo player || player.CurrentRoom != Instance)
             return false;
@@ -56,6 +56,15 @@ internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay
             return false;
         }
         player.Client.Send(new WhisperComposer(user.VirtualId, StringData, 0, 0));
+        return true;
+    }
+
+    public bool Execute(params object[] @params)
+    {
+        if (@params.Length != 1 || @params[0] is not Habbo player || player.CurrentRoom != Instance)
+            return false;
+        if (player.Permissions.HasRight("mod_tool") || Instance.OwnerId == player.Id)
+            return false;
         Instance.GetRoomUserManager().RemoveUserFromRoom(player.Client, true);
         return true;
     }
