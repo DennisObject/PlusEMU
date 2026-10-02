@@ -70,12 +70,39 @@ public class BotRoamingTests
         var seen = new HashSet<Point>();
         for (var i = 0; i < 200; i++)
         {
-            Assert.True(map.TryGetRandomWalkableSquare(out var square));
+            Assert.False(map.TryGetRandomWalkableSquare(out _));
+            Assert.True(map.TryGetRandomWalkableSquare(true, out var square));
             Assert.NotEqual(new Point(0, 0), square);
             Assert.Contains(square, before);
             seen.Add(square);
         }
         Assert.True(seen.SetEquals(before));
+    }
+
+    [Fact]
+    public void TerrainStatusReachesStressTargetsAndLiveOccupancyDoesNot()
+    {
+        var (_, map) = Create("000\r000\r000", 1, 1);
+        map.GameMap[0, 0] = 0;
+        for (var i = 0; i < 200; i++)
+        {
+            Assert.True(map.TryGetRandomWalkableSquare(out var live));
+            Assert.NotEqual(new Point(0, 0), live);
+        }
+        Assert.Contains(new Point(0, 0), map.WalkableSquares());
+        Assert.True(map.TryGetRandomWalkableSquare(true, out var stress));
+        Assert.Contains(stress, map.WalkableSquares());
+
+        map.SetFloorStatus(2, 2, 0);
+        Assert.Equal(0, map.GameMap[2, 2]);
+        Assert.DoesNotContain(new Point(2, 2), map.WalkableSquares());
+        for (var i = 0; i < 200; i++)
+        {
+            Assert.True(map.TryGetRandomWalkableSquare(out var live));
+            Assert.NotEqual(new Point(2, 2), live);
+            Assert.True(map.TryGetRandomWalkableSquare(true, out var open));
+            Assert.NotEqual(new Point(2, 2), open);
+        }
     }
 
     [Fact]
@@ -231,7 +258,7 @@ public class BotRoamingTests
         var clock = Stopwatch.StartNew();
         for (var i = 0; i < 500; i++)
         {
-            Assert.True(map.TryGetRandomWalkableSquare(out var square));
+            Assert.True(map.TryGetRandomWalkableSquare(true, out var square));
             Assert.NotEqual(new Point(0, 0), square);
             Assert.InRange(square.X, 0, 63);
             Assert.InRange(square.Y, 0, 63);

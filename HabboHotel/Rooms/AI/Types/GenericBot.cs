@@ -94,7 +94,7 @@ public class GenericBot : BotAi
                     }
                     else if (GetBotData().TargetUser == 0)
                     {
-                        if (GetRoom().GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
+                        if (GetRoom().GetGameMap().TryGetRandomWalkableSquare(GetBotData().IsTemporary, out var nextCoord))
                             GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y, GetBotData().IsTemporary);
                     }
                     break;

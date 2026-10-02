@@ -97,9 +97,11 @@ public class Gamemap
         return new();
     }
 
-    public bool TryGetRandomWalkableSquare(out Point square)
+    public bool TryGetRandomWalkableSquare(out Point square) => TryGetRandomWalkableSquare(false, out square);
+
+    public bool TryGetRandomWalkableSquare(bool ignoreOccupancy, out Point square)
     {
-        var targets = RoamTargets();
+        var targets = ignoreOccupancy ? RoamTargets() : LiveOpenTiles();
         if (targets.Length == 0)
         {
             square = default;
@@ -118,6 +120,26 @@ public class Gamemap
     }
 
     internal Point[] WalkableSquares() => RoamTargets();
+
+    private Point[] LiveOpenTiles()
+    {
+        if (GameMap == null || Model == null)
+            return Array.Empty<Point>();
+        var width = GameMap.GetLength(0);
+        var height = GameMap.GetLength(1);
+        var targets = new List<Point>();
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                if (x == Model.DoorX && y == Model.DoorY)
+                    continue;
+                if (GameMap[x, y] == 1)
+                    targets.Add(new(x, y));
+            }
+        }
+        return targets.ToArray();
+    }
 
     private Point[] RoamTargets()
     {
@@ -873,14 +895,12 @@ public class Gamemap
             return false;
         if (!ValidTile(to.X, to.Y))
             return false;
+        // Execution, not only path search. Temporary stress bots keep AllowOverride so
+        // crowded tiles stay usable. Walls and height still apply; only occupancy is ignored.
+        if (@override && user.BotData?.IsTemporary == true)
+            return IsValidBotStep(from, to, endOfPath);
         if (@override)
-        {
-            // Temporary stress bots keep AllowOverride so crowded tiles stay usable.
-            // Walls and height still apply; only occupancy is ignored.
-            if (user.BotData?.IsTemporary == true)
-                return IsValidBotStep(from, to, endOfPath);
             return true;
-        }
         /*
          * 0 = blocked
          * 1 = open
