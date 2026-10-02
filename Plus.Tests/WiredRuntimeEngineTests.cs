@@ -431,6 +431,24 @@ public class WiredRuntimeEngineTests
         public void HandleSave(IIncomingPacket packet) { }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AuxiliaryCancellationCleanupRunsOnceForPickupOrRoomCleanup(bool roomCleanup)
+    {
+        var f = new Fixture();
+        var trigger = f.Trigger();
+        var executed = 0;
+        var cancelled = 0;
+        f.Action(ctx => f.Engine.ScheduleAux(ctx, 500, () => executed++, () => cancelled++));
+        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter));
+        if (roomCleanup) f.Engine.Clear(); else f.Engine.Remove(trigger.Item.Id);
+        Assert.Equal(1, cancelled);
+        f.Advance(1000);
+        f.Engine.Clear();
+        Assert.Equal(1, cancelled); Assert.Equal(0, executed);
+    }
+
     private sealed class Picker : IWiredActionPicker
     {
         public int Calls;
