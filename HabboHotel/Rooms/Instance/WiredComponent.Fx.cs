@@ -51,7 +51,7 @@ public partial class WiredComponent
             if (ready.Users.TryGetValue(user.VirtualId, out var captured) && ReferenceEquals(captured, user)) ready.Users.Remove(user.VirtualId);
     }
 
-    internal IReadOnlyList<WiredVariableFxViewer> CaptureFxViewers()
+    internal IReadOnlyList<WiredVariableFxViewer> CaptureFxViewers(WiredRuntimeContext? context = null)
     {
         var users = _targets.AllUsers().ToHashSet();
         var viewers = new List<WiredVariableFxViewer>();
@@ -62,6 +62,9 @@ public partial class WiredComponent
                 if (!_targets.IsAttached(item)) ready.Furni.Remove(item.Id);
             foreach (var user in ready.Users.Values.ToArray())
                 if (!users.Contains(user)) ready.Users.Remove(user.VirtualId);
+            // Capture only successfully enqueued, still-attached identities; selectors remain floor-only.
+            if (context != null)
+                foreach (var item in ready.Furni.Values) context.FurniIdentity[item.Id] = item;
             viewers.Add(new(viewer, ready.Furni.Values.Select(WiredVariableRuntimeFrames.FurniHolder)
                 .Concat(ready.Users.Values.Select(WiredVariableRuntimeFrames.UserHolder)).ToArray()));
         }
@@ -76,7 +79,7 @@ public partial class WiredComponent
             var context = new WiredRuntimeContext(_room, new(WiredEventKind.Periodic), _targets, this)
             { NowMilliseconds = _engine.NowMilliseconds };
             var frame = WiredVariableRuntimeFrames.Create(context);
-            var viewers = CaptureFxViewers();
+            var viewers = CaptureFxViewers(context);
             // Walls have their own client snapshot; FX may read them without expanding floor selectors.
             var holders = frame.Holders.Concat(viewers.SelectMany(viewer => viewer.ReadyHolders)).Distinct().ToArray();
             var fxFrame = new WiredVariableFrame(_room.Id, holders) { RuntimeContext = context };

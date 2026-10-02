@@ -136,12 +136,19 @@ public sealed class WiredNativeLifecycleTests
     [Fact]
     public void NativeObjectEnqueueTracksSnapshotAndExactReplacementIdentity()
     {
-        var f = new World(); var viewer = f.Human(); var item = f.Item(3); var wall = f.Wall(4);
+        var f = new World(); f.PrepareVariables(); var viewer = f.Human(); var item = f.Item(3); var wall = f.Wall(4);
         // Incremental objects never ready a viewer who has no full snapshot.
         f.Room.SendObject(item);
         Assert.Empty(f.Wired.CaptureFxViewers());
         f.Room.SendObjects(viewer.GetClient());
-        var ready = Assert.Single(f.Wired.CaptureFxViewers());
+        var fxContext = f.Context();
+        var ready = Assert.Single(f.Wired.CaptureFxViewers(fxContext));
+        var fxFrame = new WiredVariableFrame(f.Room.Id, ready.ReadyHolders) { RuntimeContext = fxContext };
+        var wallReference = new WiredVariableReference(WiredVariableTarget.Furni, "internal:@wallitem_offset");
+        var wallHolder = WiredVariableRuntimeFrames.FurniHolder(wall);
+        Assert.Equal(10, f.Wired.Variables.Module.Read(wallReference, wallHolder, fxFrame)!.Value);
+        using (var reads = f.Wired.Variables.Module.CaptureReads([wallReference], fxFrame))
+            Assert.Equal(10, reads.Read(wallReference, wallHolder, fxFrame)!.Value);
         Assert.Contains(WiredVariableRuntimeFrames.FurniHolder(item), ready.ReadyHolders);
         Assert.Contains(WiredVariableRuntimeFrames.FurniHolder(wall), ready.ReadyHolders);
         Assert.DoesNotContain(wall, f.Context().Targets.AllFurni());
@@ -149,6 +156,11 @@ public sealed class WiredNativeLifecycleTests
         Assert.DoesNotContain(WiredVariableRuntimeFrames.FurniHolder(replacement), Assert.Single(f.Wired.CaptureFxViewers()).ReadyHolders);
         f.Room.SendObject(replacement);
         Assert.Contains(WiredVariableRuntimeFrames.FurniHolder(replacement), Assert.Single(f.Wired.CaptureFxViewers()).ReadyHolders);
+        var replacedWall = f.Wall(wall.Id);
+        Assert.Null(f.Wired.Variables.Module.Read(wallReference, wallHolder, fxFrame));
+        using (var reads = f.Wired.Variables.Module.CaptureReads([wallReference], fxFrame))
+            Assert.Null(reads.Read(wallReference, wallHolder, fxFrame));
+        Assert.DoesNotContain(WiredVariableRuntimeFrames.FurniHolder(replacedWall), Assert.Single(f.Wired.CaptureFxViewers()).ReadyHolders);
         f.Wired.Cleanup(); Assert.Empty(f.Wired.CaptureFxViewers());
     }
 
