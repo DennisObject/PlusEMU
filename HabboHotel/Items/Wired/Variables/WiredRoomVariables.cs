@@ -68,11 +68,20 @@ public sealed partial class WiredRoomVariables
         if (holder.Target == WiredVariableTarget.User && holder.CanPersist) Fx.RemoveViewer(holder.StableId);
         FxDirty = true;
     }
+    public void ItemDetached(Item item) => ItemDetached(item.Id, WiredVariableRuntimeFrames.FurniHolder(item));
     public void ItemDetached(uint itemId)
+    {
+        var item = _room.GetRoomItemHandler()?.GetItem(itemId);
+        if (item is not null) { ItemDetached(item); return; }
+        // Detached durable callers may only supply an ordinary positive wire ID. No sign-based temporary classification.
+        ItemDetached(itemId, itemId <= int.MaxValue ? new(WiredVariableTarget.Furni, itemId, (int)itemId) : null);
+    }
+    private void ItemDetached(uint itemId, WiredVariableHolder? holder)
     {
         _metadata.Remove(itemId);
         _definitions.Remove(itemId); Module.DetachDefinition(itemId);
-        HolderLeft(new(WiredVariableTarget.Furni, itemId, checked((int)itemId)));
+        if (holder is { } detached) HolderLeft(detached);
+        FxDirty = true;
     }
     /// <summary>Only actual deletion of an owning item, never inventory pickup.</summary>
     public int DefinitionDeleted(uint itemId)

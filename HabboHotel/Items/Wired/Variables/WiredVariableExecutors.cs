@@ -112,7 +112,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, Func<l
         var candidates = source switch
         {
             0 or 11 => frame.Trigger,
-            100 or 101 => frame.Holders.Where(x => x.Target == WiredVariableTarget.Furni && selected.Contains((uint)x.StableId)),
+            100 or 101 => frame.Holders.Where(x => x.Target == WiredVariableTarget.Furni && selected.Contains(unchecked((uint)x.EntityId))),
             200 => frame.Selector,
             201 => frame.Signal,
             _ => []

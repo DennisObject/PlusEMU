@@ -33,6 +33,15 @@ public sealed class MemoryWiredVariableStore : IWiredVariableStore
             return keys.Length;
         }
     }
+    public IReadOnlyDictionary<WiredVariableKey, WiredVariableValue> ClearValues(uint definitionId, WiredVariableAuthorization authorization)
+    {
+        lock (_gate)
+        {
+            var removed = _values.Where(x => x.Key.DefinitionId == definitionId).ToDictionary();
+            foreach (var key in removed.Keys) _values.Remove(key);
+            return removed;
+        }
+    }
     public void RemoveHolder(WiredVariableTarget target, long holderId)
     {
         lock (_gate)

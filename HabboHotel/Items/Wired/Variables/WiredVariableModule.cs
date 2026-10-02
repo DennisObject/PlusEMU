@@ -160,7 +160,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     }
 
     // Departure only clears active values. Pickup/room unload must never call DeleteDefinition.
-    public void HolderLeft(WiredVariableHolder holder) => _active.RemoveHolder(holder.Target, holder.StableId);
+    public void HolderLeft(WiredVariableHolder holder) => _active.RemoveHolder(holder.Target, holder.StorageId);
     public void DetachDefinition(uint definitionId) => _active.DeleteDefinition(definitionId);
 
     /// <summary>Call only after the owning definition item is actually deleted; deletion failure propagates.</summary>
@@ -170,6 +170,24 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         {
             var removed = durable.DeleteDefinition(definitionId);
             return removed + _active.DeleteDefinition(definitionId);
+        }
+    }
+
+    /// <summary>Owner-only menu operation. Clears values, retaining the definition and allowing future assignments.</summary>
+    public int ClearValues(uint definitionId, WiredVariableTarget target, WiredVariableFrame frame)
+    {
+        lock (_gate)
+        {
+            if (frame.RoomId != roomId || frame.Depth >= 32 || target is not (WiredVariableTarget.User or WiredVariableTarget.Furni)) return 0;
+            var resolved = Resolve(new(target, $"custom:{definitionId}"), true);
+            if (resolved?.Definition is not { } definition || resolved.Authorization is not { } authorization) return 0;
+            var removed = Store(definition, frame).ClearValues(definition.ItemId, authorization);
+            foreach (var (key, value) in removed)
+            {
+                var entityId = frame.Holders.FirstOrDefault(x => x.Target == key.Target && x.StorageId == key.HolderId).EntityId;
+                _changes.Enqueue(new(definition.RoomId, key, WiredVariableChangeKind.Removed, value, null, entityId, frame.Depth + 1));
+            }
+            return removed.Count;
         }
     }
 
@@ -220,10 +238,10 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
     private bool ValidateHolder(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame) =>
         frame.RoomId == roomId && reference.Target == holder.Target && frame.Contains(holder)
-        && (holder.Target is WiredVariableTarget.Context or WiredVariableTarget.Global || holder.StableId != 0);
+        && (holder.Target is WiredVariableTarget.Context or WiredVariableTarget.Global || holder.StableId != 0 || holder.IsTemporaryFurni);
 
     private static WiredVariableKey Key(WiredVariableDefinition definition, WiredVariableHolder holder) =>
-        new(definition.ItemId, definition.Target, holder.StableId);
+        new(definition.ItemId, definition.Target, holder.StorageId);
     private IWiredVariableStore Store(WiredVariableDefinition definition, WiredVariableFrame frame) =>
         definition.Target == WiredVariableTarget.Context ? frame.Context : definition.IsDurable ? durable : _active;
 

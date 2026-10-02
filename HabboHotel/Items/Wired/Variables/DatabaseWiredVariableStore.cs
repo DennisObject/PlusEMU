@@ -93,6 +93,24 @@ public sealed class DatabaseWiredVariableStore(IDatabase database) : IWiredVaria
         return removed;
     }
 
+    public IReadOnlyDictionary<WiredVariableKey, WiredVariableValue> ClearValues(uint definitionId, WiredVariableAuthorization authorization)
+    {
+        using var connection = database.Connection(); connection.Open();
+        using var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+        if (authorization.Lineage.IsEmpty || authorization.Lineage[^1].ItemId != definitionId || !Authorize(connection, transaction, authorization))
+            return new Dictionary<WiredVariableKey, WiredVariableValue>();
+        if (LockDefinition(connection, transaction, definitionId)) throw new InvalidOperationException("The owning variable definition was deleted.");
+        var removed = connection.Query<Row>("""
+            SELECT target_kind AS Target,holder_id AS HolderId,value AS Value,created_at_ms AS CreatedAtMs,updated_at_ms AS UpdatedAtMs
+            FROM wired_variable_values WHERE definition_id=@definitionId
+            """, new { definitionId }, transaction).ToDictionary(x => new WiredVariableKey(definitionId, x.Target, x.HolderId),
+                x => new WiredVariableValue(x.Value, x.CreatedAtMs, x.UpdatedAtMs));
+        var count = connection.Execute("DELETE FROM wired_variable_values WHERE definition_id=@definitionId", new { definitionId }, transaction);
+        if (count != removed.Count) throw new InvalidOperationException("Variable clear count changed under the definition lock.");
+        transaction.Commit();
+        return removed;
+    }
+
     public WiredVariableHolderPage ReadPage(uint definitionId, WiredVariableTarget target, int page, int size, int sort,
         IReadOnlyCollection<long>? holderFilter = null, IReadOnlyDictionary<long, string>? names = null)
     {

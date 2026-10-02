@@ -24,7 +24,7 @@ public sealed class WiredVariableMenuEventTests
     public async Task AllMenuHandlersRejectUnauthorizedClientsBeforeReadingOrOpeningDatabase()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        RoomPacketEvent[] handlers = [new WiredUserVariablesRequestEvent(), new WiredAllVariablesRequestEvent(), new WiredVariableHashesEvent(),
+        RoomPacketEvent[] handlers = [new WiredUserVariableUpdateEvent(), new WiredUserVariableManageEvent(), new WiredUserVariablesRequestEvent(), new WiredAllVariablesRequestEvent(), new WiredVariableHashesEvent(),
             new WiredVariableHoldersRequestEvent(), new WiredVariableHoldersPageEvent()];
         foreach (var handler in handlers)
         {
@@ -32,6 +32,20 @@ public sealed class WiredVariableMenuEventTests
             Assert.Equal(4, packet.Buffer.Length);
         }
     }
+    [Fact]
+    public void WritesRejectMalformedTargetsTokensActionsAndTruncatedOrTrailingPayloads()
+    {
+        Assert.True(WiredUserVariableUpdateEvent.TryRead(Packet(1, -2, 12, 50), false, out var update));
+        Assert.Equal(-2, update!.TargetId);
+        Assert.True(WiredUserVariableUpdateEvent.TryRead(Packet(0, 123, 0, 4, "internal:@handitem"), false, out _));
+        Assert.True(WiredUserVariableUpdateEvent.TryRead(Packet(2, 0, 0, 12, 0), true, out var clear));
+        Assert.Equal(2, clear!.Action);
+        foreach (var packet in new[] { Packet(2, 1, 12, 0), Packet(0, 1, -1, 0), Packet(0, 1, 0, 0),
+            Packet(0, 1, 12, 0, "internal:@id"), Packet(0, 1, 0, 0, "custom:12"), Packet(0, 1, 12), Packet(0, 1, 12, 0, "", 1) })
+            Assert.False(WiredUserVariableUpdateEvent.TryRead(packet, false, out _));
+        Assert.False(WiredUserVariableUpdateEvent.TryRead(Packet(3, 0, 0, 12, 0), true, out _));
+    }
+
     private static FlashIncomingPacket Packet(params object[] values)
     {
         using var stream = new MemoryStream();
