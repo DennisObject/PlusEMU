@@ -93,7 +93,7 @@ public abstract class GameClient
                 }
                 catch (Exception e)
                 {
-                    // TODO @80O: Add logging when ILogger interface has been implemented
+                    Log.Error(e, $"Error handling packet {messageId}");
                 }
                 memory = memory.Slice(headerLength + length);
             }
