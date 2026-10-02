@@ -159,10 +159,10 @@ public static class ClientPacketHeader
     public const uint SetMannequinNameEvent = 3262; //2406
     public const uint OneWayGateEvent = 1970; //2816
     public const uint EventTrackerEvent = 143; //2386
-    public const uint FloorPlanEditorRoomPropertiesEvent = 2478; //24
+    public const uint GetOccupiedTilesEvent = 2478;
     public const uint PickUpPetEvent = 3975; //2342
     public const uint GetPetInventoryEvent = 3646; //263
-    public const uint InitializeFloorPlanSessionEvent = 3069; //2623
+    public const uint GetRoomEntryTileEvent = 3069;
     public const uint GetOwnOffersEvent = 360; //3829
     public const uint CheckPetNameEvent = 3733; //159
     public const uint SetUserFocusPreferenceEvent = 799; //526
@@ -288,7 +288,7 @@ public static class ClientPacketHeader
     public const uint ManageGroupEvent = 737; //2547
     public const uint PlacePetEvent = 1495; //223
     public const uint EditRoomPromotionEvent = 816; //3707
-    public const uint SaveFloorPlanModelEvent = 1936; //1287
+    public const uint UpdateFloorPropertiesEvent = 1936;
     public const uint MoveWallItemEvent = 1778; //609
     public const uint VersionCheckEvent = 1220; //1600
     public const uint PongEvent = 509; //2584

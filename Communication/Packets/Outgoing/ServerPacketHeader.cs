@@ -267,7 +267,7 @@ public static class ServerPacketHeader
     public const uint RespectPetNotificationComposer = 540; //3637
     public const uint EnforceCategoryUpdateComposer = 3714; //315
     public const uint CommunityGoalHallOfFameComposer = 2629; //690
-    public const uint FloorPlanFloorMapComposer = 1855; //2337
+    public const uint RoomOccupiedTilesComposer = 1855;
     public const uint SendGameInvitationComposer = 2071; //1165
     public const uint GiftWrappingErrorComposer = 1385; //2534
     public const uint PromoArticlesComposer = 3015; //3565
@@ -278,7 +278,7 @@ public static class ServerPacketHeader
     public const uint GetRoomFilterListComposer = 1100; //2169
     public const uint GameAchievementListComposer = 2141; //1264
     public const uint PromotableRoomsComposer = 442; //2166
-    public const uint FloorPlanSendDoorComposer = 1685; //2180
+    public const uint RoomEntryTileComposer = 1685;
     public const uint RoomEntryInfoComposer = 3675; //3378
     public const uint RoomNotificationComposer = 3152; //2419
     public const uint ClubGiftsComposer = 2992; //1549

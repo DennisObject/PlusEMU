@@ -62,6 +62,29 @@ public class FlashFramingTests
         Assert.Equal(0, server.Count);
     }
 
+    [Fact]
+    public async Task ReusedReceiveBufferIsSnapshottedBeforeYield()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var server = new FakeServer { Hold = release.Task };
+        var client = Client(server, 1u, 2u);
+        var disconnected = 0;
+        client.DisconnectRequested = () => disconnected++;
+        var shared = new byte[] { 0, 0, 0, 2, 0, 1 };
+
+        client.OnReceived(shared, 0, shared.Length);
+        shared[4] = 0;
+        shared[5] = 2;
+        client.OnReceived(shared, 0, shared.Length);
+        Array.Clear(shared);
+        release.TrySetResult();
+
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (server.Count < 2 && DateTime.UtcNow < deadline) await Task.Delay(10);
+        Assert.Equal(0, disconnected);
+        Assert.Equal(new uint[] { 1, 2 }, server.MessageIds);
+    }
+
     private static FlashGameClient Client(FakeServer server, params uint[] messageIds)
     {
         var client = new FlashGameClient(server, new FlashPacketFactory())
@@ -77,6 +100,7 @@ public class FlashFramingTests
 
     private sealed class FakeServer : IGameServer
     {
+        public Task? Hold { get; init; }
         public int Count => MessageIds.Count;
         public List<uint> MessageIds { get; } = new();
 
@@ -86,7 +110,7 @@ public class FlashFramingTests
         public Task PacketReceived(GameClient client, uint messageId, IIncomingPacket packet)
         {
             MessageIds.Add(messageId);
-            return Task.CompletedTask;
+            return Hold ?? Task.CompletedTask;
         }
     }
 }

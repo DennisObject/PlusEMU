@@ -148,4 +148,57 @@ public class QueryAdapter : IRegularQueryAdapter
             ExceptionLogger.LogQueryError(Command.CommandText, exception);
         }
     }
+
+    /// <summary>
+    /// Runs the current command and returns the matched row count.
+    /// A disabled database or execution failure propagates. <see cref="RunQuery"/> logs and continues.
+    /// </summary>
+    public int RunQueryRequired()
+    {
+        if (!DbEnabled)
+            throw new InvalidOperationException("Database is disabled.");
+        try
+        {
+            return Command.ExecuteNonQuery();
+        }
+        catch (Exception exception)
+        {
+            ExceptionLogger.LogQueryError(Command.CommandText, exception);
+            throw;
+        }
+    }
+    /// <summary>Commits the current reactor's writes only when the operation succeeds.</summary>
+    public bool RunTransaction(Func<bool> operation)
+    {
+        if (!DbEnabled)
+            throw new InvalidOperationException("Database is disabled.");
+        using var transaction = Command.Connection!.BeginTransaction();
+        Command.Transaction = transaction;
+        try
+        {
+            var accepted = operation();
+            if (accepted)
+                transaction.Commit();
+            else
+                transaction.Rollback();
+            return accepted;
+        }
+        catch
+        {
+            try
+            {
+                transaction.Rollback();
+            }
+            catch (Exception rollbackError)
+            {
+                ExceptionLogger.LogQueryError(Command.CommandText, rollbackError);
+            }
+            throw;
+        }
+        finally
+        {
+            Command.Transaction = null;
+        }
+    }
+
 }

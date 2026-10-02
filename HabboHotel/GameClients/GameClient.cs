@@ -52,10 +52,12 @@ public abstract class GameClient
     internal virtual async void OnReceived(byte[] buffer, long offset, long size)
     {
         if (size > int.MaxValue) throw new InvalidOperationException("");
+        // The transport reuses its receive buffer as soon as this method yields.
+        var received = buffer.AsSpan((int)offset, (int)size).ToArray();
         await _receiveLock.WaitAsync();
         try
         {
-            await using var stream = PlusMemoryStream.GetStream(buffer.AsSpan().Slice((int) offset, (int) size));
+            await using var stream = PlusMemoryStream.GetStream(received);
             var memory = stream.GetBuffer().AsMemory().Slice(0, (int)stream.Length);
 
             if (_incompleteStream != null)
