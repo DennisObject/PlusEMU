@@ -705,6 +705,46 @@ public class ModernWiredRuntimeTests
         finally { databaseField.SetValue(null, original); }
     }
 
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    public void ActualPlacementReadiesFloorAndWallFxOnlyAfterSuccessfulAnnouncement(bool wall, bool enqueue)
+    {
+        using var f = new TeleportFixture();
+        f.Habbo.Gender = "M"; f.Habbo.Motto = ""; f.Habbo.Look = "test";
+        f.Habbo.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
+        f.Room.SendObjects(f.Habbo.Client);
+        Assert.Single(f.Room.GetWired().CaptureFxViewers());
+        f.Habbo.Client.SendCallback = _ => enqueue ? true : throw new IOException("placement enqueue failed");
+        var databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var original = databaseField.GetValue(null);
+        var query = DispatchProxy.Create<IQueryAdapter, RecordingProxy>();
+        var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
+        ((RecordingProxy)(object)database).InvokeMethod = (method, _) => method.Name == "GetQueryReactor" ? query : null;
+        try
+        {
+            databaseField.SetValue(null, database);
+            Item placed;
+            if (wall)
+            {
+                placed = MakeItem(50, "wall"); placed.Definition.Type = ItemType.Wall;
+                placed.WallCoordinates = ":w=1,1 l=10,20 l"; placed.Username = "Alice";
+                typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(placed, f.Room);
+                Assert.True(f.Room.GetRoomItemHandler().SetWallItem(f.Habbo.Client, placed));
+            }
+            else
+            {
+                placed = Assert.IsType<Item>(f.Room.GetRoomItemHandler().PlaceTemporaryFloorItem(MakeItem(50, "floor").Definition, 1, 2, 2, 0));
+            }
+            Assert.Same(placed, f.Room.GetRoomItemHandler().GetItem(placed.Id));
+            var ready = Assert.Single(f.Room.GetWired().CaptureFxViewers()).ReadyHolders;
+            Assert.Equal(enqueue, ready.Contains(WiredVariableRuntimeFrames.FurniHolder(placed)));
+        }
+        finally { databaseField.SetValue(null, original); }
+    }
+
     [Fact]
     public void TemporaryPlacementChecksFullFootprintHeightAndRoomLimit()
     {

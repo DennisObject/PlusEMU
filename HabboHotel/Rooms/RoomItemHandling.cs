@@ -609,7 +609,7 @@ public class RoomItemHandling
             else if (item.IsWallItem && !_wallItems.ContainsKey(item.Id))
                 _wallItems.TryAdd(item.Id, item);
             if (sendMessage)
-                _room.SendPacket(new ObjectAddComposer(item));
+                _room.SendObject(item);
         }
         else
         {
@@ -678,7 +678,7 @@ public class RoomItemHandling
             dbClient.RunQuery();
         }
         _wallItems.TryAdd(item.Id, item);
-        _room.SendPacket(new ItemAddComposer(item));
+        _room.SendObject(item);
         return true;
     }
 
