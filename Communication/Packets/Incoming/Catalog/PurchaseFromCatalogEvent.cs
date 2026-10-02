@@ -15,6 +15,7 @@ using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.Catalog.Utilities;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Users.Effects;
 using Dapper;
 using Plus.HabboHotel.Habbicons;
@@ -311,6 +312,8 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                         session.Send(new FurniListNotificationComposer(purchasedItem.Id, 1));
                     }
                 }
+                if (generatedGenericItems.Count > 0)
+                    RewardTrackManager.Current?.Progress(session, RewardTrackActions.BuyFromCatalogue);
                 break;
             case "e":
                 AvatarEffect effect;

@@ -103,6 +103,8 @@ public class ChatEvent : IPacketEvent
             message = _wordFilterManager.CheckMessage(message);
         _questManager.ProgressUserQuest(session, QuestType.SocialChat);
         user.OnChat(user.LastBubble, message, false);
+        if (room.GetRoomUserManager().GetRoomUsers().Count > 1)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.ChatWithSomeone);
         return;
     }
 }

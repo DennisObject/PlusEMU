@@ -28,10 +28,13 @@ internal class DanceEvent : RoomPacketEvent
             user.CarryItem(0);
         if (session.GetHabbo().Effects.CurrentEffect > 0)
             room.SendPacket(new AvatarEffectComposer(user.VirtualId, 0));
+        var previousDance = user.DanceId;
         user.DanceId = danceId;
         room.SendPacket(new DanceComposer(user, danceId));
         if (danceId > 0)
             room.GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = user, Action = (int)WiredAvatarAction.Dance, Code = danceId });
+        if (danceId >= 1 && danceId <= 4 && danceId != previousDance)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.Dance);
         _questManager.ProgressUserQuest(session, QuestType.SocialDance);
         if (room.GetRoomUserManager().GetRoomUsers().Count > 19)
             _questManager.ProgressUserQuest(session, QuestType.MassDance);

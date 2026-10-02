@@ -23,6 +23,7 @@ internal class InteractorSwitch : IFurniInteractor
             if (modes <= 0)
                 return;
             PlusEnvironment.Game.QuestManager.ProgressUserQuest(session, QuestType.FurniSwitch);
+            var before = item.LegacyDataString;
             var currentMode = 0;
             var newMode = 0;
             if (!int.TryParse(item.LegacyDataString, out currentMode)) { }
@@ -34,6 +35,8 @@ internal class InteractorSwitch : IFurniInteractor
                 newMode = currentMode + 1;
             item.LegacyDataString = newMode.ToString();
             item.UpdateState();
+            if (!string.Equals(before, item.LegacyDataString, StringComparison.Ordinal))
+                RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
         }
         else
             user.MoveTo(item.SquareInFront);

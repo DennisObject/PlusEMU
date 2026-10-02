@@ -33,6 +33,7 @@ internal class RespectUserEvent : RoomPacketEvent
         _achievementManager.ProgressAchievement(session, "ACH_RespectGiven", 1);
         _achievementManager.ProgressAchievement(user.GetClient(), "ACH_RespectEarned", 1);
         session.GetHabbo().HabboStats.DailyRespectPoints -= 1;
+        RewardTrackManager.Current?.Progress(session, RewardTrackActions.GiveRespect);
         session.GetHabbo().HabboStats.RespectGiven += 1;
         user.GetClient().GetHabbo().HabboStats.Respect += 1;
         if (room.RespectNotificationsEnabled)

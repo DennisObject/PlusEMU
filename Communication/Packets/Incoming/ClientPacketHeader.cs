@@ -419,4 +419,7 @@ public static class ClientPacketHeader
     public const uint UnseenResetCategoryEvent = 3493;
     public const uint UnseenResetItemsEvent = 2343;
     public const uint SendMessengerMessageEvent = 4902;
+    public const uint GetRewardTracksEvent = 48000;
+    public const uint ClaimRewardTrackPrizeEvent = 48001;
+    public const uint PurchaseRewardTrackPremiumEvent = 48002;
 }

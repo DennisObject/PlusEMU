@@ -95,7 +95,8 @@ internal sealed class ProcessComponent
                 }
                 _player.HabboStats.DailyRespectPoints = _player.Rank == 1 && _player.VipRank == 0 ? 10 : _player.VipRank == 1 ? 15 : 20;
                 _player.HabboStats.DailyPetRespectPoints = _player.Rank == 1 && _player.VipRank == 0 ? 10 : _player.VipRank == 1 ? 15 : 20;
-                if (_player.Client != null) _player.Client.Send(new UserObjectComposer(_player));
+                if (_player.Client != null)
+                    _player.Client.Send(new UserObjectComposer(_player));
             }
             if (_player.GiftPurchasingWarnings < 15)
                 _player.GiftPurchasingWarnings = 0;

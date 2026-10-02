@@ -39,6 +39,8 @@ public class ActionEvent : RoomPacketEvent
         };
         if (wiredAction != 0)
             room.GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = user, Action = (int)wiredAction, Code = -1 });
+        if (action == 1)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.Wave);
         _questManager.ProgressUserQuest(session, QuestType.SocialWave);
         return Task.CompletedTask;
     }

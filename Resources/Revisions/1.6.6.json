@@ -293,7 +293,10 @@
     "UnfavoriteHabbiconEvent": 9466,
     "UnseenResetCategoryEvent": 3493,
     "UnseenResetItemsEvent": 2343,
-    "SendMessengerMessageEvent": 4902
+    "SendMessengerMessageEvent": 4902,
+    "GetRewardTracksEvent": 0,
+    "ClaimRewardTrackPrizeEvent": 0,
+    "PurchaseRewardTrackPremiumEvent": 0
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -584,6 +587,10 @@
     "HabbiconInfoComposer": 9463,
     "MessengerMessageAckComposer": 4902,
     "MessengerMessageFailedComposer": 4903,
-    "MessengerMessageComposer": 4904
+    "MessengerMessageComposer": 4904,
+    "RewardTracksComposer": 0,
+    "RewardTrackClaimResultComposer": 0,
+    "RewardTrackProgressComposer": 0,
+    "RewardTrackPremiumPurchaseResultComposer": 0
   }
 }

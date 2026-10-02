@@ -101,6 +101,8 @@ public class ShoutEvent : IPacketEvent
         _questManager.ProgressUserQuest(session, QuestType.SocialChat);
         user.UnIdle();
         user.OnChat(user.LastBubble, message, true);
+        if (room.GetRoomUserManager().GetRoomUsers().Count > 1)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.ChatWithSomeone);
         return;
     }
 }

@@ -49,6 +49,7 @@ internal class UpdateFigureDataEvent : IPacketEvent
         _questManager.ProgressUserQuest(session, QuestType.ProfileChangeLook);
         session.GetHabbo().Look = _figureManager.FilterFigure(look);
         session.GetHabbo().Gender = gender.ToLower();
+        RewardTrackManager.Current?.Progress(session, RewardTrackActions.ChangeFigure);
         using (var dbClient = _database.GetQueryReactor())
         {
             dbClient.SetQuery($"UPDATE `users` SET `look` = @look, `gender` = @gender WHERE `id` = '{session.GetHabbo().Id}' LIMIT 1");

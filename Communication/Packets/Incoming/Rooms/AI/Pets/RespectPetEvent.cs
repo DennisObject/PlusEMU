@@ -69,6 +69,7 @@ internal class RespectPetEvent : RoomPacketEvent
         thisUser.CarryItemId = 999999999;
         thisUser.CarryTimer = 5;
         pet.PetData.OnRespect();
+        RewardTrackManager.Current?.Progress(session, RewardTrackActions.PetRespect);
         room.SendPacket(new CarryObjectComposer(thisUser.VirtualId, thisUser.CarryItemId));
         return Task.CompletedTask;
     }

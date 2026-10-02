@@ -293,7 +293,10 @@
     "ClickUserEvent": 10020,
     "WiredRoomSettingsRequestEvent": 10022,
     "WiredRoomSettingsSaveEvent": 10023,
-    "WiredMenuPermissionsSaveEvent": 1936
+    "WiredMenuPermissionsSaveEvent": 1936,
+    "GetRewardTracksEvent": 9450,
+    "ClaimRewardTrackPrizeEvent": 1111,
+    "PurchaseRewardTrackPremiumEvent": 3022
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -584,6 +587,10 @@
     "WiredClickUserResponseComposer": 9460,
     "InClientLinkComposer": 2023,
     "WiredRewardResultComposer": 178,
-    "WiredRoomSettingsDataComposer": 5102
+    "WiredRoomSettingsDataComposer": 5102,
+    "RewardTracksComposer": 2327,
+    "RewardTrackClaimResultComposer": 9451,
+    "RewardTrackProgressComposer": 9452,
+    "RewardTrackPremiumPurchaseResultComposer": 2248
   }
 }

@@ -2,6 +2,7 @@ using Plus.Communication.Packets.Outgoing.Habbicons;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Habbicons;
+using Plus.HabboHotel.Quests;
 using Plus.Utilities;
 
 namespace Plus.Communication.Packets.Incoming.Habbicons;
@@ -24,6 +25,7 @@ public sealed class TriggerHabbiconEvent(IHabbiconService service) : IPacketEven
             return Task.CompletedTask;
         }
         if (!service.Use(habbo.Id, id)) return Task.CompletedTask;
+        RewardTrackManager.Current?.Progress(session, RewardTrackActions.UseHabbicon);
         habbo.LastHabbiconTrigger = Environment.TickCount64;
         user.UnIdle();
         room.SendPacket(new RoomUseHabbiconComposer(user.VirtualId, id));

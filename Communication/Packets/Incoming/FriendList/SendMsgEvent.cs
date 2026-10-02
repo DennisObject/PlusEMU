@@ -1,5 +1,6 @@
 ﻿using Plus.Communication.Packets.Outgoing.FriendList;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Users.Messenger;
 
@@ -30,6 +31,8 @@ internal class SendMsgEvent : IPacketEvent
         }
 
         var error = session.GetHabbo().Messenger.SendMessage(friend, message);
+        if (friend != null && error == null)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.SendMessengerMessage);
         if (error == MessageError.Flooding)
             session.SendNotification("You cannot send a message, you have flooded the console.\n\nYou can send a message in 60 seconds.");
 
