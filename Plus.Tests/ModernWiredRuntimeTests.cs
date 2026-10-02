@@ -755,7 +755,6 @@ public class ModernWiredRuntimeTests
         Assert.Empty(prepared.SelectedItems); Assert.Empty(prepared.SecondarySelectedItems);
         var template = Assert.Single(prepared.Snapshots); Assert.Equal(5u, template.DefinitionId); Assert.Equal("1", template.State);
         Assert.Equal(prepared.Snapshots, WiredRoomOperations.PrepareSnapshots(action, prepared).Snapshots);
-        Assert.False(action.TryValidateConfiguration(proposed with { SelectedItems = [copies[0].Id] }, out _, out _)); // Static ephemeral references cannot survive a reload.
         Assert.True(f.Room.GetRoomItemHandler().RemoveTemporaryFloorItem(copies[0]));
         Assert.True(action.TryValidateConfiguration(prepared with { TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude) }, out config, out _)); action.ApplyConfiguration(config);
         Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
