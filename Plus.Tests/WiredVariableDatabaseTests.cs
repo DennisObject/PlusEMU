@@ -20,6 +20,7 @@ using Plus.HabboHotel.Items.Wired.Modern.Triggers;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.Instance;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -177,6 +178,56 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             roomVariables.FlushFx(fxFrame, viewers, (client, packet) => client.Send(packet), exception => throw exception);
             Assert.Equal(new uint[] { 9476 }, sentFx);
             output.WriteLine("Actual room FX binding/composition: initial configs/status, unchanged flush zero SQL, enqueue-failure retry, and moved-off-variable removal passed.");
+            // Exercise production readiness and cycle entry with the same actual SQL module, not FlushFx directly.
+            roomVariables.Fx.RemoveViewer(fxPlayer.Id); // End the preceding module-only simulated viewer session.
+            var nativeWired = new WiredComponent(liveRoom);
+            typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, nativeWired);
+            typeof(WiredComponent).GetField("_variables", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nativeWired, new Lazy<WiredRoomVariables>(() => roomVariables));
+            Assert.Same(roomVariables, nativeWired.Variables);
+            typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom,
+                new Gamemap(liveRoom, new RoomModel("wired-sql-probe", 0, 0, 0, 0, "000\r000\r000", false, 0, true)));
+            fxPlayer.Username = "probe-viewer"; fxPlayer.Motto = ""; fxPlayer.Look = "test"; fxPlayer.Gender = "M";
+            fxPlayer.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
+            fxPlayer.Effects = new(); fxPlayer.Permissions = new([], []);
+            fxClient.Revision.InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
+                .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id);
+            var failSnapshot = false; var failFx = false; var failedFx = false;
+            fxClient.SendCallback = args =>
+            {
+                var header = (uint)BinaryPrimitives.ReadUInt16BigEndian(args.MemoryBuffer.Span.Slice(4, 2));
+                if (failSnapshot) throw new IOException("Injected native snapshot enqueue failure");
+                if (header is >= 9473 and <= 9476)
+                {
+                    if (failFx) { failedFx = true; throw new IOException("Injected native FX enqueue failure"); }
+                    sentFx.Add(header);
+                }
+                return true;
+            };
+            fxItem.SetState(0, 0, 0, []); roomVariables.InvalidateFx(); sentFx.Clear(); atomicDb.Commands = 0;
+            nativeWired.OnCycle(); Assert.Empty(sentFx); Assert.Equal(0, atomicDb.Commands);
+            failSnapshot = true; Assert.Throws<IOException>(() => liveRoom.SendObjects(fxClient)); failSnapshot = false;
+            nativeWired.OnCycle(); Assert.Empty(sentFx); Assert.Empty(nativeWired.CaptureFxViewers());
+            liveRoom.SendObjects(fxClient); Assert.Single(nativeWired.CaptureFxViewers());
+            atomicDb.Commands = 0; nativeWired.OnCycle();
+            Assert.Equal(new uint[] { 9473, 9475 }, sentFx);
+            var nativeReadCommands = atomicDb.Commands; Assert.InRange(nativeReadCommands, 1, 5);
+            sentFx.Clear(); atomicDb.Commands = 0; nativeWired.OnCycle();
+            Assert.Empty(sentFx); Assert.Equal(0, atomicDb.Commands);
+            roomVariables.Fx.RemoveViewer(fxPlayer.Id); roomVariables.InvalidateFx(); failFx = true;
+            nativeWired.OnCycle(); Assert.True(failedFx); Assert.True(roomVariables.FxDirty); Assert.Empty(sentFx);
+            failFx = false; nativeWired.OnCycle(); Assert.Equal(new uint[] { 9473, 9475 }, sentFx); sentFx.Clear();
+            admin.Execute("UPDATE rooms SET owner='invalid-owner' WHERE id=@room", new { room }); roomVariables.InvalidateFx();
+            nativeWired.OnCycle(); Assert.Contains(9476u, sentFx); sentFx.Clear();
+            admin.Execute("UPDATE rooms SET owner=@owner WHERE id=@room", new { owner = owner.ToString(), room }); roomVariables.InvalidateFx();
+            nativeWired.OnCycle(); Assert.Contains(9475u, sentFx); sentFx.Clear();
+            var replacementViewer = new RoomUser(fxPlayer.Id, 0, fxUser.VirtualId, liveRoom);
+            typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(replacementViewer, fxClient);
+            liveUsers[replacementViewer.VirtualId] = replacementViewer;
+            nativeWired.OnCycle(); Assert.Empty(sentFx); Assert.Empty(nativeWired.CaptureFxViewers());
+            liveRoom.SendObjects(fxClient); nativeWired.OnCycle(); Assert.Equal(new uint[] { 9473, 9475 }, sentFx); sentFx.Clear();
+            liveUsers[fxUser.VirtualId] = fxUser; liveRoom.SendObjects(fxClient); nativeWired.OnCycle(); sentFx.Clear();
+            fxItem.SetState(1, 1, 0, []); nativeWired.OnCycle(); Assert.Equal(new uint[] { 9476 }, sentFx); sentFx.Clear();
+            output.WriteLine($"Actual SQL + native Room.SendObjects/OnCycle FX: initial {nativeReadCommands} SQL commands; unchanged0; no pre-snapshot FX; failed snapshot/send retry; owner recheck; same-ID viewer replacement; detach-placement removal passed.");
             var global = Assert.IsType<WiredVariableDefinitionBox>(roomVariables.CreateBox(new Item
             { Id = globalItem, Definition = new() { InteractionName = "wf_var_room" } }));
             Assert.Same(global, WiredBoxLoading.Select(null, global, null));
