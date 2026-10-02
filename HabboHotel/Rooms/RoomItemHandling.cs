@@ -593,6 +593,8 @@ public class RoomItemHandling
         var oldX = item.GetX;
         var oldY = item.GetY;
         item.SetState(newX, newY, newZ, affectedTiles);
+        if (newItem)
+            item.RoomId = _room.RoomId;
         if (!onRoller && session != null)
             item.Interactor.OnPlace(session, item);
         if (newItem)
@@ -661,6 +663,7 @@ public class RoomItemHandling
             session.SendNotification(PlusEnvironment.LanguageManager.TryGetValue("room.item.already_placed"));
             return true;
         }
+        item.RoomId = _room.RoomId;
         item.Interactor.OnPlace(session, item);
         if (item.Definition.InteractionType == InteractionType.Moodlight)
         {
