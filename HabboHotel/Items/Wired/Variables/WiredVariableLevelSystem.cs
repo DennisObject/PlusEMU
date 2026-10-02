@@ -19,19 +19,19 @@ public sealed class WiredVariableLevelSystem
             using var document = JsonDocument.Parse(text);
             var root = document.RootElement;
             int Number(string name, int fallback) => root.TryGetProperty(name, out var value) ? value.GetInt32() : fallback;
-            int Positive(string name, int fallback) => Number(name, fallback) is > 0 and var number ? number : fallback;
+            int NonNegative(string name, int fallback) => Math.Max(0, Number(name, fallback));
             var mode = Number("mode", 1);
             if (mode is < 1 or > 3) return false;
-            var maxLevel = Math.Clamp(Positive("maxLevel", 10), 1, 10000);
+            var maxLevel = Math.Clamp(Number("maxLevel", 10), 1, 10000);
             var thresholds = new int[maxLevel];
             if (mode == 1)
             {
-                var step = Positive("stepSize", 100);
+                var step = NonNegative("stepSize", 100);
                 for (var i = 1; i < thresholds.Length; i++) thresholds[i] = Clamp((long)i * step);
             }
             else if (mode == 2)
             {
-                var increment = Positive("firstLevelXp", 100); var factor = Positive("increaseFactor", 100);
+                var increment = NonNegative("firstLevelXp", 100); var factor = NonNegative("increaseFactor", 100);
                 long threshold = 0;
                 for (var i = 1; i < thresholds.Length; i++)
                 {

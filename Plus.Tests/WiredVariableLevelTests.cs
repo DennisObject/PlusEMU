@@ -6,6 +6,22 @@ namespace Plus.Tests;
 public sealed class WiredVariableLevelTests
 {
     [Fact]
+    public void ExplicitZeroAndNegativeInputsFollowActiveEditorNormalization()
+    {
+        Assert.True(WiredVariableLevelSystem.TryParse("{\"mode\":2,\"firstLevelXp\":100,\"increaseFactor\":0,\"maxLevel\":3}", out var flatGrowth));
+        Assert.Equal(100, flatGrowth!.Level(150).Start); Assert.Equal(200, flatGrowth.Level(150).Next);
+        foreach (var zero in new[] { "{\"mode\":1,\"stepSize\":0}", "{\"mode\":2,\"firstLevelXp\":0}",
+            "{\"mode\":1,\"stepSize\":-10}", "{\"mode\":2,\"firstLevelXp\":-10}" })
+        {
+            Assert.True(WiredVariableLevelSystem.TryParse(zero, out var system));
+            Assert.True(system!.Level(0).IsMaxed); Assert.Equal(0, system.Level(0).Next);
+        }
+        Assert.True(WiredVariableLevelSystem.TryParse("{\"mode\":2,\"firstLevelXp\":100,\"increaseFactor\":-1,\"maxLevel\":3}", out var negativeGrowth));
+        Assert.Equal(200, negativeGrowth!.Level(150).Next);
+        Assert.True(WiredVariableLevelSystem.TryParse("{\"maxLevel\":0}", out var zeroLevels));
+        Assert.Equal(1, zeroLevels!.Level(0).MaxLevel);
+    }
+    [Fact]
     public void LinearLevelProgressAndFxShareCumulativeThresholds()
     {
         Assert.True(WiredVariableLevelSystem.TryParse("{\"mode\":1,\"stepSize\":100,\"maxLevel\":4}", out var system));

@@ -34,6 +34,8 @@ public sealed class WiredVariableMetadataTests
         Assert.Equal("two", box.TextConnector[2]);
         var level = Box("wf_xtra_var_lvlup_system"); Assert.NotNull(level.LevelSystem);
         Assert.Equal(2, level.LevelSystem.Level(150).Level); Assert.False(level.Execute());
+        Assert.True(level.TryValidateConfiguration(new() { Text = "{\"mode\":2,\"firstLevelXp\":100,\"increaseFactor\":0,\"maxLevel\":3}" }, out var zeroGrowth, out _));
+        level.ApplyConfiguration(zeroGrowth); Assert.Equal(200, level.LevelSystem!.Level(150).Next);
     }
     private static WiredVariableMetadataBox Box(string name)
     {
