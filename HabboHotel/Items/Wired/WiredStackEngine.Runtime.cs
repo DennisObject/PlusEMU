@@ -114,14 +114,14 @@ internal sealed partial class WiredStackEngine
     });
 
     // Auxiliary animation work belongs to the actual action firing and shares its cancellation.
-    public bool ScheduleAux(WiredRuntimeContext context, int delayMilliseconds, Action callback) => Pass(() =>
+    public bool ScheduleAux(WiredRuntimeContext context, int delayMilliseconds, Action callback, Action? onCancelled = null) => Pass(() =>
     {
         var active = _executingAction;
         if (active == null || !ReferenceEquals(active.Chain.Context.Runtime, context)
             || !CanSchedule([active.Box])) return false;
         var chain = new ActionChain(active.Chain.Source, active.Chain.Stack, active.Chain.Context, 1);
         _pending.Add(chain);
-        _schedule.Enqueue(new(chain, active.Box, callback),
+        _schedule.Enqueue(new(chain, active.Box, callback, onCancelled),
             (_now() + Math.Max(0, delayMilliseconds), active.Box.Item.GetZ, active.Box.Item.Id, ++_sequence));
         UpdateFastWork();
         return true;

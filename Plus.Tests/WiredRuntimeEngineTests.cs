@@ -359,6 +359,96 @@ public class WiredRuntimeEngineTests
         f.Advance(400); Assert.Equal(1, calls);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NormalDelayedActorFiringCancelsAfterDepartureOrNewVisit(bool reenter)
+    {
+        var f = new Fixture();
+        var actor = f.User(7);
+        f.Trigger(WiredEventKind.Speech);
+        var action = f.Action(delay: 1);
+        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Speech) { Actor = actor });
+        f.Users.Remove(actor);
+        if (reenter) f.User(7); // Same stable user, a new RoomUser visit object.
+        f.Advance(500);
+        Assert.Equal(0, action.Calls);
+    }
+
+    [Fact]
+    public void LegacyPeriodicMixedStackUsesAnyActorPerContextualConditionAndActorlessActions()
+    {
+        var f = new Fixture();
+        var alice = f.User(1);
+        var bob = f.User(2);
+        var repeater = new LegacyRepeater { Item = f.Furni(), Instance = f.Room };
+        repeater.Item.Definition.InteractionType = InteractionType.WiredTrigger;
+        f.Engine.Add(repeater);
+        f.Add(new Box(WiredBoxCategory.Condition) { Body = ctx => ReferenceEquals(ctx.Event.Actor, alice) });
+        f.Add(new Box(WiredBoxCategory.Condition) { Body = ctx => ReferenceEquals(ctx.Event.Actor, bob) });
+        var action = f.Action(ctx => { Assert.Null(ctx.Event.Actor); return true; });
+        Assert.True(f.Engine.RunPeriodicStack(repeater, [[alice], [bob]]));
+        Assert.Equal(1, action.Calls);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void PendingCapIncludesQueuedSignalsBeforeNestedActionsAndAuxiliaryWork()
+    {
+        var f = new Fixture(new() { MaxPendingStacks = 2 });
+        var antenna = f.Furni("antenna", x: 3);
+        f.Trigger();
+        var target = f.Trigger(WiredEventKind.Signal, x: 2);
+        var nested = f.Action(x: 2);
+        var aux = 0;
+        f.Action(ctx =>
+        {
+            Assert.True(f.Engine.SendSignal(ctx, [antenna], new()));
+            Assert.False(f.Engine.CallStacks(ctx, [target.Item]));
+            Assert.False(f.Engine.ScheduleAux(ctx, 10, () => aux++));
+            return true;
+        });
+        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter)));
+        Assert.Equal(0, nested.Calls);
+        f.Advance(50);
+        Assert.Equal(0, aux);
+        Assert.Empty(f.Errors);
+    }
+
+    private sealed class LegacyRepeater : IWiredItem, IWiredCycle
+    {
+        public Room Instance { get; set; } = null!;
+        public Item Item { get; set; } = null!;
+        public WiredBoxType Type => WiredBoxType.TriggerRepeat;
+        public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
+        public string StringData { get; set; } = "";
+        public bool BoolData { get; set; }
+        public string ItemsData { get; set; } = "";
+        public int Delay { get; set; }
+        public int TickCount { get; set; }
+        public bool OnCycle() => true;
+        public bool Execute(params object[] arguments) => true;
+        public void HandleSave(IIncomingPacket packet) { }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AuxiliaryCancellationCleanupRunsOnceForPickupOrRoomCleanup(bool roomCleanup)
+    {
+        var f = new Fixture();
+        var trigger = f.Trigger();
+        var executed = 0;
+        var cancelled = 0;
+        f.Action(ctx => f.Engine.ScheduleAux(ctx, 500, () => executed++, () => cancelled++));
+        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter));
+        if (roomCleanup) f.Engine.Clear(); else f.Engine.Remove(trigger.Item.Id);
+        Assert.Equal(1, cancelled);
+        f.Advance(1000);
+        f.Engine.Clear();
+        Assert.Equal(1, cancelled); Assert.Equal(0, executed);
+    }
+
     private sealed class Picker : IWiredActionPicker
     {
         public int Calls;

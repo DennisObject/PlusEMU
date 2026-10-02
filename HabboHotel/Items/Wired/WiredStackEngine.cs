@@ -44,6 +44,7 @@ internal sealed partial class WiredStackEngine
         lock (_sync)
         {
             if (!_items.TryAdd(box.Item.Id, box)) return false;
+            if (box is IWiredTimedTrigger timer) timer.Reset(_now());
             UpdateRuntimeItems();
             return true;
         }
@@ -72,6 +73,7 @@ internal sealed partial class WiredStackEngine
         {
             _items.Clear();
             _stacks.Clear();
+            foreach (var entry in _schedule.UnorderedItems.ToArray()) CancelAuxiliary(entry.Element);
             _schedule.Clear();
             _pending.Clear();
             _signals.Clear();
@@ -247,9 +249,11 @@ internal sealed partial class WiredStackEngine
 
     private void PruneSchedule()
     {
-        var kept = _schedule.UnorderedItems.Where(x => _pending.Contains(x.Element.Chain)).ToArray();
+        var entries = _schedule.UnorderedItems.ToArray();
+        var kept = entries.Where(x => _pending.Contains(x.Element.Chain)).ToArray();
         _schedule.Clear();
         foreach (var entry in kept) _schedule.Enqueue(entry.Element, entry.Priority);
+        foreach (var entry in entries.Where(x => !_pending.Contains(x.Element.Chain))) CancelAuxiliary(entry.Element);
     }
 
     private void DrainDueActions()
@@ -264,17 +268,20 @@ internal sealed partial class WiredStackEngine
             {
                 var scheduled = _schedule.Dequeue();
                 var chain = scheduled.Chain;
-                if (!_pending.Contains(chain)) continue;
+                if (!_pending.Contains(chain)) { CancelAuxiliary(scheduled); continue; }
                 if (!IsChainValid(chain))
                 {
                     _pending.Remove(chain);
+                    CancelAuxiliary(scheduled);
                     prune = true;
                     continue;
                 }
                 var action = scheduled.Box;
                 try
                 {
-                    if (!IsAttached(action) || (action.Item.GetX, action.Item.GetY) != chain.Tile) continue;
+                    if (!IsAttached(action) || (action.Item.GetX, action.Item.GetY) != chain.Tile)
+                    { CancelAuxiliary(scheduled); continue; }
+                    scheduled.Finished = true;
                     var previousAction = _executingAction;
                     _executingAction = scheduled;
                     try
@@ -376,7 +383,18 @@ internal sealed partial class WiredStackEngine
         }
     }
 
-    private sealed record ScheduledAction(ActionChain Chain, IWiredItem Box, Action? Callback = null);
+    private void CancelAuxiliary(ScheduledAction action)
+    {
+        if (action.Finished || action.OnCancelled == null) return;
+        action.Finished = true;
+        try { action.OnCancelled(); }
+        catch (Exception error) { _error(error); }
+    }
+
+    private sealed record ScheduledAction(ActionChain Chain, IWiredItem Box, Action? Callback = null, Action? OnCancelled = null)
+    {
+        public bool Finished { get; set; }
+    }
 
     private sealed class ActionChain(IWiredItem source, IWiredItem[] stack,
         WiredExecutionContext context, int remaining)
