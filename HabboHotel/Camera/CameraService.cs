@@ -31,8 +31,6 @@ public sealed class CameraService : ICameraService, IDisposable
     private readonly CameraRendererClient _renderer;
     private readonly CameraQuota _quota;
     private readonly string _directory;
-    private DateTimeOffset _lastCleanup;
-    private readonly Lock _cleanupGate = new();
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     internal static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(30);
 
@@ -155,10 +153,11 @@ public sealed class CameraService : ICameraService, IDisposable
                     string path = Path.Combine(_directory, mediaId.ToString("D"));
                     try
                     {
-                        File.WriteAllBytes(path+".png", image.Png); File.WriteAllBytes(path+"_small.png", image.SmallPng);
                         using var connection = _database.Connection();
                         connection.Execute("INSERT INTO camera_media (id,user_id,room_id,created_at) VALUES (@id,@userId,@roomId,@now)",
                             new { id = mediaId.ToString("D"), userId = session.GetHabbo().Id, roomId = room.RoomId, now = now.UtcDateTime });
+                        // Persist the retry record before writing either file, including crash recovery.
+                        File.WriteAllBytes(path+".png", image.Png); File.WriteAllBytes(path+"_small.png", image.SmallPng);
                     }
                     catch { File.Delete(path+".png"); File.Delete(path+"_small.png"); throw; }
                     if (capturing)
@@ -170,7 +169,6 @@ public sealed class CameraService : ICameraService, IDisposable
                     session.Send(new CameraStorageUrlComposer(CameraStorageReply.Success(parsed.RequestId, draft.Id, mediaId, parsed.Stage)));
                 }
             }
-            try { Cleanup(); } catch (Exception exception) { _logger.LogWarning(exception, "Camera media cleanup failed"); }
         }
         catch (Exception exception)
         {
@@ -184,35 +182,6 @@ public sealed class CameraService : ICameraService, IDisposable
         if (thumbnail) session.Send(new ThumbnailStatusComposer(false, quota));
         else session.Send(new CameraStorageUrlComposer(parsed?.RequestId.Length > 0 && parsed.Stage.Length > 0
             ? CameraStorageReply.Failure(parsed.RequestId, parsed.Stage) : ""));
-    }
-    private void Cleanup()
-    {
-        lock (_cleanupGate)
-        {
-            var now = _time.GetUtcNow();
-            if (now - _lastCleanup < TimeSpan.FromMinutes(1)) return;
-            _lastCleanup = now;
-            using var connection = _database.Connection();
-            var expired = connection.Query<string>("""
-                SELECT m.id FROM camera_media m WHERE m.created_at < @before
-                AND NOT EXISTS (SELECT 1 FROM camera_purchases p WHERE p.media_id=m.id)
-                AND NOT EXISTS (SELECT 1 FROM camera_publications p WHERE p.media_id=m.id)
-                AND NOT EXISTS (SELECT 1 FROM camera_competition_entries p WHERE p.media_id=m.id) LIMIT 20
-                """, new { before = now.Subtract(Lifetime).UtcDateTime });
-            foreach (var value in expired)
-            {
-                if (!Guid.TryParseExact(value, "D", out var id)) continue;
-                if (connection.State != System.Data.ConnectionState.Open) connection.Open();
-                using var transaction = connection.BeginTransaction();
-                connection.QuerySingleOrDefault<string>("SELECT id FROM camera_media WHERE id=@id FOR UPDATE", new { id = value }, transaction);
-                int retained = connection.QuerySingle<int>("SELECT (SELECT COUNT(*) FROM camera_purchases WHERE media_id=@id)+(SELECT COUNT(*) FROM camera_publications WHERE media_id=@id)+(SELECT COUNT(*) FROM camera_competition_entries WHERE media_id=@id)", new { id = value }, transaction);
-                if (retained > 0) continue;
-                connection.Execute("DELETE FROM camera_media WHERE id=@id", new { id = value }, transaction);
-                transaction.Commit();
-                File.Delete(Path.Combine(_directory, id+".png")); File.Delete(Path.Combine(_directory, id+"_small.png"));
-            }
-            connection.Execute("DELETE FROM camera_quota WHERE quota_date < @before", new { before = now.AddDays(-2).Date });
-        }
     }
     private sealed class State
     {

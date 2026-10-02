@@ -3,6 +3,7 @@ using Plus.Communication.Packets.Outgoing.Camera;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.HabboHotel.Camera;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Quests;
 
 namespace Plus.Communication.Packets.Incoming.Camera;
 
@@ -19,7 +20,11 @@ public sealed class PublishPhotoEvent(ICameraService camera, ICameraCheckoutServ
                 return checkout.Publish(session.GetHabbo(), media);
             });
             session.Send(new CameraPublishStatusComposer(result.Ok, result.WaitSeconds, url));
-            if (result.Changed) session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, 0));
+            if (result.Ok && result.Changed)
+            {
+                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, 0));
+                RewardTrackManager.Current?.Progress(session, RewardTrackActions.PublishPicture);
+            }
         }
         catch (Exception exception)
         {

@@ -149,6 +149,10 @@ public class UpstreamPortTests
         Assert.True(FurniExtraData.RejectsClientImage(new[] { "clickUrl", "" }));
         Assert.True(FurniExtraData.RejectsClientImage(new[] { "offsetX", "javascript:alert(1)" }));
         Assert.True(FurniExtraData.RejectsClientImage(new[] { "offsetX", "{\"w\":\"/camera/a.png\"}" }));
+        Assert.True(FurniExtraData.RejectsClientImage(new[] { @"\u0069mageUrl", @"\u0068ttps:\u002f\u002fexample.invalid/image.png" }));
+        Assert.True(FurniExtraData.RejectsClientImage(new[] { "offsetX", @"\u0068ttps:\u002f\u002fexample.invalid/image.png" }));
+        Assert.True(FurniExtraData.RejectsClientImage(new[] { "offsetX", "1\nimageUrl\thttps://example.invalid/image.png" }));
+        Assert.True(FurniExtraData.RejectsClientImage(new[] { "offsetX", @"\u0000" }));
         Assert.False(FurniExtraData.RejectsClientImage(new[] { "offsetX", "1", "offsetY", "2", "offsetZ", "0" }));
 
         var inventory = FurniExtraData.Load(Definition(InteractionType.None), "hello", keepLegacy: false);

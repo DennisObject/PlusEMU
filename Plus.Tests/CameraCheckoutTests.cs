@@ -160,6 +160,60 @@ public class CameraCheckoutTests
         Assert.Equal(100, _habbo.Credits); Assert.Equal(20, _habbo.Duckets);
     }
 
+    [CameraDatabaseFact]
+    public void ScheduledCleanupDrainsBacklogWithoutCapturesAndPreservesRetainedMedia()
+    {
+        Assert.True(_service.Purchase(_habbo, _media).Ok);
+        _clock.Now = _clock.Now.AddMinutes(31);
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            for (var index = 0; index < 105; index++)
+            {
+                var expired = _media with { Id = Guid.NewGuid() };
+                Mint(expired);
+                File.WriteAllText(Path.Combine(directory, expired.Id + ".png"), "expired");
+                File.WriteAllText(Path.Combine(directory, expired.Id + "_small.png"), "expired");
+            }
+            var fresh = _media with { Id = Guid.NewGuid(), CreatedAt = _clock.GetUtcNow() }; Mint(fresh);
+            using var cleanup = new CameraMediaCleanup(_database,
+                Microsoft.Extensions.Options.Options.Create(new CameraConfiguration { OutputDirectory = directory }),
+                _clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<CameraMediaCleanup>.Instance);
+            cleanup.Start().GetAwaiter().GetResult();
+            Assert.True(SpinWait.SpinUntil(() => Scalar("SELECT COUNT(*) FROM camera_media") == 2, TimeSpan.FromSeconds(10)));
+            Assert.Empty(Directory.GetFiles(directory));
+            Assert.Equal(1, Scalar("SELECT COUNT(*) FROM camera_purchases"));
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [CameraDatabaseFact]
+    public void CleanupRetriesPartialUnlinksAndRetainsDatabaseRecordOnFailure()
+    {
+        _clock.Now = _clock.Now.AddMinutes(31);
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
+        Directory.CreateDirectory(directory);
+        string main = Path.Combine(directory, _media.Id + ".png");
+        string small = Path.Combine(directory, _media.Id + "_small.png");
+        File.WriteAllText(main, "expired");
+        Directory.CreateDirectory(small); // File.Delete must fail after the main file was removed.
+        try
+        {
+            using var cleanup = new CameraMediaCleanup(_database,
+                Microsoft.Extensions.Options.Options.Create(new CameraConfiguration { OutputDirectory = directory }),
+                _clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<CameraMediaCleanup>.Instance);
+            Assert.Equal(1, cleanup.SweepBatch().Count);
+            Assert.False(File.Exists(main));
+            Assert.Equal(1, Scalar("SELECT COUNT(*) FROM camera_media"));
+            Directory.Delete(small);
+            Assert.Equal(1, cleanup.SweepBatch().Count);
+            Assert.Equal(0, Scalar("SELECT COUNT(*) FROM camera_media"));
+            Assert.Empty(Directory.GetFiles(directory));
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
     private void Mint(CameraCheckoutMedia media)
     {
         using var c = _database.Connection();

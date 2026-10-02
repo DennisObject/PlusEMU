@@ -30,7 +30,14 @@ internal static class FurniExtraData
                 return true;
         }
 
-        return false;
+        // Branding is decoded by MapDataFormat.Store. Validate exactly that representation
+        // as well, including escaped keys, values and injected pair separators.
+        var decoded = new MapDataFormat();
+        try { decoded.Store(Branding(values)); }
+        catch (ArgumentException) { return true; }
+        return decoded.Data.Any(pair => ClientImageKeys.Contains(pair.Key)
+            || ExternalAddress.IsMatch(pair.Key) || ExternalAddress.IsMatch(pair.Value)
+            || EmbeddedImageKey.IsMatch(pair.Key) || EmbeddedImageKey.IsMatch(pair.Value));
     }
 
     public static IFurniObjectData Load(ItemDefinition definition, string stored, bool keepLegacy)

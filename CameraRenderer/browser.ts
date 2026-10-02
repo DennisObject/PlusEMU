@@ -1,3 +1,4 @@
+import { buildAvatarEffectLibraries, avatarEffectsReady } from './effect-libraries.mjs';
 import
 {
     AvatarAction,
@@ -621,17 +622,7 @@ function effectsReady(users: CameraSceneUser[]): boolean
 {
     const assets = GetAssetManager();
 
-    for(const user of users)
-    {
-        if(!user.effect) continue;
-
-        for(const library of (effectLibraries.get(String(user.effect)) ?? []))
-        {
-            if(!assets.getCollection(library)) return false;
-        }
-    }
-
-    return true;
+    return avatarEffectsReady(users, effectLibraries, library => !!assets.getCollection(library));
 }
 
 async function pump(engineTime: { value: number }): Promise<void>
@@ -809,22 +800,7 @@ async function loadEffectLibraries(): Promise<Map<string, string[]>>
 {
     const url = GetConfiguration().getValue<string>('avatar.effectmap.url');
     const data = await loadGamedata<{ effects?: { id?: unknown, lib?: unknown }[] }>(url);
-    const libraries = new Map<string, string[]>();
-    const seen = new Set<string>();
-
-    for(const effect of (data?.effects ?? []))
-    {
-        if(!effect || (effect.id == null) || (effect.lib == null)) continue;
-
-        const library = String(effect.lib);
-
-        if(seen.has(library)) continue;
-
-        seen.add(library);
-        libraries.set(String(effect.id), [library]);
-    }
-
-    return libraries;
+    return buildAvatarEffectLibraries(data?.effects ?? []);
 }
 
 function requireConfiguration(): void

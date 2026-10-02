@@ -77,7 +77,7 @@ async function safeFile(root, name) {
     return readFile(target);
 }
 async function createPage(abort) {
-    browser ??= await chromium.launch({executablePath:process.env.CAMERA_CHROMIUM_PATH || undefined, headless:true, args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+    browser ??= await chromium.launch({executablePath:process.env.CAMERA_CHROMIUM_PATH || undefined, headless:true, chromiumSandbox:true, args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
     if (abort?.done) throw new Error('Camera render timed out');
     const context = await browser.newContext({viewport:{width:2048,height:2048},deviceScaleFactor:1,extraHTTPHeaders:{Authorization:`Bearer ${secret}`}});
     if (abort) abort.context = context;
