@@ -32,8 +32,16 @@ public sealed partial class WiredRoomVariables
         _persistence = new(database, Module, nowMs);
     }
 
-    public IWiredConfiguredItem? CreateBox(Item item) => item.Definition.WiredDescriptor is { } descriptor && WiredVariableMetadataBox.Supports(descriptor.CanonicalName)
-        ? new WiredVariableMetadataBox(_room, item, descriptor) : WiredVariableBoxFactory.Create(_room, item, Module, _nowMs, _persistence);
+    public IWiredConfiguredItem? CreateBox(Item item)
+    {
+        if (item.Definition.WiredDescriptor is { } descriptor)
+        {
+            if (WiredVariableMetadataBox.Supports(descriptor.CanonicalName)) return new WiredVariableMetadataBox(_room, item, descriptor);
+            if (WiredVariableAddonBox.Supports(descriptor.CanonicalName)) return new WiredVariableAddonBox(_room, item, descriptor, Module,
+                id => MetadataOn(id, "wf_xtra_var_text_connector")?.TextConnector ?? new Dictionary<int, string>());
+        }
+        return WiredVariableBoxFactory.Create(_room, item, Module, _nowMs, _persistence);
+    }
     /// <summary>Call after hydration from the companion configuration store. Database failures must abort activation.</summary>
     public void ConfigurationLoaded(IWiredConfiguredItem box)
     {
