@@ -84,7 +84,7 @@ public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, 
         }
     }
 
-    private bool InRoom(GameClient session) => session.GetHabbo() is { } habbo && ReferenceEquals(habbo.CurrentRoom, room);
+    private bool InRoom(GameClient session) => session?.GetHabbo() is { } habbo && ReferenceEquals(habbo.CurrentRoom, room);
     private void EnsureLoaded()
     {
         if (!_loaded) Reload();
