@@ -630,6 +630,25 @@ public class ModernWiredRuntimeTests
         Assert.False(room.GetRoomItemHandler().SetFloorItem(null!, mover, 1, 1, 0, false, false, false, wiredCollision: blocked));
     }
 
+    [Fact]
+    public void AvatarMovementHonoursScopedThroughUsersAndExplicitBlockingItems()
+    {
+        using var fixture = new TeleportFixture(); var room = fixture.Room; var actor = fixture.User;
+        var occupant = new RoomUser(2, 0, 8, room); occupant.SetPos(1, 0, 0); RoomUsers(room)[8] = occupant;
+        room.GetGameMap().AddUserToMap(occupant, new(1, 0));
+        var action = ActionBox(room, "wf_act_move_rotate_user");
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [2, -1, 0] }, out var config, out _)); action.ApplyConfiguration(config);
+        WiredRuntimeContext Firing() { var c = Context(room, new(WiredEventKind.Enter) { Actor = actor }, fixture.Items.Values.ToArray(), RoomUsers(room).Values.ToArray()); c.Triggering.UserIds.Add(actor.VirtualId); c.Policy.Addons.DisableAnimation = true; return c; }
+        Assert.False(action.Execute(Firing())); Assert.Equal(0, actor.X);
+        var wrong = Firing(); wrong.Policy.Addons.Physics = new(false, new HashSet<uint>(), new HashSet<int> { 9 }, new HashSet<uint>());
+        Assert.False(action.Execute(wrong)); Assert.Equal(0, actor.X);
+        var blocked = MakeItem(10, "test"); blocked.SetState(1, 0, 0, Gamemap.GetAffectedTiles(1, 1, 1, 0, 0)); fixture.Items[10] = blocked; room.GetGameMap().AddToMap(blocked);
+        var context = Firing(); context.Policy.Addons.Physics = new(false, new HashSet<uint>(), new HashSet<int> { 8 }, new HashSet<uint> { 10 });
+        Assert.False(action.Execute(context)); Assert.Equal(0, actor.X);
+        context.Policy.Addons.Physics = new(false, new HashSet<uint>(), new HashSet<int> { 8 }, new HashSet<uint>());
+        Assert.True(action.Execute(context)); Assert.Equal(1, actor.X); Assert.Equal(0, actor.Y);
+    }
+
     public class RecordingProxy : DispatchProxy
     {
         public Func<MethodInfo, object?[]?, object?> InvokeMethod = (_, _) => null;
