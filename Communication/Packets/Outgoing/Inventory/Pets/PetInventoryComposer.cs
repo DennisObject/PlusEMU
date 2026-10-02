@@ -16,7 +16,7 @@ public class PetInventoryComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(1);
-        packet.WriteInteger(1);
+        packet.WriteInteger(0);
         packet.WriteInteger(_pets.Count);
         foreach (var pet in _pets.ToList())
         {
@@ -25,9 +25,10 @@ public class PetInventoryComposer : IServerPacket
             packet.WriteInteger(pet.Type);
             packet.WriteInteger(int.Parse(pet.Race));
             packet.WriteString(pet.Color);
-            packet.WriteInteger(0);
-            packet.WriteInteger(0);
-            packet.WriteInteger(0);
+            packet.WriteInteger(0); // Breed id.
+            foreach (var part in pet.CustomParts.Split(' '))
+                packet.WriteInteger(int.Parse(part));
+            packet.WriteInteger(pet.Level);
         }
     }
 }
