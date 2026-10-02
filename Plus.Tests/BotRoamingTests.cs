@@ -1,0 +1,203 @@
+using System.Diagnostics;
+using System.Drawing;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.Rooms.AI.Speech;
+using Plus.HabboHotel.Rooms.AI.Types;
+using Plus.HabboHotel.Rooms.PathFinding;
+using Xunit;
+
+namespace Plus.Tests;
+
+public class BotRoamingTests
+{
+    [Fact]
+    public void IncludesBorderAndDoorLineTilesAndNeverFallsBackToABlockedCorner()
+    {
+        var (_, map) = Create("00\r00", 0, 0);
+        var squares = map.WalkableSquares();
+        Assert.Equal(new[] { new Point(1, 0), new Point(0, 1), new Point(1, 1) }, squares);
+        Assert.DoesNotContain(new Point(0, 0), squares);
+
+        var seen = new HashSet<Point>();
+        for (var i = 0; i < 300; i++)
+        {
+            Assert.True(map.TryGetRandomWalkableSquare(out var square));
+            seen.Add(square);
+            Assert.NotEqual(new Point(0, 0), square);
+        }
+        Assert.True(seen.SetEquals(squares));
+    }
+
+    [Fact]
+    public void KeepsOpenTilesOnTheDoorRowAndDoorColumn()
+    {
+        var (_, doorRow) = Create("xxx\r000\rxxx", 0, 1);
+        Assert.Equal(new[] { new Point(1, 1), new Point(2, 1) }, doorRow.WalkableSquares());
+
+        var (_, doorColumn) = Create("x0x\rx0x\rx0x", 1, 0);
+        Assert.Equal(new[] { new Point(1, 1), new Point(1, 2) }, doorColumn.WalkableSquares());
+        Assert.False(doorColumn.WalkableSquares().Contains(new Point(0, 0)));
+    }
+
+    [Fact]
+    public void ReturnsNoTargetWhenNothingIsWalkable()
+    {
+        var (_, map) = Create("xxx\rxxx\rxxx", 1, 1);
+        Assert.Empty(map.WalkableSquares());
+        Assert.False(map.TryGetRandomWalkableSquare(out _));
+        Assert.Equal(new Point(0, 0), map.GetRandomWalkableSquare());
+    }
+
+    [Fact]
+    public void CrowdZeroingLiveTilesDoesNotShrinkOrRebuildTargets()
+    {
+        var (_, map) = Create("x00\rx00\rx00", 1, 1);
+        var before = map.WalkableSquares();
+        Assert.DoesNotContain(new Point(0, 0), before);
+        Assert.Contains(new Point(2, 2), before);
+
+        for (var pass = 0; pass < 25; pass++)
+        {
+            for (var y = 0; y < 3; y++)
+            for (var x = 0; x < 3; x++)
+                map.GameMap[x, y] = 0;
+            Assert.Same(before, map.WalkableSquares());
+        }
+
+        var seen = new HashSet<Point>();
+        for (var i = 0; i < 200; i++)
+        {
+            Assert.True(map.TryGetRandomWalkableSquare(out var square));
+            Assert.NotEqual(new Point(0, 0), square);
+            Assert.Contains(square, before);
+            seen.Add(square);
+        }
+        Assert.True(seen.SetEquals(before));
+    }
+
+    [Fact]
+    public void FloorStatusChangesInvalidateTheCachedTargets()
+    {
+        var (_, map) = Create("000\r000\r000", 1, 1);
+        var before = map.WalkableSquares();
+        Assert.Same(before, map.WalkableSquares());
+        Assert.Contains(new Point(0, 0), before);
+
+        map.SetFloorStatus(0, 0, 0);
+        var blocked = map.WalkableSquares();
+        Assert.NotSame(before, blocked);
+        Assert.DoesNotContain(new Point(0, 0), blocked);
+
+        map.SetFloorStatus(2, 2, 2);
+        Assert.Contains(new Point(2, 2), map.WalkableSquares());
+    }
+
+    [Fact]
+    public void StressBotPathsAroundWallsAndCliffsWhileStaffOverrideMayCrossThem()
+    {
+        var (room, map) = Create("xxxxx\rx000x\rx0x0x\rx000x\rxxxxx", 1, 1);
+        var stress = Bot(room, allowOverride: true);
+        stress.SetPos(1, 2, 0);
+        var around = PathFinder.FindPath(stress, true, map, new(1, 2), new(3, 2));
+        Assert.Contains(around, step => step.X == 3 && step.Y == 2);
+        Assert.DoesNotContain(around, step => step.X == 2 && step.Y == 2);
+
+        for (var y = 0; y < 5; y++)
+        for (var x = 0; x < 5; x++)
+        {
+            map.GameMap[x, y] = 0;
+            map.AddUserToMap(Bot(room, allowOverride: false), new(x, y));
+        }
+        var crowded = PathFinder.FindPath(stress, true, map, new(1, 2), new(3, 2));
+        Assert.Contains(crowded, step => step.X == 3 && step.Y == 2);
+        Assert.DoesNotContain(crowded, step => step.X == 2 && step.Y == 2);
+
+        var staff = new RoomUser(0, 1, 2, room) { AllowOverride = true };
+        staff.SetPos(1, 2, 0);
+        var through = PathFinder.FindPath(staff, true, map, new(1, 2), new(3, 2));
+        Assert.Contains(through, step => step.X == 2 && step.Y == 2);
+    }
+
+    [Fact]
+    public void StressBotDoesNotClimbAStepTallerThanTheWalkLimit()
+    {
+        var (room, map) = Create("xxxxx\rx020x\rxxxxx", 1, 1);
+        var stress = Bot(room, allowOverride: true);
+        stress.SetPos(1, 1, 0);
+        Assert.Empty(PathFinder.FindPath(stress, true, map, new(1, 1), new(3, 1)));
+    }
+
+    [Fact]
+    public void GenericBotRoamsARealTileAndStaysPutWhenTheFloorIsBlocked()
+    {
+        var (room, map) = Create("x00\rx00\rx00", 1, 1);
+        var user = Bot(room, allowOverride: true);
+        user.SetPos(1, 2, 0);
+        user.GoalX = -1;
+        user.GoalY = -1;
+        var ai = new GenericBot(user.VirtualId);
+        ai.Init(user.BotData.BotId, user.VirtualId, 1, user, room);
+        ai.OnTimerTick();
+        Assert.Contains(new Point(user.GoalX, user.GoalY), map.WalkableSquares());
+        Assert.NotEqual(new Point(0, 0), new Point(user.GoalX, user.GoalY));
+
+        var (blockedRoom, blockedMap) = Create("xxx\rxxx\rxxx", 1, 1);
+        var stuck = Bot(blockedRoom, allowOverride: true);
+        stuck.GoalX = 4;
+        stuck.GoalY = 4;
+        var idle = new GenericBot(stuck.VirtualId);
+        idle.Init(stuck.BotData.BotId, stuck.VirtualId, 1, stuck, blockedRoom);
+        idle.OnTimerTick();
+        Assert.False(blockedMap.TryGetRandomWalkableSquare(out _));
+        Assert.Equal(4, stuck.GoalX);
+        Assert.Equal(4, stuck.GoalY);
+        Assert.False(stuck.PathRecalcNeeded);
+    }
+
+    [Fact]
+    public void PickingFiveHundredTargetsOnALargeFloorStaysCached()
+    {
+        var floor = string.Join('\r', Enumerable.Repeat(new string('0', 64), 64));
+        var (_, map) = Create(floor, 0, 0);
+        var squares = map.WalkableSquares();
+        Assert.Equal(64 * 64 - 1, squares.Length);
+        Assert.Same(squares, map.WalkableSquares());
+
+        var clock = Stopwatch.StartNew();
+        for (var i = 0; i < 500; i++)
+        {
+            Assert.True(map.TryGetRandomWalkableSquare(out var square));
+            Assert.NotEqual(new Point(0, 0), square);
+            Assert.InRange(square.X, 0, 63);
+            Assert.InRange(square.Y, 0, 63);
+        }
+        clock.Stop();
+        Assert.True(clock.ElapsedMilliseconds < 200, $"500 cached picks took {clock.ElapsedMilliseconds}ms");
+    }
+
+    private static RoomUser Bot(Room room, bool allowOverride)
+    {
+        var speeches = new List<RandomSpeech>();
+        var data = new RoomBot(-1, 1, "generic", "freeroam", "Stress", "", "hd-180-1",
+            1, 1, 0, 0, 0, 0, 0, 0, ref speeches, "M", 0, 7, false, 60, false, 0)
+        { IsTemporary = true };
+        var user = new RoomUser(0, 1, 1, room)
+        {
+            AllowOverride = allowOverride,
+            BotData = data
+        };
+        return user;
+    }
+
+    private static (Room Room, Gamemap Map) Create(string heightmap, int doorX, int doorY)
+    {
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        var model = new RoomModel("test", doorX, doorY, 0, 0, heightmap, false, 0, false);
+        var map = new Gamemap(room, model);
+        typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
+        return (room, map);
+    }
+}

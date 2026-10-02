@@ -55,7 +55,6 @@ public class GenericBot : BotAi
             _speechTimer--;
         if (_actionTimer <= 0)
         {
-            Point nextCoord;
             switch (GetBotData().WalkingMode.ToLower())
             {
                 default:
@@ -95,8 +94,8 @@ public class GenericBot : BotAi
                     }
                     else if (GetBotData().TargetUser == 0)
                     {
-                        nextCoord = GetRoom().GetGameMap().GetRandomWalkableSquare();
-                        GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y, GetBotData().IsTemporary);
+                        if (GetRoom().GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
+                            GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y, GetBotData().IsTemporary);
                     }
                     break;
                 case "specified_range":
