@@ -18,6 +18,7 @@ public static class WiredAddonConfiguration
         {
             0 or 200 or 201 => P(index),
             100 when !users => 100,
+            11 when users => 11,
             900 when all => 900,
             _ => 0
         };

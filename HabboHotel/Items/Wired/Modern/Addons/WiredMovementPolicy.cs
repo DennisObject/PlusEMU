@@ -9,7 +9,7 @@ public sealed record WiredMovementOptions(int AnimationTimeMs, bool Animate, dou
 public static class WiredMovementPolicy
 {
     public static WiredMovementOptions Resolve(WiredAddonPolicy policy, WiredSelectorFurniture mover,
-        int targetX, int targetY, double targetZ, int? rotation = null)
+        int targetX, int targetY, double targetZ, int? rotation = null, bool explicitHeight = false)
     {
         var projectile = policy.Projectile;
         var scoped = projectile?.ItemIds.Contains(mover.Id) == true;
@@ -19,14 +19,14 @@ public static class WiredMovementPolicy
         {
             WiredProjectileDistance.Overshoot => projectile.DistanceTiles,
             WiredProjectileDistance.Fixed => (int)Math.Clamp(projectile.DistanceTiles
-                - Math.Max(Math.Abs((long)targetX - mover.X), Math.Abs((long)targetY - mover.Y)), -64, 64),
+                - Math.Max(Math.Abs((long)targetX - mover.X), Math.Abs((long)targetY - mover.Y)), int.MinValue, int.MaxValue),
             _ => 0
         } : 0;
         return new(policy.AnimationTimeMs, !policy.DisableAnimation,
-            policy.Physics?.KeepAltitude == true ? mover.Z : targetZ,
+            policy.Physics?.KeepAltitude == true && !explicitHeight ? mover.Z : targetZ,
             direction is int d ? (d + projectile!.RotationOffset) % 8 : rotation,
-            policy.Curve?.Type ?? 0, policy.Curve?.Intensity ?? 100,
-            scoped && projectile!.CurveStrength is int strength ? strength : policy.Curve?.Strength ?? 0, offset);
+            policy.Curve?.Type ?? (scoped && projectile!.CurveStrength is not null ? 7 : 0), policy.Curve?.Intensity ?? 100,
+            policy.Curve?.Strength ?? (scoped ? projectile!.CurveStrength ?? 0 : 0), offset);
     }
 
     public static int? Direction(int system, long dx, long dy)
