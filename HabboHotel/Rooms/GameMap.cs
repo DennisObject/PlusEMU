@@ -136,9 +136,8 @@ public class Gamemap
             {
                 if (x == Model.DoorX && y == Model.DoorY)
                     continue;
-                var state = map[x, y];
-                // 1 open, 2 seat and 3 bed/door are valid path ends. Walls stay 0.
-                if (state is 1 or 2 or 3)
+                // Freeroam historically picked open floor only, not seats or beds.
+                if (map[x, y] == 1)
                     targets.Add(new(x, y));
             }
         }

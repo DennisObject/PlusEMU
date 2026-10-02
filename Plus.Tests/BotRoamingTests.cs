@@ -92,7 +92,50 @@ public class BotRoamingTests
         Assert.DoesNotContain(new Point(0, 0), blocked);
 
         map.SetFloorStatus(2, 2, 2);
+        map.SetFloorStatus(2, 0, 3);
+        var openOnly = map.WalkableSquares();
+        Assert.DoesNotContain(new Point(2, 2), openOnly);
+        Assert.DoesNotContain(new Point(2, 0), openOnly);
+        map.SetFloorStatus(2, 2, 1);
         Assert.Contains(new Point(2, 2), map.WalkableSquares());
+    }
+
+    [Fact]
+    public void GenerateMapsRebuildsOpenFloorAndOccupancyWritesDoNot()
+    {
+        var (room, map) = Create("000\r000\r000", 1, 1);
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(room, new RoomItemHandling(room));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(room, new RoomUserManager(room));
+        map.SetFloorStatus(0, 0, 0);
+        Assert.DoesNotContain(new Point(0, 0), map.WalkableSquares());
+
+        map.GenerateMaps();
+        var rebuilt = map.WalkableSquares();
+        Assert.Contains(new Point(0, 0), rebuilt);
+        Assert.DoesNotContain(new Point(1, 1), rebuilt);
+
+        for (var y = 0; y < 3; y++)
+        for (var x = 0; x < 3; x++)
+            map.GameMap[x, y] = 0;
+        Assert.Same(rebuilt, map.WalkableSquares());
+    }
+
+    [Fact]
+    public void OnlyTemporaryBotsLoseWallOverride()
+    {
+        var (room, map) = Create("xxxxx\rx0x0x\rxxxxx", 1, 1);
+        var placed = Bot(room, allowOverride: true, temporary: false);
+        Assert.True(map.IsValidStep2(placed, new(1, 1), new(2, 1), false, true));
+        Assert.True(map.IsValidStep(new(1, 1), new(2, 1), false, true, false, placed));
+        var through = PathFinder.FindPath(placed, true, map, new(1, 1), new(3, 1));
+        Assert.Contains(through, step => step.X == 2 && step.Y == 1);
+
+        var stress = Bot(room, allowOverride: true, temporary: true);
+        Assert.False(map.IsValidStep2(stress, new(1, 1), new(2, 1), false, true));
+        var around = PathFinder.FindPath(stress, true, map, new(1, 1), new(3, 1));
+        Assert.DoesNotContain(around, step => step.X == 2 && step.Y == 1);
     }
 
     [Fact]
@@ -197,12 +240,12 @@ public class BotRoamingTests
         Assert.True(clock.ElapsedMilliseconds < 200, $"500 cached picks took {clock.ElapsedMilliseconds}ms");
     }
 
-    private static RoomUser Bot(Room room, bool allowOverride)
+    private static RoomUser Bot(Room room, bool allowOverride, bool temporary = true)
     {
         var speeches = new List<RandomSpeech>();
         var data = new RoomBot(-1, 1, "generic", "freeroam", "Stress", "", "hd-180-1",
             1, 1, 0, 0, 0, 0, 0, 0, ref speeches, "M", 0, 7, false, 60, false, 0)
-        { IsTemporary = true };
+        { IsTemporary = temporary };
         var user = new RoomUser(0, 1, 1, room)
         {
             AllowOverride = allowOverride,
