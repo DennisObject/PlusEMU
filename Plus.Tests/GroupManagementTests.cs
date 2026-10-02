@@ -335,7 +335,9 @@ public class GroupManagementTests : IDisposable
         Assert.DoesNotContain("flatctrl 3", roomUser.Statusses.Keys);
         var targetHeaders = targetSent.Select(item => item.Header).ToList();
         Assert.Contains(ServerPacketHeader.YouAreControllerComposer, targetHeaders);
-        Assert.Contains(ServerPacketHeader.UpdateFavouriteGroupComposer, targetHeaders);
+        var favouriteUpdate = targetSent.Single(item => item.Header == ServerPacketHeader.UpdateFavouriteGroupComposer).Payload;
+        Assert.Equal(roomUser.VirtualId, BinaryPrimitives.ReadInt32BigEndian(favouriteUpdate));
+        Assert.Equal(0, BinaryPrimitives.ReadInt32BigEndian(favouriteUpdate.AsSpan(4)));
         Assert.Contains(ServerPacketHeader.RefreshFavouriteGroupComposer, targetHeaders);
         Assert.Contains(ServerPacketHeader.GroupInfoComposer, targetHeaders);
         var refresh = sent.Single(item => item.Header == ServerPacketHeader.UnknownGroupComposer).Payload;

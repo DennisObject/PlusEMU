@@ -131,7 +131,7 @@ internal class RemoveGroupMemberEvent : IPacketEvent
                     {
                         var favouriteUser = habbo.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(userId);
                         if (favouriteUser != null)
-                            habbo.CurrentRoom.SendPacket(new UpdateFavouriteGroupComposer(group, favouriteUser.VirtualId));
+                            habbo.CurrentRoom.SendPacket(new UpdateFavouriteGroupComposer(null, favouriteUser.VirtualId));
                         habbo.CurrentRoom.SendPacket(new RefreshFavouriteGroupComposer(userId));
                     }
                     else
