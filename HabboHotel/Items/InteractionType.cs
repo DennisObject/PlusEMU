@@ -117,5 +117,8 @@ public enum InteractionType
     CameraPicture,
     FxProvider,
     Exchange,
-    Skateboard
+    Skateboard,
+    WiredSelector,
+    WiredAddon,
+    WiredVariable
 }

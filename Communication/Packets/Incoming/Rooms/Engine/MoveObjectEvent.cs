@@ -28,7 +28,7 @@ internal class MoveObjectEvent : RoomPacketEvent
             if (!room.CheckRights(session, false, true))
             {
                 item = room.GetRoomItemHandler().GetItem(itemId);
-                if (item == null)
+                if (item == null || item.IsTemporary)
                     return Task.CompletedTask;
                 session.Send(new ObjectUpdateComposer(item));
                 return Task.CompletedTask;
@@ -39,7 +39,7 @@ internal class MoveObjectEvent : RoomPacketEvent
             if (!room.CheckRights(session)) return Task.CompletedTask;
         }
         item = room.GetRoomItemHandler().GetItem(itemId);
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return Task.CompletedTask;
         var x = packet.ReadInt();
         var y = packet.ReadInt();

@@ -30,6 +30,7 @@ public static class ItemLoader
     internal static Item ReadRoomItem(DataRow row, uint roomId, ItemDefinition definition) => new()
     {
         Id = Convert.ToUInt32(row["id"]),
+        OwnerId = Convert.ToUInt32(row["user_id"]),
         UserId = Convert.ToInt32(row["user_id"]),
         Username = Convert.ToString(row["username"]) ?? "",
         Definition = definition,

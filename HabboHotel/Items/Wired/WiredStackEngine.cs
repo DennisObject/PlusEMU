@@ -1,8 +1,11 @@
+using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Runtime;
+
 namespace Plus.HabboHotel.Items.Wired;
 
 // Room-owned dispatch, evaluation and scheduling. The lock also serializes legacy synchronous
 // callbacks: context is scoped to a call, including events raised recursively by an action.
-internal sealed class WiredStackEngine
+internal sealed partial class WiredStackEngine
 {
     private readonly object _sync = new();
     private readonly Dictionary<uint, IWiredItem> _items = new();
@@ -21,6 +24,7 @@ internal sealed class WiredStackEngine
     private int _remaining;
     private long _sequence;
     private bool _draining;
+    private ScheduledAction? _executingAction;
 
     public WiredStackEngine(Func<long> now, Func<IWiredItem, bool> attached,
         Func<object[], bool> actorPresent, Action<Item> flash, Action<Exception> error,
@@ -37,7 +41,13 @@ internal sealed class WiredStackEngine
 
     public bool Add(IWiredItem box)
     {
-        lock (_sync) return _items.TryAdd(box.Item.Id, box);
+        lock (_sync)
+        {
+            if (!_items.TryAdd(box.Item.Id, box)) return false;
+            if (box is IWiredTimedTrigger timer) timer.Reset(_now());
+            UpdateRuntimeItems();
+            return true;
+        }
     }
 
     public bool Remove(uint id)
@@ -46,6 +56,8 @@ internal sealed class WiredStackEngine
         {
             if (!_items.Remove(id, out var removed)) return false;
             CancelPending(removed);
+            ResetRuntimeTile(removed.Item.GetX, removed.Item.GetY);
+            UpdateRuntimeItems();
             return true;
         }
     }
@@ -61,34 +73,51 @@ internal sealed class WiredStackEngine
         {
             _items.Clear();
             _stacks.Clear();
+            foreach (var entry in _schedule.UnorderedItems.ToArray()) CancelAuxiliary(entry.Element);
             _schedule.Clear();
             _pending.Clear();
+            foreach (var dispatch in _dispatches) dispatch.Current?.Dispose();
+            foreach (var dispatch in _dispatches) dispatch.IsQueued = false;
+            _dispatches.Clear(); _queuedSlots = 0;
+            _runtimePositions.Clear();
+            UpdateFastWork();
         }
     }
 
-    // A successful save cancels firings that captured this stack. The legacy parser still
-    // mutates outside this lock; atomic validation/application belongs to the save adapter.
+    // A successful publication cancels all firings that captured this stack.
     public void CancelPending(IWiredItem box)
     {
         lock (_sync)
         {
+            if (_activeFiring?.Stack.Contains(box) == true) _activeFiring.Cancelled = true;
             _pending.RemoveWhere(chain => chain.Contains(box));
             PruneSchedule();
+            var tile = (box.Item.GetX, box.Item.GetY);
+            var kept = _dispatches.Where(pending => pending.Current?.Stack.Contains(box) != true
+                && pending.Triggers?.Contains(box) != true
+                && !pending.CapturedBoxes.Contains(box)
+                && (pending.Signal == null || (pending.Signal.Receiver.GetX, pending.Signal.Receiver.GetY) != tile)).ToArray();
+            foreach (var pending in _dispatches.Except(kept)) pending.Current?.Dispose();
+            foreach (var pending in _dispatches) pending.IsQueued = false;
+            _dispatches.Clear(); _queuedSlots = 0;
+            foreach (var pending in kept) QueueDispatch(pending);
+            UpdateFastWork();
         }
     }
 
     public ICollection<IWiredItem> GetBoxes(IWiredItem source, InteractionType kind) => Pass(() =>
-        GetStack(source).Where(x => x.Item.Definition.InteractionType == kind).ToList());
+        GetStack(source).Where(x => IsKind(x, kind)).ToList());
 
     public bool Dispatch(WiredBoxType type, params object[] arguments) => Pass(() =>
     {
         RefreshStacks();
-        var context = CreateContext((arguments ?? []).ToArray(), (_context?.Depth ?? -1) + 1);
+        var context = CreateContext((arguments ?? []).ToArray(), _queuedDepth ?? (_runtimeContext?.Depth ?? _context?.Depth ?? -1) + 1);
+        _queuedDepth = null;
         if (context.Depth > _limits.MaxDepth) return false;
         var matched = false;
         // Each registered trigger is visited once, even when a tile has several of the same type.
         foreach (var trigger in _stacks.Values.SelectMany(x => x)
-                     .Where(x => x.Type == type && IsKind(x, InteractionType.WiredTrigger))
+                     .Where(x => x is not IWiredContextualTrigger && x.Type == type && IsKind(x, InteractionType.WiredTrigger))
                      .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray())
         {
             if (_remaining <= 0) break;
@@ -123,6 +152,7 @@ internal sealed class WiredStackEngine
     public void OnCycle() => Pass(() =>
     {
         RefreshStacks();
+        DrainDueActions();
         foreach (var box in _items.Values.ToArray())
         {
             // IWiredCycle remains the saved-delay contract; only periodic triggers tick.
@@ -137,7 +167,9 @@ internal sealed class WiredStackEngine
                 catch (Exception e) { _error(e); }
             }
         }
+        if (_runtimeRoom != null) RunRuntimeTimersAndSignals();
         DrainDueActions();
+        UpdateFastWork();
         return true;
     });
 
@@ -148,6 +180,17 @@ internal sealed class WiredStackEngine
         if (context.Depth > _limits.MaxDepth || !IsActorPresent(context)) return false;
         var stack = GetStack(source);
         if (stack.Length == 0) return false;
+        if (_runtimeRoom != null && stack.Any(x => x is IWiredConfiguredItem))
+        {
+            var typed = _runtimeContext?.Fork(_runtimeContext.Event, context.Depth)
+                ?? CreateContext((_legacyRuntimeEvent ?? new(WiredEventKind.Periodic)) with
+                { Actor = context.ActorVisit as Plus.HabboHotel.Rooms.RoomUser ?? context.Arguments.FirstOrDefault() as Plus.HabboHotel.Rooms.RoomUser ?? _legacyRuntimeEvent?.Actor }, context.Depth);
+            typed.Trigger = source;
+            if (_runtimeContext == null) SeedEvent(typed);
+            var accepted = RunRuntimeStack(source, typed, null, conditionActors, defer: onAccepted == null);
+            if (accepted) onAccepted?.Invoke();
+            return accepted;
+        }
         var conditions = stack.Where(x => IsKind(x, InteractionType.WiredCondition)).ToArray();
         foreach (var condition in conditions)
         {
@@ -173,14 +216,14 @@ internal sealed class WiredStackEngine
         return ScheduleActions(source, stack, actions, context, firedAt: firedAt);
     }
 
-    private bool CanSchedule(IWiredItem[] actions)
+    private bool CanSchedule(IWiredItem[] actions, bool prepared = false)
     {
-        if (actions.Length > 0 && _pending.Count >= _limits.MaxPendingStacks
+        if (actions.Length > 0 && PendingCount >= _limits.MaxPendingStacks
             && _pending.RemoveWhere(chain => !IsChainValid(chain)) > 0)
             PruneSchedule();
         // Preparation must happen synchronously; reject before acceptance if its calls cannot fit.
-        return (actions.Length == 0 || _pending.Count < _limits.MaxPendingStacks)
-            && actions.Count(action => action is IWiredFiringPreparation) <= _remaining;
+        return (actions.Length == 0 || PendingCount < _limits.MaxPendingStacks)
+            && (prepared || actions.Count(action => action is IWiredFiringPreparation) <= _remaining);
     }
 
     private bool IsChainValid(ActionChain chain) => IsAttached(chain.Source)
@@ -190,9 +233,9 @@ internal sealed class WiredStackEngine
 
     // Shared by stack pipelines inside a room-engine pass. Delay is captured per firing.
     internal bool ScheduleActions(IWiredItem source, IWiredItem[] capturedStack, IWiredItem[] actions,
-        WiredExecutionContext context, Func<IWiredItem, long>? delayMilliseconds = null, long? firedAt = null)
+        WiredExecutionContext context, Func<IWiredItem, long>? delayMilliseconds = null, long? firedAt = null, bool prepared = false)
     {
-        if (!CanSchedule(actions)) return false;
+        if (!CanSchedule(actions, prepared)) return false;
         if (actions.Length == 0) return true;
         var chain = new ActionChain(source, capturedStack, context, actions.Length);
         var firing = ++_sequence;
@@ -202,7 +245,7 @@ internal sealed class WiredStackEngine
         {
             if (!_pending.Contains(chain)) break;
             var due = startedAt + Math.Max(0, (delayMilliseconds ?? GetDelay)(action));
-            if (action is IWiredFiringPreparation preparation
+            if (!prepared && action is IWiredFiringPreparation preparation
                 && !Invoke(action, context, () => preparation.Prepare(context.Arguments)))
             {
                 if (--chain.Remaining == 0) _pending.Remove(chain);
@@ -217,9 +260,11 @@ internal sealed class WiredStackEngine
 
     private void PruneSchedule()
     {
-        var kept = _schedule.UnorderedItems.Where(x => _pending.Contains(x.Element.Chain)).ToArray();
+        var entries = _schedule.UnorderedItems.ToArray();
+        var kept = entries.Where(x => _pending.Contains(x.Element.Chain)).ToArray();
         _schedule.Clear();
         foreach (var entry in kept) _schedule.Enqueue(entry.Element, entry.Priority);
+        foreach (var entry in entries.Where(x => !_pending.Contains(x.Element.Chain))) CancelAuxiliary(entry.Element);
     }
 
     private void DrainDueActions()
@@ -234,18 +279,30 @@ internal sealed class WiredStackEngine
             {
                 var scheduled = _schedule.Dequeue();
                 var chain = scheduled.Chain;
-                if (!_pending.Contains(chain)) continue;
+                if (!_pending.Contains(chain)) { CancelAuxiliary(scheduled); continue; }
                 if (!IsChainValid(chain))
                 {
                     _pending.Remove(chain);
+                    CancelAuxiliary(scheduled);
                     prune = true;
                     continue;
                 }
                 var action = scheduled.Box;
                 try
                 {
-                    if (!IsAttached(action) || (action.Item.GetX, action.Item.GetY) != chain.Tile) continue;
-                    Execute(action, chain.Context);
+                    if (!IsAttached(action) || (action.Item.GetX, action.Item.GetY) != chain.Tile)
+                    { CancelAuxiliary(scheduled); continue; }
+                    scheduled.Finished = true;
+                    var previousAction = _executingAction;
+                    _executingAction = scheduled;
+                    try
+                    {
+                        var succeeded = scheduled.Callback == null ? Execute(action, chain.Context)
+                            : Invoke(action, chain.Context, () => { scheduled.Callback(); return true; });
+                        if (succeeded && chain.Context.Runtime?.Policy.StopOnSuccess == true)
+                        { _pending.Remove(chain); prune = true; }
+                    }
+                    finally { _executingAction = previousAction; }
                     Flash(action);
                 }
                 finally
@@ -274,11 +331,16 @@ internal sealed class WiredStackEngine
     private WiredExecutionContext CreateContext(object[] arguments, int depth) =>
         new(arguments, depth, _actorVisit?.Invoke(arguments));
 
-    private bool IsActorPresent(WiredExecutionContext context) => _actorPresent(context.Arguments)
-        && (_actorVisit == null || ReferenceEquals(context.ActorVisit, _actorVisit(context.Arguments)));
+    private bool IsActorPresent(WiredExecutionContext context) => context.Runtime is { } runtime
+        ? runtime.Event.Kind == WiredEventKind.Leave || runtime.Event.Actor == null
+            || runtime.Targets.ResolveUsers(runtime, [runtime.Event.Actor.VirtualId], WiredSources.Selected, raw: true)
+                .Contains(runtime.Event.Actor)
+        : _actorPresent(context.Arguments)
+            && (_actorVisit == null || ReferenceEquals(context.ActorVisit, _actorVisit(context.Arguments)));
 
     private bool Execute(IWiredItem box, WiredExecutionContext context) =>
-        Invoke(box, context, () => box.Execute(context.Arguments));
+        Invoke(box, context, () => context.Runtime is { } runtime
+            ? ExecuteRuntimeBody(box, runtime) : box.Execute(context.Arguments));
 
     private bool Invoke(IWiredItem box, WiredExecutionContext context, Func<bool> body)
     {
@@ -286,15 +348,26 @@ internal sealed class WiredStackEngine
         _remaining--;
         var previous = _context;
         _context = context;
+        var previousRuntime = _runtimeContext;
+        _runtimeContext = context.Runtime;
+        if (context.Runtime != null) context.Runtime.NowMilliseconds = _now();
         try { return body(); }
         catch (Exception e) { _error(e); return false; }
-        finally { _context = previous; }
+        finally { _context = previous; _runtimeContext = previousRuntime; }
     }
 
     private bool IsAttached(IWiredItem box) => _items.TryGetValue(box.Item.Id, out var registered)
         && ReferenceEquals(registered, box) && _attached(box);
 
-    private static bool IsKind(IWiredItem box, InteractionType kind) => box.Item.Definition.InteractionType == kind;
+    private static bool IsKind(IWiredItem box, InteractionType kind) => box is IWiredConfiguredItem configured
+        ? RuntimeSupported(configured) && (kind, configured.Descriptor.Category) switch
+        {
+            (InteractionType.WiredTrigger, WiredBoxCategory.Trigger) => true,
+            (InteractionType.WiredCondition, WiredBoxCategory.Condition) => true,
+            (InteractionType.WiredEffect, WiredBoxCategory.Action) => true,
+            _ => false
+        }
+        : box.Item.Definition.InteractionType == kind;
 
     private IWiredItem[] GetStack(IWiredItem source)
     {
@@ -312,6 +385,7 @@ internal sealed class WiredStackEngine
         _stacks.Clear();
         foreach (var group in _items.Values.GroupBy(x => (x.Item.GetX, x.Item.GetY)))
             _stacks[group.Key] = group.OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
+        UpdateRuntimeItems();
     }
 
     private T Pass<T>(Func<T> body)
@@ -324,12 +398,24 @@ internal sealed class WiredStackEngine
         }
     }
 
-    private sealed record ScheduledAction(ActionChain Chain, IWiredItem Box);
+    private void CancelAuxiliary(ScheduledAction action)
+    {
+        if (action.Finished || action.OnCancelled == null) return;
+        action.Finished = true;
+        try { action.OnCancelled(); }
+        catch (Exception error) { _error(error); }
+    }
+
+    private sealed record ScheduledAction(ActionChain Chain, IWiredItem Box, Action? Callback = null, Action? OnCancelled = null)
+    {
+        public bool Finished { get; set; }
+    }
 
     private sealed class ActionChain(IWiredItem source, IWiredItem[] stack,
         WiredExecutionContext context, int remaining)
     {
         public IWiredItem Source { get; } = source;
+        public IWiredItem[] Stack { get; } = stack;
         public (int, int) Tile { get; } = (source.Item.GetX, source.Item.GetY);
         public long MovementGeneration { get; } = source.Item.MovementGeneration;
         public WiredExecutionContext Context { get; } = context;

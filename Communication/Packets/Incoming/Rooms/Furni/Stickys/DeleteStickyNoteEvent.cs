@@ -19,7 +19,7 @@ internal class DeleteStickyNoteEvent : RoomPacketEvent
         if (!room.CheckRights(session))
             return Task.CompletedTask;
         var item = room.GetRoomItemHandler().GetItem(packet.ReadUInt());
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return Task.CompletedTask;
         if (item.Definition.InteractionType == InteractionType.Postit || item.Definition.InteractionType == InteractionType.CameraPicture)
         {

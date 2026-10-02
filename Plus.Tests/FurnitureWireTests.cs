@@ -76,6 +76,8 @@ public class FurnitureWireTests
         var missingUser = ItemLoader.ReadRoomItem(table.Rows[1], 3, definition);
 
         Assert.Equal("bob", gift.Username);
+        Assert.Equal(5u, gift.OwnerId); Assert.Equal(5, gift.UserId);
+        Assert.Equal(6u, missingUser.OwnerId); Assert.Equal(6, missingUser.UserId);
         Assert.Equal(4004, RoomEngineSerializers.FloorExtra(gift));
         Assert.Equal("", missingUser.Username);
         Assert.Equal(":w=1,1 l=1,1 r", gift.WallCoordinates);

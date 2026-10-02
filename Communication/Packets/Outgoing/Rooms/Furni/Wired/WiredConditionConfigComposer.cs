@@ -42,7 +42,8 @@ public class WiredConditionConfigComposer : IServerPacket
         }
         if (_box.Type == WiredBoxType.ConditionFurniHasNoFurni)
             packet.WriteInteger(1);
-        if (_box.Type != WiredBoxType.ConditionUserCountInRoom && _box.Type != WiredBoxType.ConditionUserCountDoesntInRoom && _box.Type != WiredBoxType.ConditionFurniHasNoFurni)
+        if (_box.Type != WiredBoxType.ConditionUserCountInRoom && _box.Type != WiredBoxType.ConditionUserCountDoesntInRoom && _box.Type != WiredBoxType.ConditionFurniHasNoFurni
+            && _box.Type != WiredBoxType.ConditionMatchStateAndPosition && _box.Type != WiredBoxType.ConditionDontMatchStateAndPosition)
             packet.WriteInteger(0);
         else if (_box.Type == WiredBoxType.ConditionFurniHasNoFurni)
         {

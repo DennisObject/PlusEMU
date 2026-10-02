@@ -331,6 +331,13 @@ public class Room : RoomData
         }
     }
 
+    internal void ProcessWiredOnly()
+    {
+        if (IsCrashed || MDisposed) return;
+        try { GetWired().OnFastCycle(); }
+        catch (Exception e) { ExceptionLogger.LogException(e); }
+    }
+
     public void ProcessRoom()
     {
         if (IsCrashed || MDisposed)
@@ -442,7 +449,8 @@ public class Room : RoomData
     {
         session.Send(new HeightMapComposer(GetGameMap().Model.Heightmap));
         session.Send(new FloorHeightMapComposer(GetGameMap().Model.GetRelativeHeightmap(), GetGameMap().StaticModel.WallHeight));
-        foreach (var user in _roomUserManager.GetUserList().ToList())
+        var snapshotUsers = _roomUserManager.GetUserList().Where(user => user != null).ToArray();
+        foreach (var user in snapshotUsers)
         {
             if (user == null)
                 continue;
@@ -459,8 +467,11 @@ public class Room : RoomData
                 session.Send(new AvatarEffectComposer(user.VirtualId, user.CurrentEffect));
         }
         session.Send(new UserUpdateComposer(_roomUserManager.GetUserList().ToList()));
-        session.Send(new ObjectsComposer(GetRoomItemHandler().GetFloor.ToArray(), this));
-        session.Send(new ItemsComposer(GetRoomItemHandler().GetWall.ToArray(), this));
+        var snapshotFurniture = GetRoomItemHandler().GetFloor.ToArray();
+        session.Send(new ObjectsComposer(snapshotFurniture, this));
+        var snapshotWalls = GetRoomItemHandler().GetWall.ToArray();
+        session.Send(new ItemsComposer(snapshotWalls, this));
+        _wiredComponent?.SnapshotEnqueued(session, snapshotFurniture.Concat(snapshotWalls), snapshotUsers);
     }
 
     public void AddTent(uint tentId)
@@ -522,7 +533,15 @@ public class Room : RoomData
         }
     }
 
-    public void SendPacket(IServerPacket packet, bool withRightsOnly = false)
+    public void SendPacket(IServerPacket packet, bool withRightsOnly = false) => SendPacket(packet, withRightsOnly, null);
+
+    public void SendObject(Item item) => SendPacket(item.IsWallItem ? new ItemAddComposer(item) : new ObjectAddComposer(item), false,
+        viewer => _wiredComponent?.ObjectEnqueued(viewer, item, null));
+
+    public void SendUser(RoomUser user) => SendPacket(new UsersComposer(user), false,
+        viewer => _wiredComponent?.ObjectEnqueued(viewer, null, user));
+
+    private void SendPacket(IServerPacket packet, bool withRightsOnly, Action<RoomUser>? enqueued)
     {
         if (packet == null)
             return;
@@ -538,6 +557,7 @@ public class Room : RoomData
                 if (withRightsOnly && !CheckRights(user.GetClient()))
                     continue;
                 user.GetClient().Send(packet);
+                enqueued?.Invoke(user);
             }
         }
         catch (Exception e)

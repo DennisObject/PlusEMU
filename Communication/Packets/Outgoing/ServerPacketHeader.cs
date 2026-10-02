@@ -82,6 +82,23 @@ public static class ServerPacketHeader
     public const uint RoomRightsListComposer = 225; //2410
 
     // Room Furniture
+    public const uint WiredValidationErrorComposer = 156;
+    public const uint WiredRoomSettingsDataComposer = 5102;
+    public const uint WiredRewardResultComposer = 178;
+    public const uint WiredMovementsComposer = 3999;
+    public const uint WiredFurniMoveStyleComposer = 5110;
+    public const uint WiredClickSettingsComposer = 9477;
+    public const uint WiredClickUserResponseComposer = 9460;
+    public const uint InClientLinkComposer = 2023;
+    public const uint WiredVariableFxConfigsComposer = 9473;
+    public const uint WiredVariableFxConfigsRemovedComposer = 9474;
+    public const uint WiredVariableFxStatusComposer = 9475;
+    public const uint WiredVariableFxStatusRemovedComposer = 9476;
+    public const uint WiredUserVariablesDataComposer = 5103;
+    public const uint WiredAllVariablesHashComposer = 1646;
+    public const uint WiredAllVariablesDiffComposer = 2498;
+    public const uint WiredVariableHoldersPageComposer = 9461;
+    public const uint WiredVariableHoldersComposer = 9462;
     public const uint HideWiredConfigComposer = 2430; //3715
     public const uint WiredEffectConfigComposer = 1428; //1469
     public const uint WiredConditionConfigComposer = 1775; //1456

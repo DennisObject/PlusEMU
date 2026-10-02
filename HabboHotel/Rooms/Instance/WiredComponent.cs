@@ -4,6 +4,10 @@ using Plus.Core;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Runtime;
+using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Boxes;
 using Plus.HabboHotel.Items.Wired.Boxes.Conditions;
 using Plus.HabboHotel.Items.Wired.Boxes.Effects;
@@ -11,10 +15,11 @@ using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
-public class WiredComponent
+public partial class WiredComponent : IWiredRuntimeOperations
 {
     private readonly Room _room;
     private readonly WiredStackEngine _engine;
+    private readonly WiredTargetResolver _targets;
 
     public WiredComponent(Room instance) //, RoomItem Items)
     {
@@ -26,9 +31,73 @@ public class WiredComponent
             OnEvent, ExceptionLogger.LogWiredException,
             WiredEngineLimits.FromSettings(key => PlusEnvironment.SettingsManager?.TryGetValue(key) ?? "0"),
             CaptureActorVisit);
+        _targets = new(
+            () => _room.GetRoomItemHandler().GetFloor,
+            () => _room.GetRoomUserManager().GetUserList(),
+            id => _room.GetRoomItemHandler().GetItem(id),
+            id => _room.GetRoomUserManager().GetRoomUserByVirtualId(id));
+        _engine.BindRuntime(_room, _targets, this,
+            () => _counters.HasRunning || WiredBotTargets.For(_room).HasTargets, PollCounters, FlushExternalChanges);
+        _engine.ObserveEvent = (evt, now) =>
+        {
+            _selectorState.Observe(evt, now);
+            if (evt.Kind == WiredEventKind.Leave && evt.Actor != null)
+            {
+                ForgetFxActor(evt.Actor);
+                WiredAvatarState.For(_room).Forget(evt.Actor);
+                WiredBotTargets.For(_room).Forget(evt.Actor);
+                WiredGameState.For(_room).Forget(evt.Actor);
+                if (_variables?.IsValueCreated == true) _variables.Value.HolderLeft(WiredVariableRuntimeFrames.UserHolder(evt.Actor));
+            }
+        };
+        _engine.CaptureSpeech = (context, trigger) => _variables?.IsValueCreated == true
+            ? _variables.Value.CaptureSpeech(context, trigger) : null;
+        _engine.ConfigurationPublished = box =>
+        {
+            if (_variables?.IsValueCreated == true) _variables.Value.ConfigurationSaved(box);
+        };
     }
 
-    public void OnCycle() => _engine.OnCycle();
+    public void OnCycle()
+    {
+        _engine.OnCycle();
+        FlushVariableFx();
+    }
+
+    internal void OnFastCycle()
+    {
+        _engine.OnFastCycle();
+        if (_variables?.IsValueCreated == true && _variables.Value.FxDirty) FlushVariableFx();
+    }
+    internal bool NeedsFastCycle => _engine.NeedsFastCycle;
+    internal void ObserveFastWork(Action<bool>? observer) => _engine.ObserveFastWork(observer);
+    public bool Dispatch(WiredRuntimeEvent @event)
+    {
+        if (@event.Kind == WiredEventKind.GameStart) WiredGameState.For(_room).ResetQuotas();
+        return _engine.Dispatch(@event);
+    }
+    public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) =>
+        _engine.CallStacks(context, targets, negative);
+    public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) =>
+        _engine.SendSignal(context, receivers, selection, negative);
+    public bool ScheduleAux(WiredRuntimeContext context, int delayMilliseconds, Action callback, Action? onCancelled = null) =>
+        _engine.ScheduleAux(context, delayMilliseconds, callback, onCancelled);
+    public void DispatchWalkTransition(RoomUser actor, IEnumerable<Item> before, IEnumerable<Item> after)
+    {
+        var oldItems = before.DistinctBy(x => x.Id).ToDictionary(x => x.Id);
+        var newItems = after.DistinctBy(x => x.Id).ToDictionary(x => x.Id);
+        foreach (var item in oldItems.Values.Where(x => !newItems.ContainsKey(x.Id)).OrderBy(x => x.GetZ).ThenBy(x => x.Id))
+            if (ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)) item.UserWalksOffFurni(actor);
+        foreach (var item in newItems.Values.Where(x => !oldItems.ContainsKey(x.Id)).OrderBy(x => x.GetZ).ThenBy(x => x.Id))
+            if (ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)) item.UserWalksOnFurni(actor);
+    }
+    public void ResetTimers(IEnumerable<Item> targets) => _engine.ResetTimers(targets);
+    public bool PublishConfigured(IWiredConfiguredItem original, WiredConfiguration validated, Action persistValidated) =>
+        _engine.PublishConfigured(original, validated, persistValidated);
+    public bool PublishPromotion(IWiredItem original, IWiredConfiguredItem candidate, WiredConfiguration validated, Action persistValidated) =>
+        _engine.PublishPromotion(original, candidate, validated, persistValidated);
+    public bool PublishLegacy(IWiredItem original, IWiredItem candidate, Action persistCandidate) =>
+        _engine.PublishLegacy(original, candidate, persistCandidate);
 
     internal bool IsActorPresent(object[] arguments) => arguments.Length == 0 || arguments[0] is not Habbo player
         || player.InRoom && ReferenceEquals(player.CurrentRoom, _room);
@@ -48,6 +117,32 @@ public class WiredComponent
     public IWiredItem? LoadWiredBox(Item item)
     {
         var newBox = GenerateNewBox(item);
+        var descriptor = item.Definition.WiredDescriptor;
+        if (descriptor == null && newBox != null && WiredLegacyEditorProjection.TryGetDescriptor(newBox, out var projected))
+            descriptor = projected;
+        if (descriptor != null)
+        {
+            try
+            {
+                var saved = ConfigurationStore.Load(item.Id, descriptor);
+                if (saved != null && saved.SelectedItems.Concat(saved.SecondarySelectedItems)
+                    .Any(id => _room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true))
+                    throw new InvalidDataException("Saved static selections cannot reference temporary room furniture.");
+                var selected = WiredBoxLoading.Select(newBox, CreateConfiguredBox(item, descriptor), saved);
+                if (selected is IWiredConfiguredItem configured)
+                {
+                    if (_variables?.IsValueCreated == true) _variables.Value.ConfigurationLoaded(configured);
+                    if (!AddBox(configured)) return null;
+                    return configured;
+                }
+                newBox = selected;
+            }
+            catch (Exception error)
+            {
+                NLog.LogManager.GetLogger("Wired").Error(error, "Cannot load Wired configuration for item {0} in room {1}; saved bytes retained", item.Id, _room.Id);
+                return null;
+            }
+        }
         if (newBox == null)
         {
             NLog.LogManager.GetLogger("Wired").Warn("Unsupported wired type {0} on item {1} in room {2}",
@@ -265,7 +360,32 @@ public class WiredComponent
         return false;
     }
 
-    public bool TriggerEvent(WiredBoxType type, params object[] @params) => _engine.Dispatch(type, @params);
+    public bool TriggerEvent(WiredBoxType type, params object[] arguments)
+    {
+        if (type == WiredBoxType.TriggerGameStarts) WiredGameState.For(_room).ResetQuotas();
+        WiredEventKind? kind = type switch
+        {
+            WiredBoxType.TriggerRoomEnter => WiredEventKind.Enter,
+            WiredBoxType.TriggerUserSays => WiredEventKind.Speech,
+            WiredBoxType.TriggerWalkOnFurni => WiredEventKind.WalkOn,
+            WiredBoxType.TriggerWalkOffFurni => WiredEventKind.WalkOff,
+            WiredBoxType.TriggerStateChanges => WiredEventKind.Use,
+            WiredBoxType.TriggerGameStarts => WiredEventKind.GameStart,
+            WiredBoxType.TriggerGameEnds => WiredEventKind.GameEnd,
+            WiredBoxType.TriggerUserFurniCollision => WiredEventKind.Collision,
+            _ => null
+        };
+        var actor = arguments.OfType<RoomUser>().FirstOrDefault()
+            ?? (arguments.OfType<Habbo>().FirstOrDefault() is { } habbo
+                ? _room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id) : null);
+        var typed = kind == null ? null : new WiredRuntimeEvent(kind.Value)
+        {
+            Actor = actor,
+            EventItem = arguments.OfType<Item>().FirstOrDefault(),
+            Message = kind == WiredEventKind.Speech ? arguments.OfType<string>().FirstOrDefault() ?? "" : ""
+        };
+        return _engine.DispatchLegacy(type, typed, arguments);
+    }
 
     public ICollection<IWiredItem> GetTriggers(IWiredItem item) => _engine.GetBoxes(item, InteractionType.WiredTrigger);
 
@@ -348,5 +468,18 @@ public class WiredComponent
 
     public bool TryGet(uint id, out IWiredItem item) => _engine.TryGet(id, out item);
 
-    public void Cleanup() => _engine.Clear();
+    public void Cleanup()
+    {
+        WiredTemporaryEffects.For(_room).Clear();
+        _engine.Clear();
+        _selectorState.Reset();
+        WiredBotTargets.For(_room).Clear();
+        WiredProjectileFlights.For(_room).Clear();
+        WiredGameState.For(_room).Clear();
+        WiredAvatarState.For(_room).Clear();
+        _counters.Clear();
+        _counterItems.Clear();
+        _fxViewers.Clear();
+        _roomLog.Clear();
+    }
 }

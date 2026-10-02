@@ -20,7 +20,7 @@ internal class ApplyHorseEffectEvent : RoomPacketEvent
     {
         var itemId = packet.ReadUInt();
         var item = room.GetRoomItemHandler().GetItem(itemId);
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return Task.CompletedTask;
         var petId = packet.ReadInt();
         if (!room.GetRoomUserManager().TryGetPet(petId, out var petUser))
