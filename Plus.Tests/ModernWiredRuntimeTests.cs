@@ -146,6 +146,52 @@ public class ModernWiredRuntimeTests
         attached = true; var capFailure = effects.Acquire(user, () => current, value => current = value, () => attached);
         capFailure(); Assert.Equal(-1, current); // Immediate cleanup when engine refuses the restore callback.
     }
+
+    [Fact]
+    public void HeadingRemembersTurnAndStopDoesNotInventMovement()
+    {
+        var item = MakeItem(1, "test"); var directions = new WiredDirectionalActions(); var attempts = new List<Point>();
+        Assert.True(directions.MoveHeading(item, 0, 1, false, (x, y) => { attempts.Add(new(x, y)); return x == 1; }, (_, _) => [], (_, _) => throw new Exception()));
+        Assert.Equal(new[] { new Point(0, -1), new Point(1, 0) }, attempts);
+        attempts.Clear(); Assert.True(directions.MoveHeading(item, 0, 1, false, (x, y) => { attempts.Add(new(x, y)); return true; }, (_, _) => [], (_, _) => throw new Exception()));
+        Assert.Equal(new Point(1, 0), Assert.Single(attempts));
+        attempts.Clear(); Assert.False(new WiredDirectionalActions().MoveHeading(item, 0, 6, false,
+            (x, y) => { attempts.Add(new(x, y)); return false; }, (_, _) => [], (_, _) => throw new Exception()));
+        Assert.Single(attempts);
+        Assert.Equal(2, WiredDirectionalActions.AvatarRotation(0, 8)); Assert.Equal(6, WiredDirectionalActions.AvatarRotation(0, 9));
+    }
+
+    [Fact]
+    public void ChaseQueriesNearestWithinThreeAndOrdersLongAxisFirst()
+    {
+        var (room, _, _) = World(); var item = MakeItem(1, "test");
+        var near = new RoomUser(1, 0, 7, room) { X = 2, Y = 1 }; var far = new RoomUser(2, 0, 8, room) { X = 4, Y = 0 };
+        Assert.Same(near, WiredDirectionalActions.Nearest(item, [far, near])); Assert.Null(WiredDirectionalActions.Nearest(item, [far]));
+        Assert.Equal(new[] { new Point(1, 0), new Point(0, 1) }, WiredDirectionalActions.Steps(item, near, false));
+        Assert.Equal(new[] { new Point(-1, 0), new Point(0, -1) }, WiredDirectionalActions.Steps(item, near, true));
+    }
+
+    [Fact]
+    public void WiredFreezePreservesExistingGameFreezeAndConsumesTeleportCancelFlag()
+    {
+        var (room, _, _) = World(); var user = new RoomUser(1, 0, 7, room); var state = new WiredAvatarState();
+        user.SetStatus("mv", "1,1,0"); user.IsWalking = true;
+        Assert.True(state.FreezeUser(user, 0, false)); Assert.True(user.Frozen); Assert.False(user.CanWalk); Assert.False(user.IsWalking); Assert.False(user.HasStatus("mv"));
+        Assert.False(state.Thaw(user, teleport: true)); Assert.True(user.Frozen);
+        state.FreezeUser(user, 0, true); Assert.True(state.Thaw(user, teleport: true)); Assert.False(user.Frozen); Assert.True(user.CanWalk);
+        user.Frozen = true; user.CanWalk = false; state.FreezeUser(user, 0, true); state.Thaw(user);
+        Assert.True(user.Frozen); Assert.False(user.CanWalk); // A game freeze is independently owned.
+    }
+
+    [Theory]
+    [InlineData(4, 0, 1)] [InlineData(6, 0, -1)] [InlineData(8, 1, -1)] [InlineData(11, -1, -1)]
+    public void FurnitureMoveUsesActualPolarisDirectionNumbers(int raw, int dx, int dy)
+    {
+        var item = MakeItem(1, "test"); var moves = new List<Point>();
+        Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [raw, 0, 100] }, [item], [], [],
+            (_, x, y, _, _) => { moves.Add(new(x, y)); return true; }, (_, _, _, _, _) => false, (_, _) => throw new Exception()));
+        Assert.Equal(new Point(dx, dy), Assert.Single(moves));
+    }
     [Fact]
     public void ClockTicksAtHalfSecondsAndDisplaysOnlyWholeSeconds()
     {

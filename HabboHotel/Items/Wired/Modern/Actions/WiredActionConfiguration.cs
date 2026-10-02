@@ -10,6 +10,9 @@ public static class WiredActionConfiguration
     {
         ImmutableArray<int> parameters = name switch
         {
+            "wf_act_freeze" => [218, 0, 0], "wf_act_unfreeze" => [0],
+            "wf_act_chase" or "wf_act_flee" => [100], "wf_act_move_to_dir" => [0, 0, 100, 0],
+            "wf_act_move_rotate_user" => [-1, -1, 0],
             "wf_act_rel_mov" => [1, 0, 1, 0, 100], "wf_act_set_altitude" => [2, 100],
             "wf_act_move_rotate" => [0, 0, 100], "wf_act_move_furni_as_group" => [0, 100],
             "wf_act_furni_to_furni" => [0, 100], "wf_act_furni_to_user" => [100, 0],
