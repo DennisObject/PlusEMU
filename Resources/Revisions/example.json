@@ -125,6 +125,8 @@
     "GetForumUserProfileEvent": 3515,
     "OpenWiredEvent": 768,
     "WiredUserVariablesRequestEvent": 10024,
+    "WiredUserVariableUpdateEvent": 10025,
+    "WiredUserVariableManageEvent": 10026,
     "WiredAllVariablesRequestEvent": 1735,
     "WiredVariableHashesEvent": 1497,
     "WiredVariableHoldersRequestEvent": 2973,

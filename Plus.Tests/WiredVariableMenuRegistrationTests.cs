@@ -17,11 +17,12 @@ public class WiredVariableMenuRegistrationTests
     [InlineData("example.json")]
     public void ConcreteMenuHandlersHaveRealDispatchAndCollisionFreeProfileMappings(string profile)
     {
-        IPacketEvent[] handlers = [new WiredUserVariablesRequestEvent(), new WiredAllVariablesRequestEvent(), new WiredVariableHashesEvent(),
+        IPacketEvent[] handlers = [new WiredUserVariablesRequestEvent(), new WiredUserVariableUpdateEvent(), new WiredUserVariableManageEvent(),
+            new WiredAllVariablesRequestEvent(), new WiredVariableHashesEvent(),
             new WiredVariableHoldersRequestEvent(), new WiredVariableHoldersPageEvent()];
         using var manager = new PacketManager(handlers, NullLogger<PacketManager>.Instance);
         var registered = (Dictionary<uint, IPacketEvent>)typeof(PacketManager).GetField("_incomingPackets", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!;
-        Assert.Equal(5, registered.Count);
+        Assert.Equal(7, registered.Count);
         var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
         foreach (var handler in handlers)
         {
@@ -39,7 +40,5 @@ public class WiredVariableMenuRegistrationTests
             Assert.Equal(id, revision.OutgoingHeaders[name]);
             Assert.Single(revision.OutgoingHeaders, pair => pair.Value == id);
         }
-        Assert.DoesNotContain("WiredUserVariableUpdateEvent", revision.IncomingHeaders.Keys);
-        Assert.DoesNotContain("WiredUserVariableManageEvent", revision.IncomingHeaders.Keys);
     }
 }
