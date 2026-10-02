@@ -376,7 +376,10 @@ public class Habbo
             if (users != null)
                 users.RemoveUserFromRoom(Client, false);
             else
+            {
+                Client.EndCameraContext();
                 Client.GetHabbo().CurrentRoom = null;
+            }
         }
         if (Client.GetHabbo().IsTeleporting && Client.GetHabbo().TeleportingRoomId != id)
         {
