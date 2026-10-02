@@ -1,6 +1,7 @@
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items.Wired.Modern.Selectors;
 
 namespace Plus.HabboHotel.Items.Wired.Runtime;
 
@@ -22,6 +23,7 @@ public sealed class WiredRuntimeContext
     public WiredSelectionKind SelectorKinds { get; internal set; }
     public WiredSignalPayload? Signal { get; internal set; }
     public Dictionary<string, long> Values { get; } = [];
+    public WiredSelectorWorld? SelectorWorldSnapshot { get; set; }
     public WiredVariableFrame? VariableFrame { get; set; }
     public WiredExecutionPolicy Policy { get; } = new();
     public WiredTargetResolver Targets { get; }
@@ -41,7 +43,7 @@ public sealed class WiredRuntimeContext
         if (@event.EventItem != null) FurniIdentity[@event.EventItem.Id] = @event.EventItem;
     }
 
-    private WiredRuntimeContext(WiredRuntimeContext parent, WiredRuntimeEvent @event)
+    private WiredRuntimeContext(WiredRuntimeContext parent, WiredRuntimeEvent @event, bool shareFiring = false)
     {
         Room = parent.Room;
         Event = @event;
@@ -49,6 +51,13 @@ public sealed class WiredRuntimeContext
         Operations = parent.Operations;
         FurniIdentity = parent.FurniIdentity;
         UserIdentity = parent.UserIdentity;
+        if (shareFiring)
+        {
+            _configurations = parent._configurations;
+            Policy = parent.Policy;
+            SelectorPool = parent.SelectorPool;
+            Values = parent.Values;
+        }
     }
 
     // Executors read one immutable snapshot throughout a firing, including delayed actions.
@@ -58,6 +67,21 @@ public sealed class WiredRuntimeContext
     internal void Capture(IEnumerable<IWiredItem> stack)
     {
         foreach (var box in stack.OfType<IWiredConfiguredItem>()) _configurations[box.Item.Id] = box.Configuration;
+    }
+
+    internal WiredRuntimeContext ForActor(RoomUser actor)
+    {
+        var context = new WiredRuntimeContext(this, Event with { Actor = actor }, shareFiring: true)
+        {
+            Depth = Depth, NowMilliseconds = NowMilliseconds, Trigger = Trigger,
+            Triggering = Triggering.Copy(), Selected = Selected.Copy(), SelectorKinds = SelectorKinds,
+            Signal = Signal, VariableFrame = VariableFrame, SelectorWorldSnapshot = SelectorWorldSnapshot
+        };
+        context.Triggering.UserIds.Clear();
+        context.Triggering.UserIds.Add(actor.VirtualId);
+        if (!SelectorKinds.HasFlag(WiredSelectionKind.Users))
+        { context.Selected.UserIds.Clear(); context.Selected.UserIds.Add(actor.VirtualId); }
+        return context;
     }
 
     internal WiredRuntimeContext Fork(WiredRuntimeEvent @event, int depth)
