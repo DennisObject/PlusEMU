@@ -23,13 +23,16 @@ public static class WiredSelectorConfiguration
             _ => 0
         };
 
+        // Octane uses retained picks only when an older layout omitted the source field.
+        int AnchorSource(int index) => index >= c.IntParams.Length && !c.SelectedItems.IsEmpty ? 100 : Source(index);
+
         int[] fields = name switch
         {
             "wf_slc_furni_area" or "wf_slc_users_area" => [P(0), P(1), Math.Max(0, P(2)), Math.Max(0, P(3)), P(4), P(5)],
             "wf_slc_furni_bytype" => [Enum(0, 0, 2), P(1) == 1 ? 1 : 0, P(2), P(3)],
             "wf_slc_users_bytype" => [P(0, 1) is 1 or 2 or 4 ? P(0, 1) : 1, P(1), P(2)],
-            "wf_slc_furni_onfurni" => [Enum(0, 0, 3), Source(1), P(2), P(3)],
-            "wf_slc_users_onfurni" => [Source(0), P(1), P(2)],
+            "wf_slc_furni_onfurni" => [Enum(0, 0, 3), AnchorSource(1), P(2), P(3)],
+            "wf_slc_users_onfurni" => [AnchorSource(0), P(1), P(2)],
             "wf_slc_users_team" => [Enum(0, 0, 4), P(1), P(2)],
             "wf_slc_users_handitem" => [Math.Max(0, P(0)), P(1), P(2)],
             "wf_slc_users_group" => [Enum(0, 0, 1), Math.Max(0, P(1)), P(2), P(3)],

@@ -90,9 +90,15 @@ public sealed class WiredAddonModule
                     if (Name == "wf_xtra_text_output_furni_name")
                     {
                         var byId = current.World.Furni.ToDictionary(x => x.Id);
-                        names = (current.ResolveFurni?.Invoke(P(1), c)
-                            ?? WiredSelectorSources.Furni(P(1), c, current.Selection, current.World))
-                            .Where(byId.ContainsKey).Select(id => byId[id].Name);
+                        var ids = current.ResolveFurni?.Invoke(P(1), c)
+                            ?? WiredSelectorSources.Furni(P(1), c, current.Selection, current.World);
+                        if (P(1) == 100)
+                        {
+                            // Resolver eligibility enforces caps/identity; saved order determines names and single-first.
+                            var eligible = ids.ToHashSet();
+                            ids = c.SelectedItems.Distinct().Where(eligible.Contains);
+                        }
+                        names = ids.Where(byId.ContainsKey).Select(id => byId[id].Name);
                     }
                     else
                     {

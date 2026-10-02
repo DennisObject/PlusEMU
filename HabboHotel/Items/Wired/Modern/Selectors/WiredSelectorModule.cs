@@ -114,7 +114,6 @@ public static class WiredSelectorModule
             {
                 var sourceIndex = target == WiredSelectorTarget.Furni ? 1 : 0;
                 var source = P(sourceIndex);
-                if (source == 0 && !c.SelectedItems.IsEmpty) source = 100;
                 foreach (var item in Furni(source).Where(x => x.IsFloor))
                 {
                     if (target == WiredSelectorTarget.User)
@@ -122,7 +121,7 @@ public static class WiredSelectorModule
                         selected.UserIds.UnionWith(world.Users.Where(x => item.Tiles.Contains((x.X, x.Y))).Select(x => x.Id));
                         continue;
                     }
-                    foreach (var other in available.Where(x => x.Id != item.Id && x.Tiles.Intersect(item.Tiles).Any()))
+                    foreach (var other in available.Where(x => (P(0) == 3 || x.Id != item.Id) && x.Tiles.Intersect(item.Tiles).Any()))
                         if (P(0) switch
                         {
                             0 => RoundHeight(other.Z) >= RoundHeight(item.Z + item.Height),
