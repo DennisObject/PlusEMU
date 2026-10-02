@@ -130,6 +130,22 @@ public class ModernWiredRuntimeTests
         { Signals.Add((receivers.Select(x => x.Id).ToArray(), selection.Copy(), negative)); return true; }
         public void ResetTimers(IEnumerable<Item> targets) => throw new NotSupportedException();
     }
+
+    [Fact]
+    public void TemporaryEffectLeasesPreserveNewEffectsOverlapsAndRoomVisitIdentity()
+    {
+        var (room, _, _) = World(); var user = new RoomUser(1, 0, 7, room);
+        var effects = new WiredTemporaryEffects(); var current = 8; var attached = true;
+        var first = effects.Acquire(user, () => current, value => current = value, () => attached);
+        var second = effects.Acquire(user, () => current, value => current = value, () => attached);
+        first(); Assert.Equal(4, current); second(); Assert.Equal(8, current); second(); Assert.Equal(8, current);
+        var changed = effects.Acquire(user, () => current, value => current = value, () => attached);
+        current = 12; changed(); Assert.Equal(12, current);
+        var departed = effects.Acquire(user, () => current, value => current = value, () => attached);
+        attached = false; current = -1; departed(); Assert.Equal(-1, current);
+        attached = true; var capFailure = effects.Acquire(user, () => current, value => current = value, () => attached);
+        capFailure(); Assert.Equal(-1, current); // Immediate cleanup when engine refuses the restore callback.
+    }
     [Fact]
     public void ClockTicksAtHalfSecondsAndDisplaysOnlyWholeSeconds()
     {
