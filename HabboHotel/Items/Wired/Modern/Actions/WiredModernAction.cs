@@ -25,7 +25,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         "wf_act_chase", "wf_act_flee", "wf_act_move_to_dir", "wf_act_move_rotate_user", "wf_act_freeze", "wf_act_unfreeze",
         "wf_act_join_team", "wf_act_leave_team", "wf_act_give_score", "wf_act_give_score_tm", "wf_act_kick_user", "wf_act_mute_triggerer", "wf_act_teleport_to_room"
     };
-    public static bool Supports(string name) => WiredMovementActions.Names.Contains(name) || OtherNames.Contains(name) || WiredBotActions.Names.Contains(name);
+    public static bool Supports(string name) => WiredTemporaryFurnitureActions.Supports(name) || WiredMovementActions.Names.Contains(name) || OtherNames.Contains(name) || WiredBotActions.Names.Contains(name);
     public bool IsNegative => Descriptor.CanonicalName is "wf_act_neg_call_stacks" or "wf_act_neg_send_signal" or "wf_act_neg_log";
     public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
         Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog) : base(room, item, descriptor)
@@ -37,6 +37,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         var name = Descriptor.CanonicalName;
+        if (WiredTemporaryFurnitureActions.Supports(name)) return WiredTemporaryFurnitureActions.TryValidate(name, proposed, out validated, out error);
         if (name == "wf_act_teleport_to_room") return WiredRoomForwarding.TryValidate(proposed, out validated, out error);
         if (WiredBotActions.Names.Contains(name)) return WiredBotActions.TryValidate(name, proposed, out validated, out error);
         if (WiredMovementActions.Names.Contains(name)) return WiredMovementConfiguration.TryValidate(name, proposed, out validated, out error);
@@ -109,6 +110,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         var config = context.ConfigurationOf(this);
         if (!TryValidateConfiguration(config, out config, out _)) return false;
         var name = Descriptor.CanonicalName;
+        if (WiredTemporaryFurnitureActions.Supports(name)) return WiredTemporaryFurnitureActions.Execute(name, Item, context, config);
         if (name == "wf_act_teleport_to_room") return WiredRoomForwarding.Execute(context, config);
         if (WiredBotActions.Names.Contains(name)) return WiredBotActions.Execute(name, context, config, _movement);
         if (WiredMovementActions.Names.Contains(name))

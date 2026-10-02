@@ -14,6 +14,47 @@ namespace Plus.HabboHotel.Rooms;
 public class RoomItemHandling
 {
     private readonly ConcurrentDictionary<uint, Item> _floorItems;
+    private readonly Dictionary<uint, Item> _temporaryItems = new();
+    private int _nextTemporaryId = -1;
+    public const int TemporaryItemLimit = 200;
+
+    public bool OwnsTemporary(Item item) => item.IsTemporary
+        && _temporaryItems.TryGetValue(item.Id, out var owned) && ReferenceEquals(owned, item);
+
+    // Negative wire IDs belong only to this registry; successful IDs are never reused during this room lifetime.
+    public Item? PlaceTemporaryFloorItem(ItemDefinition definition, uint ownerId, int x, int y,
+        int rotation, double? height = null, string state = "")
+    {
+        if (definition.Type != Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor
+            || _temporaryItems.Count >= TemporaryItemLimit || _nextTemporaryId == int.MinValue)
+            return null;
+        while (_nextTemporaryId != int.MinValue && GetItem(unchecked((uint)_nextTemporaryId)) != null) _nextTemporaryId--;
+        if (_nextTemporaryId == int.MinValue) return null;
+        var id = unchecked((uint)_nextTemporaryId);
+        var item = new Item { Id = id, IsTemporary = true, RoomId = _room.RoomId,
+            OwnerId = ownerId, UserId = unchecked((int)ownerId), Definition = definition,
+            ExtraData = FurniExtraData.Load(definition, state, true), Username = _room.OwnerName };
+        item.BindTemporaryRoom(_room);
+        _temporaryItems.Add(id, item);
+        if (!SetFloorItem(null!, item, x, y, rotation, true, false, true, true, height ?? -1))
+        {
+            _temporaryItems.Remove(id);
+            return null;
+        }
+        _nextTemporaryId--;
+        return item;
+    }
+
+    public bool RemoveTemporaryFloorItem(Item item)
+    {
+        if (!OwnsTemporary(item) || !ReferenceEquals(GetItem(item.Id), item)) return false;
+        _room.GetWired()?.TryRemove(item.Id);
+        if (item.Definition.InteractionType == InteractionType.FootballGate) _room.GetSoccer().UnRegisterGate(item);
+        if (item.Definition.InteractionType is InteractionType.Tent or InteractionType.TentSmall) _room.RemoveTent(item.Id);
+        RemoveRoomItem(item);
+        _temporaryItems.Remove(item.Id);
+        return true;
+    }
 
     private readonly ConcurrentDictionary<uint, Item> _movedItems;
     private readonly List<uint> _rollerItemsMoved;
@@ -107,6 +148,7 @@ public class RoomItemHandling
         }
         if (_wallItems.Count > 0)
             _wallItems.Clear();
+        _temporaryItems.Clear();
         var items = ItemLoader.GetItemsForRoom(_room.Id, _room);
         foreach (var item in items.ToList())
         {
@@ -217,7 +259,7 @@ public class RoomItemHandling
     public void RemoveFurniture(GameClient session, uint id)
     {
         var item = GetItem(id);
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return;
         if (item.Definition.InteractionType == InteractionType.FootballGate)
             _room.GetSoccer().UnRegisterGate(item);
@@ -377,6 +419,7 @@ public class RoomItemHandling
                 using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
                 foreach (var item in _movedItems.Values.ToList())
                 {
+                    if (item.IsTemporary) continue;
                     var serialized = item.ExtraData?.Serialize();
                     if (!string.IsNullOrEmpty(serialized))
                     {
@@ -403,6 +446,9 @@ public class RoomItemHandling
 
     public bool SetFloorItem(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses = false, double height = -1, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision = null)
     {
+        if (item.IsTemporary && (!OwnsTemporary(item) || session != null
+            || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanPlaceItem(_room, item, newX, newY, newRot,
+                height == -1 ? null : height, collision: wiredCollision))) return false;
         bool HasBlockingUsers(int x, int y) => wiredCollision == null
             ? _room.GetGameMap().SquareHasUsers(x, y)
             : wiredCollision.BlocksUsers(_room.GetGameMap().GetRoomUsers(new(x, y)));
@@ -582,6 +628,7 @@ public class RoomItemHandling
             _room.RemoveTent(item.Id);
             _room.AddTent(item.Id);
         }
+        if (OwnsTemporary(item)) return true;
         using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
         dbClient.RunQuery($"UPDATE `items` SET `room_id` = '{_room.RoomId}', `x` = '{item.GetX}', `y` = '{item.GetY}', `z` = '{item.GetZ}', `rot` = '{item.Rotation}' WHERE `id` = '{item.Id}' LIMIT 1");
         return true;
@@ -592,7 +639,8 @@ public class RoomItemHandling
 
     public bool SetFloorItem(Item item, int newX, int newY, double newZ)
     {
-        if (_room == null)
+        if (_room == null || item.IsTemporary && (!OwnsTemporary(item)
+            || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanMoveItem(_room, item, newX, newY, item.Rotation, newZ)))
             return false;
         _room.GetGameMap().RemoveFromMap(item);
         item.SetState(newX, newY, newZ, Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, item.Rotation));
@@ -636,7 +684,7 @@ public class RoomItemHandling
 
     public void UpdateItem(Item item)
     {
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return;
         if (!_movedItems.ContainsKey(item.Id))
             _movedItems.TryAdd(item.Id, item);
@@ -694,7 +742,7 @@ public class RoomItemHandling
         var items = new List<Item>();
         foreach (var item in GetWallAndFloor.ToList())
         {
-            if (item == null || item.UserId != session.GetHabbo().Id)
+            if (item == null || item.IsTemporary || item.UserId != session.GetHabbo().Id)
                 continue;
             if (item.IsFloorItem)
             {
@@ -799,6 +847,7 @@ public class RoomItemHandling
         _rollers.Clear();
         _wallItems.Clear();
         _floorItems.Clear();
+        _temporaryItems.Clear();
         _rollerItemsMoved.Clear();
         _rollerUsersMoved.Clear();
         _rollerMessages.Clear();

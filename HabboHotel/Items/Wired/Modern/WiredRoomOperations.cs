@@ -23,9 +23,15 @@ public static class WiredRoomOperations
     {
         if (box.Descriptor.CanonicalName is not ("wf_act_match_to_sshot" or "wf_act_place_furni"
             or "wf_cnd_match_snapshot" or "wf_cnd_not_match_snap" or "wf_trg_stuff_state" or "wf_trg_state_changed")) return proposed;
+        var handler = box.Instance.GetRoomItemHandler();
         var ids = proposed.SelectedItems.ToHashSet();
-        return proposed with { Snapshots = box.Instance.GetRoomItemHandler().GetFloor
-            .Where(item => ids.Contains(item.Id)).Select(Capture).ToImmutableArray() };
+        var picked = handler.GetFloor.Where(item => ids.Contains(item.Id)).ToArray();
+        var templates = box.Descriptor.CanonicalName == "wf_act_place_furni" && proposed.TemporaryPlacement != null;
+        return proposed with {
+            Snapshots = templates && picked.Length == 0 ? proposed.Snapshots : picked.Select(Capture).ToImmutableArray(),
+            SelectedItems = templates ? proposed.SelectedItems.Where(id => handler.GetItem(id)?.IsTemporary != true).ToImmutableArray() : proposed.SelectedItems,
+            SecondarySelectedItems = templates ? proposed.SecondarySelectedItems.Where(id => handler.GetItem(id)?.IsTemporary != true).ToImmutableArray() : proposed.SecondarySelectedItems
+        };
     }
     public static Point Offset(int direction) => direction switch
     {
@@ -54,10 +60,15 @@ public static class WiredRoomOperations
     public static bool CanMoveItem(Room room, Item item, int x, int y, int rotation,
         double? height = null, bool throughUsers = false, bool throughFurni = false, WiredCollisionPolicy? collision = null)
     {
-        if (!item.IsFloorItem || room.GetRoomItemHandler().GetItem(item.Id) != item
-            || !ValidRotation(item, rotation) || height is { } z && (!double.IsFinite(z) || z < 0 || z > 80))
-            return false;
+        return room.GetRoomItemHandler().GetItem(item.Id) == item
+            && CanPlaceItem(room, item, x, y, rotation, height, throughUsers, throughFurni, collision);
+    }
 
+    public static bool CanPlaceItem(Room room, Item item, int x, int y, int rotation,
+        double? height = null, bool throughUsers = false, bool throughFurni = false, WiredCollisionPolicy? collision = null)
+    {
+        if (!item.IsFloorItem || !ValidRotation(item, rotation)
+            || height is { } z && (!double.IsFinite(z) || z < 0 || z > 80)) return false;
         var map = room.GetGameMap();
         foreach (var point in Footprint(item, x, y, rotation))
         {
