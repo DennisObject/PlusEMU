@@ -103,6 +103,8 @@ def main():
         assert module.statements(rerun) == '', 'No-op rerun generated SQL.'
         for entry in result['definitions']:
             if entry.get('generic_visual'):
+                canonical = next(e for e in manifest['entries'] if e['name'] == entry['name'])
+                assert (entry['protocol_code'], entry['editor_code']) == (canonical['protocol_code'], canonical['editor_code']), 'Donor overwrote canonical protocol metadata.'
                 row = next(r for r in committed['furniture'] if r['item_name'] == entry['name'])
                 donor = next((r for r in committed['furniture'] if r['item_name'] == entry['generic_visual']), None)
                 donor_asset = next(e for e in manifest['entries'] if e['name'] == entry['generic_visual'])

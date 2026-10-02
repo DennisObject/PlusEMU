@@ -161,8 +161,8 @@ def plan(manifest, ledger, snapshot, generic_appearance=False):
             donor = assets_by_name[entry['generic_visual_proposal']]
             if donor['asset_status'] != 'verified' or donor['category'] != entry['category']:
                 raise ValueError('Invalid generic appearance donor: ' + name)
-            entry = dict(donor, name=name, interaction=entry['interaction'], public_name=name[:56],
-                         generic_visual=donor['name'])
+            entry = {**donor, **entry, 'asset_status': 'verified', 'public_name': name[:56],
+                     'generic_visual': donor['name']}
         if entry['asset_status'] != 'verified' or not support.get(name, False):
             excluded.append({'name': name, 'reason': entry['asset_status'] if entry['asset_status'] != 'verified' else 'factory_not_implemented'})
             continue
