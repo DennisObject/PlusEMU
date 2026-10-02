@@ -1,14 +1,7 @@
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items.Wired.Runtime;
-
-public static class WiredSources
-{
-    public const int Trigger = 0, ReachedUser = 10, ClickedUser = 11, Selected = 100,
-        Snapshot = 101, Selector = 200, Signal = 201, AllRoom = 900;
-    // These user-name sources deliberately overlap furniture source values.
-    public const int BotByName = 100, UserByName = 101;
-}
 
 public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnumerable<RoomUser>> users)
 {
@@ -19,8 +12,7 @@ public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnu
     {
         IEnumerable<uint> ids = source switch
         {
-            WiredSources.Trigger => context.Event.EventItem is { } item ? [item.Id]
-                : context.Trigger is { } trigger ? [trigger.Item.Id] : context.Triggering.FurniIds,
+            WiredSources.Trigger => context.Triggering.FurniIds,
             WiredSources.Selected or WiredSources.Snapshot => saved,
             WiredSources.Selector => context.SelectorPool.FurniIds,
             WiredSources.Signal => context.Signal?.Selection.FurniIds ?? [],

@@ -1,5 +1,6 @@
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Items.Wired.Variables;
 
 namespace Plus.HabboHotel.Items.Wired.Runtime;
 
@@ -19,6 +20,7 @@ public sealed class WiredRuntimeContext
     public WiredSelectionKind SelectorKinds { get; internal set; }
     public WiredSignalPayload? Signal { get; internal set; }
     public Dictionary<string, long> Values { get; } = [];
+    public WiredVariableFrame? VariableFrame { get; set; }
     public WiredExecutionPolicy Policy { get; } = new();
     public WiredTargetResolver Targets { get; }
     public IWiredRuntimeOperations Operations { get; }
@@ -37,6 +39,16 @@ public sealed class WiredRuntimeContext
         if (@event.EventItem != null) FurniIdentity[@event.EventItem.Id] = @event.EventItem;
     }
 
+    private WiredRuntimeContext(WiredRuntimeContext parent, WiredRuntimeEvent @event)
+    {
+        Room = parent.Room;
+        Event = @event;
+        Targets = parent.Targets;
+        Operations = parent.Operations;
+        FurniIdentity = parent.FurniIdentity;
+        UserIdentity = parent.UserIdentity;
+    }
+
     // Executors read one immutable snapshot throughout a firing, including delayed actions.
     public WiredConfiguration ConfigurationOf(IWiredConfiguredItem box) =>
         _configurations.TryGetValue(box.Item.Id, out var captured) ? captured : box.Configuration;
@@ -48,10 +60,9 @@ public sealed class WiredRuntimeContext
 
     internal WiredRuntimeContext Fork(WiredRuntimeEvent @event, int depth)
     {
-        var child = new WiredRuntimeContext(Room, @event, Targets, Operations) { Depth = depth, NowMilliseconds = NowMilliseconds };
-        // Preserve sender identities even if a room VirtualId has been reused before receipt.
-        foreach (var pair in FurniIdentity) child.FurniIdentity[pair.Key] = pair.Value;
-        foreach (var pair in UserIdentity) child.UserIdentity[pair.Key] = pair.Value;
+        // One identity snapshot per dispatch; children share it and revalidate only targets.
+        var child = new WiredRuntimeContext(this, @event) { Depth = depth, NowMilliseconds = NowMilliseconds };
+        child.VariableFrame = VariableFrame;
         foreach (var pair in Values) child.Values[pair.Key] = pair.Value;
         return child;
     }
