@@ -57,10 +57,12 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
                     session.Send(new WiredValidationErrorComposer("Invalid Wired settings."));
                     return Task.CompletedTask;
                 }
+                proposed = PreserveAdvancedConfiguration(configured, proposed);
                 var store = new WiredConfigurationStore(database);
                 if (!WiredConfigurationSave.TrySave(configured, proposed, store, out var error,
                     id => room.GetRoomItemHandler().GetItem(id) != null,
-                    publish: room.GetWired().PublishConfigured, prepare: WiredRoomOperations.PrepareSnapshots))
+                    publish: room.GetWired().PublishConfigured, prepare: WiredRoomOperations.PrepareSnapshots,
+                    isTemporaryInRoom: id => room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true))
                 {
                     session.Send(new WiredValidationErrorComposer(error));
                     return Task.CompletedTask;
@@ -104,7 +106,8 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
                     if (!WiredConfigurationSave.TrySave(candidate, proposed, new WiredConfigurationStore(database), out var error,
                         id => room.GetRoomItemHandler().GetItem(id) != null,
                         publish: (detached, validated, persist) => wired.PublishPromotion(box, detached, validated, persist),
-                        prepare: WiredRoomOperations.PrepareSnapshots))
+                        prepare: WiredRoomOperations.PrepareSnapshots,
+                        isTemporaryInRoom: id => room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true))
                     {
                         session.Send(new WiredValidationErrorComposer(error));
                         return Task.CompletedTask;
@@ -112,7 +115,7 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
                 }
                 else if (!WiredLegacySave.TrySave(box, packet, Envelope, original => wired.GenerateNewBox(original.Item),
                     (original, candidate) => wired.PublishLegacy(original, candidate, () => wired.SaveBox(candidate)),
-                    out var error, id => room.GetRoomItemHandler().GetItem(id) != null))
+                    out var error, id => room.GetRoomItemHandler().GetItem(id) is { IsTemporary: false }))
                 {
                     session.Send(new WiredValidationErrorComposer(error));
                     return Task.CompletedTask;
@@ -128,5 +131,17 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
             session.Send(new WiredValidationErrorComposer("Unable to save these Wired settings."));
         }
         return Task.CompletedTask;
+    }
+
+    private static WiredConfiguration PreserveAdvancedConfiguration(IWiredConfiguredItem box, WiredConfiguration proposed)
+    {
+        var saved = box.Configuration;
+        proposed = proposed with { ScoreQuotaPerGame = saved.ScoreQuotaPerGame };
+        // Octane's six literal placement fields cannot express the typed template policy or its target roles.
+        if (box.Descriptor.CanonicalName == "wf_act_place_furni" && saved.TemporaryPlacement != null)
+            proposed = proposed with { TemporaryPlacement = saved.TemporaryPlacement, Snapshots = saved.Snapshots,
+                SecondarySelectedItems = saved.SecondarySelectedItems, FurniSources = saved.FurniSources,
+                UserSources = saved.UserSources, VariableIds = saved.VariableIds };
+        return proposed;
     }
 }
