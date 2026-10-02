@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 
@@ -122,7 +121,6 @@ internal class TeleportUserBox : IWiredItem, IWiredCycle
         if (room.GetGameMap() == null)
             return;
         room.GetGameMap().TeleportToItem(user, item);
-        RewardTrackManager.Current?.Progress(player.Client, RewardTrackActions.Teleport);
         room.GetRoomUserManager().UpdateUserStatusses();
         if (player.Effects != null)
             player.Effects.ApplyEffect(0);

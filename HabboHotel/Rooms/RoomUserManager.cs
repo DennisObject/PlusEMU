@@ -228,7 +228,8 @@ public class RoomUserManager
                     item.UpdateState(false, true);
                     user.SetPos(item.GetX, item.GetY, item.GetZ);
                     user.SetRot(item.Rotation, false);
-                    RewardTrackManager.Current?.Progress(session, RewardTrackActions.Teleport);
+                    if (session.GetHabbo().TeleporterId != 0)
+                        RewardTrackManager.Current?.Progress(session, RewardTrackActions.Teleport);
                     item.InteractingUser2 = session.GetHabbo().Id;
                     item.LegacyDataString = "0";
                     item.UpdateState(false, true);
@@ -280,6 +281,15 @@ public class RoomUserManager
             if (bot == null || bot.BotAi == null)
                 continue;
             bot.BotAi.OnUserEnterRoom(user);
+        }
+        if (session.GetHabbo().Id != _room.OwnerId)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.EnterOtherUsersRoom);
+        var pendingFollow = session.GetHabbo().PendingFollowRoomId;
+        if (pendingFollow != 0)
+        {
+            session.GetHabbo().PendingFollowRoomId = 0;
+            if (pendingFollow == _room.RoomId)
+                RewardTrackManager.Current?.Progress(session, RewardTrackActions.FollowFriend);
         }
         return true;
     }
@@ -1144,8 +1154,6 @@ public class RoomUserManager
                                             return;
                                         }
                                         room.GetGameMap().TeleportToItem(user, targetItem);
-                                        if (!user.IsBot)
-                                            RewardTrackManager.Current?.Progress(user.GetClient(), RewardTrackActions.Teleport);
                                     }
                                     else if (teleRoomId != room.RoomId)
                                     {
@@ -1230,14 +1238,12 @@ public class RoomUserManager
                             {
                                 user.GetClient().GetHabbo().Effects.ApplyEffect(30);
                                 user.CurrentItemEffect = type;
-                                RewardTrackManager.Current?.Progress(user.GetClient(), RewardTrackActions.Swim);
                                 break;
                             }
                         case ItemEffectType.SwimHalloween:
                             {
                                 user.GetClient().GetHabbo().Effects.ApplyEffect(37);
                                 user.CurrentItemEffect = type;
-                                RewardTrackManager.Current?.Progress(user.GetClient(), RewardTrackActions.Swim);
                                 break;
                             }
                         case ItemEffectType.None:

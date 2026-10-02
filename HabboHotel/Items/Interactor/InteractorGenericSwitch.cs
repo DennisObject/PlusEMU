@@ -14,6 +14,7 @@ public class InteractorGenericSwitch : IFurniInteractor
         var modes = item.Definition.Modes - 1;
         if (session == null || !hasRights || modes <= 0) return;
         PlusEnvironment.Game.QuestManager.ProgressUserQuest(session, QuestType.FurniSwitch);
+        var before = item.LegacyDataString;
         var currentMode = 0;
         var newMode = 0;
         if (!int.TryParse(item.LegacyDataString, out currentMode)) { }
@@ -25,6 +26,8 @@ public class InteractorGenericSwitch : IFurniInteractor
             newMode = currentMode + 1;
         item.LegacyDataString = newMode.ToString();
         item.UpdateState();
+        if (!string.Equals(before, item.LegacyDataString, StringComparison.Ordinal))
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
     }
 
     public void OnWiredTrigger(Item item)

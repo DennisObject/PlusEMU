@@ -16,7 +16,6 @@ using Plus.HabboHotel.Catalog.Utilities;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Quests;
-using Plus.HabboHotel.Users.Inventory.Furniture;
 using Plus.HabboHotel.Users.Effects;
 using Dapper;
 using Plus.HabboHotel.Habbicons;
@@ -205,7 +204,6 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             }
         }
 
-        var boughtFloorOrWall = false;
         if (productType != "p")
             ChargePurchase();
         switch (productType)
@@ -312,10 +310,10 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                     {
                         //Session.SendMessage(new FurniListAddComposer(PurchasedItem));
                         session.Send(new FurniListNotificationComposer(purchasedItem.Id, 1));
-                        if (purchasedItem.Definition.Type is ItemType.Floor or ItemType.Wall)
-                            boughtFloorOrWall = true;
                     }
                 }
+                if (generatedGenericItems.Count > 0)
+                    RewardTrackManager.Current?.Progress(session, RewardTrackActions.BuyFromCatalogue);
                 break;
             case "e":
                 AvatarEffect effect;
@@ -381,8 +379,6 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             _badgeManager.Badges.TryGetValue(item.Badge, out var badge) &&
             (string.IsNullOrEmpty(badge.RequiredRight) || session.GetHabbo().Permissions.HasRight(badge.RequiredRight)))
             await _badgeManager.GiveBadge(session.GetHabbo(), badge.Code);
-        if (boughtFloorOrWall)
-            RewardTrackManager.Current?.Progress(session, RewardTrackActions.BuyFromCatalogue);
         session.Send(new PurchaseOkComposer(item, item.Definition));
         session.Send(new FurniListUpdateComposer());
     }

@@ -26,9 +26,6 @@ internal class UseFurnitureEvent : RoomPacketEvent
         var item = room.GetRoomItemHandler().GetItem(itemId);
         if (item == null)
             return Task.CompletedTask;
-        var before = item.ExtraData.Serialize();
-        try
-        {
         var hasRights = room.CheckRights(session, false, true);
         if (item.Definition.InteractionType == InteractionType.Banzaitele)
             return Task.CompletedTask;
@@ -58,11 +55,5 @@ internal class UseFurnitureEvent : RoomPacketEvent
             item.GetRoom().GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, session.GetHabbo(), item);
         _questManager.ProgressUserQuest(session, QuestType.ExploreFindItem, (int)item.Definition.Id); 
         return Task.CompletedTask;
-        }
-        finally
-        {
-            if (item.ExtraData.Serialize() != before)
-                RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
-        }
     }
 }

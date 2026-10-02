@@ -465,7 +465,7 @@ public class RoomUser
         else
             CarryTimer = 0;
         GetRoom().SendPacket(new CarryObjectComposer(VirtualId, item));
-        if (previous == 0 && item > 0 && !IsBot)
+        if (item > 0 && item != previous && !IsBot)
             RewardTrackManager.Current?.Progress(GetClient(), RewardTrackActions.FindHandItem);
     }
 

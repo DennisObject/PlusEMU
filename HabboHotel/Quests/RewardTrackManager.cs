@@ -337,11 +337,11 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
             using var transaction = connection.BeginTransaction();
             connection.Execute(
                 """
-                INSERT INTO users_reward_track_tasks (user_id, track_id, task_id, progress_count, peak_count)
-                VALUES (@userId, @trackId, @taskId, @count, @peak)
-                ON DUPLICATE KEY UPDATE progress_count = VALUES(progress_count), peak_count = GREATEST(peak_count, VALUES(peak_count))
+                INSERT INTO users_reward_track_tasks (user_id, track_id, task_id, progress_count)
+                VALUES (@userId, @trackId, @taskId, @count)
+                ON DUPLICATE KEY UPDATE progress_count = VALUES(progress_count)
                 """,
-                new { userId, trackId, taskId = step.TaskId, count = step.Count, peak = step.Peak }, transaction);
+                new { userId, trackId, taskId = step.TaskId, count = step.Count }, transaction);
             if (step.PointsGranted > 0)
             {
                 connection.Execute(
@@ -373,7 +373,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                 "SELECT track_id AS TrackId, points AS Points, premium <> 0 AS Premium FROM users_reward_tracks WHERE user_id = @userId",
                 new { userId });
             var tasks = connection.Query<UserTaskRow>(
-                "SELECT track_id AS TrackId, task_id AS TaskId, progress_count AS ProgressCount, peak_count AS PeakCount FROM users_reward_track_tasks WHERE user_id = @userId",
+                "SELECT track_id AS TrackId, task_id AS TaskId, progress_count AS ProgressCount FROM users_reward_track_tasks WHERE user_id = @userId",
                 new { userId });
             var prizes = connection.Query<UserPrizeRow>(
                 "SELECT track_id AS TrackId, prize_id AS PrizeId FROM users_reward_track_prizes WHERE user_id = @userId",
@@ -389,7 +389,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                     states[row.TrackId] = state;
                 }
                 state.SetStoredCount(row.TaskId, row.ProgressCount);
-                state.SetPeak(row.TaskId, row.PeakCount);
+                state.SetPeak(row.TaskId, row.ProgressCount);
             }
             foreach (var row in prizes)
             {
@@ -576,7 +576,6 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
         public string TrackId { get; set; } = "";
         public string TaskId { get; set; } = "";
         public int ProgressCount { get; set; }
-        public int PeakCount { get; set; }
     }
 
     private sealed class UserPrizeRow

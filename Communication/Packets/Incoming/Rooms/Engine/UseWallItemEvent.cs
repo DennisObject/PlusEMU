@@ -20,20 +20,11 @@ internal class UseWallItemEvent : RoomPacketEvent
         var item = room.GetRoomItemHandler().GetItem(itemId);
         if (item == null)
             return Task.CompletedTask;
-        var before = item.ExtraData.Serialize();
-        try
-        {
-            var hasRights = room.CheckRights(session, false, true);
-            var request = packet.ReadInt();
-            item.Interactor.OnTrigger(session, item, request, hasRights);
-            item.GetRoom().GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, session.GetHabbo(), item);
-            _questManager.ProgressUserQuest(session, QuestType.ExploreFindItem, (int)item.Definition.Id);
-            return Task.CompletedTask;
-        }
-        finally
-        {
-            if (item.ExtraData.Serialize() != before)
-                RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
-        }
+        var hasRights = room.CheckRights(session, false, true);
+        var request = packet.ReadInt();
+        item.Interactor.OnTrigger(session, item, request, hasRights);
+        item.GetRoom().GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, session.GetHabbo(), item);
+        _questManager.ProgressUserQuest(session, QuestType.ExploreFindItem, (int)item.Definition.Id);
+        return Task.CompletedTask;
     }
 }

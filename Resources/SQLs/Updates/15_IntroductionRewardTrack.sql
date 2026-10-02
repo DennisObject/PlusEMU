@@ -62,7 +62,6 @@ CREATE TABLE IF NOT EXISTS users_reward_track_tasks (
     track_id VARCHAR(64) NOT NULL,
     task_id VARCHAR(64) NOT NULL,
     progress_count INT NOT NULL DEFAULT 0,
-    peak_count INT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, track_id, task_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -73,19 +72,6 @@ CREATE TABLE IF NOT EXISTS users_reward_track_prizes (
     claimed_at INT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, track_id, prize_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-SET @peak_exists = (
-    SELECT COUNT(*) FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'users_reward_track_tasks'
-      AND COLUMN_NAME = 'peak_count');
-SET @peak_ddl = IF(@peak_exists = 0,
-    'ALTER TABLE users_reward_track_tasks ADD COLUMN peak_count INT NOT NULL DEFAULT 0',
-    'SELECT 1');
-PREPARE peak_ddl FROM @peak_ddl;
-EXECUTE peak_ddl;
-DEALLOCATE PREPARE peak_ddl;
-UPDATE users_reward_track_tasks SET peak_count = progress_count WHERE peak_count < progress_count;
 
 INSERT IGNORE INTO reward_tracks
 (id, theme, sort_order, starts_at, ends_at, has_premium, premium_task_points_boost,

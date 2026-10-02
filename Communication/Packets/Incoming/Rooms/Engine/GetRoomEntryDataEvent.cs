@@ -26,15 +26,6 @@ internal class GetRoomEntryDataEvent : IPacketEvent
             room.GetRoomUserManager().RemoveUserFromRoom(session, false);
             return Task.CompletedTask; //TODO: Remove?
         }
-        if (session.GetHabbo().Id != room.OwnerId)
-            RewardTrackManager.Current?.Progress(session, RewardTrackActions.EnterOtherUsersRoom);
-        var pendingFollow = session.GetHabbo().PendingFollowRoomId;
-        if (pendingFollow != 0)
-        {
-            session.GetHabbo().PendingFollowRoomId = 0;
-            if (pendingFollow == room.RoomId)
-                RewardTrackManager.Current?.Progress(session, RewardTrackActions.FollowFriend);
-        }
         room.SendObjects(session);
         if (session.GetHabbo().Messenger != null)
             session.GetHabbo().Messenger.NotifyChangesToFriends();

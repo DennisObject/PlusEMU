@@ -38,7 +38,7 @@ internal class SetRelationshipEvent : IPacketEvent
         var previous = friend.Relationship;
         friend.Relationship = type;
         await _messengerDataLoader.SetRelationship(session.GetHabbo().Id, friend.Id, friend.Relationship);
-        if (type != 0 && type != previous)
+        if (type >= 1 && type <= 3 && type != previous)
             RewardTrackManager.Current?.Progress(session, RewardTrackActions.SetRelationshipStatus);
         session.GetHabbo().Messenger.UpdateFriend(friend);
         return;
