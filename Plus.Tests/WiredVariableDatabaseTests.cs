@@ -1,12 +1,16 @@
 using System.Data;
 using System.Diagnostics;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
 using Plus.Database.Interfaces;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Rooms;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -75,14 +79,14 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
                 transactionDb.BeforeConnection = () =>
                 {
                     if (change == "owner") admin.Execute("UPDATE rooms SET owner='malformed-owner' WHERE id=@room", new { room });
-                    else if (change == "configuration") admin.Execute("UPDATE wired_item_configurations SET configuration=@config WHERE item_id=@id", new { id = items[0], config = JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1,10], Text = "changed" }) });
+                    else if (change == "configuration") admin.Execute("UPDATE wired_item_configurations SET configuration=@config WHERE item_id=@id", new { id = items[0], config = JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1, 10], Text = "changed" }) });
                     else admin.Execute("UPDATE items SET room_id=0 WHERE id=@id", new { id = items[0] });
                 };
                 Assert.False(race.Mutate(reference, holders[0], WiredVariableMutation.Set, 999, frame)); Assert.Empty(race.DrainChanges());
                 Assert.Equal(41, store.Read(new(items[0], WiredVariableTarget.User, holders[0].StableId))!.Value);
                 admin.Execute("UPDATE rooms SET owner=@owner WHERE id=@room", new { owner = owner.ToString(), room });
                 admin.Execute("UPDATE items SET room_id=@room WHERE id=@id", new { room, id = items[0] });
-                admin.Execute("UPDATE wired_item_configurations SET configuration=@config WHERE item_id=@id", new { id = items[0], config = JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1,10], Text = "probe0" }) });
+                admin.Execute("UPDATE wired_item_configurations SET configuration=@config WHERE item_id=@id", new { id = items[0], config = JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1, 10], Text = "probe0" }) });
             }
             admin.Execute("UPDATE rooms SET owner=@owner WHERE id=@room", new { owner = owner + "junk", room });
             Assert.Null(directory.GetRoomOwner(room)); Assert.Null(directory.Find(items[0]));
@@ -98,6 +102,66 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
                     foreach (var holder in holders) Assert.Equal(25, snapshot.Read(variable, holder, frame)!.Value);
             Assert.Equal(13, database.Commands);
             output.WriteLine("Actual MySQL 200 holders × 6 variables: 13 commands; 1200 populated values.");
+
+            var globalItem = Insert(admin, "items", new() { ["user_id"] = owner, ["room_id"] = room, ["base_item"] = baseItem, ["extra_data"] = "", ["wall_pos"] = "" }); items.Add(globalItem);
+            var liveRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); liveRoom.Id = room; liveRoom.OwnerId = (int)owner;
+            var atomicDb = new ProbeDatabase(connectionString);
+            var roomVariables = new WiredRoomVariables(liveRoom, atomicDb, () => 5000);
+            var global = Assert.IsType<WiredVariableDefinitionBox>(roomVariables.CreateBox(new Item
+            { Id = globalItem, Definition = new() { InteractionName = "wf_var_room" } }));
+            var engine = new WiredStackEngine(() => 5000, box => ReferenceEquals(box, global), _ => true, _ => { }, _ => { }); engine.Add(global);
+            void SaveGlobal(WiredConfiguration candidate) => Assert.True(WiredConfigurationSave.TrySave(global, candidate, new RejectConfigurationStore(), out _, publish: engine.PublishConfigured));
+            var original = new WiredConfiguration { IntParams = [10, 7], Text = "atomic" };
+            SaveGlobal(original); roomVariables.ConfigurationSaved(global);
+            Assert.Equal(7, roomVariables.Module.Read(new(WiredVariableTarget.Global, $"custom:{globalItem}"), new(WiredVariableTarget.Global, 0, 0), new(room, []))!.Value);
+            roomVariables.DrainChanges();
+            foreach (var prefix in new[] { "INSERT INTO wired_item_configurations", "INSERT INTO wired_variable_values" })
+            {
+                atomicDb.FailSqlPrefix = prefix;
+                Assert.Throws<InjectedCommandFailure>(() => SaveGlobal(original with { IntParams = [10, 42], Text = "proposed" }));
+                atomicDb.FailSqlPrefix = null;
+                Assert.Same(original, global.Configuration);
+                Assert.Equal("atomic", JsonSerializer.Deserialize<WiredConfiguration>(admin.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=@id", new { id = globalItem }))!.Text);
+                Assert.Equal(7, store.Read(new(globalItem, WiredVariableTarget.Global, 0))!.Value);
+                Assert.Empty(roomVariables.DrainChanges());
+            }
+            atomicDb.BeforeConnection = () => admin.Execute("UPDATE rooms SET owner='invalid-owner' WHERE id=@room", new { room });
+            Assert.Throws<InvalidOperationException>(() => SaveGlobal(original with { IntParams = [10, 42] }));
+            admin.Execute("UPDATE rooms SET owner=@owner WHERE id=@room", new { owner = owner.ToString(), room });
+            Assert.Same(original, global.Configuration); Assert.Equal(7, store.Read(new(globalItem, WiredVariableTarget.Global, 0))!.Value); Assert.Empty(roomVariables.DrainChanges());
+            var replacement = original with { Text = "external" };
+            admin.Execute("UPDATE wired_item_configurations SET configuration=@configuration WHERE item_id=@id", new { id = globalItem, configuration = JsonSerializer.Serialize(replacement) });
+            Assert.Throws<InvalidOperationException>(() => SaveGlobal(original with { IntParams = [10, 42] }));
+            Assert.Equal("external", JsonSerializer.Deserialize<WiredConfiguration>(admin.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=@id", new { id = globalItem }))!.Text);
+            Assert.Same(original, global.Configuration); Assert.Empty(roomVariables.DrainChanges());
+            admin.Execute("UPDATE wired_item_configurations SET configuration=@configuration WHERE item_id=@id", new { id = globalItem, configuration = JsonSerializer.Serialize(original) });
+            var accepted = original with { IntParams = [10, 42], Text = "accepted" };
+            SaveGlobal(accepted); roomVariables.ConfigurationSaved(global);
+            Assert.Equal(42, store.Read(new(globalItem, WiredVariableTarget.Global, 0))!.Value); Assert.Single(roomVariables.DrainChanges());
+            var activeConfiguration = accepted with { IntParams = [1, 21] };
+            SaveGlobal(activeConfiguration); roomVariables.DrainChanges();
+            atomicDb.FailSqlPrefix = "INSERT INTO wired_item_configurations";
+            Assert.Throws<InjectedCommandFailure>(() => SaveGlobal(activeConfiguration with { IntParams = [1, 31] }));
+            atomicDb.FailSqlPrefix = null;
+            Assert.Same(activeConfiguration, global.Configuration);
+            Assert.Equal(21, roomVariables.Module.Read(new(WiredVariableTarget.Global, $"custom:{globalItem}"), new(WiredVariableTarget.Global, 0, 0), new(room, []))!.Value);
+            Assert.Empty(roomVariables.DrainChanges());
+
+            var firstSaveItem = Insert(admin, "items", new() { ["user_id"] = owner, ["room_id"] = room, ["base_item"] = baseItem, ["extra_data"] = "", ["wall_pos"] = "" }); items.Add(firstSaveItem);
+            var firstSaveModules = Enumerable.Range(0, 2).Select(_ => new WiredRoomVariables(liveRoom, new ProbeDatabase(connectionString), () => 6000)).ToArray();
+            var firstSaveBoxes = firstSaveModules.Select(m => Assert.IsType<WiredVariableDefinitionBox>(m.CreateBox(new Item { Id = firstSaveItem, Definition = new() { InteractionName = "wf_var_room" } }))).ToArray();
+            var firstSaves = await Task.WhenAll(firstSaveBoxes.Select((box, index) => Task.Run(() =>
+            {
+                var candidate = new WiredConfiguration { IntParams = [10, 100 + index], Text = "first" + index };
+                try { return WiredConfigurationSave.TrySave(box, candidate, new RejectConfigurationStore(), out _); }
+                catch (InvalidOperationException exception) when (exception.Message == "The variable configuration changed before saving.") { return false; }
+            })));
+            Assert.Single(firstSaves.Where(x => x));
+            Assert.Equal(1, firstSaveModules.Sum(x => x.DrainChanges().Count));
+            Assert.Equal(100 + Array.IndexOf(firstSaves, true), store.Read(new(firstSaveItem, WiredVariableTarget.Global, 0))!.Value);
+            output.WriteLine("Atomic definition/global save: configuration-command failure, value-command failure, owner race and stale sidecar rejected without active publication or events; successful combined commit passed.");
+            output.WriteLine("Active global rollback and concurrent first sidecar/value save passed: one winner, one rejected stale save, one event.");
+
             Assert.Equal(200, module.DeleteDefinition(items[0]));
             Assert.Empty(store.GetHolders(items[0]));
             Assert.Throws<InvalidOperationException>(() => module.Mutate(reference, holders[0], WiredVariableMutation.Give, 7, frame));
@@ -132,9 +196,16 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
         Assert.Contains(container.GetProperty("Mounts").EnumerateArray(), m => m.TryGetProperty("Name", out var name) && name.GetString() == "plus-wired-preview_wired-db-data" && m.GetProperty("Destination").GetString() == "/var/lib/mysql");
         using var config = JsonDocument.Parse(File.ReadAllText(Environment.GetEnvironmentVariable("WIRED_VARIABLE_PREVIEW_CONFIG")!));
         var db = config.RootElement.GetProperty("Database");
-        return new MySqlConnectionStringBuilder { Server = network.GetProperty("IPAddress").GetString(), Port = 3306,
-            Database = db.GetProperty("Name").GetString(), UserID = db.GetProperty("Username").GetString(), Password = db.GetProperty("Password").GetString(),
-            MinimumPoolSize = 0, MaximumPoolSize = 8 }.ConnectionString;
+        return new MySqlConnectionStringBuilder
+        {
+            Server = network.GetProperty("IPAddress").GetString(),
+            Port = 3306,
+            Database = db.GetProperty("Name").GetString(),
+            UserID = db.GetProperty("Username").GetString(),
+            Password = db.GetProperty("Password").GetString(),
+            MinimumPoolSize = 0,
+            MaximumPoolSize = 8
+        }.ConnectionString;
     }
 
     private static uint Insert(MySqlConnection connection, string table, Dictionary<string, object> values)
@@ -143,33 +214,62 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
         foreach (var column in columns.Where(x => !values.ContainsKey(x.Name)))
             values[column.Name] = column.Type switch
             {
-                "enum" => column.FullType.Split('\'')[1], "datetime" or "timestamp" or "date" => DateTime.UtcNow,
-                "varchar" or "char" or "text" or "mediumtext" or "longtext" => "", _ => 0
+                "enum" => column.FullType.Split('\'')[1],
+                "datetime" or "timestamp" or "date" => DateTime.UtcNow,
+                "varchar" or "char" or "text" or "mediumtext" or "longtext" => "",
+                _ => 0
             };
         var parameters = new DynamicParameters(); foreach (var value in values) parameters.Add(value.Key, value.Value);
         connection.Execute($"INSERT INTO `{table}` ({string.Join(',', values.Keys.Select(x => $"`{x}`"))}) VALUES ({string.Join(',', values.Keys.Select(x => "@" + x))})", parameters);
         return connection.ExecuteScalar<uint>("SELECT LAST_INSERT_ID()");
     }
     private sealed class Column { public string Name { get; set; } = ""; public string Type { get; set; } = ""; public string FullType { get; set; } = ""; }
+    private sealed class RejectConfigurationStore : IWiredConfigurationStore
+    {
+        public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => throw new InvalidOperationException("Combined provider must own persistence.");
+        public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new InvalidOperationException("Combined provider must own persistence.");
+    }
     private sealed class ProbeDatabase(string connectionString) : IDatabase
     {
         public int Commands;
         public Action? BeforeConnection;
+        public string? FailSqlPrefix;
         public bool IsConnected() => true;
         public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public IDbConnection Connection()
         {
             var action = BeforeConnection; BeforeConnection = null; action?.Invoke();
-            return new CountedConnection(new MySqlConnection(connectionString), () => Interlocked.Increment(ref Commands));
+            return new CountedConnection(new MySqlConnection(connectionString), () => Interlocked.Increment(ref Commands), sql =>
+            {
+                if (FailSqlPrefix is { } prefix && sql.TrimStart().StartsWith(prefix, StringComparison.Ordinal)) throw new InjectedCommandFailure();
+            });
         }
     }
-    private sealed class CountedConnection(MySqlConnection inner, Action command) : IDbConnection
+    private sealed class InjectedCommandFailure : Exception;
+    private sealed class CountedConnection(MySqlConnection inner, Action command, Action<string> execute) : IDbConnection
     {
         [System.Diagnostics.CodeAnalysis.AllowNull]
         public string ConnectionString { get => inner.ConnectionString; set => inner.ConnectionString = value ?? ""; }
         public int ConnectionTimeout => inner.ConnectionTimeout; public string Database => inner.Database; public ConnectionState State => inner.State;
         public IDbTransaction BeginTransaction() => inner.BeginTransaction(); public IDbTransaction BeginTransaction(IsolationLevel level) => inner.BeginTransaction(level);
         public void ChangeDatabase(string name) => inner.ChangeDatabase(name); public void Close() => inner.Close(); public void Open() => inner.Open(); public void Dispose() => inner.Dispose();
-        public IDbCommand CreateCommand() { command(); return inner.CreateCommand(); }
+        public IDbCommand CreateCommand() { command(); return new InterceptedCommand(inner.CreateCommand(), execute); }
+    }
+    private sealed class InterceptedCommand(IDbCommand inner, Action<string> execute) : IDbCommand
+    {
+        [System.Diagnostics.CodeAnalysis.AllowNull]
+        public string CommandText { get => inner.CommandText; set => inner.CommandText = value ?? ""; }
+        public int CommandTimeout { get => inner.CommandTimeout; set => inner.CommandTimeout = value; }
+        public CommandType CommandType { get => inner.CommandType; set => inner.CommandType = value; }
+        public IDbConnection? Connection { get => inner.Connection; set => inner.Connection = value; }
+        public IDataParameterCollection Parameters => inner.Parameters;
+        public IDbTransaction? Transaction { get => inner.Transaction; set => inner.Transaction = value; }
+        public UpdateRowSource UpdatedRowSource { get => inner.UpdatedRowSource; set => inner.UpdatedRowSource = value; }
+        public void Cancel() => inner.Cancel(); public IDbDataParameter CreateParameter() => inner.CreateParameter(); public void Dispose() => inner.Dispose();
+        public void Prepare() => inner.Prepare();
+        public int ExecuteNonQuery() { execute(CommandText); return inner.ExecuteNonQuery(); }
+        public object? ExecuteScalar() { execute(CommandText); return inner.ExecuteScalar(); }
+        public IDataReader ExecuteReader() { execute(CommandText); return inner.ExecuteReader(); }
+        public IDataReader ExecuteReader(CommandBehavior behavior) { execute(CommandText); return inner.ExecuteReader(behavior); }
     }
 }

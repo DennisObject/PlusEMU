@@ -123,7 +123,7 @@ public sealed class DatabaseWiredVariableStore(IDatabase database) : IWiredVaria
         public string Configuration { get; set; } = "";
     }
 
-    private static bool LockDefinition(IDbConnection connection, IDbTransaction transaction, uint definitionId)
+    internal static bool LockDefinition(IDbConnection connection, IDbTransaction transaction, uint definitionId)
     {
         connection.Execute("INSERT IGNORE INTO wired_variable_locks (definition_id) VALUES (@definitionId)", new { definitionId }, transaction);
         return connection.ExecuteScalar<bool>("SELECT retired FROM wired_variable_locks WHERE definition_id=@definitionId FOR UPDATE", new { definitionId }, transaction);

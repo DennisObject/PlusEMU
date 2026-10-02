@@ -6,6 +6,8 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 
 public static class WiredVariableDefinitions
 {
+    public static bool Supports(string name) => name is "wf_var_user" or "wf_var_furni" or "wf_var_room"
+        or "wf_var_context" or "wf_var_echo" or "wf_var_reference";
     public static bool TryDecode(string name, uint itemId, uint roomId, uint ownerId, WiredConfiguration configuration,
         out WiredVariableDefinition? definition, out string error)
     {

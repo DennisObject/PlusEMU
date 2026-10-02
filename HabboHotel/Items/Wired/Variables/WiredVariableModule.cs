@@ -15,6 +15,20 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     private readonly object _gate = new();
     public uint RoomId => roomId;
 
+    // The database callback commits before any active value or change event becomes visible.
+    internal void PersistDefinitionConfiguration(uint definitionId, Func<WiredVariableValue?, WiredVariableDefinitionCommit> persist)
+    {
+        lock (_gate)
+        {
+            var key = new WiredVariableKey(definitionId, WiredVariableTarget.Global, 0);
+            var committed = persist(_active.Read(key));
+            if (committed.ValueWrite is not { } write) return;
+            if (!committed.Definition.IsDurable) _active.Mutate(key, _ => write.After);
+            if (write.Changed) _changes.Enqueue(new(committed.Definition.RoomId, key,
+                write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated, write.Before, write.After, 0, 1));
+        }
+    }
+
     /// <summary>Capture once per FX/menu flush, share across viewers, then dispose. Never retain across room changes.</summary>
     public WiredVariableReadSnapshot CaptureReads(IEnumerable<WiredVariableReference> references, WiredVariableFrame frame)
     {
@@ -115,6 +129,23 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             var result = Store(definition, frame).Mutate(new(definitionId, WiredVariableTarget.Global, 0),
                 before => before ?? new(definition.InitialValue, nowMs(), nowMs()), definition.IsDurable ? resolved.Authorization : null);
             return result.After is not null;
+        }
+    }
+
+    /// <summary>Editor assignment reports acceptance, including an unchanged value; rejected authorization returns false.</summary>
+    public bool SaveGlobalValue(uint definitionId, int value)
+    {
+        lock (_gate)
+        {
+            var resolved = Resolve(new(WiredVariableTarget.Global, $"custom:{definitionId}"), true);
+            if (resolved?.Definition is not { Target: WiredVariableTarget.Global, Link: null } definition || definition.ItemId != definitionId) return false;
+            var key = new WiredVariableKey(definitionId, WiredVariableTarget.Global, 0);
+            var write = Store(definition, new(roomId, [])).Mutate(key, before => before?.Value == value ? before
+                : new(value, before?.CreatedAtMs ?? nowMs(), nowMs()), definition.IsDurable ? resolved.Authorization : null);
+            if (write.After is null) return false;
+            if (write.Changed) _changes.Enqueue(new(definition.RoomId, key, write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
+                write.Before, write.After, 0, 1));
+            return true;
         }
     }
 
