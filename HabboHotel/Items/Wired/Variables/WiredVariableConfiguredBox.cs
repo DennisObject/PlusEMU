@@ -15,6 +15,7 @@ public sealed class WiredVariableConfiguredBox : IWiredContextualItem
         if (!WiredVariableExecutors.Supports(descriptor.CanonicalName)) throw new ArgumentException("No scalar executor for this box.", nameof(descriptor));
         Instance = room; Item = item; _executors = executors;
         Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
+        Configuration = WiredVariableDefaults.Create(descriptor.CanonicalName);
     }
     public Room Instance { get; set; }
     public Item Item { get; set; }
@@ -25,6 +26,7 @@ public sealed class WiredVariableConfiguredBox : IWiredContextualItem
     public string ItemsData { get; set; } = "";
     public WiredBoxDescriptor Descriptor { get; }
     public WiredConfiguration Configuration { get; private set; } = new();
+    public bool HasPersistedConfiguration { get; private set; }
     public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         validated = proposed;
@@ -33,6 +35,7 @@ public sealed class WiredVariableConfiguredBox : IWiredContextualItem
     public void ApplyConfiguration(WiredConfiguration validated)
     {
         Configuration = validated;
+        HasPersistedConfiguration = true;
         StringData = validated.Text;
         ItemsData = string.Join(';', validated.SelectedItems);
     }
