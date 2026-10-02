@@ -98,7 +98,10 @@ public partial class WiredComponent : IWiredRuntimeOperations
     public IWiredItem? LoadWiredBox(Item item)
     {
         var newBox = GenerateNewBox(item);
-        if (item.Definition.WiredDescriptor is { } descriptor)
+        var descriptor = item.Definition.WiredDescriptor;
+        if (descriptor == null && newBox != null && WiredLegacyEditorProjection.TryGetDescriptor(newBox, out var projected))
+            descriptor = projected;
+        if (descriptor != null)
         {
             try
             {
