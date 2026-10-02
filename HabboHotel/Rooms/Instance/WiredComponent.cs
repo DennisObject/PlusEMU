@@ -19,6 +19,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
 {
     private readonly Room _room;
     private readonly WiredStackEngine _engine;
+    private readonly WiredTargetResolver _targets;
 
     public WiredComponent(Room instance) //, RoomItem Items)
     {
@@ -30,17 +31,19 @@ public partial class WiredComponent : IWiredRuntimeOperations
             OnEvent, ExceptionLogger.LogWiredException,
             WiredEngineLimits.FromSettings(key => PlusEnvironment.SettingsManager?.TryGetValue(key) ?? "0"),
             CaptureActorVisit);
-        _engine.BindRuntime(_room, new(
+        _targets = new(
             () => _room.GetRoomItemHandler().GetFloor,
             () => _room.GetRoomUserManager().GetUserList(),
             id => _room.GetRoomItemHandler().GetItem(id),
-            id => _room.GetRoomUserManager().GetRoomUserByVirtualId(id)), this,
+            id => _room.GetRoomUserManager().GetRoomUserByVirtualId(id));
+        _engine.BindRuntime(_room, _targets, this,
             () => _counters.HasRunning || WiredBotTargets.For(_room).HasTargets, PollCounters, FlushExternalChanges);
         _engine.ObserveEvent = (evt, now) =>
         {
             _selectorState.Observe(evt, now);
             if (evt.Kind == WiredEventKind.Leave && evt.Actor != null)
             {
+                ForgetFxActor(evt.Actor);
                 WiredAvatarState.For(_room).Forget(evt.Actor);
                 WiredBotTargets.For(_room).Forget(evt.Actor);
                 WiredGameState.For(_room).Forget(evt.Actor);
@@ -55,9 +58,17 @@ public partial class WiredComponent : IWiredRuntimeOperations
         };
     }
 
-    public void OnCycle() => _engine.OnCycle();
+    public void OnCycle()
+    {
+        _engine.OnCycle();
+        FlushVariableFx();
+    }
 
-    internal void OnFastCycle() => _engine.OnFastCycle();
+    internal void OnFastCycle()
+    {
+        _engine.OnFastCycle();
+        if (_variables?.IsValueCreated == true && _variables.Value.FxDirty) FlushVariableFx();
+    }
     internal bool NeedsFastCycle => _engine.NeedsFastCycle;
     internal void ObserveFastWork(Action<bool>? observer) => _engine.ObserveFastWork(observer);
     public bool Dispatch(WiredRuntimeEvent @event)
@@ -463,10 +474,12 @@ public partial class WiredComponent : IWiredRuntimeOperations
         _engine.Clear();
         _selectorState.Reset();
         WiredBotTargets.For(_room).Clear();
+        WiredProjectileFlights.For(_room).Clear();
         WiredGameState.For(_room).Clear();
         WiredAvatarState.For(_room).Clear();
         _counters.Clear();
         _counterItems.Clear();
+        _fxViewers.Clear();
         _roomLog.Clear();
     }
 }

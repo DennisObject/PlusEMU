@@ -61,3 +61,22 @@ branches, forwarded sources, cached caps, synchronous chat, immutable delayed se
 publication failures/cancellation, visit identity, mixed repeaters, shared limits, recursive
 calls, copied signals, auxiliary work and serialized cadence. These tests do not establish
 full Turbo catalogue parity, production load capacity or live client animation fidelity.
+
+Native room hooks preserve visits on entry/removal and dispatch Awake/Lay transitions,
+modern counters and bot arrival events. Variable changes retain their typed before/after,
+origin and target payload through bounded event admission; rejected notifications are logged.
+Movement variable writes require an actual execution frame and share the action placement,
+collision and animation path. Projectile variables read the last real animation flight using
+the room clock; they are absent before a flight and forgotten on item detach/room cleanup.
+
+FX readiness follows successfully composed/enqueued room snapshots and incremental object
+packets, not attachment alone. Each viewer retains exact object references, including wall
+objects from ItemsComposer, and replacements need their own enqueue. FX-only holders include
+ready walls without expanding floor selectors. The room invokes the actual variable FX flush
+on its legacy pass and dirty modern passes, catches failed reads/sends, and retains dirty work
+for retry. Enqueue acknowledgement is not a network delivery receipt. Placement callers must
+use SendObject and avatar producers SendUser to publish incremental readiness.
+
+The support ledger is generated from concrete factories and native auxiliary predicates.
+Its implemented entries do not establish complete gameplay parity: packet hooks, derived
+provider behavior, SQL integration and client animation each require their separate evidence.

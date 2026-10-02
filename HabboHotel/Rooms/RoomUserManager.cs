@@ -76,7 +76,7 @@ public class RoomUserManager
         else
             user.BotAi.Init(bot.BotId, user.VirtualId, _room.RoomId, user, _room);
         user.UpdateNeeded = true;
-        _room.SendPacket(new UsersComposer(user));
+        _room.SendUser(user);
         if (user.IsPet)
         {
             if (_pets.ContainsKey(user.PetData.PetId))
@@ -192,7 +192,7 @@ public class RoomUserManager
                 user.SetRot(model.DoorOrientation, false);
             }
         }
-        _room.SendPacket(new UsersComposer(user));
+        _room.SendUser(user);
         if (_room.CheckRights(session, true))
         {
             user.SetStatus("flatctrl", "useradmin");

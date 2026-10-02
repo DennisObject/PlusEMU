@@ -152,6 +152,9 @@ internal sealed partial class WiredStackEngine
         return accepted;
     });
 
+    internal static bool IsSignalReceiver(Item item) => item.IsFloorItem
+        && string.Equals(item.Definition.InteractionName, "antenna", StringComparison.OrdinalIgnoreCase);
+
     public bool SendSignal(WiredRuntimeContext parent, IEnumerable<Item> receivers,
         WiredSelection selection, bool negative = false) => Pass(() =>
     {
@@ -162,7 +165,7 @@ internal sealed partial class WiredStackEngine
         {
             if (PendingCount >= _limits.MaxPendingStacks) break;
             if (!live.TryGetValue(receiver.Id, out var attached) || !ReferenceEquals(receiver, attached)
-                || !string.Equals(receiver.Definition.InteractionName, "antenna", StringComparison.OrdinalIgnoreCase)) continue;
+                || !IsSignalReceiver(receiver)) continue;
             var child = parent.Fork(new(WiredEventKind.Signal) { Actor = parent.Event.Kind == WiredEventKind.Leave ? null : parent.Event.Actor, EventItem = receiver, Code = unchecked((int)receiver.Id) }, parent.Depth + 1);
             child.Signal = new(selection, parent.Values);
             child.Triggering = selection.Copy();

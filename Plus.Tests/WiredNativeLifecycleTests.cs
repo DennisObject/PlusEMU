@@ -12,6 +12,17 @@ using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Effects;
+using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items.Wired.Modern.Addons;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
+using Plus.Communication.Packets.Outgoing;
+using Plus.Communication.Packets.Outgoing.Rooms.Engine;
+using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
+using Plus.Communication.Flash;
+using Plus.Communication.Packets;
+using Plus.Communication.Packets.Outgoing.WiredVariables;
 using Xunit;
 
 namespace Plus.Tests;
@@ -85,6 +96,116 @@ public sealed class WiredNativeLifecycleTests
         Assert.False(f.Wired.NeedsFastCycle);
     }
 
+    [Theory]
+    [InlineData("wf_antenna1")]
+    [InlineData("wf_antenna2")]
+    public void NativeAntennaDeliversConfiguredSignalAndRejectsDetachedReceiver(string name)
+    {
+        var f = new World();
+        var antenna = f.Item(3); antenna.Definition.ItemName = name; antenna.Definition.InteractionName = "antenna";
+        var triggerItem = f.Item(1); triggerItem.Definition.InteractionName = "wf_trg_recv_signal";
+        var trigger = f.Wired.CreateConfiguredBox(triggerItem)!;
+        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [antenna.Id] }, out var config, out var error), error);
+        trigger.ApplyConfiguration(config); Assert.True(f.Wired.AddBox(trigger));
+        var effect = f.Effect();
+        var context = f.Context();
+        Assert.True(f.Wired.SendSignal(context, [antenna], new()));
+        f.Wired.OnFastCycle(); Assert.Equal(1, effect.Calls);
+        f.Remove(antenna);
+        Assert.False(f.Wired.SendSignal(context, [antenna], new()));
+    }
+
+    [Fact]
+    public void NativeBuiltinChangeReachesTypedVariableTriggerThroughRoomQueue()
+    {
+        var f = new World(); var actor = f.Bot(); f.PrepareVariables();
+        var item = f.Item(1); item.Definition.InteractionName = "wf_trg_var_changed";
+        var trigger = f.Wired.CreateConfiguredBox(item)!;
+        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 0, 1, 1, 1, 1, 0, -1], Text = "internal:@handitem" }, out var config, out var error), error);
+        trigger.ApplyConfiguration(config); Assert.True(f.Wired.AddBox(trigger));
+        var effect = f.Effect(); var context = f.Context();
+        var frame = WiredVariableRuntimeFrames.Create(context);
+        Assert.True(f.Wired.Variables.Module.Mutate(new(WiredVariableTarget.User, "internal:@handitem"),
+            WiredVariableRuntimeFrames.UserHolder(actor), WiredVariableMutation.Set, 7, frame));
+        f.Wired.OnCycle(); f.Wired.OnFastCycle();
+        Assert.Equal(1, effect.Calls);
+    }
+
+    [Fact]
+    public void NativeObjectEnqueueTracksSnapshotAndExactReplacementIdentity()
+    {
+        var f = new World(); var viewer = f.Human(); var item = f.Item(3); var wall = f.Wall(4);
+        // Incremental objects never ready a viewer who has no full snapshot.
+        f.Room.SendObject(item);
+        Assert.Empty(f.Wired.CaptureFxViewers());
+        f.Room.SendObjects(viewer.GetClient());
+        var ready = Assert.Single(f.Wired.CaptureFxViewers());
+        Assert.Contains(WiredVariableRuntimeFrames.FurniHolder(item), ready.ReadyHolders);
+        Assert.Contains(WiredVariableRuntimeFrames.FurniHolder(wall), ready.ReadyHolders);
+        Assert.DoesNotContain(wall, f.Context().Targets.AllFurni());
+        f.Remove(item); var replacement = f.Item(3);
+        Assert.DoesNotContain(WiredVariableRuntimeFrames.FurniHolder(replacement), Assert.Single(f.Wired.CaptureFxViewers()).ReadyHolders);
+        f.Room.SendObject(replacement);
+        Assert.Contains(WiredVariableRuntimeFrames.FurniHolder(replacement), Assert.Single(f.Wired.CaptureFxViewers()).ReadyHolders);
+        f.Wired.Cleanup(); Assert.Empty(f.Wired.CaptureFxViewers());
+    }
+
+    [Fact]
+    public void FailedFullRoomSnapshotLeavesViewerUnready()
+    {
+        var f = new World(); var viewer = f.Human();
+        viewer.GetClient().SendCallback = _ => throw new IOException("snapshot enqueue failed");
+        Assert.Throws<IOException>(() => f.Room.SendObjects(viewer.GetClient()));
+        Assert.Empty(f.Wired.CaptureFxViewers());
+    }
+
+    [Fact]
+    public void FailedNativeObjectEnqueueDoesNotPublishFxReadiness()
+    {
+        var f = new World(); var viewer = f.Human();
+        f.Room.SendObjects(viewer.GetClient());
+        var item = f.Item(3);
+        viewer.GetClient().SendCallback = _ => throw new IOException("enqueue failed");
+        f.Room.SendObject(item);
+        Assert.DoesNotContain(WiredVariableRuntimeFrames.FurniHolder(item), Assert.Single(f.Wired.CaptureFxViewers()).ReadyHolders);
+    }
+
+    [Fact]
+    public void NativeSpatialVariableWritesUsePlacementPolicyAndRejectCreatorOrReplacedTargets()
+    {
+        var f = new World(); f.PrepareVariables(); var template = f.Item(3); template.Definition.Stackable = true; f.Remove(template);
+        var mover = Assert.IsType<Item>(f.Room.GetRoomItemHandler().PlaceTemporaryFloorItem(template.Definition, 1, 0, 0, 0));
+        var blocker = f.Item(4); blocker.SetState(1, 0, 0, Gamemap.GetAffectedTiles(1, 1, 1, 0, 0)); f.Map.AddToMap(blocker);
+        var context = f.Context(); var frame = WiredVariableRuntimeFrames.Create(context);
+        var holder = WiredVariableRuntimeFrames.FurniHolder(mover);
+        var reference = new WiredVariableReference(WiredVariableTarget.Furni, "internal:@position.x");
+        Assert.False(f.Wired.Variables.Module.Mutate(reference, holder, WiredVariableMutation.Set, 1, frame));
+        context.Policy.Addons.Physics = new(false, new HashSet<uint> { blocker.Id }, new HashSet<int>(), new HashSet<uint>());
+        Assert.True(f.Wired.Variables.Module.Mutate(reference, holder, WiredVariableMutation.Set, 1, frame));
+        Assert.Equal(1, mover.GetX);
+        Assert.Contains(mover, f.Map.GetCoordinatedItems(new(1, 0)));
+        Assert.False(f.Wired.Variables.Module.Mutate(reference, holder, WiredVariableMutation.Set, 2, new(1, [holder])));
+        f.Remove(mover); var replacement = f.Item(mover.Id);
+        Assert.False(f.Wired.Variables.Module.Mutate(reference, holder, WiredVariableMutation.Set, 2, frame));
+        Assert.Equal(0, replacement.GetX);
+    }
+
+    [Fact]
+    public void NativeProjectileBuiltinUsesActualRoomClockAndDetachLifecycle()
+    {
+        var f = new World(); f.PrepareVariables(); var item = f.Item(3);
+        var holder = WiredVariableRuntimeFrames.FurniHolder(item);
+        var frame = new WiredVariableFrame(1, [holder]); // Menus and FX need the real clock without a firing context.
+        var reference = new WiredVariableReference(WiredVariableTarget.Furni, "internal:@projectile.animation.position.x");
+        Assert.Null(f.Wired.Variables.Module.Read(reference, holder, frame));
+        item.SetState(2, 0, 0, Gamemap.GetAffectedTiles(1, 1, 2, 0, 0));
+        Assert.True(WiredProjectileFlights.For(f.Room).Begin(item, 0, 0, 0, 0, 0));
+        Assert.Equal(2, f.Wired.Variables.Module.Read(reference, holder, frame)!.Value);
+        f.Wired.DetachRoomItem(item); Assert.Null(f.Wired.Variables.Module.Read(reference, holder, frame));
+        Assert.True(WiredProjectileFlights.For(f.Room).Begin(item, 0, 0, 0, 0, 0));
+        f.Wired.Cleanup(); Assert.Null(f.Wired.Variables.Module.Read(reference, holder, frame));
+    }
+
     private sealed class World
     {
         public Room Room { get; } = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
@@ -105,10 +226,46 @@ public sealed class WiredNativeLifecycleTests
             _users = (ConcurrentDictionary<int, RoomUser>)Get(users, "_users");
             Wired = new(Room); Set(Room, "_wiredComponent", Wired);
         }
+        public void PrepareVariables()
+        {
+            // Keep native variable read/write behavior; isolate only storage authority for these non-SQL regressions.
+            var variables = Wired.Variables;
+            var module = new WiredVariableModule(Room.Id, new OwnerDirectory(), new MemoryWiredVariableStore(), () => 0,
+                new RoomWiredBuiltinVariables(Room, engineRead: Wired.ReadBuiltin, engineWrite: Wired.WriteBuiltin));
+            typeof(WiredRoomVariables).GetField("<Module>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(variables, module);
+        }
+        public void Remove(Item item) => _items.TryRemove(item.Id, out _);
+        public WiredRuntimeContext Context() => new(Room, new(WiredEventKind.Periodic),
+            new(() => _items.Values, () => _users.Values, id => Room.GetRoomItemHandler().GetItem(id),
+                id => Room.GetRoomUserManager().GetRoomUserByVirtualId(id)), Wired);
+        public CounterAction Effect()
+        {
+            var item = Item(2); item.Definition.InteractionType = InteractionType.WiredEffect;
+            var effect = new CounterAction(Room, item); Assert.True(Wired.AddBox(effect)); return effect;
+        }
+        public RoomUser Human()
+        {
+            var client = new FlashGameClient(null!, new FlashPacketFactory())
+            {
+                Revision = new() { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
+                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id) },
+                SendCallback = _ => true
+            };
+            var habbo = new Habbo { Id = 42, Username = "viewer", Motto = "", Look = "test", Gender = "M", CurrentRoom = Room, Client = client,
+                HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0), Effects = new EffectsComponent(), Permissions = new([], []) };
+            client.SetHabbo(habbo);
+            var user = new RoomUser(42, 1, 1, Room); Set(user, "_mClient", client); _users[user.VirtualId] = user; return user;
+        }
         public RoomUser Bot()
         {
             var user = new RoomUser(0, 1, 7, Room) { BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot)), InternalRoomId = 7 };
             _users[user.VirtualId] = user; return user;
+        }
+        public Item Wall(uint id)
+        {
+            var item = Item(id); Remove(item); item.Definition.Type = ItemType.Wall; item.WallCoordinates = ":w=1,1 l=10,20 l";
+            ((ConcurrentDictionary<uint, Item>)Get(Room.GetRoomItemHandler(), "_wallItems"))[id] = item;
+            return item;
         }
         public Item Item(uint id)
         {
@@ -126,6 +283,11 @@ public sealed class WiredNativeLifecycleTests
             var item = Item(2); item.Definition.InteractionType = InteractionType.WiredEffect;
             var action = new CounterAction(Room, item); Assert.True(Wired.AddBox(action)); return action;
         }
+    }
+    private sealed class OwnerDirectory : IWiredVariableDirectory
+    {
+        public uint? GetRoomOwner(uint roomId) => 1;
+        public WiredVariableDefinition? Find(uint itemId) => null;
     }
     private static void Set(object owner, string field, object value) => owner.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(owner, value);
     private static object Get(object owner, string field) => owner.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(owner)!;

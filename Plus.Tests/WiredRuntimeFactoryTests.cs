@@ -4,6 +4,8 @@ using System.Collections.Immutable;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Users.Inventory.Furniture;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Variables;
@@ -40,14 +42,22 @@ public sealed class WiredRuntimeFactoryTests
         }).ToArray();
         Assert.Equal(172, boxes.Length);
         Assert.Contains(boxes, x => x.name == "wf_act_teleport_to" && x.support == "Implemented");
-        Assert.Contains(boxes, x => x.support == "DescriptorOnly");
+        Assert.All(boxes, x => Assert.Equal("Implemented", x.support));
+        var auxiliaries = new[] { "wf_upcounter1", "wf_upcounter2", "wf_game_upcounter1", "wf_game_upcounter2", "wf_antenna1", "wf_antenna2" }
+            .Select(name =>
+            {
+                var interaction = name.StartsWith("wf_antenna") ? "antenna" : name;
+                var item = new Item { Definition = new() { ItemName = name, InteractionName = interaction, Type = ItemType.Floor } };
+                return new { name, interaction, supported = WiredCounterController.Recognizes(item) || WiredStackEngine.IsSignalReceiver(item) };
+            }).ToArray();
+        Assert.All(auxiliaries, auxiliary => Assert.True(auxiliary.supported));
         if (Environment.GetEnvironmentVariable("WIRED_SUPPORT_LEDGER") is { Length: > 0 } output)
             File.WriteAllText(output, JsonSerializer.Serialize(new
             {
                 engineCommit = Environment.GetEnvironmentVariable("WIRED_ENGINE_COMMIT"),
                 registryCommit = "58a2ee4767379dc72e037cab4c061ff33066c0f5", boxes,
-                auxiliaries = new[] { "wf_upcounter1", "wf_upcounter2", "wf_game_upcounter1", "wf_game_upcounter2", "wf_antenna1", "wf_antenna2" }
-                    .Select(name => new { name, interaction = name.StartsWith("wf_antenna") ? "antenna" : name, supported = false })
+                auxiliaries,
+                proof = new[] { "RegistryProbeReportsOnlyConcreteFactorySupport", "NativeCounterInteractorRetainsStateAndStartsOnlyWithRights", "NativeAntennaDeliversConfiguredSignalAndRejectsDetachedReceiver" }
             }, new JsonSerializerOptions { WriteIndented = true }));
     }
 

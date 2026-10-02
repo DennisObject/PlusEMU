@@ -21,7 +21,7 @@ public partial class WiredComponent
     private Lazy<WiredRoomVariables>? _variables;
     private IWiredConfigurationStore ConfigurationStore => _configurationStore ??= new WiredConfigurationStore(PlusEnvironment.DatabaseManager);
     public WiredRoomVariables Variables => (_variables ??= new(() => new(_room,
-        PlusEnvironment.DatabaseManager, () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))).Value;
+        PlusEnvironment.DatabaseManager, () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin))).Value;
 
     // Returns a detached concrete candidate. Registration and persistence belong to the loader/publisher.
     public IWiredConfiguredItem? CreateConfiguredBox(Item item, WiredBoxDescriptor? descriptor = null)
@@ -53,7 +53,7 @@ public partial class WiredComponent
             defaults = WiredActionConfiguration.Defaults(descriptor.CanonicalName);
         }
         else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || WiredVariableMetadataBox.Supports(descriptor.CanonicalName)
-            || WiredVariableAddonBox.Supports(descriptor.CanonicalName) || descriptor.CanonicalName == "wf_xtra_text_input_variable"
+            || WiredVariableAddonBox.Supports(descriptor.CanonicalName) || descriptor.CanonicalName is "wf_xtra_text_input_variable" or "wf_trg_var_changed"
             || descriptor.Category == WiredBoxCategory.Variable)
             box = Variables.CreateBox(item);
         if (box != null && defaults != null)
@@ -96,7 +96,9 @@ public partial class WiredComponent
 
     public void DetachRoomItem(Item item) => _engine.Mutate(() =>
     {
+        ForgetFxItem(item);
         _counters.Forget(item);
+        WiredProjectileFlights.For(_room).Forget(item);
         if (_counterItems.TryGetValue(item.Id, out var attached) && ReferenceEquals(attached, item)) _counterItems.Remove(item.Id);
         if (_variables?.IsValueCreated == true) _variables.Value.ItemDetached(item);
         _engine.Remove(item.Id);
