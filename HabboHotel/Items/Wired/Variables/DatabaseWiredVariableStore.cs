@@ -100,7 +100,7 @@ public sealed class DatabaseWiredVariableStore(IDatabase database) : IWiredVaria
         var roomIds = authorization.Lineage.Select(x => x.RoomId).Append(authorization.RequestRoomId).Distinct().Order().ToArray();
         foreach (var roomId in roomIds)
         {
-            var owner = connection.QuerySingleOrDefault<uint?>("SELECT CAST(owner AS UNSIGNED) FROM rooms WHERE id=@roomId FOR UPDATE", new { roomId }, transaction);
+            var owner = DatabaseWiredVariableDirectory.ParseOwner(connection.QuerySingleOrDefault<string>("SELECT owner FROM rooms WHERE id=@roomId FOR UPDATE", new { roomId }, transaction));
             if (owner != authorization.OwnerId) return false;
         }
         foreach (var expected in authorization.Lineage.OrderBy(x => x.ItemId))

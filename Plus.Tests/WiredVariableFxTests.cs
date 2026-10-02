@@ -10,6 +10,34 @@ namespace Plus.Tests;
 
 public sealed class WiredVariableFxTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReusedRoomUnitIdInitializesReplacementAndRejectsDetachedPendingBatch(bool samePlayer)
+    {
+        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), () => 1000);
+        var viewer = new WiredVariableHolder(WiredVariableTarget.User, 901, 8);
+        var old = new WiredVariableHolder(WiredVariableTarget.User, 900, 7);
+        var replacement = old with { StableId = samePlayer ? old.StableId : 902 };
+        var reference = new WiredVariableReference(WiredVariableTarget.User, "custom:10");
+        var before = new WiredVariableFrame(1, [viewer, old]);
+        module.Mutate(reference, old, WiredVariableMutation.Give, 25, before);
+        var binding = new WiredVariableFxBinding(new(50,true,0,3000,0,0,0,0,0,0,100,ImmutableSortedDictionary<string,string>.Empty), reference,2,null,0,null,null);
+        var tracker = new WiredVariableFxTracker(module);
+        var first = tracker.Update(viewer, before, [binding], [old], _ => 0);
+        Assert.True(tracker.Acknowledge(viewer.StableId, first));
+        var pending = tracker.Update(viewer, before, [binding], [old], _ => 0);
+        var after = new WiredVariableFrame(1, [viewer, replacement]);
+        if (!samePlayer) module.Mutate(reference, replacement, WiredVariableMutation.Give, 25, after);
+        // Identity discrimination also catches a different holder before a detach callback arrives.
+        if (!samePlayer) Assert.True(Assert.Single(tracker.Update(viewer, after, [binding], [replacement], _ => 0).Statuses).Initialize);
+        tracker.DetachHolder(old);
+        Assert.False(tracker.Acknowledge(viewer.StableId, pending));
+        var reentered = tracker.Update(viewer, after, [binding], [replacement], _ => 0);
+        Assert.True(Assert.Single(reentered.Statuses).Initialize);
+        Assert.Equal(7, reentered.Statuses[0].Key.EntityId);
+    }
+
     [Fact]
     public void OverrideUsesStablePlayerIdWhileWireUsesEntityIdAndAudienceLossRemovesStatus()
     {
