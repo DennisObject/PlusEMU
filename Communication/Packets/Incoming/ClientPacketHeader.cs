@@ -173,6 +173,7 @@ public static class ClientPacketHeader
     public const uint GetRoomSettingsEvent = 581; //1014
     public const uint GetThreadsListDataEvent = 2568; //1606
     public const uint GetForumUserProfileEvent = 3515; //2639
+    public const uint OpenWiredEvent = 768;
     public const uint SaveWiredEffectConfigEvent = 2234; //3431
     public const uint GetRoomEntryDataEvent = 1747; //2768
     public const uint JoinQueueEvent = 167; //951

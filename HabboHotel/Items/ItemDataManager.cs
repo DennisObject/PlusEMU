@@ -3,6 +3,7 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Items;
@@ -54,6 +55,7 @@ public class ItemDataManager : IItemDataManager
                             AllowInventoryStack = row["allow_inventory_stack"].ToString() == "1",
                             InteractionType = ReadInteractionType(Convert.ToString(row["item_name"]), Convert.ToString(row["interaction_type"])),
                             WiredType = ReadWiredType(row["wired_id"]),
+                            InteractionName = Convert.ToString(row["interaction_type"]) ?? string.Empty,
                             BehaviourData = Convert.ToInt32(row["behaviour_data"]),
                             Modes = Convert.ToInt32(row["interaction_modes_count"]),
                             VendingIds = (!string.IsNullOrEmpty(Convert.ToString(row["vending_ids"])) && Convert.ToString(row["vending_ids"]) != "0")
@@ -97,6 +99,8 @@ public class ItemDataManager : IItemDataManager
     {
         if (itemName is "sb_rail" or "sb_ramp" or "sb_block")
             return InteractionType.Skateboard;
+        if (WiredBoxRegistry.TryGet(interactionType, out _) || WiredBoxRegistry.TryGet(itemName, out _))
+            return InteractionTypes.GetTypeFromString(WiredBoxRegistry.TryGet(interactionType, out _) ? interactionType : itemName);
         return InteractionTypes.GetTypeFromString(interactionType);
     }
 

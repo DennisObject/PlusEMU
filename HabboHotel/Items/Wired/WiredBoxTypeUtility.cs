@@ -121,92 +121,65 @@ internal static class WiredBoxTypeUtility
         }
     }
 
-    public static int GetWiredId(WiredBoxType type)
+    // Editor codes belong to the envelope; they are not furniture.wired_id values.
+    public static int GetWiredId(WiredBoxType type) => type switch
     {
-        switch (type)
-        {
-            case WiredBoxType.TriggerUserSays:
-            case WiredBoxType.TriggerUserSaysCommand:
-            case WiredBoxType.ConditionMatchStateAndPosition:
-                return 0;
-            case WiredBoxType.TriggerWalkOnFurni:
-            case WiredBoxType.TriggerWalkOffFurni:
-            case WiredBoxType.ConditionFurniHasUsers:
-            case WiredBoxType.ConditionFurniHasFurni:
-            case WiredBoxType.ConditionTriggererOnFurni:
-                return 1;
-            case WiredBoxType.EffectMatchPosition:
-                return 3;
-            case WiredBoxType.EffectMoveAndRotate:
-            case WiredBoxType.TriggerStateChanges:
-                return 4;
-            case WiredBoxType.ConditionUserCountInRoom:
-                return 5;
-            case WiredBoxType.ConditionActorIsInTeamBox:
-            case WiredBoxType.TriggerRepeat:
-                return 6;
-            case WiredBoxType.TriggerRoomEnter:
-            case WiredBoxType.EffectShowMessage:
-                return 7;
-            case WiredBoxType.TriggerGameStarts:
-            case WiredBoxType.TriggerGameEnds:
-            case WiredBoxType.EffectTeleportToFurni:
-            case WiredBoxType.EffectToggleFurniState:
-            case WiredBoxType.ConditionFurniTypeMatches:
-                return 8;
-            case WiredBoxType.EffectGiveUserBadge:
-            case WiredBoxType.EffectRegenerateMaps:
-            case WiredBoxType.EffectKickUser:
-            case WiredBoxType.EffectSetRollerSpeed:
-                return 7;
-            case WiredBoxType.EffectAddActorToTeam:
-                return 9;
-            case WiredBoxType.EffectRemoveActorFromTeam:
-            case WiredBoxType.ConditionIsGroupMember:
-                return 10;
-            case WiredBoxType.TriggerUserFurniCollision:
-            case WiredBoxType.ConditionIsWearingBadge:
-            case WiredBoxType.EffectMoveFurniToNearestUser:
-                return 11;
-            case WiredBoxType.ConditionIsWearingFx:
-            case WiredBoxType.EffectMoveFurniFromNearestUser:
-                return 12;
-            case WiredBoxType.ConditionFurniHasNoUsers:
-                return 14;
-            case WiredBoxType.ConditionTriggererNotOnFurni:
-                return 15;
-            case WiredBoxType.ConditionUserCountDoesntInRoom:
-                return 16;
-            case WiredBoxType.EffectGiveReward:
-                return 17;
-            case WiredBoxType.EffectExecuteWiredStacks:
-            case WiredBoxType.ConditionFurniHasNoFurni:
-                return 18;
-            case WiredBoxType.ConditionFurniTypeDoesntMatch:
-                return 19;
-            case WiredBoxType.EffectMuteTriggerer:
-                return 20;
-            case WiredBoxType.ConditionIsNotGroupMember:
-            case WiredBoxType.EffectTeleportBotToFurniBox:
-                return 21;
-            case WiredBoxType.ConditionIsNotWearingBadge:
-            case WiredBoxType.EffectBotMovesToFurniBox:
-                return 22;
-            case WiredBoxType.ConditionIsNotWearingFx:
-            case WiredBoxType.EffectBotCommunicatesToAllBox:
-                return 23;
-            case WiredBoxType.EffectBotGivesHanditemBox:
-                return 24;
-            case WiredBoxType.EffectBotFollowsUserBox:
-            case WiredBoxType.ConditionActorHasHandItemBox:
-                return 25;
-            case WiredBoxType.EffectBotChangesClothesBox:
-                return 26;
-            case WiredBoxType.EffectBotCommunicatesToUserBox:
-                return 27;
-        }
-        return 0;
-    }
+        WiredBoxType.TriggerUserSays => 0,
+        WiredBoxType.TriggerUserSaysCommand => 0,
+        WiredBoxType.TriggerWalkOnFurni => 1,
+        WiredBoxType.TriggerWalkOffFurni => 2,
+        WiredBoxType.TriggerStateChanges => 4,
+        WiredBoxType.TriggerRepeat => 6,
+        WiredBoxType.TriggerRoomEnter => 7,
+        WiredBoxType.TriggerGameStarts => 8,
+        WiredBoxType.TriggerGameEnds => 9,
+        WiredBoxType.TriggerUserFurniCollision => 11,
+        WiredBoxType.EffectToggleFurniState => 0,
+        WiredBoxType.EffectMatchPosition => 3,
+        WiredBoxType.EffectMoveAndRotate => 4,
+        WiredBoxType.EffectShowMessage => 7,
+        WiredBoxType.EffectTeleportToFurni => 8,
+        WiredBoxType.EffectAddActorToTeam => 9,
+        WiredBoxType.EffectRemoveActorFromTeam => 10,
+        WiredBoxType.EffectMoveFurniToNearestUser => 11,
+        WiredBoxType.EffectMoveFurniFromNearestUser => 12,
+        WiredBoxType.EffectGiveReward => 17,
+        WiredBoxType.EffectExecuteWiredStacks => 18,
+        WiredBoxType.EffectKickUser => 19,
+        WiredBoxType.EffectMuteTriggerer => 20,
+        WiredBoxType.EffectTeleportBotToFurniBox => 21,
+        WiredBoxType.EffectBotMovesToFurniBox => 22,
+        WiredBoxType.EffectBotCommunicatesToAllBox => 23,
+        WiredBoxType.EffectBotGivesHanditemBox => 24,
+        WiredBoxType.EffectBotFollowsUserBox => 25,
+        WiredBoxType.EffectBotChangesClothesBox => 26,
+        WiredBoxType.EffectBotCommunicatesToUserBox => 27,
+        WiredBoxType.EffectSetRollerSpeed => 7, // Legacy text editor; modern schema needs a configured adapter.
+        WiredBoxType.EffectRegenerateMaps => 7,
+        WiredBoxType.EffectGiveUserBadge => 7, // Preserve the legacy text-only save handler.
+        WiredBoxType.ConditionMatchStateAndPosition => 0,
+        WiredBoxType.ConditionFurniHasUsers => 1,
+        WiredBoxType.ConditionTriggererOnFurni => 2,
+        WiredBoxType.ConditionUserCountInRoom => 5,
+        WiredBoxType.ConditionActorIsInTeamBox => 6,
+        WiredBoxType.ConditionFurniHasFurni => 7,
+        WiredBoxType.ConditionFurniTypeMatches => 8,
+        WiredBoxType.ConditionIsGroupMember => 10,
+        WiredBoxType.ConditionIsWearingBadge => 11,
+        WiredBoxType.ConditionIsWearingFx => 12,
+        WiredBoxType.ConditionDontMatchStateAndPosition => 13,
+        WiredBoxType.ConditionFurniHasNoUsers => 14,
+        WiredBoxType.ConditionTriggererNotOnFurni => 15,
+        WiredBoxType.ConditionUserCountDoesntInRoom => 16,
+        WiredBoxType.ConditionFurniHasNoFurni => 18,
+        WiredBoxType.ConditionFurniTypeDoesntMatch => 19,
+        WiredBoxType.ConditionIsNotGroupMember => 21,
+        WiredBoxType.ConditionIsNotWearingBadge => 22,
+        WiredBoxType.ConditionIsNotWearingFx => 23,
+        WiredBoxType.ConditionActorHasHandItemBox => 25,
+        WiredBoxType.AddonRandomEffect => 63,
+        _ => 0
+    };
 
     public static List<int> ContainsBlockedTrigger(IWiredItem box, ICollection<IWiredItem> triggers)
     {

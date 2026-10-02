@@ -1,5 +1,9 @@
-﻿namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
+using Plus.Database;
+using Plus.HabboHotel.Items.Wired.Configuration;
 
-internal class SaveWiredTriggerConfigEvent : SaveWiredConfigEvent
+namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
+
+internal class SaveWiredTriggerConfigEvent(IDatabase database) : SaveWiredConfigEvent(database)
 {
+    protected override WiredBoxCategory Envelope => WiredBoxCategory.Trigger;
 }

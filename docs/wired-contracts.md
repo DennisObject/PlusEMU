@@ -1,0 +1,32 @@
+# Modern Wired configuration contracts
+
+The registry contains all 172 named boxes registered by Turbo at `d5a5474776f92825b1a9fbf090ce1263ef96d546`: 25 triggers, 49 actions, 42 conditions, 20 selectors, 28 addons and eight variables. Four Wired counters are separate room furniture. Each descriptor records the engine category, Turbo category-local code, Octane editor code and the corresponding Polaris configuration source. Descriptors alone do not advertise implemented behavior. A real factory must construct a concrete box and mark its descriptor `Implemented`; unimplemented entries must be skipped visibly.
+
+The client contract is Octane/Polaris's established legacy envelope, not Turbo's generic v2 format. All actions, selectors, addons and variables use the action envelope. Triggers and conditions retain their own envelopes. The client sends:
+
+```
+itemId, intCount, ints..., text, selectionCount, selectedIds...,
+[actionDelay], selectionCode
+```
+
+The server sends:
+
+```
+false, selectionLimit, selectionCount, selectedIds..., spriteId, itemId,
+text, intCount, ints..., selectionCode, editorCode,
+[actionDelay], [blockedCount, blockedSpriteIds...]
+```
+
+Conditions omit the blocked list. `OpenWiredEvent` receives only one item id at client header 768. `HideWiredConfigComposer` is the existing empty save-success packet (Octane header 1155); `WiredValidationErrorComposer` sends an error string (156). Revisions translate the existing envelope headers. Private Octane revision overlays need the new incoming `OpenWiredEvent: 768` and outgoing `WiredValidationErrorComposer: 156` mappings. Variable FX packets reserve outgoing mappings `WiredVariableFxConfigsComposer: 9473`, `WiredVariableFxConfigsRemovedComposer: 9474`, `WiredVariableFxStatusComposer: 9475` and `WiredVariableFxStatusRemovedComposer: 9476`; private overlays must also include them.
+
+Turbo's source arrays, variable string arrays, second selections, advanced and wall flags, defaults and contexts do not belong in these envelopes. Octane stores sources in per-box integer or JSON fields. Concrete boxes decode their own editor schema into immutable `WiredConfiguration` source dictionaries, variable tokens, secondary selections and snapshots, while retaining the original integer and text fields for reopening the editor. There are no universal source offsets. `WiredSources` records Octane values (trigger 0, selected 100, selector 200, signal 201, clicked user 11); values overlap between furni, users and bots and must be interpreted by their named slot.
+
+Examples of incompatible layouts: Octane relative move uses five integer fields, including direction and distance separately; Turbo uses signed offsets. Octane give-variable uses target, override, initial value, user source and furni source with a string variable identifier; Turbo transports variable IDs separately. Octane `wf_trg_at_time_long` editor 30 differs from Turbo's inherited long-repeater code 12. Runtime implementations must follow the actual client semantics rather than reuse upstream parameter indexes.
+
+Apply `Database/Migrations/14_AddWiredItemConfigurations.sql` explicitly before enabling configured boxes. The companion table preserves `wired_items` and its existing five-column writer. No old rows are rewritten and no schema change runs automatically. New configuration loads require matching box name and schema version. The factory must also run its concrete validator before applying a loaded configuration. Legacy definitions and their `wired_id` fallback remain available; canonical names may be held in `item_name` when a deployment's old `interaction_type` column is too short.
+
+`IWiredConfiguredItem.TryValidateConfiguration` is pure: it validates its per-box schema and returns a complete immutable candidate. `WiredConfigurationSave` checks bounds and room selections, validates the concrete box, persists one companion row, then calls `ApplyConfiguration`. A failed validation or database write never publishes a candidate. `ApplyConfiguration` must not throw or persist; a room factory supplies its publication seam so applying settings also updates stack metadata and invalidates pending firings under the room engine's ownership. The per-box edit lock does not replace the engine's lock.
+
+Integration requires a real modern factory before the old enum switch, a safe unknown-box path, configuration hydration and the room publication seam. The registry and protocol contracts are prerequisites to runtime coverage, not proof that all modern boxes execute. Context/reference/quest storage, internal variable behavior, projectile timing and movement policies must be verified separately.
+
+Provenance: protocol facts were audited against the local Octane renderer at `1879d30e`, Octane at `2aee1e81`, Turbo at `d5a54747`, and [Polaris](https://github.com/duckietm/Polaris-Emulator) at `34bc0d49511c659fd0054d35d957669ebd6ce9ed`. `ConfigurationReference` is relative to Polaris `Emulator/src/main/java/com/eu/habbo`. Polaris, Octane and Octane-Renderer include GPL-3.0 license files. No checked-in license was found in the audited Turbo or Plus roots. This change independently implements the configuration and protocol contracts; it does not copy either reference runtime.

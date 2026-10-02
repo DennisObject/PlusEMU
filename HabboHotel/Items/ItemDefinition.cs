@@ -1,4 +1,5 @@
 ﻿using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Items;
@@ -25,6 +26,9 @@ public class ItemDefinition
 
     /// TODO @80O: Convert to string so plugins can add new interactions.
     public InteractionType InteractionType { get; set; }
+    public string InteractionName { get; set; } = string.Empty;
+    public WiredBoxDescriptor? WiredDescriptor => WiredBoxRegistry.TryGet(InteractionName, out var descriptor)
+        || WiredBoxRegistry.TryGet(ItemName, out descriptor) ? descriptor : null;
     public int BehaviourData { get; set; }
     public int Modes { get; set; }
     public List<int> VendingIds { get; set; }

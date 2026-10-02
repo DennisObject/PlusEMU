@@ -1,11 +1,20 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
+using System.Data.Common;
+using System.Text.Json;
+using NLog;
+using Plus.Database;
+using Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
 
-internal abstract class SaveWiredConfigEvent : IPacketEvent
+internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
 {
+    private static readonly ILogger Log = LogManager.GetLogger(nameof(SaveWiredConfigEvent));
+    protected abstract WiredBoxCategory Envelope { get; }
+
     public virtual Task Parse(GameClient session, IIncomingPacket packet)
     {
         if (!session.GetHabbo().InRoom)
@@ -13,20 +22,56 @@ internal abstract class SaveWiredConfigEvent : IPacketEvent
         var room = session.GetHabbo().CurrentRoom;
         if (room == null || !room.CheckRights(session, false, true))
             return Task.CompletedTask;
-        var itemId = packet.ReadUInt();
-        session.Send(new HideWiredConfigComposer());
-        var selectedItem = room.GetRoomItemHandler().GetItem(itemId);
-        if (selectedItem == null)
-            return Task.CompletedTask;
-        if (!session.GetHabbo().CurrentRoom.GetWired().TryGet(itemId, out var box))
-            return Task.CompletedTask;
-        if (box.Type == WiredBoxType.EffectGiveUserBadge && !session.GetHabbo().Permissions.HasRight("room_item_wired_rewards"))
+        try
         {
-            session.SendNotification("You don't have the correct permissions to do this.");
-            return Task.CompletedTask;
+            var itemId = packet.ReadUInt();
+            var selectedItem = room.GetRoomItemHandler().GetItem(itemId);
+            if (selectedItem == null || !room.GetWired().TryGet(itemId, out var box))
+                return Task.CompletedTask;
+            var actualEnvelope = box is IWiredConfiguredItem configuredItem ? configuredItem.Descriptor.Envelope
+                : selectedItem.Definition.InteractionType == InteractionType.WiredTrigger ? WiredBoxCategory.Trigger
+                : selectedItem.Definition.InteractionType == InteractionType.WiredCondition ? WiredBoxCategory.Condition
+                : WiredBoxCategory.Action;
+            if (actualEnvelope != Envelope)
+            {
+                session.Send(new WiredValidationErrorComposer("The save packet does not match this Wired box."));
+                return Task.CompletedTask;
+            }
+            if (box.Type == WiredBoxType.EffectGiveUserBadge && !session.GetHabbo().Permissions.HasRight("room_item_wired_rewards"))
+            {
+                session.Send(new WiredValidationErrorComposer("You do not have permission to configure Wired rewards."));
+                return Task.CompletedTask;
+            }
+            if (box is IWiredConfiguredItem configured)
+            {
+                if (!WiredLegacyProtocol.TryRead(packet, Envelope, out var proposed))
+                {
+                    session.Send(new WiredValidationErrorComposer("Invalid Wired settings."));
+                    return Task.CompletedTask;
+                }
+                var store = new WiredConfigurationStore(database);
+                if (!WiredConfigurationSave.TrySave(configured, proposed, store, out var error,
+                    id => room.GetRoomItemHandler().GetItem(id) != null))
+                {
+                    session.Send(new WiredValidationErrorComposer(error));
+                    return Task.CompletedTask;
+                }
+            }
+            else
+            {
+                // Legacy boxes keep their existing per-box packet parser and persistence format.
+                box.HandleSave(packet);
+                room.GetWired().SaveBox(box);
+            }
+            // Octane treats this empty packet as save success. Send it only after persistence succeeds.
+            session.Send(new HideWiredConfigComposer());
         }
-        box.HandleSave(packet);
-        session.GetHabbo().CurrentRoom.GetWired().SaveBox(box);
+        catch (Exception error) when (error is ArgumentException or IOException or OverflowException
+            or InvalidOperationException or FormatException or DbException or JsonException)
+        {
+            Log.Warn(error, "Failed to save Wired settings in room {RoomId}", room.Id);
+            session.Send(new WiredValidationErrorComposer("Unable to save these Wired settings."));
+        }
         return Task.CompletedTask;
     }
 }

@@ -263,8 +263,13 @@ public class Item
     {
         get
         {
+            if (Definition.WiredDescriptor != null)
+                return true;
             switch (Definition.InteractionType)
             {
+                case InteractionType.WiredSelector:
+                case InteractionType.WiredAddon:
+                case InteractionType.WiredVariable:
                 case InteractionType.WiredEffect:
                 case InteractionType.WiredTrigger:
                 case InteractionType.WiredCondition:

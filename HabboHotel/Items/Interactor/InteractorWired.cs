@@ -1,6 +1,7 @@
 ﻿using Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
@@ -23,6 +24,14 @@ public class InteractorWired : IFurniInteractor
         IWiredItem box = null;
         if (!item.GetRoom().GetWired().TryGet(item.Id, out box))
             return;
+        if (box is IWiredConfiguredItem configured)
+        {
+            if (configured.Descriptor.Support == WiredBoxSupport.Implemented)
+                session.Send(new WiredConfiguredConfigComposer(configured));
+            else
+                session.Send(new WiredValidationErrorComposer("This Wired box is not implemented."));
+            return;
+        }
         item.LegacyDataString = "1";
         item.UpdateState(false, true);
         item.RequestUpdate(2, true);
