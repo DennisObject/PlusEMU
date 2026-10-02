@@ -359,6 +359,9 @@ public class Gamemap
             {
                 if (user == null)
                     continue;
+                // Temporary bots never restore a walkability reservation, so a regen must not freeze their tile.
+                if (user.BotData?.IsTemporary == true)
+                    continue;
                 user.SqState = GameMap[user.X, user.Y];
                 GameMap[user.X, user.Y] = 0;
             }

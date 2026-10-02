@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Drawing;
 using System.Reflection;
@@ -211,6 +212,49 @@ public class BotRoamingTests
         for (var x = 0; x < 3; x++)
             map.GameMap[x, y] = 0;
         Assert.Same(rebuilt, map.WalkableSquares());
+    }
+
+    [Fact]
+    public void GenerateMapsLeavesTemporaryTilesOpenAndReservesOrdinaryUsers()
+    {
+        var (room, map) = Create("000\r000\r000", 1, 1);
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(room, new RoomItemHandling(room));
+        var users = new RoomUserManager(room);
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(room, users);
+        var roster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
+            .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(users)!;
+
+        var stress = Bot(room, allowOverride: true);
+        stress.SetPos(0, 0, 0);
+        stress.InternalRoomId = 1;
+        stress.SqState = 3;
+        roster.TryAdd(stress.InternalRoomId, stress);
+
+        var ordinary = new RoomUser(0, 1, 2, room);
+        ordinary.SetPos(2, 2, 0);
+        ordinary.InternalRoomId = 2;
+        ordinary.SqState = 3;
+        roster.TryAdd(ordinary.InternalRoomId, ordinary);
+
+        var placed = Bot(room, allowOverride: false, temporary: false);
+        placed.SetPos(0, 2, 0);
+        placed.InternalRoomId = 3;
+        placed.SqState = 3;
+        roster.TryAdd(placed.InternalRoomId, placed);
+
+        map.GenerateMaps();
+
+        Assert.Equal(1, map.GameMap[0, 0]);
+        Assert.Equal(3, stress.SqState);
+        Assert.Equal(0, map.GameMap[2, 2]);
+        Assert.Equal(1, ordinary.SqState);
+        Assert.Equal(0, map.GameMap[0, 2]);
+        Assert.Equal(1, placed.SqState);
+        Assert.Contains(new Point(0, 0), map.WalkableSquares());
+        Assert.Contains(new Point(2, 2), map.WalkableSquares());
+        Assert.True(map.IsValidStep2(stress, new(2, 0), new(0, 0), true, true));
     }
 
     [Fact]
