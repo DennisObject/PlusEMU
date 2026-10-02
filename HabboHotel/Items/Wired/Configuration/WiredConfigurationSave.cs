@@ -43,7 +43,7 @@ public static class WiredConfigurationSave
         }
         if (publish != null)
         {
-            if (!publish(box, validated, () => store.Save(box.Item.Id, box.Descriptor, validated)))
+            if (!publish(box, validated, () => Persist(box, validated, store)))
             {
                 error = "This Wired box is no longer attached to the room.";
                 return false;
@@ -51,10 +51,18 @@ public static class WiredConfigurationSave
         }
         else
         {
-            store.Save(box.Item.Id, box.Descriptor, validated);
+            Persist(box, validated, store);
             box.ApplyConfiguration(validated);
         }
         error = string.Empty;
         return true;
+    }
+
+    private static void Persist(IWiredConfiguredItem box, WiredConfiguration validated, IWiredConfigurationStore store)
+    {
+        if (box is IWiredConfigurationPersistenceProvider provider)
+            provider.PersistConfiguration(validated);
+        else
+            store.Save(box.Item.Id, box.Descriptor, validated);
     }
 }

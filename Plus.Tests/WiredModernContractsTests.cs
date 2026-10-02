@@ -228,6 +228,36 @@ public class WiredModernContractsTests
     }
 
     [Fact]
+    public void DomainPersistenceReplacesDefaultStorageInsideRealEnginePublication()
+    {
+        var order = new List<string>();
+        var fail = true;
+        var box = new PersistingBox("wf_var_room", validated =>
+        {
+            order.Add("persist");
+            if (fail) throw new IOException("Combined transaction rejected.");
+            Assert.Equal("combined", validated.Text);
+        });
+        box.Applying = _ => order.Add("apply");
+        var original = box.Configuration;
+        var store = new RecordingStore();
+        var engine = new WiredStackEngine(() => 0, _ => true, _ => true, _ => { }, _ => { });
+        Assert.True(engine.Add(box));
+        Assert.Throws<IOException>(() => WiredConfigurationSave.TrySave(box, new() { Text = "combined" }, store,
+            out _, publish: engine.PublishConfigured));
+        Assert.Same(original, box.Configuration);
+        Assert.Equal(new[] { "persist" }, order);
+        Assert.Empty(store.Saved);
+        fail = false;
+        order.Clear();
+        Assert.True(WiredConfigurationSave.TrySave(box, new() { Text = "combined" }, store,
+            out _, publish: engine.PublishConfigured));
+        Assert.Equal(new[] { "persist", "apply" }, order);
+        Assert.Equal("combined", box.Configuration.Text);
+        Assert.Empty(store.Saved);
+    }
+
+    [Fact]
     public void SavePreparationCapturesSnapshotsBeforePureValidationAndDurablePublication()
     {
         var box = new ConfiguredBox("wf_act_match_to_sshot");
@@ -322,7 +352,7 @@ public class WiredModernContractsTests
         }
     }
 
-    private sealed class ConfiguredBox : IWiredConfiguredItem, IWiredEditorConfigurationProvider
+    private class ConfiguredBox : IWiredConfiguredItem, IWiredEditorConfigurationProvider
     {
         public ConfiguredBox(string name, WiredBoxSupport support = WiredBoxSupport.Implemented)
         {
@@ -333,6 +363,7 @@ public class WiredModernContractsTests
         public WiredConfiguration Configuration { get; private set; } = new();
         public WiredConfiguration? EditorConfiguration { get; set; }
         public WiredConfiguration GetEditorConfiguration() => EditorConfiguration ?? Configuration;
+        public Action<WiredConfiguration>? Applying { get; set; }
         public bool Reject { get; set; }
         public WiredConfiguration? ValidatedInput { get; private set; }
         public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
@@ -342,7 +373,11 @@ public class WiredModernContractsTests
             error = Reject ? "Rejected by box validation." : string.Empty;
             return !Reject;
         }
-        public void ApplyConfiguration(WiredConfiguration validated) => Configuration = validated;
+        public void ApplyConfiguration(WiredConfiguration validated)
+        {
+            Applying?.Invoke(validated);
+            Configuration = validated;
+        }
         public Item Item { get; set; } = new() { Id = 7, Definition = new() { SpriteId = 91 } };
         public Room Instance { get; set; } = null!;
         public WiredBoxType Type => WiredBoxType.None;
@@ -352,6 +387,12 @@ public class WiredModernContractsTests
         public string ItemsData { get; set; } = string.Empty;
         public void HandleSave(IIncomingPacket packet) => throw new NotSupportedException();
         public bool Execute(params object[] arguments) => throw new NotSupportedException();
+    }
+
+    private sealed class PersistingBox(string name, Action<WiredConfiguration> persist)
+        : ConfiguredBox(name), IWiredConfigurationPersistenceProvider
+    {
+        public void PersistConfiguration(WiredConfiguration validated) => persist(validated);
     }
 
     private sealed class RecordingPacket : IOutgoingPacket
