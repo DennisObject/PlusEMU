@@ -87,6 +87,8 @@ public static class ServerPacketHeader
     public const uint WiredMovementsComposer = 3999;
     public const uint WiredFurniMoveStyleComposer = 5110;
     public const uint WiredClickSettingsComposer = 9477;
+    public const uint WiredClickUserResponseComposer = 9460;
+    public const uint InClientLinkComposer = 2023;
     public const uint WiredVariableFxConfigsComposer = 9473;
     public const uint WiredVariableFxConfigsRemovedComposer = 9474;
     public const uint WiredVariableFxStatusComposer = 9475;

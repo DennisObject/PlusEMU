@@ -6,7 +6,7 @@ using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Triggers;
 
-public class WiredModernTrigger : WiredModernBox, IWiredContextualTrigger
+public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
 {
     public WiredModernTrigger(Room room, Item item, WiredBoxDescriptor descriptor) : base(room, item, descriptor)
     {

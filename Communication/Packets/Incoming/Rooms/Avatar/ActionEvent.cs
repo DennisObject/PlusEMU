@@ -34,7 +34,7 @@ public class ActionEvent : RoomPacketEvent
         }
         var wiredAction = action switch
         {
-            1 => WiredAvatarAction.Wave, 2 => WiredAvatarAction.BlowKiss, 3 => WiredAvatarAction.Laugh,
+            1 => WiredAvatarAction.Wave, 2 => WiredAvatarAction.Kiss, 3 => WiredAvatarAction.Laugh,
             5 => WiredAvatarAction.Relax, 7 => WiredAvatarAction.ThumbUp, _ => (WiredAvatarAction)0
         };
         if (wiredAction != 0)
