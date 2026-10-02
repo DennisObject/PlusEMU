@@ -163,6 +163,7 @@ public static class ServerPacketHeader
     public const uint GroupMembersComposer = 1401; //2297
     public const uint UpdateFavouriteGroupComposer = 2000; //3685
     public const uint GroupMemberUpdatedComposer = 3911; //2954
+    public const uint GroupConfirmRemoveMemberComposer = 3912;
     public const uint RefreshFavouriteGroupComposer = 149; //382
 
     // Group Forums

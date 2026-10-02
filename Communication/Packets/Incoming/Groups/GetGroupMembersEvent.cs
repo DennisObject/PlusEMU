@@ -24,6 +24,9 @@ internal class GetGroupMembersEvent : IPacketEvent
         var requestType = packet.ReadInt();
         if (!_groupManager.TryGetGroup(groupId, out var group))
             return Task.CompletedTask;
+        var canManage = group.CreatorId == session.GetHabbo().Id || group.IsAdmin(session.GetHabbo().Id);
+        if (!canManage && requestType >= 2)
+            requestType = 0;
         var members = new List<CachedUser>();
         switch (requestType)
         {
@@ -68,11 +71,10 @@ internal class GetGroupMembersEvent : IPacketEvent
             }
         }
         if (!string.IsNullOrEmpty(searchVal))
-            members = members.Where(x => x.Username.StartsWith(searchVal)).ToList();
-        var startIndex = (page - 1) * 14 + 14;
-        var finishIndex = members.Count;
-        session.Send(new GroupMembersComposer(group, members.Skip(startIndex).Take(finishIndex - startIndex).ToList(), members.Count, page,
-            group.CreatorId == session.GetHabbo().Id || group.IsAdmin(session.GetHabbo().Id), requestType, searchVal));
+            members = members.Where(x => x.Username.StartsWith(searchVal, StringComparison.OrdinalIgnoreCase)).ToList();
+        const int pageSize = 14;
+        var startIndex = Math.Max(page, 0) * pageSize;
+        session.Send(new GroupMembersComposer(group, members.Skip(startIndex).Take(pageSize).ToList(), members.Count, page, canManage, requestType, searchVal));
         return Task.CompletedTask;
     }
 }

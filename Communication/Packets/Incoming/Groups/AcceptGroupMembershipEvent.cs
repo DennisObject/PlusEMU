@@ -30,7 +30,7 @@ internal class AcceptGroupMembershipEvent : IPacketEvent
             return Task.CompletedTask;
         }
         group.HandleRequest(userId, true);
-        session.Send(new GroupMemberUpdatedComposer(groupId, habbo, 4));
+        session.Send(new GroupMemberUpdatedComposer(groupId, habbo, 2));
         return Task.CompletedTask;
     }
 }

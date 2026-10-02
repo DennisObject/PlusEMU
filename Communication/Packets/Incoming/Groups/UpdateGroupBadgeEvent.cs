@@ -25,8 +25,10 @@ internal class UpdateGroupBadgeEvent : IPacketEvent
         if (group.CreatorId != session.GetHabbo().Id)
             return Task.CompletedTask;
         var count = packet.ReadInt();
+        if (count < 3 || count > 15 || count % 3 != 0 || packet.Buffer.Length != count * sizeof(int))
+            return Task.CompletedTask;
         var badge = "";
-        for (var i = 0; i < count; i++) badge += BadgePartUtility.WorkBadgeParts(i == 0, packet.ReadInt().ToString(), packet.ReadInt().ToString(), packet.ReadInt().ToString());
+        for (var i = 0; i < count / 3; i++) badge += BadgePartUtility.WorkBadgeParts(i == 0, packet.ReadInt().ToString(), packet.ReadInt().ToString(), packet.ReadInt().ToString());
         group.Badge = string.IsNullOrWhiteSpace(badge) ? "b05114s06114" : badge;
         using (var connection = _database.Connection())
         {

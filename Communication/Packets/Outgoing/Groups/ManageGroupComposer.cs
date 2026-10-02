@@ -18,7 +18,16 @@ public class ManageGroupComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(0);
+        var room = _group.GetRoom();
+        if (_group.RoomId != 0)
+        {
+            packet.WriteInteger(1);
+            packet.WriteInteger((int)_group.RoomId);
+            packet.WriteString(room?.Name ?? "");
+            packet.WriteBoolean(false);
+        }
+        else
+            packet.WriteInteger(0);
         packet.WriteBoolean(true);
         packet.WriteInteger(_group.Id);
         packet.WriteString(_group.Name);
@@ -48,5 +57,6 @@ public class ManageGroupComposer : IServerPacket
         }
         packet.WriteString(_group.Badge);
         packet.WriteInteger(_group.MemberCount);
+        packet.WriteBoolean(_group.ForumEnabled);
     }
 }

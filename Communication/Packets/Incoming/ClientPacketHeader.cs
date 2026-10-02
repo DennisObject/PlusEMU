@@ -241,6 +241,7 @@ public static class ClientPacketHeader
     public const uint GetRecipeConfigEvent = 2428; //3654
     public const uint ScrGetUserInfoEvent = 2749; //12
     public const uint RemoveGroupMemberEvent = 1590; //649
+    public const uint ConfirmRemoveGroupMemberEvent = 1591;
     public const uint DiceOffEvent = 1124; //191
     public const uint YouTubeGetNextVideo = 2618; //1843
     public const uint RemoveFavouriteRoomEvent = 3223; //855

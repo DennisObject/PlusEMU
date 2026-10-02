@@ -40,16 +40,12 @@ internal class DeleteGroupEvent : IPacketEvent
                 $"Oops, your group exceeds the maximum amount of members ({Convert.ToInt32(_settingsManager.TryGetValue("group.delete.member.limit"))}) a group can exceed before being eligible for deletion. Seek assistance from a staff member.");
             return Task.CompletedTask;
         }
-        if (!_roomManager.TryGetRoom(group.RoomId, out var room))
-            return Task.CompletedTask;
-        if (!RoomFactory.TryGetData(group.RoomId, out var _))
-            return Task.CompletedTask;
-        room.Group = null;
+        _roomManager.TryGetRoom(group.RoomId, out var room);
+        if (room != null)
+            room.Group = null;
 
-        //Remove it from the cache.
         _groupManager.DeleteGroup(group.Id);
 
-        //Now the :S stuff.
         using (var connection = _database.Connection())
         {
             connection.Execute("DELETE FROM `groups` WHERE `id` = @groupId", new { groupId = group.Id });
@@ -60,10 +56,9 @@ internal class DeleteGroupEvent : IPacketEvent
             connection.Execute("DELETE FROM `items_groups` WHERE `group_id` = @groupId", new { groupId = group.Id });
         }
 
-        //Unload it last.
-        _roomManager.UnloadRoom(room.Id);
+        if (room != null)
+            _roomManager.UnloadRoom(room.Id);
 
-        //Say hey!
         session.SendNotification("You have successfully deleted your group.");
         return Task.CompletedTask;
     }

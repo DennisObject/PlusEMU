@@ -30,6 +30,7 @@ internal class UpdateGroupSettingsEvent : IPacketEvent
             return Task.CompletedTask;
         var type = packet.ReadInt();
         var furniOptions = packet.ReadInt();
+        var forumEnabled = packet.ReadBool();
         switch (type)
         {
             default:
@@ -52,30 +53,34 @@ internal class UpdateGroupSettingsEvent : IPacketEvent
         }
         using (var connection = _database.Connection())
         {
-            connection.Execute("UPDATE `groups` SET `state` = @groupState, `admindeco` = @adminDeco WHERE `id` = @groupId LIMIT 1",
-                new { groupState = (group.Type == GroupType.Open ? 0 : group.Type == GroupType.Locked ? 1 : 2).ToString(), adminDeco = (furniOptions == 1 ? 1 : 0).ToString(), groupId = group.Id });
+            connection.Execute("UPDATE `groups` SET `state` = @groupState, `admindeco` = @adminDeco, `forum_enabled` = @forumEnabled WHERE `id` = @groupId LIMIT 1",
+                new { groupState = (group.Type == GroupType.Open ? 0 : group.Type == GroupType.Locked ? 1 : 2).ToString(), adminDeco = (furniOptions == 1 ? 1 : 0).ToString(), forumEnabled = forumEnabled ? "1" : "0", groupId = group.Id });
         }
         group.AdminOnlyDeco = furniOptions;
-        if (!_roomManager.TryGetRoom(group.RoomId, out var room))
-            return Task.CompletedTask;
-        foreach (var user in room.GetRoomUserManager().GetRoomUsers().ToList())
+        group.ForumEnabled = forumEnabled;
+        group.HasForum = forumEnabled;
+        if (_roomManager.TryGetRoom(group.RoomId, out var room))
         {
-            if (room.OwnerId == user.UserId || group.IsAdmin(user.UserId) || !group.IsMember(user.UserId))
-                continue;
-            if (furniOptions == 1)
+            foreach (var user in room.GetRoomUserManager().GetRoomUsers().ToList())
             {
-                user.RemoveStatus("flatctrl 1");
-                user.UpdateNeeded = true;
-                user.GetClient().Send(new YouAreControllerComposer(0));
-            }
-            else if (furniOptions == 0 && !user.Statusses.ContainsKey("flatctrl 1"))
-            {
-                user.SetStatus("flatctrl 1");
-                user.UpdateNeeded = true;
-                user.GetClient().Send(new YouAreControllerComposer(1));
+                if (room.OwnerId == user.UserId || group.IsAdmin(user.UserId) || !group.IsMember(user.UserId))
+                    continue;
+                if (furniOptions == 1)
+                {
+                    user.RemoveStatus("flatctrl 1");
+                    user.UpdateNeeded = true;
+                    user.GetClient().Send(new YouAreControllerComposer(0));
+                }
+                else if (furniOptions == 0 && !user.Statusses.ContainsKey("flatctrl 1"))
+                {
+                    user.SetStatus("flatctrl 1");
+                    user.UpdateNeeded = true;
+                    user.GetClient().Send(new YouAreControllerComposer(1));
+                }
             }
         }
         session.Send(new GroupInfoComposer(group, session));
+        session.Send(new ManageGroupComposer(group, group.Badge.Replace("b", "").Split('s')));
         return Task.CompletedTask;
     }
 }
