@@ -81,6 +81,41 @@ public class WiredRoomSettingsTests
     }
 
     [Fact]
+    public async Task ActualSettingsRequestRefreshesStaleExpectedRowBeforeTheNextSave()
+    {
+        var room = Room(); var owner = Client(room, 1);
+        var store = new MemoryStore { Saved = new(2, 2, "UTC") };
+        var settings = Register(room, store); var replies = Capture(owner);
+        var initial = settings.Snapshot;
+        store.Saved = new(1, 0, "Europe/Berlin");
+        Assert.Throws<InvalidOperationException>(() => settings.TrySave(owner, 2, 2, "UTC", out _));
+        Assert.Same(initial, settings.Snapshot);
+        await new WiredRoomSettingsRequestEvent(null!).Parse(room, owner, new FlashIncomingPacket { Buffer = Memory<byte>.Empty });
+        var response = Assert.Single(replies); Assert.Equal(5102u, response.Id);
+        Assert.Equal((int)room.Id, response.Payload.ReadInt()); Assert.Equal(1, response.Payload.ReadInt()); Assert.Equal(0, response.Payload.ReadInt());
+        Assert.Equal(2, store.Loads); Assert.Equal(store.Saved, settings.Snapshot);
+        Assert.True(settings.TrySave(owner, 2, 2, "UTC", out _));
+        Assert.Equal(new(2, 2, "UTC"), store.Saved);
+    }
+
+    [Fact]
+    public async Task ActualSettingsReloadFailurePreservesSnapshotAndDeletedRowRestoresLegacyRights()
+    {
+        var room = Room(); var owner = Client(room, 1); var decorator = Client(room, 2); room.UsersWithRights.Add(2);
+        var store = new MemoryStore { Saved = new(1, 0, "UTC") };
+        var settings = Register(room, store); var replies = Capture(owner); var initial = settings.Snapshot;
+        store.FailLoad = true;
+        await new WiredRoomSettingsRequestEvent(null!).Parse(room, owner, new FlashIncomingPacket { Buffer = Memory<byte>.Empty });
+        Assert.Equal(156u, Assert.Single(replies).Id); Assert.Same(initial, settings.Snapshot);
+        Assert.False(settings.CanModify(decorator)); Assert.Equal("UTC", settings.ExplicitTimeZone!.Id);
+        store.FailLoad = false; store.Saved = null; replies.Clear();
+        await new WiredRoomSettingsRequestEvent(null!).Parse(room, owner, new FlashIncomingPacket { Buffer = Memory<byte>.Empty });
+        Assert.Equal(5102u, Assert.Single(replies).Id); Assert.Equal(new(), settings.Snapshot);
+        Assert.True(settings.CanModify(decorator)); Assert.Null(settings.ExplicitTimeZone);
+        Assert.True(settings.TrySave(owner, 2, 2, "", out _)); // First-row CAS now expects absence.
+    }
+
+    [Fact]
     public void SettingsComposerMatchesAllActiveParserFieldsIncludingTimezone()
     {
         var room = Room(); var owner = Client(room, 1);
@@ -121,6 +156,22 @@ public class WiredRoomSettingsTests
         Assert.Single(revision.OutgoingHeaders, entry => entry.Value == 5102);
     }
 
+    private static WiredRoomSettings Register(Room room, MemoryStore store)
+    {
+        var settings = new WiredRoomSettings(room, store);
+        ((ConditionalWeakTable<Room, WiredRoomSettings>)typeof(WiredRoomSettings).GetField("Instances", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!).Add(room, settings);
+        return settings;
+    }
+    private static List<(uint Id, FlashIncomingPacket Payload)> Capture(FlashGameClient client)
+    {
+        var replies = new List<(uint, FlashIncomingPacket)>();
+        client.Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
+        { [ServerPacketHeader.WiredRoomSettingsDataComposer] = 5102, [ServerPacketHeader.WiredValidationErrorComposer] = 156 } };
+        typeof(GameClient).GetProperty("SendCallback", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(client,
+            (Func<System.Net.Sockets.SocketAsyncEventArgs, bool>)(args =>
+            { replies.Add(((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2)), new() { Buffer = args.MemoryBuffer[6..].ToArray() })); return true; }));
+        return replies;
+    }
     private static Room Room()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
@@ -142,7 +193,14 @@ public class WiredRoomSettingsTests
         public WiredRoomSettingsSnapshot? Saved;
         public Action? BeforeSave;
         public bool Fail;
-        public WiredRoomSettingsSnapshot? Load(uint roomId) => Saved;
+        public bool FailLoad;
+        public int Loads;
+        public WiredRoomSettingsSnapshot? Load(uint roomId)
+        {
+            Loads++;
+            if (FailLoad) throw new InvalidOperationException("Rejected read.");
+            return Saved;
+        }
         public void Save(uint roomId, int actorId, bool staff, WiredRoomSettingsSnapshot? expected, WiredRoomSettingsSnapshot settings)
         {
             BeforeSave?.Invoke();

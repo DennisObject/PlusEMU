@@ -12,7 +12,7 @@ public sealed class WiredRoomSettingsRequestEvent(IDatabase database) : RoomPack
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!packet.HasDataRemaining()) WiredRoomSettingsPackets.Reply(room, session, WiredRoomSettings.For(room, database));
+        if (!packet.HasDataRemaining()) WiredRoomSettingsPackets.Reload(room, session, WiredRoomSettings.For(room, database));
         return Task.CompletedTask;
     }
 }
@@ -49,6 +49,20 @@ internal static class WiredRoomSettingsPackets
     private static readonly ILogger Log = LogManager.GetLogger(nameof(WiredRoomSettingsPackets));
     public static void Reply(Room room, GameClient session, WiredRoomSettings settings) =>
         session.Send(new WiredRoomSettingsDataComposer(room.Id, settings, session));
+
+    public static void Reload(Room room, GameClient session, WiredRoomSettings settings)
+    {
+        try
+        {
+            settings.Reload();
+            Reply(room, session, settings);
+        }
+        catch (Exception exception) when (exception is DbException or InvalidOperationException or InvalidDataException)
+        {
+            Log.Error(exception, "Unable to reload Wired settings for room {RoomId}", room.Id);
+            session.Send(new WiredValidationErrorComposer("Unable to load Wired room settings."));
+        }
+    }
 
     public static void Save(Room room, GameClient session, WiredRoomSettings settings, int inspect, int modify, string? timezone)
     {

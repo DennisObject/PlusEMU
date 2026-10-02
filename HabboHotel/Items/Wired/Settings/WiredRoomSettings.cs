@@ -53,6 +53,18 @@ public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, 
         }
     }
 
+    /// <summary>Reconcile an explicit client reload with storage under the same gate as configuration saves.</summary>
+    public void Reload()
+    {
+        lock (_gate)
+        {
+            var saved = store.Load(room.Id);
+            // Publish only a successful authoritative read; a deleted row restores the existing Plus fallback.
+            _saved = saved;
+            _loaded = true;
+        }
+    }
+
     private bool Permitted(GameClient session, bool modify)
     {
         if (!InRoom(session)) return false;
@@ -75,8 +87,6 @@ public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, 
     private bool InRoom(GameClient session) => session.GetHabbo() is { } habbo && ReferenceEquals(habbo.CurrentRoom, room);
     private void EnsureLoaded()
     {
-        if (_loaded) return;
-        _saved = store.Load(room.Id);
-        _loaded = true;
+        if (!_loaded) Reload();
     }
 }

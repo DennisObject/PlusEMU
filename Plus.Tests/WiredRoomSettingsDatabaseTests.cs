@@ -147,6 +147,20 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             store.Save(roomId, (int)ownerId, false, stale, new(1, 0, "UTC"));
             Assert.Throws<InvalidOperationException>(() => store.Save(roomId, (int)ownerId, false, stale, new(2, 2, "UTC")));
             Assert.Equal(new(1, 0, "UTC"), store.Load(roomId));
+            // The live room still holds the old expected row. Its actual client reload must recover the CAS conflict.
+            owner.Packets.Clear(); guest.Packets.Clear();
+            await new WiredMenuPermissionsSaveEvent(database).Parse(room, owner.Client, Packet(2, 2, "Europe/Berlin"));
+            Assert.Same(accepted, settings.Snapshot); Assert.Equal(156u, owner.Packets[0].Id); Assert.Equal(5102u, owner.Packets[1].Id);
+            Assert.Empty(guest.Packets);
+            owner.Packets.Clear();
+            await new WiredRoomSettingsRequestEvent(database).Parse(room, owner.Client, Packet());
+            var reloaded = Assert.Single(owner.Packets).Payload;
+            Assert.Equal((int)roomId, reloaded.ReadInt()); Assert.Equal(1, reloaded.ReadInt()); Assert.Equal(0, reloaded.ReadInt());
+            Assert.Equal(new(1, 0, "UTC"), settings.Snapshot); Assert.Empty(guest.Packets);
+            owner.Packets.Clear();
+            await new WiredMenuPermissionsSaveEvent(database).Parse(room, owner.Client, Packet(2, 2, "Europe/Berlin"));
+            Assert.Equal(new(2, 2, "Europe/Berlin"), settings.Snapshot); Assert.Equal(settings.Snapshot, store.Load(roomId));
+            Assert.Equal(5102u, Assert.Single(owner.Packets).Id); Assert.Equal(5102u, Assert.Single(guest.Packets).Id);
             output.WriteLine("Actual 10022/10023/1936 routes, 5102 fields, guest denial, invalid input, reload, UPDATE rollback, owner-row authorization and expected-row concurrency passed.");
         }
         finally
