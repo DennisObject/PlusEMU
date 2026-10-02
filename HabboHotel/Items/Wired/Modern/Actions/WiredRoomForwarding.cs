@@ -41,11 +41,11 @@ public static class WiredRoomForwarding
                     using var document = JsonDocument.Parse(raw);
                     if (document.RootElement.TryGetProperty("room_linker", out var section) && section.ValueKind == JsonValueKind.Object)
                     {
-                        if (section.TryGetProperty("RoomId", out var room) && room.TryGetInt32(out var roomId) && roomId > 0) return new((uint)roomId);
-                        if (section.TryGetProperty("ItemId", out var pair) && pair.TryGetInt32(out var pairId) && pairId > 0)
+                        if (section.TryGetProperty("RoomId", out var room) && room.ValueKind == JsonValueKind.Number && room.TryGetInt32(out var roomId) && roomId > 0) return new((uint)roomId);
+                        if (section.TryGetProperty("ItemId", out var pair) && pair.ValueKind == JsonValueKind.Number && pair.TryGetInt32(out var pairId) && pairId > 0)
                         {
                             var destination = roomOfItem((uint)pairId);
-                            if (destination > 0) return new(destination, (uint)pairId);
+                            if (destination is > 0 and <= int.MaxValue) return new(destination, (uint)pairId);
                         }
                     }
                 }
@@ -55,7 +55,7 @@ public static class WiredRoomForwarding
             var paired = pairedItem(item.Id);
             if (paired == 0 || paired > int.MaxValue) continue;
             var destinationRoom = roomOfItem(paired);
-            if (destinationRoom > 0) return new(destinationRoom, paired);
+            if (destinationRoom is > 0 and <= int.MaxValue) return new(destinationRoom, paired);
         }
         return PositiveId(roomText, out var fallback) ? new(fallback) : null;
     }

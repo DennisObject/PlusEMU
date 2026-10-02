@@ -16,7 +16,8 @@ public sealed class WiredAvatarState
         _frozen[user] = new(original?.Frozen ?? user.Frozen, original?.CanWalk ?? user.CanWalk, effect, cancelOnTeleport);
         user.IsWalking = false; user.PathRecalcNeeded = false; user.RemoveStatus("mv");
         user.GoalX = user.X; user.GoalY = user.Y; user.Frozen = true; user.CanWalk = false; user.UpdateNeeded = true;
-        if (effect > 0) user.ApplyEffect(effect);
+        // Plus bots have no stored effect/version to restore safely. Their actual movement freeze still applies.
+        if (!user.IsBot && effect > 0) user.ApplyEffect(effect);
         return true;
     }
     public bool Thaw(RoomUser user, bool teleport = false)

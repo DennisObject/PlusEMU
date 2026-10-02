@@ -260,6 +260,8 @@ public class ModernWiredRuntimeTests
         Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([tele], "99", id => id == 17 ? 42u : 0, id => id == 2 ? 17u : 0));
         Assert.Equal(new WiredRoomForwarding.Destination(99), WiredRoomForwarding.Resolve([], "99", _ => 0, _ => 0));
         Assert.Null(WiredRoomForwarding.Resolve([], "2147483648", _ => 0, _ => 0));
+        link.ExtraData = new LegacyDataFormat { Data = "{\"room_linker\":{\"RoomId\":\"bad\",\"ItemId\":[]}}" };
+        Assert.Equal(new WiredRoomForwarding.Destination(99), WiredRoomForwarding.Resolve([link], "99", _ => throw new Exception(), _ => throw new Exception()));
     }
 
     [Fact]
