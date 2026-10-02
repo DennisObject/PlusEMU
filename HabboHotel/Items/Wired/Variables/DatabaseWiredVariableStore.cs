@@ -93,6 +93,29 @@ public sealed class DatabaseWiredVariableStore(IDatabase database) : IWiredVaria
         return removed;
     }
 
+    public WiredVariableHolderPage ReadPage(uint definitionId, WiredVariableTarget target, int page, int size, int sort,
+        IReadOnlyCollection<long>? holderFilter = null, IReadOnlyDictionary<long, string>? names = null)
+    {
+        page = Math.Max(1, page); size = Math.Clamp(size, 1, 200);
+        if (holderFilter is { Count: 0 }) return new(0, page, size, []);
+        var where = "v.definition_id=@definitionId AND v.target_kind=@target" + (holderFilter is null ? "" : " AND v.holder_id IN @holderFilter");
+        var order = sort switch { 0 => "v.value ASC,v.holder_id ASC", 1 => "v.value DESC,v.holder_id ASC", 2 => "Name ASC,v.holder_id ASC", _ => "v.holder_id ASC" };
+        var arguments = new { definitionId, target, holderFilter, size, offset = (long)(page - 1) * size };
+        using var connection = database.Connection(); connection.Open();
+        var total = connection.ExecuteScalar<long>("SELECT COUNT(*) FROM wired_variable_values v WHERE " + where, arguments);
+        var rows = connection.Query<PageRow>("""
+            SELECT v.target_kind AS Target,v.holder_id AS HolderId,v.value AS Value,v.created_at_ms AS CreatedAtMs,v.updated_at_ms AS UpdatedAtMs,
+            COALESCE(u.username,f.public_name,CAST(v.holder_id AS CHAR)) AS Name
+            FROM wired_variable_values v
+            LEFT JOIN users u ON v.target_kind=0 AND v.holder_id=u.id
+            LEFT JOIN items i ON v.target_kind=1 AND v.holder_id=i.id
+            LEFT JOIN furniture f ON i.base_item=f.id
+            WHERE
+            """ + " " + where + " ORDER BY " + order + " LIMIT @size OFFSET @offset", arguments);
+        return new((int)Math.Min(int.MaxValue, total), page, size, rows.Select(x => new WiredVariableStoredHolder(
+            new(definitionId, x.Target, x.HolderId), x.Name, new(x.Value, x.CreatedAtMs, x.UpdatedAtMs))).ToArray());
+    }
+
     // Lock order is rooms ascending, then definition items/configs ascending, then the value guard.
     // Every room and reference is checked on this same transaction, including an unloaded source room.
     private static bool Authorize(IDbConnection connection, IDbTransaction transaction, WiredVariableAuthorization authorization)
@@ -129,7 +152,7 @@ public sealed class DatabaseWiredVariableStore(IDatabase database) : IWiredVaria
         return connection.ExecuteScalar<bool>("SELECT retired FROM wired_variable_locks WHERE definition_id=@definitionId FOR UPDATE", new { definitionId }, transaction);
     }
 
-    private sealed class Row
+    private class Row
     {
         public WiredVariableTarget Target { get; set; }
         public long HolderId { get; set; }
@@ -137,4 +160,5 @@ public sealed class DatabaseWiredVariableStore(IDatabase database) : IWiredVaria
         public long CreatedAtMs { get; set; }
         public long UpdatedAtMs { get; set; }
     }
+    private sealed class PageRow : Row { public string Name { get; set; } = ""; }
 }

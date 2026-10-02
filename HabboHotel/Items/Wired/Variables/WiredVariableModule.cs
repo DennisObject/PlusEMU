@@ -175,9 +175,47 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
     public IReadOnlyDictionary<WiredVariableKey, WiredVariableValue> GetStoredHolders(uint definitionId)
     {
-        var definition = directory.Find(definitionId);
-        if (definition is null || definition.RoomId != roomId) return new Dictionary<WiredVariableKey, WiredVariableValue>();
-        return definition.IsDurable ? durable.GetHolders(definitionId) : _active.GetHolders(definitionId);
+        lock (_gate)
+        {
+            var local = directory.Find(definitionId);
+            var resolved = local?.RoomId == roomId ? Resolve(new(local.Target, local.Token), false) : null;
+            if (resolved?.Definition is not { } definition || definition.Target == WiredVariableTarget.Context) return new Dictionary<WiredVariableKey, WiredVariableValue>();
+            var values = definition.IsDurable ? durable.GetHolders(definition.ItemId) : _active.GetHolders(definition.ItemId);
+            return values.ToDictionary(x => x.Key with { DefinitionId = definitionId }, x => x.Value);
+        }
+    }
+
+    public IReadOnlyList<WiredVariableDescription> DescribeDefinitions(IEnumerable<uint> definitionIds)
+    {
+        lock (_gate)
+        {
+            var authority = new ReadDirectory(directory); var result = new List<WiredVariableDescription>();
+            foreach (var id in definitionIds.Distinct().Take(4096))
+            {
+                var local = authority.Find(id);
+                if (local?.RoomId != roomId) continue;
+                var resolved = Resolve(new(local.Target, local.Token), false, authority);
+                if (resolved is null) continue;
+                var readOnly = local.Target == WiredVariableTarget.Context || resolved.Authorization?.Lineage.Any(x => x.Link?.ReadOnly == true) == true;
+                result.Add(new(local, resolved.Definition?.HasValue ?? local.HasValue, readOnly) { IsBuiltin = resolved.Builtin is not null });
+            }
+            return result.OrderBy(x => x.CatalogTarget).ThenBy(x => x.Definition.Name, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Definition.ItemId).ToArray();
+        }
+    }
+
+    public WiredVariableHolderPage ReadHolderPage(uint definitionId, int page, int size, int sort,
+        IReadOnlyCollection<long>? holderFilter = null, IReadOnlyDictionary<long, string>? names = null)
+    {
+        lock (_gate)
+        {
+            var local = directory.Find(definitionId);
+            var resolved = local?.RoomId == roomId ? Resolve(new(local.Target, local.Token), false) : null;
+            if (resolved?.Definition is not { } definition || definition.Target == WiredVariableTarget.Context)
+                return new(0, Math.Max(1, page), Math.Clamp(size, 1, 200), []);
+            var store = definition.IsDurable ? durable : (IWiredVariableStore)_active;
+            var result = store.ReadPage(definition.ItemId, definition.Target, page, size, sort, holderFilter, names);
+            return result with { Holders = result.Holders.Select(x => x with { Key = x.Key with { DefinitionId = definitionId } }).ToArray() };
+        }
     }
 
     private bool ValidateHolder(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame) =>
@@ -200,7 +238,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         while (true)
         {
             if (reference.Token.StartsWith("internal:", StringComparison.Ordinal))
-                return expectedRoom == roomId ? new(null, reference, null) : null;
+                return expectedRoom == roomId ? new(null, reference, new(roomId, owner.Value, lineage.ToImmutable())) : null;
             if (!TryDefinitionId(reference.Token, out var id) || !visited.Add(id) || visited.Count > 32) return null;
             var definition = authority.Find(id);
             if (definition is null || definition.RoomId != expectedRoom || definition.Target != reference.Target

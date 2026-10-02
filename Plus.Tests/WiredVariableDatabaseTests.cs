@@ -103,6 +103,16 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             Assert.Equal(13, database.Commands);
             output.WriteLine("Actual MySQL 200 holders × 6 variables: 13 commands; 1200 populated values.");
 
+            database.Commands = 0;
+            var holderPage = store.ReadPage(items[0], WiredVariableTarget.User, 2, 15, -1);
+            Assert.Equal(200, holderPage.Total); Assert.Equal(15, holderPage.Holders.Count);
+            Assert.Equal(holders[15].StableId, holderPage.Holders[0].Key.HolderId);
+            Assert.StartsWith("wv_", holderPage.Holders[0].Name); Assert.Equal(2, database.Commands);
+            var filteredPage = module.ReadHolderPage(items[0], 1, 200, 2, holders.Take(3).Select(x => x.StableId).ToArray());
+            Assert.Equal(3, filteredPage.Total); Assert.Equal(3, filteredPage.Holders.Count);
+            Assert.Empty(store.ReadPage(items[0], WiredVariableTarget.User, int.MaxValue, 200, 0).Holders);
+            output.WriteLine("Actual MySQL bounded holder page: 2 commands, 15 of 200 rows; filtered and overflow pages passed.");
+
             var globalItem = Insert(admin, "items", new() { ["user_id"] = owner, ["room_id"] = room, ["base_item"] = baseItem, ["extra_data"] = "", ["wall_pos"] = "" }); items.Add(globalItem);
             var liveRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); liveRoom.Id = room; liveRoom.OwnerId = (int)owner;
             var atomicDb = new ProbeDatabase(connectionString);
