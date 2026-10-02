@@ -80,8 +80,8 @@ public sealed partial class WiredRoomVariables
     {
         var item = _room.GetRoomItemHandler()?.GetItem(itemId);
         if (item is not null) { ItemDetached(item); return; }
-        // Detached durable callers may only supply an ordinary positive wire ID. No sign-based temporary classification.
-        ItemDetached(itemId, itemId <= int.MaxValue ? new(WiredVariableTarget.Furni, itemId, (int)itemId) : null);
+        // Without an attached Item, only durable identity is known. Temporary callers must pass the actual Item.
+        ItemDetached(itemId, new(WiredVariableTarget.Furni, itemId, unchecked((int)itemId)));
     }
     private void ItemDetached(uint itemId, WiredVariableHolder? holder)
     {

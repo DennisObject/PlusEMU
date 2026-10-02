@@ -39,7 +39,7 @@ public static class WiredVariableRuntimeFrames
     public static WiredVariableFrame Fork(WiredRuntimeContext child, WiredVariableFrame parent) => Create(child, parent);
     public static WiredVariableHolder FurniHolder(Item item) => item.IsTemporary
         ? new(WiredVariableTarget.Furni, 0, unchecked((int)item.Id), false)
-        : new(WiredVariableTarget.Furni, item.Id, checked((int)item.Id), item.Id > 0 && item.OwnerId > 0);
+        : new(WiredVariableTarget.Furni, item.Id, unchecked((int)item.Id), item.Id > 0 && item.OwnerId > 0);
     public static WiredVariableHolder UserHolder(RoomUser user) => new(WiredVariableTarget.User,
         user.IsBot ? -(long)user.VirtualId - 1 : user.HabboId, user.VirtualId, !user.IsBot);
 }
