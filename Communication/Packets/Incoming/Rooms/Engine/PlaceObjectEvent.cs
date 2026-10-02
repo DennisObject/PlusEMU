@@ -40,9 +40,9 @@ internal class PlaceObjectEvent : RoomPacketEvent
             return Task.CompletedTask;
         }
         var inventoryItem = session.GetHabbo().Inventory.Furniture.GetItem(itemId);
-        var item = inventoryItem.ToRoomObject();
-        if (item == null)
+        if (inventoryItem == null)
             return Task.CompletedTask;
+        var item = inventoryItem.ToRoomObject(session.GetHabbo());
 
         if (item.Definition.InteractionType == InteractionType.Exchange && room.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Permissions.HasRight("room_item_place_exchange_anywhere"))
         {
