@@ -16,6 +16,7 @@ public sealed class WiredVariableDefinitionBox : IWiredConfiguredItem, IWiredEdi
         if (!WiredVariableDefinitions.Supports(descriptor.CanonicalName)) throw new ArgumentException("Unsupported variable definition.", nameof(descriptor));
         Instance = room; Item = item; Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
         _persistence = persistence; _editor = editor;
+        Configuration = WiredVariableDefaults.Create(descriptor.CanonicalName);
     }
     public Room Instance { get; set; }
     public Item Item { get; set; }
