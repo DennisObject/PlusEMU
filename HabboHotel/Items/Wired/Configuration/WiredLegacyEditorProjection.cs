@@ -1,4 +1,5 @@
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
+using Plus.HabboHotel.Items.Wired.Modern.Addons;
 
 namespace Plus.HabboHotel.Items.Wired.Configuration;
 
@@ -12,7 +13,8 @@ public static class WiredLegacyEditorProjection
             return WiredLegacyCustomEditor.TryGetConfiguration(original, out descriptor, out configuration);
         configuration = new();
         return TryGetDescriptor(original, out descriptor)
-            && WiredLegacyConfigurationAdapter.TryConvert(original, descriptor, out configuration);
+            && (WiredLegacyAddonConfigurationAdapter.TryConvert(original, descriptor, out configuration)
+                || WiredLegacyConfigurationAdapter.TryConvert(original, descriptor, out configuration));
     }
 
     public static bool TryGetDescriptor(IWiredItem original, out WiredBoxDescriptor descriptor)

@@ -35,8 +35,14 @@ public class InteractorWired : IFurniInteractor
         if (WiredLegacyCustomEditor.IsCustom(box) || WiredLegacyEditorProjection.TryGetDescriptor(box, out _))
         {
             if (WiredLegacyEditorProjection.TryGetConfiguration(box, out var descriptor, out var configuration))
+            {
+                var blockedItems = descriptor.Envelope == WiredBoxCategory.Trigger
+                    ? WiredBoxTypeUtility.ContainsBlockedEffect(box, item.GetRoom().GetWired().GetEffects(box))
+                    : descriptor.Envelope == WiredBoxCategory.Action
+                        ? WiredBoxTypeUtility.ContainsBlockedTrigger(box, item.GetRoom().GetWired().GetTriggers(box)) : [];
                 session.Send(new WiredConfiguredConfigComposer(item, descriptor, configuration,
-                    WiredLegacyCustomEditor.IsCustom(box) ? 0 : WiredConfigurationLimits.SelectedItems));
+                    WiredLegacyCustomEditor.IsCustom(box) ? 0 : WiredConfigurationLimits.SelectedItems, blockedItems));
+            }
             else
                 session.Send(new WiredValidationErrorComposer("Unable to read the saved settings for this Wired editor."));
             return;
