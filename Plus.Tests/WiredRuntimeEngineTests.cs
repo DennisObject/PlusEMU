@@ -572,6 +572,84 @@ public class WiredRuntimeEngineTests
         Assert.Empty(f.Errors);
     }
 
+    [Fact]
+    public void QueuedDispatchRetainsAllMatchingTriggersWithBudgetOne()
+    {
+        var f = new Fixture(new() { MaxExecutionsPerPass = 1 });
+        var first = f.Trigger(); var second = f.Trigger(x: 3);
+        var firstAction = f.Action(); var secondAction = f.Action(x: 3);
+        Assert.True(f.Engine.Enqueue(new(WiredEventKind.Enter)));
+        for (var i = 0; i < 8; i++) f.Advance(50);
+        Assert.Equal(1, first.Calls); Assert.Equal(1, second.Calls);
+        Assert.Equal(1, firstAction.Calls); Assert.Equal(1, secondAction.Calls);
+        Assert.False(f.Engine.NeedsFastCycle); Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void SignalResumesEveryGateOnceWithBudgetOne()
+    {
+        var f = new Fixture(new() { MaxExecutionsPerPass = 1 });
+        var antenna = f.Furni("antenna", x: 3);
+        f.Trigger(); var receiving = f.Trigger(WiredEventKind.Signal, x: 3);
+        var selectorCalls = 0; var policyCalls = 0; var quotaCalls = 0;
+        f.Add(new Selector { SelectBody = _ => { selectorCalls++; return new(new(), WiredSelectionKind.Both); } }, x: 3);
+        f.Add(new Addon { ApplyBody = _ => { policyCalls++; return true; } }, x: 3);
+        var condition = f.Add(new Box(WiredBoxCategory.Condition), x: 3);
+        f.Add(new Addon { AfterConditions = true, ApplyBody = _ => { quotaCalls++; return true; } }, x: 3);
+        var action = f.Action(x: 3);
+        f.Action(ctx => f.Engine.SendSignal(ctx, [antenna], new()));
+        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter));
+        for (var i = 0; i < 12; i++) f.Advance(50);
+        Assert.Equal(1, receiving.Calls); Assert.Equal(1, selectorCalls); Assert.Equal(1, policyCalls);
+        Assert.Equal(1, condition.Calls); Assert.Equal(1, quotaCalls); Assert.Equal(1, action.Calls);
+        Assert.False(f.Engine.NeedsFastCycle); Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void ReconfigurationCancelsPartlyEvaluatedFiring()
+    {
+        var f = new Fixture(new() { MaxExecutionsPerPass = 1 });
+        f.Trigger();
+        var first = f.Add(new Box(WiredBoxCategory.Condition));
+        var later = f.Add(new Box(WiredBoxCategory.Condition));
+        var action = f.Action();
+        f.Engine.Enqueue(new(WiredEventKind.Enter)); f.Advance(50); f.Advance(50);
+        Assert.Equal(1, first.Calls); Assert.Equal(0, later.Calls);
+        Assert.True(f.Engine.PublishConfigured(first, new() { Text = "changed" }, () => { }));
+        for (var i = 0; i < 4; i++) f.Advance(50);
+        Assert.Equal(0, later.Calls); Assert.Equal(0, action.Calls);
+        Assert.False(f.Engine.NeedsFastCycle); Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void OnePendingSlotRejectsFanoutBeforeAcceptanceAndProgressesSingleStack()
+    {
+        var f = new Fixture(new() { MaxExecutionsPerPass = 1, MaxPendingStacks = 1 });
+        f.Trigger();
+        var other = f.Trigger(x: 3);
+        var condition = f.Add(new Box(WiredBoxCategory.Condition));
+        var action = f.Action();
+        Assert.False(f.Engine.Enqueue(new(WiredEventKind.Enter))); // Two matched stacks cannot reserve one slot.
+        f.Engine.Remove(other.Item.Id);
+        Assert.True(f.Engine.Enqueue(new(WiredEventKind.Enter)));
+        for (var i = 0; i < 5; i++) f.Advance(50);
+        Assert.Equal(1, condition.Calls); Assert.Equal(1, action.Calls);
+        Assert.False(f.Engine.NeedsFastCycle); Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void UnfinishedSpeechGateDoesNotConsumeOrDeferChat()
+    {
+        var f = new Fixture(new() { MaxExecutionsPerPass = 1 });
+        f.Trigger(WiredEventKind.Speech).Hide = true;
+        var condition = f.Add(new Box(WiredBoxCategory.Condition));
+        var action = f.Action();
+        Assert.False(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Speech) { Message = "hello" }));
+        for (var i = 0; i < 4; i++) f.Advance(50);
+        Assert.Equal(0, condition.Calls); Assert.Equal(0, action.Calls);
+        Assert.False(f.Engine.NeedsFastCycle); Assert.Empty(f.Errors);
+    }
+
     private sealed class Picker : IWiredActionPicker
     {
         public int Calls;

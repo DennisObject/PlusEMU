@@ -76,7 +76,9 @@ internal sealed partial class WiredStackEngine
             foreach (var entry in _schedule.UnorderedItems.ToArray()) CancelAuxiliary(entry.Element);
             _schedule.Clear();
             _pending.Clear();
-            _dispatches.Clear();
+            foreach (var dispatch in _dispatches) dispatch.Current?.Dispose();
+            foreach (var dispatch in _dispatches) dispatch.IsQueued = false;
+            _dispatches.Clear(); _queuedSlots = 0;
             _runtimePositions.Clear();
             UpdateFastWork();
         }
@@ -87,12 +89,18 @@ internal sealed partial class WiredStackEngine
     {
         lock (_sync)
         {
+            if (_activeFiring?.Stack.Contains(box) == true) _activeFiring.Cancelled = true;
             _pending.RemoveWhere(chain => chain.Contains(box));
             PruneSchedule();
             var tile = (box.Item.GetX, box.Item.GetY);
-            var kept = _dispatches.Where(pending => pending.Signal == null || (pending.Signal.Receiver.GetX, pending.Signal.Receiver.GetY) != tile).ToArray();
-            _dispatches.Clear();
-            foreach (var pending in kept) _dispatches.Enqueue(pending);
+            var kept = _dispatches.Where(pending => pending.Current?.Stack.Contains(box) != true
+                && pending.Triggers?.Contains(box) != true
+                && !pending.CapturedBoxes.Contains(box)
+                && (pending.Signal == null || (pending.Signal.Receiver.GetX, pending.Signal.Receiver.GetY) != tile)).ToArray();
+            foreach (var pending in _dispatches.Except(kept)) pending.Current?.Dispose();
+            foreach (var pending in _dispatches) pending.IsQueued = false;
+            _dispatches.Clear(); _queuedSlots = 0;
+            foreach (var pending in kept) QueueDispatch(pending);
             UpdateFastWork();
         }
     }
@@ -179,7 +187,7 @@ internal sealed partial class WiredStackEngine
                 { Actor = context.ActorVisit as Plus.HabboHotel.Rooms.RoomUser ?? context.Arguments.FirstOrDefault() as Plus.HabboHotel.Rooms.RoomUser ?? _legacyRuntimeEvent?.Actor }, context.Depth);
             typed.Trigger = source;
             if (_runtimeContext == null) SeedEvent(typed);
-            var accepted = RunRuntimeStack(source, typed, null, conditionActors);
+            var accepted = RunRuntimeStack(source, typed, null, conditionActors, defer: onAccepted == null);
             if (accepted) onAccepted?.Invoke();
             return accepted;
         }
@@ -208,14 +216,14 @@ internal sealed partial class WiredStackEngine
         return ScheduleActions(source, stack, actions, context, firedAt: firedAt);
     }
 
-    private bool CanSchedule(IWiredItem[] actions)
+    private bool CanSchedule(IWiredItem[] actions, bool prepared = false)
     {
-        if (actions.Length > 0 && _pending.Count + _dispatches.Count >= _limits.MaxPendingStacks
+        if (actions.Length > 0 && PendingCount >= _limits.MaxPendingStacks
             && _pending.RemoveWhere(chain => !IsChainValid(chain)) > 0)
             PruneSchedule();
         // Preparation must happen synchronously; reject before acceptance if its calls cannot fit.
-        return (actions.Length == 0 || _pending.Count + _dispatches.Count < _limits.MaxPendingStacks)
-            && actions.Count(action => action is IWiredFiringPreparation) <= _remaining;
+        return (actions.Length == 0 || PendingCount < _limits.MaxPendingStacks)
+            && (prepared || actions.Count(action => action is IWiredFiringPreparation) <= _remaining);
     }
 
     private bool IsChainValid(ActionChain chain) => IsAttached(chain.Source)
@@ -225,9 +233,9 @@ internal sealed partial class WiredStackEngine
 
     // Shared by stack pipelines inside a room-engine pass. Delay is captured per firing.
     internal bool ScheduleActions(IWiredItem source, IWiredItem[] capturedStack, IWiredItem[] actions,
-        WiredExecutionContext context, Func<IWiredItem, long>? delayMilliseconds = null, long? firedAt = null)
+        WiredExecutionContext context, Func<IWiredItem, long>? delayMilliseconds = null, long? firedAt = null, bool prepared = false)
     {
-        if (!CanSchedule(actions)) return false;
+        if (!CanSchedule(actions, prepared)) return false;
         if (actions.Length == 0) return true;
         var chain = new ActionChain(source, capturedStack, context, actions.Length);
         var firing = ++_sequence;
@@ -237,7 +245,7 @@ internal sealed partial class WiredStackEngine
         {
             if (!_pending.Contains(chain)) break;
             var due = startedAt + Math.Max(0, (delayMilliseconds ?? GetDelay)(action));
-            if (action is IWiredFiringPreparation preparation
+            if (!prepared && action is IWiredFiringPreparation preparation
                 && !Invoke(action, context, () => preparation.Prepare(context.Arguments)))
             {
                 if (--chain.Remaining == 0) _pending.Remove(chain);

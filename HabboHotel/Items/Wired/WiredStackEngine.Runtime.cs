@@ -48,8 +48,12 @@ internal sealed partial class WiredStackEngine
     public bool Enqueue(WiredRuntimeEvent @event, int? depth = null) => Pass(() =>
     {
         var eventDepth = depth ?? (_runtimeContext?.Depth ?? -1) + 1;
-        if (eventDepth > _limits.MaxDepth || _pending.Count + _dispatches.Count >= _limits.MaxPendingStacks) return false;
-        _dispatches.Enqueue(new(@event, eventDepth));
+        if (eventDepth > _limits.MaxDepth || _runtimeRoom == null) return false;
+        RefreshStacks();
+        var dispatch = new PendingDispatch(@event, eventDepth);
+        SnapshotDispatch(dispatch);
+        if (PendingCount + dispatch.Slots > _limits.MaxPendingStacks) return false;
+        QueueDispatch(dispatch);
         UpdateFastWork();
         return true;
     });
@@ -64,28 +68,21 @@ internal sealed partial class WiredStackEngine
     public bool Dispatch(WiredRuntimeEvent @event) => Pass(() =>
     {
         if (_runtimeRoom == null) return false;
-        RefreshStacks();
-        ObserveEvent?.Invoke(@event, _now());
         var depth = _queuedDepth ?? (_runtimeContext?.Depth ?? _context?.Depth ?? -1) + 1;
-        _queuedDepth = null; // The queue supplies only this dispatch; nested events must advance depth.
-        var root = CreateContext(@event, depth);
-        if (root.Depth > _limits.MaxDepth) return false;
-        var accepted = false;
-        foreach (var trigger in _items.Values.OfType<IWiredContextualTrigger>()
-                     .Where(x => RuntimeSupported(x) && x.Events.Contains(@event.Kind))
-                     .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray())
+        _queuedDepth = null;
+        if (depth > _limits.MaxDepth) return false;
+        RefreshStacks();
+        var dispatch = new PendingDispatch(@event, depth) { IncludeLegacy = false };
+        var complete = AdvanceDispatch(dispatch);
+        if (!complete)
         {
-            if (_remaining <= 0) break;
-            var context = root.Fork(@event, root.Depth);
-            context.Trigger = trigger;
-            SeedEvent(context);
-            context.Capture(GetStack(trigger));
-            if (!InvokeRuntime(trigger, context, () => trigger.Execute(context))) continue;
-            if (!RunRuntimeStack(trigger, context, null)) continue;
-            accepted |= @event.Kind != WiredEventKind.Speech || trigger.HidesChat(context);
+            // A synchronous speech decision cannot consume chat on an unfinished condition gate.
+            if (@event.Kind != WiredEventKind.Speech && PendingCount + dispatch.Slots <= _limits.MaxPendingStacks)
+            { QueueDispatch(dispatch); dispatch.Accepted = true; }
+            else dispatch.Current?.Dispose();
         }
         UpdateFastWork();
-        return accepted;
+        return @event.Kind == WiredEventKind.Speech ? dispatch.ConsumedChat : dispatch.Accepted;
     });
 
     public bool DispatchLegacy(WiredBoxType type, WiredRuntimeEvent? typed, object[] arguments) => Pass(() =>
@@ -136,14 +133,17 @@ internal sealed partial class WiredStackEngine
         var accepted = false;
         foreach (var receiver in receivers.DistinctBy(x => x.Id))
         {
-            if (_dispatches.Count + _pending.Count >= _limits.MaxPendingStacks) break;
+            if (PendingCount >= _limits.MaxPendingStacks) break;
             if (!live.TryGetValue(receiver.Id, out var attached) || !ReferenceEquals(receiver, attached)
                 || !string.Equals(receiver.Definition.InteractionName, "antenna", StringComparison.OrdinalIgnoreCase)) continue;
             var child = parent.Fork(new(WiredEventKind.Signal) { Actor = parent.Event.Kind == WiredEventKind.Leave ? null : parent.Event.Actor, EventItem = receiver, Code = unchecked((int)receiver.Id) }, parent.Depth + 1);
             child.Signal = new(selection, parent.Values);
             child.Triggering = selection.Copy();
             child.Selected = selection.Copy();
-            _dispatches.Enqueue(new(child.Event, child.Depth, new(receiver, receiver.MovementGeneration, child, negative)));
+            var dispatch = new PendingDispatch(child.Event, child.Depth, new(receiver, receiver.MovementGeneration, child, negative));
+            SnapshotDispatch(dispatch);
+            if (PendingCount + dispatch.Slots > _limits.MaxPendingStacks) continue;
+            QueueDispatch(dispatch);
             accepted = true;
         }
         UpdateFastWork();
@@ -240,103 +240,18 @@ internal sealed partial class WiredStackEngine
         context.Selected = context.Triggering.Copy();
     }
 
-    private bool RunRuntimeStack(IWiredItem source, WiredRuntimeContext context, bool? negative, object[][]? conditionActors = null)
+    private bool RunRuntimeStack(IWiredItem source, WiredRuntimeContext context, bool? negative, object[][]? conditionActors = null, bool defer = true)
     {
         if (context.Depth > _limits.MaxDepth || !IsAttached(source)) return false;
-        var stack = GetStack(source);
-        context.Capture(stack);
-        foreach (var selector in stack.OfType<IWiredContextualSelector>().Where(RuntimeSupported))
-        {
-            WiredSelectorResult? selected = null;
-            if (!InvokeRuntime(selector, context, () => { selected = selector.Select(context); return true; })) return false;
-            ComposeSelector(context, selected!);
-        }
-        context.Selected = new(
-            context.SelectorKinds.HasFlag(WiredSelectionKind.Furni) ? context.SelectorPool.FurniIds : context.Triggering.FurniIds,
-            context.SelectorKinds.HasFlag(WiredSelectionKind.Users) ? context.SelectorPool.UserIds : context.Triggering.UserIds);
-        var addons = stack.OfType<IWiredContextualAddon>().Where(RuntimeSupported).ToArray();
-        foreach (var addon in addons.Where(x => !x.AfterConditions).OrderBy(x => x.Descriptor.CanonicalName is "wf_xtra_filter_furni" or "wf_xtra_filter_users" ? 0 : 1))
-            if (!InvokeRuntime(addon, context, () => addon.Apply(context))) return false;
-        var filtered = new WiredSelectedIds();
-        filtered.FurniIds.UnionWith(context.Selected.FurniIds);
-        filtered.UserIds.UnionWith(context.Selected.UserIds);
-        filtered = context.Policy.Addons.FilterSelection(filtered, Random.Shared);
-        context.Selected = new(filtered.FurniIds, filtered.UserIds);
-        if (context.SelectorKinds.HasFlag(WiredSelectionKind.Furni))
-        { context.SelectorPool.FurniIds.Clear(); context.SelectorPool.FurniIds.UnionWith(filtered.FurniIds); }
-        if (context.SelectorKinds.HasFlag(WiredSelectionKind.Users))
-        { context.SelectorPool.UserIds.Clear(); context.SelectorPool.UserIds.UnionWith(filtered.UserIds); }
-        var conditions = stack.Where(x => IsKind(x, InteractionType.WiredCondition)).ToArray();
-        var scoped = context.Policy.Addons.Conditions;
-        var grouped = scoped == null ? [] : conditions.Where(c => scoped.ConditionIds.Contains(c.Item.Id)).ToArray();
-        var ordinary = scoped == null ? conditions : conditions.Except(grouped).ToArray();
-        bool Evaluate(IWiredItem condition)
-        {
-            if (conditionActors == null)
-                return InvokeRuntime(condition, context, () => ExecuteRuntimeBody(condition, context));
-            foreach (var arguments in conditionActors)
-            {
-                if (_remaining <= 0) return false;
-                if (condition is not IWiredContextualItem)
-                {
-                    if (Execute(condition, CreateContext(arguments, context.Depth))) return true;
-                    continue;
-                }
-                var actor = arguments.OfType<RoomUser>().FirstOrDefault() ?? _actorVisit?.Invoke(arguments) as RoomUser;
-                if (actor == null || !context.UserIdentity.TryGetValue(actor.VirtualId, out var original)
-                    || !ReferenceEquals(actor, original)) continue;
-                var actorContext = context.ForActor(actor);
-                if (InvokeRuntime(condition, actorContext, () => ExecuteRuntimeBody(condition, actorContext))) return true;
-            }
-            return false;
-        }
-        var matched = 0;
-        foreach (var condition in ordinary)
-        {
-            if (_remaining <= 0) return false;
-            if (Evaluate(condition)) matched++;
-        }
-        var passed = MatchConditions(context.Policy, matched, ordinary.Length);
-        if (scoped != null)
-        {
-            matched = 0;
-            foreach (var condition in grouped)
-            {
-                if (_remaining <= 0) return false;
-                if (Evaluate(condition)) matched++;
-            }
-            passed &= WiredConditionPolicyEvaluator.Matches(scoped.Mode, matched, grouped.Length, scoped.Count);
-        }
-        if (negative is { } requestedNegative && (requestedNegative ? passed : !passed)) return false;
-        var actions = stack.Where(x => IsKind(x, InteractionType.WiredEffect)
-                                       && x.Type != WiredBoxType.AddonRandomEffect
-                                       && (x is IWiredContextualAction action && action.IsNegative) == (negative == null && !passed)).ToArray();
-        if (negative == null && !passed && actions.Length == 0) return false;
-        foreach (var addon in addons.Where(x => x.AfterConditions))
-            if (!InvokeRuntime(addon, context, () => addon.Apply(context))) return false;
-        if (context.Policy.Addons.ActionPicker is { } stateful)
-        {
-            var ids = stateful.Pick(actions.Select(x => x.Item.Id).ToArray()).ToHashSet();
-            actions = actions.Where(x => ids.Contains(x.Item.Id)).ToArray();
-        }
-        else if (context.Policy.ChooseActions is { } picker)
-            actions = picker(actions).Where(actions.Contains).Distinct().ToArray();
-        else if (stack.Any(x => x.Type == WiredBoxType.AddonRandomEffect) && actions.Length > 0)
-            actions = [actions[Random.Shared.Next(actions.Length)]];
-        Flash(source);
-        var orderedDelay = Math.Max(0, context.Policy.DelayMilliseconds);
-        var actor = actions.Any(x => x is IWiredFiringPreparation)
-            ? context.Targets.ResolveUsers(context, context.Event.Actor == null ? [] : [context.Event.Actor.VirtualId], WiredSources.Selected).FirstOrDefault() : null;
-        object[] preparationArguments = actor?.GetClient()?.GetHabbo() is { } habbo ? [habbo] : [];
-        var legacy = new WiredExecutionContext(preparationArguments, context.Depth, _actorVisit?.Invoke(preparationArguments), context);
-        var accepted = ScheduleActions(source, stack, actions, legacy, action =>
-        {
-            var delay = action is IWiredConfiguredItem configured ? Math.Max(0L, context.ConfigurationOf(configured).Delay) * 500 : GetDelay(action);
-            if (context.Policy.OrderedEffects || context.Policy.Addons.ExecuteInOrder) return orderedDelay += delay;
-            return Math.Max(0, context.Policy.DelayMilliseconds) + delay;
-        });
+        var firing = BeginFiring(source, context, negative, conditionActors);
+        if (ResumeFiring(firing))
+        { firing.Dispose(); UpdateFastWork(); return firing.Accepted; }
+        // Chat consumption requires a completed synchronous decision. Do not defer its gate.
+        if (!defer || context.Event.Kind == WiredEventKind.Speech || PendingCount >= _limits.MaxPendingStacks)
+        { firing.Dispose(); return false; }
+        QueueDispatch(new(context.Event, context.Depth) { Current = firing, Triggers = [], Initialized = true });
         UpdateFastWork();
-        return accepted;
+        return true;
     }
 
     private static bool MatchConditions(WiredExecutionPolicy policy, int matched, int total) => total == 0 || policy.ConditionMode switch
@@ -397,44 +312,11 @@ internal sealed partial class WiredStackEngine
     private void RunRuntimeTimersAndSignals()
     {
         var now = _now();
-        // Finish accepted signals before creating new periodic work. Trigger predicates own
-        // their execution charge; dequeuing an envelope does not consume a second call.
+        // Accepted envelopes retain their next trigger and current stack evaluation across passes.
         while (_remaining > 0 && _dispatches.TryPeek(out var pending))
         {
-            if (pending.Signal == null)
-            {
-                _dispatches.Dequeue();
-                if (pending.Event.EventItem is { } eventItem && !_targets!.AllFurni().Contains(eventItem)) continue;
-                var previousDepth = _queuedDepth;
-                _queuedDepth = pending.Depth;
-                try
-                {
-                    if (pending.Event.Kind == WiredEventKind.GameStart) DispatchLegacy(WiredBoxType.TriggerGameStarts, pending.Event, []);
-                    else if (pending.Event.Kind == WiredEventKind.GameEnd) DispatchLegacy(WiredBoxType.TriggerGameEnds, pending.Event, []);
-                    else Dispatch(pending.Event);
-                }
-                finally { _queuedDepth = previousDepth; }
-                continue;
-            }
-            var signal = pending.Signal;
-            var receiver = _targets!.AllFurni().FirstOrDefault(x => x.Id == signal.Receiver.Id);
-            if (!ReferenceEquals(receiver, signal.Receiver) || receiver.MovementGeneration != signal.Generation)
-            { _dispatches.Dequeue(); continue; }
-            signal.Triggers ??= _items.Values.OfType<IWiredContextualTrigger>()
-                .Where(x => RuntimeSupported(x) && x.Events.Contains(WiredEventKind.Signal)
-                    && x.Item.GetX == receiver.GetX && x.Item.GetY == receiver.GetY)
-                .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
-            if (signal.Next >= signal.Triggers.Length) { _dispatches.Dequeue(); continue; }
-            var trigger = signal.Triggers[signal.Next++];
-            if (signal.Next == signal.Triggers.Length) _dispatches.Dequeue();
-            if (!IsAttached(trigger) || trigger.Item.GetX != receiver.GetX || trigger.Item.GetY != receiver.GetY) continue;
-            var context = signal.Context.Fork(signal.Context.Event, signal.Context.Depth);
-            context.Signal = new(signal.Context.Signal!.Selection, signal.Context.Signal.Values);
-            context.Triggering = signal.Context.Triggering.Copy();
-            context.Selected = context.Triggering.Copy();
-            context.Trigger = trigger;
-            context.Capture(GetStack(trigger));
-            if (InvokeRuntime(trigger, context, () => trigger.Execute(context))) RunRuntimeStack(trigger, context, signal.Negative);
+            if (!AdvanceDispatch(pending)) break;
+            if (_dispatches.TryPeek(out var head) && ReferenceEquals(head, pending)) RemoveDispatchHead();
         }
         _pollExternal?.Invoke(now);
         if (_lastTimerPoll < 0 || now - _lastTimerPoll >= 50)
@@ -496,11 +378,25 @@ internal sealed partial class WiredStackEngine
         if (Interlocked.Exchange(ref _fastWork, next) != next) _fastWorkObserver?.Invoke(required);
     }
 
-    private sealed record PendingDispatch(WiredRuntimeEvent Event, int Depth, PendingSignal? Signal = null);
-
-    private sealed record PendingSignal(Item Receiver, long Generation, WiredRuntimeContext Context, bool Negative)
+    private sealed class PendingDispatch(WiredRuntimeEvent @event, int depth, PendingSignal? signal = null)
     {
-        public IWiredContextualTrigger[]? Triggers { get; set; }
-        public int Next { get; set; }
+        public WiredRuntimeEvent Event { get; } = @event;
+        public int Depth { get; } = depth;
+        public PendingSignal? Signal { get; } = signal;
+        public IWiredContextualTrigger[]? Triggers;
+        public WiredRuntimeContext? Root;
+        public int Next;
+        public RuntimeFiring? Current;
+        public IWiredItem[] LegacyTriggers = [];
+        public int LegacyNext;
+        public IWiredItem[] CapturedBoxes = [];
+        public (IWiredItem Box, int X, int Y, double Z, long Generation)[] CapturedPositions = [];
+        public Dictionary<IWiredContextualTrigger, (int X, int Y, double Z, long Generation)> TriggerPositions = [];
+        public int Slots = 1;
+        public bool Initialized, IsQueued;
+        public bool IncludeLegacy = true;
+        public bool Accepted, ConsumedChat;
     }
+
+    private sealed record PendingSignal(Item Receiver, long Generation, WiredRuntimeContext Context, bool Negative);
 }
