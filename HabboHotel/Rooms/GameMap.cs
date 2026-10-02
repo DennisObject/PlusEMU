@@ -875,7 +875,13 @@ public class Gamemap
         if (!ValidTile(to.X, to.Y))
             return false;
         if (@override)
+        {
+            // Temporary stress bots keep AllowOverride so crowded tiles stay usable.
+            // Walls and height still apply; only occupancy is ignored.
+            if (user.BotData?.IsTemporary == true)
+                return IsValidBotStep(from, to, endOfPath);
             return true;
+        }
         /*
          * 0 = blocked
          * 1 = open
@@ -945,12 +951,16 @@ public class Gamemap
         return true;
     }
 
-    public bool IsValidStep(Vector2D from, Vector2D to, bool endOfPath, bool overriding, bool roller = false)
+    public bool IsValidStep(Vector2D from, Vector2D to, bool endOfPath, bool overriding, bool roller = false, RoomUser? user = null)
     {
         if (!ValidTile(to.X, to.Y))
             return false;
         if (overriding)
+        {
+            if (user?.BotData?.IsTemporary == true)
+                return IsValidBotStep(from, to, endOfPath);
             return true;
+        }
         /*
          * 0 = blocked
          * 1 = open

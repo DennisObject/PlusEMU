@@ -122,6 +122,25 @@ public class BotRoamingTests
     }
 
     [Fact]
+    public void TemporaryOverrideRejectsWallsAndHeightAndAcceptsOccupiedFloor()
+    {
+        var (room, map) = Create("xxxxx\rx0x0x\rx020x\rxxxxx", 1, 1);
+        var bot = Bot(room, allowOverride: true);
+        Assert.False(map.IsValidStep2(bot, new(1, 1), new(2, 1), false, true));
+        Assert.False(map.IsValidStep(new(1, 1), new(2, 1), false, true, false, bot));
+        Assert.False(map.IsValidStep2(bot, new(1, 2), new(2, 2), true, true));
+
+        map.GameMap[3, 1] = 0;
+        map.AddUserToMap(Bot(room, allowOverride: false), new(3, 1));
+        Assert.True(map.IsValidStep2(bot, new(1, 1), new(3, 1), true, true));
+        Assert.True(map.IsValidStep(new(1, 1), new(3, 1), true, true, false, bot));
+
+        var staff = new RoomUser(0, 1, 3, room) { AllowOverride = true };
+        Assert.True(map.IsValidStep2(staff, new(1, 1), new(2, 1), false, true));
+        Assert.True(map.IsValidStep(new(1, 1), new(2, 1), false, true, false, staff));
+    }
+
+    [Fact]
     public void StressBotDoesNotClimbAStepTallerThanTheWalkLimit()
     {
         var (room, map) = Create("xxxxx\rx020x\rxxxxx", 1, 1);

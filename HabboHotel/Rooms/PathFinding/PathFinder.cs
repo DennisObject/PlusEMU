@@ -62,12 +62,8 @@ public static class PathFinder
             {
                 tmp = current.Position + (diag ? DiagMovePoints[i] : NoDiagMovePoints[i]);
                 var isFinalMove = tmp.X == end.X && tmp.Y == end.Y;
-                // AllowOverride on a bot skips users, not walls. Staff :override keeps the old bypass.
                 var from = new Vector2D(current.Position.X, current.Position.Y);
-                var canStep = user.IsBot && user.AllowOverride
-                    ? map.IsValidBotStep(from, tmp, isFinalMove)
-                    : map.IsValidStep(from, tmp, isFinalMove, user.AllowOverride);
-                if (canStep)
+                if (map.IsValidStep(from, tmp, isFinalMove, user.AllowOverride, false, user))
                 {
                     if (pfMap[tmp.X, tmp.Y] == null)
                     {
