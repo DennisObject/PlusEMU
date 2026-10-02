@@ -26,7 +26,7 @@ public class Group
         HasForum = hasForum;
         Type = (GroupType)type;
         AdminOnlyDeco = adminOnlyDeco;
-        ForumEnabled = ForumEnabled;
+        ForumEnabled = hasForum;
         _members = new();
         _requests = new();
         _administrators = new();

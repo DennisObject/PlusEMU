@@ -23,14 +23,9 @@ internal class GiveAdminRightsEvent : IPacketEvent
         var userId = packet.ReadInt();
         if (!_groupManager.TryGetGroup(groupId, out var group))
             return Task.CompletedTask;
-        if (session.GetHabbo().Id != group.CreatorId || !group.IsMember(userId))
+        if (session.GetHabbo().Id != group.CreatorId || userId == group.CreatorId || !group.IsMember(userId))
             return Task.CompletedTask;
         var habbo = PlusEnvironment.GetHabboById(userId);
-        if (habbo == null)
-        {
-            session.SendNotification("Oops, an error occurred whilst finding this user.");
-            return Task.CompletedTask;
-        }
         group.MakeAdmin(userId);
         if (_roomManager.TryGetRoom(group.RoomId, out var room))
         {
@@ -44,7 +39,10 @@ internal class GiveAdminRightsEvent : IPacketEvent
                     user.GetClient().Send(new YouAreControllerComposer(3));
             }
         }
-        session.Send(new GroupMemberUpdatedComposer(groupId, habbo, 1));
+        if (habbo != null)
+            session.Send(new GroupMemberUpdatedComposer(groupId, habbo, 1));
+        else
+            session.Send(new UnknownGroupComposer(group.Id, userId));
         return Task.CompletedTask;
     }
 }

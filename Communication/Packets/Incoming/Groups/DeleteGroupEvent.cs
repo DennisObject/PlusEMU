@@ -1,4 +1,5 @@
-﻿using Plus.Core.Settings;
+﻿using Plus.Communication.Packets.Outgoing.Groups;
+using Plus.Core.Settings;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
@@ -40,30 +41,34 @@ internal class DeleteGroupEvent : IPacketEvent
                 $"Oops, your group exceeds the maximum amount of members ({Convert.ToInt32(_settingsManager.TryGetValue("group.delete.member.limit"))}) a group can exceed before being eligible for deletion. Seek assistance from a staff member.");
             return Task.CompletedTask;
         }
-        if (!_roomManager.TryGetRoom(group.RoomId, out var room))
-            return Task.CompletedTask;
-        if (!RoomFactory.TryGetData(group.RoomId, out var _))
-            return Task.CompletedTask;
-        room.Group = null;
+        _roomManager.TryGetRoom(group.RoomId, out var room);
+        if (room != null)
+            room.Group = null;
 
-        //Remove it from the cache.
+        var memberIds = group.GetAllMembers.Append(session.GetHabbo().Id).Distinct().ToList();
         _groupManager.DeleteGroup(group.Id);
 
-        //Now the :S stuff.
         using (var connection = _database.Connection())
         {
             connection.Execute("DELETE FROM `groups` WHERE `id` = @groupId", new { groupId = group.Id });
             connection.Execute("DELETE FROM `group_memberships` WHERE `group_id` = @groupId", new { groupId = group.Id });
             connection.Execute("DELETE FROM `group_requests` WHERE `group_id` = @groupId", new { groupId = group.Id });
             connection.Execute("UPDATE `rooms` SET `group_id` = 0 WHERE `group_id` = @groupId LIMIT 1", new { groupId = group.Id });
-            connection.Execute("UPDATE `user_statistics` SET `groupid` = 0 WHERE `groupid` = @groupId LIMIT 1", new { groupId = group.Id });
+            connection.Execute("UPDATE `user_statistics` SET `groupid` = 0 WHERE `groupid` = @groupId", new { groupId = group.Id });
             connection.Execute("DELETE FROM `items_groups` WHERE `group_id` = @groupId", new { groupId = group.Id });
         }
 
-        //Unload it last.
-        _roomManager.UnloadRoom(room.Id);
+        if (room != null)
+            _roomManager.UnloadRoom(room.Id);
 
-        //Say hey!
+        foreach (var memberId in memberIds)
+        {
+            var client = PlusEnvironment.Game.ClientManager.GetClientByUserId(memberId);
+            if (client == null) continue;
+            var stats = client.GetHabbo().HabboStats;
+            if (stats != null && stats.FavouriteGroupId == group.Id) stats.FavouriteGroupId = 0;
+            client.Send(new GroupDeactivatedComposer(group.Id));
+        }
         session.SendNotification("You have successfully deleted your group.");
         return Task.CompletedTask;
     }
