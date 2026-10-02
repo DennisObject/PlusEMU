@@ -40,7 +40,7 @@ internal class UseFurnitureEvent : RoomPacketEvent
             dbClient.RunQuery($"UPDATE `room_items_toner` SET `enabled` = '{room.TonerData.Enabled}' LIMIT 1");
             return Task.CompletedTask;
         }
-        if (item.Definition.InteractionType == InteractionType.GnomeBox && item.UserId == session.GetHabbo().Id) session.Send(new GnomeBoxComposer(item.Id));
+        if (item.Definition.InteractionType == InteractionType.GnomeBox && (item.OwnerId == session.GetHabbo().Id || item.UserId == session.GetHabbo().Id)) session.Send(new GnomeBoxComposer(item.Id));
         var toggle = true;
         if (item.Definition.InteractionType == InteractionType.WfFloorSwitch1 || item.Definition.InteractionType == InteractionType.WfFloorSwitch2)
         {
