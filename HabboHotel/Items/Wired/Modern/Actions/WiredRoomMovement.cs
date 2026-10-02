@@ -44,6 +44,14 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         int walkMode = 2, bool throughUsers = false)
     {
         var room = context.Room;
+        if (context.Policy.Addons.Physics is { } physics)
+        {
+            if (!ValidAvatarDestination(room, x, y)
+                || room.GetGameMap().GetCoordinatedItems(new(x, y)).Any(item => physics.BlockingFurni.Contains(item.Id))) return false;
+            var occupants = room.GetGameMap().GetRoomUsers(new(x, y)).Where(other => !ReferenceEquals(other, user)).ToArray();
+            if (!throughUsers && occupants.Any(other => !physics.ThroughUsers.Contains(other.VirtualId))) return false;
+            throughUsers |= occupants.Length > 0 && occupants.All(other => physics.ThroughUsers.Contains(other.VirtualId));
+        }
         var oldX = user.X; var oldY = user.Y; var oldZ = user.Z;
         var wasWalking = user.IsWalking;
         var goalX = user.GoalX; var goalY = user.GoalY;
