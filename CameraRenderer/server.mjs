@@ -42,6 +42,7 @@ const gamedata = {
 };
 const mime = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.nitro':'application/octet-stream'};
 let browser;
+let shuttingDown = false;
 let active = 0;
 const queue = [];
 const pool = [];
@@ -80,6 +81,7 @@ async function createPage(abort) {
     if (!browser) {
         browser = await chromium.launch({executablePath:process.env.CAMERA_CHROMIUM_PATH || undefined, headless:true, chromiumSandbox:true, args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
         browser.once('disconnected', () => {
+            if (shuttingDown) return;
             console.error('Trusted camera browser disconnected; restarting renderer');
             process.exit(1);
         });
@@ -232,4 +234,4 @@ void withGate(async () => {
     console.log('Trusted camera page ready');
 }).catch(error => console.error('Trusted camera page failed: '+error.message));
 server.listen(port,host,() => console.log(`Trusted camera renderer listening on ${host}:${port}`));
-for (const signal of ['SIGTERM','SIGINT']) process.on(signal,async () => {server.close(); await browser?.close(); process.exit(0);});
+for (const signal of ['SIGTERM','SIGINT']) process.on(signal,async () => {shuttingDown = true; server.close(); await browser?.close(); process.exit(0);});
