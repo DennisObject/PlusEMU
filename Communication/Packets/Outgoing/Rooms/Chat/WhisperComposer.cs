@@ -21,11 +21,6 @@ public class WhisperComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_virtualId);
-        packet.WriteString(_text);
-        packet.WriteInteger(_emotion);
-        packet.WriteInteger(_colour);
-        packet.WriteInteger(0);
-        packet.WriteInteger(-1);
+        RoomChatPacket.Write(packet, _virtualId, _text, _emotion, _colour);
     }
 }

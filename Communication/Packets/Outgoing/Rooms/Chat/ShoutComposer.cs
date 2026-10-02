@@ -21,11 +21,6 @@ public class ShoutComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_virtualId);
-        packet.WriteString(_message);
-        packet.WriteInteger(_emotion);
-        packet.WriteInteger(_colour);
-        packet.WriteInteger(0);
-        packet.WriteInteger(-1);
+        RoomChatPacket.Write(packet, _virtualId, _message, _emotion, _colour);
     }
 }

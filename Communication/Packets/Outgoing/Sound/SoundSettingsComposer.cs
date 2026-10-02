@@ -23,14 +23,20 @@ public class SoundSettingsComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        foreach (var volume in _volumes)
-            packet.WriteInteger(volume);
+        // UserSettingsParser reads three volumes, three preference bytes, two ints
+        // and three bools before its optional tail. One leftover byte makes that
+        // tail throw, and the client drops the whole packet.
+        var volumes = _volumes as int[] ?? _volumes.ToArray();
+        for (var index = 0; index < 3; index++)
+            packet.WriteInteger(index < volumes.Length ? volumes[index] : 0);
         packet.WriteBoolean(_chatPreference);
         packet.WriteBoolean(_invitesStatus);
         packet.WriteBoolean(_focusPreference);
         packet.WriteInteger(_friendBarState);
         packet.WriteInteger(0);
-        packet.WriteInteger(0);
+        packet.WriteBoolean(true);
+        packet.WriteBoolean(true);
+        packet.WriteBoolean(true);
 
     }
 }

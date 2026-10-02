@@ -32,6 +32,8 @@ public class ClubGiftsComposer : IServerPacket
             packet.WriteBoolean(false);
             packet.WriteBoolean(false); // TODO: Figure out
             packet.WriteString(""); //previewImage -> e.g; catalogue/pet_lion.png
+            packet.WriteString("");
+            packet.WriteBoolean(true);
         }
         packet.WriteInteger(1); //Count
         {

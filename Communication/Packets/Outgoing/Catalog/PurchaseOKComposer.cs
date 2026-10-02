@@ -33,13 +33,22 @@ public class PurchaseOkComposer : IServerPacket
             packet.WriteInteger(0);
             packet.WriteBoolean(true);
             packet.WriteInteger(1);
-            packet.WriteString(_baseItem.Type.ToString().ToLower());
-            packet.WriteInteger(_baseItem.SpriteId);
-            packet.WriteString("");
-            packet.WriteInteger(1);
-            packet.WriteInteger(0);
-            packet.WriteString("");
-            packet.WriteInteger(1);
+            packet.WriteString(_baseItem.ProductType);
+            if (_baseItem.ProductType == "b")
+            {
+                packet.WriteString(_baseItem.ItemName);
+                packet.WriteInteger(0);
+                packet.WriteBoolean(false);
+            }
+            else
+            {
+                packet.WriteInteger(_baseItem.SpriteId);
+                packet.WriteString("");
+                packet.WriteInteger(1);
+                packet.WriteInteger(0);
+                packet.WriteString("");
+                packet.WriteInteger(1);
+            }
         }
         else
         {

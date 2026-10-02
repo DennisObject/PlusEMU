@@ -79,18 +79,23 @@ public static class Program
             Environment.Exit(1);
             return;
         }
+        if (Console.IsInputRedirected)
+        {
+            await Task.Delay(Timeout.Infinite);
+            return;
+        }
+
         while (true)
         {
-            if (Console.ReadKey(true).Key == ConsoleKey.Enter)
-            {
-                Console.Write("plus> ");
-                var input = Console.ReadLine();
-                if (input.Length > 0)
-                {
-                    var s = input.Split(' ')[0];
-                    ConsoleCommands.InvokeCommand(s);
-                }
-            }
+            if (Console.ReadKey(true).Key != ConsoleKey.Enter)
+                continue;
+
+            Console.Write("plus> ");
+            var input = Console.ReadLine();
+            if (string.IsNullOrEmpty(input))
+                continue;
+
+            ConsoleCommands.InvokeCommand(input.Split(' ')[0]);
         }
     }
 

@@ -23,11 +23,14 @@ public class SellablePetBreedsComposer : IServerPacket
         packet.WriteInteger(_races.Count);
         foreach (var race in _races.ToList())
         {
+            // The client reads type, breed, palette, then sellable, rare and club-only.
+            // color1 is the breed shown in the menu; color2 is the palette id sent back on purchase.
             packet.WriteInteger(_petId);
             packet.WriteInteger(race.PrimaryColour);
             packet.WriteInteger(race.SecondaryColour);
-            packet.WriteBoolean(race.HasPrimaryColour);
-            packet.WriteBoolean(race.HasSecondaryColour);
+            packet.WriteBoolean(true);
+            packet.WriteBoolean(false);
+            packet.WriteBoolean(false);
         }
     }
 }

@@ -186,7 +186,6 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             limitedEditionSells = item.LimitedEditionSells;
             limitedEditionStack = item.LimitedEditionStack;
         }
-        var productType = item.Definition.InteractionType == InteractionType.Pet ? "p" : item.Definition.Type.ToString().ToLower();
         void ChargePurchase()
         {
             if (item.CostCredits > 0)
@@ -206,9 +205,9 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             }
         }
 
-        if (productType != "p")
+        if (item.Definition.ProductType != "p")
             ChargePurchase();
-        switch (productType)
+        switch (item.Definition.ProductType)
         {
             default:
                 var generatedGenericItems = new List<Item>();
