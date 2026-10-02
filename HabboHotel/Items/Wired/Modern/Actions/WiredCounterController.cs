@@ -18,6 +18,7 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, int defau
     }
     private readonly Dictionary<uint, Clock> _clocks = [];
     private readonly Queue<WiredCounterChange> _changes = [];
+    public bool HasRunning => _clocks.Values.Any(clock => clock.Running);
     public static bool Recognizes(Item item) => Name(item) is "wf_upcounter1" or "wf_upcounter2" or "wf_game_upcounter1" or "wf_game_upcounter2";
     private static string Name(Item item) => string.IsNullOrEmpty(item.Definition.InteractionName) ? item.Definition.ItemName : item.Definition.InteractionName;
     public bool Attach(Item item)

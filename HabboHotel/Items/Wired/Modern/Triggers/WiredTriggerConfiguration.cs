@@ -24,6 +24,25 @@ public static class WiredTriggerConfiguration
     public static bool IsTimed(string name) => name is "wf_trg_at_given_time" or "wf_trg_at_time_long"
         or "wf_trg_periodically" or "wf_trg_period_short" or "wf_trg_period_long";
 
+    public static WiredConfiguration Defaults(string name)
+    {
+        ImmutableArray<int> parameters = name switch
+        {
+            "wf_trg_says_something" => [0, 0, 0],
+            "wf_trg_walks_on_furni" or "wf_trg_walks_off_furni" or "wf_trg_click_furni" or "wf_trg_click_tile" => [100],
+            "wf_trg_stuff_state" or "wf_trg_state_changed" => [0, 100],
+            "wf_trg_bot_reached_avtr" => [100], "wf_trg_bot_reached_stf" => [100, 100],
+            "wf_trg_click_user" => [0, 0], "wf_trg_clock_counter" => [0, 0, 100],
+            "wf_trg_recv_signal" => [0, 100], "wf_trg_score_achieved" => [1, 0],
+            "wf_trg_user_performs_action" => [1, 0, 0, 0, 1],
+            _ when IsTimed(name) => [1],
+            _ when Events.ContainsKey(name) => [],
+            _ => throw new ArgumentException("Unknown trigger.", nameof(name))
+        };
+        if (!TryValidate(name, new() { IntParams = parameters }, out var config, out var error)) throw new InvalidOperationException(error);
+        return config;
+    }
+
     public static bool TryValidate(string name, WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         validated = proposed; error = "Invalid trigger configuration.";
