@@ -36,8 +36,12 @@ internal class GiveCommand : ITargetChatCommand
                 }
                 if (int.TryParse(parameters[2], out var amount))
                 {
-                    target.Credits = target.Credits += amount;
-                    target.Client.Send(new CreditBalanceComposer(target.Credits));
+                    lock (target.WalletSync)
+                    {
+                        if (target.WalletClosed) break;
+                        target.Credits = target.Credits += amount;
+                        target.Client.Send(new CreditBalanceComposer(target.Credits));
+                    }
                     if (target.Id != session.GetHabbo().Id)
                         target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} Credit(s)!");
                     session.SendWhisper($"Successfully given {amount} Credit(s) to {target.Username}!");
@@ -56,8 +60,12 @@ internal class GiveCommand : ITargetChatCommand
                 }
                 if (int.TryParse(parameters[2], out var amount))
                 {
-                    target.Duckets += amount;
-                    target.Client.Send(new HabboActivityPointNotificationComposer(target.Duckets, amount));
+                    lock (target.WalletSync)
+                    {
+                        if (target.WalletClosed) break;
+                        target.Duckets += amount;
+                        target.Client.Send(new HabboActivityPointNotificationComposer(target.Duckets, amount));
+                    }
                     if (target.Id != session.GetHabbo().Id)
                         target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} Ducket(s)!");
                     session.SendWhisper($"Successfully given {amount} Ducket(s) to {target.Username}!");
@@ -75,8 +83,12 @@ internal class GiveCommand : ITargetChatCommand
                 }
                 if (int.TryParse(parameters[2], out var amount))
                 {
-                    target.Diamonds += amount;
-                    target.Client.Send(new HabboActivityPointNotificationComposer(target.Diamonds, amount, 5));
+                    lock (target.WalletSync)
+                    {
+                        if (target.WalletClosed) break;
+                        target.Diamonds += amount;
+                        target.Client.Send(new HabboActivityPointNotificationComposer(target.Diamonds, amount, 5));
+                    }
                     if (target.Id != session.GetHabbo().Id)
                         target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} Diamond(s)!");
                     session.SendWhisper($"Successfully given {amount} Diamond(s) to {target.Username}!");

@@ -6,6 +6,7 @@ namespace Plus.HabboHotel.Users.Messenger;
 
 public class HabboMessenger
 {
+    private readonly TimeProvider _timeProvider;
     private readonly ConcurrentDictionary<int, MessengerBuddy> _friends;
     public IReadOnlyDictionary<int, MessengerBuddy> Friends => _friends;
     private readonly ConcurrentDictionary<int, MessengerRequest> _requests;
@@ -24,8 +25,10 @@ public class HabboMessenger
 
     public event EventHandler? StatusUpdated;
 
-    public HabboMessenger(Dictionary<int, MessengerBuddy> friends, Dictionary<int, MessengerRequest> requests, List<int> outstandingFriendRequests)
+    public HabboMessenger(Dictionary<int, MessengerBuddy> friends, Dictionary<int, MessengerRequest> requests, List<int> outstandingFriendRequests, TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _lastMessage = _timeProvider.GetUtcNow().UtcDateTime;
         _requests = new(requests);
         _friends = new(friends);
         _outstandingFriendRequests = outstandingFriendRequests;
@@ -72,42 +75,44 @@ public class HabboMessenger
 
     private int _messengerSpamCount = 0;
     private DateTime? _messengerSpamTime = null;
-    private DateTime _lastMessage = DateTime.Now;
+    private DateTime _lastMessage;
 
     private bool IncrementFloodCounter()
     {
-        var timeSinceLastMessage = DateTime.Now - _lastMessage;
-        if (timeSinceLastMessage > TimeSpan.FromSeconds(5))
-            _messengerSpamCount++;
-        if (timeSinceLastMessage > TimeSpan.FromSeconds(20))
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        // A pause cannot bypass an active cooldown, even after the burst counter resets.
+        if (_messengerSpamTime is { } cooldown)
         {
+            if (now < cooldown) return true;
+            _messengerSpamTime = null;
             _messengerSpamCount = 0;
-            return false;
         }
-
+        var timeSinceLastMessage = now - _lastMessage;
+        if (timeSinceLastMessage > TimeSpan.FromSeconds(20))
+            _messengerSpamCount = 0;
+        if (timeSinceLastMessage <= TimeSpan.FromSeconds(5))
+            _messengerSpamCount++;
         if (_messengerSpamCount >= 12)
         {
-            _messengerSpamTime = DateTime.Now.AddMinutes(1);
+            _messengerSpamTime = now.AddMinutes(1);
             _messengerSpamCount = 0;
             return true;
         }
-
-        if (_messengerSpamTime != null)
-        {
-            if (!(_messengerSpamTime < DateTime.Now))
-                return true;
-
-            _messengerSpamTime = null;
-            return false;
-        }
         return false;
+    }
+
+    internal bool TrySendHabbicon()
+    {
+        if (IncrementFloodCounter()) return false;
+        _lastMessage = _timeProvider.GetUtcNow().UtcDateTime;
+        return true;
     }
 
     public MessageError? SendMessage(MessengerBuddy friend, string message)
     {
         if (string.IsNullOrWhiteSpace(message)) return MessageError.EmptyMessage;
         if (IncrementFloodCounter()) return MessageError.Flooding;
-        _lastMessage = DateTime.Now;
+        _lastMessage = _timeProvider.GetUtcNow().UtcDateTime;
         MessageSend?.Invoke(this, new(friend, message));
         return null;
     }

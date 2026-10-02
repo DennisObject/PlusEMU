@@ -312,4 +312,12 @@ public static class ServerPacketHeader
     public const uint MessengerInitComposer = 1329; //391
     public const uint PollContentsComposer = 3826;
     public const uint PollOfferComposer = 1074;
+    public const uint RoomUseHabbiconComposer = 9410;
+    public const uint UserHabbiconsComposer = 9465;
+    public const uint UserHabbiconStatusChangedComposer = 9466;
+    public const uint HabbiconShopDataComposer = 9467;
+    public const uint HabbiconInfoComposer = 9463;
+    public const uint MessengerMessageAckComposer = 4902;
+    public const uint MessengerMessageFailedComposer = 4903;
+    public const uint MessengerMessageComposer = 4904;
 }

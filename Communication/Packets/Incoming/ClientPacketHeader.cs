@@ -394,4 +394,15 @@ public static class ClientPacketHeader
 
 
 
+    public const uint TriggerHabbiconEvent = 9417;
+    public const uint GetHabbiconShopDataEvent = 9460;
+    public const uint GetHabbiconInfoEvent = 9461;
+    public const uint BuyHabbiconEvent = 9462;
+    public const uint BuyHabbiconCollectionEvent = 9463;
+    public const uint ClaimHabbiconEvent = 9464;
+    public const uint FavoriteHabbiconEvent = 9465;
+    public const uint UnfavoriteHabbiconEvent = 9466;
+    public const uint UnseenResetCategoryEvent = 3493;
+    public const uint UnseenResetItemsEvent = 2343;
+    public const uint SendMessengerMessageEvent = 4902;
 }

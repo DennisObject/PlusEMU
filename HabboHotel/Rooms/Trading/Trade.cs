@@ -4,6 +4,9 @@ using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.Communication.Packets.Outgoing.Inventory.Trading;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.HabboHotel.Items;
+using Plus.Database.Interfaces;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Rooms.Trading;
 
@@ -137,52 +140,16 @@ public sealed class Trade
             logUserOne += $"{item.Id};";
             roomUserOne.GetClient().GetHabbo().Inventory.Furniture.RemoveItem(item.Id);
             roomUserOne.GetClient().Send(new FurniListRemoveComposer(item.Id));
-            if (item.Definition.InteractionType == InteractionType.Exchange && PlusEnvironment.SettingsManager.TryGetValue("trading.auto_exchange_redeemables") == "1")
-            {
-                roomUserTwo.GetClient().GetHabbo().Credits += item.Definition.BehaviourData;
-                roomUserTwo.GetClient().Send(new CreditBalanceComposer(roomUserTwo.GetClient().GetHabbo().Credits));
-                dbClient.SetQuery("DELETE FROM `items` WHERE `id` = @id LIMIT 1");
-                dbClient.AddParameter("id", item.Id);
-                dbClient.RunQuery();
-            }
-            else
-            {
-                if (roomUserTwo.GetClient().GetHabbo().Inventory.Furniture.AddItem(item))
-                {
-                    roomUserTwo.GetClient().Send(new FurniListAddComposer(item));
-                    roomUserTwo.GetClient().Send(new FurniListNotificationComposer(item.Id, 1));
-                    dbClient.SetQuery("UPDATE `items` SET `user_id` = @user WHERE id=@id LIMIT 1");
-                    dbClient.AddParameter("user", roomUserTwo.UserId);
-                    dbClient.AddParameter("id", item.Id);
-                    dbClient.RunQuery();
-                }
-            }
+            ReceiveTradedItem(roomUserTwo.GetClient(), item,
+                item.Definition.InteractionType == InteractionType.Exchange && PlusEnvironment.SettingsManager.TryGetValue("trading.auto_exchange_redeemables") == "1", dbClient);
         }
         foreach (var item in userTwo)
         {
             logUserTwo += $"{item.Id};";
             roomUserTwo.GetClient().GetHabbo().Inventory.Furniture.RemoveItem(item.Id);
             roomUserTwo.GetClient().Send(new FurniListRemoveComposer(item.Id));
-            if (item.Definition.InteractionType == InteractionType.Exchange && PlusEnvironment.SettingsManager.TryGetValue("trading.auto_exchange_redeemables") == "1")
-            {
-                roomUserOne.GetClient().GetHabbo().Credits += item.Definition.BehaviourData;
-                roomUserOne.GetClient().Send(new CreditBalanceComposer(roomUserOne.GetClient().GetHabbo().Credits));
-                dbClient.SetQuery("DELETE FROM `items` WHERE `id` = @id LIMIT 1");
-                dbClient.AddParameter("id", item.Id);
-                dbClient.RunQuery();
-            }
-            else
-            {
-                if (roomUserOne.GetClient().GetHabbo().Inventory.Furniture.AddItem(item))
-                {
-                    roomUserOne.GetClient().Send(new FurniListAddComposer(item));
-                    roomUserOne.GetClient().Send(new FurniListNotificationComposer(item.Id, 1));
-                    dbClient.SetQuery("UPDATE `items` SET `user_id` = @user WHERE id=@id LIMIT 1");
-                    dbClient.AddParameter("user", roomUserOne.UserId);
-                    dbClient.AddParameter("id", item.Id);
-                    dbClient.RunQuery();
-                }
-            }
+            ReceiveTradedItem(roomUserOne.GetClient(), item,
+                item.Definition.InteractionType == InteractionType.Exchange && PlusEnvironment.SettingsManager.TryGetValue("trading.auto_exchange_redeemables") == "1", dbClient);
         }
         dbClient.SetQuery("INSERT INTO `logs_client_trade` VALUES(null, @1id, @2id, @1items, @2items, UNIX_TIMESTAMP())");
         dbClient.AddParameter("1id", roomUserOne.UserId);
@@ -190,5 +157,35 @@ public sealed class Trade
         dbClient.AddParameter("1items", logUserOne);
         dbClient.AddParameter("2items", logUserTwo);
         dbClient.RunQuery();
+    }
+
+    internal static void ReceiveTradedItem(GameClient recipient, InventoryItem item, bool autoRedeem, IQueryAdapter dbClient)
+    {
+        var habbo = recipient.GetHabbo();
+        if (item.Definition.InteractionType == InteractionType.Exchange && autoRedeem)
+        {
+            lock (habbo.WalletSync)
+            {
+                if (!habbo.WalletClosed)
+                {
+                    habbo.Credits += item.Definition.BehaviourData;
+                    recipient.Send(new CreditBalanceComposer(habbo.Credits));
+                    dbClient.SetQuery("DELETE FROM `items` WHERE `id` = @id LIMIT 1");
+                    dbClient.AddParameter("id", item.Id);
+                    dbClient.RunQuery();
+                    return;
+                }
+            }
+        }
+        // A wallet saved for shutdown cannot receive credits; transfer the voucher intact.
+        if (habbo.Inventory.Furniture.AddItem(item))
+        {
+            recipient.Send(new FurniListAddComposer(item));
+            recipient.Send(new FurniListNotificationComposer(item.Id, 1));
+            dbClient.SetQuery("UPDATE `items` SET `user_id` = @user WHERE id=@id LIMIT 1");
+            dbClient.AddParameter("user", habbo.Id);
+            dbClient.AddParameter("id", item.Id);
+            dbClient.RunQuery();
+        }
     }
 }

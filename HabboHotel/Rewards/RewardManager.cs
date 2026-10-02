@@ -96,20 +96,32 @@ public class RewardManager : IRewardManager
                     }
                     case RewardType.Credits:
                     {
-                        session.GetHabbo().Credits += Convert.ToInt32(reward.RewardData);
-                        session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+                        lock (session.GetHabbo().WalletSync)
+                        {
+                            if (session.GetHabbo().WalletClosed) break;
+                            session.GetHabbo().Credits += Convert.ToInt32(reward.RewardData);
+                            session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+                        }
                         break;
                     }
                     case RewardType.Duckets:
                     {
-                        session.GetHabbo().Duckets += Convert.ToInt32(reward.RewardData);
-                        session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, Convert.ToInt32(reward.RewardData)));
+                        lock (session.GetHabbo().WalletSync)
+                        {
+                            if (session.GetHabbo().WalletClosed) break;
+                            session.GetHabbo().Duckets += Convert.ToInt32(reward.RewardData);
+                            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, Convert.ToInt32(reward.RewardData)));
+                        }
                         break;
                     }
                     case RewardType.Diamonds:
                     {
-                        session.GetHabbo().Diamonds += Convert.ToInt32(reward.RewardData);
-                        session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, Convert.ToInt32(reward.RewardData), 5));
+                        lock (session.GetHabbo().WalletSync)
+                        {
+                            if (session.GetHabbo().WalletClosed) break;
+                            session.GetHabbo().Diamonds += Convert.ToInt32(reward.RewardData);
+                            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, Convert.ToInt32(reward.RewardData), 5));
+                        }
                         break;
                     }
                 }

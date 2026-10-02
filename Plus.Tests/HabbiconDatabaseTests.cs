@@ -1,0 +1,339 @@
+using System.Data;
+using Dapper;
+using MySqlConnector;
+using Plus.Database;
+using Plus.Database.Interfaces;
+using Plus.HabboHotel.Habbicons;
+using Plus.HabboHotel.Users;
+using Xunit;
+
+namespace Plus.Tests;
+
+public sealed class HabbiconDatabaseFactAttribute : FactAttribute
+{
+    public HabbiconDatabaseFactAttribute()
+    {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_HABBICONS_TEST_CONNECTION_STRING")))
+            Skip = "Set PLUS_HABBICONS_TEST_CONNECTION_STRING to a disposable task_habicons_tests_ database.";
+    }
+}
+
+// Tests are deliberately restricted to a disposable schema and run sequentially in this class.
+public class HabbiconDatabaseTests
+{
+    private readonly TestDatabase _database;
+    private readonly HabbiconService _service;
+    private const int UserId = 910001;
+
+    public HabbiconDatabaseTests()
+    {
+        string connectionString = Environment.GetEnvironmentVariable("PLUS_HABBICONS_TEST_CONNECTION_STRING")!;
+        _database = new(connectionString);
+        var builder = new MySqlConnectionStringBuilder(connectionString);
+        if (!builder.Database.StartsWith("task_habicons_tests_", StringComparison.Ordinal))
+            throw new InvalidOperationException("Habicon database tests require a disposable task_habicons_tests_ schema.");
+        Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/14_Habbicons.sql")));
+        Execute("DELETE FROM users_habbicons; DELETE FROM users WHERE id = 910001");
+        using (var connection = _database.Connection())
+        {
+            bool hasTicket = connection.QuerySingle<int>("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'auth_ticket'") > 0;
+            Execute(hasTicket
+                ? "INSERT INTO users (id, username, auth_ticket, credits, activity_points, vip_points) VALUES (910001, 'habicon_tests', '', 100, 20, 20)"
+                : "INSERT INTO users (id, username, credits, activity_points, vip_points) VALUES (910001, 'habicon_tests', 100, 20, 20)");
+        }
+        Execute("UPDATE habbicons SET available = TRUE, default_owned = (id = 28), cost_credits = IF(id IN (28,38,49,60,71), 0, 5), cost_points = 0, points_type = 0");
+        Execute("UPDATE habbicon_collections SET cost_credits = 40, cost_points = 0, points_type = 0");
+        _service = new(_database);
+    }
+
+    [HabbiconDatabaseFact]
+    public void StarterUnavailableFreeClaimAndOwnershipSurviveNewServiceInstance()
+    {
+        var snapshot = _service.Load(UserId);
+        Assert.Equal(44, snapshot.Items.Count);
+        Assert.Equal(new[] { 28 }, snapshot.Items.Values.Where(item => item.Owned).Select(item => item.Id));
+        Assert.False(_service.Use(UserId, 61));
+        Assert.False(_service.Use(UserId, int.MaxValue));
+        Execute("UPDATE habbicons SET available = FALSE WHERE id = 61");
+        Assert.Equal(HabbiconState.Unavailable, _service.Load(UserId).RequireItem(61).State);
+        Assert.Equal(1, Assert.Throws<HabbiconRejected>(() => _service.Change(UserId, HabbiconAction.Buy, 61)).Code);
+        Execute("UPDATE habbicons SET available = TRUE, cost_credits = 0 WHERE id = 61");
+        Assert.Equal(HabbiconState.Claimable, _service.Load(UserId).RequireItem(61).State);
+        _service.Change(UserId, HabbiconAction.Claim, 61);
+        Assert.True(new HabbiconService(_database).Load(UserId).RequireItem(61).Owned);
+        Assert.Equal(100, Scalar("SELECT credits FROM users WHERE id = 910001"));
+        Assert.Equal(4, Assert.Throws<HabbiconRejected>(() => _service.Change(UserId, HabbiconAction.Claim, 61)).Code);
+    }
+
+    [HabbiconDatabaseFact]
+    public void LiveWalletIsAuthoritativeAndBothCurrenciesPersistOnlyAfterCommit()
+    {
+        var habbo = new Habbo { Id = UserId, Credits = 50, Duckets = 7, Diamonds = 9 };
+        Execute("UPDATE habbicons SET cost_points = 2, points_type = 5 WHERE id = 61");
+        _service.Change(habbo, HabbiconAction.Buy, 61);
+        Assert.Equal((45, 7, 7), (habbo.Credits, habbo.Duckets, habbo.Diamonds));
+        using var connection = _database.Connection();
+        var stored = connection.QuerySingle<HabbiconBalances>("SELECT credits AS Credits, activity_points AS Duckets, vip_points AS Diamonds FROM users WHERE id = 910001");
+        Assert.Equal(new HabbiconBalances(45, 7, 7), stored);
+        Execute("UPDATE habbicons SET cost_points = 99, points_type = 0 WHERE id = 62");
+        Assert.Equal(3, Assert.Throws<HabbiconRejected>(() => _service.Change(habbo, HabbiconAction.Buy, 62)).Code);
+        Assert.Equal(45, habbo.Credits);
+        Assert.Equal(45, Scalar("SELECT credits FROM users WHERE id = 910001"));
+        Assert.False(_service.Load(UserId).RequireItem(62).Owned);
+        Execute("UPDATE habbicons SET cost_credits = 99 WHERE id = 62");
+        Assert.Equal(2, Assert.Throws<HabbiconRejected>(() => _service.Change(habbo, HabbiconAction.Buy, 62)).Code);
+        Execute("UPDATE habbicons SET cost_credits = 1, points_type = 9 WHERE id = 62");
+        Assert.Equal(1, Assert.Throws<HabbiconRejected>(() => _service.Change(habbo, HabbiconAction.Buy, 62)).Code);
+    }
+
+    [HabbiconDatabaseFact]
+    public void CollectionPurchasePreservesFavoritesUnlocksUnseenRewardAndClaimsExactlyOnce()
+    {
+        _service.Change(UserId, HabbiconAction.Buy, 61);
+        _service.Change(UserId, HabbiconAction.Favorite, 61);
+        var change = _service.Change(UserId, HabbiconAction.BuyCollection, 6);
+        Assert.True(change.Snapshot.Collections.Single(set => set.Id == 6).Completed);
+        Assert.Equal(HabbiconState.Favorite, change.Snapshot.RequireItem(61).State);
+        Assert.Equal(HabbiconState.Claimable, change.Snapshot.RequireItem(71).State);
+        Assert.Contains(71, change.Snapshot.Unseen);
+        Assert.False(_service.Use(UserId, 71));
+        _service.Change(UserId, HabbiconAction.Claim, 71);
+        Assert.True(_service.Use(UserId, 71));
+        Assert.Equal(55, Scalar("SELECT credits FROM users WHERE id = 910001"));
+        Assert.Equal(4, Assert.Throws<HabbiconRejected>(() => _service.Change(UserId, HabbiconAction.Claim, 71)).Code);
+        Assert.Equal(4, Assert.Throws<HabbiconRejected>(() => _service.Change(UserId, HabbiconAction.BuyCollection, 6)).Code);
+        _service.ClearUnseen(UserId, new[] { 71 });
+        Assert.DoesNotContain(71, _service.Load(UserId).Unseen);
+        Assert.Contains(61, _service.Load(UserId).Unseen);
+        _service.ClearUnseen(UserId, Array.Empty<int>());
+        Assert.Empty(_service.Load(UserId).Unseen);
+    }
+
+    [HabbiconDatabaseFact]
+    public void RecentUseIsDistinctOrderedLimitedAndDoesNotDropFavorites()
+    {
+        _service.Change(UserId, HabbiconAction.BuyCollection, 6);
+        _service.Change(UserId, HabbiconAction.Favorite, 61);
+        for (int id = 61; id <= 70; id++) Assert.True(_service.Use(UserId, id));
+        Assert.True(_service.Use(UserId, 28));
+        Assert.True(_service.Use(UserId, 61));
+        Assert.Equal(new[] { 61, 28, 70, 69, 68, 67, 66, 65, 64, 63 }, new HabbiconService(_database).Load(UserId).Recent);
+        Assert.Equal(HabbiconState.Favorite, _service.Load(UserId).RequireItem(61).State);
+        _service.Change(UserId, HabbiconAction.Unfavorite, 61);
+        Assert.Equal(HabbiconState.Owned, _service.Load(UserId).RequireItem(61).State);
+    }
+
+    [HabbiconDatabaseFact]
+    public async Task ConcurrentIndividualCatalogAndCollectionRequestsCannotChargeTheSameOwnershipTwice()
+    {
+        var habbo = new Habbo { Id = UserId, Credits = 100, Duckets = 20, Diamonds = 20 };
+        var outcomes = await Task.WhenAll(Enumerable.Range(0, 12).Select(index => Task.Run(() =>
+        {
+            try
+            {
+                if (index % 2 == 0) _service.Change(habbo, HabbiconAction.Buy, 61);
+                else _service.BuyCatalog(habbo, 61, 5, 0, 0);
+                return true;
+            }
+            catch (HabbiconRejected rejected) { Assert.Equal(4, rejected.Code); return false; }
+        })));
+        Assert.Equal(1, outcomes.Count(success => success));
+        Assert.Equal(95, habbo.Credits);
+        Assert.Equal(95, Scalar("SELECT credits FROM users WHERE id = 910001"));
+        _service.Change(habbo, HabbiconAction.BuyCollection, 6);
+        Assert.Equal(55, habbo.Credits);
+        Assert.Equal(4, Assert.Throws<HabbiconRejected>(() => _service.BuyCatalog(habbo, 62, 5, 0, 0)).Code);
+    }
+
+    [HabbiconDatabaseFact]
+    public void SqlFailureAfterChargeRollsBackOwnershipAndLiveWallet()
+    {
+        var habbo = new Habbo { Id = UserId, Credits = 100, Duckets = 20, Diamonds = 20 };
+        Execute("CREATE TRIGGER habicon_test_failure BEFORE INSERT ON users_habbicons FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected ownership failure'");
+        try
+        {
+            Assert.Throws<MySqlException>(() => _service.Change(habbo, HabbiconAction.Buy, 61));
+            Assert.Equal(100, habbo.Credits);
+            Assert.Equal(100, Scalar("SELECT credits FROM users WHERE id = 910001"));
+            Assert.False(_service.Load(UserId).RequireItem(61).Owned);
+        }
+        finally { Execute("DROP TRIGGER habicon_test_failure"); }
+    }
+
+    [HabbiconDatabaseFact]
+    public void MigrationRerunPreservesCustomPricesHoldingsAndCatalogOffers()
+    {
+        _service.Change(UserId, HabbiconAction.Buy, 61);
+        _service.Change(UserId, HabbiconAction.Favorite, 61);
+        Execute("UPDATE habbicons SET cost_credits = 19 WHERE id = 62; UPDATE habbicon_collections SET cost_credits = 93 WHERE id = 6; UPDATE catalog_items SET cost_credits = 27 WHERE habbicon_id = 62");
+        int offers = Scalar("SELECT COUNT(*) FROM catalog_items WHERE habbicon_id > 0");
+        Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/14_Habbicons.sql")));
+        Assert.Equal(19, _service.Load(UserId).RequireItem(62).Credits);
+        Assert.Equal(93, _service.Load(UserId).Collections.Single(set => set.Id == 6).Credits);
+        Assert.Equal(HabbiconState.Favorite, _service.Load(UserId).RequireItem(61).State);
+        Assert.Equal(27, Scalar("SELECT cost_credits FROM catalog_items WHERE habbicon_id = 62 LIMIT 1"));
+        Assert.Equal(offers, Scalar("SELECT COUNT(*) FROM catalog_items WHERE habbicon_id > 0"));
+    }
+
+    [HabbiconDatabaseFact]
+    public async Task RconAwardWaitsForCommittedPurchaseAndShutdownRejectsFurtherWalletChanges()
+    {
+        var habbo = new Habbo { Id = UserId, Credits = 100, Duckets = 20, Diamonds = 20,
+            HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+        var clients = new Plus.HabboHotel.GameClients.GameClientManager(null!, null!);
+        clients.RegisterClient(client, habbo.Id, "habicon_tests");
+        var give = new Plus.Communication.RCON.Commands.User.GiveUserCurrencyCommand(_database, clients);
+        using var enteredPurchase = new ManualResetEventSlim();
+        using var releasePurchase = new ManualResetEventSlim();
+        using var startedAward = new ManualResetEventSlim();
+        _database.BeforeConnection = () => { enteredPurchase.Set(); Assert.True(releasePurchase.Wait(TimeSpan.FromSeconds(5))); };
+        var purchase = Task.Run(() => _service.Change(habbo, HabbiconAction.Buy, 61));
+        Assert.True(enteredPurchase.Wait(TimeSpan.FromSeconds(5)));
+        var award = Task.Run(async () => { startedAward.Set(); return await give.TryExecute(new[] { UserId.ToString(), "credits", "10" }); });
+        try
+        {
+            Assert.True(startedAward.Wait(TimeSpan.FromSeconds(5)));
+            Assert.False(award.Wait(TimeSpan.FromMilliseconds(100))); // It cannot read the pre-purchase wallet.
+        }
+        finally { releasePurchase.Set(); }
+        await purchase;
+        Assert.True(await award);
+        _database.BeforeConnection = null;
+        Assert.Equal(105, habbo.Credits);
+        Assert.Equal(105, Scalar("SELECT credits FROM users WHERE id = 910001"));
+        sent.Clear();
+        HabbiconMessagesForTest(client, await purchase);
+        var balance = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = sent.Single(p => p.Header == Plus.Communication.Packets.Outgoing.ServerPacketHeader.CreditBalanceComposer).Payload };
+        Assert.Equal("105.0", balance.ReadString());
+        string shutdown = habbo.GetQueryString;
+        Assert.Contains("`credits` = '105'", shutdown);
+        Assert.Equal(1, Assert.Throws<HabbiconRejected>(() => _service.Change(habbo, HabbiconAction.Buy, 62)).Code);
+        Assert.False(await give.TryExecute(new[] { UserId.ToString(), "credits", "10" }));
+        Assert.Equal(105, habbo.Credits);
+    }
+
+    private static void HabbiconMessagesForTest(Plus.HabboHotel.GameClients.GameClient client, HabbiconChange change) =>
+        Plus.Communication.Packets.Outgoing.Habbicons.HabbiconMessages.Publish(client, change);
+
+    [HabbiconDatabaseFact]
+    public async Task DirectFriendHabiconSendsOneTypedOnlineMessageAndUsesExistingOfflineFallback()
+    {
+        Execute("CREATE TABLE IF NOT EXISTS chatlogs_console (id INT PRIMARY KEY AUTO_INCREMENT, from_id INT NOT NULL, to_id INT NOT NULL, message TEXT NOT NULL, timestamp DOUBLE NOT NULL) ENGINE=InnoDB");
+        Execute("CREATE TABLE IF NOT EXISTS messenger_offline_messages (id INT PRIMARY KEY AUTO_INCREMENT, from_id INT NOT NULL, to_id INT NOT NULL, message VARCHAR(255) NOT NULL, timestamp DOUBLE NOT NULL) ENGINE=InnoDB");
+        Execute("DELETE FROM chatlogs_console WHERE from_id = 910001; DELETE FROM messenger_offline_messages WHERE from_id = 910001");
+        var sender = new Habbo { Id = UserId, Messenger = new Plus.HabboHotel.Users.Messenger.HabboMessenger(
+            new() { [910002] = new() { Id = 910002 } }, new(), new()) };
+        var recipient = new Habbo { Id = 910002, AllowConsoleMessages = true,
+            IgnoresComponent = new Plus.HabboHotel.Users.Ignores.IgnoresComponent(new()),
+            Messenger = new Plus.HabboHotel.Users.Messenger.HabboMessenger(new() { [UserId] = new() { Id = UserId } }, new(), new()) };
+        var (client, sent) = HabbiconTestSupport.Client(sender);
+        var (target, received) = HabbiconTestSupport.Client(recipient);
+        var clients = new Plus.HabboHotel.GameClients.GameClientManager(null!, null!);
+        clients.RegisterClient(target, recipient.Id, "habicon_recipient");
+        var handler = new Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent(_service, _database, clients,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent>.Instance);
+        await handler.Parse(client, HabbiconTestSupport.Incoming(0, 910002, 7, 4, "28", ""));
+        Assert.Equal(Plus.Communication.Packets.Outgoing.ServerPacketHeader.MessengerMessageComposer, Assert.Single(received).Header);
+        Assert.Single(sent, p => p.Header == Plus.Communication.Packets.Outgoing.ServerPacketHeader.MessengerMessageAckComposer);
+        Assert.DoesNotContain(received, p => p.Header == Plus.Communication.Packets.Outgoing.ServerPacketHeader.NewConsoleMessageComposer);
+        Assert.Equal(new[] { 28 }, _service.Load(UserId).Recent);
+        Assert.Equal(1, Scalar("SELECT COUNT(*) FROM chatlogs_console WHERE from_id = 910001"));
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_offline_messages WHERE from_id = 910001"));
+        sent.Clear(); received.Clear();
+        await handler.Parse(client, HabbiconTestSupport.Incoming(0, 910002, 8, 4, "61", ""));
+        Assert.Equal(Plus.Communication.Packets.Outgoing.ServerPacketHeader.MessengerMessageFailedComposer, Assert.Single(sent).Header);
+        Assert.Empty(received);
+        Assert.Equal(1, Scalar("SELECT COUNT(*) FROM chatlogs_console WHERE from_id = 910001"));
+        clients.UnregisterClient(target, recipient.Id, "habicon_recipient");
+        sent.Clear();
+        await handler.Parse(client, HabbiconTestSupport.Incoming(0, 910002, 9, 4, "28", ""));
+        Assert.Single(sent, p => p.Header == Plus.Communication.Packets.Outgoing.ServerPacketHeader.MessengerMessageAckComposer);
+        using var connection = _database.Connection();
+        Assert.Equal(":duck_duck:", connection.QuerySingle<string>("SELECT message FROM messenger_offline_messages WHERE from_id = 910001"));
+    }
+
+    [HabbiconDatabaseFact]
+    public async Task RconSyncCannotPersistThePrePurchaseBalanceAfterCommit()
+    {
+        var habbo = new Habbo { Id = UserId, Credits = 100, Duckets = 20, Diamonds = 20,
+            HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
+        var (client, _) = HabbiconTestSupport.Client(habbo);
+        var clients = new Plus.HabboHotel.GameClients.GameClientManager(null!, null!);
+        clients.RegisterClient(client, habbo.Id, "habicon_tests");
+        var sync = new Plus.Communication.RCON.Commands.User.SyncUserCurrencyCommand(_database, clients);
+        using var enteredPurchase = new ManualResetEventSlim();
+        using var releasePurchase = new ManualResetEventSlim();
+        using var startedSync = new ManualResetEventSlim();
+        _database.BeforeConnection = () => { enteredPurchase.Set(); Assert.True(releasePurchase.Wait(TimeSpan.FromSeconds(5))); };
+        var purchase = Task.Run(() => _service.Change(habbo, HabbiconAction.Buy, 61));
+        Assert.True(enteredPurchase.Wait(TimeSpan.FromSeconds(5)));
+        var syncing = Task.Run(async () => { startedSync.Set(); return await sync.TryExecute(new[] { UserId.ToString(), "credits" }); });
+        try
+        {
+            Assert.True(startedSync.Wait(TimeSpan.FromSeconds(5)));
+            Assert.False(syncing.Wait(TimeSpan.FromMilliseconds(100)));
+        }
+        finally { releasePurchase.Set(); }
+        await purchase;
+        Assert.True(await syncing);
+        _database.BeforeConnection = null;
+        Assert.Equal(95, habbo.Credits);
+        Assert.Equal(95, Scalar("SELECT credits FROM users WHERE id = 910001"));
+        _ = habbo.GetQueryString;
+        Assert.False(await sync.TryExecute(new[] { UserId.ToString(), "credits" }));
+        Assert.False(await sync.TryExecute(new[] { UserId.ToString(), "duckets" }));
+        Assert.False(await sync.TryExecute(new[] { UserId.ToString(), "diamonds" }));
+    }
+
+    [HabbiconDatabaseFact]
+    public void ClosedWalletTransfersTradedVoucherIntactInsteadOfDeletingItsValue()
+    {
+        Execute("CREATE TABLE IF NOT EXISTS items (id INT PRIMARY KEY, user_id INT NOT NULL) ENGINE=InnoDB");
+        Execute("DELETE FROM items WHERE id IN (910005,910006); INSERT INTO items (id,user_id) VALUES (910005,910002),(910006,910002)");
+        var habbo = new Habbo { Id = UserId, Credits = 100,
+            HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0),
+            Inventory = new Plus.HabboHotel.Users.Inventory.InventoryComponent
+            {
+                Furniture = new Plus.HabboHotel.Users.Inventory.Furniture.FurnitureInventoryComponent(Array.Empty<Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem>(), Array.Empty<Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem>())
+            } };
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+        var voucher = new Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem { Id = 910005,
+            Definition = new Plus.HabboHotel.Items.ItemDefinition { InteractionType = Plus.HabboHotel.Items.InteractionType.Exchange,
+                BehaviourData = 10, Type = Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor } };
+        using var adapter = _database.GetQueryReactor();
+        // Live wallet redeems exactly once and consumes the voucher.
+        Plus.HabboHotel.Rooms.Trading.Trade.ReceiveTradedItem(client, voucher, true, adapter);
+        Assert.Equal(110, habbo.Credits);
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM items WHERE id = 910005"));
+        Assert.Empty(habbo.Inventory.Furniture.AllItems);
+        sent.Clear();
+        _ = habbo.GetQueryString;
+        voucher.Id = 910006;
+        Plus.HabboHotel.Rooms.Trading.Trade.ReceiveTradedItem(client, voucher, true, adapter);
+        Assert.Equal(110, habbo.Credits);
+        Assert.Same(voucher, habbo.Inventory.Furniture.GetItem(910006));
+        Assert.Equal(UserId, Scalar("SELECT user_id FROM items WHERE id = 910006"));
+        Assert.DoesNotContain(sent, packet => packet.Header == Plus.Communication.Packets.Outgoing.ServerPacketHeader.CreditBalanceComposer);
+    }
+
+    private void Execute(string sql) { using var connection = _database.Connection(); connection.Execute(sql); }
+    private int Scalar(string sql) { using var connection = _database.Connection(); return connection.QuerySingle<int>(sql); }
+
+    internal sealed class TestDatabase(string connectionString) : IDatabase
+    {
+        public bool IsConnected() => true;
+        public Action? BeforeConnection { get; set; }
+        public IQueryAdapter GetQueryReactor()
+        {
+            var connection = new DatabaseConnection(connectionString);
+            connection.Connect();
+            return connection.GetQueryReactor();
+        }
+        public IDbConnection Connection()
+        {
+            BeforeConnection?.Invoke();
+            return new MySqlConnection(connectionString);
+        }
+    }
+}

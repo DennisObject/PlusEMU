@@ -77,9 +77,15 @@ public class AchievementManager : IAchievementManager, IStartable
 
             userData.Level = newLevel;
             userData.Progress = newProgress;
-            session.GetHabbo().Duckets += level.RewardPixels;
+            lock (session.GetHabbo().WalletSync)
+            {
+                if (!session.GetHabbo().WalletClosed)
+                {
+                    session.GetHabbo().Duckets += level.RewardPixels;
+                    session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, level.RewardPixels));
+                }
+            }
             session.GetHabbo().HabboStats.AchievementPoints += level.RewardPoints;
-            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, level.RewardPixels));
             session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats.AchievementPoints));
             var newLevelData = data.Levels[newTarget];
             session.Send(new AchievementProgressedComposer(data, newTarget, newLevelData, totalLevels, session.GetHabbo().GetAchievementData(group)));
