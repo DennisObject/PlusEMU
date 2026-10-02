@@ -21,7 +21,34 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
     public WiredAddonInputs ForAddons(long now) => new(World, Selection, now, ReadVariable, ResolveFurni, ResolveUsers);
 
     public static WiredSelectorRuntimeInput Capture(WiredRuntimeContext context, WiredSelectorRoomState state,
-        WiredSelectorVariableQueries? variables = null)
+        WiredSelectorVariableQueries? variables = null,
+        Func<WiredRuntimeContext, WiredSelectorWorld>? readWorld = null)
+    {
+        // Share the room projection within this firing; sources below remain live and identity-checked.
+        var world = context.SelectorWorldSnapshot ??= readWorld?.Invoke(context) ?? CaptureWorld(context, state);
+        WiredSelectedIds Selection(int source)
+        {
+            var result = new WiredSelectedIds();
+            result.FurniIds.UnionWith(context.Targets.ResolveFurni(context, [], source, raw: true).Select(x => x.Id));
+            result.UserIds.UnionWith(context.Targets.ResolveUsers(context, [], source, raw: true).Select(x => x.VirtualId));
+            return result;
+        }
+        var input = new WiredSelectorInputs(Selection(RuntimeSources.Trigger), Selection(RuntimeSources.Selector),
+            Selection(RuntimeSources.Signal), context.Event.Kind == WiredEventKind.ClickUser ? context.Event.TargetUser?.VirtualId : null,
+            context.NowMilliseconds, context.Event.Kind == WiredEventKind.AvatarAction ? context.Event.Actor?.VirtualId : null,
+            context.Event.Kind == WiredEventKind.AvatarAction ? context.Event.Action : null, context.Event.Code,
+            variables?.FurniPredicate, variables?.UserPredicate,
+            (context.SelectorKinds & WiredSelectionKind.Furni) != 0, (context.SelectorKinds & WiredSelectionKind.Users) != 0, world.IncludeWired);
+        return new(world, input, variables?.ReadOperand,
+            (source, configuration) => context.Targets.ResolveFurni(context, configuration.SelectedItems, source).Select(x => x.Id),
+            source => context.Targets.ResolveUsers(context, [], source).Select(x => x.VirtualId));
+    }
+
+    public WiredSelectorRuntimeInput WithVariables(WiredSelectorVariableQueries? variables) => variables is null ? this
+        : this with { Selection = Selection with { FurniVariablePredicate = variables.FurniPredicate,
+            UserVariablePredicate = variables.UserPredicate }, ReadVariable = variables.ReadOperand };
+
+    private static WiredSelectorWorld CaptureWorld(WiredRuntimeContext context, WiredSelectorRoomState state)
     {
         var items = context.Targets.ResolveFurni(context, [], RuntimeSources.AllRoom, raw: true);
         var users = context.Targets.ResolveUsers(context, [], RuntimeSources.AllRoom, raw: true);
@@ -52,26 +79,10 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
                 user.DanceId, action?.Action, action?.Parameter ?? 0, action?.At ?? 0);
         }).ToArray();
         var model = context.Room.GetGameMap().Model;
-        var world = new WiredSelectorWorld(model.MapSizeX, model.MapSizeY, furni, avatars, context.Room.Group?.Id ?? 0, remotes);
-        WiredSelectedIds Selection(int source)
-        {
-            var result = new WiredSelectedIds();
-            result.FurniIds.UnionWith(context.Targets.ResolveFurni(context, [], source, raw: true).Select(x => x.Id));
-            result.UserIds.UnionWith(context.Targets.ResolveUsers(context, [], source, raw: true).Select(x => x.VirtualId));
-            return result;
-        }
         var includeWired = context.Trigger is { } trigger && items.Any(item => item.GetX == trigger.Item.GetX
             && item.GetY == trigger.Item.GetY && context.Room.GetWired().TryGet(item.Id, out var candidate)
             && candidate is IWiredConfiguredItem configured && configured.Descriptor.CanonicalName == "wf_xtra_or_eval"
             && WiredSelectorSources.Param(context.ConfigurationOf(configured), 1) == RuntimeSources.Selector);
-        var input = new WiredSelectorInputs(Selection(RuntimeSources.Trigger), Selection(RuntimeSources.Selector),
-            Selection(RuntimeSources.Signal), context.Event.Kind == WiredEventKind.ClickUser ? context.Event.TargetUser?.VirtualId : null,
-            context.NowMilliseconds, context.Event.Kind == WiredEventKind.AvatarAction ? context.Event.Actor?.VirtualId : null,
-            context.Event.Kind == WiredEventKind.AvatarAction ? context.Event.Action : null, context.Event.Code,
-            variables?.FurniPredicate, variables?.UserPredicate,
-            (context.SelectorKinds & WiredSelectionKind.Furni) != 0, (context.SelectorKinds & WiredSelectionKind.Users) != 0, includeWired);
-        return new(world, input, variables?.ReadOperand,
-            (source, configuration) => context.Targets.ResolveFurni(context, configuration.SelectedItems, source).Select(x => x.Id),
-            source => context.Targets.ResolveUsers(context, [], source).Select(x => x.VirtualId));
+        return new(model.MapSizeX, model.MapSizeY, furni, avatars, context.Room.Group?.Id ?? 0, remotes, includeWired);
     }
 }

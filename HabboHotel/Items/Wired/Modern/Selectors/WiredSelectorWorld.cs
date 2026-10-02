@@ -18,7 +18,7 @@ public sealed record WiredRemoteSelector(string Name, WiredConfiguration Configu
 /// <summary>A single room read supplies every selector; IDs remain furniture IDs and avatar room indexes.</summary>
 public sealed record WiredSelectorWorld(int Width, int Height, IReadOnlyList<WiredSelectorFurniture> Furni,
     IReadOnlyList<WiredSelectorAvatar> Users, int RoomGroupId = 0,
-    IReadOnlyDictionary<uint, WiredRemoteSelector>? RemoteSelectors = null);
+    IReadOnlyDictionary<uint, WiredRemoteSelector>? RemoteSelectors = null, bool IncludeWired = false);
 
 public sealed class WiredSelectedIds
 {
