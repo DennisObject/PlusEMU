@@ -225,6 +225,10 @@ public static class InteractionTypes
                 return InteractionType.Lovelock;
             case "cannon":
                 return InteractionType.Cannon;
+            case "wf_upcounter1":
+            case "wf_upcounter2":
+            case "wf_game_upcounter1":
+            case "wf_game_upcounter2":
             case "counter":
                 return InteractionType.Counter;
             case "camera_picture":

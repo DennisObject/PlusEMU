@@ -7,6 +7,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Session;
 using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.PathFinding;
@@ -107,10 +108,11 @@ public class RoomUserManager
         }
         else
             _bots.TryRemove(user.BotData.Id, out var bot);
+        _room.GetWired()?.BeforeActorLeaves(user);
         user.BotAi.OnSelfLeaveRoom(kicked);
         _room.SendPacket(new UserRemoveComposer(user.VirtualId));
-        if (_users != null)
-            _users.TryRemove(user.InternalRoomId, out var toRemove);
+        if (_users != null && _users.TryRemove(user.InternalRoomId, out var toRemove) && ReferenceEquals(toRemove, user))
+            _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
         OnRemove(user);
     }
 
@@ -237,8 +239,9 @@ public class RoomUserManager
                 session.Send(new CloseConnectionComposer());
             if (session.GetHabbo().TentId > 0)
                 session.GetHabbo().TentId = 0;
-            session.GetHabbo().CurrentRoom = null;
             var user = GetRoomUserByHabbo(session.GetHabbo().Id);
+            if (user != null) _room.GetWired()?.BeforeActorLeaves(user);
+            session.GetHabbo().CurrentRoom = null;
             if (user != null)
             {
                 if (user.RidingHorse)
@@ -361,6 +364,7 @@ public class RoomUserManager
 
     private void RemoveRoomUser(RoomUser user)
     {
+        _room.GetWired()?.BeforeActorLeaves(user);
         if (user.SetStep)
             _room.GetGameMap().GameMap[user.SetX, user.SetY] = user.SqState;
         else
@@ -370,7 +374,8 @@ public class RoomUserManager
         RoomUser toRemove = null;
         if (_users.TryRemove(user.InternalRoomId, out toRemove))
         {
-            //uhmm, could put the below stuff in but idk.
+            if (ReferenceEquals(toRemove, user))
+                _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
         }
         user.InternalRoomId = -1;
         OnRemove(user);
@@ -849,6 +854,7 @@ public class RoomUserManager
     {
         if (user == null)
             return;
+        var wasLaying = user.Statusses.ContainsKey("lay");
         try
         {
             var isBot = user.IsBot;
@@ -1104,6 +1110,11 @@ public class RoomUserManager
         {
             ExceptionLogger.LogException(e);
         }
+        finally
+        {
+            if (!wasLaying && user.Statusses.ContainsKey("lay"))
+                _room.GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = user, Action = (int)WiredAvatarAction.Lay });
+        }
     }
 
     private void UpdateUserEffect(RoomUser user, int x, int y)
@@ -1174,6 +1185,7 @@ public class RoomUserManager
 
     public void Dispose()
     {
+        foreach (var user in _users.Values.ToArray()) _room.GetWired()?.BeforeActorLeaves(user);
         UpdatePets();
         UpdateBots();
         _room.UsersNow = 0;

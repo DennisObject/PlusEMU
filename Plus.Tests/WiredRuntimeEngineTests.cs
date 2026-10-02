@@ -678,6 +678,24 @@ public class WiredRuntimeEngineTests
         Assert.Empty(f.Errors);
     }
 
+    [Fact]
+    public void PreLeaveCancelsAuxiliaryAndRestoresTransientEffectBeforeDetach()
+    {
+        var f = new Fixture(); var actor = f.User(1); var effect = 12; var called = false;
+        f.Trigger();
+        f.Action(ctx =>
+        {
+            var restore = Plus.HabboHotel.Items.Wired.Modern.Actions.WiredTemporaryEffects.For(f.Room)
+                .Acquire(actor, () => effect, value => effect = value, () => f.Users.Contains(actor));
+            Assert.True(f.Engine.ScheduleAux(ctx, 500, () => called = true, restore)); return true;
+        });
+        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = actor }); f.Advance(50);
+        Assert.Equal(4, effect);
+        f.Engine.ActorLeaving(actor); Assert.Equal(12, effect);
+        f.Users.Remove(actor); f.User(1); f.Advance(500);
+        Assert.False(called); Assert.False(f.Engine.NeedsFastCycle); Assert.Empty(f.Errors);
+    }
+
     private sealed class Picker : IWiredActionPicker
     {
         public int Calls;

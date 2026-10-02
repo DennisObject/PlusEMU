@@ -5,6 +5,7 @@ using Plus.Core;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Interactor;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Games.Freeze;
 using Plus.HabboHotel.Rooms.Games.Teams;
@@ -873,6 +874,7 @@ public class Item
                     }
                     case InteractionType.Counter:
                     {
+                        if (WiredCounterController.Recognizes(this)) break;
                         if (string.IsNullOrEmpty(LegacyDataString))
                             break;
                         var seconds = 0;
