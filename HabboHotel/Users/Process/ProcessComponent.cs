@@ -1,6 +1,5 @@
 ﻿using NLog;
 using Plus.Communication.Packets.Outgoing.Handshake;
-using Plus.HabboHotel.Quests;
 
 namespace Plus.HabboHotel.Users.Process;
 
@@ -97,10 +96,7 @@ internal sealed class ProcessComponent
                 _player.HabboStats.DailyRespectPoints = _player.Rank == 1 && _player.VipRank == 0 ? 10 : _player.VipRank == 1 ? 15 : 20;
                 _player.HabboStats.DailyPetRespectPoints = _player.Rank == 1 && _player.VipRank == 0 ? 10 : _player.VipRank == 1 ? 15 : 20;
                 if (_player.Client != null)
-                {
                     _player.Client.Send(new UserObjectComposer(_player));
-                    RewardTrackManager.Current?.Progress(_player.Client, RewardTrackActions.ReplenishRespect);
-                }
             }
             if (_player.GiftPurchasingWarnings < 15)
                 _player.GiftPurchasingWarnings = 0;
