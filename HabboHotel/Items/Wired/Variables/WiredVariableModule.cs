@@ -69,11 +69,15 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             if (!ValidateHolder(reference, holder, frame)) return null;
             var resolved = Resolve(reference, false);
             if (resolved is null) return null;
-            if (resolved.Builtin is { } builtin) return builtins?.Read(builtin, holder, frame);
-            var definition = resolved.Definition!;
-            if (definition.IsDurable && !holder.CanPersist) return null;
-            var stored = Store(definition, frame).Read(Key(definition, holder));
-            var value = stored ?? (definition.Target == WiredVariableTarget.Global ? new(definition.InitialValue, 0, 0) : null);
+            WiredVariableValue? value;
+            if (resolved.Builtin is { } builtin) value = builtins?.Read(builtin, holder, frame);
+            else
+            {
+                var definition = resolved.Definition!;
+                if (definition.IsDurable && !holder.CanPersist) return null;
+                var stored = Store(definition, frame).Read(Key(definition, holder));
+                value = stored ?? (definition.Target == WiredVariableTarget.Global ? new(definition.InitialValue, 0, 0) : null);
+            }
             return value is not null && resolved.Convert is { } convert ? convert(value) : value;
         }
     }
@@ -249,7 +253,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
                 var resolved = Resolve(new(local.Target, local.Token), false, authority);
                 if (resolved is null) continue;
                 var readOnly = local.Target == WiredVariableTarget.Context || resolved.Authorization?.Lineage.Any(x => x.Link?.ReadOnly == true) == true;
-                result.Add(new(local, resolved.Definition?.HasValue ?? local.HasValue, readOnly) { IsBuiltin = resolved.Builtin is not null });
+                result.Add(new(local, HasValue(resolved), readOnly) { IsBuiltin = resolved.Builtin is not null });
             }
             return result.OrderBy(x => x.CatalogTarget).ThenBy(x => x.Definition.Name, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Definition.ItemId).ToArray();
         }
@@ -279,6 +283,9 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     private IWiredVariableStore Store(WiredVariableDefinition definition, WiredVariableFrame frame) =>
         definition.Target == WiredVariableTarget.Context ? frame.Context : definition.IsDurable ? durable : _active;
 
+    private bool HasValue(Resolved resolved) => resolved.Definition?.HasValue
+        ?? (resolved.Builtin is { } builtin && builtins?.HasValue(builtin) == true);
+
     private Resolved? Resolve(WiredVariableReference reference, bool writing, IWiredVariableDirectory? readDirectory = null)
     {
         var authority = readDirectory ?? directory;
@@ -286,7 +293,8 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         {
             if (writing || derived.Source == reference) return null;
             var source = Resolve(derived.Source, false, authority);
-            return source is null || derived.RequiresValue && source.Definition?.HasValue != true ? null : source with { Convert = derived.Convert };
+            return source is null || derived.RequiresValue && !HasValue(source)
+                || derived.RequiresTimestamps && source.Definition is null ? null : source with { Convert = derived.Convert };
         }
         var visited = new HashSet<uint>();
         var lineage = ImmutableArray.CreateBuilder<WiredVariableDefinition>();

@@ -13,6 +13,25 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     Func<WiredVariableReference, WiredVariableHolder, WiredVariableFrame, int?>? engineRead = null,
     Func<WiredVariableReference, WiredVariableHolder, int, WiredVariableFrame, bool>? engineWrite = null) : IWiredBuiltinVariables
 {
+    /// <summary>Source capabilities, independent of whether a particular holder currently has the variable.</summary>
+    public static bool HasNumericValue(WiredVariableReference reference)
+    {
+        var key = Normalize(reference.Token);
+        return reference.Target switch
+        {
+            WiredVariableTarget.Furni => key is "@altitude" or "@class_id" or "@dimensions.x" or "@dimensions.y" or "@height"
+                or "@id" or "@owner_id" or "@position.x" or "@position.y" or "@rotation" or "@state" or "@type" or "@wallitem_offset"
+                or "@projectile.animation.furni_collisions" or "@projectile.animation.user_collisions" or "@projectile.animation.tiles_traveled"
+                or "@projectile.animation.position.x" or "@projectile.animation.position.y" or "@projectile.animation.position.altitude",
+            WiredVariableTarget.User => key is "@achievement_score" or "@altitude" or "@bot_id" or "@dance" or "@direction" or "@effect"
+                or "@gender" or "@handitem" or "@index" or "@pet_id" or "@position.x" or "@position.y" or "@room_entry.method"
+                or "@room_entry.teleport_id" or "@sign" or "@team.color" or "@team.score" or "@type" or "@user_id",
+            WiredVariableTarget.Global => key is "@furni_count" or "@room_id" or "@user_count",
+            WiredVariableTarget.Context => key is "@selector_furni_count" or "@selector_user_count" or "@signal_furni_count" or "@signal_user_count",
+            _ => false
+        };
+    }
+
     public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)
     {
         if (reference.Target != holder.Target || frame.RoomId != room.Id || !frame.Contains(holder)) return null;

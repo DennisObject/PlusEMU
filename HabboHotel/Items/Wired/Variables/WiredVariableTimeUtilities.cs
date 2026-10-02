@@ -34,4 +34,4 @@ public sealed record WiredVariableTimeUtilities(int Mask, int Mode)
     }
 }
 
-public sealed record WiredVariableDerivation(WiredVariableReference Source, Func<WiredVariableValue, WiredVariableValue?> Convert, bool RequiresValue = true);
+public sealed record WiredVariableDerivation(WiredVariableReference Source, Func<WiredVariableValue, WiredVariableValue?> Convert, bool RequiresValue = true, bool RequiresTimestamps = false);

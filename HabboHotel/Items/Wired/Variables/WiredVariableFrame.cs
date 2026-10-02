@@ -27,6 +27,7 @@ public sealed class WiredVariableFrame(uint roomId, IReadOnlyList<WiredVariableH
 
 public interface IWiredBuiltinVariables
 {
+    bool HasValue(WiredVariableReference reference) => RoomWiredBuiltinVariables.HasNumericValue(reference);
     WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame);
     bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame);
 }
