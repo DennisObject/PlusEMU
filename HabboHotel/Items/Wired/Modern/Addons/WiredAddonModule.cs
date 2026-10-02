@@ -115,7 +115,8 @@ public sealed class WiredAddonModule
             case "wf_xtra_rotate_to_dir":
             {
                 var distance = (WiredProjectileDistance)P(14);
-                long? tiles = P(15) == 1 ? ReadVariable(input, P(17), c.Text.Split('\t').ElementAtOrDefault(1) ?? "", P(21), P(22), c) : P(16);
+                long? tiles = distance != WiredProjectileDistance.Normal && P(15) == 1
+                    ? ReadVariable(input, P(17), c.Text.Split('\t').ElementAtOrDefault(1) ?? "", P(21), P(22), c) : P(16);
                 if (tiles is null) distance = WiredProjectileDistance.Normal;
                 policy.Projectile = new(Furni(100), P(0) == 1 ? P(1) : null, P(10),
                     P(18) == 0 ? null : P(18), distance, (int)Math.Clamp(tiles ?? 0, -64, 64));
