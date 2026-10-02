@@ -14,11 +14,12 @@ public static class WiredVariablePredicates
         IEnumerable<WiredVariableHolder> holders, WiredVariableFrame frame, int sort, int count)
     {
         if (sort is < 0 or > 5) return [];
-        var values = holders.Select(holder => (holder, value: variables.Read(reference, holder, frame)))
+        using var reads = variables.CaptureReads([reference], frame);
+        var values = holders.Select(holder => (holder, value: reads.Read(reference, holder, frame)))
             .Where(x => x.value is not null)
             .Select(x => (x.holder, key: sort < 2 ? x.value!.Value : sort < 4 ? x.value!.CreatedAtMs : x.value!.UpdatedAtMs));
         // Polaris puts highest value first at 0, but oldest timestamp first at 2 and 4.
         var ordered = sort is 0 or 3 or 5 ? values.OrderByDescending(x => x.key) : values.OrderBy(x => x.key);
-        return ordered.ThenBy(x => x.holder.EntityId).Take(Math.Clamp(count, 0, 1000)).Select(x => x.holder).ToArray();
+        return ordered.ThenBy(x => x.holder.EntityId).Take(Math.Clamp(count, 0, 10000)).Select(x => x.holder).ToArray();
     }
 }
