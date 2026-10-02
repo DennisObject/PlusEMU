@@ -120,6 +120,30 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         }
     }
 
+    /// <summary>Publish a complete speech match into one firing only after every destination is authorized.</summary>
+    public bool CaptureContextValues(IReadOnlyDictionary<uint, int> values, WiredVariableFrame frame)
+    {
+        lock (_gate)
+        {
+            if (frame.RoomId != roomId || frame.Depth >= 32 || values.Count > 8) return false;
+            var destinations = new List<(WiredVariableDefinition Definition, int Value)>();
+            foreach (var (id, value) in values)
+            {
+                var resolved = Resolve(new(WiredVariableTarget.Context, $"custom:{id}"), true);
+                if (resolved?.Definition is not { Target: WiredVariableTarget.Context, HasValue: true } definition) return false;
+                destinations.Add((definition, value));
+            }
+            foreach (var (definition, value) in destinations)
+            {
+                var key = new WiredVariableKey(definition.ItemId, WiredVariableTarget.Context, 0);
+                var write = frame.Context.Mutate(key, before => before?.Value == value ? before : new(value, before?.CreatedAtMs ?? nowMs(), nowMs()));
+                if (write.Changed) _changes.Enqueue(new(roomId, key, write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
+                    write.Before, write.After, 0, frame.Depth + 1));
+            }
+            return true;
+        }
+    }
+
     /// <summary>Seed a room variable once after loading its saved definition; never overwrite a durable current value.</summary>
     public bool InitializeGlobal(uint definitionId)
     {

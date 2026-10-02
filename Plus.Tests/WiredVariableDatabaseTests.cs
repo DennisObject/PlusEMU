@@ -15,6 +15,8 @@ using Plus.Database;
 using Plus.Database.Interfaces;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items.Wired.Runtime;
+using Plus.HabboHotel.Items.Wired.Modern.Triggers;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Rooms;
@@ -261,6 +263,33 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             roomVariables.ItemDetached(levelItem); roomVariables.ItemDetached(timeItem); floor.TryRemove(levelItem.Id, out _); floor.TryRemove(timeItem.Id, out _);
             output.WriteLine("Derived level/time catalog and public reads: real base values, read-only mutation rejection, 400 derived values in 3 SQL commands, owner revocation and moved metadata invalidation passed.");
 
+            var contextItemId = Insert(admin, "items", new() { ["user_id"] = owner, ["room_id"] = room, ["base_item"] = baseItem, ["extra_data"] = "", ["wall_pos"] = "" }); items.Add(contextItemId);
+            var contextConfiguration = new WiredConfiguration { IntParams = [1], Text = "captured" };
+            admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@id,'wf_var_context',1,@config)",
+                new { id = contextItemId, config = JsonSerializer.Serialize(contextConfiguration) });
+            var contextItem = new Item { Id = contextItemId, Definition = new() { InteractionName = "wf_var_context" } }; floor[contextItemId] = contextItem;
+            var contextBox = roomVariables.CreateBox(contextItem)!; contextBox.ApplyConfiguration(contextConfiguration); roomVariables.ConfigurationLoaded(contextBox);
+            var captureItem = new Item { Id = 1100000003, Definition = new() { InteractionName = "wf_xtra_text_input_variable" } }; floor[captureItem.Id] = captureItem;
+            var captureBox = Assert.IsType<WiredVariableTextInputBox>(roomVariables.CreateBox(captureItem));
+            Assert.True(captureBox.TryValidateConfiguration(new() { IntParams = [1], Text = $"{contextItemId}\tamount" }, out var captureConfiguration, out _));
+            captureBox.ApplyConfiguration(captureConfiguration); roomVariables.ConfigurationLoaded(captureBox);
+            Assert.True(WiredBoxRegistry.TryGet("wf_trg_says_something", out var speechDescriptor));
+            var speechTrigger = new WiredModernTrigger(liveRoom, new Item { Id = 1100000004 }, speechDescriptor);
+            speechTrigger.ApplyConfiguration(new() { IntParams = [1, 0, 0], Text = "set #amount#" });
+            var speech = new WiredRuntimeContext(liveRoom, new(WiredEventKind.Speech) { Actor = fxUser, Message = "set 42" },
+                new(() => floor.Values.ToArray(), () => [fxUser]), new UnusedOperations());
+            Assert.True(roomVariables.CaptureSpeech(speech, speechTrigger));
+            Assert.Equal(42, roomVariables.Module.Read(new(WiredVariableTarget.Context, $"custom:{contextItemId}"), new(WiredVariableTarget.Context, 0, 0), speech.VariableFrame!)!.Value);
+            var unrelated = new WiredVariableFrame(room, []);
+            Assert.Null(roomVariables.Module.Read(new(WiredVariableTarget.Context, $"custom:{contextItemId}"), new(WiredVariableTarget.Context, 0, 0), unrelated));
+            speechTrigger.ApplyConfiguration(new() { IntParams = [1, 0, 1], Text = "set #amount#" });
+            var forbiddenSpeech = new WiredRuntimeContext(liveRoom, speech.Event, speech.Targets, new UnusedOperations());
+            Assert.False(roomVariables.CaptureSpeech(forbiddenSpeech, speechTrigger)); Assert.Null(forbiddenSpeech.VariableFrame);
+            Assert.Empty(store.GetHolders(contextItemId));
+            roomVariables.ItemDetached(captureItem); floor.TryRemove(captureItem.Id, out _);
+            Assert.Null(roomVariables.CaptureSpeech(speech, speechTrigger));
+            output.WriteLine("Actual room text capture: current authorized context definition receives42, unrelated firing empty, owner-only rejection before publication, detached capturer falls back, no durable context rows.");
+
             var clearDb = new ProbeDatabase(connectionString);
             var clearModule = new WiredVariableModule(room, directory, new DatabaseWiredVariableStore(clearDb), () => 7000);
             clearDb.FailSqlPrefix = "DELETE FROM wired_variable_values";
@@ -369,6 +398,13 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
         public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => throw new InvalidOperationException("Combined provider must own persistence.");
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new InvalidOperationException("Combined provider must own persistence.");
     }
+    private sealed class UnusedOperations : IWiredRuntimeOperations
+    {
+        public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => throw new NotSupportedException();
+        public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => throw new NotSupportedException();
+        public void ResetTimers(IEnumerable<Item> targets) => throw new NotSupportedException();
+    }
+
     private sealed class ProbeDatabase(string connectionString) : IDatabase
     {
         public int Commands;

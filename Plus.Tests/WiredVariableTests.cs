@@ -20,6 +20,22 @@ public sealed class WiredVariableTests
     private static WiredVariableFrame Frame(params WiredVariableHolder[] holders) => new(1, holders);
 
     [Fact]
+    public void SpeechCaptureValidatesEveryContextDestinationBeforePublishingAnyValue()
+    {
+        var directory = new Directory();
+        directory.Definitions[10] = new(10, 1, 5, "a", WiredVariableTarget.Context, WiredVariableAvailability.RoomActive, true);
+        directory.Definitions[11] = directory.Definitions[10] with { ItemId = 11, Name = "b", HasValue = false };
+        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), () => 1); var frame = Frame();
+        Assert.False(module.CaptureContextValues(new Dictionary<uint, int> { [10] = 10, [11] = 20 }, frame));
+        Assert.Empty(frame.Context.GetHolders(10)); Assert.Empty(module.DrainChanges());
+        directory.Definitions[11] = directory.Definitions[11] with { HasValue = true };
+        Assert.True(module.CaptureContextValues(new Dictionary<uint, int> { [10] = 10, [11] = 20 }, frame));
+        Assert.Equal(10, module.Read(new(WiredVariableTarget.Context, "custom:10"), new(WiredVariableTarget.Context, 0, 0), frame)!.Value);
+        Assert.Equal(2, module.DrainChanges().Count);
+        Assert.Null(module.Read(new(WiredVariableTarget.Context, "custom:10"), new(WiredVariableTarget.Context, 0, 0), Frame()));
+    }
+
+    [Fact]
     public void TwoTemporaryItemsKeepIndependentActiveValuesAndNeverReachDurableStorage()
     {
         var directory = new Directory();
