@@ -144,7 +144,6 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     private bool Teleport(WiredRuntimeContext context, RoomUser user, Item target, bool fast)
     {
         if (user.X == target.GetX && user.Y == target.GetY) return false;
-        var previousEffect = user.IsBot ? 0 : user.GetClient()?.GetHabbo()?.Effects?.CurrentEffect ?? 0;
         var delay = fast ? 100 : 500; // Polaris default 500ms; fast uses max(75, delay / 5).
         var scheduled = context.Room.GetWired().ScheduleAux(context, delay, () =>
         {
@@ -152,12 +151,10 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 _movement.MoveAvatar(context, user, target.GetX, target.GetY, false);
         });
         if (!scheduled) return false;
-        user.ApplyEffect(4);
-        void RestoreEffect()
-        {
-            if (context.Targets.ResolveUsers(context, [user.VirtualId], 100, raw: true).Any(attached => ReferenceEquals(attached, user)))
-                user.ApplyEffect(previousEffect);
-        }
+        var restore = WiredTemporaryEffects.For(context.Room).Acquire(user,
+            () => user.IsBot ? 0 : user.GetClient()?.GetHabbo()?.Effects?.CurrentEffect ?? 0, user.ApplyEffect,
+            () => context.Targets.ResolveUsers(context, [user.VirtualId], 100, raw: true).Any(attached => ReferenceEquals(attached, user)));
+        void RestoreEffect() => restore();
         if (!context.Room.GetWired().ScheduleAux(context, fast ? 500 : 1500, RestoreEffect, RestoreEffect)) RestoreEffect();
         return true;
     }
