@@ -7,6 +7,8 @@ using Plus.Communication.Packets.Outgoing.Rooms.Session;
 using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Wired.Runtime;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Rooms.AI.Speech;
 using Plus.Core.FigureData;
@@ -134,7 +136,7 @@ public class RoomUserManager
         else
             user.BotAi.Init(bot.BotId, user.VirtualId, _room.RoomId, user, _room);
         user.UpdateNeeded = true;
-        _room.SendPacket(new UsersComposer(user));
+        _room.SendUser(user);
         if (user.IsPet)
         {
             if (_pets.ContainsKey(user.PetData.PetId))
@@ -166,10 +168,11 @@ public class RoomUserManager
         }
         else
             _bots.TryRemove(user.BotData.Id, out var bot);
+        _room.GetWired()?.BeforeActorLeaves(user);
         user.BotAi.OnSelfLeaveRoom(kicked);
         _room.SendPacket(new UserRemoveComposer(user.VirtualId));
-        if (_users != null)
-            _users.TryRemove(user.InternalRoomId, out var toRemove);
+        if (_users != null && _users.TryRemove(user.InternalRoomId, out var toRemove) && ReferenceEquals(toRemove, user))
+            _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
         OnRemove(user);
     }
 
@@ -195,6 +198,7 @@ public class RoomUserManager
         session.GetHabbo().CurrentRoom = _room;
         if (!_users.TryAdd(personalId, user))
             return false;
+        user.WiredRoomEntry = WiredRoomEntrySnapshot.Capture(_room, session.GetHabbo());
         var model = _room.GetGameMap().Model;
         if (model == null)
             return false;
@@ -227,6 +231,8 @@ public class RoomUserManager
                     item.UpdateState(false, true);
                     user.SetPos(item.GetX, item.GetY, item.GetZ);
                     user.SetRot(item.Rotation, false);
+                    if (session.GetHabbo().TeleporterId != 0)
+                        RewardTrackManager.Current?.Progress(session, RewardTrackActions.Teleport);
                     item.InteractingUser2 = session.GetHabbo().Id;
                     item.LegacyDataString = "0";
                     item.UpdateState(false, true);
@@ -249,7 +255,7 @@ public class RoomUserManager
                 user.SetRot(model.DoorOrientation, false);
             }
         }
-        _room.SendPacket(new UsersComposer(user));
+        _room.SendUser(user);
         if (_room.CheckRights(session, true))
         {
             user.SetStatus("flatctrl", "useradmin");
@@ -279,6 +285,15 @@ public class RoomUserManager
                 continue;
             bot.BotAi.OnUserEnterRoom(user);
         }
+        if (session.GetHabbo().Id != _room.OwnerId)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.EnterOtherUsersRoom);
+        var pendingFollow = session.GetHabbo().PendingFollowRoomId;
+        if (pendingFollow != 0)
+        {
+            session.GetHabbo().PendingFollowRoomId = 0;
+            if (pendingFollow == _room.RoomId)
+                RewardTrackManager.Current?.Progress(session, RewardTrackActions.FollowFriend);
+        }
         return true;
     }
 
@@ -297,8 +312,9 @@ public class RoomUserManager
             if (session.GetHabbo().TentId > 0)
                 session.GetHabbo().TentId = 0;
             session.EndCameraContext();
-            session.GetHabbo().CurrentRoom = null;
             var user = GetRoomUserByHabbo(session.GetHabbo().Id);
+            if (user != null) _room.GetWired()?.BeforeActorLeaves(user);
+            session.GetHabbo().CurrentRoom = null;
             if (user != null)
             {
                 if (user.RidingHorse)
@@ -421,6 +437,7 @@ public class RoomUserManager
 
     private void RemoveRoomUser(RoomUser user)
     {
+        _room.GetWired()?.BeforeActorLeaves(user);
         if (!user.IsBot || !user.BotData.IsTemporary)
         {
             if (user.SetStep)
@@ -433,7 +450,8 @@ public class RoomUserManager
         RoomUser toRemove = null;
         if (_users.TryRemove(user.InternalRoomId, out toRemove))
         {
-            //uhmm, could put the below stuff in but idk.
+            if (ReferenceEquals(toRemove, user))
+                _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
         }
         user.InternalRoomId = -1;
         OnRemove(user);
@@ -931,6 +949,7 @@ public class RoomUserManager
     {
         if (user == null)
             return;
+        var wasLaying = user.Statusses.ContainsKey("lay");
         try
         {
             var isBot = user.IsBot;
@@ -1186,6 +1205,11 @@ public class RoomUserManager
         {
             ExceptionLogger.LogException(e);
         }
+        finally
+        {
+            if (!wasLaying && user.Statusses.ContainsKey("lay"))
+                _room.GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = user, Action = (int)WiredAvatarAction.Lay });
+        }
     }
 
     private void UpdateUserEffect(RoomUser user, int x, int y)
@@ -1220,6 +1244,7 @@ public class RoomUserManager
                             {
                                 user.GetClient().GetHabbo().Effects.ApplyEffect(29);
                                 user.CurrentItemEffect = type;
+                                RewardTrackManager.Current?.Progress(user.GetClient(), RewardTrackActions.Swim);
                                 break;
                             }
                         case ItemEffectType.SwimLow:
@@ -1268,6 +1293,7 @@ public class RoomUserManager
 
     private void DisposeUsers()
     {
+        foreach (var user in _users.Values.ToArray()) _room.GetWired()?.BeforeActorLeaves(user);
         UpdatePets();
         UpdateBots();
         _room.UsersNow = 0;

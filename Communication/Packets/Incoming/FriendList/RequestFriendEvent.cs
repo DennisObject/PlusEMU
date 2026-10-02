@@ -21,7 +21,10 @@ internal class RequestFriendEvent : IPacketEvent
         if (userId == 0 || blocked)
             return;
 
-        session.GetHabbo().Messenger.SendFriendRequest(userId);
+        var messenger = session.GetHabbo().Messenger;
+        var accepting = messenger.Requests.ContainsKey(userId);
+        if (messenger.SendFriendRequest(userId) == null && !accepting)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.RequestFriend);
         _questManager.ProgressUserQuest(session, QuestType.SocialFriend);
         return;
     }

@@ -1,5 +1,6 @@
 ﻿using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 
@@ -31,6 +32,15 @@ public class ActionEvent : RoomPacketEvent
             user.IsAsleep = true;
             room.SendPacket(new SleepComposer(user, true));
         }
+        var wiredAction = action switch
+        {
+            1 => WiredAvatarAction.Wave, 2 => WiredAvatarAction.Kiss, 3 => WiredAvatarAction.Laugh,
+            5 => WiredAvatarAction.Relax, 7 => WiredAvatarAction.ThumbUp, _ => (WiredAvatarAction)0
+        };
+        if (wiredAction != 0)
+            room.GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = user, Action = (int)wiredAction, Code = -1 });
+        if (action == 1)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.Wave);
         _questManager.ProgressUserQuest(session, QuestType.SocialWave);
         return Task.CompletedTask;
     }

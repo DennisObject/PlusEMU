@@ -46,47 +46,11 @@ internal class UserSaysBox : IWiredItem
             return false;
         if (message.Contains($" {StringData}") || message.Contains($"{StringData} ") || message == StringData)
         {
-            player.WiredInteraction = true;
-            var effects = Instance.GetWired().GetEffects(this);
-            var conditions = Instance.GetWired().GetConditions(this);
-            foreach (var condition in conditions.ToList())
+            return Instance.GetWired().RunStack(this, [player], () =>
             {
-                if (!condition.Execute(player))
-                    return false;
-                Instance.GetWired().OnEvent(condition.Item);
-            }
-            player.Client.Send(new WhisperComposer(user.VirtualId, message, 0, 0));
-            //Check the ICollection to find the random addon effect.
-            var hasRandomEffectAddon = effects.Count(x => x.Type == WiredBoxType.AddonRandomEffect) > 0;
-            if (hasRandomEffectAddon)
-            {
-                //Okay, so we have a random addon effect, now lets get the IWiredItem and attempt to execute it.
-                var randomBox = effects.FirstOrDefault(x => x.Type == WiredBoxType.AddonRandomEffect);
-                if (!randomBox.Execute())
-                    return false;
-
-                //Success! Let's get our selected box and continue.
-                var selectedBox = Instance.GetWired().GetRandomEffect(effects.ToList());
-                if (!selectedBox.Execute())
-                    return false;
-
-                //Woo! Almost there captain, now lets broadcast the update to the room instance.
-                if (Instance != null)
-                {
-                    Instance.GetWired().OnEvent(randomBox.Item);
-                    Instance.GetWired().OnEvent(selectedBox.Item);
-                }
-            }
-            else
-            {
-                foreach (var effect in effects.ToList())
-                {
-                    if (!effect.Execute(player))
-                        return false;
-                    Instance.GetWired().OnEvent(effect.Item);
-                }
-            }
-            return true;
+                player.WiredInteraction = true;
+                player.Client.Send(new WhisperComposer(user.VirtualId, message, 0, 0));
+            });
         }
         return false;
     }

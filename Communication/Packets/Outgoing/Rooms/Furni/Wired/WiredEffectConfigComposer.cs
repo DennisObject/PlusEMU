@@ -1,5 +1,6 @@
 ﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
 
@@ -18,7 +19,13 @@ public class WiredEffectConfigComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-
+        if (WiredLegacyCustomEditor.IsCustom(_box))
+        {
+            if (!WiredLegacyCustomEditor.TryGetConfiguration(_box, out var descriptor, out var configuration))
+                throw new InvalidDataException("Invalid stored custom Wired settings.");
+            WiredLegacyProtocol.Write(packet, _box.Item.Id, _box.Item.Definition.SpriteId, descriptor, configuration, 0, []);
+            return;
+        }
         packet.WriteBoolean(false);
         packet.WriteInteger(15);
         packet.WriteInteger(_box.SetItems.Count);
@@ -40,7 +47,7 @@ public class WiredEffectConfigComposer : IServerPacket
         else
             packet.WriteString(_box.StringData);
         if (_box.Type != WiredBoxType.EffectMatchPosition && _box.Type != WiredBoxType.EffectMoveAndRotate && _box.Type != WiredBoxType.EffectMuteTriggerer &&
-            _box.Type != WiredBoxType.EffectBotFollowsUserBox)
+            _box.Type != WiredBoxType.EffectBotFollowsUserBox && _box.Type != WiredBoxType.EffectBotGivesHanditemBox)
             packet.WriteInteger(0); // Loop
         else if (_box.Type == WiredBoxType.EffectMatchPosition)
         {
@@ -71,13 +78,17 @@ public class WiredEffectConfigComposer : IServerPacket
             packet.WriteInteger(1); //Count, for the time.
             packet.WriteInteger(_box.StringData != null ? int.Parse(_box.StringData.Split(';')[0]) : 0);
         }
-        else if (_box.Type == WiredBoxType.EffectBotGivesHanditemBox) packet.WriteInteger(_box.StringData != null ? int.Parse(_box.StringData.Split(';')[1]) : 0);
+        else if (_box.Type == WiredBoxType.EffectBotGivesHanditemBox)
+        {
+            packet.WriteInteger(1);
+            packet.WriteInteger(_box.StringData != null ? int.Parse(_box.StringData.Split(';')[1]) : 0);
+        }
         if (_box is IWiredCycle && _box.Type != WiredBoxType.EffectKickUser && _box.Type != WiredBoxType.EffectMatchPosition && _box.Type != WiredBoxType.EffectMoveAndRotate &&
             _box.Type != WiredBoxType.EffectSetRollerSpeed)
         {
             var cycle = (IWiredCycle)_box;
-            packet.WriteInteger(WiredBoxTypeUtility.GetWiredId(_box.Type));
             packet.WriteInteger(0);
+            packet.WriteInteger(WiredBoxTypeUtility.GetWiredId(_box.Type));
             packet.WriteInteger(cycle.Delay);
         }
         else if (_box.Type == WiredBoxType.EffectMatchPosition || _box.Type == WiredBoxType.EffectMoveAndRotate)

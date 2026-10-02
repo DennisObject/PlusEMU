@@ -1,0 +1,17 @@
+-- Migration 16 is an explicit data operation, not an automatic fixed-ID SQL seed.
+-- Existing furniture IDs, catalogue rows, and all 50 legacy wired_id meanings stay intact.
+-- No schema alteration is required. Definitions and catalogue offers use AUTO_INCREMENT.
+-- Read Database/WiredCatalog/README.md and review the factory ledger + dry-run first.
+--
+-- Read-only default:
+-- python3 scripts/import-wired-catalog.py --assets /trusted/furniture \
+--   --asset-overlay /reviewed/private/furniture \
+--   --support-ledger /reviewed/factory-support.json --report /tmp/wired-plan.json
+--
+-- Only AFTER root review, opt in to the exact isolated preview project/volume:
+-- python3 scripts/import-wired-catalog.py --assets /trusted/furniture \
+--   --asset-overlay /reviewed/private/furniture \
+--   --support-ledger /reviewed/factory-support.json \
+--   --expected-engine-commit FULL_REVIEWED_HASH --apply-isolated
+--
+-- Executing this file alone intentionally performs no writes. There is no live apply mode.

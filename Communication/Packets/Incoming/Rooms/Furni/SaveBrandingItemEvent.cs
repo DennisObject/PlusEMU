@@ -17,7 +17,7 @@ internal class SaveBrandingItemEvent : IPacketEvent
             return Task.CompletedTask;
         var itemId = packet.ReadUInt();
         var item = room.GetRoomItemHandler().GetItem(itemId);
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return Task.CompletedTask;
         if (item.Definition.InteractionType == InteractionType.Background)
         {

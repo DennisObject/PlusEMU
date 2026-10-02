@@ -2,6 +2,7 @@
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Quests;
 
 namespace Plus.Communication.Packets.Incoming.FriendFurni;
 
@@ -22,7 +23,7 @@ internal class FriendFurniConfirmLockEvent : IPacketEvent
         if (room == null)
             return Task.CompletedTask;
         var item = room.GetRoomItemHandler().GetItem(pId);
-        if (item == null || item.Definition == null || item.Definition.InteractionType != InteractionType.Lovelock)
+        if (item == null || item.IsTemporary || item.Definition == null || item.Definition.InteractionType != InteractionType.Lovelock)
             return Task.CompletedTask;
         var userOneId = item.InteractingUser;
         var userTwoId = item.InteractingUser2;
@@ -110,6 +111,8 @@ internal class FriendFurniConfirmLockEvent : IPacketEvent
         }
         userOne.GetClient().Send(new LoveLockDialogueCloseComposer(pId));
         userTwo.GetClient().Send(new LoveLockDialogueCloseComposer(pId));
+        RewardTrackManager.Current?.Progress(userOne.GetClient(), RewardTrackActions.FriendFurniLocked);
+        RewardTrackManager.Current?.Progress(userTwo.GetClient(), RewardTrackActions.FriendFurniLocked);
         userOne.CanWalk = true;
         userTwo.CanWalk = true;
         userOne = null;

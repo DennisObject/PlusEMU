@@ -28,7 +28,7 @@ internal class MoveObjectEvent : RoomPacketEvent
             if (!room.CheckRights(session, false, true))
             {
                 item = room.GetRoomItemHandler().GetItem(itemId);
-                if (item == null)
+                if (item == null || item.IsTemporary)
                     return Task.CompletedTask;
                 session.Send(new ObjectUpdateComposer(item));
                 return Task.CompletedTask;
@@ -39,20 +39,26 @@ internal class MoveObjectEvent : RoomPacketEvent
             if (!room.CheckRights(session)) return Task.CompletedTask;
         }
         item = room.GetRoomItemHandler().GetItem(itemId);
-        if (item == null)
+        if (item == null || item.IsTemporary)
             return Task.CompletedTask;
         var x = packet.ReadInt();
         var y = packet.ReadInt();
         var rotation = packet.ReadInt();
-        if (x != item.GetX || y != item.GetY)
+        var moved = x != item.GetX || y != item.GetY;
+        var rotated = rotation != item.Rotation;
+        if (moved)
             _questManager.ProgressUserQuest(session, QuestType.FurniMove);
-        if (rotation != item.Rotation)
+        if (rotated)
             _questManager.ProgressUserQuest(session, QuestType.FurniRotate);
         if (!room.GetRoomItemHandler().SetFloorItem(session, item, x, y, rotation, false, false, true))
         {
             room.SendPacket(new ObjectUpdateComposer(item));
             return Task.CompletedTask;
         }
+        if (moved)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.MoveItem);
+        if (rotated)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.RotateItem);
         if (item.GetZ >= 0.1)
             _questManager.ProgressUserQuest(session, QuestType.FurniStack);
         return Task.CompletedTask;

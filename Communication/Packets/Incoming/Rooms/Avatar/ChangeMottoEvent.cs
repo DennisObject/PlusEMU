@@ -55,6 +55,7 @@ internal class ChangeMottoEvent : IPacketEvent
             dbClient.AddParameter("motto", newMotto);
             dbClient.RunQuery();
         }
+        RewardTrackManager.Current?.Progress(session, RewardTrackActions.ChangeMotto);
         _questManager.ProgressUserQuest(session, QuestType.ProfileChangeMotto);
         _achievementManager.ProgressAchievement(session, "ACH_Motto", 1);
         if (session.GetHabbo().InRoom)

@@ -1,9 +1,21 @@
-﻿namespace Plus.HabboHotel.Items;
+﻿using Plus.HabboHotel.Items.Wired.Configuration;
+
+namespace Plus.HabboHotel.Items;
 
 public static class InteractionTypes
 {
     public static InteractionType GetTypeFromString(string type)
     {
+        if (WiredBoxRegistry.TryGet(type, out var descriptor))
+            return descriptor.Category switch
+            {
+                WiredBoxCategory.Trigger => InteractionType.WiredTrigger,
+                WiredBoxCategory.Condition => InteractionType.WiredCondition,
+                WiredBoxCategory.Selector => InteractionType.WiredSelector,
+                WiredBoxCategory.Addon => InteractionType.WiredAddon,
+                WiredBoxCategory.Variable => InteractionType.WiredVariable,
+                _ => InteractionType.WiredEffect
+            };
         switch (type.ToLower())
         {
             case "":
@@ -167,6 +179,12 @@ public static class InteractionTypes
                 return InteractionType.WiredTrigger;
             case "wired_condition":
                 return InteractionType.WiredCondition;
+            case "wired_selector":
+                return InteractionType.WiredSelector;
+            case "wired_addon":
+                return InteractionType.WiredAddon;
+            case "wired_variable":
+                return InteractionType.WiredVariable;
             case "floor":
                 return InteractionType.Floor;
             case "wallpaper":
@@ -207,6 +225,10 @@ public static class InteractionTypes
                 return InteractionType.Lovelock;
             case "cannon":
                 return InteractionType.Cannon;
+            case "wf_upcounter1":
+            case "wf_upcounter2":
+            case "wf_game_upcounter1":
+            case "wf_game_upcounter2":
             case "counter":
                 return InteractionType.Counter;
             case "camera_picture":

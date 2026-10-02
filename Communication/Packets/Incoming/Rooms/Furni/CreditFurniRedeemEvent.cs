@@ -29,7 +29,7 @@ internal class CreditFurniRedeemEvent : RoomPacketEvent
             return Task.CompletedTask;
         }
         var exchange = room.GetRoomItemHandler().GetItem(packet.ReadUInt());
-        if (exchange == null)
+        if (exchange == null || exchange.IsTemporary)
             return Task.CompletedTask;
         if (exchange.Definition.InteractionType != InteractionType.Exchange)
             return Task.CompletedTask;

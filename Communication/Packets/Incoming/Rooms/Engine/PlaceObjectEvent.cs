@@ -4,6 +4,7 @@ using Plus.Core.Settings;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Engine;
@@ -40,9 +41,9 @@ internal class PlaceObjectEvent : RoomPacketEvent
             return Task.CompletedTask;
         }
         var inventoryItem = session.GetHabbo().Inventory.Furniture.GetItem(itemId);
-        var item = inventoryItem.ToRoomObject();
-        if (item == null)
+        if (inventoryItem == null)
             return Task.CompletedTask;
+        var item = inventoryItem.ToRoomObject(session.GetHabbo());
 
         if (item.Definition.InteractionType == InteractionType.Exchange && room.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Permissions.HasRight("room_item_place_exchange_anywhere"))
         {
@@ -102,6 +103,7 @@ internal class PlaceObjectEvent : RoomPacketEvent
                 session.Send(new FurniListRemoveComposer(itemId));
                 if (session.GetHabbo().Id == room.OwnerId)
                     _achievementManager.ProgressAchievement(session, "ACH_RoomDecoFurniCount", 1);
+                RewardTrackManager.Current?.Progress(session, RewardTrackActions.PlaceItem);
                 if (item.IsWired)
                 {
                     try
@@ -133,6 +135,7 @@ internal class PlaceObjectEvent : RoomPacketEvent
                         session.Send(new FurniListRemoveComposer(itemId));
                         if (session.GetHabbo().Id == room.OwnerId)
                             _achievementManager.ProgressAchievement(session, "ACH_RoomDecoFurniCount", 1);
+                        RewardTrackManager.Current?.Progress(session, RewardTrackActions.PlaceItem);
                     }
                 }
                 catch

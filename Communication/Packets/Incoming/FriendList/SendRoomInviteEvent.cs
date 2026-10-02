@@ -1,6 +1,7 @@
 ﻿using Plus.Communication.Packets.Outgoing.FriendList;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Quests;
 using Plus.Utilities;
 using Dapper;
 
@@ -37,6 +38,7 @@ internal class SendRoomInviteEvent : IPacketEvent
         var message = StringCharFilter.Escape(packet.ReadString());
         if (message.Length > 121)
             message = message.Substring(0, 121);
+        var delivered = false;
         foreach (var userId in targets)
         {
             if (!session.GetHabbo().Messenger.FriendshipExists(userId))
@@ -45,7 +47,10 @@ internal class SendRoomInviteEvent : IPacketEvent
             if (client == null || client.GetHabbo() == null || client.GetHabbo().AllowMessengerInvites || client.GetHabbo().AllowConsoleMessages == false)
                 continue;
             client.Send(new RoomInviteComposer(session.GetHabbo().Id, message));
+            delivered = true;
         }
+        if (delivered)
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.SendMessengerInvite);
         using var connection = _database.Connection();
         connection.Execute("INSERT INTO `chatlogs_console_invitations` (`user_id`,`message`,`timestamp`) VALUES (@userId, @message, UNIX_TIMESTAMP())",
             new { userId = session.GetHabbo().Id, message = message });

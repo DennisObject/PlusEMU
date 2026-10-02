@@ -1,0 +1,25 @@
+using Plus.HabboHotel.GameClients;
+
+namespace Plus.Communication.Packets.Outgoing.Quests;
+
+public sealed class RewardTrackPremiumPurchaseResultComposer : IServerPacket
+{
+    private readonly string _trackId;
+    private readonly int _resultCode;
+    private readonly int _points;
+    public uint MessageId => ServerPacketHeader.RewardTrackPremiumPurchaseResultComposer;
+
+    public RewardTrackPremiumPurchaseResultComposer(string trackId, int resultCode, int points)
+    {
+        _trackId = trackId ?? "";
+        _resultCode = resultCode;
+        _points = points;
+    }
+
+    public void Compose(IOutgoingPacket packet)
+    {
+        packet.WriteString(_trackId);
+        packet.WriteInteger(_resultCode);
+        packet.WriteInteger(_points);
+    }
+}
