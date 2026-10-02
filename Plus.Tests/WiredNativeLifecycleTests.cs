@@ -9,6 +9,8 @@ using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel;
+using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.GameClients;
@@ -228,6 +230,105 @@ public sealed class WiredNativeLifecycleTests
         Assert.Equal("0", replacement.LegacyDataString);
     }
 
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(2, 7)]
+    [InlineData(3, 0)]
+    public void NativeJoinCapturesEntryFactsForTheActualVisit(int method, int teleporterId)
+    {
+        var f = new World(); var prior = f.Human(); var client = prior.GetClient(); var player = client.GetHabbo();
+        var destination = f.Item(7);
+        if (method == 2) { player.IsTeleporting = true; player.TeleporterId = destination.Id; }
+        if (method == 3) f.Wired.RecordRoomNetworkForward(prior, f.Room.Id);
+        f.DetachUser(prior);
+        var gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var previousGame = gameField.GetValue(null);
+        try
+        {
+            var game = (Game)RuntimeHelpers.GetUninitializedObject(typeof(Game));
+            Set(game, "_clientManager", WiredEditorPromotionTests.Proxy.Create<IGameClientManager>((method, _) =>
+                method.Name == "GetClientByUserId" ? client : null));
+            gameField.SetValue(null, game);
+            Assert.True(f.Room.GetRoomUserManager().AddAvatarToRoom(client));
+            var joined = f.Room.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
+            Assert.NotNull(joined); Assert.NotSame(prior, joined);
+            player.IsTeleporting = false; player.IsHopping = false; player.TeleporterId = 0;
+            var frame = WiredVariableRuntimeFrames.Create(f.Context()); var holder = WiredVariableRuntimeFrames.UserHolder(joined);
+            Assert.Equal(method, f.Wired.ReadBuiltin(new(WiredVariableTarget.User, "internal:@room_entry.method"), holder, frame));
+            Assert.Equal(teleporterId, f.Wired.ReadBuiltin(new(WiredVariableTarget.User, "internal:@room_entry.teleport_id"), holder, frame));
+            Assert.Equal(0u, player.WiredRoomNetworkDestination);
+        }
+        finally { gameField.SetValue(null, previousGame); }
+    }
+
+    [Fact]
+    public void ForwardTokenIsDestinationScopedAndTeleportTakesPrecedence()
+    {
+        var f = new World(); var actor = f.Human(); var player = actor.GetClient().GetHabbo();
+        f.Wired.RecordRoomNetworkForward(actor, f.Room.Id + 1);
+        Assert.Equal(default, WiredRoomEntrySnapshot.Capture(f.Room, player));
+        Assert.Equal(0u, player.WiredRoomNetworkDestination);
+        player.IsTeleporting = true; player.TeleporterId = f.Item(7).Id;
+        f.Wired.RecordRoomNetworkForward(actor, f.Room.Id);
+        Assert.Equal(new(WiredRoomEntryMethod.Teleport, 7), WiredRoomEntrySnapshot.Capture(f.Room, player));
+        f.DetachUser(actor); f.Wired.RecordRoomNetworkForward(actor, f.Room.Id);
+        Assert.Equal(0u, player.WiredRoomNetworkDestination);
+    }
+
+    [Fact]
+    public void NativeWallProviderSeparatesWallCoordinatesOffsetAndAltitudeAndUsesUpdatePath()
+    {
+        var f = new World(); var viewer = f.Human(); var wall = f.Wall(4);
+        var context = f.Context(new(WiredEventKind.ClickFurni) { EventItem = wall });
+        context.Triggering.FurniIds.Add(wall.Id);
+        var frame = WiredVariableRuntimeFrames.Create(context); var holder = WiredVariableRuntimeFrames.FurniHolder(wall);
+        int? Read(string key) => f.Wired.ReadBuiltin(new(WiredVariableTarget.Furni, "internal:" + key), holder, frame);
+        bool Write(string key, int value) => f.Wired.WriteBuiltin(new(WiredVariableTarget.Furni, "internal:" + key), holder, value, frame);
+        Assert.Equal(1, Read("@position.x")); Assert.Equal(1, Read("@position.y"));
+        Assert.Equal(10, Read("@wallitem_offset")); Assert.Equal(2000, Read("@altitude")); Assert.Equal(4, Read("@rotation"));
+        var packets = 0; ((FlashGameClient)viewer.GetClient()).SendCallback = _ => { packets++; return true; };
+        Assert.True(Write("@wallitem_offset", 12)); Assert.True(Write("@altitude", 2100)); Assert.True(Write("@rotation", 6));
+        Assert.Equal(":w=1,1 l=12,21 r", wall.WallCoordinates);
+        Assert.Equal(3, packets);
+        Assert.Same(wall, ((ConcurrentDictionary<uint, Item>)Get(f.Room.GetRoomItemHandler(), "_movedItems"))[wall.Id]);
+        Assert.False(Write("@altitude", 2150)); Assert.False(Write("@position.x", 701)); Assert.False(Write("@rotation", 2));
+        Assert.Equal(":w=1,1 l=12,21 r", wall.WallCoordinates);
+        var replacement = f.Wall(wall.Id);
+        Assert.False(Write("@wallitem_offset", 13)); Assert.Null(Read("@wallitem_offset")); Assert.Equal(":w=1,1 l=10,20 l", replacement.WallCoordinates);
+        replacement.WallCoordinates = "bad wall bytes";
+        Assert.Null(Read("@wallitem_offset"));
+    }
+
+    [Fact]
+    public void NativeTimezoneOverrideBindsCalendarAndVariablesWhileDefaultsRemainDistinct()
+    {
+        var f = new World(); var store = new SettingsStore();
+        Set(f.Wired, "_settings", new WiredRoomSettings(f.Room, store));
+        Assert.Equal(DateTimeOffset.Now.Offset, f.Wired.CalendarTime.Offset);
+        Assert.Equal(TimeZoneInfo.Utc, f.Wired.Variables.TimeZone());
+        f.Human(); f.Room.Type = "private"; f.Room.OwnerName = "viewer";
+        var owner = f.Room.GetRoomUserManager().GetRoomUserByHabbo(42).GetClient();
+        Assert.True(f.Wired.Settings.TrySave(owner, 0, 0, "Pacific/Honolulu", out var error), error);
+        Assert.Equal(TimeSpan.FromHours(-10), f.Wired.CalendarTime.Offset);
+        Assert.Equal("Pacific/Honolulu", f.Wired.Variables.TimeZone().Id);
+        var item = f.Item(1); item.Definition.InteractionName = "wf_cnd_match_time";
+        var box = f.Wired.CreateConfiguredBox(item)!;
+        var hour = f.Wired.CalendarTime.Hour;
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [1, hour, hour, 0, 0, 0, 0, 0, 0] }, out var config, out error), error);
+        box.ApplyConfiguration(config);
+        Assert.True(((IWiredContextualItem)box).Execute(f.Context()));
+        Assert.True(f.Wired.Settings.TrySave(owner, 0, 0, "", out error), error);
+        Assert.Equal(DateTimeOffset.Now.Offset, f.Wired.CalendarTime.Offset);
+        Assert.Equal(TimeZoneInfo.Utc, f.Wired.Variables.TimeZone());
+    }
+
+    private sealed class SettingsStore : IWiredRoomSettingsStore
+    {
+        private WiredRoomSettingsSnapshot? _saved;
+        public WiredRoomSettingsSnapshot? Load(uint roomId) => _saved;
+        public void Save(uint roomId, int actorId, bool staff, WiredRoomSettingsSnapshot? expected, WiredRoomSettingsSnapshot settings) => _saved = settings;
+    }
+
     private sealed class World
     {
         public Room Room { get; } = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
@@ -257,7 +358,8 @@ public sealed class WiredNativeLifecycleTests
             typeof(WiredRoomVariables).GetField("<Module>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(variables, module);
         }
         public void Remove(Item item) => _items.TryRemove(item.Id, out _);
-        public WiredRuntimeContext Context() => new(Room, new(WiredEventKind.Periodic),
+        public void DetachUser(RoomUser user) => _users.TryRemove(user.InternalRoomId, out _);
+        public WiredRuntimeContext Context(WiredRuntimeEvent? evt = null) => new(Room, evt ?? new(WiredEventKind.Periodic),
             new(() => _items.Values, () => _users.Values, id => Room.GetRoomItemHandler().GetItem(id),
                 id => Room.GetRoomUserManager().GetRoomUserByVirtualId(id)), Wired);
         public CounterAction Effect()

@@ -16,6 +16,7 @@ namespace Plus.HabboHotel.Rooms;
 
 public class RoomUser
 {
+    public WiredRoomEntrySnapshot WiredRoomEntry { get; internal set; }
     private GameClient _mClient;
     private Room _mRoom;
 

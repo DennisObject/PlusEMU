@@ -8,6 +8,7 @@ using Plus.HabboHotel.Items.Wired.Modern.Selectors;
 using Plus.HabboHotel.Items.Wired.Modern.Triggers;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items.Wired.Settings;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -19,9 +20,14 @@ public partial class WiredComponent
     private readonly Dictionary<uint, Item> _counterItems = [];
     private IWiredConfigurationStore? _configurationStore;
     private Lazy<WiredRoomVariables>? _variables;
+    private WiredRoomSettings? _settings;
+    public WiredRoomSettings Settings => _settings ??= WiredRoomSettings.For(_room);
+    internal DateTimeOffset CalendarTime => Settings.ExplicitTimeZone is { } zone
+        ? TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone) : DateTimeOffset.Now;
     private IWiredConfigurationStore ConfigurationStore => _configurationStore ??= new WiredConfigurationStore(PlusEnvironment.DatabaseManager);
     public WiredRoomVariables Variables => (_variables ??= new(() => new(_room,
-        PlusEnvironment.DatabaseManager, () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged))).Value;
+        PlusEnvironment.DatabaseManager, () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged)
+        { TimeZone = () => Settings.ExplicitTimeZone ?? TimeZoneInfo.Utc })).Value;
 
     // Returns a detached concrete candidate. Registration and persistence belong to the loader/publisher.
     public IWiredConfiguredItem? CreateConfiguredBox(Item item, WiredBoxDescriptor? descriptor = null)
@@ -44,7 +50,10 @@ public partial class WiredComponent
         }
         else if (descriptor.Category == WiredBoxCategory.Condition && WiredConditionConfiguration.Supports(descriptor.CanonicalName))
         {
-            box = new WiredModernCondition(_room, item, descriptor, ReadCounterMilliseconds, () => DateTimeOffset.Now);
+            // Only calendar predicates use a zone; elapsed durations retain the existing local timer origin.
+            box = new WiredModernCondition(_room, item, descriptor, ReadCounterMilliseconds,
+                descriptor.CanonicalName is "wf_cnd_match_time" or "wf_cnd_match_date" or "wf_cnd_date_rng_active"
+                    ? () => CalendarTime : () => DateTimeOffset.Now);
             defaults = WiredConditionConfiguration.Defaults(descriptor.CanonicalName);
         }
         else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName))

@@ -138,6 +138,7 @@ public class RoomUserManager
         session.GetHabbo().CurrentRoom = _room;
         if (!_users.TryAdd(personalId, user))
             return false;
+        user.WiredRoomEntry = WiredRoomEntrySnapshot.Capture(_room, session.GetHabbo());
         var model = _room.GetGameMap().Model;
         if (model == null)
             return false;
