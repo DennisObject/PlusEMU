@@ -227,6 +227,47 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             output.WriteLine("Atomic definition/global save: configuration-command failure, value-command failure, owner race and stale sidecar rejected without active publication or events; successful combined commit passed.");
             output.WriteLine("Active global rollback and concurrent first sidecar/value save passed: one winner, one rejected stale save, one event.");
 
+            var clearDb = new ProbeDatabase(connectionString);
+            var clearModule = new WiredVariableModule(room, directory, new DatabaseWiredVariableStore(clearDb), () => 7000);
+            clearDb.FailSqlPrefix = "DELETE FROM wired_variable_values";
+            Assert.Throws<InjectedCommandFailure>(() => clearModule.ClearValues(items[1], WiredVariableTarget.User, frame));
+            clearDb.FailSqlPrefix = null;
+            Assert.Equal(200, store.GetHolders(items[1]).Count); Assert.Empty(clearModule.DrainChanges());
+            Assert.Equal(200, clearModule.ClearValues(items[1], WiredVariableTarget.User, frame));
+            Assert.Empty(store.GetHolders(items[1])); Assert.Equal(200, clearModule.DrainChanges().Count);
+            Assert.True(clearModule.Mutate(new(WiredVariableTarget.User, $"custom:{items[1]}"), holders[0], WiredVariableMutation.Give, 7, frame));
+            Assert.Equal(7, store.Read(new(items[1], WiredVariableTarget.User, holders[0].StableId))!.Value);
+            output.WriteLine("Atomic owner-only clear: injected DELETE failure retained all 200 rows with no events; successful clear removed 200 and retained assignable definition.");
+
+            // The real room adapter must detach two explicit temporary identities independently.
+            var temporaryItems = new[] { new Item { Id = uint.MaxValue, IsTemporary = true, Definition = new() },
+                new Item { Id = uint.MaxValue - 1, IsTemporary = true, Definition = new() } };
+            foreach (var temporary in temporaryItems) floor[temporary.Id] = temporary;
+            var temporaryHolders = temporaryItems.Select(WiredVariableRuntimeFrames.FurniHolder).ToArray();
+            var temporaryFrame = new WiredVariableFrame(room, temporaryHolders);
+            var temporaryReference = new WiredVariableReference(WiredVariableTarget.Furni, $"custom:{items[2]}");
+            admin.Execute("UPDATE wired_item_configurations SET box_name='wf_var_furni',configuration=@config WHERE item_id=@id",
+                new { id = items[2], config = JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1, 10], Text = "tempProbe" }) });
+            atomicDb.FailSqlPrefix = "INSERT INTO wired_variable_values";
+            foreach (var holder in temporaryHolders)
+            {
+                Assert.False(roomVariables.Module.Mutate(temporaryReference, holder, WiredVariableMutation.Give, 77, temporaryFrame));
+                Assert.Null(roomVariables.Module.Read(temporaryReference, holder, temporaryFrame));
+            }
+            atomicDb.FailSqlPrefix = null;
+            Assert.DoesNotContain(store.GetHolders(items[2]).Keys, key => key.HolderId <= 0);
+            admin.Execute("UPDATE wired_item_configurations SET configuration=@config WHERE item_id=@id",
+                new { id = items[2], config = JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1, 1], Text = "tempProbe" }) });
+            Assert.True(roomVariables.Module.Mutate(temporaryReference, temporaryHolders[0], WiredVariableMutation.Give, 10, temporaryFrame));
+            Assert.True(roomVariables.Module.Mutate(temporaryReference, temporaryHolders[1], WiredVariableMutation.Give, 20, temporaryFrame));
+            roomVariables.ItemDetached(temporaryItems[0]); floor.TryRemove(temporaryItems[0].Id, out _);
+            Assert.Null(roomVariables.Module.Read(temporaryReference, temporaryHolders[0], temporaryFrame));
+            Assert.Equal(20, roomVariables.Module.Read(temporaryReference, temporaryHolders[1], temporaryFrame)!.Value);
+            roomVariables.ItemDetached(temporaryItems[1].Id); floor.TryRemove(temporaryItems[1].Id, out _);
+            Assert.Null(roomVariables.Module.Read(temporaryReference, temporaryHolders[1], temporaryFrame));
+            roomVariables.ItemDetached(uint.MaxValue); // Already detached: never classify from sign or throw.
+            output.WriteLine("Two actual marked temporary room items: independent active values, durable insert rejected, Item/uint detach cleaned both without signed-ID overflow.");
+
             Assert.Equal(200, module.DeleteDefinition(items[0]));
             Assert.Empty(store.GetHolders(items[0]));
             Assert.Throws<InvalidOperationException>(() => module.Mutate(reference, holders[0], WiredVariableMutation.Give, 7, frame));

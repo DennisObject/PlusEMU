@@ -20,6 +20,35 @@ public sealed class WiredVariableTests
     private static WiredVariableFrame Frame(params WiredVariableHolder[] holders) => new(1, holders);
 
     [Fact]
+    public void TwoTemporaryItemsKeepIndependentActiveValuesAndNeverReachDurableStorage()
+    {
+        var directory = new Directory();
+        directory.Definitions[10] = new(10, 1, 5, "active", WiredVariableTarget.Furni, WiredVariableAvailability.RoomActive, true);
+        directory.Definitions[11] = directory.Definitions[10] with { ItemId = 11, Availability = WiredVariableAvailability.Persistent };
+        var items = new[] { new Plus.HabboHotel.Items.Item { Id = uint.MaxValue, IsTemporary = true },
+            new Plus.HabboHotel.Items.Item { Id = uint.MaxValue - 1, IsTemporary = true } };
+        var a = WiredVariableRuntimeFrames.FurniHolder(items[0]); var b = WiredVariableRuntimeFrames.FurniHolder(items[1]);
+        Assert.Equal(0, a.StableId); Assert.Equal(0, b.StableId); Assert.Equal(-1, a.EntityId); Assert.Equal(-2, b.EntityId);
+        var durable = new MemoryWiredVariableStore(); var module = new WiredVariableModule(1, directory, durable, () => 1);
+        var frame = Frame(a, b); var active = new WiredVariableReference(WiredVariableTarget.Furni, "custom:10");
+        var persistent = new WiredVariableReference(WiredVariableTarget.Furni, "custom:11");
+        Assert.True(module.Mutate(active, a, WiredVariableMutation.Give, 10, frame));
+        Assert.True(module.Mutate(active, b, WiredVariableMutation.Give, 20, frame));
+        using (var reads = module.CaptureReads([active], frame))
+        { Assert.Equal(10, reads.Read(active, a, frame)!.Value); Assert.Equal(20, reads.Read(active, b, frame)!.Value); }
+        foreach (var holder in frame.Holders)
+        {
+            Assert.False(module.Mutate(persistent, holder, WiredVariableMutation.Give, 99, frame));
+            Assert.Null(module.Read(persistent, holder, frame));
+        }
+        Assert.Empty(durable.GetHolders(11)); Assert.Equal(2, module.DrainChanges().Count);
+        module.HolderLeft(a);
+        Assert.Null(module.Read(active, a, frame)); Assert.Equal(20, module.Read(active, b, frame)!.Value);
+        module.HolderLeft(b); Assert.Null(module.Read(active, b, frame));
+        Assert.False(module.Mutate(active, a, WiredVariableMutation.Give, 99, Frame(b)));
+    }
+
+    [Fact]
     public void PersistentUserSurvivesNewRoomIndexWithoutLeakingToItsNextOccupant()
     {
         var directory = new Directory(); directory.Definitions[10] = User();

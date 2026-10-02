@@ -26,4 +26,6 @@ public interface IWiredVariableStore
         WiredVariablePaging.Page(GetHolders(definitionId).Where(x => x.Key.Target == target && (holderFilter is null || holderFilter.Contains(x.Key.HolderId)))
             .Select(x => new WiredVariableStoredHolder(x.Key, names?.GetValueOrDefault(x.Key.HolderId) ?? x.Key.HolderId.ToString(System.Globalization.CultureInfo.InvariantCulture), x.Value)), page, size, sort);
     int DeleteDefinition(uint definitionId);
+    IReadOnlyDictionary<WiredVariableKey, WiredVariableValue> ClearValues(uint definitionId, WiredVariableAuthorization authorization) =>
+        throw new NotSupportedException("This store does not support atomic value clearing.");
 }

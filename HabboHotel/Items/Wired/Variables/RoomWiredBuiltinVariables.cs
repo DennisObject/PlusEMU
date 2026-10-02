@@ -76,15 +76,18 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         return engineWrite?.Invoke(reference with { Token = $"internal:{key}" }, holder, value, frame) == true;
     }
 
-    private Item? FindItem(WiredVariableHolder holder) => holder.StableId is > 0 and <= uint.MaxValue
-        && holder.StableId == holder.EntityId ? room.GetRoomItemHandler().GetItem((uint)holder.StableId) : null;
+    private Item? FindItem(WiredVariableHolder holder)
+    {
+        var item = room.GetRoomItemHandler().GetItem(unchecked((uint)holder.EntityId));
+        return item is not null && WiredVariableRuntimeFrames.FurniHolder(item) == holder ? item : null;
+    }
     private int? ReadItem(string key, WiredVariableHolder holder)
     {
         var item = FindItem(holder);
         if (item is null) return null;
         return key switch
         {
-            "@id" => checked((int)item.Id), "@owner_id" => checked((int)item.OwnerId),
+            "@id" => unchecked((int)item.Id), "@owner_id" => checked((int)item.OwnerId),
             "@class_id" => item.Definition.SpriteId, "@height" => Hundredths(item.TotalHeight - item.GetZ),
             "@state" => int.TryParse(item.LegacyDataString, out var state) ? state : null,
             "@position.x" => item.GetX, "@position.y" => item.GetY, "@altitude" => Hundredths(item.GetZ),
@@ -93,8 +96,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             "@can_stand_on" => Flag(item.IsFloorItem && item.Definition.Walkable),
             "@can_sit_on" => Flag(item.IsFloorItem && item.Definition.IsSeat),
             "@can_lay_on" => Flag(item.IsFloorItem && item.Definition.InteractionType == InteractionType.Bed),
-            // Plus's persisted room items have ordinary ownership; temporary items must come from the engine adapter.
-            "@type" => item.Id > 0 && item.OwnerId > 0 ? 0 : null,
+            "@type" => item.IsTemporary ? 2 : item.OwnerId > 0 ? 0 : null,
             _ => null
         };
     }
