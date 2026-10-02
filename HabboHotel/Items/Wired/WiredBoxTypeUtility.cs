@@ -128,6 +128,7 @@ internal static class WiredBoxTypeUtility
             case WiredBoxType.TriggerUserSays:
             case WiredBoxType.TriggerUserSaysCommand:
             case WiredBoxType.ConditionMatchStateAndPosition:
+            case WiredBoxType.EffectToggleFurniState:
                 return 0;
             case WiredBoxType.TriggerWalkOnFurni:
             case WiredBoxType.TriggerWalkOffFurni:
@@ -151,7 +152,6 @@ internal static class WiredBoxTypeUtility
             case WiredBoxType.TriggerGameStarts:
             case WiredBoxType.TriggerGameEnds:
             case WiredBoxType.EffectTeleportToFurni:
-            case WiredBoxType.EffectToggleFurniState:
             case WiredBoxType.ConditionFurniTypeMatches:
                 return 8;
             case WiredBoxType.EffectGiveUserBadge:
@@ -171,6 +171,8 @@ internal static class WiredBoxTypeUtility
             case WiredBoxType.ConditionIsWearingFx:
             case WiredBoxType.EffectMoveFurniFromNearestUser:
                 return 12;
+            case WiredBoxType.ConditionDontMatchStateAndPosition:
+                return 13;
             case WiredBoxType.ConditionFurniHasNoUsers:
                 return 14;
             case WiredBoxType.ConditionTriggererNotOnFurni:

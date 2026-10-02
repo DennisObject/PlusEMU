@@ -1,5 +1,7 @@
+using System.Buffers.Binary;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Revisions;
@@ -106,6 +108,129 @@ public class PlacedFurniRoomTests : IDisposable
         Assert.Equal(new[] { composer }, _client.Sent);
     }
 
+    [Theory]
+    [InlineData(InteractionType.WiredTrigger, WiredBoxType.TriggerWalkOnFurni, 1, new int[0])]
+    [InlineData(InteractionType.WiredTrigger, WiredBoxType.TriggerRepeat, 6, new[] { 0 })]
+    [InlineData(InteractionType.WiredEffect, WiredBoxType.EffectToggleFurniState, 0, new int[0])]
+    [InlineData(InteractionType.WiredEffect, WiredBoxType.EffectTeleportToFurni, 8, new int[0])]
+    [InlineData(InteractionType.WiredEffect, WiredBoxType.EffectMoveFurniToNearestUser, 11, new int[0])]
+    [InlineData(InteractionType.WiredEffect, WiredBoxType.EffectShowMessage, 7, new int[0])]
+    [InlineData(InteractionType.WiredEffect, WiredBoxType.EffectBotGivesHanditemBox, 24, new[] { 0 })]
+    [InlineData(InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition, 3, new[] { 0, 0, 0 })]
+    [InlineData(InteractionType.WiredEffect, WiredBoxType.EffectMoveAndRotate, 4, new[] { 0, 0 })]
+    [InlineData(InteractionType.WiredCondition, WiredBoxType.ConditionMatchStateAndPosition, 0, new[] { 0, 0, 0 })]
+    [InlineData(InteractionType.WiredCondition, WiredBoxType.ConditionDontMatchStateAndPosition, 13, new[] { 0, 0, 0 })]
+    [InlineData(InteractionType.WiredCondition, WiredBoxType.ConditionFurniHasUsers, 1, new int[0])]
+    [InlineData(InteractionType.WiredCondition, WiredBoxType.ConditionUserCountInRoom, 5, new[] { 0, 0 })]
+    public void PlacedWiredBoxSendsTheEditorTheClientReads(InteractionType interaction, WiredBoxType type, int code, int[] ints)
+    {
+        var editor = Open(Place(12, interaction, type));
+
+        Assert.Equal(code, editor.Code);
+        Assert.Equal(ints, editor.Ints);
+        Assert.Equal(12, editor.Id);
+    }
+
+    [Fact]
+    public void DelayedEffectReopensWithItsFurniAndDelay()
+    {
+        var picked = Furni(20, InteractionType.None, WiredBoxType.None);
+        Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, picked, 1, 1, 0, true, false, false));
+        var item = Place(12, InteractionType.WiredEffect, WiredBoxType.EffectTeleportToFurni);
+        var box = Box(item);
+        box.SetItems.TryAdd(picked.Id, picked);
+        ((IWiredCycle)box).Delay = 5;
+
+        var editor = Open(item);
+
+        Assert.Equal(8, editor.Code);
+        Assert.Equal(5, editor.Delay);
+        Assert.Equal(new[] { 20 }, editor.Stuffs);
+    }
+
+    [Fact]
+    public void BotHandItemReopensWithTheHandItem()
+    {
+        var item = Place(12, InteractionType.WiredEffect, WiredBoxType.EffectBotGivesHanditemBox);
+        Box(item).StringData = "Frank;7";
+
+        var editor = Open(item);
+
+        Assert.Equal(24, editor.Code);
+        Assert.Equal(new[] { 7 }, editor.Ints);
+        Assert.Equal("Frank", editor.Text);
+    }
+
+    [Fact]
+    public void MatchStateConditionReopensWithItsOptions()
+    {
+        var picked = Furni(20, InteractionType.None, WiredBoxType.None);
+        Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, picked, 1, 1, 0, true, false, false));
+        var item = Place(12, InteractionType.WiredCondition, WiredBoxType.ConditionMatchStateAndPosition);
+        var box = Box(item);
+        box.SetItems.TryAdd(picked.Id, picked);
+        box.StringData = "1;0;1";
+
+        var editor = Open(item);
+
+        Assert.Equal(0, editor.Code);
+        Assert.Equal(new[] { 1, 0, 1 }, editor.Ints);
+        Assert.Equal(new[] { 20 }, editor.Stuffs);
+    }
+
+    private Item Place(uint id, InteractionType interaction, WiredBoxType type)
+    {
+        var item = Furni(id, interaction, type);
+        Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, item, 2, 2, 0, true, false, false));
+        _room.GetWired().LoadWiredBox(item);
+        return item;
+    }
+
+    private IWiredItem Box(Item item)
+    {
+        Assert.True(_room.GetWired().TryGet(item.Id, out var box));
+        return box;
+    }
+
+    private Editor Open(Item item)
+    {
+        _client.Bodies.Clear();
+        item.Interactor.OnTrigger(_client, item, 0, true);
+        return Editor.Read(item.Definition.InteractionType, Assert.Single(_client.Bodies));
+    }
+
+    /// <summary>Reads a wired editor packet in the order of the Octane Triggerable and its definitions.</summary>
+    private sealed record Editor(int Id, int[] Stuffs, string Text, int[] Ints, int Code, int Delay)
+    {
+        public static Editor Read(InteractionType interaction, byte[] body)
+        {
+            var at = 0;
+            int Int() { var value = BinaryPrimitives.ReadInt32BigEndian(body.AsSpan(at)); at += 4; return value; }
+            int[] Ints() => Enumerable.Range(0, Int()).Select(_ => Int()).ToArray();
+            at++; // stuff type selection enabled
+            Int(); // furni limit
+            var stuffs = Ints();
+            Int(); // sprite
+            var id = Int();
+            var length = BinaryPrimitives.ReadInt16BigEndian(body.AsSpan(at));
+            var text = Encoding.UTF8.GetString(body, at + 2, length);
+            at += 2 + length;
+            var ints = Ints();
+            Int(); // stuff type selection code
+            var code = Int();
+            var delay = 0;
+            if (interaction == InteractionType.WiredEffect)
+            {
+                delay = Int();
+                Ints();
+            }
+            else if (interaction == InteractionType.WiredTrigger)
+                Ints();
+            Assert.Equal(body.Length, at);
+            return new(id, stuffs, text, ints, code, delay);
+        }
+    }
+
     private static Item Furni(uint id, InteractionType interaction, WiredBoxType wired, ItemType type = ItemType.Floor) => new()
     {
         Id = id,
@@ -145,6 +270,7 @@ public class PlacedFurniRoomTests : IDisposable
     private sealed class TestClient : GameClient
     {
         public List<uint> Sent { get; } = new();
+        public List<byte[]> Bodies { get; } = new();
         public TestClient() : base(null!, new FlashPacketFactory())
         {
             Revision = new Revision
@@ -153,7 +279,12 @@ public class PlacedFurniRoomTests : IDisposable
                     .Where(field => field.IsLiteral && field.FieldType == typeof(uint))
                     .Select(field => (uint)field.GetRawConstantValue()!).Distinct().ToDictionary(id => id)
             };
-            SendCallback = _ => false;
+            // Flash packets reserve a 6 byte header in front of the body.
+            SendCallback = args =>
+            {
+                Bodies.Add(args.MemoryBuffer.Slice(6).ToArray());
+                return false;
+            };
         }
         internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer) =>
             (true, false, 0, 0, 0);
