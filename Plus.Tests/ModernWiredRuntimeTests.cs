@@ -649,6 +649,24 @@ public class ModernWiredRuntimeTests
         Assert.True(action.Execute(context)); Assert.Equal(1, actor.X); Assert.Equal(0, actor.Y);
     }
 
+    [Fact]
+    public void OptionalUnnamedBotHandItemGrantsWithoutBotButExplicitMissingBotRejects()
+    {
+        using var fixture = new TeleportFixture(); var action = ActionBox(fixture.Room, "wf_act_bot_give_handitem");
+        var config = new WiredConfiguration { IntParams = [2, 0, 0], Text = "" };
+        Assert.True(action.TryValidateConfiguration(config, out var valid, out _)); action.ApplyConfiguration(valid);
+        var context = Context(fixture.Room, new(WiredEventKind.Enter) { Actor = fixture.User }, fixture.Items.Values.ToArray(), [fixture.User]);
+        context.Triggering.UserIds.Add(fixture.User.VirtualId);
+        Assert.True(action.Execute(context)); Assert.Equal(2, fixture.User.CarryItemId);
+        Assert.True(action.TryValidateConfiguration(config with { IntParams = [3, 0, 100], Text = "missing" }, out valid, out _)); action.ApplyConfiguration(valid);
+        Assert.False(action.Execute(context)); Assert.Equal(2, fixture.User.CarryItemId);
+        var bot = Bot(fixture.Room, 8); RoomUsers(fixture.Room)[8] = bot;
+        Assert.True(action.TryValidateConfiguration(config with { IntParams = [4, 200, 0] }, out valid, out _)); action.ApplyConfiguration(valid);
+        context = Context(fixture.Room, new(WiredEventKind.Enter) { Actor = bot }, fixture.Items.Values.ToArray(), [fixture.User, bot]);
+        context.SelectorPool.UserIds.Add(fixture.User.VirtualId);
+        Assert.True(action.Execute(context)); Assert.Equal(4, fixture.User.CarryItemId);
+    }
+
     public class RecordingProxy : DispatchProxy
     {
         public Func<MethodInfo, object?[]?, object?> InvokeMethod = (_, _) => null;
