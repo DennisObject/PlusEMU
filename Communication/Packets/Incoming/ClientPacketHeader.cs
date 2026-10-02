@@ -174,6 +174,13 @@ public static class ClientPacketHeader
     public const uint GetThreadsListDataEvent = 2568; //1606
     public const uint GetForumUserProfileEvent = 3515; //2639
     public const uint OpenWiredEvent = 768;
+    public const uint WiredUserVariablesRequestEvent = 10024;
+    public const uint WiredUserVariableUpdateEvent = 10025;
+    public const uint WiredUserVariableManageEvent = 10026;
+    public const uint WiredVariableHoldersPageEvent = 975;
+    public const uint WiredVariableHoldersRequestEvent = 2973;
+    public const uint WiredVariableHashesEvent = 1497;
+    public const uint WiredAllVariablesRequestEvent = 1735;
     public const uint SaveWiredEffectConfigEvent = 2234; //3431
     public const uint GetRoomEntryDataEvent = 1747; //2768
     public const uint JoinQueueEvent = 167; //951
