@@ -8,6 +8,19 @@ namespace Plus.Tests;
 public sealed class WiredVariableCatalogWireTests
 {
     [Fact]
+    public void LegacySnapshotKeepsDefinitionHolderAndContextSectionsInClientOrder()
+    {
+        var definitions = new[]
+        {
+            new WiredVariableDescription(new(10, 1, 5, "score", WiredVariableTarget.User, WiredVariableAvailability.Persistent, true), true, false),
+            new WiredVariableDescription(new(11, 1, 5, "capture", WiredVariableTarget.Context, WiredVariableAvailability.RoomActive, false), false, true)
+        };
+        var snapshot = new WiredVariableMenuSnapshot(1, definitions, [new(new(10, WiredVariableTarget.User, 901), "", new(25, 1000, 2000))]);
+        var packet = new Packet(); new WiredUserVariablesDataComposer(snapshot).Compose(packet);
+        Assert.Equal(new object[] { 1u, 1, 10u, "score", true, 10, false, false,
+            1, 901, 1, 10u, true, 25, 1, 2, 0, 0, 0, 0, 1, 11u, "capture", false, 1, false, true }, packet.Values);
+    }
+    [Fact]
     public void CatalogMetadataUsesMenuTargetCodesAndRealCapabilities()
     {
         var variable = new WiredVariableDescription(new(10, 1, 5, "score", WiredVariableTarget.Global,
