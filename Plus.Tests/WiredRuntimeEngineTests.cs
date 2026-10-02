@@ -650,6 +650,34 @@ public class WiredRuntimeEngineTests
         Assert.False(f.Engine.NeedsFastCycle); Assert.Empty(f.Errors);
     }
 
+    [Fact]
+    public void ClickResultAggregatesOnlyAcceptedPassingStacks()
+    {
+        var f = new Fixture(); var actor = f.User(1); var target = f.User(2);
+        f.Trigger(WiredEventKind.ClickUser).BlockMenu = true;
+        f.Trigger(WiredEventKind.ClickUser, x: 3).DoNotRotate = true;
+        f.Add(new Box(WiredBoxCategory.Condition) { Body = _ => false }, x: 3);
+        var result = f.Engine.DispatchClickUser(actor, target);
+        Assert.Equal(new WiredClickResult(true, true, false), result);
+        f.Users.Remove(target);
+        Assert.Equal(default, f.Engine.DispatchClickUser(actor, target));
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void ClickGateDoesNotPublishLateSettingsWhenBudgetCannotFinish()
+    {
+        var f = new Fixture(new() { MaxExecutionsPerPass = 1 }); var actor = f.User(1); var target = f.User(2);
+        f.Trigger(WiredEventKind.ClickUser).BlockMenu = true;
+        var condition = f.Add(new Box(WiredBoxCategory.Condition));
+        var action = f.Action();
+        Assert.Equal(default, f.Engine.DispatchClickUser(actor, target));
+        f.Advance(50);
+        Assert.Equal(0, condition.Calls); Assert.Equal(0, action.Calls);
+        Assert.False(f.Engine.NeedsFastCycle);
+        Assert.Empty(f.Errors);
+    }
+
     private sealed class Picker : IWiredActionPicker
     {
         public int Calls;
@@ -714,10 +742,11 @@ public class WiredRuntimeEngineTests
         { validated = proposed; error = ""; return true; }
         public void ApplyConfiguration(WiredConfiguration validated) => Configuration = validated;
     }
-    private class Trigger(WiredEventKind kind) : Box(WiredBoxCategory.Trigger), IWiredContextualTrigger
+    private class Trigger(WiredEventKind kind) : Box(WiredBoxCategory.Trigger), IWiredClickTrigger
     {
         public IReadOnlyCollection<WiredEventKind> Events { get; } = [kind];
-        public bool Hide;
+        public bool Hide, BlockMenu, DoNotRotate;
+        public (bool BlockMenu, bool DoNotRotate) ClickSettings(WiredRuntimeContext context) => (BlockMenu, DoNotRotate);
         public bool HidesChat(WiredRuntimeContext context) => Hide;
     }
     private sealed class Timer() : Trigger(WiredEventKind.Periodic), IWiredTimedTrigger

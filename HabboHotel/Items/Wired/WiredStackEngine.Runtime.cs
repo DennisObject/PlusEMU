@@ -65,25 +65,33 @@ internal sealed partial class WiredStackEngine
         lock (_sync) { _fastWorkObserver = observer; observer?.Invoke(NeedsFastCycle); }
     }
 
-    public bool Dispatch(WiredRuntimeEvent @event) => Pass(() =>
+    public bool Dispatch(WiredRuntimeEvent @event) => Pass(() => DispatchCore(@event).Accepted);
+
+    public WiredClickResult DispatchClickUser(RoomUser actor, RoomUser target) => Pass(() =>
     {
-        if (_runtimeRoom == null) return false;
+        if (_targets == null || !_targets.AllUsers().Contains(actor) || !_targets.AllUsers().Contains(target)) return default;
+        return DispatchCore(new(WiredEventKind.ClickUser) { Actor = actor, TargetUser = target }).Click;
+    });
+
+    private (bool Accepted, WiredClickResult Click) DispatchCore(WiredRuntimeEvent @event)
+    {
+        if (_runtimeRoom == null) return default;
         var depth = _queuedDepth ?? (_runtimeContext?.Depth ?? _context?.Depth ?? -1) + 1;
         _queuedDepth = null;
-        if (depth > _limits.MaxDepth) return false;
+        if (depth > _limits.MaxDepth) return default;
         RefreshStacks();
         var dispatch = new PendingDispatch(@event, depth) { IncludeLegacy = false };
         var complete = AdvanceDispatch(dispatch);
         if (!complete)
         {
             // A synchronous speech decision cannot consume chat on an unfinished condition gate.
-            if (@event.Kind != WiredEventKind.Speech && PendingCount + dispatch.Slots <= _limits.MaxPendingStacks)
+            if (@event.Kind is not (WiredEventKind.Speech or WiredEventKind.ClickUser) && PendingCount + dispatch.Slots <= _limits.MaxPendingStacks)
             { QueueDispatch(dispatch); dispatch.Accepted = true; }
             else dispatch.Current?.Dispose();
         }
         UpdateFastWork();
-        return @event.Kind == WiredEventKind.Speech ? dispatch.ConsumedChat : dispatch.Accepted;
-    });
+        return (@event.Kind == WiredEventKind.Speech ? dispatch.ConsumedChat : dispatch.Accepted, dispatch.Click);
+    }
 
     public bool DispatchLegacy(WiredBoxType type, WiredRuntimeEvent? typed, object[] arguments) => Pass(() =>
     {
@@ -396,6 +404,7 @@ internal sealed partial class WiredStackEngine
         public bool Initialized, IsQueued;
         public bool IncludeLegacy = true;
         public bool Accepted, ConsumedChat;
+        public WiredClickResult Click;
     }
 
     private sealed record PendingSignal(Item Receiver, long Generation, WiredRuntimeContext Context, bool Negative);
