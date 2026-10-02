@@ -16,6 +16,7 @@ public sealed class WiredRoomVariables
     public WiredVariableEditor Editor { get; }
     public WiredVariableFxTracker Fx { get; }
     public IReadOnlyCollection<WiredVariableDefinitionBox> Definitions => _definitions.Values.ToArray();
+    public WiredVariableCatalog Catalog() => new(Module.DescribeDefinitions(_definitions.Keys));
     public bool FxDirty { get; private set; } = true;
 
     public WiredRoomVariables(Room room, IDatabase database, Func<long> nowMs,

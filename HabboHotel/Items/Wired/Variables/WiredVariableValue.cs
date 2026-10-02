@@ -21,5 +21,9 @@ public interface IWiredVariableStore
     }
     WiredVariableWrite Mutate(WiredVariableKey key, Func<WiredVariableValue?, WiredVariableValue?> update, WiredVariableAuthorization? authorization = null);
     IReadOnlyDictionary<WiredVariableKey, WiredVariableValue> GetHolders(uint definitionId);
+    WiredVariableHolderPage ReadPage(uint definitionId, WiredVariableTarget target, int page, int size, int sort,
+        IReadOnlyCollection<long>? holderFilter = null, IReadOnlyDictionary<long, string>? names = null) =>
+        WiredVariablePaging.Page(GetHolders(definitionId).Where(x => x.Key.Target == target && (holderFilter is null || holderFilter.Contains(x.Key.HolderId)))
+            .Select(x => new WiredVariableStoredHolder(x.Key, names?.GetValueOrDefault(x.Key.HolderId) ?? x.Key.HolderId.ToString(System.Globalization.CultureInfo.InvariantCulture), x.Value)), page, size, sort);
     int DeleteDefinition(uint definitionId);
 }
