@@ -29,6 +29,9 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         var z = height ?? (physics?.KeepAltitude == true ? item.GetZ : (double?)null);
         if (!WiredRoomOperations.MoveItem(room, item, x, y, options.Rotation, z, animate: false,
                 collision: collision, announce: !options.Animate)) return false;
+        if (policy.Projectile?.ItemIds.Contains(item.Id) == true)
+            WiredProjectileFlights.For(room).Begin(item, source.X, source.Y, source.Z,
+                options.Animate ? options.AnimationTimeMs : 0, context.NowMilliseconds);
         if (options.Animate)
         {
             room.SendPacket(new WiredMoveStyleComposer((int)item.Id, options.CurveType,

@@ -965,6 +965,58 @@ public class ModernWiredRuntimeTests
         }
     }
 
+    [Fact]
+    public void ActualProjectileMoveSamplesPacketClockAndLaunchCollisionsWithoutLateArrivals()
+    {
+        using var f = new TeleportFixture(); var room = f.Room; var map = room.GetGameMap();
+        var definition = MakeItem(5, "projectile").Definition; definition.Stackable = true; definition.Walkable = true;
+        var mover = Assert.IsType<Item>(room.GetRoomItemHandler().PlaceTemporaryFloorItem(definition, 1, 0, 1, 0, 0.25));
+        f.Target.Definition.Stackable = true; map.AddToMap(f.Target);
+        var obstacle = MakeItem(2, "obstacle"); obstacle.Definition.Stackable = true; obstacle.SetState(2, 1, 0, Gamemap.GetAffectedTiles(1, 1, 2, 1, 0)); f.Items[2] = obstacle; map.AddToMap(obstacle);
+        var user = Bot(room, 8); user.SetPos(1, 1, 0); RoomUsers(room)[8] = user; map.AddUserToMap(user, new(1, 1));
+        var launchUser = Bot(room, 9); launchUser.SetPos(0, 1, 0); RoomUsers(room)[9] = launchUser; map.AddUserToMap(launchUser, new(0, 1));
+        var flights = WiredProjectileFlights.For(room); Assert.Null(flights.Read(mover, "@projectile.animation.position.x", 1000));
+        var context = Context(room, new(WiredEventKind.Use), f.Items.Values.ToArray(), RoomUsers(room).Values.ToArray()); context.NowMilliseconds = 1000;
+        context.Policy.Addons.Projectile = new(new HashSet<uint> { mover.Id }, null, 0, null, Plus.HabboHotel.Items.Wired.Modern.Addons.WiredProjectileDistance.Normal, 0);
+        context.Policy.Addons.AnimationTimeMs = 800;
+        var movements = new WiredRoomMovement(room.GetWired().DispatchWalkTransition);
+        Assert.True(movements.MoveFurniture(context, mover, 2, 1, 0, 2.25));
+        Assert.Equal(0, flights.Read(mover, "@projectile.animation.position.x", 999)); Assert.Equal(1, flights.Read(mover, "@projectile.animation.is_traveling", 1000));
+        Assert.Equal(0, flights.Read(mover, "@projectile.animation.user_collisions", 1000)); // Launch tile is excluded.
+        Assert.True(WiredRoomOperations.RelocateAvatar(room, user, 1, 2, false));
+        var late = Bot(room, 10); late.SetPos(2, 1, 0); RoomUsers(room)[10] = late; map.AddUserToMap(late, new(2, 1));
+        Assert.Equal(1, flights.Read(mover, "@projectile.animation.tiles_traveled", 1400));
+        Assert.Equal(1, flights.Read(mover, "@projectile.animation.position.x", 1400)); Assert.Equal(1, flights.Read(mover, "@projectile.animation.position.y", 1400));
+        Assert.Equal(125, flights.Read(mover, "@projectile.animation.position.altitude", 1400));
+        Assert.Equal(1, flights.Read(mover, "@projectile.animation.furni_collisions", 1400)); Assert.Equal(1, flights.Read(mover, "@projectile.animation.user_collisions", 1400));
+        Assert.Null(flights.Read(mover, "@projectile.animation.is_traveling", 1800));
+        Assert.Equal(2, flights.Read(mover, "@projectile.animation.tiles_traveled", 9999)); Assert.Equal(225, flights.Read(mover, "@projectile.animation.position.altitude", 9999));
+        Assert.Equal(2, flights.Read(mover, "@projectile.animation.furni_collisions", 9999)); Assert.Equal(1, flights.Read(mover, "@projectile.animation.user_collisions", 9999));
+        Assert.False(movements.MoveFurniture(context, mover, 5, 1, 0, null)); Assert.Equal(2, flights.Read(mover, "@projectile.animation.position.x", 9999));
+    }
+
+    [Fact]
+    public void ProjectileScopeRepeatedFlightInstantMoveAndReusedIdentityHaveRealLifecycle()
+    {
+        using var f = new TeleportFixture(); var room = f.Room; var definition = MakeItem(5, "projectile").Definition; definition.Stackable = true;
+        var mover = Assert.IsType<Item>(room.GetRoomItemHandler().PlaceTemporaryFloorItem(definition, 1, 0, 1, 0));
+        var flights = WiredProjectileFlights.For(room); var movement = new WiredRoomMovement(room.GetWired().DispatchWalkTransition);
+        var ctx = Context(room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]); ctx.NowMilliseconds = 1000;
+        ctx.Policy.Addons.DisableAnimation = true; ctx.Policy.Addons.Projectile = new(new HashSet<uint> { 999 }, null, 0, null, Plus.HabboHotel.Items.Wired.Modern.Addons.WiredProjectileDistance.Normal, 0);
+        Assert.True(movement.MoveFurniture(ctx, mover, 1, 2, 0, null)); Assert.Null(flights.Read(mover, "@projectile.animation.tiles_traveled", 1000));
+        ctx.Policy.Addons.Projectile = ctx.Policy.Addons.Projectile with { ItemIds = new HashSet<uint> { mover.Id } };
+        Assert.True(movement.MoveFurniture(ctx, mover, 2, 2, 0, null)); Assert.Null(flights.Read(mover, "@projectile.animation.is_traveling", 1000)); Assert.Equal(2, flights.Read(mover, "@projectile.animation.position.x", 1000));
+        ctx.NowMilliseconds = 2000; ctx.Policy.Addons.DisableAnimation = false; ctx.Policy.Addons.AnimationTimeMs = 1000;
+        Assert.True(movement.MoveFurniture(ctx, mover, 0, 2, 0, null)); Assert.Equal(2, flights.Read(mover, "@projectile.animation.position.x", 2000)); Assert.Equal(1, flights.Read(mover, "@projectile.animation.position.x", 2500));
+        Assert.Equal(1, flights.Read(mover, "@projectile.animation.is_traveling", 2500));
+        var sameIdDifferentItem = MakeItem(mover.Id, "replacement"); f.Items[mover.Id] = sameIdDifferentItem;
+        Assert.Null(flights.Read(sameIdDifferentItem, "@projectile.animation.position.x", 2500)); Assert.Null(flights.Read(mover, "@projectile.animation.position.x", 2500));
+        f.Items[mover.Id] = mover; Assert.True(flights.Begin(mover, 2, 2, 0, 1000, 3000)); flights.Forget(sameIdDifferentItem); Assert.NotNull(flights.Read(mover, "@projectile.animation.position.x", 3000));
+        flights.Forget(mover); Assert.Null(flights.Read(mover, "@projectile.animation.position.x", 3000));
+        Assert.True(flights.Begin(mover, 2, 2, 0, 1000, 4000)); flights.Clear(); Assert.Null(flights.Read(mover, "@projectile.animation.position.x", 4000));
+        Assert.True(flights.Begin(mover, 2, 2, 0, 1000, 5000)); Assert.True(room.GetRoomItemHandler().RemoveTemporaryFloorItem(mover)); Assert.Null(flights.Read(mover, "@projectile.animation.position.x", 5000));
+    }
+
     public class RecordingProxy : DispatchProxy
     {
         public Func<MethodInfo, object?[]?, object?> InvokeMethod = (_, _) => null;
