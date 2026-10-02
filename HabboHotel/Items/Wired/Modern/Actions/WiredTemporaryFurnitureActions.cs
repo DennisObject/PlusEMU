@@ -26,7 +26,7 @@ public static class WiredTemporaryFurnitureActions
         {
             // The six active-editor fields retain their definition/quantity/absolute-location meanings.
             if (p.Length != 6 || p[0] < 0 || p[1] is < 1 or > 10 || p[2] is < 0 or > 1
-                || p[3] is < 0 or > 63 || p[4] is < 0 or > 63 || p[5] is < 0 or > 7) return false;
+                || p[3] < 0 || p[4] < 0 || p[5] is < 0 or > 7) return false;
             if (proposed.TemporaryPlacement is { } placement)
             {
                 if (!placement.IsWithinLimits() || !FurniSource(proposed.FurniSources.GetValueOrDefault("target", 100))
@@ -102,7 +102,7 @@ public static class WiredTemporaryFurnitureActions
             // A newly attached item is explicitly added to the child variable frame, never the firing's captured target sets.
             if (policy.SpawnWithVariable && config.VariableIds.Length != 0 && context.VariableFrame is { } parent)
             {
-                var holder = new WiredVariableHolder(WiredVariableTarget.Furni, 0, unchecked((int)item.Id), false);
+                var holder = WiredVariableRuntimeFrames.FurniHolder(item);
                 var frame = new WiredVariableFrame(parent.RoomId, parent.Holders.Append(holder).ToArray()) {
                     Context = parent.Context, Trigger = parent.Trigger, Signal = parent.Signal,
                     ResolveSource = parent.ResolveSource, Depth = parent.Depth, ChatText = parent.ChatText

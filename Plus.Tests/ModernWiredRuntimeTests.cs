@@ -27,6 +27,11 @@ using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 using Xunit;
+using Dapper;
+using MySqlConnector;
+using Plus.HabboHotel.Users.Inventory;
+using Plus.HabboHotel.Users.Inventory.Badges;
+using Plus.HabboHotel.Items.Wired.Variables;
 
 namespace Plus.Tests;
 
@@ -124,6 +129,8 @@ public class ModernWiredRuntimeTests
         Assert.Equal(new object[] { 7, "Hello", 0, 252, 0, "", 5, "", "", "", "", "", "", "icon-prefix-name", 2 }, fields);
         fields.Clear(); new WiredMovementComposer(1, 10, 0, 1, 1.25, 2, 2, 3.5, 4, 4, 750).Compose(packet);
         Assert.Equal(new object[] { 1, 1, 0, 1, 2, 2, "1.25", "3.5", 10, 4, 750, 0, 0, 0 }, fields);
+        fields.Clear(); new WiredRewardResultComposer(5).Compose(packet);
+        Assert.Equal(new object[] { 5 }, fields); Assert.Equal(ServerPacketHeader.WiredRewardResultComposer, new WiredRewardResultComposer(5).MessageId);
         var (room, _, _) = World(); var box = ActionBox(room, "wf_act_show_message");
         Assert.True(box.TryValidateConfiguration(new() { IntParams = [0, 0, 252, 2], Text = "Hello" }, out var config, out _));
         Assert.Equal(2, config.IntParams[3]);
@@ -790,6 +797,172 @@ public class ModernWiredRuntimeTests
         var copies = f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray(); Assert.Equal(2, copies.Length);
         Assert.Contains(copies, item => item.GetX == 1 && item.GetY == 1); Assert.Contains(copies, item => item.GetX == 0 && item.GetY == 1);
         Assert.DoesNotContain(copies, item => item.GetX == 2);
+    }
+
+    [Fact]
+    public void RewardValidationRejectsUnsupportedCurrenciesAndKeepsActualIntervals()
+    {
+        var config = WiredRewards.Defaults() with { Text = "1,furni#5,100;0,ABC,50" };
+        Assert.True(WiredRewards.TryValidate(config, out _, out _));
+        foreach (var code in new[] { "credits#5", "pixels#5", "diamonds#5", "points5#5" })
+            Assert.False(WiredRewards.TryValidate(config with { Text = "1," + code + ",100" }, out _, out _));
+        Assert.False(WiredRewards.TryValidate(config with { Text = string.Join(';', Enumerable.Repeat("0,A,100", 21)) }, out _, out _));
+        var claim = new WiredRewardClaim { Count = 1, LastClaimUnix = 100 };
+        Assert.False(WiredRewards.IntervalOpen(claim, 0, 1, long.MaxValue));
+        foreach (var pair in new[] { (1, 86400), (2, 3600), (3, 60) })
+        {
+            Assert.False(WiredRewards.IntervalOpen(claim, pair.Item1, 2, 100 + 2 * pair.Item2 - 1));
+            Assert.True(WiredRewards.IntervalOpen(claim, pair.Item1, 2, 100 + 2 * pair.Item2));
+        }
+    }
+
+    [Fact]
+    public void RewardActionDatabaseFailureEmitsNoInventoryOrResultPacket()
+    {
+        using var f = new TeleportFixture(); f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
+        var sent = 0; ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
+        var dbField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!; var original = dbField.GetValue(null);
+        var database = DispatchProxy.Create<IDatabase, RecordingProxy>(); ((RecordingProxy)(object)database).InvokeMethod = (_, _) => throw new InvalidOperationException("Injected SQL failure");
+        try
+        {
+            dbField.SetValue(null, database); var action = ActionBox(f.Room, "wf_act_give_reward");
+            Assert.True(action.TryValidateConfiguration(WiredRewards.Defaults() with { Text = "1,furni#5,100" }, out var config, out _)); action.ApplyConfiguration(config);
+            var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]); ctx.Triggering.UserIds.Add(f.User.VirtualId);
+            Assert.False(action.Execute(ctx)); Assert.Equal(0, sent); Assert.Empty(f.Habbo.Inventory.Furniture.GetItems);
+        }
+        finally { dbField.SetValue(null, original); }
+    }
+
+    [WiredVariableDatabaseFact]
+    public async Task ActualRewardSqlSerializesQuotaGrantAndRollbackBeforePublication()
+    {
+        using var f = new TeleportFixture();
+        var connectionString = ModernWiredDatabaseProbe.GuardedConnectionString(); using var admin = new MySqlConnection(connectionString); await admin.OpenAsync();
+        Assert.Equal("InnoDB", admin.QuerySingle<string>("SELECT ENGINE FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='wired_reward_state'"));
+        var userId = 0u; var roomId = 0u; var boxId = 0u; var badgeCode = "WR" + Guid.NewGuid().ToString("N")[..10];
+        try
+        {
+            userId = ModernWiredDatabaseProbe.Insert(admin, "users", new() { ["username"] = badgeCode, ["password"] = "unused", ["mail"] = badgeCode + "@invalid" });
+            roomId = ModernWiredDatabaseProbe.Insert(admin, "rooms", new() { ["owner"] = userId.ToString(), ["caption"] = "Disposable atomic reward probe", ["model_name"] = admin.QueryFirst<string>("SELECT id FROM room_models LIMIT 1") });
+            var baseId = admin.QueryFirst<uint>("SELECT id FROM furniture WHERE type='s' LIMIT 1");
+            boxId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
+            var box = MakeItem(boxId, "wf_act_give_reward"); box.OwnerId = userId; box.RoomId = roomId;
+            f.Habbo.Id = checked((int)userId); f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
+            var sent = 0; ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
+            var definition = MakeItem(baseId, "probe_product").Definition; definition.Id = baseId;
+            var definitions = DispatchProxy.Create<IItemDataManager, RecordingProxy>();
+            ((RecordingProxy)(object)definitions).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [baseId] = definition } : method.Name == "GetItemByName" ? definition : null;
+            var database = new ModernWiredDatabaseProbe.ProbeDatabase(connectionString); var store = new WiredRewardStore(database);
+            var config = WiredRewards.Defaults() with { Text = $"1,furni#{baseId},100" };
+            var grant = store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 100);
+            Assert.Equal(5, grant.Reason); Assert.Equal(0, sent); Assert.Empty(f.Habbo.Inventory.Furniture.GetItems);
+            Assert.Equal(1, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE id=@id AND user_id=@user AND room_id=0", new { id = grant.Furniture!.Id, user = userId }));
+            WiredRewards.Publish(f.Habbo, grant); Assert.True(sent > 0); Assert.Single(f.Habbo.Inventory.Furniture.GetItems);
+            Assert.Equal(2, new WiredRewardStore(database).ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 200).Reason);
+            config = config with { IntParams = [3, 0, 0, 1, 0] };
+            Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 159).Reason);
+            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 160).Reason);
+            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
+            config = config with { IntParams = [3, 0, 1, 1, 0] };
+            var tasks = Enumerable.Range(0, 4).Select(_ => Task.Run(() => new WiredRewardStore(database).ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 1000)));
+            var results = await Task.WhenAll(tasks); Assert.Single(results, result => result.Reason == 5); Assert.Equal(3, results.Count(result => result.Reason == 1));
+            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
+            var unique = config with { IntParams = [3, 1, 0, 1, 0], Text = $"1,furni#{baseId},100;1,probe_product,100" };
+            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, 1000).Reason);
+            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, 1060).Reason);
+            Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, 1120).Reason);
+            var state = System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, WiredRewardClaim>>(admin.QuerySingle<string>("SELECT claims FROM wired_reward_state WHERE item_id=@boxId", new { boxId }))!;
+            Assert.Equal(2, state[f.Habbo.Id].Count); Assert.Contains("probe_product", state[f.Habbo.Id].ReceivedCodes); Assert.Contains($"furni#{baseId}", state[f.Habbo.Id].ReceivedCodes);
+            unique = unique with { Text = "1,new_product_after_edit,100" };
+            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, 1120).Reason); // Existing claims survive edits; new codes become available.
+            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
+            var before = admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE user_id=@user", new { user = userId });
+            database.FailSqlPrefix = "UPDATE wired_reward_state";
+            Assert.Throws<ModernWiredDatabaseProbe.InjectedCommandFailure>(() => store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 2000));
+            Assert.Equal(before, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE user_id=@user", new { user = userId }));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
+            database.FailSqlPrefix = null;
+            admin.Execute("INSERT INTO badge_definitions(code,required_right) VALUES (@badgeCode,'')", new { badgeCode });
+            var badgeConfig = WiredRewards.Defaults() with { Text = "0," + badgeCode + ",100" };
+            database.FailSqlPrefix = "UPDATE wired_reward_state";
+            Assert.Throws<ModernWiredDatabaseProbe.InjectedCommandFailure>(() => store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, 2000));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM user_badges WHERE user_id=@userId", new { userId }));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
+            database.FailSqlPrefix = null;
+            var badgeGrant = store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, 2000); Assert.Equal(4, badgeGrant.Reason);
+            Assert.False(f.Habbo.Inventory.Badges.HasBadge(badgeCode)); WiredRewards.Publish(f.Habbo, badgeGrant); Assert.True(f.Habbo.Inventory.Badges.HasBadge(badgeCode));
+            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
+            Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, 2100).Reason);
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
+        }
+        finally
+        {
+            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
+            admin.Execute("DELETE FROM user_badges WHERE user_id=@userId", new { userId });
+            admin.Execute("DELETE FROM badge_definitions WHERE code=@badgeCode", new { badgeCode });
+            admin.Execute("DELETE FROM items WHERE user_id=@userId", new { userId });
+            admin.Execute("DELETE FROM rooms WHERE id=@roomId", new { roomId });
+            admin.Execute("DELETE FROM users WHERE id=@userId", new { userId });
+        }
+    }
+
+    [WiredVariableDatabaseFact]
+    public void ActualSnapshotSpawnGivesTwoEphemeralVariablesAndDetachesWithoutDurableValues()
+    {
+        using var f = new TeleportFixture();
+        var connectionString = ModernWiredDatabaseProbe.GuardedConnectionString(); using var admin = new MySqlConnection(connectionString); admin.Open();
+        var userId = 0u; var roomId = 0u; var variableId = 0u; var operandId = 0u;
+        var dbField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!; var original = dbField.GetValue(null);
+        try
+        {
+            var suffix = "WT" + Guid.NewGuid().ToString("N")[..10];
+            userId = ModernWiredDatabaseProbe.Insert(admin, "users", new() { ["username"] = suffix, ["password"] = "unused", ["mail"] = suffix + "@invalid" });
+            roomId = ModernWiredDatabaseProbe.Insert(admin, "rooms", new() { ["owner"] = userId.ToString(), ["caption"] = "Disposable temporary variable probe", ["model_name"] = admin.QueryFirst<string>("SELECT id FROM room_models LIMIT 1") });
+            var baseId = admin.QueryFirst<uint>("SELECT id FROM furniture WHERE type='s' LIMIT 1");
+            variableId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
+            admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@variableId,'wf_var_furni',1,@config)", new { variableId, config = System.Text.Json.JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1, 1], Text = "spawnvalue" }) });
+            f.Room.Id = roomId; f.Room.OwnerId = (int)userId;
+            var definition = MakeItem(baseId, "probe").Definition; definition.Id = baseId; definition.Stackable = true;
+            var definitions = DispatchProxy.Create<IItemDataManager, RecordingProxy>(); ((RecordingProxy)(object)definitions).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [baseId] = definition } : null; f.DefinitionManager = definitions;
+            dbField.SetValue(null, new ModernWiredDatabaseProbe.ProbeDatabase(connectionString));
+            var action = ActionBox(f.Room, "wf_act_place_furni"); action.Item.OwnerId = userId;
+            var config = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with {
+                TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude, SpawnWithVariable: true, Value: 37),
+                VariableIds = [$"custom:{variableId}"], Snapshots = [new(0, baseId, 1, 1, 0, 0, "1"), new(0, baseId, 2, 1, 0, 0, "0")]
+            };
+            Assert.True(action.TryValidateConfiguration(config, out config, out _)); action.ApplyConfiguration(config);
+            var context = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]); context.VariableFrame = new(roomId, []);
+            Assert.True(action.Execute(context));
+            var copies = f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray(); Assert.Equal(2, copies.Length);
+            var holders = copies.Select(WiredVariableRuntimeFrames.FurniHolder).ToArray(); Assert.NotEqual(holders[0].StorageId, holders[1].StorageId);
+            var frame = new WiredVariableFrame(roomId, holders); var module = f.Room.GetWired().Variables.Module; var reference = new WiredVariableReference(WiredVariableTarget.Furni, $"custom:{variableId}");
+            Assert.All(holders, holder => Assert.Equal(37, module.Read(reference, holder, frame)!.Value));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@variableId", new { variableId }));
+            Assert.True(f.Room.GetRoomItemHandler().RemoveTemporaryFloorItem(copies[0]));
+            Assert.Null(module.Read(reference, holders[0], frame)); Assert.Equal(37, module.Read(reference, holders[1], frame)!.Value);
+            Assert.True(f.Room.GetRoomItemHandler().RemoveTemporaryFloorItem(copies[1])); Assert.Empty(module.GetStoredHolders(variableId));
+            operandId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
+            admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@operandId,'wf_var_context',1,@config)", new { operandId, config = System.Text.Json.JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1], Text = "operand" }) });
+            var operandFrame = new WiredVariableFrame(roomId, []);
+            Assert.True(module.Mutate(new(WiredVariableTarget.Context, $"custom:{operandId}"), new(WiredVariableTarget.Context, 0, 0), WiredVariableMutation.Give, 42, operandFrame));
+            config = config with { TemporaryPlacement = config.TemporaryPlacement! with { ValueIsVariable = true, ValueTarget = 2 }, VariableIds = [$"custom:{variableId}", $"custom:{operandId}"] };
+            Assert.True(action.TryValidateConfiguration(config, out config, out _)); action.ApplyConfiguration(config);
+            context = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]); context.VariableFrame = operandFrame;
+            Assert.True(action.Execute(context)); copies = f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray();
+            holders = copies.Select(WiredVariableRuntimeFrames.FurniHolder).ToArray(); frame = new(roomId, holders);
+            Assert.All(holders, holder => Assert.Equal(42, module.Read(reference, holder, frame)!.Value));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@variableId", new { variableId }));
+            f.Room.GetRoomItemHandler().Dispose(); Assert.Empty(module.GetStoredHolders(variableId));
+
+        }
+        finally
+        {
+            f.Engine.Clear(); dbField.SetValue(null, original);
+            admin.Execute("DELETE FROM wired_variable_values WHERE definition_id=@variableId", new { variableId });
+            admin.Execute("DELETE FROM wired_item_configurations WHERE item_id IN (@variableId,@operandId)", new { variableId, operandId });
+            admin.Execute("DELETE FROM items WHERE user_id=@userId", new { userId });
+            admin.Execute("DELETE FROM rooms WHERE id=@roomId", new { roomId }); admin.Execute("DELETE FROM users WHERE id=@userId", new { userId });
+        }
     }
 
     public class RecordingProxy : DispatchProxy
