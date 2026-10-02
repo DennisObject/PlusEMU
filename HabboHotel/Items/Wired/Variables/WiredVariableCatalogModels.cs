@@ -4,9 +4,10 @@ public sealed record WiredVariableDescription(WiredVariableDefinition Definition
 {
     public IReadOnlyDictionary<int, string> TextConnector { get; init; } = new Dictionary<int, string>();
     public bool IsBuiltin { get; init; }
+    public bool IsDerived { get; init; }
     public bool CanCreateAndDelete => !ReadOnly && !IsBuiltin && Definition.Target is WiredVariableTarget.User or WiredVariableTarget.Furni;
     public bool CanWriteValue => !ReadOnly && HasValue;
-    public bool CanReadTimestamps => !IsBuiltin;
+    public bool CanReadTimestamps => !IsBuiltin && !IsDerived;
     // Catalog target/type codes differ from scalar editor target codes.
     public int CatalogTarget => Definition.Target switch { WiredVariableTarget.Global => 0, WiredVariableTarget.User => 1,
         WiredVariableTarget.Furni => 2, _ => 3 };
@@ -18,7 +19,7 @@ public sealed record WiredVariableDescription(WiredVariableDefinition Definition
         {
             var hash = StableHash(CatalogId);
             foreach (var value in new[] { StableHash(Definition.Name), CatalogTarget, (int)Definition.Availability, CatalogTarget,
-                HasValue ? 1 : 0, TextConnector.Count > 0 ? 2 : 0, ReadOnly ? 4 : 0, IsBuiltin ? 1 : 0 })
+                HasValue ? 1 : 0, TextConnector.Count > 0 ? 2 : 0, ReadOnly ? 4 : 0, IsBuiltin ? 1 : 0, IsDerived ? 1 : 0 })
                 hash = unchecked(hash * 31 + value);
             foreach (var (key, value) in TextConnector.OrderBy(x => x.Key))
             { hash = unchecked(hash * 31 + key); hash = unchecked(hash * 31 + StableHash(value)); }

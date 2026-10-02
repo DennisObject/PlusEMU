@@ -16,9 +16,12 @@ public sealed partial class WiredRoomVariables
     public WiredVariableEditor Editor { get; }
     public WiredVariableFxTracker Fx { get; }
     public IReadOnlyCollection<WiredVariableDefinitionBox> Definitions => _definitions.Values.ToArray();
-    public WiredVariableCatalog Catalog() => new(Module.DescribeDefinitions(_definitions.Keys).Select(description =>
-        description with { TextConnector = MetadataOn(description.Definition.ItemId, "wf_xtra_var_text_connector")?.TextConnector
-            ?? new Dictionary<int, string>() }).ToArray());
+    public WiredVariableCatalog Catalog()
+    {
+        var definitions = Module.DescribeDefinitions(_definitions.Keys).Select(description => description with
+        { TextConnector = MetadataOn(description.Definition.ItemId, "wf_xtra_var_text_connector")?.TextConnector ?? new Dictionary<int, string>() }).ToArray();
+        return new(definitions.Concat(definitions.SelectMany(DerivedDescriptions)).ToArray());
+    }
     public bool FxDirty { get; private set; } = true;
 
     public WiredRoomVariables(Room room, IDatabase database, Func<long> nowMs,
@@ -27,7 +30,7 @@ public sealed partial class WiredRoomVariables
     {
         _room = room; _nowMs = nowMs;
         Module = new(room.Id, new DatabaseWiredVariableDirectory(database), new DatabaseWiredVariableStore(database), nowMs,
-            new RoomWiredBuiltinVariables(room, builtinRead, builtinWrite));
+            new RoomWiredBuiltinVariables(room, builtinRead, builtinWrite), ResolveDerived);
         Editor = new(Module); Fx = new(Module);
         _persistence = new(database, Module, nowMs);
     }

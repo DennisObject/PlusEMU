@@ -37,6 +37,24 @@ public sealed class WiredVariableMetadataTests
         Assert.True(level.TryValidateConfiguration(new() { Text = "{\"mode\":2,\"firstLevelXp\":100,\"increaseFactor\":0,\"maxLevel\":3}" }, out var zeroGrowth, out _));
         level.ApplyConfiguration(zeroGrowth); Assert.Equal(200, level.LevelSystem!.Level(150).Next);
     }
+    [Fact]
+    public void QuestAndChainReadActualCountersAndTimeUsesActiveEditorMask()
+    {
+        var quest = Box("wf_var_quest");
+        Assert.True(quest.TryValidateConfiguration(new() { IntParams = [50] }, out var candidate, out _)); quest.ApplyConfiguration(candidate);
+        Assert.Equal(new[] { 25, 50, 0, 50, 25 }, Enumerable.Range(0, 5).Select(sub => quest.ReadDerived(25, sub)));
+        Assert.Equal(1, quest.ReadDerived(50, 2)); Assert.False(quest.Execute());
+        var chain = Box("wf_var_quest_chain");
+        Assert.True(chain.TryValidateConfiguration(new() { IntParams = [3] }, out candidate, out _)); chain.ApplyConfiguration(candidate);
+        Assert.Equal(new[] { 3, 3, 1, 100 }, Enumerable.Range(0, 4).Select(sub => chain.ReadDerived(4, sub)));
+        Assert.True(chain.TryValidateConfiguration(new() { IntParams = [-1] }, out candidate, out _)); chain.ApplyConfiguration(candidate);
+        Assert.Equal(0, chain.QuestTarget); Assert.Equal(0, chain.ReadDerived(4, 2)); Assert.Equal(100, chain.ReadDerived(4, 3));
+        var time = Box("wf_xtra_var_time_util");
+        Assert.True(time.TryValidateConfiguration(new() { IntParams = [-1, 9] }, out candidate, out _)); time.ApplyConfiguration(candidate);
+        Assert.Equal(WiredVariableTimeUtilities.ValidMask, time.TimeUtilities!.Mask); Assert.Equal(0, time.TimeUtilities.Mode);
+        Assert.Equal(17, time.TimeUtilities.Selected.Count()); Assert.False(time.TimeUtilities.Has(0));
+    }
+
     private static WiredVariableMetadataBox Box(string name)
     {
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));

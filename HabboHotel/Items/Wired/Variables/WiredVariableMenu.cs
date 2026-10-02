@@ -64,7 +64,7 @@ public sealed class WiredVariableMenu(Room room, WiredRoomVariables variables)
     public WiredVariableHolderPage Page(WiredVariableDescription variable, int page, int size, int userFilter, int sort)
     {
         var (frame, names) = LiveHolders(variable.Definition.Target);
-        var result = variable.IsBuiltin ? WiredVariablePaging.Page(ReadLive(variable, frame, names), page, size, sort)
+        var result = variable.IsBuiltin || variable.IsDerived ? WiredVariablePaging.Page(ReadLive(variable, frame, names), page, size, sort)
             : variables.Module.ReadHolderPage(variable.Definition.ItemId, page, size, sort,
             variable.Definition.Target == WiredVariableTarget.User && userFilter == 1
                 ? frame.Holders.Where(x => x.Target == WiredVariableTarget.User).Select(x => x.StableId).ToArray() : null, names);
