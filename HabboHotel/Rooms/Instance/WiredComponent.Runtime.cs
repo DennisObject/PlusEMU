@@ -53,7 +53,8 @@ public partial class WiredComponent
             defaults = WiredActionConfiguration.Defaults(descriptor.CanonicalName);
         }
         else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || WiredVariableMetadataBox.Supports(descriptor.CanonicalName)
-            || WiredVariableAddonBox.Supports(descriptor.CanonicalName) || descriptor.Category == WiredBoxCategory.Variable)
+            || WiredVariableAddonBox.Supports(descriptor.CanonicalName) || descriptor.CanonicalName == "wf_xtra_text_input_variable"
+            || descriptor.Category == WiredBoxCategory.Variable)
             box = Variables.CreateBox(item);
         if (box != null && defaults != null)
         {
@@ -123,7 +124,7 @@ public partial class WiredComponent
         PublishCounterChanges(_counters.Poll(now));
         if (WiredBotTargets.For(_room).HasTargets)
             foreach (var arrival in WiredBotTargets.For(_room).Poll(_room))
-                if (!_engine.Enqueue(arrival)) NLog.LogManager.GetLogger("Wired").Warn("Wired arrival queue full in room {0}", _room.Id);
+                QueueRuntimeEvent(arrival);
         FlushExternalChanges();
     }
 
@@ -132,13 +133,19 @@ public partial class WiredComponent
         PublishCounterChanges(_counters.TakeChanges());
         if (_variables?.IsValueCreated != true) return;
         foreach (var change in _variables.Value.DrainChanges())
-            _engine.Enqueue(new(WiredEventKind.Variable)
+            QueueRuntimeEvent(new(WiredEventKind.Variable)
             {
                 Code = unchecked((int)change.Key.DefinitionId), Action = (int)change.Kind, VariableChange = change,
                 PreviousValue = change.Before?.Value ?? 0, Value = change.After?.Value ?? 0,
                 EventItem = change.Key.Target == WiredVariableTarget.Furni ? _room.GetRoomItemHandler().GetItem((uint)change.EntityId) : null,
                 TargetUser = change.Key.Target == WiredVariableTarget.User ? _room.GetRoomUserManager().GetRoomUserByVirtualId(change.EntityId) : null
             }, change.Depth + 1);
+    }
+
+    private void QueueRuntimeEvent(WiredRuntimeEvent @event, int? depth = null)
+    {
+        if (!_engine.Enqueue(@event, depth))
+            NLog.LogManager.GetLogger("Wired").Warn("Wired {0} event rejected by room queue/depth limits in room {1}", @event.Kind, _room.Id);
     }
 
     private void PublishCounterChanges(IEnumerable<WiredCounterChange> changes)
@@ -149,7 +156,7 @@ public partial class WiredComponent
             if (change.Event.Kind == WiredEventKind.GameStart)
             { _room.GetGameManager().Reset(); WiredGameState.For(_room).ResetQuotas(); }
             if (change.DisplayChanged) change.Item.UpdateState();
-            _engine.Enqueue(change.Event);
+            QueueRuntimeEvent(change.Event);
         }
     }
 }

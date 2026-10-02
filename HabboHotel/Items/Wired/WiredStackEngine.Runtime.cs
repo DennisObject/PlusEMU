@@ -15,6 +15,7 @@ internal sealed partial class WiredStackEngine
     private WiredRuntimeContext? _runtimeContext;
     private WiredRuntimeEvent? _legacyRuntimeEvent;
     public Action<WiredRuntimeEvent, long>? ObserveEvent { get; set; }
+    public Func<WiredRuntimeContext, IWiredContextualTrigger, bool?>? CaptureSpeech { get; set; }
     private readonly Queue<PendingDispatch> _dispatches = new();
     private Func<bool>? _externalFastWork;
     private Action<long>? _pollExternal;
@@ -136,7 +137,8 @@ internal sealed partial class WiredStackEngine
         foreach (var item in targets.OrderBy(x => x.GetZ).ThenBy(x => x.Id).ToArray())
         {
             if (_remaining <= 0) break;
-            if (!parent.Targets.ResolveFurni(parent, [item.Id], WiredSources.Selected, raw: true).Contains(item)) continue;
+            if (!parent.Targets.IsAttached(item) || !parent.FurniIdentity.TryGetValue(item.Id, out var captured)
+                || !ReferenceEquals(captured, item)) continue;
             RefreshStacks();
             if (!_stacks.TryGetValue((item.GetX, item.GetY), out var tile)) continue;
             var source = tile.FirstOrDefault(IsAttached);

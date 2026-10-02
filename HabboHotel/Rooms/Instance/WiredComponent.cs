@@ -47,6 +47,8 @@ public partial class WiredComponent : IWiredRuntimeOperations
                 if (_variables?.IsValueCreated == true) _variables.Value.HolderLeft(WiredVariableRuntimeFrames.UserHolder(evt.Actor));
             }
         };
+        _engine.CaptureSpeech = (context, trigger) => _variables?.IsValueCreated == true
+            ? _variables.Value.CaptureSpeech(context, trigger) : null;
         _engine.ConfigurationPublished = box =>
         {
             if (_variables?.IsValueCreated == true) _variables.Value.ConfigurationSaved(box);
@@ -111,7 +113,11 @@ public partial class WiredComponent : IWiredRuntimeOperations
         {
             try
             {
-                var selected = WiredBoxLoading.Select(newBox, CreateConfiguredBox(item, descriptor), ConfigurationStore.Load(item.Id, descriptor));
+                var saved = ConfigurationStore.Load(item.Id, descriptor);
+                if (saved != null && saved.SelectedItems.Concat(saved.SecondarySelectedItems)
+                    .Any(id => _room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true))
+                    throw new InvalidDataException("Saved static selections cannot reference temporary room furniture.");
+                var selected = WiredBoxLoading.Select(newBox, CreateConfiguredBox(item, descriptor), saved);
                 if (selected is IWiredConfiguredItem configured)
                 {
                     if (_variables?.IsValueCreated == true) _variables.Value.ConfigurationLoaded(configured);

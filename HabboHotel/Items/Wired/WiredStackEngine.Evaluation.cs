@@ -66,7 +66,7 @@ internal sealed partial class WiredStackEngine
         SnapshotDispatch(pending);
         if (!pending.Initialized)
         {
-            if (pending.Event.EventItem is { } item && !_targets!.AllFurni().Contains(item)) return true;
+            if (pending.Event.EventItem is { } item && !_targets!.IsAttached(item)) return true;
             pending.Root = pending.Signal?.Context ?? pending.Root ?? CreateContext(pending.Event, pending.Depth);
             if (!IsActorPresent(new([], pending.Depth, Runtime: pending.Root))) return true;
             ObserveEvent?.Invoke(pending.Event, _now());
@@ -117,7 +117,8 @@ internal sealed partial class WiredStackEngine
             }
             else SeedEvent(context);
             context.Capture(GetStack(trigger));
-            if (InvokeRuntime(trigger, context, () => trigger.Execute(context)))
+            if (InvokeRuntime(trigger, context, () => context.Event.Kind == WiredEventKind.Speech
+                    ? CaptureSpeech?.Invoke(context, trigger) ?? trigger.Execute(context) : trigger.Execute(context)))
                 pending.Current = BeginFiring(trigger, context, pending.Signal?.Negative);
             else CompleteDispatchSlot(pending);
         }
