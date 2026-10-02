@@ -7,6 +7,11 @@ public interface IWiredContextualItem : IWiredConfiguredItem
     bool Execute(WiredRuntimeContext context);
 }
 
+public interface IWiredContextualAction : IWiredContextualItem
+{
+    bool IsNegative { get; }
+}
+
 // Trigger Execute is a predicate; the engine alone evaluates and schedules its stack.
 public interface IWiredContextualTrigger : IWiredContextualItem
 {

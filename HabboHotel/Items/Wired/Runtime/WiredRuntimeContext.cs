@@ -7,6 +7,8 @@ namespace Plus.HabboHotel.Items.Wired.Runtime;
 public sealed class WiredRuntimeContext
 {
     private readonly Dictionary<uint, WiredConfiguration> _configurations = [];
+    internal Dictionary<(int Source, string Saved, int Limit), uint[]> FurniSubsets { get; } = [];
+    internal Dictionary<(int Source, string Saved, string? Name, int Limit), int[]> UserSubsets { get; } = [];
     internal Dictionary<uint, Item> FurniIdentity { get; } = [];
     internal Dictionary<int, RoomUser> UserIdentity { get; } = [];
     public Room Room { get; }
