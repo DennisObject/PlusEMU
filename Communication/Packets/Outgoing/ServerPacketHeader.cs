@@ -83,6 +83,7 @@ public static class ServerPacketHeader
 
     // Room Furniture
     public const uint WiredValidationErrorComposer = 156;
+    public const uint WiredRoomSettingsDataComposer = 5102;
     public const uint WiredRewardResultComposer = 178;
     public const uint WiredMovementsComposer = 3999;
     public const uint WiredFurniMoveStyleComposer = 5110;

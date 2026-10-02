@@ -8,6 +8,7 @@ using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern;
+using Plus.HabboHotel.Items.Wired.Settings;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
 
@@ -21,7 +22,7 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
         if (!session.GetHabbo().InRoom)
             return Task.CompletedTask;
         var room = session.GetHabbo().CurrentRoom;
-        if (room == null || !room.CheckRights(session, false, true))
+        if (room == null || !WiredRoomSettings.For(room, database).CanModify(session))
             return Task.CompletedTask;
         try
         {

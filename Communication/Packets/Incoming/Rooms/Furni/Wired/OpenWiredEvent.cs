@@ -1,4 +1,5 @@
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
@@ -8,7 +9,7 @@ internal sealed class OpenWiredEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.CheckRights(session, false, true))
+        if (!WiredRoomSettings.For(room).CanInspect(session))
             return Task.CompletedTask;
         uint id;
         try

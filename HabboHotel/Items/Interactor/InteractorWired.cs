@@ -2,6 +2,7 @@
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Settings;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
@@ -19,7 +20,7 @@ public class InteractorWired : IFurniInteractor
     {
         if (session == null || item == null)
             return;
-        if (!hasRights)
+        if (!WiredRoomSettings.For(item.GetRoom()).CanInspect(session))
             return;
         IWiredItem box = null;
         if (!item.GetRoom().GetWired().TryGet(item.Id, out box))
