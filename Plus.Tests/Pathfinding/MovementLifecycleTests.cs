@@ -44,9 +44,25 @@ public partial class PlacedFurniRoomTests
         Assert.False(actor.HasStatus("mv"));
         actor.MoveTo(2, 1, MoveOrigin.Wired); ExecutorTick();
         Assert.Equal((2, 1), (actor.GoalX, actor.GoalY));
-        Assert.False(actor.HasStatus("mv"));
-        actor.CanWalk = true; ExecutorTick();
         Assert.Contains("/mv 1,1,0/", ExecutorUpdate(actor).Status);
+        ExecutorTick();
+        Assert.Equal((1, 1), (actor.X, actor.Y));
+        Assert.Contains("/mv 2,1,0/", ExecutorUpdate(actor).Status);
+    }
+
+    [Fact]
+    public void LegacyExistingRouteContinuesAfterCanWalkIsDisabled()
+    {
+        var actor = Viewer(0, 1); actor.UserId = 7;
+        _room.GetGameMap().AddUserToMap(actor, new(0, 1));
+        actor.MoveTo(2, 1); ExecutorTick();
+        Assert.Contains("/mv 1,1,0/", ExecutorUpdate(actor).Status);
+        actor.CanWalk = false; ExecutorTick();
+        Assert.Equal((1, 1), (actor.X, actor.Y));
+        Assert.Contains("/mv 2,1,0/", ExecutorUpdate(actor).Status);
+        ExecutorTick();
+        Assert.Equal((2, 1), (actor.X, actor.Y));
+        Assert.False(actor.HasStatus("mv"));
     }
 
     [Fact]
