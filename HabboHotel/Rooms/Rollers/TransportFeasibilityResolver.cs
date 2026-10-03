@@ -2,16 +2,23 @@ using System.Drawing;
 
 namespace Plus.HabboHotel.Rooms.Rollers;
 
-internal sealed class TransportResolution
+// Planning state. Unresolved tiles report no departures, so planning never assumes a vacancy.
+internal sealed class TransportResolution : IRollerDepartureView
 {
+    private readonly Dictionary<Point, RollerDepartures> _departures = new();
     internal Dictionary<RollerLoad, IReadOnlyList<RollerMove>> Departing { get; } = new(ReferenceEqualityComparer.Instance);
     // Upstream load -> the downstream load whose departure admitted it.
     internal Dictionary<RollerLoad, RollerLoad> Follows { get; } = new(ReferenceEqualityComparer.Instance);
     internal List<TransportGroup> Loops { get; } = new();
     internal HashSet<Point> LoopTiles { get; } = new();
 
-    internal IReadOnlyList<RollerMove> DepartingFrom(RollerLoad? load)
-        => load != null && Departing.TryGetValue(load, out var moves) ? moves : [];
+    public RollerDepartures At(Point tile) => _departures.GetValueOrDefault(tile, RollerDepartures.None);
+
+    internal void Depart(RollerLoad load, IReadOnlyList<RollerMove> moves)
+    {
+        Departing[load] = moves;
+        _departures[load.Origin] = RollerDepartures.Of(moves);
+    }
 }
 
 // Feasibility before tie-break: full loops reserve their own permutation, then every other
@@ -36,10 +43,10 @@ internal sealed class TransportFeasibilityResolver(IRollerAdmission admission)
     private void ResolveLoop(IReadOnlyList<RollerLoad> loop, TransportResolution resolution)
     {
         var rotation = new TransportGroup(TransportGroupKind.Loop, loop.SelectMany(load => load.Moves).ToList());
-        var rotates = rotation.Moves.All(move => admission.Admits(move, rotation.DeparturesFrom(move.Destination)));
+        var rotates = rotation.Moves.All(move => admission.Admits(move, rotation));
         foreach (var load in loop)
         {
-            resolution.Departing[load] = rotates ? load.Moves : [];
+            resolution.Depart(load, rotates ? load.Moves : []);
             resolution.LoopTiles.Add(load.Origin);
         }
         if (rotates) resolution.Loops.Add(rotation);
@@ -49,14 +56,13 @@ internal sealed class TransportFeasibilityResolver(IRollerAdmission admission)
     private void ResolveFeeders(Point tile, IReadOnlyList<RollerLoad> feeders, RollerLoad? standing,
         TransportResolution resolution)
     {
-        var departing = RollerDepartures.Of(resolution.DepartingFrom(standing));
         var winner = resolution.LoopTiles.Contains(tile) ? default : feeders
-            .Select(load => (Load: load, Admitted: load.Moves.Where(move => admission.Admits(move, departing)).ToList()))
+            .Select(load => (Load: load, Admitted: load.Moves.Where(move => admission.Admits(move, resolution)).ToList()))
             .Where(candidate => candidate.Admitted.Count > 0)
             .OrderBy(candidate => candidate.Load.Roller.Id)
             .FirstOrDefault();
         foreach (var feeder in feeders)
-            resolution.Departing[feeder] = ReferenceEquals(feeder, winner.Load) ? winner.Admitted : [];
-        if (winner.Load != null && standing != null && !departing.IsEmpty) resolution.Follows[winner.Load] = standing;
+            resolution.Depart(feeder, ReferenceEquals(feeder, winner.Load) ? winner.Admitted : []);
+        if (winner.Load != null && standing != null && !resolution.At(tile).IsEmpty) resolution.Follows[winner.Load] = standing;
     }
 }

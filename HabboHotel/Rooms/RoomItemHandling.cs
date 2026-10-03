@@ -510,36 +510,73 @@ public class RoomItemHandling
 
     public bool SetFloorItem(Item item, int newX, int newY, double newZ)
     {
-        if (_room == null || item.IsTemporary && (!OwnsTemporary(item)
-            || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanMoveItem(_room, item, newX, newY, item.Rotation, newZ)))
+        if (_room == null || !CanMoveFloorItem(item, newX, newY, newZ)) return false;
+        var move = new[] { new FloorMove(item, newX, newY, ResolveFloorZ(item, newX, newY, newZ)) };
+        CommitFloorMoves(move);
+        SettleFloorMoves(move);
+        return true;
+    }
+
+    // Every rejection of the in-place furniture setter, evaluated without mutating anything.
+    internal bool CanMoveFloorItem(Item item, int newX, int newY, double newZ,
+        Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? collision = null)
+    {
+        if (item.IsTemporary && (!OwnsTemporary(item)
+            || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanMoveItem(_room, item, newX, newY, item.Rotation, newZ, collision: collision)))
             return false;
+        if (!MagicTileHeight.IsMagicTile(item.Definition.InteractionType)) return true;
+        var map = _room.GetGameMap();
+        return !MoveFootprint(item, newX, newY).Any(tile => !map.ValidTile(tile.X, tile.Y)
+            || tile.X == map.Model.DoorX && tile.Y == map.Model.DoorY && (newX != item.GetX || newY != item.GetY));
+    }
+
+    // The in-place setter's height adjustment: helpers are clamped to their footprint's floor.
+    internal double ResolveFloorZ(Item item, int newX, int newY, double newZ)
+    {
+        if (!MagicTileHeight.IsMagicTile(item.Definition.InteractionType)) return newZ;
+        var map = _room.GetGameMap();
+        var footprint = MoveFootprint(item, newX, newY).Where(tile => map.ValidTile(tile.X, tile.Y)).ToArray();
+        return footprint.Length == 0 ? newZ
+            : MagicTileHeight.Clamp(newZ, footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]));
+    }
+
+    // Map and position writes only, all under one placement lock. Callers preflight with CanMoveFloorItem.
+    internal void CommitFloorMoves(IReadOnlyList<FloorMove> moves)
+    {
         var map = _room.GetGameMap();
         lock (map.PlacementSync)
         {
-            if (MagicTileHeight.IsMagicTile(item.Definition.InteractionType))
+            foreach (var move in moves) map.RemoveFromMap(move.Item, false);
+            foreach (var move in moves)
             {
-                var footprint = Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, item.Rotation)
-                    .Values.Select(tile => new Point(tile.X, tile.Y)).Append(new Point(newX, newY)).Distinct().ToArray();
-                if (footprint.Any(tile => !map.ValidTile(tile.X, tile.Y)
-                    || tile.X == map.Model.DoorX && tile.Y == map.Model.DoorY
-                        && (newX != item.GetX || newY != item.GetY))) return false;
-                newZ = MagicTileHeight.Clamp(newZ, footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]));
+                var item = move.Item;
+                item.SetState(move.X, move.Y, move.Z, Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, move.X, move.Y, item.Rotation));
+                map.AddItemToMap(item, false);
             }
-            map.RemoveFromMap(item, false);
-            item.SetState(newX, newY, newZ, Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, item.Rotation));
-            map.AddItemToMap(item, false);
         }
-        map.RemoveItemEffects(item);
-        map.AddItemEffects(item);
-        if (item.Definition.InteractionType == InteractionType.Toner)
-            if (_room.TonerData == null)
-                _room.TonerData = new(item.Id);
-        UpdateItem(item);
-        map.FlushPlacementUpdates();
-        if (item.Definition.InteractionType == InteractionType.WalkMagicTile)
-            _room.GetRoomUserManager().UpdateUserStatusses();
-        return true;
     }
+
+    // Deferred effects, persistence, placement flush and posture refresh, once for the whole set.
+    internal void SettleFloorMoves(IReadOnlyList<FloorMove> moves)
+    {
+        if (moves.Count == 0) return;
+        var map = _room.GetGameMap();
+        foreach (var item in moves.Select(move => move.Item))
+        {
+            map.RemoveItemEffects(item);
+            map.AddItemEffects(item);
+            if (item.Definition.InteractionType == InteractionType.Toner && _room.TonerData == null)
+                _room.TonerData = new(item.Id);
+            UpdateItem(item);
+        }
+        map.FlushPlacementUpdates();
+        if (moves.Any(move => move.Item.Definition.InteractionType == InteractionType.WalkMagicTile))
+            _room.GetRoomUserManager().UpdateUserStatusses();
+    }
+
+    private static IEnumerable<Point> MoveFootprint(Item item, int x, int y)
+        => Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, x, y, item.Rotation)
+            .Values.Select(tile => new Point(tile.X, tile.Y)).Append(new Point(x, y)).Distinct();
 
     public bool SetWallItem(GameClient session, Item item)
     {
@@ -769,3 +806,5 @@ public class RoomItemHandling
         _roomItemUpdateQueue = null;
     }
 }
+
+internal readonly record struct FloorMove(Item Item, int X, int Y, double Z);

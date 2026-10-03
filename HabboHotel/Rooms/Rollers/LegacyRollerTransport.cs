@@ -11,6 +11,8 @@ internal sealed class LegacyRollerTransport(Room room, RoomItemHandling handler)
     public bool AdmitsActor(RollerMove move, RollerDepartures departing)
     {
         var map = room.GetGameMap(); var to = move.Destination;
+        // Explicit floor locks are structural: departing occupants never release them.
+        if (map.IsFloorLocked(to)) return false;
         if (departing.IsEmpty)
             return map.IsValidStep(new Vector2D(move.Origin.X, move.Origin.Y), new Vector2D(to.X, to.Y), true, false, true)
                 && map.GetFloorStatus(to) != 0;
@@ -18,6 +20,9 @@ internal sealed class LegacyRollerTransport(Room room, RoomItemHandling handler)
         return departing.Roller?.Definition.Walkable == true
             && (room.RoomBlockingEnabled || departing.AllUsersLeave(map.GetRoomUsers(to)));
     }
+
+    // Legacy has no claims; the shared furniture rules are the whole cargo admission.
+    public bool AdmitsCargo(RollerMove move, RollerDepartures departing) => true;
 
     public bool Reserve(TransportGroup group) => true;
 

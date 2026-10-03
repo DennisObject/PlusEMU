@@ -37,12 +37,14 @@ internal sealed class RollerLoadBuilder(Room room, IRollerTransportEngine engine
         return new(roller, destination, moves);
     }
 
-    private static RollerMove CargoMove(Item roller, Item cargo, Point destination, bool nextIsRoller)
+    // The setter's own height adjustment is applied here, so the captured slide matches the commit.
+    private RollerMove CargoMove(Item roller, Item cargo, Point destination, bool nextIsRoller)
     {
-        var z = Carried(cargo.GetZ, roller, nextIsRoller);
+        var z = room.GetRoomItemHandler().ResolveFloorZ(cargo, destination.X, destination.Y,
+            Carried(cargo.GetZ, roller, nextIsRoller));
         var slide = new SlideObjectBundleComposer(cargo.GetX, cargo.GetY, cargo.GetZ, destination.X, destination.Y,
             z, roller.Id, 0, cargo.Id);
-        return new(roller, new(roller.GetX, roller.GetY), destination, cargo.GetZ, z, cargo, null, slide);
+        return new(roller, new(roller.GetX, roller.GetY), destination, Snapshot(roller, cargo.GetZ, 0), z, cargo, null, slide);
     }
 
     private static RollerMove ActorMove(Item roller, RoomUser actor, Point destination, bool nextIsRoller)
@@ -50,8 +52,12 @@ internal sealed class RollerLoadBuilder(Room room, IRollerTransportEngine engine
         var z = Carried(actor.Z, roller, nextIsRoller);
         var slide = new SlideObjectBundleComposer(actor.X, actor.Y, actor.Z, destination.X, destination.Y,
             z, roller.Id, actor.VirtualId, 0);
-        return new(roller, new(roller.GetX, roller.GetY), destination, actor.Z, z, null, actor, slide);
+        return new(roller, new(roller.GetX, roller.GetY), destination,
+            Snapshot(roller, actor.Z, actor.Movement.LocationRevision), z, null, actor, slide);
     }
+
+    private static RollerSnapshot Snapshot(Item roller, double sourceZ, long actorRevision)
+        => new(roller.Rotation, roller.GetZ, sourceZ, actorRevision);
 
     private static double Carried(double z, Item roller, bool nextIsRoller) => nextIsRoller ? z : z - roller.Definition.Height;
 }

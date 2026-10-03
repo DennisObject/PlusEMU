@@ -2,21 +2,24 @@ using Plus.HabboHotel.Items;
 
 namespace Plus.HabboHotel.Rooms.Rollers;
 
-// Revalidates a group just before it commits: snapshots must still hold, and the final geometry is
-// checked with plan-local occupancy that ignores only the group's own confirmed departures.
+// Revalidates a group just before it commits: every snapshot must still hold (an earlier group's
+// hooks may have moved, rotated or relocated something), and the final geometry is checked with
+// plan-local occupancy that ignores only the group's own confirmed departures.
 internal sealed class TransportGroupValidator(Room room, IRollerTransportEngine engine, IRollerAdmission admission)
 {
     internal bool IsValid(TransportGroup group)
-        => group.Moves.All(Unchanged)
-            && group.Moves.All(move => admission.Admits(move, group.DeparturesFrom(move.Destination)));
+        => group.Moves.All(Unchanged) && group.Moves.All(move => admission.Admits(move, group));
 
     private bool Unchanged(RollerMove move)
     {
-        if (!InPlace(move.Roller, move)) return false;
-        if (move.Cargo is { } cargo) return InPlace(cargo, move) && cargo.GetZ == move.SourceZ;
+        var snapshot = move.Snapshot;
+        if (!InPlace(move.Roller, move) || move.Roller.Rotation != snapshot.RollerRotation
+            || move.Roller.GetZ != snapshot.RollerZ) return false;
+        if (move.Cargo is { } cargo) return InPlace(cargo, move) && cargo.GetZ == snapshot.SourceZ;
         var actor = move.Actor!;
         return ReferenceEquals(room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId), actor)
-            && actor.X == move.Origin.X && actor.Y == move.Origin.Y && engine.CanRide(actor);
+            && actor.X == move.Origin.X && actor.Y == move.Origin.Y && actor.Z == snapshot.SourceZ
+            && actor.Movement.LocationRevision == snapshot.ActorRevision && engine.CanRide(actor);
     }
 
     private bool InPlace(Item item, RollerMove move)

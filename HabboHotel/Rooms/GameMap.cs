@@ -220,6 +220,7 @@ public partial class Gamemap
 
     private Room _room;
     private byte[,] _structuralMap;
+    private readonly ConcurrentDictionary<Point, byte> _floorStatusWrites = new();
     private Point[] _roamTargets;
     private ConcurrentDictionary<Point, List<RoomUser>> _userMap;
 
@@ -1062,8 +1063,12 @@ public partial class Gamemap
     {
         GameMap[x, y] = status;
         WriteStructural(x, y, status);
+        _floorStatusWrites[new(x, y)] = status;
         Navigation?.SetFloorStatus(x, y, status);
     }
+
+    // Mirrors v2 floor-status overrides: furniture rebuilding GameMap does not release an explicit lock.
+    internal bool IsFloorLocked(Point tile) => _floorStatusWrites.TryGetValue(tile, out var status) && status == 0;
 
     public double GetHeightForSquareFromData(Point coord)
     {

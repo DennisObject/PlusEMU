@@ -7,6 +7,9 @@ internal interface IRollerTransportEngine
 
     bool AdmitsActor(RollerMove move, RollerDepartures departing);
 
+    // Engine occupancy that furniture may not land on (claims), beyond the shared furniture rules.
+    bool AdmitsCargo(RollerMove move, RollerDepartures departing);
+
     // Collective destination reservations, held until the end of the user phase.
     bool Reserve(TransportGroup group);
 

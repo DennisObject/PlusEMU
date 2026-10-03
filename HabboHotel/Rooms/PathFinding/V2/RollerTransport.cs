@@ -1,12 +1,14 @@
+using System.Drawing;
 using Plus.HabboHotel.Rooms.Rollers;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
-// V2 actor rules for the shared roller planner: Roller-purpose CanStep, collective R claims,
-// one publish, then ExactZ binding to the carried Z (off-graph when no surface matches).
+// V2 rules for the shared roller planner: Roller-purpose CanStep, claim-aware cargo, collective R
+// reservations on every destination, one publish, then ExactZ binding to the carried Z.
 internal sealed class RollerTransport(RoomNavigation navigation, MovementContext context, ForcePlacementService placement)
     : IRollerTransportEngine
 {
+    private const TargetOccupancy Anything = (TargetOccupancy)127;
     private NavGrid Grid => navigation.Grid;
 
     public bool CanRide(RoomUser actor) => actor.Movement.State == NavState.Active && !actor.IsWalking
@@ -27,17 +29,23 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
         return result.Ok;
     }
 
+    // Furniture may not land where another actor stands, walks or holds any claim.
+    public bool AdmitsCargo(RollerMove move, RollerDepartures departing)
+    {
+        var to = move.Destination;
+        return !Grid.InBounds(to.X, to.Y)
+            || (context.Claims.OccupancyAt(Grid.Tile(to.X, to.Y), ClaimLedger.NoGroup, departing.Users) & Anything) == 0;
+    }
+
     public bool Reserve(TransportGroup group)
     {
-        var reserved = new List<RoomUser>();
-        foreach (var move in group.Moves.Where(move => move.Actor != null))
+        var reserved = new List<Action>();
+        foreach (var destination in group.Moves.GroupBy(move => move.Destination))
         {
-            if (!TryReserve(move, group.DeparturesFrom(move.Destination)))
-            {
-                foreach (var actor in reserved) context.Claims.ReleaseRollers(actor);
-                return false;
-            }
-            reserved.Add(move.Actor!);
+            var release = TryReserve(destination.Key, destination.ToList(), group.At(destination.Key));
+            if (release != null) { reserved.Add(release); continue; }
+            foreach (var undo in reserved) undo();
+            return false;
         }
         return true;
     }
@@ -65,11 +73,15 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
 
     public void Land(RollerMove move) => context.TransportLandings.Trigger(move.Actor!, move.Destination, move.Roller);
 
-    private bool TryReserve(RollerMove move, RollerDepartures departing)
+    // One R claim per destination: the arriving actor owns it, otherwise the cargo reservation does.
+    private Action? TryReserve(Point destination, IReadOnlyList<RollerMove> arriving, RollerDepartures departing)
     {
-        var slot = Grid.Tile(move.Destination.X, move.Destination.Y);
-        var profile = context.Profiles.Refresh(move.Actor!);
-        var mask = ClaimMatrix.BlockingMask(profile, Grid.Flags[slot], StepPurpose.Roller, OccupancyView.Execution);
-        return context.Claims.TryClaim(move.Actor!, slot, ClaimKind.Roller, mask, departing.Users);
+        if (!Grid.InBounds(destination.X, destination.Y)) return () => { };
+        var slot = Grid.Tile(destination.X, destination.Y);
+        if (arriving.FirstOrDefault(move => move.Actor != null)?.Actor is not { } actor)
+            return context.Claims.TryReserveCargo(slot, Anything, departing.Users) ? () => context.Claims.ReleaseCargo(slot) : null;
+        var mask = ClaimMatrix.BlockingMask(context.Profiles.Refresh(actor), Grid.Flags[slot], StepPurpose.Roller, OccupancyView.Execution);
+        return context.Claims.TryClaim(actor, slot, ClaimKind.Roller, mask, departing.Users)
+            ? () => context.Claims.ReleaseRollers(actor) : null;
     }
 }

@@ -18,8 +18,13 @@ public sealed class ClaimLedger
 {
     private readonly Dictionary<RoomUser, ClaimMember> _members = new(ReferenceEqualityComparer.Instance);
     private readonly List<Claim>?[] _claims;
+    // Roller cargo destinations: R claims owned by no actor, released with the other roller claims.
+    private readonly int[] _cargoReservations;
+    private readonly List<int> _cargoSlots = new();
     private readonly record struct Claim(ClaimMember Owner, ClaimKind Kind);
     private enum ReleaseMode { All, Batch, Roller }
+    // Lifetime ids are positive, so this group excludes nobody (roller cargo belongs to no actor).
+    public const long NoGroup = long.MinValue;
     public ClaimMember?[] Head { get; }
     public ClaimMember?[] OffGraphHead { get; }
     public int[] Count { get; }
@@ -31,6 +36,7 @@ public sealed class ClaimLedger
         Head = new ClaimMember?[slotCapacity]; OffGraphHead = new ClaimMember?[tileCount];
         Count = new int[slotCapacity]; StationaryCount = new int[slotCapacity];
         TileCount = new int[tileCount]; _claims = new List<Claim>?[slotCapacity];
+        _cargoReservations = new int[slotCapacity];
     }
 
     public ClaimMember Move(RoomUser actor, int? slot, int tile, bool walking, long groupId)
@@ -91,6 +97,20 @@ public sealed class ClaimLedger
     public void ReleaseRollers()
     {
         foreach (var member in _members.Values) ReleaseClaims(member, ReleaseMode.Roller);
+        foreach (var slot in _cargoSlots) _cargoReservations[slot] = 0;
+        _cargoSlots.Clear();
+    }
+
+    public bool TryReserveCargo(int slot, TargetOccupancy blockingMask, IReadOnlySet<RoomUser>? departing)
+    {
+        if ((OccupancyAt(slot, NoGroup, departing) & blockingMask) != 0) return false;
+        if (_cargoReservations[slot]++ == 0) _cargoSlots.Add(slot);
+        return true;
+    }
+
+    public void ReleaseCargo(int slot)
+    {
+        if (_cargoReservations[slot] > 0 && --_cargoReservations[slot] == 0) _cargoSlots.Remove(slot);
     }
 
     public void ReleaseRollers(RoomUser actor)
@@ -112,6 +132,7 @@ public sealed class ClaimLedger
         if (_claims[slot] is { } claims)
             foreach (var claim in claims)
                 if (Counts(claim.Owner, excludingGroup, departing)) result |= ClaimBit(claim.Kind);
+        if (_cargoReservations[slot] != 0) result |= TargetOccupancy.RollerClaim;
         return result;
     }
 

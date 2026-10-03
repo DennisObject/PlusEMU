@@ -4,10 +4,16 @@ using Plus.HabboHotel.Items;
 
 namespace Plus.HabboHotel.Rooms.Rollers;
 
+// The state a move was planned from. Any change before its group commits makes the group stale.
+internal readonly record struct RollerSnapshot(int RollerRotation, double RollerZ, double SourceZ, long ActorRevision);
+
 // One mover leaving a roller: cargo or the riding actor. Origin, Z and the slide packet are
 // captured when the cycle snapshots its loads (§14.9 a).
-internal sealed record RollerMove(Item Roller, Point Origin, Point Destination, double SourceZ,
-    double CarriedZ, Item? Cargo, RoomUser? Actor, IServerPacket Slide);
+internal sealed record RollerMove(Item Roller, Point Origin, Point Destination, RollerSnapshot Snapshot,
+    double CarriedZ, Item? Cargo, RoomUser? Actor, IServerPacket Slide)
+{
+    internal double SourceZ => Snapshot.SourceZ;
+}
 
 // Everything a roller would carry this cycle. Reference identity keys the plan.
 internal sealed class RollerLoad(Item roller, Point destination, IReadOnlyList<RollerMove> moves)
@@ -18,14 +24,31 @@ internal sealed class RollerLoad(Item roller, Point destination, IReadOnlyList<R
     internal IReadOnlyList<RollerMove> Moves { get; } = moves;
 }
 
+// Confirmed departures by origin tile, as seen by plan-local validation.
+internal interface IRollerDepartureView
+{
+    RollerDepartures At(Point tile);
+}
+
 internal enum TransportGroupKind { Single, Chain, Loop }
 
 // An indivisible transport: it commits completely or not at all.
-internal sealed record TransportGroup(TransportGroupKind Kind, IReadOnlyList<RollerMove> Moves)
+internal sealed class TransportGroup : IRollerDepartureView
 {
-    internal uint FirstRollerId => Moves.Min(move => move.Roller.Id);
+    private readonly Dictionary<Point, RollerDepartures> _departures;
 
-    internal RollerDepartures DeparturesFrom(Point tile) => RollerDepartures.Of(Moves.Where(move => move.Origin == tile));
+    internal TransportGroup(TransportGroupKind kind, IReadOnlyList<RollerMove> moves)
+    {
+        Kind = kind; Moves = moves;
+        FirstRollerId = moves.Min(move => move.Roller.Id);
+        _departures = moves.GroupBy(move => move.Origin).ToDictionary(tile => tile.Key, RollerDepartures.Of);
+    }
+
+    internal TransportGroupKind Kind { get; }
+    internal IReadOnlyList<RollerMove> Moves { get; }
+    internal uint FirstRollerId { get; }
+
+    public RollerDepartures At(Point tile) => _departures.GetValueOrDefault(tile, RollerDepartures.None);
 }
 
 // Confirmed departures from one tile. Plan-local validation ignores only these occupants.

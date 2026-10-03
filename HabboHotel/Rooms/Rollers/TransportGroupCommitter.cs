@@ -1,6 +1,7 @@
 namespace Plus.HabboHotel.Rooms.Rollers;
 
-// Simultaneous group contract (§14.9): validate, reserve, commit without callbacks, publish once,
+// Simultaneous group contract (§14.9): validate (including every furniture-setter rejection), reserve,
+// commit positions and furniture without callbacks, publish once, settle deferred furniture effects,
 // then emit the captured slides and dispatch hooks in roller-id order. Any failure is a whole-group no-op.
 internal sealed class TransportGroupCommitter(Room room, IRollerTransportEngine engine, TransportGroupValidator validator)
 {
@@ -9,10 +10,13 @@ internal sealed class TransportGroupCommitter(Room room, IRollerTransportEngine 
         if (!validator.IsValid(group) || !engine.Reserve(group)) return false;
         var ordered = group.Moves.OrderBy(move => move.Roller.Id).ToList();
         var actors = ordered.Where(move => move.Actor != null).ToList();
-        foreach (var move in ordered.Where(move => move.Cargo != null))
-            room.GetRoomItemHandler().SetFloorItem(move.Cargo!, move.Destination.X, move.Destination.Y, move.CarriedZ);
+        var furniture = ordered.Where(move => move.Cargo != null)
+            .Select(move => new FloorMove(move.Cargo!, move.Destination.X, move.Destination.Y, move.CarriedZ)).ToList();
+        var items = room.GetRoomItemHandler();
+        items.CommitFloorMoves(furniture);
         engine.CommitActors(actors);
         engine.Publish(actors);
+        items.SettleFloorMoves(furniture);
         room.SendPacket(ordered.Select(move => move.Slide).ToList());
         foreach (var move in actors.Where(StillLanded)) engine.Land(move);
         return true;
