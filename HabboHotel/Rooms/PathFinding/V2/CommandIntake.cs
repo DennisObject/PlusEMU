@@ -11,6 +11,7 @@ internal sealed class CommandIntake(MovementContext context, ForcePlacementServi
         if (actor.Frozen || !actor.CanWalk && command.Origin == MoveOrigin.User) return;
         if ((command.Flags & MoveFlags.Teleport) != 0) { placement.Teleport(actor, command); return; }
         state.Fallback.Begin(command.Sequence);
+        context.Approaches.Bind(actor, command);
         state.GoalRevision++; state.Origin = command.Origin; state.Flags = command.Flags;
         state.Route.Clear(); state.Cursor = 0; state.HasIntent = true;
         state.WaitTicks = state.BlockReplans = state.StallTicks = 0;

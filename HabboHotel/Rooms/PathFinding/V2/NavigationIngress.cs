@@ -1,3 +1,5 @@
+using Plus.HabboHotel.Items;
+
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
 public sealed partial class RoomNavigation
@@ -6,12 +8,24 @@ public sealed partial class RoomNavigation
     private V2MovementEngine? _executor;
     private HorseMountService? _mounts;
     internal HorseMountService Mounts => _mounts ??= new(_room, this, Executor.Context);
-    public void Move(RoomUser actor, int x, int y, MoveOrigin origin, MoveFlags flags = MoveFlags.None)
+    public void Move(RoomUser actor, int x, int y, MoveOrigin origin, MoveFlags flags = MoveFlags.None,
+        ApproachDescriptor? approach = null)
     {
         if (!UsesExecutor || actor.Movement.State == NavState.Removing) return;
         var state = actor.Movement;
-        state.Commands.Publish(new(state.NextSequence(), x, y, origin, flags));
+        state.Commands.Publish(new(state.NextSequence(), x, y, origin, flags, approach));
     }
+
+    // Null when the item has no published record or its approach tile is not a walkable surface.
+    internal ApproachDescriptor? DescribeApproach(Item item, int actionKind)
+    {
+        var front = item.SquareInFront;
+        if (!Grid.InBounds(front.X, front.Y) || Inputs.Read(item.Id) is not { Removed: false } record) return null;
+        var tile = Grid.Tile(front.X, front.Y);
+        return Grid.Active(tile) ? new(item.Id, record.Version, Grid.Reference(tile), actionKind) : null;
+    }
+
+    internal void ItemStateChanged(uint itemId) => _executor?.Context.Approaches.CancelItem(itemId);
 
     public void InteractionStep(RoomUser actor, int x, int y)
     {
@@ -35,6 +49,7 @@ public sealed partial class RoomNavigation
             using var owner = RoomOwnerScope.Enter(_room);
             foreach (var actor in manager.GetUserList()) Remove(actor);
             DrainCommands();
+            Executor.Context.Approaches.Clear();
         }
     }
     public void Admit(RoomUser actor) => Post(new(RoomCommandKind.Admit, actor, actor.Movement.LifetimeId));
