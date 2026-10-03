@@ -71,6 +71,7 @@ public class FloorPlanWireTests
         };
         var changedOutgoing = new HashSet<string>
         {
+            "UpdateMagicTileComposer",
             "RoomOccupiedTilesComposer",
             "RoomEntryTileComposer",
             "RoomVisualizationSettingsComposer",

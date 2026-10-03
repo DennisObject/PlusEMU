@@ -78,7 +78,10 @@ public class WiredTemporaryPacketGuardTests
     {
         var (room, client) = Room();
         var highId = uint.MaxValue - 1;
-        var item = new Item { Id = highId, Definition = new() { Type = ItemType.Floor }, GetZ = 1 };
+        var map = new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "000\r000\r000", false, 0, false));
+        typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
+        map.GenerateMaps();
+        var item = new Item { Id = highId, Definition = new() { Type = ItemType.Floor, InteractionType = InteractionType.Stacktool }, GetZ = 1 };
         Floor(room).TryAdd(highId, item);
         using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
         output.WriteUInteger(highId); output.WriteInteger(350);
