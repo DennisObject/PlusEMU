@@ -446,7 +446,7 @@ public class Room : RoomData
         return false;
     }
 
-    internal void SendPlacementUpdates(IReadOnlyList<HeightMapUpdateComposer.Tile> tiles)
+    internal void SendPlacementUpdates(IReadOnlyList<HeightMapUpdateComposer.Tile> tiles, short[,] heights)
     {
         try
         {
@@ -457,7 +457,7 @@ public class Room : RoomData
             // Older profiles retain their existing header mappings and receive a full stacking map.
             var olderClients = clients.Except(supportsDelta).Where(client => client.Revision.InternalIdToOutgoingIdMapping.ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapComposer)).ToArray();
             if (olderClients.Length > 0)
-                GameClient.SendBroadcast(new HeightMapComposer(GetGameMap().PlacementHeightMap()), olderClients);
+                GameClient.SendBroadcast(new HeightMapComposer(heights), olderClients);
         }
         catch (Exception e)
         {

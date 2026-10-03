@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Data;
+using System.Drawing;
+using Plus.HabboHotel.Rooms.Instance;
 using System.Reflection;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -618,7 +620,7 @@ public partial class PlacedFurniRoomTests
                 table.UpdateState();
             });
             Assert.True(laterReady.Wait(TimeSpan.FromSeconds(10)));
-            Assert.False(later.Wait(TimeSpan.FromMilliseconds(100)));
+            Assert.True(later.Wait(TimeSpan.FromSeconds(10)));
             Assert.Equal(1, Volatile.Read(ref sends));
         }
         finally { release.Set(); }
@@ -639,7 +641,7 @@ public partial class PlacedFurniRoomTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ProjectionDeliveryCannotOverlapBridgeConstructionOrMapRebuild(bool rebuild)
+    public async Task QueuedProjectionDeliveryAllowsBridgeConstructionAndMapRebuild(bool rebuild)
     {
         var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", false, 0, false));
         Set("_gamemap", map); map.GenerateMaps();
@@ -673,8 +675,8 @@ public partial class PlacedFurniRoomTests
                 map.FlushPlacementUpdates();
             });
             Assert.True(mutationReady.Wait(TimeSpan.FromSeconds(10)));
-            Assert.False(mutation.Wait(TimeSpan.FromMilliseconds(100)));
-            Assert.Equal(SquareState.Blocked, map.Model.SqState[1, 1]);
+            Assert.True(mutation.Wait(TimeSpan.FromSeconds(10)));
+            Assert.Equal(rebuild ? SquareState.Blocked : SquareState.Open, map.Model.SqState[1, 1]);
             Assert.Equal(1, Volatile.Read(ref sends));
         }
         finally { release.Set(); }
@@ -688,6 +690,202 @@ public partial class PlacedFurniRoomTests
             Assert.Equal((short)640, DeltaAt(1, 1));
             Assert.Equal((short)640, map.PlacementHeightMap()[1, 1]);
         }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProjectionSendReenteringDisconnectCannotDeadlockWiredMovement(bool entry)
+    {
+        var actor = Viewer();
+        var table = Add(10, 1, 1);
+        var tile = Add(11, 2, 1, z: 0.75, type: InteractionType.WalkMagicTile);
+        var map = _room.GetGameMap();
+        var wired = _room.GetWired();
+        var engine = typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(wired)!;
+        var wiredSync = engine.GetType().GetField("_sync", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(engine)!;
+        using var wiredHeld = new ManualResetEventSlim();
+        using var sending = new ManualResetEventSlim();
+        using var moving = new ManualResetEventSlim();
+        var callbacks = 0;
+        var cleanupCompleted = false;
+        var sentUnderLock = false;
+        _client.SendCallback = _ =>
+        {
+            if (Interlocked.Increment(ref callbacks) != 1) return false;
+            sentUnderLock = Monitor.IsEntered(map.PlacementSync);
+            sending.Set();
+            if (!moving.Wait(TimeSpan.FromSeconds(10))) return false;
+            // Bound the failed case, but exercise the real lock and disconnect cleanup path.
+            if (!Monitor.TryEnter(wiredSync, TimeSpan.FromSeconds(5))) return false;
+            try
+            {
+                wired.BeforeActorLeaves(actor);
+                cleanupCompleted = true;
+            }
+            finally { Monitor.Exit(wiredSync); }
+            return false;
+        };
+        var movement = Task.Run(() =>
+        {
+            lock (wiredSync)
+            {
+                wiredHeld.Set();
+                Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
+                moving.Set();
+                Assert.True(Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.MoveItem(
+                    _room, tile, 2, 2, keepAltitude: true, animate: false, announce: false));
+            }
+        });
+        Assert.True(wiredHeld.Wait(TimeSpan.FromSeconds(10)));
+        var send = Task.Run(() =>
+        {
+            if (entry) map.SendPlacementHeightMap(_client);
+            else
+            {
+                table.Definition.Height = 1;
+                table.UpdateState();
+            }
+        });
+        await Task.WhenAll(movement, send).WaitAsync(TimeSpan.FromSeconds(15));
+        Assert.False(sentUnderLock);
+        Assert.True(cleanupCompleted);
+        Assert.Equal(2, tile.GetY);
+        Assert.Null(map.WalkMagicAt(2, 1));
+        Assert.Same(tile, map.WalkMagicAt(2, 2));
+        Assert.Equal((short)192, DeltaAt(2, 2));
+    }
+
+    [Fact]
+    public async Task SupersededBroadcastsKeepAllTilesAndEntrySnapshotsStayOrdered()
+    {
+        Viewer();
+        var firstTable = Add(10, 1, 1);
+        var secondTable = Add(11, 2, 1);
+        var thirdTable = Add(12, 1, 2);
+        using var sending = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var captured = 0;
+        _client.BeforeCapture = header =>
+        {
+            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref captured) != 1) return;
+            sending.Set();
+            Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
+        };
+        var first = Task.Run(() =>
+        {
+            firstTable.Definition.Height = 1;
+            firstTable.UpdateState();
+        });
+        try
+        {
+            Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
+            secondTable.Definition.Height = 2; secondTable.UpdateState();
+            thirdTable.Definition.Height = 3; thirdTable.UpdateState();
+            _room.GetGameMap().SendPlacementHeightMap(_client);
+            secondTable.Definition.Height = 4; secondTable.UpdateState();
+        }
+        finally { release.Set(); }
+        await first.WaitAsync(TimeSpan.FromSeconds(15));
+        var packets = _client.Packets.Where(packet => packet.Header is ServerPacketHeader.HeightMapComposer or ServerPacketHeader.HeightMapUpdateComposer).ToArray();
+        Assert.Equal(new uint[] { ServerPacketHeader.HeightMapUpdateComposer, ServerPacketHeader.HeightMapComposer,
+            ServerPacketHeader.HeightMapComposer, ServerPacketHeader.HeightMapUpdateComposer }, packets.Select(packet => packet.Header));
+        foreach (var packet in packets.Skip(1).Take(2))
+        {
+            var full = new FlashIncomingPacket { Buffer = packet.Body.ToArray() };
+            Assert.Equal(4, full.ReadInt()); Assert.Equal(16, full.ReadInt());
+            var heights = Enumerable.Range(0, 16).Select(_ => full.ReadShort()).ToArray();
+            Assert.Equal((short)256, heights[5]);
+            Assert.Equal((short)512, heights[6]);
+            Assert.Equal((short)768, heights[9]);
+        }
+        Assert.Equal((short)1024, DeltaAt(2, 1));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MapRebuildAtRemovalBoundaryCannotRestoreMovedHelpersOldFootprint(bool secondary)
+    {
+        Add(10, 1, 1, height: 1, stackable: false);
+        var tile = Add(11, 1, 1, z: 2, type: InteractionType.WalkMagicTile, length: 2);
+        var map = _room.GetGameMap();
+        var coordinates = (ConcurrentDictionary<Point, List<uint>>)typeof(Gamemap)
+            .GetField("_coordinatedItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(map)!;
+        var oldIds = coordinates[new(1, 1)];
+        using var rebuilding = new ManualResetEventSlim();
+        Task? movement = null;
+        Task? rebuild = null;
+        Monitor.Enter(oldIds);
+        try
+        {
+            // RemoveFromMap drops the helper ID before reading the remaining blocker under this lock.
+            // Pause that actual handler exactly between old-index removal and SetState/new-index insertion.
+            movement = Task.Run(() =>
+            {
+                if (secondary) Assert.True(_room.GetRoomItemHandler().SetFloorItem(tile, 2, 2, 2));
+                else Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, tile, 2, 2, 2, false, false, false, height: 2));
+            });
+            Assert.True(SpinWait.SpinUntil(() => !oldIds.Contains(tile.Id), TimeSpan.FromSeconds(10)));
+            Assert.Equal(1, tile.GetX);
+            rebuild = Task.Run(() =>
+            {
+                rebuilding.Set();
+                map.GenerateMaps();
+            });
+            Assert.True(rebuilding.Wait(TimeSpan.FromSeconds(10)));
+            Assert.False(rebuild.Wait(TimeSpan.FromMilliseconds(100)));
+        }
+        finally { Monitor.Exit(oldIds); }
+        if (movement != null) await movement.WaitAsync(TimeSpan.FromSeconds(15));
+        if (rebuild != null) await rebuild.WaitAsync(TimeSpan.FromSeconds(15));
+        Assert.Equal(2, tile.GetX); Assert.Equal(2, tile.GetY);
+        Assert.Null(map.WalkMagicAt(1, 1)); Assert.Null(map.WalkMagicAt(1, 2));
+        Assert.False(map.ResolvePlacement(1, 1).HasHelper);
+        Assert.False(map.ResolvePlacement(1, 1).CanStack);
+        Assert.DoesNotContain(tile, map.GetCoordinatedItems(new(1, 1)));
+        foreach (var point in tile.GetCoords) Assert.Same(tile, map.WalkMagicAt(point.X, point.Y));
+    }
+
+    [Fact]
+    public async Task ConcurrentPlacementOfSameIdRegistersOneFootprintWithoutGhostHelpers()
+    {
+        var first = Furni(10, InteractionType.WalkMagicTile, WiredBoxType.None);
+        var second = Furni(10, InteractionType.WalkMagicTile, WiredBoxType.None);
+        first.Definition.Width = first.Definition.Length = second.Definition.Width = second.Definition.Length = 1;
+        var map = _room.GetGameMap();
+        using var starting = new CountdownEvent(2);
+        Thread? firstThread = null;
+        Thread? secondThread = null;
+        Task firstPlacement;
+        Task secondPlacement;
+        lock (map.PlacementSync)
+        {
+            firstPlacement = Task.Factory.StartNew(() =>
+            {
+                firstThread = Thread.CurrentThread;
+                starting.Signal();
+                Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, first, 1, 1, 0, true, false, false));
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            secondPlacement = Task.Factory.StartNew(() =>
+            {
+                secondThread = Thread.CurrentThread;
+                starting.Signal();
+                Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, second, 2, 2, 0, true, false, false));
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            Assert.True(starting.Wait(TimeSpan.FromSeconds(10)));
+            // Both real placement handlers are waiting on the commit lock before either can register.
+            Assert.True(SpinWait.SpinUntil(() => (firstThread!.ThreadState & System.Threading.ThreadState.WaitSleepJoin) != 0
+                && (secondThread!.ThreadState & System.Threading.ThreadState.WaitSleepJoin) != 0, TimeSpan.FromSeconds(10)));
+        }
+        await Task.WhenAll(firstPlacement, secondPlacement).WaitAsync(TimeSpan.FromSeconds(15));
+        var placed = Assert.Single(_room.GetRoomItemHandler().GetFloor);
+        Assert.Contains(placed, new[] { first, second });
+        Assert.Same(placed, map.WalkMagicAt(placed.GetX, placed.GetY));
+        var unused = placed == first ? new Point(2, 2) : new Point(1, 1);
+        Assert.Null(map.WalkMagicAt(unused.X, unused.Y));
+        Assert.False(map.ResolvePlacement(unused.X, unused.Y).HasHelper);
+        Assert.Empty(map.GetCoordinatedItems(unused));
     }
 
     private short DeltaAt(int x, int y)

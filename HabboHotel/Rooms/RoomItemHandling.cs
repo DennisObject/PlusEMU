@@ -468,75 +468,79 @@ public class RoomItemHandling
                     return false;
             }
         }
-        var itemsOnTile = GetFurniObjects(newX, newY);
-        if (item.Definition.InteractionType == InteractionType.Roller && itemsOnTile.Count(x => x.Definition.InteractionType == InteractionType.Roller && x.Id != item.Id) > 0)
-            return false;
-        var affectedTiles = Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, newRot);
-        var footprint = affectedTiles.Values.Select(tile => new Point(tile.X, tile.Y)).Append(new Point(newX, newY)).Distinct().ToArray();
         var map = _room.GetGameMap();
-        foreach (var tile in footprint)
+        var duplicate = false;
+        lock (map.PlacementSync)
         {
-            if (!map.ValidTile(tile.X, tile.Y)) return false;
-            if (magic && tile.X == map.Model.DoorX && tile.Y == map.Model.DoorY) return false;
-            var placement = map.ResolvePlacement(tile.X, tile.Y, item.Id, wiredCollision);
-            if (wiredCollision != null && map.GetCoordinatedItems(tile).Any(other => other.Id != item.Id
-                && (wiredCollision.BlockingFurni.Contains(other.Id)
-                    || !magic && !placement.HasHelper && wiredCollision.BlocksFurni(other)))) return false;
-            if (!magic)
+            duplicate = newItem && _floorItems.ContainsKey(item.Id);
+            if (!duplicate)
             {
-                if (HasBlockingUsers(tile.X, tile.Y) && !item.Definition.IsSeat && !placement.HasHelper) return false;
-                if (height == -1 && !onRoller && !placement.CanStack) return false;
+                var itemsOnTile = GetFurniObjects(newX, newY);
+                if (item.Definition.InteractionType == InteractionType.Roller && itemsOnTile.Count(x => x.Definition.InteractionType == InteractionType.Roller && x.Id != item.Id) > 0)
+                    return false;
+                var affectedTiles = Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, newRot);
+                var footprint = affectedTiles.Values.Select(tile => new Point(tile.X, tile.Y)).Append(new Point(newX, newY)).Distinct().ToArray();
+                foreach (var tile in footprint)
+                {
+                    if (!map.ValidTile(tile.X, tile.Y)) return false;
+                    if (magic && tile.X == map.Model.DoorX && tile.Y == map.Model.DoorY) return false;
+                    var placement = map.ResolvePlacement(tile.X, tile.Y, item.Id, wiredCollision);
+                    if (wiredCollision != null && map.GetCoordinatedItems(tile).Any(other => other.Id != item.Id
+                        && (wiredCollision.BlockingFurni.Contains(other.Id)
+                            || !magic && !placement.HasHelper && wiredCollision.BlocksFurni(other)))) return false;
+                    if (!magic)
+                    {
+                        if (HasBlockingUsers(tile.X, tile.Y) && !item.Definition.IsSeat && !placement.HasHelper) return false;
+                        if (height == -1 && !onRoller && !placement.CanStack) return false;
 
+                    }
+                }
+                var newZ = height == -1
+                    ? footprint.Max(tile => map.ResolvePlacement(tile.X, tile.Y, item.Id, wiredCollision).PlacementZ)
+                    : height;
+                if (!magic && height == -1 && !newItem && item.Rotation != newRot
+                    && item.GetX == newX && item.GetY == newY
+                    && !footprint.Any(tile => map.ResolvePlacement(tile.X, tile.Y, item.Id, wiredCollision).HasHelper))
+                    newZ = Math.Max(newZ, item.GetZ);
+                if (magic)
+                {
+                    var floorZ = footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]);
+                    newZ = MagicTileHeight.Clamp(newZ, floorZ);
+                }
+                if (newRot != 0 && newRot != 2 && newRot != 4 && newRot != 6 && newRot != 8 && !item.Definition.ExtraRot)
+                    newRot = 0;
+                if (newItem)
+                {
+                    if (item.IsFloorItem) duplicate = !_floorItems.TryAdd(item.Id, item);
+                    else if (item.IsWallItem) duplicate = !_wallItems.TryAdd(item.Id, item);
+                }
+                if (!duplicate)
+                {
+                    if (!newItem) map.RemoveFromMap(item, false);
+                    item.Rotation = newRot;
+                    item.SetState(newX, newY, newZ, affectedTiles);
+                    if (newItem) item.RoomId = _room.RoomId;
+                    map.AddItemToMap(item, false, newItem);
+                }
             }
         }
-        var newZ = height == -1
-            ? footprint.Max(tile => map.ResolvePlacement(tile.X, tile.Y, item.Id, wiredCollision).PlacementZ)
-            : height;
-        if (!magic && height == -1 && !newItem && item.Rotation != newRot
-            && item.GetX == newX && item.GetY == newY
-            && !footprint.Any(tile => map.ResolvePlacement(tile.X, tile.Y, item.Id, wiredCollision).HasHelper))
-            newZ = Math.Max(newZ, item.GetZ);
-        if (magic)
+        if (duplicate)
         {
-            var floorZ = footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]);
-            newZ = MagicTileHeight.Clamp(newZ, floorZ);
+            if (session != null)
+                session.SendNotification(PlusEnvironment.LanguageManager.TryGetValue("room.item.already_placed"));
+            return true;
         }
-        if (newRot != 0 && newRot != 2 && newRot != 4 && newRot != 6 && newRot != 8 && !item.Definition.ExtraRot)
-            newRot = 0;
-        if (!newItem) map.RemoveFromMap(item);
-        item.Rotation = newRot;
-        var oldX = item.GetX;
-        var oldY = item.GetY;
-        item.SetState(newX, newY, newZ, affectedTiles);
-        if (newItem)
-            item.RoomId = _room.RoomId;
-        if (!onRoller && session != null)
-            item.Interactor.OnPlace(session, item);
-        if (newItem)
+        // Effects, Wired hooks, networking and persistence run only after the map commit.
+        if (!newItem) map.RemoveItemEffects(item);
+        map.AddItemEffects(item);
+        if (!onRoller && session != null) item.Interactor.OnPlace(session, item);
+        if (sendMessage)
         {
-            if (_floorItems.ContainsKey(item.Id))
-            {
-                if (session != null)
-                    session.SendNotification(PlusEnvironment.LanguageManager.TryGetValue("room.item.already_placed"));
-                _room.GetGameMap().RemoveFromMap(item);
-                return true;
-            }
-            if (item.IsFloorItem && !_floorItems.ContainsKey(item.Id))
-                _floorItems.TryAdd(item.Id, item);
-            else if (item.IsWallItem && !_wallItems.ContainsKey(item.Id))
-                _wallItems.TryAdd(item.Id, item);
-            if (sendMessage)
-                _room.SendObject(item);
+            if (newItem) _room.SendObject(item);
+            else if (!onRoller) _room.SendPacket(new ObjectUpdateComposer(item));
         }
-        else
-        {
-            UpdateItem(item);
-            if (!onRoller && sendMessage)
-                _room.SendPacket(new ObjectUpdateComposer(item));
-        }
-        _room.GetGameMap().AddToMap(item);
         UpdateItem(item);
-        _room.GetGameMap().FlushPlacementUpdates();
+        map.FlushPlacementUpdates();
         if (magic) updateRoomUserStatuses = true;
         if (newItem && item.IsFloorItem) _room.GetWired()?.AttachRoomItem(item);
         if (item.Definition.IsSeat)
@@ -562,24 +566,29 @@ public class RoomItemHandling
         if (_room == null || item.IsTemporary && (!OwnsTemporary(item)
             || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanMoveItem(_room, item, newX, newY, item.Rotation, newZ)))
             return false;
-        if (MagicTileHeight.IsMagicTile(item.Definition.InteractionType))
+        var map = _room.GetGameMap();
+        lock (map.PlacementSync)
         {
-            var map = _room.GetGameMap();
-            var footprint = Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, item.Rotation)
-                .Values.Select(tile => new Point(tile.X, tile.Y)).Append(new Point(newX, newY)).Distinct().ToArray();
-            if (footprint.Any(tile => !map.ValidTile(tile.X, tile.Y)
-                || tile.X == map.Model.DoorX && tile.Y == map.Model.DoorY
-                    && (newX != item.GetX || newY != item.GetY))) return false;
-            newZ = MagicTileHeight.Clamp(newZ, footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]));
+            if (MagicTileHeight.IsMagicTile(item.Definition.InteractionType))
+            {
+                var footprint = Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, item.Rotation)
+                    .Values.Select(tile => new Point(tile.X, tile.Y)).Append(new Point(newX, newY)).Distinct().ToArray();
+                if (footprint.Any(tile => !map.ValidTile(tile.X, tile.Y)
+                    || tile.X == map.Model.DoorX && tile.Y == map.Model.DoorY
+                        && (newX != item.GetX || newY != item.GetY))) return false;
+                newZ = MagicTileHeight.Clamp(newZ, footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]));
+            }
+            map.RemoveFromMap(item, false);
+            item.SetState(newX, newY, newZ, Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, item.Rotation));
+            map.AddItemToMap(item, false);
         }
-        _room.GetGameMap().RemoveFromMap(item);
-        item.SetState(newX, newY, newZ, Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, item.Rotation));
+        map.RemoveItemEffects(item);
+        map.AddItemEffects(item);
         if (item.Definition.InteractionType == InteractionType.Toner)
             if (_room.TonerData == null)
                 _room.TonerData = new(item.Id);
         UpdateItem(item);
-        _room.GetGameMap().AddItemToMap(item);
-        _room.GetGameMap().FlushPlacementUpdates();
+        map.FlushPlacementUpdates();
         if (item.Definition.InteractionType == InteractionType.WalkMagicTile)
             _room.GetRoomUserManager().UpdateUserStatusses();
         return true;

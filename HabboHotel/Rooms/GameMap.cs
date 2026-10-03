@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Drawing;
 using Plus.Core;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.PathFinding;
@@ -13,10 +14,18 @@ public class Gamemap
 {
     private ConcurrentDictionary<Point, List<uint>> _coordinatedItems;
     private double[,] _itemHeightMap;
-    // Map mutations, dirty tracking, snapshots and delivery share one ordering boundary.
+    // Map mutations and snapshot capture share a lock; delivery never holds it.
     private readonly object _placementLock = new();
     private readonly Dictionary<Point, short> _placementMap = new();
     private readonly HashSet<Point> _placementDirty = new();
+    internal object PlacementSync => _placementLock;
+    private readonly Queue<PlacementDelivery> _placementOutbound = new();
+    private long _placementVersion;
+    private long _placementDeliveredVersion;
+    private bool _placementSending;
+    // Arrays belong exclusively to the queued snapshot and are never changed after capture.
+    private sealed record PlacementDelivery(long Version, short[,] Heights,
+        HeightMapUpdateComposer.Tile[]? Changes, GameClient? Session = null);
     private int _placementWidth;
     private int _placementHeight;
 
@@ -72,29 +81,26 @@ public class Gamemap
     internal void NotifyPlacementState(Item item)
     {
         lock (_placementLock)
-        {
             foreach (var point in item.GetCoords) _placementDirty.Add(point);
-            FlushPlacementUpdates();
-        }
+        FlushPlacementUpdates();
     }
 
     public void FlushPlacementUpdates()
     {
         lock (_placementLock)
         {
-            // Capture and send under the same lock: later flushes cannot overtake this snapshot.
             var changed = RebuildPlacementUpdates();
             var resized = _placementWidth != Model.MapSizeX || _placementHeight != Model.MapSizeY;
             _placementWidth = Model.MapSizeX;
             _placementHeight = Model.MapSizeY;
-            if (changed.Count == 0 && !resized) return;
-            // The client's count and coordinates are unsigned bytes. Larger maps need a full refresh.
-            if (resized || changed.Any(tile => tile.X > byte.MaxValue || tile.Y > byte.MaxValue))
-                _room.SendPacket(new HeightMapComposer(PlacementHeightMap()));
-            else
-                foreach (var chunk in changed.Chunk(byte.MaxValue))
-                    _room.SendPlacementUpdates(chunk);
+            if (changed.Count != 0 || resized)
+            {
+                // Byte-sized delta counts/coordinates cannot represent larger maps.
+                var full = resized || changed.Any(tile => tile.X > byte.MaxValue || tile.Y > byte.MaxValue);
+                _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), full ? null : changed.ToArray()));
+            }
         }
+        DrainPlacementUpdates();
     }
 
     private void MarkPlacementDirty(Point point)
@@ -102,10 +108,57 @@ public class Gamemap
         lock (_placementLock) _placementDirty.Add(point);
     }
 
-    internal void SendPlacementHeightMap(Plus.HabboHotel.GameClients.GameClient session)
+    internal void SendPlacementHeightMap(GameClient session)
     {
-        // Keep entry snapshots ordered with mutation broadcasts as well.
-        lock (_placementLock) session.Send(new HeightMapComposer(PlacementHeightMap()));
+        lock (_placementLock)
+            _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), null, session));
+        DrainPlacementUpdates();
+    }
+
+    private void DrainPlacementUpdates()
+    {
+        // A recursive caller must leave delivery to a later flush after its mutation completes.
+        if (Monitor.IsEntered(_placementLock)) return;
+        lock (_placementLock)
+        {
+            // Never wait for a sender: synchronous disconnect can be waiting for the caller's Wired lock.
+            if (_placementSending) return;
+            _placementSending = true;
+        }
+        while (true)
+        {
+            PlacementDelivery delivery;
+            lock (_placementLock)
+            {
+                if (!_placementOutbound.TryDequeue(out delivery!))
+                {
+                    _placementSending = false;
+                    return;
+                }
+                // A full latest snapshot replaces consecutive superseded broadcasts, including their deltas.
+                // Entry snapshots keep their place in the queue and are never discarded.
+                while (delivery.Session == null && _placementOutbound.TryPeek(out var next)
+                    && next.Session == null && next.Version > delivery.Version)
+                    delivery = _placementOutbound.Dequeue() with { Changes = null };
+                if (delivery.Version <= _placementDeliveredVersion) continue;
+                _placementDeliveredVersion = delivery.Version;
+            }
+            try
+            {
+                if (delivery.Session != null)
+                    delivery.Session.Send(new HeightMapComposer(delivery.Heights));
+                else if (delivery.Changes == null)
+                    _room.SendPacket(new HeightMapComposer(delivery.Heights));
+                else
+                    foreach (var chunk in delivery.Changes.Chunk(byte.MaxValue))
+                        _room.SendPlacementUpdates(chunk, delivery.Heights);
+            }
+            catch (Exception error)
+            {
+                // Send failures cannot roll back a completed mutation or stop later queued snapshots.
+                ExceptionLogger.LogException(error);
+            }
+        }
     }
 
     internal Item? WalkMagicAt(int x, int y) => x == Model.DoorX && y == Model.DoorY ? null
@@ -368,14 +421,25 @@ public class Gamemap
 
     public void UpdateMapForItem(Item item)
     {
-        RemoveFromMap(item);
-        AddToMap(item);
+        lock (_placementLock)
+        {
+            RemoveFromMapCore(item);
+            AddItemToMapCore(item);
+        }
+        RemoveItemEffects(item);
+        AddItemEffects(item);
         FlushPlacementUpdates();
     }
 
     public void GenerateMaps(bool checkLines = true)
     {
-        lock (_placementLock) GenerateMapsCore(checkLines);
+        Item[] items;
+        lock (_placementLock)
+        {
+            GenerateMapsCore(checkLines);
+            items = _room.GetRoomItemHandler().GetFloor.ToArray();
+        }
+        foreach (var item in items) AddItemEffects(item);
     }
 
     private void GenerateMapsCore(bool checkLines)
@@ -407,7 +471,7 @@ public class Gamemap
             if (maxY < Model.MapSizeY)
                 maxY = Model.MapSizeY;
             Model.SetMapsize(maxX + 7, maxY + 7);
-            GenerateMaps(false);
+            GenerateMapsCore(false);
             return;
         }
         if (maxX != StaticModel.MapSizeX || maxY != StaticModel.MapSizeY)
@@ -461,7 +525,7 @@ public class Gamemap
         {
             if (item == null)
                 continue;
-            if (!AddItemToMap(item))
+            if (!AddItemToMapCore(item))
                 continue;
         }
         Array.Clear(tmpItems, 0, tmpItems.Length);
@@ -496,13 +560,13 @@ public class Gamemap
             if (coord.X > Model.MapSizeX - 1)
             {
                 Model.AddX();
-                GenerateMaps();
+                GenerateMapsCore(true);
                 return false;
             }
             if (coord.Y > Model.MapSizeY - 1)
             {
                 Model.AddY();
-                GenerateMaps();
+                GenerateMapsCore(true);
                 return false;
             }
             MarkPlacementDirty(coord);
@@ -735,15 +799,20 @@ public class Gamemap
 
     public bool RemoveFromMap(Item item, bool handleGameItem)
     {
-        lock (_placementLock) return RemoveFromMapCore(item, handleGameItem);
+        bool removed;
+        lock (_placementLock) removed = RemoveFromMapCore(item);
+        if (handleGameItem) RemoveItemEffects(item);
+        return removed;
     }
 
-    private bool RemoveFromMapCore(Item item, bool handleGameItem)
+    internal void RemoveItemEffects(Item item)
     {
-        if (handleGameItem)
-            RemoveSpecialItem(item);
-        if (_room.GotSoccer())
-            _room.GetSoccer().OnGateRemove(item);
+        RemoveSpecialItem(item);
+        if (_room.GotSoccer()) _room.GetSoccer().OnGateRemove(item);
+    }
+
+    private bool RemoveFromMapCore(Item item)
+    {
         var isRemoved = false;
         foreach (var coord in item.GetCoords.ToList())
         {
@@ -780,86 +849,90 @@ public class Gamemap
 
     public bool AddItemToMap(Item item, bool handleGameItem, bool newItem = true)
     {
-        lock (_placementLock) return AddItemToMapCore(item, handleGameItem, newItem);
+        bool added;
+        lock (_placementLock) added = AddItemToMapCore(item);
+        if (handleGameItem) AddItemEffects(item);
+        return added;
     }
 
-    private bool AddItemToMapCore(Item item, bool handleGameItem, bool newItem)
+    internal void AddItemEffects(Item item)
     {
-        if (handleGameItem)
+        AddSpecialItems(item);
+        switch (item.Definition.InteractionType)
         {
-            AddSpecialItems(item);
-            switch (item.Definition.InteractionType)
+            case InteractionType.FootballGoalRed:
+            case InteractionType.Footballcounterred:
+            case InteractionType.Banzaiscorered:
+            case InteractionType.Banzaigatered:
+            case InteractionType.Freezeredcounter:
+            case InteractionType.FreezeRedGate:
             {
-                case InteractionType.FootballGoalRed:
-                case InteractionType.Footballcounterred:
-                case InteractionType.Banzaiscorered:
-                case InteractionType.Banzaigatered:
-                case InteractionType.Freezeredcounter:
-                case InteractionType.FreezeRedGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                        _room.GetGameManager().AddFurnitureToTeam(item, Team.Red);
-                    break;
-                }
-                case InteractionType.FootballGoalGreen:
-                case InteractionType.Footballcountergreen:
-                case InteractionType.Banzaiscoregreen:
-                case InteractionType.Banzaigategreen:
-                case InteractionType.Freezegreencounter:
-                case InteractionType.FreezeGreenGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                        _room.GetGameManager().AddFurnitureToTeam(item, Team.Green);
-                    break;
-                }
-                case InteractionType.FootballGoalBlue:
-                case InteractionType.Footballcounterblue:
-                case InteractionType.Banzaiscoreblue:
-                case InteractionType.Banzaigateblue:
-                case InteractionType.Freezebluecounter:
-                case InteractionType.FreezeBlueGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                        _room.GetGameManager().AddFurnitureToTeam(item, Team.Blue);
-                    break;
-                }
-                case InteractionType.FootballGoalYellow:
-                case InteractionType.Footballcounteryellow:
-                case InteractionType.Banzaiscoreyellow:
-                case InteractionType.Banzaigateyellow:
-                case InteractionType.Freezeyellowcounter:
-                case InteractionType.FreezeYellowGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                        _room.GetGameManager().AddFurnitureToTeam(item, Team.Yellow);
-                    break;
-                }
-                case InteractionType.Freezeexit:
-                {
-                    _room.GetFreeze().AddExitTile(item);
-                    break;
-                }
-                case InteractionType.Roller:
-                {
-                    if (!_room.GetRoomItemHandler().GetRollers().Contains(item))
-                        _room.GetRoomItemHandler().TryAddRoller(item.Id, item);
-                    break;
-                }
+                if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
+                    _room.GetGameManager().AddFurnitureToTeam(item, Team.Red);
+                break;
+            }
+            case InteractionType.FootballGoalGreen:
+            case InteractionType.Footballcountergreen:
+            case InteractionType.Banzaiscoregreen:
+            case InteractionType.Banzaigategreen:
+            case InteractionType.Freezegreencounter:
+            case InteractionType.FreezeGreenGate:
+            {
+                if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
+                    _room.GetGameManager().AddFurnitureToTeam(item, Team.Green);
+                break;
+            }
+            case InteractionType.FootballGoalBlue:
+            case InteractionType.Footballcounterblue:
+            case InteractionType.Banzaiscoreblue:
+            case InteractionType.Banzaigateblue:
+            case InteractionType.Freezebluecounter:
+            case InteractionType.FreezeBlueGate:
+            {
+                if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
+                    _room.GetGameManager().AddFurnitureToTeam(item, Team.Blue);
+                break;
+            }
+            case InteractionType.FootballGoalYellow:
+            case InteractionType.Footballcounteryellow:
+            case InteractionType.Banzaiscoreyellow:
+            case InteractionType.Banzaigateyellow:
+            case InteractionType.Freezeyellowcounter:
+            case InteractionType.FreezeYellowGate:
+            {
+                if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
+                    _room.GetGameManager().AddFurnitureToTeam(item, Team.Yellow);
+                break;
+            }
+            case InteractionType.Freezeexit:
+            {
+                _room.GetFreeze().AddExitTile(item);
+                break;
+            }
+            case InteractionType.Roller:
+            {
+                if (!_room.GetRoomItemHandler().GetRollers().Contains(item))
+                    _room.GetRoomItemHandler().TryAddRoller(item.Id, item);
+                break;
             }
         }
+    }
+
+    private bool AddItemToMapCore(Item item)
+    {
         if (item.Definition.Type != ItemType.Floor)
             return true;
         foreach (var coord in item.GetCoords.ToList()) AddCoordinatedItem(item, new(coord.X, coord.Y));
         if (item.GetX > Model.MapSizeX - 1)
         {
             Model.AddX();
-            GenerateMaps();
+            GenerateMapsCore(true);
             return false;
         }
         if (item.GetY > Model.MapSizeY - 1)
         {
             Model.AddY();
-            GenerateMaps();
+            GenerateMapsCore(true);
             return false;
         }
         var @return = true;
