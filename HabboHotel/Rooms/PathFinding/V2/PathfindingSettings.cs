@@ -47,7 +47,7 @@ public sealed record PathfindingSettings
             MaxStepUp = Number("max_step_up"), MaxStepDown = Number("max_step_down"), UnlimitedDown = Read("max_step_down") == "none",
             CornerRule = Read("corner_rule") switch { "none" => CornerRule.None, "strict" => CornerRule.Strict, _ => CornerRule.Official },
             LayeringEnabled = Boolean("layering_enabled"), StacktoolLegacyCollision = Boolean("stacktool_legacy_collision", true),
-            AvatarClearance = Number("avatar_clearance") ?? 1.5, MaxSurfacesPerTile = Integer("max_surfaces_per_tile", 2),
+            AvatarClearance = Number("avatar_clearance") ?? 1.5, MaxSurfacesPerTile = Math.Clamp(Integer("max_surfaces_per_tile", 2), 1, NavGrid.MaxSurfacesPerTile),
             UnreachablePolicy = Read("unreachable_policy") == "nearest" ? "nearest" : "stay",
             BlockWaitTicks = Integer("block_wait_ticks", 1), MaxBlockReplans = Integer("max_block_replans", 3),
             MaxWalkStallTicks = Integer("max_walk_stall_ticks", 10), FastwalkIntermediateHooks = Boolean("fastwalk_intermediate_hooks"),
