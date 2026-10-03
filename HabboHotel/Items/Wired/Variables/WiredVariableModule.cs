@@ -89,7 +89,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     public bool Change(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
         Func<int, int> transform, WiredVariableFrame frame, int origin = 0)
     {
-        if (builtins?.TryDefer(reference, holder, () => Change(reference, holder, mutation, transform, frame, origin)) == true) return true;
+        if (builtins?.TryDefer(reference, holder, transform, () => Change(reference, holder, mutation, transform, frame, origin)) == true) return true;
         Action? completed;
         bool changed;
         lock (_gate) changed = ChangeLocked(reference, holder, mutation, transform, frame, origin, out completed);

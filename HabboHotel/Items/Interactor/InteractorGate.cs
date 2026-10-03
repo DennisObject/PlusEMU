@@ -23,23 +23,26 @@ public class InteractorGate : IFurniInteractor
     // Closing goes through the owner-task operation; the follow-up runs only once the new state is written.
     private static void Toggle(Item item, GateCloseReason reason, Action<Item>? afterChange)
     {
-        if (GateTransitionService.CancelQueuedClose(item)) return;
         var modes = item.Definition.Modes - 1;
         if (modes <= 0) item.UpdateState(false, true);
-        var newMode = NextMode(item, modes);
-        if (newMode == 0)
-            if (!item.GetRoom().GetGameMap().ItemCanBePlaced(item.GetX, item.GetY))
-                return;
-        GateTransitionService.Apply(item, newMode.ToString(), reason, afterWrite: changed =>
+        GateTransitionService.ToggleState(item, current => NextState(item, current, modes), reason, afterWrite: changed =>
         {
             changed.GetRoom().GetGameMap().UpdateMapForItem(changed);
             afterChange?.Invoke(changed);
         });
     }
 
-    private static int NextMode(Item item, int modes)
+    // Null keeps the gate as it is: closing is not possible while the legacy map says the tile is taken.
+    private static string? NextState(Item item, string current, int modes)
     {
-        if (!int.TryParse(item.LegacyDataString, out var currentMode)) { }
+        var newMode = NextMode(current, modes);
+        if (newMode == 0 && !item.GetRoom().GetGameMap().ItemCanBePlaced(item.GetX, item.GetY)) return null;
+        return newMode.ToString();
+    }
+
+    private static int NextMode(string current, int modes)
+    {
+        if (!int.TryParse(current, out var currentMode)) { }
         if (currentMode <= 0)
             return 1;
         if (currentMode >= modes)

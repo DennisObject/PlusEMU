@@ -34,10 +34,13 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         };
     }
 
-    public bool TryDefer(WiredVariableReference reference, WiredVariableHolder holder, Action replay)
+    // Only a closing transition waits for the owner; opening and non-gate writes stay immediate.
+    public bool TryDefer(WiredVariableReference reference, WiredVariableHolder holder, Func<int, int> transform, Action replay)
     {
         if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state" || RoomOwnerScope.IsOwner(room)) return false;
         if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || room.GetGameMap()?.Gates is not { } gates) return false;
+        if (!int.TryParse(item.LegacyDataString, out var current)) return false;
+        if (!GateTransitionService.IsClosing(item, transform(current).ToString(CultureInfo.InvariantCulture))) return false;
         gates.Post(replay);
         return true;
     }

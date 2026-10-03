@@ -8,7 +8,7 @@ namespace Plus.HabboHotel.Rooms.PathFinding;
 // Initiator decides what a refusal means: explicit closes just fail, automatic closes are kept and retried.
 public enum GateCloseReason { Click, Wired, Automatic }
 
-public enum GateTransition { Applied, Refused, Queued }
+public enum GateTransition { Applied, Refused, Queued, Cancelled, Unchanged }
 
 // Every writer that closes a gate goes through TryClose on the room task (§16.3).
 public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupancy)
@@ -29,6 +29,8 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
     // At most one explicit (click/Wired) close per gate waits in the queue; a later toggle cancels it.
     private readonly ConcurrentDictionary<uint, CloseRequest> _explicit = new();
     private int _cancelledInQueue;
+    // Pending-toggle resolution, the state observation and every commit share this lock (before PlacementSync).
+    private readonly object _sync = new();
 
     public int PendingCount => _queue.Count - Volatile.Read(ref _cancelledInQueue) + _retained.Count;
 
@@ -49,23 +51,56 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
         return GateTransition.Applied;
     }
 
+    // Toggle-style writers decide the next state from the state they observe. For gates that decision is
+    // atomic with the pending-close check and the commit; other furniture is a plain write.
+    public static GateTransition ToggleState(Item item, Func<string, string?> nextState, GateCloseReason reason,
+        bool persist = true, Action<Item>? afterWrite = null)
+    {
+        var gates = IsGate(item) ? item.GetRoom()?.GetGameMap()?.Gates : null;
+        if (gates != null) return gates.Toggle(item, nextState, reason, persist, afterWrite);
+        return nextState(item.LegacyDataString) is { } state ? Apply(item, state, reason, persist, afterWrite) : GateTransition.Unchanged;
+    }
+
     public GateTransition TryClose(Item item, GateCloseReason reason, string closedState = "0", bool persist = true, Action<Item>? afterClose = null)
     {
         var request = new CloseRequest(item, reason, closedState, persist, afterClose);
         if (RoomOwnerScope.IsOwner(room)) return Close(request);
-        if (reason == GateCloseReason.Automatic || _explicit.TryAdd(item.Id, request))
-            _queue.Enqueue(() => Run(request));
+        lock (_sync) Enqueue(request);
         return GateTransition.Queued;
     }
 
     // A toggle that finds a close still queued is the "open" half of a double click: it cancels that close.
-    public static bool CancelQueuedClose(Item item) => item.GetRoom()?.GetGameMap()?.Gates?.Cancel(item) == true;
-
-    private bool Cancel(Item item)
+    public GateTransition Toggle(Item item, Func<string, string?> nextState, GateCloseReason reason,
+        bool persist = true, Action<Item>? afterWrite = null)
     {
-        if (!_explicit.TryRemove(item.Id, out _)) return false;
-        Interlocked.Increment(ref _cancelledInQueue);
-        return true;
+        (bool Refused, LegacyDataFormat? Data) committed;
+        bool closing;
+        lock (_sync)
+        {
+            if (_explicit.TryRemove(item.Id, out _))
+            {
+                Interlocked.Increment(ref _cancelledInQueue);
+                return GateTransition.Cancelled;
+            }
+            var state = nextState(item.LegacyDataString);
+            if (state is null) return GateTransition.Unchanged;
+            closing = IsClosing(item, state);
+            if (closing && !RoomOwnerScope.IsOwner(room))
+            {
+                Enqueue(new(item, reason, state, persist, afterWrite));
+                return GateTransition.Queued;
+            }
+            committed = closing ? ValidateAndWrite(item, state) : (false, item.StoreStateQuietly(state));
+            if (committed.Refused) return GateTransition.Refused;
+        }
+        Publish(item, committed.Data, persist, afterWrite, rebuildGrid: closing);
+        return GateTransition.Applied;
+    }
+
+    private void Enqueue(CloseRequest request)
+    {
+        if (request.Reason == GateCloseReason.Automatic || _explicit.TryAdd(request.Item.Id, request))
+            _queue.Enqueue(() => Run(request));
     }
 
     // Runs `work` now on the room task, otherwise on the next drain, in order with queued closes.
@@ -90,12 +125,22 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
         catch (Exception error) { ExceptionLogger.LogException(error); }
     }
 
+    // Taking the pending marker and committing are one step, so a toggle sees either "still queued" or "closed".
     private void Run(CloseRequest request)
     {
-        if (request.Reason != GateCloseReason.Automatic && !TakeExplicit(request)) return;
-        if (!ReferenceEquals(room.GetRoomItemHandler().GetItem(request.Item.Id), request.Item)) return;
-        if (Close(request) == GateTransition.Refused && request.Reason == GateCloseReason.Automatic)
-            _retained.Add(request);
+        (bool Refused, LegacyDataFormat? Data) committed;
+        lock (_sync)
+        {
+            if (request.Reason != GateCloseReason.Automatic && !TakeExplicit(request)) return;
+            if (!ReferenceEquals(room.GetRoomItemHandler().GetItem(request.Item.Id), request.Item)) return;
+            committed = ValidateAndWrite(request.Item, request.ClosedState);
+        }
+        if (committed.Refused)
+        {
+            if (request.Reason == GateCloseReason.Automatic) _retained.Add(request);
+            return;
+        }
+        Publish(request.Item, committed.Data, request.Persist, request.AfterClose, rebuildGrid: true);
     }
 
     private bool TakeExplicit(CloseRequest request)
@@ -109,14 +154,20 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
 
     private GateTransition Close(CloseRequest request)
     {
-        var item = request.Item;
-        var changed = ValidateAndWrite(item, request.ClosedState);
-        if (changed.Refused) return GateTransition.Refused;
-        changed.Data?.NotifyDataUpdated();
-        item.UpdateState(request.Persist, true);
-        room.GetGameMap().Navigation?.ApplyDirty();
-        request.AfterClose?.Invoke(item);
+        (bool Refused, LegacyDataFormat? Data) committed;
+        lock (_sync) committed = ValidateAndWrite(request.Item, request.ClosedState);
+        if (committed.Refused) return GateTransition.Refused;
+        Publish(request.Item, committed.Data, request.Persist, request.AfterClose, rebuildGrid: true);
         return GateTransition.Applied;
+    }
+
+    // Everything that notifies, persists or broadcasts happens here, after the locks are released.
+    private void Publish(Item item, LegacyDataFormat? data, bool persist, Action<Item>? after, bool rebuildGrid)
+    {
+        data?.NotifyDataUpdated();
+        item.UpdateState(persist, true);
+        if (rebuildGrid) room.GetGameMap().Navigation?.ApplyDirty();
+        after?.Invoke(item);
     }
 
     // Footprint capture, occupancy validation and the state publication form one transaction under
