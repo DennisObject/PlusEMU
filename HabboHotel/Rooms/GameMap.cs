@@ -1134,11 +1134,12 @@ public class Gamemap
     {
         if (!ValidTile(tile.X, tile.Y))
             return false;
+        if (WalkMagicAt(tile.X, tile.Y) != null) return true;
         // OpenSquare mutates the dynamic model when furniture is placed over void.
         // Check the original model and current furniture so removed supports stay void.
         return (tile.X < StaticModel.MapSizeX && tile.Y < StaticModel.MapSizeY &&
                 StaticModel.SqState[tile.X, tile.Y] != SquareState.Blocked) ||
-               GetAllRoomItemForSquare(tile.X, tile.Y).Count > 0;
+               GetAllRoomItemForSquare(tile.X, tile.Y).Any(item => !IgnoreStacktool(item));
     }
 
     public static bool CanWalk(byte state, bool overriding)

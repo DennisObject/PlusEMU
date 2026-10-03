@@ -466,6 +466,36 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((short)320, full.ReadShort());
     }
 
+    [Theory]
+    [InlineData("official", 0.5, true)]
+    [InlineData("strict", 0.5, true)]
+    [InlineData("strict", 2.0, false)]
+    public void WalkMagicFlanksProvideAnOpenSurfaceAtTheirOwnHeight(string rule, double flankHeight, bool expected)
+    {
+        var field = typeof(PlusEnvironment).GetField("_settingsManager", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var previous = field.GetValue(null);
+        try
+        {
+            field.SetValue(null, Proxy<ISettingsManager>((_, args) => (string)args[0]! == "pathfinding.corner_rule" ? rule : "1"));
+            var map = new Gamemap(_room, new RoomModel("flanks", 0, 0, 0, 0, "0000\r00x0\r0000\r0000", false, 0, false));
+            Set("_gamemap", map); map.GenerateMaps();
+            Add(10, 1, 2, height: 5, stackable: false);
+            Add(11, 1, 2, z: 0.5, type: InteractionType.WalkMagicTile);
+            var voidHelper = Add(12, 2, 1, z: flankHeight, type: InteractionType.WalkMagicTile);
+            var user = Viewer(1, 1);
+            var from = new Plus.HabboHotel.Rooms.PathFinding.Vector2D(1, 1);
+            var to = new Plus.HabboHotel.Rooms.PathFinding.Vector2D(2, 2);
+            Assert.Equal(expected, map.IsValidStep(from, to, true, false, false, user));
+            Assert.Equal(expected, map.IsValidStep2(user, from, to, true, false));
+            Assert.Equal(flankHeight, map.SqAbsoluteHeight(2, 1));
+            Assert.Equal((byte)1, map.GameMap[2, 1]);
+            _room.GetRoomItemHandler().SetFloorItem(voidHelper, 3, 3, 0);
+            Assert.False(map.IsValidStep(from, to, true, false, false, user));
+            Assert.False(map.IsValidStep2(user, from, to, true, false));
+        }
+        finally { field.SetValue(null, previous); }
+    }
+
     private short DeltaAt(int x, int y)
     {
         foreach (var sent in _client.Packets.Where(packet => packet.Header == ServerPacketHeader.HeightMapUpdateComposer).Reverse())
