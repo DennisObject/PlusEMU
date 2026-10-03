@@ -10,7 +10,7 @@ public partial class PlacedFurniRoomTests
     public void CommitServiceRunsEffectLandingWhileMvIsStillVisible()
     {
         var item = Add(10, 1, 1, type: InteractionType.Effect);
-        item.Definition.EffectId = 17; InitializeNativeState(item);
+        item.Definition.EffectId = 17; item.Definition.Walkable = true; InitializeNativeState(item);
         var actor = ExecutorActor(0, 1); InitializeClientEffects();
         actor.MoveTo(1, 1); ExecutorTick();
         Assert.Equal(0, _client.GetHabbo().Effects.CurrentEffect);
