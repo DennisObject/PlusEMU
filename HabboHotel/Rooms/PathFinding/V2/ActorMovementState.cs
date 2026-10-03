@@ -22,6 +22,8 @@ public sealed class ActorMovementState
     public int Cursor { get; internal set; }
     public SurfaceRef[] Pending { get; } = new SurfaceRef[3];
     public int PendingCount { get; internal set; }
+    // Purpose each pending edge was claimed with; commit re-validates with the same purpose.
+    public StepPurpose[] PendingPurpose { get; } = new StepPurpose[3];
     internal GraphView PendingView { get; set; }
     public bool HasIntent { get; internal set; }
     internal bool RouteInvalidated { get; set; }

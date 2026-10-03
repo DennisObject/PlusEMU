@@ -99,6 +99,17 @@ public sealed class ClaimLedger
         return true;
     }
 
+    // Claims on a slot whose surface no longer exists (or now belongs to another surface) are dropped.
+    internal void ReleaseSlots(IReadOnlySet<int> slots)
+    {
+        foreach (var slot in slots)
+        {
+            if (slot >= _claims.Length || _claims[slot] is not { Count: > 0 } claims) continue;
+            foreach (var claim in claims) claim.Owner.Claims.RemoveAll(owned => owned.Slot == slot);
+            claims.Clear();
+        }
+    }
+
     public void Release(RoomUser actor)
     {
         if (_members.TryGetValue(actor, out var member)) ReleaseClaims(member, ReleaseMode.All);

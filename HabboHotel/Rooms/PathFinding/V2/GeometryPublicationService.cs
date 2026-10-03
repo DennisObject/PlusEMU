@@ -7,6 +7,7 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
 
     internal void BeforePublish(IReadOnlySet<int> tiles)
     {
+        context.Claims.ReleaseSlots(Grid.ReleasedSlots);
         foreach (var actor in context.Room.GetRoomUserManager().GetUserList())
         {
             var state = actor.Movement;
