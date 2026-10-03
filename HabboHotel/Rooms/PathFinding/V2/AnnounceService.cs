@@ -40,6 +40,7 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
             var target = context.Graph.Position(surface, state.Route.View);
             var purpose = state.Route.PurposeAt(i, state.Origin);
             if (!ClaimStep(actor, profile, from, target, purpose, out temporaryBlock)) break;
+            state.PendingPurpose[state.PendingCount] = purpose;
             state.Pending[state.PendingCount++] = surface; from = target;
         }
         return from;

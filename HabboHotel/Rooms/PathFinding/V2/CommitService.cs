@@ -59,8 +59,7 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
             var step = state.Pending[i];
             if (!context.Graph.IsValid(step, state.PendingView)) break;
             var to = context.Graph.Position(step, state.PendingView);
-            var purpose = state.Origin == MoveOrigin.Interaction ? StepPurpose.Interaction
-                : to.X == actor.GoalX && to.Y == actor.GoalY ? StepPurpose.Goal : StepPurpose.Transit;
+            var purpose = state.PendingPurpose[i];
             if (!_rules.CanStep(profile, from, to, purpose, OccupancyView.Execution, context.OccupancyAt(actor, to.Slot)).Ok) break;
             context.GuildGates.Accept(actor, profile, to.Slot, purpose);
             accepted++; from = to;

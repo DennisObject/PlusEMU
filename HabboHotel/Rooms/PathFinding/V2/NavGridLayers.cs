@@ -9,6 +9,7 @@ public sealed partial class NavGrid
     private uint[][] _contacts;
     private readonly SortedSet<int> _freeOverflow = new();
     private readonly HashSet<SurfaceRef> _forcedOffGraph = new();
+    private readonly HashSet<int> _releasedSlots = new();
     private int _overflowHighWater;
 
     public bool Layered { get; private set; }
@@ -16,6 +17,8 @@ public sealed partial class NavGrid
         + _contacts.Sum(contacts => (contacts?.Length ?? 0) * 4L);
     // Surfaces dropped by the >4 pinned overflow cap in the latest publish; their actors go off-graph.
     public IReadOnlySet<SurfaceRef> ForcedOffGraph => _forcedOffGraph;
+    // Slots whose surface was removed or reassigned in the latest publish; their claims are stale.
+    public IReadOnlySet<int> ReleasedSlots => _releasedSlots;
 
     public int SurfaceCount(int tile) => Layered ? _tileSurfaceCount[tile] : 1;
     public int SurfaceAt(int tile, int ordinal) => Layered ? _tileSlots[tile * MaxSurfacesPerTile + ordinal] : tile;
@@ -96,6 +99,7 @@ public sealed partial class NavGrid
     internal void ReleaseSlot(int slot)
     {
         if (Active(slot)) ActiveNodeCount--;
+        _releasedSlots.Add(slot);
         Flags[slot] = NavFlags.None; _contacts[slot] = [];
         if (slot >= TileCount) _freeOverflow.Add(slot);
     }
@@ -109,7 +113,7 @@ public sealed partial class NavGrid
         ActiveNodeCount += (Active(slot) ? 1 : 0) - (wasActive ? 1 : 0);
     }
 
-    internal void ClearForcedOffGraph() => _forcedOffGraph.Clear();
+    internal void BeginPublish() { _forcedOffGraph.Clear(); _releasedSlots.Clear(); }
     internal void ForceOffGraph(SurfaceRef surface) => _forcedOffGraph.Add(surface);
 
     private void EnsureSlotCapacity(int slots)
