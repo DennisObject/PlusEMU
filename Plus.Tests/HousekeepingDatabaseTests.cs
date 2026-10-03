@@ -1,6 +1,8 @@
 using System.Reflection;
 using Dapper;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Plus.Communication.Http;
 using MySqlConnector;
 using Plus.HabboHotel.Housekeeping;
 using Plus.HabboHotel.Moderation;
@@ -8,7 +10,9 @@ using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Subscriptions;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Authentication;
+using Plus.HabboHotel.Users.UserData;
 using Plus.Utilities;
 using Xunit;
 
@@ -107,16 +111,14 @@ public class HousekeepingDatabaseTests
     }
 
     [HousekeepingDatabaseFact]
-    public void OfflineGrantsUpdateTheRowOnlyWhileTheAccountIsOffline()
+    public void OfflineGrantsUpdateTheRowAndRejectOverflow()
     {
-        var economy = new HousekeepingEconomyActions(_users, _clients, null!, null!, null!, _database);
+        var economy = new HousekeepingEconomyActions(_users, _clients, null!, null!, null!, _database, new AccountSessionGate());
         Assert.True(economy.Give(Staff(), Target, HousekeepingCurrency.Duckets, 25).Ok);
         Assert.Equal(75, Scalar<int>($"SELECT activity_points FROM users WHERE id = {Target}"));
         Execute($"UPDATE users SET vip_points = {int.MaxValue - 10} WHERE id = {Target}");
         Assert.Equal(HousekeepingErrors.EconomyFailed, economy.Give(Staff(), Target, HousekeepingCurrency.Diamonds, 11).Message);
-        Execute($"UPDATE users SET online = 1 WHERE id = {Target}");
-        Assert.Equal(HousekeepingErrors.EconomyFailed, economy.Give(Staff(), Target, HousekeepingCurrency.Credits, 1).Message);
-        Assert.Equal(100, Scalar<int>($"SELECT credits FROM users WHERE id = {Target}"));
+        Assert.Equal(int.MaxValue - 10, Scalar<int>($"SELECT vip_points FROM users WHERE id = {Target}"));
     }
 
     [HousekeepingDatabaseFact]
@@ -146,7 +148,7 @@ public class HousekeepingDatabaseTests
     public void PasswordResetStoresOnlyAHashAndRevokesTheSsoTicket()
     {
         var hasher = new Argon2idPasswordHasher();
-        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, hasher, _database);
+        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, hasher, _database, new AccountSessionGate());
         var outcome = actions.ResetPassword(Staff(), Target);
         Assert.True(outcome.Ok);
         var stored = Scalar<string>($"SELECT password FROM users WHERE id = {Target}");
@@ -160,7 +162,7 @@ public class HousekeepingDatabaseTests
     [HousekeepingDatabaseFact]
     public void OfflineSanctionsPersistMuteAndTradeLock()
     {
-        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, null!, _database);
+        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, null!, _database, new AccountSessionGate());
         Assert.True(actions.Mute(Staff(), Target, "", 15).Ok);
         Assert.Equal(900, Scalar<double>($"SELECT time_muted FROM users WHERE id = {Target}"));
         Assert.True(actions.TradeLock(Staff(), Target, 2, "").Ok);
@@ -195,6 +197,116 @@ public class HousekeepingDatabaseTests
         Assert.Equal((12, 40, 2), (dashboard.PeakOnlineToday, dashboard.PeakOnlineAllTime, dashboard.SanctionsLast24h));
         Assert.Equal(Scalar<int>("SELECT COUNT(*) FROM users"), dashboard.TotalUsers);
         Assert.InRange(dashboard.ServerUptimeSeconds, 0, int.MaxValue);
+    }
+
+    [HousekeepingDatabaseFact]
+    public async Task LoginInFlightKeepsOfflineGrantsOutOfTheStaleWallet()
+    {
+        var (login, release, session, gate) = StartLogin();
+        var economy = new HousekeepingEconomyActions(_users, _clients, null!, null!, null!, _database, gate);
+        var grant = Task.Run(() => economy.Give(Staff(), Target, HousekeepingCurrency.Credits, 50));
+        await Task.Delay(300);
+        Assert.False(grant.IsCompleted);
+        release.SetResult();
+        Assert.Null(await login);
+        Assert.True((await grant).Ok);
+        // The grant lands in the live wallet that logout saves, not under it in the row.
+        Assert.Equal(150, session.GetHabbo().Credits);
+        Assert.Equal(100, Scalar<int>($"SELECT credits FROM users WHERE id = {Target}"));
+    }
+
+    [HousekeepingDatabaseFact]
+    public async Task PasswordResetDuringLoginLoadClosesTheNewSession()
+    {
+        var (login, release, session, gate) = StartLogin();
+        var disconnected = false;
+        session.DisconnectRequested = () => disconnected = true;
+        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, new Argon2idPasswordHasher(), _database, gate);
+        var reset = Task.Run(() => actions.ResetPassword(Staff(), Target));
+        await Task.Delay(300);
+        Assert.False(reset.IsCompleted);
+        release.SetResult();
+        Assert.Null(await login);
+        Assert.True((await reset).Ok);
+        Assert.True(disconnected);
+    }
+
+    [HousekeepingDatabaseFact]
+    public async Task PasswordResetAfterTheTicketResolvedRejectsTheLogin()
+    {
+        var gate = new AccountSessionGate();
+        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, new Argon2idPasswordHasher(), _database, gate);
+        HousekeepingOutcome? reset = null;
+        // The staff reset lands right after the login has used up its ticket, before it reaches the gate.
+        var authenticator = Authenticator(new SlowLogin(_users, Task.CompletedTask), gate, afterConsume: () => reset = actions.ResetPassword(Staff(), Target));
+        var (session, _) = HabbiconTestSupport.Client(null!);
+        var result = await authenticator.AuthenticateUsingSSO(session, _ticket);
+        Assert.True(reset!.Ok);
+        Assert.Equal(AuthenticationError.LoginProhibited, result);
+        Assert.Null(_clients.GetClientByUserId(Target));
+    }
+
+    private string _ticket = "";
+
+    /// <summary>Starts a real SSO login and returns once it has loaded the account but not yet registered the session.</summary>
+    private (Task<AuthenticationError?> Login, TaskCompletionSource Release, GameClient Session, AccountSessionGate Gate) StartLogin()
+    {
+        var release = new TaskCompletionSource();
+        var gate = new AccountSessionGate();
+        var factory = new SlowLogin(_users, release.Task);
+        var (session, _) = HabbiconTestSupport.Client(null!);
+        var login = Authenticator(factory, gate).AuthenticateUsingSSO(session, _ticket);
+        Assert.True(factory.Loaded.Task.Wait(TimeSpan.FromSeconds(10)));
+        return (login, release, session, gate);
+    }
+
+    private Authenticator Authenticator(IUserDataFactory factory, IAccountSessionGate gate, Action? afterConsume = null)
+    {
+        // Habbo.Init loads effects and clothing through the static database.
+        typeof(PlusEnvironment).GetField("_database", BindingFlags.NonPublic | BindingFlags.Static)!.SetValue(null, _database);
+        var tickets = new SsoTicketStore(_database, TimeProvider.System, Options.Create(new AuthApiConfiguration()));
+        _ticket = tickets.Issue(Target).GetAwaiter().GetResult().Value;
+        return new Authenticator(Array.Empty<IAuthenticationTask>(), _clients, factory, new AfterConsume(tickets, afterConsume), gate);
+    }
+
+    /// <summary>The real ticket store, with a hook that runs once a ticket has been used up.</summary>
+    private sealed class AfterConsume(ISsoTicketStore inner, Action? hook) : ISsoTicketStore
+    {
+        public async Task<int?> Consume(string ticket)
+        {
+            var userId = await inner.Consume(ticket);
+            hook?.Invoke();
+            return userId;
+        }
+
+        public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) => inner.Issue(userId, sessionId, scope);
+        public Task<int?> FindUser(string ticket) => inner.FindUser(ticket);
+        public Task<CredentialOwner?> FindOwner(string ticket) => inner.FindOwner(ticket);
+        public Task<CredentialOwner?> Exchange(string ticket) => inner.Exchange(ticket);
+        public Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope) => inner.Withdraw(userId, ticket, scope);
+        public Task Revoke(int userId, CredentialScope? scope = null) => inner.Revoke(userId, scope);
+        public Task RevokeSession(int userId, string sessionId, CredentialScope scope) => inner.RevokeSession(userId, sessionId, scope);
+    }
+
+    /// <summary>Loads the account from the database, then holds the login until released.</summary>
+    private sealed class SlowLogin(IHousekeepingUserStore users, Task release) : IUserDataFactory
+    {
+        public TaskCompletionSource Loaded { get; } = new();
+
+        public async Task<Habbo?> Create(int userId)
+        {
+            var record = users.Find(userId)!;
+            var habbo = new Habbo { Id = record.Id, Username = record.Username, Rank = record.Rank, Credits = record.Credits, Permissions = new(new(), new()) };
+            Loaded.TrySetResult();
+            await release;
+            return habbo;
+        }
+
+        public Task<string> GetUsernameForHabboById(int userId) => throw new NotSupportedException();
+        public Task<bool> HabboExists(int userId) => throw new NotSupportedException();
+        public Task<bool> HabboExists(string username) => throw new NotSupportedException();
+        public Task<Habbo?> GetUserDataByIdAsync(int userId) => throw new NotSupportedException();
+        public Task<List<Plus.HabboHotel.Users.Badges.Badge>> GetEquippedBadgesForUserAsync(int userId) => throw new NotSupportedException();
     }
 
     private static IRoomManager NoLoadedRooms() => DispatchProxy.Create<IRoomManager, NoRoomsProxy>();

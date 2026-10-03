@@ -11,6 +11,8 @@ using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Housekeeping;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Housekeeping;
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Messenger;
 using Plus.HabboHotel.Users.Permissions;
@@ -95,11 +97,67 @@ public class HousekeepingActionTests
     private static Habbo Staff(int rank = 7, params string[] rights) =>
         new() { Id = 1, Username = "staff", Rank = rank, Permissions = new(rights.ToList(), new()) };
 
-    private static (HousekeepingUserActions Users, HousekeepingEconomyActions Economy, FakeClients Clients) Actions(params HousekeepingUserRecord[] users)
+    private static (HousekeepingUserActions Users, HousekeepingEconomyActions Economy, FakeClients Clients) Actions(params HousekeepingUserRecord[] users) =>
+        Actions(new AccountSessionGate(), null!, null!, users);
+
+    private static (HousekeepingUserActions Users, HousekeepingEconomyActions Economy, FakeClients Clients) Actions(IAccountSessionGate gate,
+        IItemDataManager items, IItemFactory itemFactory, params HousekeepingUserRecord[] users)
     {
         var store = new FakeUserStore(users);
         var clients = new FakeClients();
-        return (new(store, clients, null!, null!, null!, null!, null!), new(store, clients, null!, null!, null!, null!), clients);
+        return (new(store, clients, null!, null!, null!, null!, null!, gate), new(store, clients, items, itemFactory, null!, null!, gate), clients);
+    }
+
+    [Fact]
+    public async Task GrantsWaitForALoginInProgressAndThenUseTheRegisteredWallet()
+    {
+        var gate = new AccountSessionGate();
+        var (_, economy, clients) = Actions(gate, null!, null!, User(2, 1));
+        var login = await gate.EnterAsync(2);
+        var grant = Task.Run(() => economy.Give(Staff(), 2, HousekeepingCurrency.Credits, 50));
+        await Task.Delay(200);
+        Assert.False(grant.IsCompleted);
+
+        // The login finishes loading (balance 100) and registers before it leaves the gate.
+        var target = new Habbo { Id = 2, Rank = 1, Credits = 100 };
+        clients.Online[2] = Client(target).Client;
+        login.Dispose();
+
+        Assert.True((await grant).Ok);
+        Assert.Equal(150, target.Credits);
+    }
+
+    [Fact]
+    public void GrantedFurnitureRefreshesTheInventoryOncePerBatch()
+    {
+        var definition = new ItemDefinition { Id = 1500, ItemName = "chair", Type = Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor, InteractionType = InteractionType.None };
+        var items = DispatchProxy.Create<IItemDataManager, ItemsProxy>();
+        ((ItemsProxy)(object)items).Items[1500] = definition;
+        var factory = DispatchProxy.Create<IItemFactory, FactoryProxy>();
+        var (_, economy, clients) = Actions(new AccountSessionGate(), items, factory, User(2, 1));
+        var target = new Habbo { Id = 2, Rank = 1, Inventory = new() { Furniture = new([], []) } };
+        var (client, sent) = Client(target);
+        clients.Online[2] = client;
+
+        Assert.True(economy.GrantItem(Staff(), 2, 1500, 3).Ok);
+        Assert.Equal(new[] { ServerPacketHeader.FurniListNotificationComposer, ServerPacketHeader.FurniListNotificationComposer,
+            ServerPacketHeader.FurniListNotificationComposer, ServerPacketHeader.FurniListUpdateComposer }, sent.Select(packet => packet.Header));
+    }
+
+    public class ItemsProxy : DispatchProxy
+    {
+        public Dictionary<uint, ItemDefinition> Items { get; } = new();
+        protected override object? Invoke(MethodInfo? method, object?[]? args) =>
+            method?.Name == "get_Items" ? Items : throw new NotSupportedException(method?.Name);
+    }
+
+    public class FactoryProxy : DispatchProxy
+    {
+        private uint _nextId = 10;
+        protected override object? Invoke(MethodInfo? method, object?[]? args) =>
+            method?.Name == nameof(IItemFactory.CreateMultipleItems) && args![1] is int ownerId
+                ? Enumerable.Range(0, (int)args[3]!).Select(_ => new Item { Id = _nextId++, OwnerId = (uint)ownerId, Definition = (ItemDefinition)args[0]! }).ToList()
+                : throw new NotSupportedException(method?.Name);
     }
 
     private static HousekeepingUserRecord User(int id, int rank) => new() { Id = id, Username = "user" + id, Rank = rank };
@@ -208,9 +266,43 @@ public class HousekeepingActionTests
         public void ModAlert(string message) => throw new NotSupportedException();
         public void DoAdvertisingReport(GameClient reporter, GameClient target) => throw new NotSupportedException();
         public void LogClonesOut(int userId) => throw new NotSupportedException();
-        public void RegisterClient(GameClient client, int userId, string username) => throw new NotSupportedException();
-        public void UnregisterClient(GameClient client, int userId, string username) => throw new NotSupportedException();
+        public void RegisterClient(GameClient client, int userId, string username) => Online[userId] = client;
+        public void UnregisterClient(GameClient client, int userId, string username) => Online.Remove(userId);
         public void CloseAll() => throw new NotSupportedException();
+    }
+}
+
+public class AccountSessionGateTests
+{
+    [Fact]
+    public async Task AnAccountIsHeldUntilReleasedWhileOthersProceed()
+    {
+        var gate = new AccountSessionGate();
+        var held = gate.Enter(5);
+        var same = gate.EnterAsync(5);
+        await Task.Delay(100);
+        Assert.False(same.IsCompleted);
+        held.Dispose();
+        (await same).Dispose();
+    }
+
+    [Fact]
+    public void WaitingIsBounded()
+    {
+        var gate = new AccountSessionGate(TimeSpan.FromMilliseconds(50));
+        using var held = gate.Enter(5);
+        Assert.Throws<TimeoutException>(() => gate.Enter(5));
+    }
+
+    [Fact]
+    public void RevocationStopsOnlyLoginsThatStartedEarlier()
+    {
+        var gate = new AccountSessionGate();
+        var started = gate.Begin();
+        gate.Revoke(5);
+        Assert.True(gate.IsRevoked(5, started));
+        Assert.False(gate.IsRevoked(6, started));
+        Assert.False(gate.IsRevoked(5, gate.Begin()));
     }
 }
 

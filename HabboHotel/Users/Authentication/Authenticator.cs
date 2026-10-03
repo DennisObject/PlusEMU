@@ -10,17 +10,21 @@ internal class Authenticator : IAuthenticator
     private readonly IGameClientManager _gameClientManager;
     private readonly IUserDataFactory _userDataFactory;
     private readonly ISsoTicketStore _ssoTickets;
+    private readonly IAccountSessionGate _sessionGate;
 
-    public Authenticator(IEnumerable<IAuthenticationTask> authenticationTasks, IGameClientManager gameClientManager, IUserDataFactory userDataFactory, ISsoTicketStore ssoTickets)
+    public Authenticator(IEnumerable<IAuthenticationTask> authenticationTasks, IGameClientManager gameClientManager, IUserDataFactory userDataFactory, ISsoTicketStore ssoTickets,
+        IAccountSessionGate sessionGate)
     {
         _authenticationTasks = authenticationTasks;
         _gameClientManager = gameClientManager;
         _userDataFactory = userDataFactory;
         _ssoTickets = ssoTickets;
+        _sessionGate = sessionGate;
     }
 
     public async Task<AuthenticationError?> AuthenticateUsingSSO(GameClient session, string sso)
     {
+        var started = _sessionGate.Begin();
         sso = sso.Trim();
         if (string.IsNullOrEmpty(sso))
             return AuthenticationError.EmptySSO;
@@ -32,21 +36,30 @@ internal class Authenticator : IAuthenticator
         if (await _ssoTickets.Consume(sso) is not { } userId)
             return AuthenticationError.NoAccountFound;
 
-        var canLogin = await CanLogin(userId);
-        if (!canLogin)
-            return AuthenticationError.LoginProhibited;
+        Habbo? habbo;
+        // Staff writes to this account wait until the session is registered, so they never land under a stale load.
+        using (await _sessionGate.EnterAsync(userId))
+        {
+            // A password reset after this ticket was resolved revokes the login.
+            if (_sessionGate.IsRevoked(userId, started))
+                return AuthenticationError.LoginProhibited;
 
-        var habbo = await _userDataFactory.Create(userId);
-        if (habbo == null)
-            return AuthenticationError.NoAccountFound;
+            var canLogin = await CanLogin(userId);
+            if (!canLogin)
+                return AuthenticationError.LoginProhibited;
 
-        habbo.Disconnected += async (_, _) => await OnHabboDisconnected(habbo);
+            habbo = await _userDataFactory.Create(userId);
+            if (habbo == null)
+                return AuthenticationError.NoAccountFound;
 
-        session.SetHabbo(habbo);
+            habbo.Disconnected += async (_, _) => await OnHabboDisconnected(habbo);
 
-        // TODO @80O: Remove after splitting up
-        habbo.Init(session);
-        _gameClientManager.RegisterClient(session, habbo.Id, habbo.Username);
+            session.SetHabbo(habbo);
+
+            // TODO @80O: Remove after splitting up
+            habbo.Init(session);
+            _gameClientManager.RegisterClient(session, habbo.Id, habbo.Username);
+        }
         await RaiseHabboLoggedIn(habbo);
         return null;
     }
