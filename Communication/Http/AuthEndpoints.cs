@@ -103,16 +103,18 @@ public class AuthEndpoints
         return Results.Json(new { accessToken = token.Value, accessTokenExpiresAt = token.ExpiresAt });
     }
 
-    private async Task<IResult> Logout(HttpContext context)
+    // Takes HttpRequest, not HttpContext: a Task-returning (HttpContext) handler would bind as a
+    // raw RequestDelegate and its result would never be written.
+    private async Task<IResult> Logout(HttpRequest request)
     {
-        if (BearerToken(context) is { } token)
+        if (BearerToken(request) is { } token)
             await _accessTokens.Revoke(token);
         return Results.Json(new { ok = true });
     }
 
-    private static string? BearerToken(HttpContext context)
+    private static string? BearerToken(HttpRequest request)
     {
-        var header = context.Request.Headers.Authorization.ToString();
+        var header = request.Headers.Authorization.ToString();
         return header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) && header.Length > 7 ? header[7..].Trim() : null;
     }
 

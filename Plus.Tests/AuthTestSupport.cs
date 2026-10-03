@@ -81,7 +81,9 @@ internal sealed class FakeAccounts : IAccountStore
         return row;
     }
 
-    public Task<AccountCredentials?> FindByUsername(string username) =>
+    public Exception? FailLookupsWith;
+
+    public Task<AccountCredentials?> FindByUsername(string username) => FailLookupsWith != null ? Task.FromException<AccountCredentials?>(FailLookupsWith) :
         Task.FromResult(Rows.FirstOrDefault(r => string.Equals(r.Username, username, StringComparison.OrdinalIgnoreCase)));
 
     public Task UpgradePassword(int userId, string current, string replacement)

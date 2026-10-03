@@ -196,7 +196,22 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         var response = await Post("/api/auth/logout", new { ssoTicket = "", rememberToken = "" }, bearer: token.Value);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True((await Json(response)).GetProperty("ok").GetBoolean());
         Assert.Null(await _tokens.FindUser(token.Value));
+    }
+
+    [Fact]
+    public async Task UnexpectedFailuresAnswerWithAGenericJsonError()
+    {
+        _accounts.FailLookupsWith = new InvalidOperationException("Server=db;Password=secret");
+        await Start();
+
+        var response = await Post("/api/auth/login", new { username = "Dennis", password = "x" });
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal("Something went wrong. Please try again.", JsonDocument.Parse(body).RootElement.GetProperty("error").GetString());
+        Assert.DoesNotContain("secret", body);
     }
 
     [Fact]

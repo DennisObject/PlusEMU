@@ -48,10 +48,12 @@ public class AuthHttpServer : IAuthHttpServer
 
     public async Task Start()
     {
-        // Production pins the generic error handler; Development would add the stack-trace page.
-        var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions { Args = [], EnvironmentName = Environments.Production });
-        builder.Logging.ClearProviders().AddNLog().AddFilter("Microsoft", LogLevel.Warning);
-        builder.WebHost.ConfigureKestrel(ConfigureKestrel);
+        // The empty builder reads no appsettings or ASPNETCORE_* variables and watches no files:
+        // config.json is the only source. Production keeps stack traces out of error responses.
+        var builder = WebApplication.CreateEmptyBuilder(new WebApplicationOptions { Args = [], EnvironmentName = Environments.Production });
+        builder.Logging.AddNLog(new NLogProviderOptions { RemoveLoggerFactoryFilter = false }).AddFilter("Microsoft", LogLevel.Warning);
+        builder.WebHost.UseKestrelCore().ConfigureKestrel(ConfigureKestrel);
+        builder.Services.AddRoutingCore();
         builder.Services.Configure<ForwardedHeadersOptions>(ConfigureForwardedHeaders);
         builder.Services.AddRateLimiter(ConfigureRateLimiter);
 
