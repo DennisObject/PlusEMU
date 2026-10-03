@@ -19,9 +19,9 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
         var selected = SelectClosure(tiles, beforeRead);
         var records = new Dictionary<uint, NavItemRecord>(inputs.AppliedRecords);
         foreach (var (id, record) in selected) records[id] = record;
+        grid.BeginPublish();
         SwitchMode(records.Values, tiles);
         var covering = Covering(records.Values, tiles);
-        grid.BeginPublish();
         var compat = new Dictionary<int, CompatSurface>(tiles.Count);
         foreach (var t in tiles) compat[t] = CompileCompat(t, covering.GetValueOrDefault(t));
         if (grid.Layered) _layers.Compile(compat, covering);

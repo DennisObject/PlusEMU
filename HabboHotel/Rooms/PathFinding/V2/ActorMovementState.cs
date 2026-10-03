@@ -34,7 +34,7 @@ public sealed class ActorMovementState
     public int BoundVersion { get; internal set; } = -1;
     public MoveOrigin Origin { get; internal set; }
     public MoveFlags Flags { get; internal set; }
-    internal AcceptedGoal? AcceptedGoal { get; set; }
+    internal GoalIdentity? AcceptedGoal { get; set; }
     public ActorProfile Profile { get; } = new();
     public long NextSequence() => Interlocked.Increment(ref _sequence);
 }

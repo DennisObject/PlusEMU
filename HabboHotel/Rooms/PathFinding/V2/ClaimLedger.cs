@@ -99,14 +99,25 @@ public sealed class ClaimLedger
         return true;
     }
 
-    // Claims on a slot whose surface no longer exists (or now belongs to another surface) are dropped.
-    internal void ReleaseSlots(IReadOnlySet<int> slots)
+    // A publish released these slots. Claims follow their surface to its new slot, or are dropped
+    // when the surface no longer exists, so a reused slot never inherits another surface's claims.
+    internal void RemapSlots(IReadOnlyDictionary<int, SurfaceRef> released, Func<SurfaceRef, int> liveSlot)
     {
-        foreach (var slot in slots)
+        var moved = new List<(Claim Claim, SurfaceRef Surface)>();
+        foreach (var (slot, surface) in released)
         {
             if (slot >= _claims.Length || _claims[slot] is not { Count: > 0 } claims) continue;
-            foreach (var claim in claims) claim.Owner.Claims.RemoveAll(owned => owned.Slot == slot);
+            foreach (var claim in claims) { claim.Owner.Claims.RemoveAll(owned => owned.Slot == slot); moved.Add((claim, surface)); }
             claims.Clear();
+        }
+        foreach (var (claim, surface) in moved)
+        {
+            var slot = liveSlot(surface);
+            if (slot < 0) continue;
+            EnsureCapacity(slot + 1);
+            var claims = _claims[slot] ??= new(4);
+            if (claims.Contains(claim)) continue;
+            claims.Add(claim); claim.Owner.Claims.Add((slot, claim.Kind));
         }
     }
 
