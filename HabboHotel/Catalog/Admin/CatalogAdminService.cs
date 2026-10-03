@@ -30,6 +30,12 @@ public interface ICatalogAdminService
     CatalogAdminOutcome MoveOffer(Habbo actor, CatalogAdminEnvelope envelope, int offerId, int orderNumber);
     CatalogAdminOutcome ReorderOffers(Habbo actor, CatalogAdminEnvelope envelope, IReadOnlyList<(int OfferId, int OrderNumber)> orders);
 
+    // Puts an edited or moved page or offer back as it was before history group groupId, as a new audited change.
+    CatalogAdminOutcome Undo(Habbo actor, CatalogAdminEnvelope envelope, int groupId);
+
+    // The current revision for a reply to a studio request PlusEMU does not implement; throws when the actor may not edit.
+    int Revision(Habbo actor);
+
     bool Publish(Habbo actor);
 
     // The page an editor last opened; offer ids are only unique per page, so it disambiguates them.
@@ -83,6 +89,13 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
         RequireEditor(actor);
         using var connection = _database.Connection();
         return CatalogAdminMapping.ToPage(RequirePage(new CatalogAdminStore(connection), pageId, actor));
+    }
+
+    public int Revision(Habbo actor)
+    {
+        RequireEditor(actor);
+        using var connection = _database.Connection();
+        return new CatalogAdminStore(connection).Revision();
     }
 
     public bool Publish(Habbo actor)

@@ -329,7 +329,12 @@
     "CatalogAdminSetPageVisibleEvent": 0,
     "CatalogAdminReorderOffersEvent": 0,
     "CatalogStudioOpenSessionEvent": 0,
-    "CatalogStudioLoadHistoryEvent": 0
+    "CatalogStudioLoadHistoryEvent": 0,
+    "CatalogStudioUndoEvent": 0,
+    "CatalogStudioValidateEvent": 0,
+    "CatalogStudioExportEvent": 0,
+    "CatalogStudioDocumentDryRunEvent": 0,
+    "CatalogStudioDocumentApplyEvent": 0
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -642,6 +647,9 @@
     "CatalogAdminOfferDetailsComposer": 0,
     "CatalogAdminPageDetailsComposer": 0,
     "CatalogStudioSessionComposer": 0,
-    "CatalogStudioHistoryComposer": 0
+    "CatalogStudioHistoryComposer": 0,
+    "CatalogStudioOperationComposer": 0,
+    "CatalogStudioValidationComposer": 0,
+    "CatalogStudioDocumentResultComposer": 0
   }
 }

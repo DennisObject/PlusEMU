@@ -364,4 +364,7 @@ public static class ServerPacketHeader
     public const uint CatalogAdminPageDetailsComposer = 10063;
     public const uint CatalogStudioSessionComposer = 10067;
     public const uint CatalogStudioHistoryComposer = 10071;
+    public const uint CatalogStudioOperationComposer = 10072;
+    public const uint CatalogStudioValidationComposer = 10073;
+    public const uint CatalogStudioDocumentResultComposer = 10078;
 }

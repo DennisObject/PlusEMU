@@ -458,4 +458,9 @@ public static class ClientPacketHeader
     public const uint CatalogAdminReorderOffersEvent = 10066;
     public const uint CatalogStudioOpenSessionEvent = 10067;
     public const uint CatalogStudioLoadHistoryEvent = 10071;
+    public const uint CatalogStudioUndoEvent = 10072;
+    public const uint CatalogStudioValidateEvent = 10073;
+    public const uint CatalogStudioExportEvent = 10078;
+    public const uint CatalogStudioDocumentDryRunEvent = 10079;
+    public const uint CatalogStudioDocumentApplyEvent = 10080;
 }

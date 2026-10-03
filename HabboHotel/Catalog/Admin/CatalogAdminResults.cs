@@ -16,6 +16,8 @@ public static class CatalogAdminCodes
     public const string NotFound = "NOT_FOUND";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string StaleRevision = "STALE_REVISION";
+    public const string Conflict = "CONFLICT";
+    public const string Unsupported = "UNSUPPORTED";
 }
 
 public sealed record CatalogAdminOutcome(

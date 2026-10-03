@@ -104,6 +104,15 @@ internal sealed class CatalogAdminStore
         return _connection.QuerySingle<CatalogAdminLogEntry>($"{HistorySelect} WHERE id = @id", new { id }, _transaction);
     }
 
+    public CatalogAdminUndoRow? UndoRow(int id) => _connection.QuerySingleOrDefault<CatalogAdminUndoRow>(
+        "SELECT id AS Id, entity_type AS EntityType, entity_id AS EntityId, operation AS Operation, before_json AS BeforeJson FROM catalog_admin_log WHERE id = @id",
+        new { id }, _transaction);
+
+    // The newest change to the entity itself (offer reorders are logged on their page and do not count).
+    public int LatestChange(string entityType, int entityId) => _connection.QuerySingle<int>(
+        "SELECT COALESCE(MAX(id), 0) FROM catalog_admin_log WHERE entity_type = @entityType AND entity_id = @entityId AND operation IN ('CREATE', 'UPDATE', 'MOVE', 'DELETE')",
+        new { entityType, entityId }, _transaction);
+
     public int HistoryCount() => _connection.QuerySingle<int>("SELECT COUNT(*) FROM catalog_admin_log", transaction: _transaction);
 
     public List<CatalogAdminLogEntry> History(int offset, int limit) =>
@@ -112,3 +121,12 @@ internal sealed class CatalogAdminStore
 
 // What a mutation changed, for the audit row and the editor's history.
 public sealed record CatalogAdminChange(string EntityType, string CatalogType, int EntityId, string Operation, object? Before, object? After);
+
+public sealed class CatalogAdminUndoRow
+{
+    public int Id { get; set; }
+    public string EntityType { get; set; } = string.Empty;
+    public int EntityId { get; set; }
+    public string Operation { get; set; } = string.Empty;
+    public string? BeforeJson { get; set; }
+}

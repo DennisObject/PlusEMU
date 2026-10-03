@@ -153,6 +153,39 @@ public sealed class EditorDatabaseTests : IDisposable
     }
 
     [EditorDatabaseFact]
+    public void UndoRestoresTheNewestEditOfAPageOrOfferAsANewAuditedChange()
+    {
+        var staff = EditorTestSupport.Staff();
+        var page = CreatePage(staff, "undo", -1);
+        var created = Revision();
+        Assert.Equal(CatalogAdminCodes.Unsupported, _catalog.Undo(staff, Envelope(Revision()), created).Code);
+
+        var first = _catalog.SavePage(staff, Envelope(Revision()), page with { Caption = $"{Tag} first", PageText1 = "one" });
+        var second = _catalog.SavePage(staff, Envelope(Revision()), page with { Caption = $"{Tag} second", PageText1 = "two" });
+        Assert.Equal(CatalogAdminCodes.Conflict, _catalog.Undo(staff, Envelope(Revision()), first.Revision).Code);
+        Assert.Equal(CatalogAdminCodes.StaleRevision, _catalog.Undo(staff, Envelope(Revision() - 1), second.Revision).Code);
+
+        var undone = _catalog.Undo(staff, Envelope(Revision()), second.Revision);
+        Assert.True(undone.Success, undone.Message);
+        Assert.Equal(("PAGE", page.PageId), (undone.EntityType, undone.EntityId));
+        var restored = _catalog.LoadPage(staff, page.PageId);
+        Assert.Equal(($"{Tag} first", "one"), (restored.Caption, restored.PageText1));
+        var latest = _catalog.History(staff, 0, 1).Groups[0];
+        Assert.Equal((undone.Revision, "UPDATE", page.PageId), (latest.Id, latest.Operation, latest.EntityId));
+
+        var furni = InsertFurniture($"{Tag}_undo_chair", 990006);
+        _definitions[furni] = new ItemDefinition { Id = furni };
+        var offer = _catalog.CreateOffer(staff, Envelope(Revision()),
+            new CatalogAdminOffer("NORMAL", 0, furni.ToString(), page.PageId, $"{Tag} undo offer", 3, 0, 0, 1, 0, -1, -1, 0, "", true, false));
+        var offerId = offer.EntityId;
+        var saved = _catalog.SaveOffer(staff, Envelope(Revision()), Assert.IsType<CatalogAdminOffer>(offer.Entity) with { CostCredits = 99 });
+        Assert.True(saved.Success, saved.Message);
+        var offerUndo = _catalog.Undo(staff, Envelope(Revision()), saved.Revision);
+        Assert.True(offerUndo.Success, offerUndo.Message);
+        Assert.Equal(3, Scalar<int>("SELECT cost_credits FROM catalog_items WHERE id = @id", offerId));
+    }
+
+    [EditorDatabaseFact]
     public void OffersResolvePageOfferIdsAndReorderOnePage()
     {
         var staff = EditorTestSupport.Staff();

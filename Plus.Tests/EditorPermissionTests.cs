@@ -49,7 +49,7 @@ public class EditorPermissionTests
             service.MovePage(actor, Envelope, 1, -1, 0), service.SetPageEnabled(actor, Envelope, 1, false), service.SetPageVisible(actor, Envelope, 1, false),
             service.SavePageImages(actor, Envelope, 1, "a", "b"), service.SavePageIcon(actor, Envelope, 1, 2), service.CreateOffer(actor, Envelope, Offer),
             service.SaveOffer(actor, Envelope, Offer), service.DeleteOffer(actor, Envelope, 1), service.MoveOffer(actor, Envelope, 1, 2),
-            service.ReorderOffers(actor, Envelope, [(1, 0)])
+            service.ReorderOffers(actor, Envelope, [(1, 0)]), service.Undo(actor, Envelope, 1)
         ];
         Assert.All(outcomes, outcome => Assert.Equal((false, CatalogAdminCodes.Forbidden), (outcome.Success, outcome.Code)));
         Assert.False(service.Publish(actor));
@@ -57,6 +57,7 @@ public class EditorPermissionTests
         Assert.Throws<CatalogAdminRejected>(() => service.History(actor, 0, 50));
         Assert.Throws<CatalogAdminRejected>(() => service.LoadPage(actor, 1));
         Assert.Throws<CatalogAdminRejected>(() => service.LoadOffer(actor, 1));
+        Assert.Throws<CatalogAdminRejected>(() => service.Revision(actor));
         Assert.Empty(refresher.Calls);
     }
 
@@ -95,7 +96,7 @@ public class EditorPermissionTests
             .Where(type => type.Namespace is "Plus.Communication.Packets.Incoming.Catalog.Admin" or "Plus.Communication.Packets.Incoming.FurniEditor"
                 && type.IsAssignableTo(typeof(Plus.Communication.Packets.IPacketEvent)))
             .ToList();
-        Assert.Equal(27, handlers.Count);
+        Assert.Equal(32, handlers.Count);
         var revision = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/OCTANE-3-6-0-FLOOR-20260909.json"))).RootElement;
         foreach (var handler in handlers)
         {
@@ -104,7 +105,8 @@ public class EditorPermissionTests
             Assert.Equal((uint)header!.GetValue(null)!, revision.GetProperty("IncomingHeaders").GetProperty(handler.Name).GetUInt32());
         }
         foreach (var composer in new[] { "CatalogAdminResultComposer", "CatalogAdminOfferDetailsComposer", "CatalogAdminPageDetailsComposer",
-                     "CatalogStudioSessionComposer", "CatalogStudioHistoryComposer", "FurniEditorSearchResultComposer", "FurniEditorDetailResultComposer",
+                     "CatalogStudioSessionComposer", "CatalogStudioHistoryComposer",
+                     "CatalogStudioOperationComposer", "CatalogStudioValidationComposer", "CatalogStudioDocumentResultComposer", "FurniEditorSearchResultComposer", "FurniEditorDetailResultComposer",
                      "FurniEditorInteractionsResultComposer", "FurniEditorResultComposer", "FurnitureDataReloadComposer", "FurniEditorImportTextResultComposer" })
         {
             var header = typeof(Plus.Communication.Packets.Outgoing.ServerPacketHeader).GetField(composer);
