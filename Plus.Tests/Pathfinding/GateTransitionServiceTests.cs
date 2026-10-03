@@ -618,9 +618,8 @@ public partial class PlacedFurniRoomTests
         release.Set();
         Assert.True(Task.WhenAll(drain, click).Wait(TimeSpan.FromSeconds(5)));
         Assert.False(finishedWhileCommitting);
-        // The drained close is still in flight when the contender decides, so it is appended behind it.
-        Assert.Equal(GateTransition.Queued, click.Result);
-        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(1, service.PendingCount);
+        // It decides only after the commit: appended behind the still-busy close, or applied once that close has ended.
+        Assert.True(click.Result is GateTransition.Queued or GateTransition.Applied);
         using (RoomOwnerScope.Enter(_room)) service.Drain();
         Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, service.PendingCount);
     }
