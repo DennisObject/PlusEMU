@@ -33,6 +33,23 @@ public partial class PlacedFurniRoomTests
         ExecutorTick(); Assert.Equal((2, 1, 0d), (actor.X, actor.Y, actor.Z));
     }
 
+    [Fact]
+    public void PrivilegedMountedWalkMagicUsesTheActualSupportWithoutARiderOffset()
+    {
+        Add(10, 1, 1, z: .5, type: InteractionType.WalkMagicTile);
+        var actor = ExecutorActor(0, 1);
+        var horse = ExecutorAdditionalBot(0, 1, 2); ExecutorTick();
+        EstablishExternalMountedGroup(actor, horse);
+        actor.AllowOverride = true; actor.MoveTo(2, 1); ExecutorTick();
+        Assert.Equal("1,1,0.5", actor.Statusses["mv"]);
+        Assert.Equal("1,1,0.5", horse.Statusses["mv"]);
+        ExecutorTick();
+        Assert.Equal((1, 1, .5), (actor.X, actor.Y, actor.Z));
+        Assert.Equal((1, 1, .5), (horse.X, horse.Y, horse.Z));
+        Assert.Equal(SurfaceKind.WalkMagic, actor.Movement.CurrentRef!.Value.Kind);
+        Assert.Equal(actor.Movement.CurrentRef, horse.Movement.CurrentRef);
+    }
+
     private void ReviewOverrideTerrain(string terrain)
     {
         if (terrain == "furniture") ExecutorFloor(10, 1, 1, z: .25, height: 1.5);
