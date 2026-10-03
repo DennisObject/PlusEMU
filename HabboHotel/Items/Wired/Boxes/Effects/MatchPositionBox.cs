@@ -3,6 +3,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Wired.Boxes.Effects;
 
@@ -138,8 +139,7 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
             return;
         if (item.Definition.InteractionType == InteractionType.Dice)
             return;
-        item.LegacyDataString = extradata;
-        item.UpdateState(false, true);
+        GateTransitionService.Apply(item, extradata, GateCloseReason.Wired, persist: false);
     }
 
     private void SetRotation(Item item, int rotation)

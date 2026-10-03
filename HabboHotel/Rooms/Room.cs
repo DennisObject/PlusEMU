@@ -385,6 +385,7 @@ public class Room : RoomData
     {
         GetGameMap().Navigation?.ApplyDirty();
         GetGameMap().Navigation?.DrainCommands();
+        GetGameMap().Gates.Drain();
         GetRoomItemHandler().OnCycle();
     }
 

@@ -234,6 +234,8 @@ public partial class Gamemap
             && settings.GetOptionalValue("pathfinding.engine") is "shadow" or "v2"
             && model.MapSizeX is > 0 and <= 256 && model.MapSizeY is > 0 and <= 256)
             Navigation = new(room, model, PathfindingSettings.Load(settings));
+        var legacyOccupancy = new LegacyGateOccupancy(this);
+        Gates = new(room, () => Navigation is { UsesExecutor: true } navigation ? navigation.GateOccupancy : legacyOccupancy);
         DiagonalEnabled = true;
         Model = new(StaticModel);
         _placementWidth = Model.MapSizeX;
@@ -248,6 +250,8 @@ public partial class Gamemap
     }
 
     public RoomNavigation? Navigation { get; }
+
+    public GateTransitionService Gates { get; }
 
     public bool DiagonalEnabled { get; set; }
 

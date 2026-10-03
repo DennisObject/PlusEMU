@@ -1,5 +1,6 @@
 ﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Quests;
+using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
@@ -24,10 +25,11 @@ public class InteractorGenericSwitch : IFurniInteractor
             newMode = 0;
         else
             newMode = currentMode + 1;
-        item.LegacyDataString = newMode.ToString();
-        item.UpdateState();
-        if (!string.Equals(before, item.LegacyDataString, StringComparison.Ordinal))
-            RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
+        GateTransitionService.Apply(item, newMode.ToString(), GateCloseReason.Click, afterWrite: changed =>
+        {
+            if (!string.Equals(before, changed.LegacyDataString, StringComparison.Ordinal))
+                RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
+        });
     }
 
     public void OnWiredTrigger(Item item)
@@ -45,7 +47,6 @@ public class InteractorGenericSwitch : IFurniInteractor
             newMode = 0;
         else
             newMode = currentMode + 1;
-        item.LegacyDataString = newMode.ToString();
-        item.UpdateState();
+        GateTransitionService.Apply(item, newMode.ToString(), GateCloseReason.Wired);
     }
 }

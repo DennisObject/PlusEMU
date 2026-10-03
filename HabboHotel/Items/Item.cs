@@ -453,6 +453,13 @@ public class Item
         MagicTileHeight.Sync(this);
     }
 
+    // A refused automatic close keeps its update request, so the gate never stays open for good.
+    private void CloseAutomatically(int retryCycles)
+    {
+        if (GateTransitionService.Apply(this, "0", GateCloseReason.Automatic, persist: false) == GateTransition.Refused)
+            RequestUpdate(retryCycles, false);
+    }
+
     public void ProcessUpdates()
     {
         try
@@ -469,15 +476,7 @@ public class Item
                     case InteractionType.GuildGate:
                     {
                         if (LegacyDataString == "1")
-                        {
-                            if (GetRoom().GetRoomUserManager().GetUserForSquare(GetX, GetY) == null)
-                            {
-                                LegacyDataString = "0";
-                                UpdateState(false, true);
-                            }
-                            else
-                                RequestUpdate(2, false);
-                        }
+                            CloseAutomatically(2);
                         break;
                     }
                     case InteractionType.Effect:
@@ -542,15 +541,11 @@ public class Item
                         else if (user != null && (user.Coordinate == SquareBehind || user.Coordinate == SquareInFront))
                         {
                             user.UnlockWalking();
-                            LegacyDataString = "0";
                             InteractingUser = 0;
-                            UpdateState(false, true);
+                            CloseAutomatically(1);
                         }
                         else if (LegacyDataString == "1")
-                        {
-                            LegacyDataString = "0";
-                            UpdateState(false, true);
-                        }
+                            CloseAutomatically(1);
                         if (user == null) InteractingUser = 0;
                         break;
                     case InteractionType.Hopper:

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Rooms.Games.Teams;
 
 namespace Plus.HabboHotel.Items.Wired.Variables;
@@ -98,8 +99,8 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             var item = FindItem(holder);
             if (item is null || value < 0 || item.Definition.Modes <= value
                 || !int.TryParse(item.LegacyDataString, out var previous) || previous == value) return false;
-            item.LegacyDataString = value.ToString(CultureInfo.InvariantCulture);
-            item.UpdateState();
+            if (GateTransitionService.Apply(item, value.ToString(CultureInfo.InvariantCulture), GateCloseReason.Wired) == GateTransition.Refused)
+                return false;
             if (stateChanged is not null) completed = () => stateChanged(item, frame);
             return true;
         }
