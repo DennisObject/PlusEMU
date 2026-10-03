@@ -17,12 +17,12 @@ public class CatalogOfferIndex
         foreach (var page in pages)
         {
             page.Offers.Clear();
-            // The client finds furni by official offer id, so a page keeps that id whenever it names one row.
-            var official = page.Items.Values.Where(item => item.OfferId > 0).GroupBy(item => item.OfferId)
-                .Where(group => group.Count() == 1).Select(group => group.Key).ToHashSet();
+            // The client finds furni by official offer id, so the first row naming an id keeps it; later rows
+            // naming the same id and legacy rows fall back to their row id, moved aside if an official id holds it.
+            var official = page.Items.Values.Where(item => item.OfferId > 0).Select(item => item.OfferId).ToHashSet();
             foreach (var item in page.Items.Values)
             {
-                if (official.Contains(item.OfferId))
+                if (item.OfferId > 0 && !page.Offers.ContainsKey(item.OfferId))
                     item.WireOfferId = item.OfferId;
                 else
                     item.WireOfferId = official.Contains(item.Id) ? ClashingRowIdBase + item.Id : item.Id;

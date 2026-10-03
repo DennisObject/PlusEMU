@@ -93,19 +93,22 @@ public class CatalogStructureWireTests
             [4] = Item(4, 5, 55), [5] = Item(5, 18, 55), [6] = Item(6, -1, 55),
             [18] = Item(18, -1, 55), [827] = Item(827, 590, 55), [828] = Item(828, 590, 55)
         };
+        var index = new CatalogOfferIndex();
 
-        new CatalogOfferIndex().Build([page]);
+        index.Build([page]);
 
         Assert.Equal(6, page.Offers.Count);
+        Assert.True(index.TryGet(590, new Habbo { Id = 1, Rank = 1 }, out _, out var shared));
+        Assert.Equal(827, shared.Id);
         Assert.Equal(4, page.Offers[5].Id);
         Assert.Equal(5, page.Offers[18].Id);
         Assert.Equal(6, page.Offers[6].Id);
         // A legacy row whose id is an official offer id on the page moves aside instead of shadowing it.
         Assert.Equal(18, page.Offers[CatalogOfferIndex.ClashingRowIdBase + 18].Id);
-        // Rows sharing one offer id keep their row ids and are not findable by that offer id.
-        Assert.Equal(827, page.Offers[827].Id);
+        // The first row naming a shared offer id keeps it; later ones keep their row ids.
+        Assert.Equal(827, page.Offers[590].Id);
         Assert.Equal(828, page.Offers[828].Id);
-        Assert.Equal([5, 18], CatalogOfferIndex.OfficialOfferIds(page).Order());
+        Assert.Equal([5, 18, 590], CatalogOfferIndex.OfficialOfferIds(page).Order());
     }
 
     [Fact]
