@@ -33,4 +33,15 @@ public partial class PlacedFurniRoomTests
         Assert.Null(_client.GetHabbo().CurrentRoom);
         Assert.DoesNotContain(actor, _room.GetRoomUserManager().GetUserList());
     }
+    [Fact]
+    public void ExecutorUpdatesThePersistedHumanCountAfterAdmissionAndRemoval()
+    {
+        var actor = ExecutorActor(0, 1);
+        Assert.Equal(1, _room.GetRoomUserManager().UserCount);
+        Assert.Equal(1, _room.UsersNow);
+        actor.ClearMovement(true);
+        _room.GetGameMap().Navigation!.Remove(actor); ExecutorTick();
+        Assert.Equal(0, _room.GetRoomUserManager().UserCount);
+        Assert.Equal(0, _room.UsersNow);
+    }
 }

@@ -1,4 +1,5 @@
 using Plus.HabboHotel.Rooms.PathFinding;
+using Plus.HabboHotel.Items;
 using Xunit;
 
 namespace Plus.Tests;
@@ -38,5 +39,17 @@ public partial class PlacedFurniRoomTests
         actor.MoveTo(3, 3); ExecutorTick(); ExecutorTick();
         Assert.Equal((0, 1), (actor.X, actor.Y));
         Assert.False(actor.Movement.HasIntent); Assert.False(actor.HasStatus("mv"));
+    }
+    [Fact]
+    public void CommandIntakeResolvesTheBedPillowBeforeADeferredSearch()
+    {
+        var bed = Add(10, 1, 1, height: .5, type: InteractionType.Bed, width: 2, length: 2);
+        InitializeNativeState(bed);
+        var actor = ExecutorConfiguredActor(new() { Engine = PathfindingEngine.V2, MaxExpansionsPerRoomTick = 0 });
+        actor.MoveTo(2, 2); ExecutorTick();
+        Assert.Equal((1, 1), (actor.GoalX, actor.GoalY));
+        Assert.True(actor.Movement.HasIntent); Assert.False(actor.HasStatus("mv"));
+        ExecutorAdditionalBot(1, 1, 2); ExecutorTick();
+        Assert.Equal((1, 1), (actor.GoalX, actor.GoalY));
     }
 }
