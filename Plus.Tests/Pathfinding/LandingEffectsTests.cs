@@ -32,6 +32,7 @@ public partial class PlacedFurniRoomTests
     public void LandingGateJoinsAndLeavesTheSameTeam(InteractionType kind, Team team, int offset)
     {
         var gate = Add(10, 1, 1, type: kind); gate.Team = team;
+        InitializeNativeState(gate);
         var actor = LandingActor();
         var effects = new LandingEffects(_room, _database);
         effects.Apply(actor, false);
@@ -85,6 +86,7 @@ public partial class PlacedFurniRoomTests
     {
         Add(10, 1, 1, type: InteractionType.Banzaitele);
         var target = Add(11, 3, 1, z: 0.75, type: InteractionType.Banzaitele);
+        InitializeNativeState(target);
         var actor = LandingActor();
         if (moving) actor.Statusses.Add("mv", "1,1,0");
         new LandingEffects(_room, _database).Apply(actor, false);
@@ -96,6 +98,7 @@ public partial class PlacedFurniRoomTests
     public void LandingEffectActivatesItemAndSchedulesReset()
     {
         var item = Add(10, 1, 1, type: InteractionType.Effect); item.Definition.EffectId = 17;
+        InitializeNativeState(item);
         var actor = LandingActor();
         new LandingEffects(_room, _database).Apply(actor, false);
         Assert.Equal(17, _client.GetHabbo().Effects.CurrentEffect);
@@ -106,7 +109,9 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public void LandingZeroEffectPreservesInactiveItem()
     {
-        var item = Add(10, 1, 1, type: InteractionType.Effect); item.LegacyDataString = "0";
+        var item = Add(10, 1, 1, type: InteractionType.Effect);
+        InitializeNativeState(item);
+        item.LegacyDataString = "0";
         var actor = LandingActor();
         new LandingEffects(_room, _database).Apply(actor, false);
         Assert.Equal(0, _client.GetHabbo().Effects.CurrentEffect);
@@ -279,6 +284,9 @@ public partial class PlacedFurniRoomTests
         habbo.Effects.Init(habbo);
         return actor;
     }
+
+    private static void InitializeNativeState(Item item)
+        => item.ExtraData = FurniExtraData.Load(item.Definition, "0", keepLegacy: true);
 
     private IDatabase LandingDatabase(uint linkedId, uint targetRoom)
     {
