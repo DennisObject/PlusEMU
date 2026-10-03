@@ -48,7 +48,7 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
         StepPurpose purpose, OccupancyView view, PlanningOccupancy? occupancy = null)
     {
         if (!Adjacent(from, to)) return new(StepReason.BoundsOrAdjacency);
-        return CanStepKnownNeighbour(actor, from, to, grid.Tile(to.X, to.Y), purpose, view, occupancy);
+        return CanStepKnownNeighbour(actor, from, to, to.Slot >= 0 ? to.Slot : grid.Tile(to.X, to.Y), purpose, view, occupancy);
     }
 
     // A roller tile whose departing cargo leaves this cycle is the bare roller surface: next-roller
@@ -88,7 +88,7 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
         var required = purpose == StepPurpose.Transit ? NavFlags.Transit
             : NavFlags.Transit | NavFlags.GoalOnlySeat | NavFlags.GoalOnlyBed | NavFlags.Door;
         var standable = purpose == StepPurpose.Roller
-            ? (flags & NavFlags.Transit) != 0 || grid.LegacyFloorStatus[tile] != 0
+            ? (flags & NavFlags.Transit) != 0 || grid.LegacyFloorStatus[grid.TileOf(tile)] != 0
             : (flags & required) != 0;
         if (!standable) return new(StepReason.NotStandable);
         if ((flags & NavFlags.FloorLocked) != 0) return new(StepReason.FloorLocked);
