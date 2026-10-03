@@ -1,0 +1,242 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using Plus.Communication.Http;
+using Plus.HabboHotel.Users.Authentication;
+using Plus.HabboHotel.Users.Registration;
+using Xunit;
+
+namespace Plus.Tests;
+
+public sealed class AuthHttpServerTests : IAsyncLifetime
+{
+    private static readonly Argon2idPasswordHasher Hasher = new();
+
+    private readonly FakeAccounts _accounts = new();
+    private readonly FakeSsoTickets _tickets = new();
+    private readonly FakeAccessTokens _tokens = new();
+    private HttpClient _http = new();
+    private AuthHttpServer? _server;
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
+    {
+        _http.Dispose();
+        if (_server != null)
+            await _server.Stop();
+    }
+
+    private async Task Start(Action<AuthApiConfiguration>? configure = null)
+    {
+        var options = AuthTestConfig.Options(c =>
+        {
+            c.Port = 0;
+            c.MaxFailedLoginsPerAccount = 3;
+            configure?.Invoke(c);
+        });
+        var login = new LoginService(_accounts, Hasher, new LoginThrottle(TimeProvider.System, options), _tickets, _tokens);
+        var registration = new RegistrationService(_accounts, Hasher, new FakeWordFilter(), options);
+        _server = new AuthHttpServer(options, login, registration, _tickets, _tokens);
+        await _server.Start();
+        _http.Dispose();
+        _http = new HttpClient { BaseAddress = new Uri(_server.Urls.Single()) };
+    }
+
+    private Task<HttpResponseMessage> Post(string path, object body, string? forwardedFor = null, string? bearer = null)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
+        if (forwardedFor != null)
+            request.Headers.Add("X-Forwarded-For", forwardedFor);
+        if (bearer != null)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+        return _http.SendAsync(request);
+    }
+
+    private static async Task<JsonElement> Json(HttpResponseMessage response) => JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+
+    [Fact]
+    public async Task ServesHealthMaintenanceAndRoomTemplatesWithSafeHeaders()
+    {
+        await Start();
+
+        var health = await _http.GetAsync("/api/health");
+        Assert.Equal(HttpStatusCode.OK, health.StatusCode);
+        Assert.True((await Json(health)).GetProperty("ok").GetBoolean());
+        Assert.False((await Json(await _http.GetAsync("/api/maintenance"))).GetProperty("enabled").GetBoolean());
+        Assert.Equal(0, (await Json(await _http.GetAsync("/api/auth/room-templates"))).GetProperty("templates").GetArrayLength());
+
+        Assert.True(health.Headers.CacheControl!.NoStore);
+        Assert.Equal("nosniff", health.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.False(health.Headers.Contains("Server"));
+    }
+
+    [Fact]
+    public async Task UnknownRoutesAre404NotAnEmptySuccess()
+    {
+        await Start();
+
+        var response = await Post("/api/auth/remember", new { rememberToken = "x" });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("Not found.", (await Json(response)).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task LoginReturnsTheTicketAndAccessTokenTheClientStores()
+    {
+        var row = _accounts.Add("Dennis", Hasher.Hash("correct horse"));
+        await Start();
+
+        var response = await Post("/api/auth/login", new { username = " dennis ", password = "correct horse", remember = true });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await Json(response);
+        Assert.Equal("Dennis", body.GetProperty("username").GetString());
+        Assert.Equal(row.Id, _tickets.Live[body.GetProperty("ssoTicket").GetString()!]);
+        Assert.Equal(row.Id, _tokens.Live[body.GetProperty("accessToken").GetString()!]);
+        Assert.Equal(2000, body.GetProperty("accessTokenExpiresAt").GetInt64());
+    }
+
+    [Fact]
+    public async Task FailedLoginsGetOneGenericAnswerAndThenAreThrottled()
+    {
+        _accounts.Add("Dennis", Hasher.Hash("correct horse"));
+        await Start();
+
+        var wrong = await Post("/api/auth/login", new { username = "Dennis", password = "nope" });
+        var unknown = await Post("/api/auth/login", new { username = "Nobody", password = "nope" });
+        Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, unknown.StatusCode);
+        Assert.Equal(await wrong.Content.ReadAsStringAsync(), await unknown.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, (await Post("/api/auth/login", new { username = "Dennis" })).StatusCode);
+
+        await Post("/api/auth/login", new { username = "Dennis", password = "nope" });
+        await Post("/api/auth/login", new { username = "Dennis", password = "nope" });
+        var locked = await Post("/api/auth/login", new { username = "Dennis", password = "correct horse" });
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, locked.StatusCode);
+        Assert.Equal(AuthEndpoints.TooManyAttempts, (await Json(locked)).GetProperty("error").GetString());
+        Assert.Empty(_tickets.Live);
+    }
+
+    [Fact]
+    public async Task RegistrationReportsCreatedTakenAndInvalid()
+    {
+        _accounts.Add("Taken", "x");
+        await Start();
+
+        var created = await Post("/api/auth/register", new { username = "NewHabbo", email = "new@example.com", password = "long enough", figure = "hd-180-1", gender = "M", templateId = 3 });
+        var taken = await Post("/api/auth/register", new { username = "taken", email = "other@example.com", password = "long enough" });
+        var invalid = await Post("/api/auth/register", new { username = "Mod", email = "x@example.com", password = "long enough" });
+
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        Assert.Equal("NewHabbo", (await Json(created)).GetProperty("username").GetString());
+        Assert.False((await Json(created)).TryGetProperty("ssoTicket", out _));
+        Assert.Equal(HttpStatusCode.Conflict, taken.StatusCode);
+        Assert.False((await Json(taken)).GetProperty("available").GetBoolean());
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Equal("That Habbo name is not allowed.", (await Json(invalid)).GetProperty("error").GetString());
+        Assert.StartsWith("$argon2id$", Assert.Single(_accounts.Created).PasswordHash);
+    }
+
+    [Fact]
+    public async Task AvailabilityChecksAnswerHonestly()
+    {
+        _accounts.Add("Taken", "x");
+        _accounts.Emails.Add("taken@example.com");
+        await Start();
+
+        Assert.True((await Json(await Post("/api/auth/check-username", new { username = "Fresh" }))).GetProperty("available").GetBoolean());
+        var takenName = await Json(await Post("/api/auth/check-username", new { username = "TAKEN" }));
+        Assert.False(takenName.GetProperty("available").GetBoolean());
+        Assert.Equal("That Habbo name is already taken.", takenName.GetProperty("error").GetString());
+        Assert.False((await Json(await Post("/api/auth/check-email", new { email = "taken@example.com" }))).GetProperty("available").GetBoolean());
+        Assert.True((await Json(await Post("/api/auth/check-email", new { email = "fresh@example.com" }))).GetProperty("available").GetBoolean());
+    }
+
+    [Fact]
+    public async Task ForgotPasswordGivesTheSameHonestAnswerForAnyAddress()
+    {
+        _accounts.Emails.Add("taken@example.com");
+        await Start();
+
+        var known = await Post("/api/auth/forgot-password", new { email = "taken@example.com" });
+        var unknown = await Post("/api/auth/forgot-password", new { email = "nobody@example.com" });
+
+        Assert.Equal(HttpStatusCode.NotImplemented, known.StatusCode);
+        Assert.Equal(await known.Content.ReadAsStringAsync(), await unknown.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task SsoTicketExchangeIssuesAnAccessTokenWithoutSpendingTheTicket()
+    {
+        await Start();
+        var ticket = await _tickets.Issue(42);
+
+        var response = await Post("/api/auth/sso-token", new { ssoTicket = ticket.Value });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var token = (await Json(response)).GetProperty("accessToken").GetString()!;
+        Assert.NotEqual(ticket.Value, token);
+        Assert.Equal(42, _tokens.Live[token]);
+        Assert.Equal(42, await _tickets.Consume(ticket.Value));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/sso-token", new { ssoTicket = ticket.Value })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/sso-token", new { ssoTicket = "" })).StatusCode);
+    }
+
+    [Fact]
+    public async Task LogoutRevokesTheBearerAccessToken()
+    {
+        await Start();
+        var token = await _tokens.Issue(7);
+
+        var response = await Post("/api/auth/logout", new { ssoTicket = "", rememberToken = "" }, bearer: token.Value);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null(await _tokens.FindUser(token.Value));
+    }
+
+    [Fact]
+    public async Task RejectsOversizedAndMalformedBodiesWithJsonErrors()
+    {
+        await Start();
+
+        var oversized = await Post("/api/auth/login", new { username = "Dennis", password = new string('x', (int)AuthHttpServer.MaxRequestBodyBytes) });
+        var malformed = await _http.PostAsync("/api/auth/login", new StringContent("{\"username\":", Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, oversized.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, malformed.StatusCode);
+        Assert.Equal("Invalid request.", (await Json(malformed)).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task RateLimitsEachClientAddressAcrossAuthRoutes()
+    {
+        await Start(c => c.RequestsPerMinute = 3);
+
+        for (var i = 0; i < 3; i++)
+            Assert.Equal(HttpStatusCode.OK, (await Post("/api/auth/check-username", new { username = "Fresh" + i })).StatusCode);
+        var limited = await Post("/api/auth/check-email", new { email = "a@example.com" });
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.Equal(AuthEndpoints.TooManyAttempts, (await Json(limited)).GetProperty("error").GetString());
+        Assert.Equal(HttpStatusCode.OK, (await _http.GetAsync("/api/health")).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("127.0.0.0/8", "203.0.113.7")]
+    [InlineData("127.0.0.1", "203.0.113.7")]
+    [InlineData("10.9.9.9", "127.0.0.1")]
+    [InlineData("", "127.0.0.1")]
+    public async Task ForwardedForIsHonouredOnlyFromConfiguredProxies(string trusted, string expectedAddress)
+    {
+        await Start(c => c.TrustedProxies = trusted.Length == 0 ? [] : [trusted]);
+
+        await Post("/api/auth/register", new { username = "ViaProxy", email = "proxy@example.com", password = "long enough" }, forwardedFor: "203.0.113.7");
+
+        Assert.Equal(expectedAddress, Assert.Single(_accounts.Created).Address);
+    }
+}

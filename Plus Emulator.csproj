@@ -16,6 +16,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- Kestrel hosts the login API (Communication/Http). -->
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Compile Remove="PluginExample\**" />
 		<EmbeddedResource Remove="PluginExample\**" />
 		<None Remove="PluginExample\**" />

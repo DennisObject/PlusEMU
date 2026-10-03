@@ -6,6 +6,7 @@ using Plus.Core;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Flash;
+using Plus.Communication.Http;
 using Plus.Communication.Nitro;
 using Plus.Communication.RCON;
 using Plus.Database;
@@ -45,6 +46,7 @@ public static class Program
         services.AddConfiguration<DatabaseConfiguration>(configuration.GetSection("Database"));
         services.AddConfiguration<RconConfiguration>(configuration.GetSection("Rcon"));
         services.AddConfiguration<CameraConfiguration>(configuration.GetSection("Camera"));
+        services.AddConfiguration<AuthApiConfiguration>(configuration.GetSection("AuthApi"));
 
         // Dependency Injection
         services.AddDefaultRules(typeof(Program).Assembly);
