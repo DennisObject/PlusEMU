@@ -91,8 +91,10 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     {
         var deferred = false;
         IDisposable? admission = null;
+        // Aliases are resolved before admission so the gate lane sees the real target; the module lock is not
+        // held across it. ChangeLocked and any replay still use the original reference and recheck authority.
         if (builtins != null)
-            admission = builtins.Admit(reference, holder, ref transform,
+            admission = builtins.Admit(WriteTarget(reference), holder, ref transform,
                 replayed => () => Change(reference, holder, mutation, replayed, frame, origin), out deferred);
         // The admission, if any, is held until the completion callback has run.
         using (admission)
@@ -303,6 +305,11 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
     private bool HasValue(Resolved resolved) => resolved.Definition?.HasValue
         ?? (resolved.Builtin is { } builtin && builtins?.HasValue(builtin) == true);
+
+    private WiredVariableReference WriteTarget(WiredVariableReference reference)
+    {
+        lock (_gate) return Resolve(reference, true)?.Builtin ?? reference;
+    }
 
     private Resolved? Resolve(WiredVariableReference reference, bool writing, IWiredVariableDirectory? readDirectory = null)
     {

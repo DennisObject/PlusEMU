@@ -89,7 +89,9 @@ public sealed class WiredMovementActions
                 {
                     var snapshot = configuration.Snapshots.FirstOrDefault(entry => entry.ItemId == item.Id);
                     if (snapshot == null) continue;
-                    if (Param(0) == 1 && !string.Equals(item.LegacyDataString, snapshot.State, StringComparison.Ordinal))
+                    if (Param(0) == 1 && toggleState != null)
+                        affected |= toggleState(item, current => string.Equals(current, snapshot.State, StringComparison.Ordinal) ? null : snapshot.State);
+                    else if (Param(0) == 1 && !string.Equals(item.LegacyDataString, snapshot.State, StringComparison.Ordinal))
                     {
                         setState(item, snapshot.State);
                         affected = true;

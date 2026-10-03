@@ -135,11 +135,10 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
 
     private void SetState(Item item, string extradata)
     {
-        if (item.LegacyDataString == extradata)
-            return;
         if (item.Definition.InteractionType == InteractionType.Dice)
             return;
-        GateTransitionService.Apply(item, extradata, GateCloseReason.Wired, persist: false);
+        // Equality is decided against the committed state when the write runs, not before it queues.
+        GateTransitionService.ToggleState(item, current => current == extradata ? null : extradata, GateCloseReason.Wired, persist: false);
     }
 
     private void SetRotation(Item item, int rotation)
