@@ -4,6 +4,12 @@ internal sealed class MovementCancellation(MovementContext context)
 {
     internal void Cancel(RoomUser actor, long discardThrough = 0)
     {
+        context.Approaches.Cancel(actor);
+        Finish(actor, discardThrough);
+    }
+    // Movement ended at its goal: the approach intent, if any, is completed by the caller instead of dropped.
+    internal void Finish(RoomUser actor, long discardThrough = 0)
+    {
         var state = actor.Movement;
         state.GoalRevision++; state.AcceptedGoal = null; state.RouteInvalidated = false; state.HasIntent = false; state.Route.Clear(); state.Cursor = 0;
         state.PendingCount = 0; state.WaitTicks = state.BlockReplans = state.StallTicks = 0;

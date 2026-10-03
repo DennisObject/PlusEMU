@@ -1256,6 +1256,7 @@ public class Item
             return;
         MagicTileHeight.Sync(this);
         PublishIfAttached(true);
+        GetRoom().GetGameMap()?.Navigation?.ItemStateChanged(Id);
         if (inDb)
             GetRoom().GetRoomItemHandler().UpdateItem(this);
         if (IsFloorItem)
