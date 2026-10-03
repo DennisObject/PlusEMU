@@ -1,17 +1,23 @@
 # Pathfinding v2 P1 contracts
 
 Contract: PATHFINDING-V2-SPEC.md r11 (2026-10-03), phase P1. Legacy remains the
-movement executor. Each room snapshots `pathfinding.*` settings through
-SettingsManager at load. Missing values remain distinct from zero. `engine=shadow`
+movement executor. Each room selects the engine at load; enabled rooms snapshot
+`pathfinding.*` settings through SettingsManager. Missing values remain distinct from zero. `engine=shadow`
 runs the production v2 search at the legacy recalc point, reads GoalX/GoalY and
 logs sampled route/outcome differences, both timings and expansions. It never
 installs the result. `engine=v2` and layering settings log a P1 warning and leave
 movement on legacy. Rooms larger than 256 on either model axis have no v2 adapter.
 
-Furniture records are published even in legacy mode, so all placements, moves,
-rotations, state and adjustable-height changes, rollers, individual and bulk
-pickups are covered. Item setters serialize on NavSync; multi-field placement
-and SetState transactions suppress intermediate publication. Removed instances
+Legacy rooms have no navigation adapter, item records or navigation locks. Enabled
+rooms attach their floor items at load; placements, moves, rotations, walkability
+state and adjustable-height changes, rollers, individual and bulk pickups publish
+incrementally. Initial item construction and multi-field placement happen before
+admission exposes a new instance. Admission and pickup serialize membership plus
+record publication under NavSync; all room callbacks run outside it. Fast setters
+reread the volatile attachment after writing so an attachment cannot lose a late
+write. Unchanged footprints are reused, cosmetic states are skipped and identical
+records are coalesced. Item setters serialize on NavSync; multi-field placement
+and placement writes publish one coherent geometry record. Removed instances
 are detached and leave a versioned tombstone. Only the room thread applies the
 grid. The compiler reads each live record once at the apply boundary and computes
 old/new footprint closure before compiling and committing AppliedRecords.

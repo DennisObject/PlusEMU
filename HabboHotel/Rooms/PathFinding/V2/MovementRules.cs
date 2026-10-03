@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
 public enum StepPurpose { Transit, Goal, Roller, Interaction }
@@ -39,7 +41,8 @@ public static class ClaimMatrix
 public sealed class MovementRules(NavGrid grid, PathfindingSettings settings)
 {
     private readonly double _maxUp = settings.EffectiveMaxUp;
-    private readonly double? _maxDown = settings.EffectiveMaxDown;
+    private readonly double _maxDown = settings.EffectiveMaxDown ?? double.PositiveInfinity;
+    private readonly CornerRule _cornerRule = settings.CornerRule;
     public StepResult CanStep(ActorProfile actor, in NavPosition from, in NavPosition to,
         StepPurpose purpose, OccupancyView view, PlanningOccupancy? occupancy = null)
     {
@@ -47,10 +50,17 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings)
         if (!grid.InBounds(from.X, from.Y) || !grid.InBounds(to.X, to.Y)
             || Math.Abs(dx) > 1 || Math.Abs(dy) > 1 || dx == 0 && dy == 0)
             return new(StepReason.BoundsOrAdjacency);
+        return CanStepKnownNeighbour(actor, from, to, grid.Tile(to.X, to.Y), purpose, view, occupancy);
+    }
+
+    // Search establishes bounds and adjacency before calling this shared policy kernel.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal StepResult CanStepKnownNeighbour(ActorProfile actor, in NavPosition from, in NavPosition to,
+        int tile, StepPurpose purpose, OccupancyView view, PlanningOccupancy? occupancy = null)
+    {
         if (actor.LegacyOverride) return new(StepReason.Ok);
         if (purpose == StepPurpose.Interaction)
             return new(actor.Interaction?.Allows(from, to) == true ? StepReason.Ok : StepReason.InteractionDenied);
-        var tile = grid.Tile(to.X, to.Y);
         var flags = grid.Flags[tile];
         var required = purpose == StepPurpose.Transit ? NavFlags.Transit
             : NavFlags.Transit | NavFlags.GoalOnlySeat | NavFlags.GoalOnlyBed | NavFlags.Door;
@@ -64,13 +74,15 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings)
             var height = HeightReason(grid.WalkZ[tile] - from.Z);
             if (height != StepReason.Ok) return new(height);
         }
-        if (dx != 0 && dy != 0 && settings.CornerRule != CornerRule.None)
+        if (from.X != to.X && from.Y != to.Y && _cornerRule != CornerRule.None)
         {
-            var a = grid.Tile(from.X + dx, from.Y); var b = grid.Tile(from.X, from.Y + dy);
-            if (settings.CornerRule == CornerRule.Official && (grid.TileVoid[a] || grid.TileVoid[b])) return new(StepReason.CornerVoid);
-            var openA = CanFlank(actor, from, from.X + dx, from.Y);
-            var openB = CanFlank(actor, from, from.X, from.Y + dy);
-            if (settings.CornerRule == CornerRule.Strict ? !openA || !openB : !openA && !openB) return new(StepReason.CornerBlocked);
+            var a = grid.Tile(to.X, from.Y); var b = grid.Tile(from.X, to.Y);
+            // Official requires both flanks to exist even when the first is open.
+            if (_cornerRule == CornerRule.Official && (grid.TileVoid[a] || grid.TileVoid[b])) return new(StepReason.CornerVoid);
+            var openA = CanFlankKnownTile(actor, from.Z, a);
+            if (_cornerRule == CornerRule.Strict
+                ? !openA || !CanFlankKnownTile(actor, from.Z, b)
+                : !openA && !CanFlankKnownTile(actor, from.Z, b)) return new(StepReason.CornerBlocked);
         }
         if ((flags & NavFlags.GuildGate) != 0 && !actor.IsMember(grid.GroupId[tile])) return new(StepReason.GateDenied);
         if (occupancy != null && (occupancy.Targets[tile] & ClaimMatrix.BlockingMask(actor, flags, purpose, view)) != 0) return new(StepReason.Occupied);
@@ -80,12 +92,18 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings)
     public bool CanFlank(ActorProfile actor, in NavPosition from, int x, int y)
     {
         if (!grid.InBounds(x, y)) return false;
-        var t = grid.Tile(x, y); var flags = grid.Flags[t];
+        return CanFlankKnownTile(actor, from.Z, grid.Tile(x, y));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool CanFlankKnownTile(ActorProfile actor, double fromZ, int t)
+    {
+        var flags = grid.Flags[t];
         return (flags & NavFlags.Transit) != 0 && (flags & NavFlags.FloorLocked) == 0
             && ((flags & NavFlags.GuildGate) == 0 || actor.IsMember(grid.GroupId[t]))
-            && (actor.IgnoreStepHeight || HeightReason(grid.WalkZ[t] - from.Z) == StepReason.Ok);
+            && (actor.IgnoreStepHeight || HeightReason(grid.WalkZ[t] - fromZ) == StepReason.Ok);
     }
 
     private StepReason HeightReason(double dz) => dz > _maxUp ? StepReason.TooHigh
-        : _maxDown is { } down && -dz > down ? StepReason.TooLow : StepReason.Ok;
+        : -dz > _maxDown ? StepReason.TooLow : StepReason.Ok;
 }

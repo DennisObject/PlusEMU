@@ -47,7 +47,7 @@ public class PathfindingBenchmarks
             var map = new Gamemap(room, model);
             Set(room, "_gamemap", map); Set(room, "_roomItemHandling", new RoomItemHandling(room)); Set(room, "_roomUserManager", new RoomUserManager(room));
             map.GenerateMaps();
-            var navigation = map.Navigation!; navigation.Compiler.RebuildAll();
+            var navigation = map.Navigation ?? new RoomNavigation(room, model, new() { Engine = PathfindingEngine.Shadow }); navigation.Compiler.RebuildAll();
             var grid = navigation.Grid; var settings = new PathfindingSettings();
             var search = new PathSearch(grid, settings); var route = new Route(); var actor = new ActorProfile { IgnoreUsers = true };
             var legacyActor = new RoomUser(0, 0, 1, room) { AllowOverride = false, X = sx, Y = sy };
@@ -60,14 +60,19 @@ public class PathfindingBenchmarks
             var oracle = Plus.Tests.Pathfinding.PathSearchTests.Bfs(grid, settings, request);
             Assert.Equal(oracle.Outcome, search.Find(request, ws, route)); Assert.Equal(oracle.Length, route.Count);
             var v2Samples = new double[v2Iterations]; var legacySamples = new double[legacyIterations];
+            using var process = Process.GetCurrentProcess();
+            var v2CpuStart = process.TotalProcessorTime;
             var allocated = GC.GetAllocatedBytesForCurrentThread();
             for (var i = 0; i < v2Iterations; i++) { var start = Stopwatch.GetTimestamp(); search.Find(request, ws, route); v2Samples[i] = Microseconds(start); }
             var v2Bytes = (GC.GetAllocatedBytesForCurrentThread() - allocated) / v2Iterations;
+            var v2CpuMean = (process.TotalProcessorTime - v2CpuStart).TotalMicroseconds / v2Iterations;
+            var legacyCpuStart = process.TotalProcessorTime;
             allocated = GC.GetAllocatedBytesForCurrentThread();
             for (var i = 0; i < legacyIterations; i++) { var start = Stopwatch.GetTimestamp(); PathFinder.FindPath(legacyActor, true, map, from, to, metrics); legacySamples[i] = Microseconds(start); }
             var legacyBytes = (GC.GetAllocatedBytesForCurrentThread() - allocated) / legacyIterations;
-            results.Add(Report(name + " v2", v2Samples, v2Bytes) + $"; expansions={ws.Expansions}; CanStep={ws.CanStepCalls}; heap_ops={ws.HeapOperations}; route_steps={route.Count}");
-            results.Add(Report(name + " legacy", legacySamples, legacyBytes) + $"; expansions={metrics.Expansions}; CanStep={metrics.CanStepCalls}; heap_ops={metrics.HeapOperations}");
+            var legacyCpuMean = (process.TotalProcessorTime - legacyCpuStart).TotalMicroseconds / legacyIterations;
+            results.Add(Report(name + " v2", v2Samples, v2Bytes) + $"; expansions={ws.Expansions}; CanStep={ws.CanStepCalls}; heap_ops={ws.HeapOperations}; route_steps={route.Count}; process_cpu_mean={v2CpuMean:F2}µs");
+            results.Add(Report(name + " legacy", legacySamples, legacyBytes) + $"; expansions={metrics.Expansions}; CanStep={metrics.CanStepCalls}; heap_ops={metrics.HeapOperations}; process_cpu_mean={legacyCpuMean:F2}µs");
             results.Add($"  retained array payload: grid+connectivity={grid.RetainedBytes:N0}B; planning occupancy={grid.SlotCapacity:N0}B; workspace={ws.RetainedBytes:N0}B; slots={grid.SlotCapacity}; active_nodes={grid.ActiveNodeCount}");
         }
     }

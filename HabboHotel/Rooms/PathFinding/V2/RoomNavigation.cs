@@ -55,6 +55,13 @@ public sealed class RoomNavigation
         catch (Exception error) { Logger.Warn(error, "Pathfinding shadow search failed for room {0} actor {1}; legacy continues.", _room.RoomId, actor.VirtualId); }
     }
 
+    internal static bool Diverges(PathOutcome outcome, int steps, int legacyCount) => outcome switch
+    {
+        PathOutcome.Found => legacyCount != steps + 1,
+        PathOutcome.AlreadyThere => legacyCount != 1,
+        _ => legacyCount > 0
+    };
+
     private void CompareCore(RoomUser actor, IReadOnlyList<Vector2D> legacyPath, long legacyTicks)
     {
         // Snapshot legacy inputs at its recalc point. Temporary bots have IgnoreUsers,
@@ -84,7 +91,7 @@ public sealed class RoomNavigation
         var request = new SearchRequest(profile, new(actor.X, actor.Y, actor.Z), actor.GoalX, actor.GoalY, _occupancy);
         var outcome = _search.Find(request, lease.Workspace, _route);
         var elapsed = Stopwatch.GetTimestamp() - started;
-        var divergent = outcome == PathOutcome.Found ? legacyPath.Count != _route.Count + 1 : legacyPath.Count > 0;
+        var divergent = Diverges(outcome, _route.Count, legacyPath.Count);
         if (!divergent && outcome == PathOutcome.Found)
             for (var i = 0; i < _route.Count; i++)
             {

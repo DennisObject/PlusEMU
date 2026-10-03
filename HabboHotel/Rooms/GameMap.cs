@@ -228,9 +228,12 @@ public class Gamemap
         _room = room;
         _placementRoom = room;
         StaticModel = model;
-        if (model.MapSizeX is > 0 and <= 256 && model.MapSizeY is > 0 and <= 256)
-            Navigation = new(room, model, PlusEnvironment.SettingsManager is { } settings
-                ? PathfindingSettings.Load(settings) : new());
+        // Settings are fixed at room load. Legacy never allocates navigation state or
+        // attaches items, so its setters and update cycles take the original fast path.
+        if (PlusEnvironment.SettingsManager is { } settings
+            && settings.GetOptionalValue("pathfinding.engine") is "shadow" or "v2"
+            && model.MapSizeX is > 0 and <= 256 && model.MapSizeY is > 0 and <= 256)
+            Navigation = new(room, model, PathfindingSettings.Load(settings));
         DiagonalEnabled = true;
         Model = new(StaticModel);
         _placementWidth = Model.MapSizeX;

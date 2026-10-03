@@ -163,3 +163,23 @@ Legacy public method signatures and behavior stay intact. An internal benchmark
 overload collects counters with the corrected unit-cost A* from master. Terrain
 parity compares reachability and shortest tick count with that fixed search;
 production v2 also has the independent BFS oracle for its richer actor policies.
+
+### Furniture update baseline
+
+```bash
+DOTNET_PROCESSOR_COUNT=1 DOTNET_TieredCompilation=0 \
+  PLUSEMU_FURNITURE_BENCHMARK=/tmp/furniture-updates.txt \
+  dotnet test Plus.Tests/Plus.Tests.csproj -c Release -p:Platform=AnyCPU --no-build \
+  --filter FullyQualifiedName~FurnitureUpdateBenchmarks
+```
+
+FurnitureUpdateBenchmarks compiles unchanged on master. Compare the same harness
+and environment on the PR base and this branch: 500 cosmetic Wired flashes and
+100 adjustable-height updates drive real Item.ProcessUpdates and the furniture
+manager cycle. Setup is excluded, and no users, sockets or database are involved.
+Default legacy rooms have no navigation adapter or attached records. Enabled
+rooms publish only navigation changes, reuse unchanged footprints and coalesce
+identical records; all room callbacks execute outside the item navigation lock.
+Search and furniture reports include process CPU mean as well as wall-time
+percentiles so scheduling delays on a busy shared host remain visible. CPU mean
+includes runtime/GC work and is not a replacement for the wall-time targets.

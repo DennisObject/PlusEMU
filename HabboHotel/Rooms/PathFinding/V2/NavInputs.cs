@@ -42,7 +42,8 @@ public sealed class NavInputs
         }
     }
 
-    public T Mutate<T>(Item item, Func<T> mutation)
+    // Field-only transaction; room callbacks must run after this returns.
+    internal T Mutate<T>(Item item, Func<T> mutation)
     {
         lock (item.NavSync)
         {
@@ -60,7 +61,11 @@ public sealed class NavInputs
     {
         // All callers hold NavSync, including setters and UpdateState.
         if (item.NavMutationDepth == 0 && item.NavigationInputs == this)
-            Publish(NavItemRecord.Capture(item, Interlocked.Increment(ref _version), Width, Height));
+        {
+            var previous = Read(item.Id);
+            var record = NavItemRecord.Capture(item, Interlocked.Increment(ref _version), Width, Height, previous);
+            if (!ReferenceEquals(record, previous)) Publish(record);
+        }
     }
 
     internal bool Publish(NavItemRecord next)

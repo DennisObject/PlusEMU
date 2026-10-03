@@ -39,7 +39,7 @@ public class LegacyContractsTests
         var model = new RoomModel("fixed-legacy-parity", 0, 0, 0, 0, terrain.Replace('|', '\r'), false, 0, false);
         var map = new Gamemap(room, model);
         Set("_gamemap", map); Set("_roomItemHandling", new RoomItemHandling(room)); Set("_roomUserManager", new RoomUserManager(room));
-        map.GenerateMaps(); map.Navigation!.Compiler.RebuildAll();
+        map.GenerateMaps(); NavTest.Enable(map).Compiler.RebuildAll();
         var grid = map.Navigation.Grid;
         var legacyActor = new RoomUser(0, 0, 1, room) { X = sx, Y = sy };
         var path = PathFinder.FindPath(legacyActor, true, map, new(sx, sy), new(gx, gy));

@@ -66,11 +66,13 @@ public sealed class PathWorkspace
             {
                 var child = p * 2 + 1;
                 if (child + 1 < Count && HeapKey[child + 1] < HeapKey[child]) child++;
-                if (key <= HeapKey[child]) break;
+                // Floyd's sift: descend to the leaf using child comparisons, then
+                // repair upward. The final heap entry usually belongs near a leaf.
                 HeapNode[p] = HeapNode[child]; HeapKey[p] = HeapKey[child]; HeapPos[HeapNode[p]] = p;
                 p = child;
             }
             HeapNode[p] = node; HeapKey[p] = key; HeapPos[node] = p;
+            SiftUp(p);
         }
         HeapPos[result] = -1; HeapOperations++;
         return result;

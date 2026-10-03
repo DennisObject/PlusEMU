@@ -108,4 +108,19 @@ public class ShadowPathfindingTests
         navigation.Compare(actor, actor.Path, 0);
         Assert.False(actor.NavigationProfile.IsMember(7)); Assert.Equal(2, actor.NavigationProfile.CapabilityVersion);
     }
+    [Fact]
+    public void AlreadyThereMatchesLegacySingleOriginWithoutDivergence()
+    {
+        var fixture = RoomPerformanceFixture.Create(1, 0);
+        var actor = fixture.Bots[0]; actor.GoalX = actor.X; actor.GoalY = actor.Y;
+        var legacy = PathFinder.FindPath(actor, true, fixture.Map, new(actor.X, actor.Y), new(actor.GoalX, actor.GoalY));
+        var navigation = NavTest.Enable(fixture.Map); navigation.Compiler.RebuildAll();
+        var route = new Route(); var grid = navigation.Grid;
+        var outcome = new PathSearch(grid, new()).Find(new(new ActorProfile(), grid.Position(grid.Tile(actor.X, actor.Y)), actor.GoalX, actor.GoalY),
+            new PathWorkspace(grid.SlotCapacity, grid.ActiveNodeCount), route);
+        Assert.Single(legacy); Assert.Equal(PathOutcome.AlreadyThere, outcome);
+        Assert.False(RoomNavigation.Diverges(outcome, route.Count, legacy.Count));
+        Assert.True(RoomNavigation.Diverges(outcome, route.Count, 0));
+    }
+
 }

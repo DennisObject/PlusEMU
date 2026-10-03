@@ -11,11 +11,17 @@ public sealed class PathSearch(NavGrid grid, PathfindingSettings settings)
     {
         into.Clear(); ws.Begin();
         if (!grid.InBounds(req.GoalX, req.GoalY)) return PathOutcome.InvalidGoal;
-        var legacy = req.Actor.LegacyOverride;
+        var actor = req.Actor;
+        var legacy = actor.LegacyOverride;
+        var diagonal = actor.DiagonalEnabled;
+        var width = grid.Width; var height = grid.Height;
+        var stamps = ws.Stamp; var costs = ws.G; var parents = ws.Parent; var sequences = ws.Sequence;
+        var generation = ws.Generation; var closed = -generation;
+        var flags = grid.Flags; var heights = legacy ? grid.LegacyZ : grid.WalkZ;
         var address = legacy ? grid.Width * grid.Height : grid.SlotCapacity;
         var nodes = legacy ? address : grid.ActiveNodeCount;
         if (ws.AddressRange < address || ws.NodeCapacity < nodes + 1) throw new ArgumentException("Workspace does not fit the graph.");
-        var goal = req.Goals ?? GoalResolver.Resolve(grid, req.Actor, req.GoalX, req.GoalY, req.Occupancy);
+        var goal = req.Goals ?? GoalResolver.Resolve(grid, actor, req.GoalX, req.GoalY, req.Occupancy);
         var start = req.Start;
         var startSlot = grid.InBounds(start.X, start.Y) ? grid.Tile(start.X, start.Y) : -1;
         var virtualStart = startSlot < 0 || !legacy && (!grid.Active(startSlot) || grid.WalkZ[startSlot] != start.Z);
@@ -24,13 +30,13 @@ public sealed class PathSearch(NavGrid grid, PathfindingSettings settings)
         if (!legacy && !virtualStart)
         {
             if (!grid.Connectivity.SameComponent(startSlot, goal.Slot)) return PathOutcome.Unreachable;
-            if (!HasWayIn(req.Actor, goal)) return PathOutcome.Unreachable;
+            if (!HasWayIn(actor, goal)) return PathOutcome.Unreachable;
         }
         var first = virtualStart ? address : startSlot;
-        ws.Stamp[first] = ws.Generation; ws.G[first] = 0; ws.Parent[first] = -1;
-        ws.Sequence[first] = ws.NextSequence++;
+        stamps[first] = generation; costs[first] = 0; parents[first] = -1;
+        sequences[first] = ws.NextSequence++;
         ws.Insert(first, PathTieBreak.Key(PathTieBreak.Heuristic(start.X, start.Y, goal.X, goal.Y),
-            start.X, start.Y, goal.X, goal.Y, 0, ws.Sequence[first]));
+            start.X, start.Y, goal.X, goal.Y, 0, sequences[first]));
         var cap = settings.MaxExpansionsPerSearch ?? nodes + 1;
         while (ws.Count > 0)
         {
@@ -42,25 +48,28 @@ public sealed class PathSearch(NavGrid grid, PathfindingSettings settings)
             }
             if (ws.Expansions >= cap) return PathOutcome.BudgetCancelled;
             ws.Expansions++;
-            ws.Stamp[current] = -ws.Generation;
-            var from = current == address ? start : grid.Position(current, legacy);
+            stamps[current] = -generation;
+            var from = current == address ? start : new NavPosition(current % width, current / width, heights[current], current);
+            if (current == address && !grid.InBounds(start.X, start.Y)) continue;
+            var g = costs[current] + 1;
             foreach (var (dx, dy) in PathTieBreak.Neighbours)
             {
-                if (!req.Actor.DiagonalEnabled && dx != 0 && dy != 0) continue;
+                if (!diagonal && dx != 0 && dy != 0) continue;
                 var x = from.X + dx; var y = from.Y + dy;
-                if (!grid.InBounds(x, y)) continue;
-                var next = grid.Tile(x, y);
-                if (!legacy && !grid.Active(next) || ws.Stamp[next] == -ws.Generation) continue;
+                if ((uint)x >= width || (uint)y >= height) continue;
+                var next = y * width + x;
+                var stamp = stamps[next];
+                if (stamp == closed) continue;
+                var seen = stamp == generation;
+                if (seen && g >= costs[next] || !legacy && (flags[next] & ~NavFlags.FloorLocked) == 0) continue;
                 var purpose = goal.Contains(next) ? StepPurpose.Goal : StepPurpose.Transit;
+                var to = new NavPosition(x, y, heights[next], next);
                 ws.CanStepCalls++;
-                if (!_rules.CanStep(req.Actor, from, grid.Position(next, legacy), purpose, OccupancyView.Planning, req.Occupancy).Ok) continue;
-                var g = ws.G[current] + 1;
-                var seen = ws.Stamp[next] == ws.Generation;
-                if (seen && g >= ws.G[next]) continue;
-                ws.G[next] = g; ws.Parent[next] = current;
-                if (!seen) { ws.Stamp[next] = ws.Generation; ws.Sequence[next] = ws.NextSequence++; }
+                if (!_rules.CanStepKnownNeighbour(actor, from, to, next, purpose, OccupancyView.Planning, req.Occupancy).Ok) continue;
+                costs[next] = g; parents[next] = current;
+                if (!seen) { stamps[next] = generation; sequences[next] = ws.NextSequence++; }
                 var key = PathTieBreak.Key(g + PathTieBreak.Heuristic(x, y, goal.X, goal.Y), x, y,
-                    goal.X, goal.Y, legacy ? (byte)0 : grid.Ordinal[next], ws.Sequence[next]);
+                    goal.X, goal.Y, legacy ? (byte)0 : grid.Ordinal[next], sequences[next]);
                 if (seen) ws.Decrease(next, key); else ws.Insert(next, key);
             }
         }

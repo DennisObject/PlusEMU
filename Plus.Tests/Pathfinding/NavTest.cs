@@ -19,6 +19,14 @@ internal static class NavTest
     public static NavItemRecord Record(uint id, long version, int[] tiles, double z = 0, double h = 0,
         bool walkable = true, bool seat = false, InteractionType interaction = InteractionType.None,
         string state = "0", int group = 7) => new(id, version, z, h, walkable, seat, interaction, state, group, 0, false, Array.AsReadOnly(tiles));
+    public static RoomNavigation Enable(Gamemap map)
+    {
+        var room = (Room)typeof(Gamemap).GetField("_room", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(map)!;
+        var navigation = new RoomNavigation(room, map.StaticModel, new() { Engine = PathfindingEngine.Shadow });
+        typeof(Gamemap).GetField("<Navigation>k__BackingField", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(map, navigation);
+        foreach (var item in room.GetRoomItemHandler().GetFloor) navigation.Inputs.Attach(item);
+        return navigation;
+    }
     public static Item Item(uint id = 1, int length = 1, int width = 1) => new()
     {
         Id = id, Definition = new ItemDefinition { Type = ItemType.Floor, Length = length, Width = width,

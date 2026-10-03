@@ -285,12 +285,15 @@ public class RoomItemHandling
 
     private void RemoveRoomItem(Item item)
     {
-        lock (item.NavSync) RemoveRoomItemCore(item);
-    }
-
-    private void RemoveRoomItemCore(Item item)
-    {
-        _room.GetGameMap().Navigation?.Inputs.Remove(item);
+        var inputs = _room.GetGameMap().Navigation?.Inputs;
+        if (inputs != null && item.IsFloorItem)
+        {
+            lock (item.NavSync)
+            {
+                if (!_floorItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item))) return;
+                inputs.Remove(item);
+            }
+        }
         if (item.IsFloorItem)
             _room.SendPacket(new ObjectRemoveComposer(item, item.UserId));
         else if (item.IsWallItem)
@@ -302,7 +305,7 @@ public class RoomItemHandling
         else
         {
             _room.GetWired()?.DetachRoomItem(item);
-            _floorItems.TryRemove(item.Id, out item);
+            if (inputs == null) _floorItems.TryRemove(item.Id, out item);
             //mFloorItems.OnCycle();
             _room.GetGameMap().RemoveFromMap(item);
         }
@@ -463,17 +466,6 @@ public class RoomItemHandling
 
     public bool SetFloorItem(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses = false, double height = -1, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision = null)
     {
-        var inputs = _room.GetGameMap().Navigation?.Inputs;
-        if (inputs != null)
-            return inputs.Mutate(item, () => SetFloorItemCore(session, item, newX, newY, newRot, newItem,
-                onRoller, sendMessage, updateRoomUserStatuses, height, wiredCollision));
-        lock (item.NavSync)
-            return SetFloorItemCore(session, item, newX, newY, newRot, newItem,
-                onRoller, sendMessage, updateRoomUserStatuses, height, wiredCollision);
-    }
-
-    private bool SetFloorItemCore(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses = false, double height = -1, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision = null)
-    {
         if (item.IsTemporary && (!OwnsTemporary(item) || session != null
             || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanPlaceItem(_room, item, newX, newY, newRot,
                 height == -1 ? null : height, collision: wiredCollision))) return false;
@@ -533,14 +525,13 @@ public class RoomItemHandling
                     newRot = 0;
                 if (newItem)
                 {
-                    if (item.IsFloorItem) duplicate = !_floorItems.TryAdd(item.Id, item);
+                    if (item.IsFloorItem) duplicate = !AdmitFloorItem(item);
                     else if (item.IsWallItem) duplicate = !_wallItems.TryAdd(item.Id, item);
                 }
                 if (!duplicate)
                 {
                     if (!newItem) map.RemoveFromMap(item, false);
-                    item.Rotation = newRot;
-                    item.SetState(newX, newY, newZ, affectedTiles);
+                    item.SetPlacementState(newX, newY, newZ, affectedTiles, newRot);
                     if (newItem) item.RoomId = _room.RoomId;
                     map.AddItemToMap(item, false, newItem);
                 }
@@ -564,7 +555,6 @@ public class RoomItemHandling
         UpdateItem(item);
         map.FlushPlacementUpdates();
         if (magic) updateRoomUserStatuses = true;
-        if (newItem && item.IsFloorItem) map.Navigation?.Inputs.Attach(item);
         if (newItem && item.IsFloorItem) _room.GetWired()?.AttachRoomItem(item);
         if (item.Definition.IsSeat)
             updateRoomUserStatuses = true;
@@ -585,13 +575,6 @@ public class RoomItemHandling
     public List<Item> GetFurniObjects(int x, int y) => _room.GetGameMap().GetCoordinatedItems(new(x, y));
 
     public bool SetFloorItem(Item item, int newX, int newY, double newZ)
-    {
-        var inputs = _room.GetGameMap().Navigation?.Inputs;
-        if (inputs != null) return inputs.Mutate(item, () => SetFloorItemCore(item, newX, newY, newZ));
-        lock (item.NavSync) return SetFloorItemCore(item, newX, newY, newZ);
-    }
-
-    private bool SetFloorItemCore(Item item, int newX, int newY, double newZ)
     {
         if (_room == null || item.IsTemporary && (!OwnsTemporary(item)
             || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanMoveItem(_room, item, newX, newY, item.Rotation, newZ)))
@@ -710,6 +693,20 @@ public class RoomItemHandling
         }
     }
 
+    // Admission serializes membership and record publication with pickup. Only
+    // that transaction shares NavSync; callbacks do not.
+    internal bool AdmitFloorItem(Item item)
+    {
+        var inputs = _room.GetGameMap().Navigation?.Inputs;
+        if (inputs == null) return _floorItems.TryAdd(item.Id, item);
+        lock (item.NavSync)
+        {
+            if (!_floorItems.TryAdd(item.Id, item)) return false;
+            inputs.Attach(item);
+            return true;
+        }
+    }
+
     public List<Item> RemoveItems(GameClient session)
     {
         var items = new List<Item>();
@@ -720,10 +717,16 @@ public class RoomItemHandling
             if (item.IsFloorItem)
             {
                 Item I;
-                lock (item.NavSync)
+                var inputs = _room.GetGameMap().Navigation?.Inputs;
+                if (inputs == null) _floorItems.TryRemove(item.Id, out I);
+                else
                 {
-                    _room.GetGameMap().Navigation?.Inputs.Remove(item);
-                    _floorItems.TryRemove(item.Id, out I);
+                    lock (item.NavSync)
+                    {
+                        if (!_floorItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item))) continue;
+                        inputs.Remove(item);
+                        I = item;
+                    }
                 }
                 // TODO @80O: Items refactor
                 session.GetHabbo().Inventory.Furniture.AddItem(I.ToInventoryItem());

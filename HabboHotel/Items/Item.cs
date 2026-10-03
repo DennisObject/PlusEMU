@@ -17,18 +17,24 @@ namespace Plus.HabboHotel.Items;
 
 public class Item
 {
-    internal object NavSync { get; } = new();
-    internal NavInputs? NavigationInputs { get; set; }
-    internal int NavMutationDepth;
-
-    private void MutateNavigation(Action mutation)
+    private object? _navSync;
+    internal object NavSync => LazyInitializer.EnsureInitialized(ref _navSync);
+    internal bool HasNavigationLock => _navSync != null;
+    private NavInputs? _navigationInputs;
+    internal NavInputs? NavigationInputs
     {
-        lock (NavSync)
-        {
-            mutation();
-            NavigationInputs?.PublishCurrent(this);
-        }
+        get => Volatile.Read(ref _navigationInputs);
+        set => Volatile.Write(ref _navigationInputs, value);
     }
+
+    private void PublishIfAttached(bool stateOnly = false)
+    {
+        if (NavigationInputs == null) return;
+        lock (NavSync)
+            if (NavigationInputs is { } inputs && (!stateOnly || NavItemRecord.StateRelevant(Definition)))
+                inputs.PublishCurrent(this);
+    }
+    internal int NavMutationDepth;
 
     public uint Id { get; set; }
     public bool IsTemporary { get; internal init; }
@@ -39,7 +45,15 @@ public class Item
     public IFurniObjectData ExtraData
     {
         get => _extraData;
-        set => MutateNavigation(() => _extraData = value);
+        set
+        {
+            if (NavigationInputs == null) { _extraData = value; PublishIfAttached(true); return; }
+            lock (NavSync)
+            {
+                _extraData = value;
+                if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
+            }
+        }
     }
     public uint UniqueNumber { get; set; }
     public uint UniqueSeries { get; set; }
@@ -54,10 +68,23 @@ public class Item
         }
         set
         {
-            MutateNavigation(() =>
+            if (NavigationInputs == null)
             {
-                if (ExtraData is LegacyDataFormat data) data.Data = value;
-            });
+                if (_extraData is LegacyDataFormat data) data.Data = value;
+                PublishIfAttached(true);
+                return;
+            }
+            LegacyDataFormat? changed = null;
+            lock (NavSync)
+            {
+                if (_extraData is LegacyDataFormat data)
+                {
+                    data.StoreWithoutNotification(value);
+                    changed = data;
+                }
+                if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
+            }
+            changed?.NotifyDataUpdated();
         }
     }
 
@@ -72,7 +99,20 @@ public class Item
     public FreezePowerUp FreezePowerUp;
     public string Gender;
     private int _groupId;
-    public int GroupId { get => _groupId; set => MutateNavigation(() => _groupId = value); }
+    public int GroupId
+    {
+        get => _groupId;
+        set
+        {
+            if (NavigationInputs == null) { _groupId = value; PublishIfAttached(); return; }
+            lock (NavSync)
+            {
+                if (_groupId == value) return;
+                _groupId = value;
+                NavigationInputs?.PublishCurrent(this);
+            }
+        }
+    }
     public int InteractingBallUser;
     public int InteractingUser;
     public int InteractingUser2;
@@ -81,7 +121,20 @@ public class Item
     public bool MagicRemove = false;
     public bool PendingReset = false;
     private int _rotation;
-    public int Rotation { get => _rotation; set => MutateNavigation(() => _rotation = value); }
+    public int Rotation
+    {
+        get => _rotation;
+        set
+        {
+            if (NavigationInputs == null) { _rotation = value; PublishIfAttached(); return; }
+            lock (NavSync)
+            {
+                if (_rotation == value) return;
+                _rotation = value;
+                NavigationInputs?.PublishCurrent(this);
+            }
+        }
+    }
 
     public Team Team;
     public int UpdateCounter;
@@ -94,13 +147,52 @@ public class Item
     public Dictionary<int, ThreeDCoord> GetAffectedTiles { get; private set; } = new();
 
     private int _getX;
-    public int GetX { get => _getX; set => MutateNavigation(() => _getX = value); }
+    public int GetX
+    {
+        get => _getX;
+        set
+        {
+            if (NavigationInputs == null) { _getX = value; PublishIfAttached(); return; }
+            lock (NavSync)
+            {
+                if (_getX == value) return;
+                _getX = value;
+                NavigationInputs?.PublishCurrent(this);
+            }
+        }
+    }
 
     private int _getY;
-    public int GetY { get => _getY; set => MutateNavigation(() => _getY = value); }
+    public int GetY
+    {
+        get => _getY;
+        set
+        {
+            if (NavigationInputs == null) { _getY = value; PublishIfAttached(); return; }
+            lock (NavSync)
+            {
+                if (_getY == value) return;
+                _getY = value;
+                NavigationInputs?.PublishCurrent(this);
+            }
+        }
+    }
 
     private double _getZ;
-    public double GetZ { get => _getZ; set => MutateNavigation(() => _getZ = value); }
+    public double GetZ
+    {
+        get => _getZ;
+        set
+        {
+            if (NavigationInputs == null) { _getZ = value; PublishIfAttached(); return; }
+            lock (NavSync)
+            {
+                if (_getZ == value) return;
+                _getZ = value;
+                NavigationInputs?.PublishCurrent(this);
+            }
+        }
+    }
 
     public bool UpdateNeeded
     {
@@ -324,26 +416,33 @@ public class Item
     internal long MovementGeneration => Interlocked.Read(ref _movementGeneration);
 
     public void SetState(int pX, int pY, double pZ, Dictionary<int, ThreeDCoord> tiles)
+        => SetPlacementState(pX, pY, pZ, tiles, null);
+
+    internal void SetPlacementState(int pX, int pY, double pZ, Dictionary<int, ThreeDCoord> tiles, int? rotation)
     {
+        if (NavigationInputs == null)
+        {
+            WritePlacement(pX, pY, pZ, tiles, rotation);
+            PublishIfAttached();
+            return;
+        }
         lock (NavSync)
         {
-            NavMutationDepth++;
-            try
-            {
-                if (GetX != pX || GetY != pY || !double.IsInfinity(pZ) && GetZ != pZ)
-                    Interlocked.Increment(ref _movementGeneration);
-                GetX = pX;
-                GetY = pY;
-                if (!double.IsInfinity(pZ)) GetZ = pZ;
-                GetAffectedTiles = tiles;
-                MagicTileHeight.Sync(this);
-            }
-            finally
-            {
-                NavMutationDepth--;
-                NavigationInputs?.PublishCurrent(this);
-            }
+            WritePlacement(pX, pY, pZ, tiles, rotation);
+            NavigationInputs?.PublishCurrent(this);
         }
+    }
+
+    // Field writes only: no room, Wired, map, database or network callbacks under NavSync.
+    private void WritePlacement(int pX, int pY, double pZ, Dictionary<int, ThreeDCoord> tiles, int? rotation)
+    {
+        if (_getX != pX || _getY != pY || !double.IsInfinity(pZ) && _getZ != pZ)
+            Interlocked.Increment(ref _movementGeneration);
+        _getX = pX; _getY = pY;
+        if (!double.IsInfinity(pZ)) _getZ = pZ;
+        if (rotation is { } direction) _rotation = direction;
+        GetAffectedTiles = tiles;
+        MagicTileHeight.Sync(this);
     }
 
     public void ProcessUpdates()
@@ -1140,7 +1239,7 @@ public class Item
         if (GetRoom() == null)
             return;
         MagicTileHeight.Sync(this);
-        lock (NavSync) NavigationInputs?.PublishCurrent(this);
+        PublishIfAttached(true);
         if (inDb)
             GetRoom().GetRoomItemHandler().UpdateItem(this);
         if (IsFloorItem)
@@ -1197,12 +1296,9 @@ public class Item
 
     public void Destroy()
     {
-        lock (NavSync)
-        {
-            NavigationInputs?.Remove(this);
-            _room = null;
-            Definition = null;
-            GetAffectedTiles.Clear();
-        }
+        NavigationInputs?.Remove(this);
+        _room = null;
+        Definition = null;
+        GetAffectedTiles.Clear();
     }
 }

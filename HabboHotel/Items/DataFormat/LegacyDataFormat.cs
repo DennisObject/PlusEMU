@@ -14,6 +14,9 @@ public class LegacyDataFormat : FurniObjectData
         }
     }
 
+    internal void StoreWithoutNotification(string value) => _data = value;
+    internal void NotifyDataUpdated() => RaiseDataUpdated();
+
     public override FurniDataStructure StructureType => FurniDataStructure.Legacy;
 
     public override string Serialize() => Data;
