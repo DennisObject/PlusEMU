@@ -45,7 +45,7 @@ internal sealed class RollerLoadBuilder(Room room, IRollerTransportEngine engine
             Carried(cargo.GetZ, roller, nextIsRoller));
         var slide = new SlideObjectBundleComposer(cargo.GetX, cargo.GetY, cargo.GetZ, destination.X, destination.Y,
             z, roller.Id, 0, cargo.Id);
-        return new(roller, new(roller.GetX, roller.GetY), destination, Snapshot(roller, cargo.GetZ, 0), z, cargo, null, slide);
+        return new(roller, new(roller.GetX, roller.GetY), destination, Snapshot(roller, cargo.GetZ, 0, cargo.Rotation), z, cargo, null, slide);
     }
 
     private static RollerMove ActorMove(Item roller, RoomUser actor, Point destination, bool nextIsRoller)
@@ -57,8 +57,8 @@ internal sealed class RollerLoadBuilder(Room room, IRollerTransportEngine engine
             Snapshot(roller, actor.Z, actor.Movement.LocationRevision), z, null, actor, slide);
     }
 
-    private static RollerSnapshot Snapshot(Item roller, double sourceZ, long actorRevision)
-        => new(roller.Rotation, roller.GetZ, sourceZ, actorRevision);
+    private static RollerSnapshot Snapshot(Item roller, double sourceZ, long actorRevision, int cargoRotation = 0)
+        => new(roller.Rotation, roller.GetZ, sourceZ, actorRevision, cargoRotation);
 
     private static double Carried(double z, Item roller, bool nextIsRoller) => nextIsRoller ? z : z - roller.Definition.Height;
 }

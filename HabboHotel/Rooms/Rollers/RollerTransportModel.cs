@@ -5,7 +5,8 @@ using Plus.HabboHotel.Items;
 namespace Plus.HabboHotel.Rooms.Rollers;
 
 // The state a move was planned from. Any change before its group commits makes the group stale.
-internal readonly record struct RollerSnapshot(int RollerRotation, double RollerZ, double SourceZ, long ActorRevision);
+internal readonly record struct RollerSnapshot(int RollerRotation, double RollerZ, double SourceZ, long ActorRevision,
+    int CargoRotation = 0);
 
 // One mover leaving a roller: cargo or the riding actor. Origin, Z and the slide packet are
 // captured when the cycle snapshots its loads (§14.9 a).
