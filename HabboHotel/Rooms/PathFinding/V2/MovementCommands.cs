@@ -33,7 +33,7 @@ public enum RoomCommandKind : byte { Admit, Remove, Cancel, ForcePlace }
 public enum ForceResolution : byte { ExactZ, NearestAtOrBelow, Highest }
 
 public sealed record RoomCommand(RoomCommandKind Kind, RoomUser Actor, long LifetimeId,
-    int X = 0, int Y = 0, double Z = 0, ForceResolution Resolution = ForceResolution.ExactZ);
+    int X = 0, int Y = 0, double Z = 0, ForceResolution Resolution = ForceResolution.ExactZ, long CommandSequence = 0);
 
 public sealed class RoomCommandQueue
 {
