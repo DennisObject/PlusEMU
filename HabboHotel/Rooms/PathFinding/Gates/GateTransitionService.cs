@@ -8,31 +8,37 @@ namespace Plus.HabboHotel.Rooms.PathFinding;
 // Initiator decides what a refusal means: explicit closes just fail, automatic closes are kept and retried.
 public enum GateCloseReason { Click, Wired, Automatic }
 
-public enum GateTransition { Applied, Refused, Queued, Cancelled, Unchanged }
+public enum GateTransition { Applied, Refused, Queued, Unchanged }
 
-// Every writer that closes a gate goes through TryClose on the room task (§16.3).
+// Every gate state write goes through one per-gate FIFO (§16.3): evaluated once, in order, against committed
+// state. A gate is busy from the moment an operation starts or is queued until its broadcast and callbacks end.
 public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupancy)
 {
     private const string OpenState = "1";
-    // A class on purpose: queued requests are matched by identity, never by value.
-    private sealed class CloseRequest(Item item, GateCloseReason reason, string closedState, bool persist, Action<Item>? afterClose)
+
+    private sealed class Entry(Item item, Func<string, string?> next, GateCloseReason reason, bool persist, Action<Item>? after)
     {
         public Item Item { get; } = item;
+        public Func<string, string?> Next { get; } = next;
         public GateCloseReason Reason { get; } = reason;
-        public string ClosedState { get; } = closedState;
         public bool Persist { get; } = persist;
-        public Action<Item>? AfterClose { get; } = afterClose;
+        public Action<Item>? After { get; } = after;
+        public Entry Prepared(string state) => new(Item, _ => state, Reason, Persist, After);
     }
 
-    private readonly ConcurrentQueue<Action> _queue = new();
-    private readonly List<CloseRequest> _retained = new();
-    // At most one explicit (click/Wired) close per gate waits in the queue; a later toggle cancels it.
-    private readonly ConcurrentDictionary<uint, CloseRequest> _explicit = new();
-    private int _cancelledInQueue;
-    // Pending-toggle resolution, the state observation and every commit share this lock (before PlacementSync).
-    private readonly object _sync = new();
+    private readonly record struct Outcome(GateTransition Result, LegacyDataFormat? Data = null, bool Closed = false);
 
-    public int PendingCount => _queue.Count - Volatile.Read(ref _cancelledInQueue) + _retained.Count;
+    private readonly ConcurrentQueue<Action> _queue = new();
+    private readonly Dictionary<uint, Entry> _retained = new();
+    private readonly Dictionary<uint, int> _busy = new();
+    // Queue inspection, enqueue and every owner-side commit share this lock (before PlacementSync, then NavSync).
+    private readonly object _sync = new();
+    [ThreadStatic] private static uint _replaying;
+
+    // Test seam: runs on the caller right before it contends for the gate lock.
+    internal Action? DecisionHook { get; set; }
+
+    public int PendingCount => _queue.Count + _retained.Count;
 
     public static bool IsGate(Item item)
         => item.Definition.InteractionType is InteractionType.Gate or InteractionType.GuildGate or InteractionType.GateVip;
@@ -42,103 +48,94 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
     public static bool IsClosing(Item item, string currentState, string newState)
         => IsGate(item) && currentState == OpenState && newState != OpenState;
 
-    // The state legacy would show: a close that is still queued has already happened there.
-    public static string EffectiveState(Item item)
-        => (IsGate(item) ? item.GetRoom()?.GetGameMap()?.Gates?.QueuedClosedState(item) : null) ?? item.LegacyDataString;
-
-    private string? QueuedClosedState(Item item) => _explicit.TryGetValue(item.Id, out var queued) ? queued.ClosedState : null;
-
-    // Opening and non-gate writes are unchanged; only a closing transition is guarded.
+    // Absolute write: sequenced for gates, a plain write for everything else.
     public static GateTransition Apply(Item item, string state, GateCloseReason reason, bool persist = true, Action<Item>? afterWrite = null)
+        => ToggleState(item, _ => state, reason, persist, afterWrite);
+
+    // Toggle-style writers decide the next state from the state they observe; null leaves it unchanged.
+    public static GateTransition ToggleState(Item item, Func<string, string?> nextState, GateCloseReason reason,
+        bool persist = true, Action<Item>? afterWrite = null)
     {
-        var gates = item.GetRoom()?.GetGameMap()?.Gates;
-        if (gates != null && IsClosing(item, state)) return gates.TryClose(item, reason, state, persist, afterWrite);
-        if (gates != null && IsGate(item) && state == OpenState) return gates.Open(item, state, persist, afterWrite);
+        if (IsGate(item) && item.GetRoom()?.GetGameMap()?.Gates is { } gates)
+            return gates.Toggle(item, nextState, reason, persist, afterWrite);
+        if (nextState(item.LegacyDataString) is not { } state) return GateTransition.Unchanged;
         item.LegacyDataString = state;
         item.UpdateState(persist, true);
         afterWrite?.Invoke(item);
         return GateTransition.Applied;
     }
 
-    // Toggle-style writers decide the next state from the state they observe. For gates that decision is
-    // atomic with the pending-close check and the commit; other furniture is a plain write.
-    public static GateTransition ToggleState(Item item, Func<string, string?> nextState, GateCloseReason reason,
-        bool persist = true, Action<Item>? afterWrite = null)
-    {
-        var gates = IsGate(item) ? item.GetRoom()?.GetGameMap()?.Gates : null;
-        if (gates != null) return gates.Toggle(item, nextState, reason, persist, afterWrite);
-        return nextState(item.LegacyDataString) is { } state ? Apply(item, state, reason, persist, afterWrite) : GateTransition.Unchanged;
-    }
-
-    // An absolute opening is the latest word: it cancels a close that is still queued for this gate.
-    private GateTransition Open(Item item, string state, bool persist, Action<Item>? afterWrite)
-    {
-        LegacyDataFormat? data;
-        lock (_sync)
-        {
-            if (_explicit.TryRemove(item.Id, out _)) Interlocked.Increment(ref _cancelledInQueue);
-            data = item.StoreStateQuietly(state);
-        }
-        Publish(item, data, persist, afterWrite, rebuildGrid: false);
-        return GateTransition.Applied;
-    }
+    // For a writer whose sequencing was already decided (see TryDefer): commits without queueing.
+    public static GateTransition WriteNow(Item item, string state, GateCloseReason reason, bool persist = true)
+        => IsGate(item) && item.GetRoom()?.GetGameMap()?.Gates is { } gates
+            ? gates.CommitNow(item, state, persist)
+            : ToggleState(item, _ => state, reason, persist);
 
     public GateTransition TryClose(Item item, GateCloseReason reason, string closedState = "0", bool persist = true, Action<Item>? afterClose = null)
-    {
-        var request = new CloseRequest(item, reason, closedState, persist, afterClose);
-        if (RoomOwnerScope.IsOwner(room)) return Close(request);
-        lock (_sync) Enqueue(request);
-        return GateTransition.Queued;
-    }
+        => Toggle(item, _ => closedState, reason, persist, afterClose);
 
-    // A toggle that finds a close still queued is the "open" half of a double click: it cancels that close.
     public GateTransition Toggle(Item item, Func<string, string?> nextState, GateCloseReason reason,
         bool persist = true, Action<Item>? afterWrite = null)
     {
-        (bool Refused, LegacyDataFormat? Data) committed;
-        bool closing;
+        DecisionHook?.Invoke();
+        var entry = new Entry(item, nextState, reason, persist, afterWrite);
+        Outcome outcome;
         lock (_sync)
         {
-            if (_explicit.TryRemove(item.Id, out _))
-            {
-                Interlocked.Increment(ref _cancelledInQueue);
-                return GateTransition.Cancelled;
-            }
+            if (IsBusy(item.Id)) { Enqueue(item.Id, () => RunQueued(entry)); return GateTransition.Queued; }
             var state = nextState(item.LegacyDataString);
             if (state is null) return GateTransition.Unchanged;
-            closing = IsClosing(item, state);
-            if (closing && !RoomOwnerScope.IsOwner(room))
+            if (IsClosing(item, state) && !RoomOwnerScope.IsOwner(room))
             {
-                Enqueue(new(item, reason, state, persist, afterWrite));
+                Enqueue(item.Id, () => RunQueued(entry.Prepared(state)));
                 return GateTransition.Queued;
             }
-            committed = closing ? ValidateAndWrite(item, state) : (false, item.StoreStateQuietly(state));
-            if (committed.Refused) return GateTransition.Refused;
+            outcome = Commit(item, state);
+            if (outcome.Result == GateTransition.Applied) Begin(item.Id);
         }
-        Publish(item, committed.Data, persist, afterWrite, rebuildGrid: closing);
+        return outcome.Result == GateTransition.Applied ? Complete(entry, outcome) : outcome.Result;
+    }
+
+    // Unsequenced commit for a writer that already passed TryDefer; still holds the gate busy until it publishes.
+    private GateTransition CommitNow(Item item, string state, bool persist)
+    {
+        Outcome outcome;
+        var replay = _replaying == item.Id;
+        lock (_sync)
+        {
+            outcome = Commit(item, state);
+            if (outcome.Result == GateTransition.Applied && !replay) Begin(item.Id);
+        }
+        if (outcome.Result != GateTransition.Applied) return outcome.Result;
+        try { Publish(item, outcome, persist, null); }
+        finally { if (!replay) End(item.Id); }
         return GateTransition.Applied;
     }
 
-    private void Enqueue(CloseRequest request)
+    // A writer whose whole transaction (read, transform, write, notify) must stay together asks here first.
+    // True: the transaction was queued (`replayFor(null)` = unevaluated, `replayFor(state)` = prepared closing value).
+    // False: run it now; `prepared` carries the value already evaluated, or null if nothing was evaluated.
+    public bool TryDefer(Item item, Func<string, string?> peek, Func<string?, Action> replayFor, out string? prepared)
     {
-        if (request.Reason == GateCloseReason.Automatic || _explicit.TryAdd(request.Item.Id, request))
-            _queue.Enqueue(() => Run(request));
+        prepared = null;
+        lock (_sync)
+        {
+            if (IsBusy(item.Id)) { EnqueueReplay(item.Id, replayFor(null)); return true; }
+            if (RoomOwnerScope.IsOwner(room)) return false;
+            prepared = peek(item.LegacyDataString);
+            if (prepared is null || !IsClosing(item, prepared)) return false;
+            EnqueueReplay(item.Id, replayFor(prepared));
+            return true;
+        }
     }
 
-    // Runs `work` now on the room task, otherwise on the next drain, in order with queued closes.
-    public void Post(Action work)
-    {
-        if (RoomOwnerScope.IsOwner(room)) work();
-        else _queue.Enqueue(work);
-    }
-
-    // Room task, once per tick: requests from other threads, then automatic closes kept from earlier ticks.
+    // Room task, once per tick: the entries queued before this drain, then retained automatic closes.
     public void Drain()
     {
-        var due = _retained.Select(request => (Action)(() => Run(request))).ToList();
+        var retry = _retained.Values.ToList();
         _retained.Clear();
-        while (_queue.TryDequeue(out var work)) due.Add(work);
-        foreach (var work in due) RunGuarded(work);
+        for (var remaining = _queue.Count; remaining > 0 && _queue.TryDequeue(out var work); remaining--) RunGuarded(work);
+        foreach (var entry in retry) RunGuarded(() => Retry(entry));
     }
 
     private static void RunGuarded(Action work)
@@ -147,53 +144,68 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
         catch (Exception error) { ExceptionLogger.LogException(error); }
     }
 
-    // Taking the pending marker and committing are one step, so a toggle sees either "still queued" or "closed".
-    private void Run(CloseRequest request)
+    private bool IsBusy(uint id) => _replaying != id && _busy.GetValueOrDefault(id) > 0;
+
+    private void Begin(uint id) => _busy[id] = _busy.GetValueOrDefault(id) + 1;
+
+    private void End(uint id)
     {
-        (bool Refused, LegacyDataFormat? Data) committed;
         lock (_sync)
         {
-            if (request.Reason != GateCloseReason.Automatic && !TakeExplicit(request)) return;
-            if (!ReferenceEquals(room.GetRoomItemHandler().GetItem(request.Item.Id), request.Item)) return;
-            committed = ValidateAndWrite(request.Item, request.ClosedState);
+            if (_busy.GetValueOrDefault(id) <= 1) _busy.Remove(id);
+            else _busy[id]--;
         }
-        if (committed.Refused)
+    }
+
+    private void Enqueue(uint id, Action work) { Begin(id); _queue.Enqueue(work); }
+
+    private void EnqueueReplay(uint id, Action replay) => Enqueue(id, () =>
+    {
+        _replaying = id;
+        try { replay(); }
+        finally { _replaying = 0; End(id); }
+    });
+
+    // Dequeued entries stay busy through their own broadcast and callbacks.
+    private void RunQueued(Entry entry)
+    {
+        try
         {
-            if (request.Reason == GateCloseReason.Automatic) _retained.Add(request);
-            return;
+            Outcome outcome;
+            lock (_sync) outcome = StillInRoom(entry.Item) ? EvaluateAndCommit(entry) : new(GateTransition.Unchanged);
+            if (outcome.Result == GateTransition.Refused && entry.Reason == GateCloseReason.Automatic) _retained[entry.Item.Id] = entry;
+            else Complete(entry, outcome, releases: false);
         }
-        Publish(request.Item, committed.Data, request.Persist, request.AfterClose, rebuildGrid: true);
+        finally { End(entry.Item.Id); }
     }
 
-    private bool TakeExplicit(CloseRequest request)
+    private void Retry(Entry entry)
     {
-        if (_explicit.TryGetValue(request.Item.Id, out var queued) && ReferenceEquals(queued, request)
-            && ((ICollection<KeyValuePair<uint, CloseRequest>>)_explicit).Remove(new(request.Item.Id, request)))
-            return true;
-        Interlocked.Decrement(ref _cancelledInQueue);
-        return false;
+        Outcome outcome;
+        lock (_sync)
+        {
+            if (IsBusy(entry.Item.Id)) { _retained[entry.Item.Id] = entry; return; }
+            outcome = StillInRoom(entry.Item) ? EvaluateAndCommit(entry) : new(GateTransition.Unchanged);
+            if (outcome.Result == GateTransition.Applied) Begin(entry.Item.Id);
+        }
+        if (outcome.Result == GateTransition.Refused) _retained[entry.Item.Id] = entry;
+        else if (outcome.Result == GateTransition.Applied) Complete(entry, outcome);
     }
 
-    private GateTransition Close(CloseRequest request)
+    private bool StillInRoom(Item item) => ReferenceEquals(room.GetRoomItemHandler().GetItem(item.Id), item);
+
+    private Outcome EvaluateAndCommit(Entry entry)
+        => entry.Next(entry.Item.LegacyDataString) is { } state ? Commit(entry.Item, state) : new(GateTransition.Unchanged);
+
+    private Outcome Commit(Item item, string state)
     {
-        (bool Refused, LegacyDataFormat? Data) committed;
-        lock (_sync) committed = ValidateAndWrite(request.Item, request.ClosedState);
-        if (committed.Refused) return GateTransition.Refused;
-        Publish(request.Item, committed.Data, request.Persist, request.AfterClose, rebuildGrid: true);
-        return GateTransition.Applied;
+        if (!IsClosing(item, state)) return new(GateTransition.Applied, item.StoreStateQuietly(state));
+        var (refused, data) = ValidateAndWrite(item, state);
+        return refused ? new(GateTransition.Refused) : new(GateTransition.Applied, data, Closed: true);
     }
 
-    // Everything that notifies, persists or broadcasts happens here, after the locks are released.
-    private void Publish(Item item, LegacyDataFormat? data, bool persist, Action<Item>? after, bool rebuildGrid)
-    {
-        data?.NotifyDataUpdated();
-        item.UpdateState(persist, true);
-        if (rebuildGrid) room.GetGameMap().Navigation?.ApplyDirty();
-        after?.Invoke(item);
-    }
-
-    // Footprint capture, occupancy validation and the state publication form one transaction under
-    // PlacementSync (then NavSync inside the write), so a packet-thread move cannot slip between them.
+    // Footprint capture, occupancy validation and the state write (including the NavInputs record publication
+    // inside NavSync) form one transaction under PlacementSync, so a packet-thread move cannot slip between them.
     private (bool Refused, LegacyDataFormat? Data) ValidateAndWrite(Item item, string closedState)
     {
         lock (room.GetGameMap().PlacementSync)
@@ -201,5 +213,21 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
             if (occupancy().IsBlocked(item.GetCoords)) return (true, null);
             return (false, item.StoreStateQuietly(closedState));
         }
+    }
+
+    private GateTransition Complete(Entry entry, Outcome outcome, bool releases = true)
+    {
+        try { if (outcome.Result == GateTransition.Applied) Publish(entry.Item, outcome, entry.Persist, entry.After); }
+        finally { if (releases) End(entry.Item.Id); }
+        return outcome.Result;
+    }
+
+    // Notifications, persistence, broadcast, ApplyDirty and follow-ups: never under a lock.
+    private void Publish(Item item, Outcome outcome, bool persist, Action<Item>? after)
+    {
+        outcome.Data?.NotifyDataUpdated();
+        item.UpdateState(persist, true);
+        if (outcome.Closed) room.GetGameMap().Navigation?.ApplyDirty();
+        after?.Invoke(item);
     }
 }

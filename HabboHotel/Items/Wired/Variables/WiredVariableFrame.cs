@@ -30,8 +30,12 @@ public interface IWiredBuiltinVariables
     bool HasValue(WiredVariableReference reference) => RoomWiredBuiltinVariables.HasNumericValue(reference);
     WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame);
     bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame);
-    /// <summary>Lets a source run a write later on its owner task, but only when `transform` yields a transition that must wait; returns true when it took `replay`.</summary>
-    bool TryDefer(WiredVariableReference reference, WiredVariableHolder holder, Func<int, int> transform, Action replay) => false;
+    /// <summary>
+    /// Lets a source sequence a write for its owner task. True: it queued `replayWith(transform)`. False: run now;
+    /// `transform` may have been replaced by its single, already evaluated result.
+    /// </summary>
+    bool TryDefer(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
+        Func<Func<int, int>, Action> replayWith) => false;
     /// <summary>Returns a local notification which the module invokes only after releasing its value lock.</summary>
     bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame, out Action? completed)
     {

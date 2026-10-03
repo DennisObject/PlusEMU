@@ -130,7 +130,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 (item, x, y, rotation, height) => _movement.MoveFurniture(context, item, x, y, rotation, height, blockOnUserCollision: true),
                 (item, nextState) => GateTransitionService.ToggleState(item, nextState, GateCloseReason.Wired,
                     afterWrite: _ => _publish(new(WiredEventKind.StateChanged) { Actor = context.Event.Actor, EventItem = item }))
-                    is GateTransition.Applied or GateTransition.Queued or GateTransition.Cancelled);
+                    is GateTransition.Applied or GateTransition.Queued);
         var items = config.FurniSources.ContainsKey("items") ? Furni(context, config, "items") : [];
         var changed = false;
         switch (name)

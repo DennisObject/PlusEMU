@@ -34,16 +34,20 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         };
     }
 
-    // Only a closing transition waits for the owner; opening and non-gate writes stay immediate.
-    public bool TryDefer(WiredVariableReference reference, WiredVariableHolder holder, Func<int, int> transform, Action replay)
+    // The gate's per-write FIFO decides: behind a pending write, or a closing from another thread, the whole
+    // transaction waits for the owner. Otherwise it runs now with the transform's single, already evaluated result.
+    public bool TryDefer(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
+        Func<Func<int, int>, Action> replayWith)
     {
-        if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state" || RoomOwnerScope.IsOwner(room)) return false;
+        if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state") return false;
         if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || room.GetGameMap()?.Gates is not { } gates) return false;
-        var effective = GateTransitionService.EffectiveState(item);
-        if (!int.TryParse(effective, out var current)) return false;
-        if (!GateTransitionService.IsClosing(item, effective, transform(current).ToString(CultureInfo.InvariantCulture))) return false;
-        gates.Post(replay);
-        return true;
+        var original = transform;
+        string? Peek(string current) => int.TryParse(current, out var value)
+            ? original(value).ToString(CultureInfo.InvariantCulture) : null;
+        Action Replay(string? prepared) => replayWith(prepared is null ? original : _ => int.Parse(prepared, CultureInfo.InvariantCulture));
+        if (gates.TryDefer(item, Peek, Replay, out var evaluated)) return true;
+        if (evaluated is not null) transform = _ => int.Parse(evaluated, CultureInfo.InvariantCulture);
+        return false;
     }
 
     public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)
@@ -110,11 +114,11 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         {
             var item = FindItem(holder);
             if (item is null || value < 0 || item.Definition.Modes <= value
-                || !int.TryParse(GateTransitionService.EffectiveState(item), out var previous) || previous == value) return false;
+                || !int.TryParse(item.LegacyDataString, out var previous) || previous == value) return false;
             var next = value.ToString(CultureInfo.InvariantCulture);
-            // Closing writes from other threads are deferred whole (TryDefer) so nothing is notified early.
+            // Closing writes from other threads were sequenced whole by TryDefer; nothing is notified early.
             if (GateTransitionService.IsClosing(item, next) && !RoomOwnerScope.IsOwner(room)) return false;
-            if (GateTransitionService.Apply(item, next, GateCloseReason.Wired) == GateTransition.Refused)
+            if (GateTransitionService.WriteNow(item, next, GateCloseReason.Wired) == GateTransition.Refused)
                 return false;
             if (stateChanged is not null) completed = () => stateChanged(item, frame);
             return true;
@@ -137,7 +141,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         {
             "@id" => unchecked((int)item.Id), "@owner_id" => checked((int)item.OwnerId),
             "@class_id" => item.Definition.SpriteId, "@height" => Hundredths(item.TotalHeight - item.GetZ),
-            "@state" => int.TryParse(GateTransitionService.EffectiveState(item), out var state) ? state : null,
+            "@state" => int.TryParse(item.LegacyDataString, out var state) ? state : null,
             "@position.x" => item.GetX, "@position.y" => item.GetY, "@altitude" => Hundredths(item.GetZ),
             "@rotation" => item.Rotation, "@dimensions.x" => item.Definition.Width, "@dimensions.y" => item.Definition.Length,
             "@is_stackable" => Flag(item.IsFloorItem && item.Definition.Stackable),
