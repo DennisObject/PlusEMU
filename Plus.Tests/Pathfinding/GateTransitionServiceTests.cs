@@ -769,7 +769,10 @@ public partial class PlacedFurniRoomTests
     public void GateSequencedMultiStateGateTogglesTwiceThroughEveryStateInOrder()
     {
         var gate = ClosableGate(); gate.Definition.Modes = 3; ActorOn(new Point(0, 2));
-        ClickFromPacketThread(gate); ClickFromPacketThread(gate);
+        // The interactor's own "free tile" rule blocks 2 -> 0, so cycle the states with the modern Wired arithmetic.
+        Func<string, string?> cycle = current => ((int.Parse(current) + 1) % 3).ToString();
+        for (var toggle = 0; toggle < 2; toggle++)
+            Task.Run(() => GateTransitionService.ToggleState(gate, cycle, GateCloseReason.Wired, persist: false)).Wait();
         Assert.Equal("1", gate.LegacyDataString);
         ExecutorTick();
         Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
