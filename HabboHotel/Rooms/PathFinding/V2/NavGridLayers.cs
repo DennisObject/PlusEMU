@@ -12,6 +12,8 @@ public sealed partial class NavGrid
     private int _overflowHighWater;
 
     public bool Layered { get; private set; }
+    private long LayerIndexBytes => _tileSlots.Length * 4L + _tileSurfaceCount.Length + _overflowTile.Length * 4L
+        + _contacts.Sum(contacts => (contacts?.Length ?? 0) * 4L);
     // Surfaces dropped by the >4 pinned overflow cap in the latest publish; their actors go off-graph.
     public IReadOnlySet<SurfaceRef> ForcedOffGraph => _forcedOffGraph;
 

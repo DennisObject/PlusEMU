@@ -66,5 +66,6 @@ public sealed partial class NavGrid
         var tile = TileOf(slot);
         return new(tile % Width, tile / Width, legacy ? LegacyZ[tile] : WalkZ[slot], slot);
     }
-    public long RetainedBytes => SlotCapacity * (8L * 3 + 2 + 4 + 1 + 1 + 4 + 1 + 4 + 4) + SlotCapacity * 13L + PillowTiles.Sum(p => (p?.Length ?? 0) * 4L) + Connectivity.RetainedBytes;
+    public long RetainedBytes => SlotCapacity * (8L * 3 + 2 + 4 + 1 + 1 + 4 + 1 + 4 + 4) + SlotCapacity * 13L + PillowTiles.Sum(p => (p?.Length ?? 0) * 4L)
+        + LayerIndexBytes + Connectivity.RetainedBytes;
 }
