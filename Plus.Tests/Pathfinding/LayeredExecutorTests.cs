@@ -301,6 +301,46 @@ public partial class PlacedFurniRoomTests
         Assert.True(claims.TryClaim(actor, deck, ClaimKind.Exclusive, (TargetOccupancy)127));
     }
 
+    [Fact]
+    public void LayeredDeferredGoalIsReResolvedWhenItsSurfaceSlotIsReused()
+    {
+        var deck = ExecutorFloor(21, 3, 1, z: 1);
+        var actor = LayeredActor(0, 1, new() { Engine = PathfindingEngine.V2, LayeringEnabled = true, MaxExpansionsPerRoomTick = 0 });
+        var slot = LayeredNavigation.Grid.SlotOf(new SurfaceRef(LayeredTile(3, 1), 21, SurfaceKind.Top));
+        ExecutorAdditionalBot(3, 1, 5); ExecutorTick();
+        actor.MoveTo(3, 1); ExecutorTick();
+        Assert.True(actor.Movement.HasIntent);
+        Assert.True(_room.GetRoomItemHandler().SetFloorItem(deck, 2, 1, 1)); ExecutorTick();
+        Assert.Equal(slot, LayeredNavigation.Grid.SlotOf(new SurfaceRef(LayeredTile(2, 1), 21, SurfaceKind.Top)));
+        typeof(RoomNavigation).GetField("<Settings>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(LayeredNavigation, LayeredNavigation.Settings with { MaxExpansionsPerRoomTick = 200000 });
+        for (var tick = 0; tick < 4; tick++) ExecutorTick();
+        Assert.Equal((0, 1, 0d), (actor.X, actor.Y, actor.Z));
+    }
+
+    [Fact]
+    public void LayeredSwitchToOneSurfaceRemapsSurvivingClaimsBySurface()
+    {
+        LayeredBridge();
+        var actor = LayeredActor(0, 1);
+        ExecutorAdditionalBot(2, 1, 5);
+        actor.SetPos(1, 1, 1); ExecutorTick();
+        var deck = new SurfaceRef(LayeredTile(2, 1), 21, SurfaceKind.Top);
+        var overflow = LayeredNavigation.Grid.SlotOf(deck);
+        actor.MoveTo(2, 1); ExecutorTick();
+        Assert.Equal(deck, actor.Movement.Pending[0]);
+        var claims = LayeredNavigation.Executor.Claims;
+        Assert.Equal(TargetOccupancy.ExclusiveClaim, claims.OccupancyAt(overflow, 0) & TargetOccupancy.ExclusiveClaim);
+        ExecutorFloor(60, 3, 3).Definition.InteractionType = InteractionType.Banzaifloor;
+        LayeredNavigation.Inputs.Attach(_room.GetRoomItemHandler().GetItem(60));
+        using (RoomOwnerScope.Enter(_room)) LayeredNavigation.ApplyDirty();
+        Assert.False(LayeredNavigation.Grid.Layered);
+        Assert.Equal(1, actor.Movement.PendingCount);
+        Assert.Equal(LayeredTile(2, 1), LayeredNavigation.Grid.SlotOf(deck));
+        Assert.Equal(TargetOccupancy.None, claims.OccupancyAt(overflow, 0));
+        Assert.Equal(TargetOccupancy.ExclusiveClaim, claims.OccupancyAt(LayeredTile(2, 1), 0) & TargetOccupancy.ExclusiveClaim);
+    }
+
     private RoomNavigation LayeredNavigation => _room.GetGameMap().Navigation!;
     private int LayeredTile(int x, int y) => LayeredNavigation.Grid.Tile(x, y);
 
@@ -319,10 +359,10 @@ public partial class PlacedFurniRoomTests
         return item;
     }
 
-    private RoomUser LayeredActor(int x, int y)
+    private RoomUser LayeredActor(int x, int y, PathfindingSettings? settings = null)
     {
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = PathfindingEngine.V2, LayeringEnabled = true });
+        var navigation = new RoomNavigation(_room, map.StaticModel, settings ?? new() { Engine = PathfindingEngine.V2, LayeringEnabled = true });
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
         foreach (var item in _room.GetRoomItemHandler().GetFloor) navigation.Inputs.Attach(item);

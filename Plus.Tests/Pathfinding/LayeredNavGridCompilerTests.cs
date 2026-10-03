@@ -210,6 +210,20 @@ public class LayeredNavGridCompilerTests
     }
 
     [Fact]
+    public void ClosedNonWalkableGuildGateBlocksTheFloorBelowForNonMembers()
+    {
+        var (grid, inputs, compiler) = Layered();
+        inputs.Publish(NavTest.Record(10, 1, [1], z: 0.5, walkable: false, interaction: InteractionType.GuildGate, state: "0", group: 9));
+        compiler.ApplyNow();
+        Assert.Equal([(0.5, NavFlags.Transit | NavFlags.GuildGate, 10u, SurfaceKind.GateBase)], Surfaces(grid, 1));
+        var rules = new MovementRules(grid, new());
+        var member = new ActorProfile(); member.SetMembership(9, true);
+        foreach (var slot in Enumerable.Range(0, grid.SurfaceCount(1)).Select(o => grid.SurfaceAt(1, o)))
+            Assert.Equal(StepReason.GateDenied, rules.CanStep(new(), grid.Position(0), grid.Position(slot), StepPurpose.Goal, OccupancyView.Execution).Reason);
+        Assert.True(rules.CanStep(member, grid.Position(0), grid.Position(grid.SurfaceAt(1, 0)), StepPurpose.Goal, OccupancyView.Execution).Ok);
+    }
+
+    [Fact]
     public void WalkMagicTileForcesASingleSurface()
     {
         var (grid, inputs, compiler) = Layered();
