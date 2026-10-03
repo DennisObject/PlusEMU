@@ -1,6 +1,8 @@
 ﻿using System.Collections.Concurrent;
 using System.Data;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
+using Dapper;
 using Plus.Database;
 
 namespace Plus.HabboHotel.Moderation;
@@ -222,15 +224,27 @@ public sealed class ModerationManager : IModerationManager
         using (var dbClient = _database.GetQueryReactor())
         {
             dbClient.SetQuery(
-                $"REPLACE INTO `bans` (`bantype`, `value`, `reason`, `expire`, `added_by`,`added_date`) VALUES ('{banType}', '{banValue}', @reason, {expireTimestamp}, '{mod}', '{PlusEnvironment.GetUnixTimestamp()}');");
+                "REPLACE INTO `bans` (`bantype`, `value`, `reason`, `expire`, `added_by`,`added_date`) VALUES (@banType, @banValue, @reason, @expire, @mod, @addedDate);");
+            dbClient.AddParameter("banType", banType);
+            dbClient.AddParameter("banValue", banValue);
             dbClient.AddParameter("reason", reason);
+            dbClient.AddParameter("expire", expireTimestamp);
+            dbClient.AddParameter("mod", mod);
+            dbClient.AddParameter("addedDate", PlusEnvironment.GetUnixTimestamp().ToString(CultureInfo.InvariantCulture));
             dbClient.RunQuery();
         }
+        // REPLACE keeps one row per value, so a re-ban must also refresh the cached expiry.
         if (type == ModerationBanType.Machine || type == ModerationBanType.Username)
-        {
-            if (!_bans.ContainsKey(banValue))
-                _bans.Add(banValue, new(type, banValue, reason, expireTimestamp));
-        }
+            _bans[banValue] = new(type, banValue, reason, expireTimestamp);
+    }
+
+    public bool UnbanUser(string username)
+    {
+        int removed;
+        using (var connection = _database.Connection())
+            removed = connection.Execute("DELETE FROM `bans` WHERE `bantype` = 'user' AND `value` = @username", new { username });
+        RemoveBan(username);
+        return removed > 0;
     }
 
     public bool TryAddTicket(ModerationTicket ticket)

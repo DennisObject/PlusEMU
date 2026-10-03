@@ -85,13 +85,14 @@ public class FloorPlanWireTests
         Assert.Equal(legacy.OutgoingHeaders.Keys.OrderBy(key => key), hybrid.OutgoingHeaders.Keys.Where(key => key != "HeightMapUpdateComposer").OrderBy(key => key));
         foreach (var (name, wire) in legacy.IncomingHeaders)
         {
-            if (!changedIncoming.Contains(name))
+            // Housekeeping is Octane-only and disabled (0) in the other revisions.
+            if (!changedIncoming.Contains(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal))
                 Assert.Equal(wire, hybrid.IncomingHeaders[name]);
         }
 
         foreach (var (name, wire) in legacy.OutgoingHeaders)
         {
-            if (!changedOutgoing.Contains(name))
+            if (!changedOutgoing.Contains(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal))
                 Assert.Equal(wire, hybrid.OutgoingHeaders[name]);
         }
     }

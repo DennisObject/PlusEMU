@@ -352,4 +352,11 @@ public static class ServerPacketHeader
     public const uint RewardTrackClaimResultComposer = 48004;
     public const uint RewardTrackProgressComposer = 48005;
     public const uint RewardTrackPremiumPurchaseResultComposer = 48006;
+    // Housekeeping (in-client admin panel); internal IDs match Octane's wire IDs.
+    public const uint HousekeepingUserDetailComposer = 9200;
+    public const uint HousekeepingActionResultComposer = 9201;
+    public const uint HousekeepingRoomDetailComposer = 9202;
+    public const uint HousekeepingRoomListComposer = 9203;
+    public const uint HousekeepingDashboardComposer = 9204;
+    public const uint HousekeepingActionLogComposer = 9205;
 }
