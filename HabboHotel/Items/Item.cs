@@ -214,8 +214,8 @@ public class Item
         }
     }
     
-    [Obsolete("Will be removed in near future. @80O")]
-    public bool IsRoller { get; }
+    // Derived so a definition change can never leave roller clearance dormant again.
+    public bool IsRoller => Definition.InteractionType == InteractionType.Roller;
 
     [Obsolete("Will be removed in near future. @80O")]
     public Point Coordinate => new(GetX, GetY);

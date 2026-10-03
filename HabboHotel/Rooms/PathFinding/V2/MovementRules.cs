@@ -46,22 +46,41 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings)
     public StepResult CanStep(ActorProfile actor, in NavPosition from, in NavPosition to,
         StepPurpose purpose, OccupancyView view, PlanningOccupancy? occupancy = null)
     {
-        var dx = to.X - from.X; var dy = to.Y - from.Y;
-        if (!grid.InBounds(from.X, from.Y) || !grid.InBounds(to.X, to.Y)
-            || Math.Abs(dx) > 1 || Math.Abs(dy) > 1 || dx == 0 && dy == 0)
-            return new(StepReason.BoundsOrAdjacency);
+        if (!Adjacent(from, to)) return new(StepReason.BoundsOrAdjacency);
         return CanStepKnownNeighbour(actor, from, to, grid.Tile(to.X, to.Y), purpose, view, occupancy);
+    }
+
+    // A roller tile whose departing cargo leaves this cycle is the bare roller surface: next-roller
+    // clearance already proved nothing staying rises above it (§14.9). Locks and occupancy still apply.
+    public StepResult CanRollOntoVacatedRoller(ActorProfile actor, in NavPosition from, in NavPosition to,
+        PlanningOccupancy occupancy)
+    {
+        if (!Adjacent(from, to)) return new(StepReason.BoundsOrAdjacency);
+        var tile = grid.Tile(to.X, to.Y);
+        var flags = grid.Flags[tile] & NavFlags.FloorLocked | NavFlags.Transit | NavFlags.Roller;
+        return CanEnter(actor, from, to, tile, flags, StepPurpose.Roller, OccupancyView.Execution, occupancy);
+    }
+
+    private bool Adjacent(in NavPosition from, in NavPosition to)
+    {
+        var dx = to.X - from.X; var dy = to.Y - from.Y;
+        return grid.InBounds(from.X, from.Y) && grid.InBounds(to.X, to.Y)
+            && Math.Abs(dx) <= 1 && Math.Abs(dy) <= 1 && (dx != 0 || dy != 0);
     }
 
     // Search establishes bounds and adjacency before calling this shared policy kernel.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal StepResult CanStepKnownNeighbour(ActorProfile actor, in NavPosition from, in NavPosition to,
         int tile, StepPurpose purpose, OccupancyView view, PlanningOccupancy? occupancy = null)
+        => CanEnter(actor, from, to, tile, grid.Flags[tile], purpose, view, occupancy);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private StepResult CanEnter(ActorProfile actor, in NavPosition from, in NavPosition to,
+        int tile, NavFlags flags, StepPurpose purpose, OccupancyView view, PlanningOccupancy? occupancy)
     {
         if (actor.LegacyOverride) return new(StepReason.Ok);
         if (purpose == StepPurpose.Interaction)
             return new(actor.Interaction?.Allows(from, to) == true ? StepReason.Ok : StepReason.InteractionDenied);
-        var flags = grid.Flags[tile];
         var required = purpose == StepPurpose.Transit ? NavFlags.Transit
             : NavFlags.Transit | NavFlags.GoalOnlySeat | NavFlags.GoalOnlyBed | NavFlags.Door;
         var standable = purpose == StepPurpose.Roller

@@ -1,6 +1,7 @@
 using Plus.Database;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Quests;
+using Plus.HabboHotel.Rooms.Rollers;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
@@ -13,6 +14,7 @@ internal sealed class V2MovementEngine : IMovementEngine
     private readonly RebindService _rebind;
     internal ClaimLedger Claims => Context.Claims;
     internal MovementContext Context { get; }
+    internal RollerCycle Rollers { get; }
     internal V2MovementEngine(Room room, RoomNavigation navigation, IDatabase database, IGame game)
     {
         var rewards = RewardTrackManager.Current;
@@ -26,6 +28,7 @@ internal sealed class V2MovementEngine : IMovementEngine
         _rebind = new RebindService(room, navigation.Grid);
         var fallback = new RouteFallbackService(navigation, Context, _cancellation);
         Context.Geometry = new(Context, _rebind, fallback);
+        Rollers = new(room, new RollerTransport(navigation, Context, _placement));
         var commit = new CommitService(room, navigation, Context, _cancellation, fallback);
         var intake = new CommandIntake(Context, _placement);
         var search = new MovementSearch(room, navigation, Context, _cancellation, fallback);

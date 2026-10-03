@@ -65,10 +65,12 @@ public sealed class ClaimLedger
         return snapshot;
     }
 
-    public bool TryClaim(RoomUser actor, int slot, ClaimKind kind, TargetOccupancy blockingMask)
+    // Roller groups pass their own confirmed departures from the slot; nothing else is ignored.
+    public bool TryClaim(RoomUser actor, int slot, ClaimKind kind, TargetOccupancy blockingMask,
+        IReadOnlySet<RoomUser>? departing = null)
     {
         if (!_members.TryGetValue(actor, out var member)) return false;
-        if ((OccupancyAt(slot, member.GroupId) & blockingMask) != 0) return false;
+        if ((OccupancyAt(slot, member.GroupId, departing) & blockingMask) != 0) return false;
         var claims = _claims[slot] ??= new(4);
         foreach (var existing in claims)
             if (ReferenceEquals(existing.Owner, member) && existing.Kind == kind) return true;
@@ -91,20 +93,30 @@ public sealed class ClaimLedger
         foreach (var member in _members.Values) ReleaseClaims(member, ReleaseMode.Roller);
     }
 
-    public TargetOccupancy OccupancyAt(int slot, long excludingGroup)
+    public void ReleaseRollers(RoomUser actor)
+    {
+        if (_members.TryGetValue(actor, out var member)) ReleaseClaims(member, ReleaseMode.Roller);
+    }
+
+    public TargetOccupancy OccupancyAt(int slot, long excludingGroup) => OccupancyAt(slot, excludingGroup, null);
+
+    public TargetOccupancy OccupancyAt(int slot, long excludingGroup, IReadOnlySet<RoomUser>? departing)
     {
         var result = TargetOccupancy.None;
         for (var member = Head[slot]; member != null; member = member.Next)
-            if (member.GroupId != excludingGroup)
+            if (Counts(member, excludingGroup, departing))
                 result |= member.Walking ? TargetOccupancy.Walking : TargetOccupancy.Stationary;
         if (slot < OffGraphHead.Length)
             for (var member = OffGraphHead[slot]; member != null; member = member.Next)
-                if (member.GroupId != excludingGroup) result |= TargetOccupancy.OffGraph;
+                if (Counts(member, excludingGroup, departing)) result |= TargetOccupancy.OffGraph;
         if (_claims[slot] is { } claims)
             foreach (var claim in claims)
-                if (claim.Owner.GroupId != excludingGroup) result |= ClaimBit(claim.Kind);
+                if (Counts(claim.Owner, excludingGroup, departing)) result |= ClaimBit(claim.Kind);
         return result;
     }
+
+    private static bool Counts(ClaimMember member, long excludingGroup, IReadOnlySet<RoomUser>? departing)
+        => member.GroupId != excludingGroup && (departing == null || !departing.Contains(member.Actor));
 
     private void Link(ClaimMember member)
     {
