@@ -1,9 +1,12 @@
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Xunit;
 
 namespace Plus.Tests.Pathfinding;
 
+[Collection("Pathfinding room adapter")]
 public class LegacyContractsTests
 {
     [Fact]
@@ -24,4 +27,31 @@ public class LegacyContractsTests
         Assert.Equal(PathOutcome.Unreachable, new PathSearch(cliff, new()).Find(new(stress, cliff.Position(0), 2, 0), ws, route));
         Assert.Equal(PathOutcome.Found, new PathSearch(cliff, new()).Find(new(staff, cliff.Position(0), 2, 0), ws, route));
     }
+    [Theory]
+    [InlineData("00000|00000|00000|00000|00000", 1, 1, 4, 4)]
+    [InlineData("00000|0xxx0|000x0|0xxx0|00000", 1, 2, 4, 2)]
+    [InlineData("00000|00100|01210|00100|00000", 1, 2, 3, 2)]
+    [InlineData("00000|00x00|0x000|00000|00000", 1, 1, 2, 2)]
+    [InlineData("00x00|00x00|00x00|00x00|00x00", 1, 1, 4, 4)]
+    public void FixedLegacyCorpusAgreesOnReachabilityAndShortestTickCount(string terrain, int sx, int sy, int gx, int gy)
+    {
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        var model = new RoomModel("fixed-legacy-parity", 0, 0, 0, 0, terrain.Replace('|', '\r'), false, 0, false);
+        var map = new Gamemap(room, model);
+        Set("_gamemap", map); Set("_roomItemHandling", new RoomItemHandling(room)); Set("_roomUserManager", new RoomUserManager(room));
+        map.GenerateMaps(); map.Navigation!.Compiler.RebuildAll();
+        var grid = map.Navigation.Grid;
+        var legacyActor = new RoomUser(0, 0, 1, room) { X = sx, Y = sy };
+        var path = PathFinder.FindPath(legacyActor, true, map, new(sx, sy), new(gx, gy));
+        var route = new Route(); var search = new PathSearch(grid, new());
+        var outcome = search.Find(new(new ActorProfile(), grid.Position(grid.Tile(sx, sy)), gx, gy),
+            new PathWorkspace(grid.SlotCapacity, grid.ActiveNodeCount), route);
+        Assert.Equal(path.Count > 0, outcome == PathOutcome.Found);
+        if (path.Count > 0) Assert.Equal(path.Count - 1, route.Count); // Legacy includes the origin.
+        foreach (var (from, to) in path.Zip(path.Skip(1)))
+            Assert.True(map.IsValidStep(to, from, from.X == gx && from.Y == gy, false, false, legacyActor));
+
+        void Set(string name, object value) => typeof(Room).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, value);
+    }
+
 }

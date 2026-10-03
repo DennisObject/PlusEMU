@@ -82,8 +82,10 @@ The height parity corpus excludes ambiguous legacy stack ordering, adjustable-se
 Z (D9 fix), actor-dependent guild access and raised open gates. Those cases have
 explicit compiler/rule tests. Furniture on model void becomes standable only
 when an effective furniture surface exists; the underlying terrain copy never
-reads legacy OpenSquare. Closed/blocked tiles remain blocked in v2 even if the
-legacy executor's D7 side effect accepts them.
+reads legacy OpenSquare. Closed/blocked tiles remain blocked in both validators after master’s D7 fix.
+The fixed legacy A* corpus compares reachability and shortest tick count on open,
+U-shaped, stair, void-corner and split terrain. Shadow recalc tests also compare
+fast-walk pending batches with the newly fixed legacy executor.
 
 Live hotel shadow divergence capture and Nitro manual movement validation require
 staging/live access and are rollout gates, not claims made by this local suite.

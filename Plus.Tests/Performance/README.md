@@ -160,6 +160,6 @@ to 64 MiB and per size to the room-worker concurrency; active-node count changes
 cannot retain unbounded room-sized arrays.
 
 Legacy public method signatures and behavior stay intact. An internal benchmark
-overload collects counters with the same search, including its known heuristic
-and mutable-heap defects. V2 changes corner rules and optimizes tick count, so
-legacy route length is not used as a correctness oracle.
+overload collects counters with the corrected unit-cost A* from master. Terrain
+parity compares reachability and shortest tick count with that fixed search;
+production v2 also has the independent BFS oracle for its richer actor policies.

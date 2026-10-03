@@ -12,8 +12,10 @@ public class PathfindingRoomAdapterCollection;
 [Collection("Pathfinding room adapter")]
 public class ShadowPathfindingTests
 {
-    [Fact]
-    public void RealLegacyRecalcHasIdenticalMovementWithShadowEnabled()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RealLegacyRecalcHasIdenticalMovementWithShadowEnabled(bool fastWalking)
     {
         var legacy = RoomPerformanceFixture.Create(1, 0);
         var shadow = RoomPerformanceFixture.Create(1, 0);
@@ -23,6 +25,7 @@ public class ShadowPathfindingTests
         foreach (var fixture in new[] { legacy, shadow })
         {
             var actor = fixture.Bots[0]; actor.GoalX = 3; actor.GoalY = 3;
+            actor.FastWalking = fastWalking;
             actor.PathRecalcNeeded = true; actor.IsWalking = false; actor.Path.Clear(); actor.RemoveStatus("mv");
         }
         for (var tick = 0; tick < 4; tick++)
@@ -31,6 +34,10 @@ public class ShadowPathfindingTests
             var a = legacy.Bots[0]; var b = shadow.Bots[0];
             Assert.Equal((a.X, a.Y, a.Z, a.GoalX, a.GoalY, a.PathStep, a.PathRecalcNeeded, a.IsWalking, a.SetStep),
                 (b.X, b.Y, b.Z, b.GoalX, b.GoalY, b.PathStep, b.PathRecalcNeeded, b.IsWalking, b.SetStep));
+            Assert.Equal(a.PendingWalkSteps.Select(p => (p.X, p.Y)), b.PendingWalkSteps.Select(p => (p.X, p.Y)));
+            Assert.Equal(a.PendingWalkOrigin?.X, b.PendingWalkOrigin?.X);
+            Assert.Equal(a.PendingWalkOrigin?.Y, b.PendingWalkOrigin?.Y);
+            Assert.Equal(a.PendingWalkConsumesPath, b.PendingWalkConsumesPath);
             Assert.Equal(a.Statusses.OrderBy(p => p.Key), b.Statusses.OrderBy(p => p.Key));
             Assert.Equal(a.Path.Select(p => (p.X, p.Y)), b.Path.Select(p => (p.X, p.Y)));
         }
