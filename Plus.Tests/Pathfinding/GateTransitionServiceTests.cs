@@ -670,3 +670,62 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(0, Gates.PendingCount); Assert.Single(notices);
     }
 }
+
+// Absolute writes keep legacy parity against a close that is still queued.
+public partial class PlacedFurniRoomTests
+{
+    [Fact]
+    public void GateAbsoluteVariableOpeningCancelsAQueuedCloseAndStillReportsSuccess()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2)); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        ClickFromPacketThread(gate);
+        Assert.Equal(1, Gates.PendingCount);
+        Assert.Equal(0, module.Read(StateReference, holder, frame)!.Value);
+        Assert.True(Task.Run(() => module.Mutate(StateReference, holder, WiredVariableMutation.Set, 1, frame)).Result);
+        Assert.Equal(0, Gates.PendingCount); Assert.Single(notices);
+        var change = Assert.Single(module.DrainChanges()); Assert.Equal((0, 1), (change.Before!.Value, change.After!.Value));
+        ExecutorTick();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(1, module.Read(StateReference, holder, frame)!.Value);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GateAbsoluteOpeningWriteCancelsAQueuedCloseFromAnyThread(bool onOwner)
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        ClickFromPacketThread(gate);
+        Assert.Equal(1, Gates.PendingCount);
+        Func<GateTransition> open = () => GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false);
+        var result = onOwner ? RunOwner(open) : Task.Run(open).Result;
+        Assert.Equal(GateTransition.Applied, result); Assert.Equal(0, Gates.PendingCount);
+        ExecutorTick();
+        Assert.Equal("1", gate.LegacyDataString);
+    }
+
+    private T RunOwner<T>(Func<T> work) { using var owner = RoomOwnerScope.Enter(_room); return work(); }
+
+    [Fact]
+    public void GateAbsoluteCloseWriteOnAGateWithAQueuedCloseDoesNotQueueASecondOne()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        ClickFromPacketThread(gate);
+        Assert.Equal(GateTransition.Queued, Task.Run(() => GateTransitionService.Apply(gate, "0", GateCloseReason.Wired, persist: false)).Result);
+        Assert.Equal(1, Gates.PendingCount);
+        ExecutorTick();
+        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateAbsoluteVariableCloseOfAnAlreadyQueuedCloseIsNoChange()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2)); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        ClickFromPacketThread(gate);
+        Assert.False(Task.Run(() => module.Mutate(StateReference, holder, WiredVariableMutation.Set, 0, frame)).Result);
+        Assert.Equal(1, Gates.PendingCount); Assert.Empty(notices);
+    }
+}
