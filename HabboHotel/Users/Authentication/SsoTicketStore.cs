@@ -46,7 +46,7 @@ public class SsoTicketStore : ISsoTicketStore
         // ticket finds it gone and matches no row.
         using var connection = _database.Connection();
         var cleared = await connection.ExecuteAsync(
-            "UPDATE `users` SET `auth_ticket` = NULL, `auth_ticket_expires_at` = NULL WHERE `id` = @userId AND `auth_ticket` = @ticket",
+            "UPDATE `users` SET `auth_ticket` = '', `auth_ticket_expires_at` = NULL WHERE `id` = @userId AND `auth_ticket` = @ticket",
             new { userId, ticket });
         return cleared == 1 ? userId : null;
     }

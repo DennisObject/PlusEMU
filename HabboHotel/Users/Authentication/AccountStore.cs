@@ -55,7 +55,7 @@ public class AccountStore : IAccountStore
             var userId = await connection.ExecuteScalarAsync<int>(
                 "INSERT INTO `users` (`username`, `password`, `mail`, `auth_ticket`, `rank`, `look`, `gender`, `motto`, `credits`, `activity_points`, `vip`, " +
                 "`account_created`, `last_online`, `home_room`, `ip_reg`, `ip_last`, `is_ambassador`, `bubble_id`) " +
-                "VALUES (@Username, @PasswordHash, @Email, NULL, @Rank, @Look, @Gender, @Motto, @Credits, @ActivityPoints, @Vip, " +
+                "VALUES (@Username, @PasswordHash, @Email, '', @Rank, @Look, @Gender, @Motto, @Credits, @ActivityPoints, @Vip, " +
                 "@Now, @Now, @HomeRoom, @Address, @Address, 0, 0); SELECT LAST_INSERT_ID();",
                 new
                 {

@@ -1,12 +1,11 @@
--- Apply while PlusEMU is stopped; SQL updates are not automatic. Needs Resources/SQLs/Updates/13
--- (auth_ticket is no longer part of the primary key). Safe to re-run on MariaDB.
+-- Apply while PlusEMU is stopped; SQL updates are not automatic. Safe to re-run on MariaDB.
 
--- SSO tickets are single-use and short-lived. A consumed ticket is cleared to NULL.
-ALTER TABLE `users` MODIFY `auth_ticket` varchar(60) NULL DEFAULT NULL;
+-- SSO tickets are single-use and short-lived. A consumed ticket is cleared to ''
+-- (the stock dump declares auth_ticket NOT NULL).
 ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_expires_at` int(11) unsigned NULL DEFAULT NULL AFTER `auth_ticket`;
 
 -- Tickets issued before this migration never expired and doubled as HTTP bearer tokens.
-UPDATE `users` SET `auth_ticket` = NULL, `auth_ticket_expires_at` = NULL WHERE `auth_ticket` IS NOT NULL;
+UPDATE `users` SET `auth_ticket` = '', `auth_ticket_expires_at` = NULL WHERE `auth_ticket` <> '';
 
 -- HTTP bearer tokens. Only the SHA-256 hex digest of a token is stored:
 -- token_hash = SHA2(<token>, 256).

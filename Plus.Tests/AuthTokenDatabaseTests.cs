@@ -12,14 +12,13 @@ public sealed class AuthTokenDatabaseTests : IDisposable
     private readonly AuthTestDatabase _database = new();
 
     [AuthDatabaseFact]
-    public void MigrationTwentyIsRepeatable()
+    public void SecureLoginUpdateIsRepeatable()
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        var migration = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory, "../../../../Database/Migrations/20_SecureLoginTokens.sql")));
+        var migration = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory, "../../../../Resources/SQLs/Updates/19_SecureLoginTokens.sql")));
 
         connection.Execute(migration);
 
-        Assert.Equal("YES", connection.QuerySingle<string>("SELECT IS_NULLABLE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'auth_ticket'"));
         Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'auth_ticket_expires_at'"));
         Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'user_access_tokens' AND index_name = 'token_hash' AND non_unique = 0"));
     }

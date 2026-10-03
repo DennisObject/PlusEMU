@@ -13,7 +13,7 @@ namespace Plus.Tests;
 
 /// <summary>
 /// Runs only when PLUS_AUTH_TEST_DB holds a connection string to a disposable PlusEMU
-/// database with Database/Migrations/20_SecureLoginTokens.sql applied.
+/// database with Resources/SQLs/Updates/19_SecureLoginTokens.sql applied.
 /// </summary>
 public sealed class AuthDatabaseFactAttribute : FactAttribute
 {
@@ -37,7 +37,7 @@ internal sealed class AuthTestDatabase : IDatabase
     public static int InsertUser(string username, string password = "", string mail = "probe@invalid")
     {
         using var connection = new MySqlConnection(ConnectionString);
-        return connection.ExecuteScalar<int>("INSERT INTO users (username, password, mail) VALUES (@username, @password, @mail); SELECT LAST_INSERT_ID();",
+        return connection.ExecuteScalar<int>("INSERT INTO users (username, password, mail, auth_ticket) VALUES (@username, @password, @mail, ''); SELECT LAST_INSERT_ID();",
             new { username, password, mail });
     }
 
@@ -82,9 +82,18 @@ internal sealed class FakeAccounts : IAccountStore
     }
 
     public Exception? FailLookupsWith;
+    public Task? HoldLookups;
+    public readonly TaskCompletionSource LookupStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    public Task<AccountCredentials?> FindByUsername(string username) => FailLookupsWith != null ? Task.FromException<AccountCredentials?>(FailLookupsWith) :
-        Task.FromResult(Rows.FirstOrDefault(r => string.Equals(r.Username, username, StringComparison.OrdinalIgnoreCase)));
+    public async Task<AccountCredentials?> FindByUsername(string username)
+    {
+        LookupStarted.TrySetResult();
+        if (HoldLookups != null)
+            await HoldLookups;
+        if (FailLookupsWith != null)
+            throw FailLookupsWith;
+        return Rows.FirstOrDefault(r => string.Equals(r.Username, username, StringComparison.OrdinalIgnoreCase));
+    }
 
     public Task UpgradePassword(int userId, string current, string replacement)
     {
