@@ -134,17 +134,17 @@ public partial class PlacedFurniRoomTests
     public void LockedTileInsideALoadedChainHoldsOnlyTheUserEnteringIt(PathfindingEngine engine)
     {
         PrepareRollerChain(8, false);
-        var cargo = PlannerCargo(300, 1, 1);
+        var cargo = PlannerCargo(300, 2, 1);
         InstallRollerChainEngine(engine);
-        var head = PlannerActor(1, 2, 1, .5); var tail = PlannerActor(2, 0, 1, .5);
+        var middle = PlannerActor(1, 1, 1, .5); var tail = PlannerActor(2, 0, 1, .5);
         _room.GetGameMap().SetFloorStatus(1, 1, 0);
         StartPlannerRollers();
         for (var cycle = 1; cycle <= 2; cycle++)
         {
             ExecutorTick();
             Assert.Equal((0, 1, .5), (tail.X, tail.Y, tail.Z));
-            Assert.Equal((1 + cycle, 1), (cargo.GetX, cargo.GetY));
-            Assert.Equal((2 + cycle, 1), (head.X, head.Y));
+            Assert.Equal((1 + cycle, 1), (middle.X, middle.Y));
+            Assert.Equal((2 + cycle, 1), (cargo.GetX, cargo.GetY));
         }
     }
 
@@ -153,7 +153,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(PathfindingEngine.V2)]
     public void LockedLoopTileHoldsTheWholeLoop(PathfindingEngine engine)
     {
-        var loop = PlannerFullLoop(engine, false);
+        var loop = PlannerFullLoop(engine, false, walkableFirstCargo: true);
         _room.GetGameMap().SetFloorStatus(2, 1, 0);
         StartPlannerRollers(); ExecutorTick();
         Assert.Equal(loop.Expected(0), loop.Positions());

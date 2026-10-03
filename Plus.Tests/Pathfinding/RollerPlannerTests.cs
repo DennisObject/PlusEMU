@@ -202,10 +202,12 @@ public partial class PlacedFurniRoomTests
 
     private static readonly Point[] PlannerLoopTiles = [new(1, 1), new(2, 1), new(2, 2), new(1, 2)];
 
-    private PlannerLoopFixture PlannerFullLoop(PathfindingEngine engine, bool reverseIds, Action? arrange = null)
+    private PlannerLoopFixture PlannerFullLoop(PathfindingEngine engine, bool reverseIds, Action? arrange = null,
+        bool walkableFirstCargo = false)
     {
         PlannerLoopRollers(reverseIds);
-        var cargo = new[] { PlannerCargo(30, 2, 1), PlannerCargo(31, 1, 2) };
+        var first = walkableFirstCargo ? ExecutorFloor(30, 2, 1, z: .5, height: .5) : PlannerCargo(30, 2, 1);
+        var cargo = new[] { first, PlannerCargo(31, 1, 2) };
         arrange?.Invoke();
         InstallRollerChainEngine(engine);
         return new([PlannerActor(1, 1, 1, .5), PlannerActor(2, 2, 2, .5)], cargo);
