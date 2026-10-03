@@ -108,14 +108,32 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
-    public void RollerKeepsNextRollerClearanceChecksWhenItsDestinationHasRaisedCargo()
+    public void RollerPreservesLegacyTransportWhenDormantDestinationClearanceDoesNotBlockCargo()
     {
         ExecutorRoller(10, 0, 1); ExecutorRoller(11, 1, 1);
         var cargo = ExecutorFloor(12, 1, 1, z: 1, height: 1);
         var actor = ExecutorRollerActor(0, 1, 0.5);
         EnableExecutorRollers(); ExecutorTick();
-        Assert.Equal((0, 1, 0.5), (actor.X, actor.Y, actor.Z));
-        Assert.DoesNotContain(_client.Packets, packet => ExecutorIsAvatarSlide(packet, actor.VirtualId));
+        Assert.Equal((1, 1, 0.5), (actor.X, actor.Y, actor.Z));
+        Assert.Single(_client.Packets, packet => ExecutorIsAvatarSlide(packet, actor.VirtualId));
+        Assert.Equal((0, 1, 1, 1, 10u, "0.5", "0.5"), ExecutorAvatarSlide(actor));
+        Assert.Equal((2, 1, 0.5), (cargo.GetX, cargo.GetY, cargo.GetZ));
+        Assert.Equal((1, 1, 2, 1, "1", "0.5", 11u), ExecutorCargoSlide(cargo));
+    }
+
+    [Fact]
+    public void LegacyRollerLoopCharacterizesDormantClearanceAndRetainedCarryZ()
+    {
+        ExecutorRoller(10, 0, 1); ExecutorRoller(11, 1, 1);
+        var cargo = ExecutorFloor(12, 1, 1, z: 1, height: 1);
+        var actor = Viewer(0, 1); actor.InternalRoomId = actor.VirtualId;
+        actor.SetPos(0, 1, 0.5);
+        _room.GetGameMap().AddUserToMap(actor, new(0, 1));
+        Assert.Null(_room.GetGameMap().Navigation);
+        EnableExecutorRollers(); ExecutorTick();
+        Assert.Equal((1, 1, 0.5), (actor.X, actor.Y, actor.Z));
+        Assert.Single(_client.Packets, packet => ExecutorIsAvatarSlide(packet, actor.VirtualId));
+        Assert.Equal((0, 1, 1, 1, 10u, "0.5", "0.5"), ExecutorAvatarSlide(actor));
         Assert.Equal((2, 1, 0.5), (cargo.GetX, cargo.GetY, cargo.GetZ));
         Assert.Equal((1, 1, 2, 1, "1", "0.5", 11u), ExecutorCargoSlide(cargo));
     }
