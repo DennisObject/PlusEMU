@@ -33,7 +33,7 @@ public class AuthEndpoints
         routes.MapGet("/api/health", () => Results.Json(new { ok = true }));
         routes.MapGet("/api/maintenance", () => Results.Json(new { enabled = false }));
 
-        var auth = routes.MapGroup("/api/auth").RequireRateLimiting(AuthHttpServer.RateLimitPolicy);
+        var auth = routes.MapGroup("/api/auth");
         auth.MapPost("/login", Login);
         auth.MapPost("/register", Register);
         auth.MapPost("/check-username", CheckUsername);

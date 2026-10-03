@@ -30,7 +30,6 @@ public interface IAuthHttpServer
 /// </summary>
 public class AuthHttpServer : IAuthHttpServer
 {
-    public const string RateLimitPolicy = "auth";
     public const long MaxRequestBodyBytes = 16 * 1024;
 
     private readonly AuthApiConfiguration _configuration;
@@ -125,21 +124,25 @@ public class AuthHttpServer : IAuthHttpServer
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         options.OnRejected = (context, _) => new(WriteError(context.HttpContext, StatusCodes.Status429TooManyRequests, AuthEndpoints.TooManyAttempts));
-        // Bounds the memory Argon2id can take under a burst; other routes are not limited here.
-        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context => HashesPasswords(context.Request.Path)
-            ? RateLimitPartition.GetConcurrencyLimiter("password", _ => new ConcurrencyLimiterOptions
-            {
-                PermitLimit = _configuration.MaxConcurrentPasswordChecks,
-                QueueLimit = 100,
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
-            })
-            : RateLimitPartition.GetNoLimiter(""));
-        options.AddPolicy(RateLimitPolicy, context => RateLimitPartition.GetFixedWindowLimiter(ClientAddress(context), _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = _configuration.RequestsPerMinute,
-            Window = TimeSpan.FromMinutes(1),
-            QueueLimit = 0
-        }));
+        // Chained in order: a client over its per-address budget is turned away before it can
+        // wait for one of the few password hashing slots (each Argon2id check uses ~19 MiB).
+        options.GlobalLimiter = PartitionedRateLimiter.CreateChained(
+            PartitionedRateLimiter.Create<HttpContext, string>(context => context.Request.Path.StartsWithSegments("/api/auth")
+                ? RateLimitPartition.GetFixedWindowLimiter(ClientAddress(context), _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = _configuration.RequestsPerMinute,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                })
+                : RateLimitPartition.GetNoLimiter("")),
+            PartitionedRateLimiter.Create<HttpContext, string>(context => HashesPasswords(context.Request.Path)
+                ? RateLimitPartition.GetConcurrencyLimiter("password", _ => new ConcurrencyLimiterOptions
+                {
+                    PermitLimit = _configuration.MaxConcurrentPasswordChecks,
+                    QueueLimit = 100,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                })
+                : RateLimitPartition.GetNoLimiter("")));
     }
 
     private static bool HashesPasswords(PathString path) =>

@@ -222,6 +222,26 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task OverLimitClientsAreTurnedAwayBeforeWaitingForAHashingSlot()
+    {
+        var hold = new TaskCompletionSource();
+        _accounts.HoldLookups = hold.Task;
+        await Start(c =>
+        {
+            c.MaxConcurrentPasswordChecks = 1;
+            c.RequestsPerMinute = 1;
+        });
+
+        var first = Post("/api/auth/login", new { username = "Dennis", password = "x" });
+        await _accounts.LookupStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var flood = await Post("/api/auth/login", new { username = "Dennis", password = "x" }).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, flood.StatusCode);
+        hold.SetResult();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await first).StatusCode);
+    }
+
+    [Fact]
     public async Task UnexpectedFailuresAnswerWithAGenericJsonError()
     {
         _accounts.FailLookupsWith = new InvalidOperationException("Server=db;Password=secret");
