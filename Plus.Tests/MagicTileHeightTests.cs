@@ -8,9 +8,10 @@ namespace Plus.Tests;
 public class MagicTileHeightTests
 {
     [Fact]
-    public void OnlyStackToolsCanBeAdjusted()
+    public void OnlyMagicTilesCanBeAdjusted()
     {
         Assert.True(MagicTileHeight.IsMagicTile(InteractionType.Stacktool));
+        Assert.True(MagicTileHeight.IsMagicTile(InteractionType.WalkMagicTile));
         Assert.False(MagicTileHeight.IsMagicTile(InteractionType.None));
         Assert.False(MagicTileHeight.IsMagicTile(InteractionType.Gate));
         Assert.False(MagicTileHeight.IsMagicTile(InteractionType.Teleport));

@@ -20,6 +20,7 @@ public class CatalogManager : ICatalogManager, IStartable
     private readonly Dictionary<int, CatalogPage> _pages;
     private readonly Dictionary<int, CatalogPromotion> _promotions;
     private readonly CatalogOfferIndex _offers = new();
+    private readonly Dictionary<int, ClubOffer> _clubOffers = new();
 
     private readonly IClothingManager _clothingManager;
     private readonly IDatabase _database;
@@ -155,6 +156,11 @@ public class CatalogManager : ICatalogManager, IStartable
             _promotions.Add(promotion.Id, promotion);
         }
 
+        _clubOffers.Clear();
+        var clubOffers = await connection.QueryAsync<ClubOffer>("SELECT `id`,`name`,`days`,`credits`,`points`,`points_type` AS `PointsType`,`type` = 'VIP' AS `Vip`,`giftable` AS `Giftable` FROM `catalog_club_offers` WHERE `enabled` = 1 ORDER BY `id`");
+        foreach (var offer in clubOffers)
+            _clubOffers.Add(offer.Id, offer);
+
         _petRaceManager.Init();
         _clothingManager.Init();
         _logger.LogInformation("Catalog Manager -> LOADED");
@@ -171,6 +177,10 @@ public class CatalogManager : ICatalogManager, IStartable
     public ICollection<CatalogPage> Pages => _pages.Values;
 
     public ICollection<CatalogPromotion> Promotions => _promotions.Values;
+
+    public ICollection<ClubOffer> ClubOffers => _clubOffers.Values;
+
+    public bool TryGetClubOffer(int offerId, out ClubOffer offer) => _clubOffers.TryGetValue(offerId, out offer);
 
     public IMarketplaceManager Marketplace => _marketplace;
 

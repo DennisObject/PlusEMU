@@ -141,7 +141,7 @@ public abstract class GameClient
     }
 
     // Encoding belongs to this broadcast only: composers can reference mutable room state.
-    internal static void SendBroadcast(IServerPacket composer, IEnumerable<GameClient> clients)
+    internal static void SendBroadcast(IServerPacket composer, IEnumerable<GameClient> clients, Func<GameClient, bool>? canSend = null)
     {
         var encodedPackets = new Dictionary<(Revision, IPacketFactory, Type, uint), byte[]>();
         foreach (var client in clients)
@@ -153,7 +153,7 @@ public abstract class GameClient
                 buffer = client.EncodePacket(composer, outgoingMessageId);
                 encodedPackets.Add(key, buffer);
             }
-            client.SendEncoded(buffer);
+            client.SendEncoded(buffer, canSend == null ? null : () => canSend(client));
             client.LogPacket(composer, outgoingMessageId);
         }
     }
@@ -169,13 +169,20 @@ public abstract class GameClient
         return memory.ToArray();
     }
 
-    private void SendEncoded(byte[] buffer)
+    private void SendEncoded(byte[] buffer, Func<bool>? canSend = null)
     {
         var args = new SocketAsyncEventArgs();
         args.SetBuffer(buffer.AsMemory());
         args.Completed += static (_, completed) => completed.Dispose();
         try
         {
+            // Visit-scoped packets can expire during encoding or a prior recipient's synchronous send.
+            // Recheck at the transport boundary, without holding a room/network lock across the callback.
+            if (canSend != null && !canSend())
+            {
+                args.Dispose();
+                return;
+            }
             if (!SendCallback(args))
                 args.Dispose();
         }

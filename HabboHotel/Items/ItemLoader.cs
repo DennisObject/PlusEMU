@@ -27,8 +27,10 @@ public static class ItemLoader
         return items;
     }
 
-    internal static Item ReadRoomItem(DataRow row, uint roomId, ItemDefinition definition) => new()
+    internal static Item ReadRoomItem(DataRow row, uint roomId, ItemDefinition definition)
     {
+        var item = new Item
+        {
         Id = Convert.ToUInt32(row["id"]),
         OwnerId = Convert.ToUInt32(row["user_id"]),
         UserId = Convert.ToInt32(row["user_id"]),
@@ -43,7 +45,10 @@ public static class ItemLoader
         UniqueSeries = Convert.ToUInt32(row["limited_stack"]),
         WallCoordinates = Convert.ToString(row["wall_pos"]) ?? "",
         RoomId = roomId
-    };
+        };
+        MagicTileHeight.Sync(item);
+        return item;
+    }
 
     public static List<InventoryItem> GetItemsForUser(uint userId)
     {

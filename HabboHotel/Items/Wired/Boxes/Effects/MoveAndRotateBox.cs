@@ -103,7 +103,8 @@ internal class MoveAndRotateBox : IWiredItem, IWiredCycle
                 }
                 if (newRot != item.Rotation)
                 {
-                    item.Rotation = newRot;
+                    if (!Instance.GetRoomItemHandler().SetFloorItem(null!, item, item.GetX, item.GetY, newRot, false, false, false, height: item.GetZ))
+                        continue;
                     item.UpdateState(false, true);
                 }
                 if (canBePlaced && point != item.Coordinate)

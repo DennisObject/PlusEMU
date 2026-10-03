@@ -24,6 +24,7 @@ public static class ServerPacketHeader
     public const uint CatalogOfferComposer = 1757; //3848
     public const uint CatalogPageComposer = 3277; //3477
     public const uint CatalogUpdatedComposer = 1411; //885
+    public const uint HabboClubOffersComposer = 2405;
     public const uint SellablePetBreedsComposer = 2333; //1871
     public const uint GroupFurniConfigComposer = 3388; //418
     public const uint PresentDeliverErrorComposer = 1971; //934
@@ -270,6 +271,7 @@ public static class ServerPacketHeader
     public const uint FlatAccessDeniedComposer = 797; //1582
     public const uint LatencyResponseComposer = 942; //3014
     public const uint HabboUserBadgesComposer = 3269; //1123
+    public const uint HeightMapUpdateComposer = 48007;
     public const uint HeightMapComposer = 1232; //207
 
     public const uint CanCreateRoomComposer = 3568; //1237
