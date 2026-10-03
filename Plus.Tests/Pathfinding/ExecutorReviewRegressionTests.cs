@@ -15,8 +15,8 @@ public partial class PlacedFurniRoomTests
 {
     [Theory]
     [InlineData("furniture", 1.75)]
-    [InlineData("seat", .75)]
-    [InlineData("magic", 2)]
+    [InlineData("seat", .25)]
+    [InlineData("magic", .5)]
     [InlineData("void", 0)]
     public void PrivilegedRoutesUseLegacyIdentityAndHeightWithSeparatePhysicalSupport(string terrain, double z)
     {
@@ -26,7 +26,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal($"1,1,{Plus.Utilities.TextHandling.GetString(z)}", actor.Statusses["mv"]);
         ExecutorTick();
         Assert.Equal((1, 1, z), (actor.X, actor.Y, actor.Z));
-        if (terrain == "furniture")
+        if (terrain != "void")
             Assert.Equal(_room.GetGameMap().Navigation!.Grid.Reference(5), actor.Movement.CurrentRef);
         else Assert.Null(actor.Movement.CurrentRef);
         Assert.False(actor.HasStatus("sit")); Assert.False(actor.HasStatus("lay"));
