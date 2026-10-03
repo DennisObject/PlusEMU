@@ -14,6 +14,8 @@ public interface ICatalogManager
     bool TryGetDeal(int dealId, out CatalogDeal deal);
     ICollection<CatalogPage> Pages { get; }
     ICollection<CatalogPromotion> Promotions { get; }
+    ICollection<ClubOffer> ClubOffers { get; }
+    bool TryGetClubOffer(int offerId, out ClubOffer offer);
 
     [Obsolete("Use dependency injection instead.")] IMarketplaceManager Marketplace { get; }
 
