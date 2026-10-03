@@ -123,30 +123,8 @@ public class LayeredPathSearchTests
         var random = new Random(20261004);
         for (var iteration = 0; iteration < 1500; iteration++)
         {
-            var w = random.Next(2, 9); var h = random.Next(2, 9);
-            var settings = new PathfindingSettings { LayeringEnabled = true, MaxSurfacesPerTile = random.Next(1, 5),
-                Profile = iteration % 2 == 0 ? "plus" : "habbo2013", CornerRule = (CornerRule)(iteration % 3) };
-            var states = Enumerable.Range(0, w * h).Select(_ => random.Next(8) == 0 ? SquareState.Blocked : SquareState.Open).ToArray();
-            var (grid, inputs, compiler) = NavTest.Create(w, h, settings, states: states);
-            uint id = 1;
-            for (var t = 0; t < w * h; t++)
-                for (var layer = random.Next(4); layer > 0; layer--)
-                    inputs.Publish(random.Next(4) switch
-                    {
-                        0 => NavTest.Record(id, id++, [t], z: random.Next(5) * 0.75, h: 0.5, walkable: false),
-                        1 => NavTest.Record(id, id++, [t], z: random.Next(5) * 0.75, h: 0, walkable: false, seat: true),
-                        _ => NavTest.Record(id, id++, [t], z: random.Next(6) * 0.75, h: random.Next(2) * 0.5)
-                    });
-            compiler.ApplyNow();
-            var slots = Enumerable.Range(0, grid.SlotCapacity).Where(grid.Active).ToArray();
-            if (slots.Length == 0) continue;
-            var occupancy = new PlanningOccupancy(grid.SlotCapacity);
-            foreach (var slot in slots)
-                occupancy.Targets[slot] = random.Next(10) switch { 0 => TargetOccupancy.Stationary, 1 => TargetOccupancy.Walking, _ => TargetOccupancy.None };
-            var start = slots[random.Next(slots.Length)]; var goalTile = random.Next(w * h);
-            occupancy.Targets[start] = TargetOccupancy.None;
-            var actor = new ActorProfile { IgnoreStepHeight = iteration % 5 == 0, Walkthrough = iteration % 7 == 0, DiagonalEnabled = iteration % 11 != 0 };
-            var request = new SearchRequest(actor, grid.Position(start), goalTile % w, goalTile / w, occupancy);
+            var (grid, settings) = SeededLayeredGrid(random, iteration);
+            if (SeededRequest(random, grid, iteration) is not { } request) continue;
             var route = new Route();
             var outcome = Find(grid, request, route, settings);
             var (expected, length) = SurfaceBfs(grid, settings, request);
@@ -154,6 +132,41 @@ public class LayeredPathSearchTests
             Assert.Equal(length, route.Count);
             Validate(grid, settings, request, route);
         }
+    }
+
+    private static (NavGrid Grid, PathfindingSettings Settings) SeededLayeredGrid(Random random, int iteration)
+    {
+        var w = random.Next(2, 9); var h = random.Next(2, 9);
+        var settings = new PathfindingSettings { LayeringEnabled = true, MaxSurfacesPerTile = random.Next(1, 5),
+            Profile = iteration % 2 == 0 ? "plus" : "habbo2013", CornerRule = (CornerRule)(iteration % 3) };
+        var states = Enumerable.Range(0, w * h).Select(_ => random.Next(8) == 0 ? SquareState.Blocked : SquareState.Open).ToArray();
+        var (grid, inputs, compiler) = NavTest.Create(w, h, settings, states: states);
+        uint id = 1;
+        for (var t = 0; t < w * h; t++)
+            for (var layer = random.Next(4); layer > 0; layer--)
+                inputs.Publish(SeededRecord(random, id++, t));
+        compiler.ApplyNow();
+        return (grid, settings);
+    }
+
+    private static NavItemRecord SeededRecord(Random random, uint id, int tile) => random.Next(4) switch
+    {
+        0 => NavTest.Record(id, id, [tile], z: random.Next(5) * 0.75, h: 0.5, walkable: false),
+        1 => NavTest.Record(id, id, [tile], z: random.Next(5) * 0.75, h: 0, walkable: false, seat: true),
+        _ => NavTest.Record(id, id, [tile], z: random.Next(6) * 0.75, h: random.Next(2) * 0.5)
+    };
+
+    private static SearchRequest? SeededRequest(Random random, NavGrid grid, int iteration)
+    {
+        var slots = Enumerable.Range(0, grid.SlotCapacity).Where(grid.Active).ToArray();
+        if (slots.Length == 0) return null;
+        var occupancy = new PlanningOccupancy(grid.SlotCapacity);
+        foreach (var slot in slots)
+            occupancy.Targets[slot] = random.Next(10) switch { 0 => TargetOccupancy.Stationary, 1 => TargetOccupancy.Walking, _ => TargetOccupancy.None };
+        var start = slots[random.Next(slots.Length)]; var goalTile = random.Next(grid.TileCount);
+        occupancy.Targets[start] = TargetOccupancy.None;
+        var actor = new ActorProfile { IgnoreStepHeight = iteration % 5 == 0, Walkthrough = iteration % 7 == 0, DiagonalEnabled = iteration % 11 != 0 };
+        return new SearchRequest(actor, grid.Position(start), goalTile % grid.Width, goalTile / grid.Width, occupancy);
     }
 
     [Fact]
