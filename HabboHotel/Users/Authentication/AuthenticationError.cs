@@ -5,5 +5,7 @@ public enum AuthenticationError
     EmptySSO,
     InvalidSSO,
     NoAccountFound,
-    LoginProhibited
+    LoginProhibited,
+    /// <summary>The connection closed or timed out before the login finished.</summary>
+    SessionClosed
 }

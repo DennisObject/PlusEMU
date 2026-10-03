@@ -8,6 +8,10 @@ using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Subscriptions;
 using Plus.HabboHotel.Users;
+using Plus.Communication.Attributes;
+using Plus.Communication.Flash;
+using Plus.Communication.Packets;
+using Plus.Communication.Packets.Incoming;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.UserData;
@@ -251,6 +255,53 @@ public class HousekeepingDatabaseTests
         Assert.Null(_clients.GetClientByUserId(Target));
     }
 
+    [HousekeepingDatabaseFact]
+    public async Task LoginWhoseSessionClosesWhileWaitingNeverRegisters()
+    {
+        var gate = new AccountSessionGate();
+        var authenticator = Authenticator(new SlowLogin(_users, Task.CompletedTask), gate);
+        var (session, _) = HabbiconTestSupport.Client(null!);
+        var held = gate.Enter(Target);
+        var login = authenticator.AuthenticateUsingSSO(session, Ticket);
+        await Task.Delay(300);
+        session.Disconnect();
+        held.Dispose();
+        Assert.Equal(AuthenticationError.SessionClosed, await login);
+        Assert.Null(_clients.GetClientByUserId(Target));
+        Assert.Null(session.GetHabbo());
+    }
+
+    // Astra's probe: the packet manager gives up on a slow SSO packet after 5 s and disconnects the socket,
+    // but the login task keeps running and must not register the dead session once the gate frees up.
+    [HousekeepingDatabaseFact]
+    public async Task TimedOutSsoPacketCannotRegisterTheSessionLater()
+    {
+        var gate = new AccountSessionGate();
+        var handler = new SsoTicketEvent(Authenticator(new SlowLogin(_users, Task.CompletedTask), gate));
+        var (session, _) = HabbiconTestSupport.Client(null!);
+        var disconnected = false;
+        session.DisconnectRequested = () =>
+        {
+            disconnected = true;
+            session.OnDisconnected();
+        };
+        using var manager = new PacketManager([handler], NullLogger<PacketManager>.Instance);
+        var held = gate.Enter(Target);
+        await manager.TryExecutePacket(session, ClientPacketHeader.SsoTicketEvent, new FlashIncomingPacket { Buffer = Array.Empty<byte>() });
+        Assert.True(disconnected);
+        held.Dispose();
+        Assert.Equal(AuthenticationError.SessionClosed, await handler.Attempt!);
+        Assert.Null(_clients.GetClientByUserId(Target));
+        Assert.Null(session.GetHabbo());
+    }
+
+    [NoAuthenticationRequired]
+    private sealed class SsoTicketEvent(IAuthenticator authenticator) : IPacketEvent
+    {
+        public Task<AuthenticationError?>? Attempt { get; private set; }
+        public Task Parse(GameClient session, IIncomingPacket packet) => Attempt = authenticator.AuthenticateUsingSSO(session, Ticket);
+    }
+
     private const string Ticket = "hk-login-ticket-000001";
 
     /// <summary>Starts a real SSO login and returns once it has loaded the account but not yet registered the session.</summary>
@@ -280,7 +331,7 @@ public class HousekeepingDatabaseTests
     {
         public TaskCompletionSource Loaded { get; } = new();
 
-        public async Task<Habbo?> Create(int userId)
+        public async Task<Habbo?> Create(int userId, CancellationToken cancellationToken = default)
         {
             var record = users.Find(userId)!;
             var habbo = new Habbo { Id = record.Id, Username = record.Username, Rank = record.Rank, Credits = record.Credits, Permissions = new(new(), new()) };

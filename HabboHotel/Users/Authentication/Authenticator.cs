@@ -26,6 +26,19 @@ internal class Authenticator : IAuthenticator
 
     public async Task<AuthenticationError?> AuthenticateUsingSSO(GameClient session, string sso)
     {
+        // The packet manager abandons slow logins and closes the socket; the login must stop with it.
+        try
+        {
+            return await AuthenticateUsingSSO(session, sso, session.Closed);
+        }
+        catch (OperationCanceledException) when (session.Closed.IsCancellationRequested)
+        {
+            return AuthenticationError.SessionClosed;
+        }
+    }
+
+    private async Task<AuthenticationError?> AuthenticateUsingSSO(GameClient session, string sso, CancellationToken cancellationToken)
+    {
         var started = _sessionGate.Begin();
         sso = sso.Trim();
         if (string.IsNullOrEmpty(sso))
@@ -34,7 +47,7 @@ internal class Authenticator : IAuthenticator
         if (!Debugger.IsAttached && sso.Length < 15)
             return AuthenticationError.InvalidSSO;
 
-        var userId = await GetUserIdFromSso(sso);
+        var userId = await GetUserIdFromSso(sso, cancellationToken);
         if (userId == default)
             return AuthenticationError.NoAccountFound;
 
@@ -43,7 +56,7 @@ internal class Authenticator : IAuthenticator
 
         Habbo? habbo;
         // Staff writes to this account wait until the session is registered, so they never land under a stale load.
-        using (await _sessionGate.EnterAsync(userId))
+        using (await _sessionGate.EnterAsync(userId, cancellationToken))
         {
             // A password reset after this ticket was resolved revokes the login.
             if (_sessionGate.IsRevoked(userId, started))
@@ -53,26 +66,28 @@ internal class Authenticator : IAuthenticator
             if (!canLogin)
                 return AuthenticationError.LoginProhibited;
 
-            habbo = await _userDataFactory.Create(userId);
+            habbo = await _userDataFactory.Create(userId, cancellationToken);
             if (habbo == null)
                 return AuthenticationError.NoAccountFound;
 
-            habbo.Disconnected += async (_, _) => await OnHabboDisconnected(habbo);
-
-            session.SetHabbo(habbo);
+            var loaded = habbo;
+            loaded.Disconnected += async (_, _) => await OnHabboDisconnected(loaded);
 
             // TODO @80O: Remove after splitting up
-            habbo.Init(session);
-            _gameClientManager.RegisterClient(session, habbo.Id, habbo.Username);
+            loaded.Init(session);
+
+            // A connection that closed while this login waited must never become a registered session.
+            if (!session.TryAttach(loaded, () => _gameClientManager.RegisterClient(session, loaded.Id, loaded.Username)))
+                return AuthenticationError.SessionClosed;
         }
         await RaiseHabboLoggedIn(habbo);
         return null;
     }
 
-    private async Task<int> GetUserIdFromSso(string sso)
+    private async Task<int> GetUserIdFromSso(string sso, CancellationToken cancellationToken)
     {
         using var connection = _database.Connection();
-        return await connection.ExecuteScalarAsync<int>("SELECT id FROM users WHERE auth_ticket = @sso", new { sso });
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition("SELECT id FROM users WHERE auth_ticket = @sso", new { sso }, cancellationToken: cancellationToken));
     }
 
     private async Task ResetSso(int userId)
