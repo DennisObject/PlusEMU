@@ -14,7 +14,7 @@ public interface IAccountSessionGate
     /// <summary>Timestamp taken when a login starts, for <see cref="IsRevoked"/>.</summary>
     long Begin();
 
-    Task<IDisposable> EnterAsync(int userId);
+    Task<IDisposable> EnterAsync(int userId, CancellationToken cancellationToken = default);
 
     IDisposable Enter(int userId);
 
@@ -38,10 +38,10 @@ public sealed class AccountSessionGate : IAccountSessionGate
 
     public long Begin() => Stopwatch.GetTimestamp();
 
-    public async Task<IDisposable> EnterAsync(int userId)
+    public async Task<IDisposable> EnterAsync(int userId, CancellationToken cancellationToken = default)
     {
         var stripe = Stripe(userId);
-        if (!await stripe.WaitAsync(_timeout)) throw new TimeoutException($"Account {userId} is busy.");
+        if (!await stripe.WaitAsync(_timeout, cancellationToken)) throw new TimeoutException($"Account {userId} is busy.");
         return new Held(stripe);
     }
 
