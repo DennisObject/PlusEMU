@@ -9,10 +9,10 @@ using Xunit;
 
 namespace Plus.Tests;
 
-public class OctaneCustomizationWireTests
+public class OfficialUserWireTests
 {
     [Fact]
-    public void RoomUserEndsWithNickIconBeforeTheOfficialRoomEntryTail()
+    public void RoomUserWritesTheOfficialLayout()
     {
         var habbo = new Habbo
         {
@@ -41,26 +41,26 @@ public class OctaneCustomizationWireTests
         Assert.Equal(new object[]
         {
             1,
-            7, "Dennis", "hi", 0, 0, 0, 0, "hd-180-1", 4, 2, 3, "1.5", 2, 1,
-            "m", 0, 0, "", "", 12, false, "",
-            "", 0, 0
+            7, "Dennis", "hi", "hd-180-1", 4, 2, 3, "1.5", 2, 1,
+            "m", 0, 0, "", "", 12, false,
+            "", 0
         }, packet.Writes);
     }
 
     [Fact]
-    public void ChatVariantsWriteNickIconThenBubbleWidth()
+    public void ChatVariantsWriteTheOfficialLayout()
     {
         var chat = Compose(new ChatComposer(4, "hello", 0, 34));
         var shout = Compose(new ShoutComposer(4, "hello", 0, 34));
         var whisper = Compose(new WhisperComposer(4, "hello", 0, 34));
 
-        Assert.Equal(new object[] { 4, "hello", 0, 34, 0, "", 5, "", -1 }, chat);
+        Assert.Equal(new object[] { 4, "hello", 0, 34, 0, 5 }, chat);
         Assert.Equal(chat, shout);
         Assert.Equal(chat, whisper);
     }
 
     [Fact]
-    public void UnitInfoWritesTheRetainedCustomizationTail()
+    public void UnitInfoEndsAtTheAchievementScore()
     {
         var habbo = new Habbo
         {
@@ -78,7 +78,7 @@ public class OctaneCustomizationWireTests
 
         new UserChangeComposer(user, true).Compose(packet);
 
-        Assert.Equal(new object[] { -1, "hd-180-1", "M", "hi", 12, 0, 0, 0, 0, "", 0 }, packet.Writes);
+        Assert.Equal(new object[] { -1, "hd-180-1", "M", "hi", 12 }, packet.Writes);
     }
 
     private static object[] Compose(IServerPacket composer)

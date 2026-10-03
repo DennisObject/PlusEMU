@@ -127,7 +127,7 @@ public class ModernWiredRuntimeTests
         var fields = new List<object>(); var packet = DispatchProxy.Create<IOutgoingPacket, RecordingProxy>();
         ((RecordingProxy)(object)packet).InvokeMethod = (_, args) => { fields.Add(args![0]!); return null; };
         new WiredChatComposer(7, "Hello", 252, 2, true).Compose(packet);
-        Assert.Equal(new object[] { 7, "Hello", 0, 252, 0, "", 5, "", "", "", "", "", "", "icon-prefix-name", 2 }, fields);
+        Assert.Equal(new object[] { 7, "Hello", 0, 252, 0, 5, 2 }, fields);
         fields.Clear(); new WiredMovementComposer(1, 10, 0, 1, 1.25, 2, 2, 3.5, 4, 4, 750).Compose(packet);
         Assert.Equal(new object[] { 1, 1, 0, 1, 2, 2, "1.25", "3.5", 10, 4, 750, 0, 0, 0 }, fields);
         fields.Clear(); new WiredRewardResultComposer(5).Compose(packet);
