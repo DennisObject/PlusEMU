@@ -198,7 +198,9 @@
     "FurniEditor": {
         "FurnidataPath": "",
         "FurnidataMaxBytes": 67108864,
-        "ImportUrl": "https://www.habbo.com/gamedata/furnidata_json/1",
-        "ImportTimeoutSeconds": 20
+        "ImportUrl": "",
+        "ImportAllowedHosts": [],
+        "ImportTimeoutSeconds": 10,
+        "ImportMaxBytes": 50331648
     }
 }

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 
@@ -9,8 +10,11 @@ public interface IFurniEditorTextImporter
     Task<FurniEditorImportResult?> Find(string classname);
 }
 
+// Fetches the official furnidata over https from allowlisted hosts only. Redirects are followed by hand so every hop
+// is checked against the allowlist; the body is capped and the whole request has a short timeout.
 public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposable
 {
+    private const int MaxRedirects = 3;
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(10);
 
     private readonly FurniEditorConfiguration _configuration;
@@ -19,9 +23,12 @@ public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposa
     private (DateTime LoadedAt, Dictionary<string, (string Name, string Description)> Texts)? _cache;
 
     public FurniEditorTextImporter(IOptions<FurniEditorConfiguration> configuration)
+        : this(configuration, new HttpClientHandler { AllowAutoRedirect = false }) { }
+
+    internal FurniEditorTextImporter(IOptions<FurniEditorConfiguration> configuration, HttpMessageHandler handler)
     {
         _configuration = configuration.Value;
-        _http = new HttpClient { Timeout = TimeSpan.FromSeconds(Math.Clamp(_configuration.ImportTimeoutSeconds, 1, 120)) };
+        _http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(Math.Clamp(_configuration.ImportTimeoutSeconds, 1, 30)) };
     }
 
     public async Task<FurniEditorImportResult?> Find(string classname)
@@ -34,29 +41,27 @@ public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposa
             : new(false, string.Empty, string.Empty, classname);
     }
 
+    internal static bool IsAllowed(Uri url, IEnumerable<string> hosts)
+    {
+        if (!url.IsAbsoluteUri || url.Scheme != Uri.UriSchemeHttps || url.Port != 443 || !string.IsNullOrEmpty(url.UserInfo))
+            return false;
+        var host = url.IdnHost.TrimEnd('.').ToLowerInvariant();
+        return hosts.Any(allowed => host == allowed || host.EndsWith("." + allowed, StringComparison.Ordinal));
+    }
+
     private async Task<Dictionary<string, (string Name, string Description)>?> Texts()
     {
-        if (!Uri.TryCreate(_configuration.ImportUrl, UriKind.Absolute, out var url) || url.Scheme != Uri.UriSchemeHttps)
+        if (!Uri.TryCreate(_configuration.ImportUrl, UriKind.Absolute, out var url))
             return null;
         await _fetch.WaitAsync();
         try
         {
             if (_cache is { } cached && DateTime.UtcNow - cached.LoadedAt < CacheLifetime)
                 return cached.Texts;
-            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-            if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > _configuration.FurnidataMaxBytes)
+            var body = await Download(url);
+            if (body == null)
                 return null;
-            await using var body = await response.Content.ReadAsStreamAsync();
-            using var limited = new MemoryStream();
-            var buffer = new byte[81920];
-            int read;
-            while ((read = await body.ReadAsync(buffer)) > 0)
-            {
-                if (limited.Length + read > _configuration.FurnidataMaxBytes)
-                    return null;
-                limited.Write(buffer, 0, read);
-            }
-            var texts = Parse(limited.ToArray());
+            var texts = Parse(body);
             _cache = (DateTime.UtcNow, texts);
             return texts;
         }
@@ -68,6 +73,37 @@ public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposa
         {
             _fetch.Release();
         }
+    }
+
+    private async Task<byte[]?> Download(Uri url)
+    {
+        for (int hop = 0; hop <= MaxRedirects; hop++)
+        {
+            if (!IsAllowed(url, _configuration.AllowedImportHosts))
+                return null;
+            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            if ((int)response.StatusCode is >= 300 and < 400)
+            {
+                if (response.Headers.Location is not { } location)
+                    return null;
+                url = location.IsAbsoluteUri ? location : new Uri(url, location);
+                continue;
+            }
+            if (response.StatusCode != HttpStatusCode.OK || response.Content.Headers.ContentLength > _configuration.ImportMaxBytes)
+                return null;
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            using var body = new MemoryStream();
+            var buffer = new byte[81920];
+            int read;
+            while ((read = await stream.ReadAsync(buffer)) > 0)
+            {
+                if (body.Length + read > _configuration.ImportMaxBytes)
+                    return null;
+                body.Write(buffer, 0, read);
+            }
+            return body.ToArray();
+        }
+        return null;
     }
 
     internal static Dictionary<string, (string Name, string Description)> Parse(byte[] json)
