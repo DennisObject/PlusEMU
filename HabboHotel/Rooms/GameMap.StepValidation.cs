@@ -35,15 +35,14 @@ public partial class Gamemap
         user.PathRecalcNeeded = check.Rejection == LegacyStepRejection.BlockedState;
     }
 
+    // The same standing the executor refreshes onto its profile; the legacy prefix view uses it too.
     private static LegacyStepCheck GuildGateAccess(RoomUser user, Item gate)
-    {
-        if (!PlusEnvironment.Game.GroupManager.TryGetGroup(gate.GroupId, out var group))
-            return new(LegacyStepRejection.GuildGateUnavailable);
-        if (user.GetClient() == null || user.GetClient().GetHabbo() == null)
-            return new(LegacyStepRejection.GuildGateUnavailable);
-        return group.IsMember(user.GetClient().GetHabbo().Id) ? new(LegacyStepRejection.None, gate)
-            : new(LegacyStepRejection.GuildGateDenied);
-    }
+        => ActorAccessResolver.Live.StandingOf(user, gate.GroupId) switch
+        {
+            GroupStanding.Unresolved => new(LegacyStepRejection.GuildGateUnavailable),
+            GroupStanding.Member => new(LegacyStepRejection.None, gate),
+            _ => new(LegacyStepRejection.GuildGateDenied)
+        };
 
     private static void OpenGuildGate(RoomUser user, Item gate)
     {
