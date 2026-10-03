@@ -1,5 +1,6 @@
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Wired.Modern;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Xunit;
@@ -34,7 +35,7 @@ public partial class PlacedFurniRoomTests
         var events = ExecutorWalkEvents();
         var actor = GeometrySeatedActor();
         events.Clear();
-        if (blocker) Add(11, 1, 1, z: 1, height: 1, stackable: false);
+        if (blocker) GeometryMoveBlockerThroughActor(actor);
         else Add(11, 1, 1, type: InteractionType.WalkMagicTile);
         ExecutorTick();
         Assert.Equal((1, 1, 0d), (actor.X, actor.Y, actor.Z));
@@ -95,6 +96,14 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((2, 2), (waiting.X, waiting.Y));
         Assert.Equal((1, 1), (first.X, first.Y));
         Assert.Same(landing, first.LastItem);
+    }
+
+    private void GeometryMoveBlockerThroughActor(RoomUser actor)
+    {
+        var blocker = Add(11, 0, 2, z: 1, height: 1, stackable: false);
+        var policy = new WiredCollisionPolicy(new HashSet<uint>(), new HashSet<int> { actor.VirtualId },
+            new HashSet<uint>());
+        Assert.True(WiredRoomOperations.MoveItem(_room, blocker, 1, 1, height: 1, collision: policy));
     }
 
     private RoomUser GeometrySeatedActor()
