@@ -676,7 +676,7 @@ public class RoomUserManager
         return false;
     }
 
-    private readonly LegacyRouteFallback _routeFallback = new();
+    private readonly LegacyRouteFallback _routeFallback = new(PathfindingSettings.LoadOrDefault(PlusEnvironment.SettingsManager));
     private IMovementEngine? _movementEngine;
     private IMovementEngine MovementEngine => _movementEngine ??=
         _room.GetGameMap().Navigation is { UsesExecutor: true } navigation
@@ -817,6 +817,8 @@ public class RoomUserManager
                             user.Path.Clear();
                     }
                 }
+                if (!LegacyRouteFallback.Eligible(user))
+                    LegacyRouteFallback.OnSuppressed(user);
                 if (user.IsWalking && !user.Freezed)
                 {
                     if (invalidStep || user.PathStep >= user.Path.Count || user.GoalX == user.X && user.GoalY == user.Y) //No path found, or reached goal (:

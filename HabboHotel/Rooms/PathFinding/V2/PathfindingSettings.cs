@@ -29,6 +29,9 @@ public sealed record PathfindingSettings
     public int MaxExpansionsPerRoomTick { get; init; } = 200000;
     public double ShadowLogSample { get; init; } = 0.05;
 
+    // Legacy rooms have no navigation; their movement still snapshots the policy at room load.
+    public static PathfindingSettings LoadOrDefault(ISettingsManager? manager) => manager == null ? new() : Load(manager);
+
     public static PathfindingSettings Load(ISettingsManager manager)
     {
         string? Read(string key) => manager.GetOptionalValue("pathfinding." + key);

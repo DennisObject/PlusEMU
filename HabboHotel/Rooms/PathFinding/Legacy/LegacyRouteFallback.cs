@@ -1,19 +1,20 @@
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
 // Spec 16.11 for the legacy engine. Every failure of the actor's own route lands here before
-// anything destructive happens: a complete (uncapped) recalc reroutes, otherwise the valid
-// prefix of the unconsumed path is installed. Truncated routes never search again.
-internal sealed class LegacyRouteFallback
+// anything destructive happens: a walking-only blocker is waited for first (6.5), then a
+// complete (uncapped) recalc reroutes, otherwise the valid prefix of the unconsumed path is
+// installed. Truncated routes never search again.
+internal sealed class LegacyRouteFallback(PathfindingSettings settings)
 {
-    // Mirrors the default max_walk_stall_ticks: blocked ticks without a committed step.
-    public const int MaxHeldTicks = 10;
     private readonly ValidPrefixFinder _finder = new();
 
     // Returns false when the actor must stop now.
     public bool OnBlocked(Gamemap map, RoomUser user)
     {
         var state = user.Movement;
-        if (++state.StallTicks >= MaxHeldTicks) return false;
+        if (Eligible(user) && ++state.StallTicks >= settings.MaxWalkStallTicks) return false;
+        state.WaitTicks++;
+        if (BlockedOnlyByWalkers(map, user) && state.WaitTicks <= settings.BlockWaitTicks) return true;
         var retained = Retain(map, user);
         if (state.Fallback.Suspect(retained, 0))
         {
@@ -23,12 +24,26 @@ internal sealed class LegacyRouteFallback
         return InstallPrefix(map, user, retained);
     }
 
-    public static void OnStepCommitted(RoomUser user) => user.Movement.StallTicks = 0;
+    public static void OnStepCommitted(RoomUser user) => user.Movement.StallTicks = user.Movement.WaitTicks = 0;
+
+    // Deliberate suppression (freeze game, interaction holds) suspends and resets the stall counter.
+    public static void OnSuppressed(RoomUser user) => user.Movement.StallTicks = 0;
+
+    public static bool Eligible(RoomUser user) => !user.Freezed && user.CanWalk;
 
     public static void OnCommand(RoomUser user)
     {
         user.Movement.Fallback.Begin(user.Movement.NextSequence());
-        user.Movement.StallTicks = 0;
+        OnStepCommitted(user);
+    }
+
+    // The next edge is valid once walking users and their tile marks are ignored.
+    private static bool BlockedOnlyByWalkers(Gamemap map, RoomUser user)
+    {
+        if (LegacyRoutePath.Remaining(user) is not [var next, ..]) return false;
+        var walkers = map.GetRoomUsers(new(next.X, next.Y)).Any(other => !ReferenceEquals(other, user) && other.IsWalking);
+        return walkers && map.IsValidStepPure(user, new(user.X, user.Y), next, next.X == user.GoalX && next.Y == user.GoalY,
+            user.AllowOverride, LegacyStepView.Prefix).Ok;
     }
 
     private static RetainedStep[] Retain(Gamemap map, RoomUser user) => LegacyRoutePath.Remaining(user)

@@ -28,7 +28,7 @@ public static class PathFinder
     internal static List<Vector2D> FindPath(RoomUser user, bool diag, Gamemap map, Vector2D start, Vector2D end, PathFinderMetrics? metrics)
         => FindPath(user, diag, map, start, end, metrics, null);
 
-    // Blocked-route fallback: uncapped, and additionally rejects edges the admission check refuses.
+    // Blocked-route fallback: uncapped; the supplied validator replaces the planning step check.
     internal static List<Vector2D> FindPath(RoomUser user, bool diag, Gamemap map, Vector2D start, Vector2D end,
         Func<Vector2D, Vector2D, bool, bool> admit) => FindPath(user, diag, map, start, end, null, admit);
 
@@ -79,8 +79,8 @@ public static class PathFinder
             {
                 var to = current.Position + offset;
                 if (metrics != null) metrics.CanStepCalls++;
-                if (!map.IsValidStep(current.Position, to, to.Equals(end), user.AllowOverride, false, user)
-                    || admit != null && !admit(current.Position, to, to.Equals(end)))
+                if (admit != null ? !admit(current.Position, to, to.Equals(end))
+                    : !map.IsValidStep(current.Position, to, to.Equals(end), user.AllowOverride, false, user))
                     continue;
                 var node = nodes[to.X, to.Y] ??= new PathFinderNode(to);
                 var cost = current.Cost + 1;
