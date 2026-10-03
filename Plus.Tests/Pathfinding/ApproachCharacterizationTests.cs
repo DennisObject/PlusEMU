@@ -25,7 +25,7 @@ public partial class PlacedFurniRoomTests
     public void DistantClickOnlyWalksToTheApproachTileAndNeverStartsTheInteraction(InteractionType kind)
     {
         var item = ApproachFixture(kind);
-        var actor = ExecutorActor(3, 0);
+        var actor = ApproachActor(3, 0, autoInteract: false);
         item.Interactor.OnTrigger(_client, item, 0, true);
         ExecutorTick();
         Assert.Contains("/mv 2,0,0/", ExecutorUpdate(actor).Status);
