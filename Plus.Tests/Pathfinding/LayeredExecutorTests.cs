@@ -341,6 +341,23 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(TargetOccupancy.ExclusiveClaim, claims.OccupancyAt(LayeredTile(2, 1), 0) & TargetOccupancy.ExclusiveClaim);
     }
 
+    [Fact]
+    public void LayeredSwitchToOneSurfaceDropsClaimsOfARemovedPrimarySurface()
+    {
+        LayeredBridge();
+        var actor = LayeredActor(0, 3);
+        var claims = LayeredNavigation.Executor.Claims;
+        var primary = LayeredTile(2, 1);
+        Assert.Equal(new SurfaceRef(primary, 22, SurfaceKind.Top), LayeredNavigation.Grid.Reference(primary));
+        Assert.True(claims.TryClaim(actor, primary, ClaimKind.Roller, TargetOccupancy.None));
+        ExecutorFloor(60, 3, 3).Definition.InteractionType = InteractionType.Banzaifloor;
+        LayeredNavigation.Inputs.Attach(_room.GetRoomItemHandler().GetItem(60));
+        using (RoomOwnerScope.Enter(_room)) LayeredNavigation.ApplyDirty();
+        Assert.False(LayeredNavigation.Grid.Layered);
+        Assert.Equal(new SurfaceRef(primary, 21, SurfaceKind.Top), LayeredNavigation.Grid.Reference(primary));
+        Assert.Equal(TargetOccupancy.None, claims.OccupancyAt(primary, 0));
+    }
+
     private RoomNavigation LayeredNavigation => _room.GetGameMap().Navigation!;
     private int LayeredTile(int x, int y) => LayeredNavigation.Grid.Tile(x, y);
 
