@@ -323,6 +323,31 @@ public partial class PlacedFurniRoomTests
         FallbackAssertStopped(actor, 7, 1);
     }
 
+    [Fact]
+    public void ExecutorOnlyACompletedFailedFallbackSearchCountsTowardsMaxBlockReplans()
+    {
+        FallbackModel(FallbackLongDeadEnd);
+        var gate = FallbackGate(20, 6, 1);
+        var actor = FallbackActor(FallbackEngine.V2, 0, 1);
+        var owner = FallbackBot(FallbackEngine.V2, 3, 3, 2); ExecutorTick();
+        var scheduler = _room.GetGameMap().Navigation!.Executor.Context.Scheduler;
+        actor.MoveTo(7, 1); ExecutorTick();
+        FallbackSetGate(gate, open: false);
+        ExecutorTick();
+        Assert.Equal(RouteState.Truncated, actor.Movement.Fallback.State);
+        Assert.Equal(1, actor.Movement.BlockReplans);
+        // A persistent claim ignored by the prefix view keeps the next announce failing.
+        Assert.True(_room.GetGameMap().Navigation!.Executor.Claims.TryClaim(owner, 1 * 8 + 2, ClaimKind.Exclusive, TargetOccupancy.None));
+        for (var tick = 0; tick < 5; tick++)
+        {
+            ExecutorTick();
+            Assert.Equal(1, actor.Movement.BlockReplans);
+            Assert.DoesNotContain(actor, scheduler.Queued);
+        }
+        Assert.Equal((1, 1), (actor.X, actor.Y));
+        Assert.True(actor.Movement.HasIntent);
+    }
+
     private void FallbackModel(string heightmap)
     {
         Set("_gamemap", new Gamemap(_room, new RoomModel("fallback", 0, 0, 0, 0, heightmap, false, 0, false)));
