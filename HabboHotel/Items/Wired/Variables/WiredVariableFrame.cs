@@ -31,11 +31,16 @@ public interface IWiredBuiltinVariables
     WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame);
     bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame);
     /// <summary>
-    /// Lets a source sequence a write for its owner task. True: it queued `replayWith(transform)`. False: run now;
-    /// `transform` may have been replaced by its single, already evaluated result.
+    /// Lets a source sequence a write. `deferred`: the whole transaction was queued for its owner task. Otherwise
+    /// run now; `transform` may have been replaced by its single, already evaluated result, and the returned scope
+    /// (if any) holds the source until the transaction, including its completion callback, has ended.
     /// </summary>
-    bool TryDefer(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
-        Func<Func<int, int>, Action> replayWith) => false;
+    IDisposable? Admit(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
+        Func<Func<int, int>, Action> replayWith, out bool deferred)
+    {
+        deferred = false;
+        return null;
+    }
     /// <summary>Returns a local notification which the module invokes only after releasing its value lock.</summary>
     bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame, out Action? completed)
     {

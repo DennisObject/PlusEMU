@@ -36,18 +36,19 @@ public sealed class RoomWiredBuiltinVariables(Room room,
 
     // The gate's per-write FIFO decides: behind a pending write, or a closing from another thread, the whole
     // transaction waits for the owner. Otherwise it runs now with the transform's single, already evaluated result.
-    public bool TryDefer(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
-        Func<Func<int, int>, Action> replayWith)
+    public IDisposable? Admit(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
+        Func<Func<int, int>, Action> replayWith, out bool deferred)
     {
-        if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state") return false;
-        if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || room.GetGameMap()?.Gates is not { } gates) return false;
+        deferred = false;
+        if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state") return null;
+        if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || room.GetGameMap()?.Gates is not { } gates) return null;
         var original = transform;
         string? Peek(string current) => int.TryParse(current, out var value)
             ? original(value).ToString(CultureInfo.InvariantCulture) : null;
         Action Replay(string? prepared) => replayWith(prepared is null ? original : _ => int.Parse(prepared, CultureInfo.InvariantCulture));
-        if (gates.TryDefer(item, Peek, Replay, out var evaluated)) return true;
+        var scope = gates.AdmitVariableWrite(item, Peek, Replay, out deferred, out var evaluated);
         if (evaluated is not null) transform = _ => int.Parse(evaluated, CultureInfo.InvariantCulture);
-        return false;
+        return scope;
     }
 
     public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)

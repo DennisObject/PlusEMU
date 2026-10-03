@@ -89,12 +89,21 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     public bool Change(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
         Func<int, int> transform, WiredVariableFrame frame, int origin = 0)
     {
-        if (builtins?.TryDefer(reference, holder, ref transform, replayed => () => Change(reference, holder, mutation, replayed, frame, origin)) == true) return true;
-        Action? completed;
-        bool changed;
-        lock (_gate) changed = ChangeLocked(reference, holder, mutation, transform, frame, origin, out completed);
-        if (changed) completed?.Invoke();
-        return changed;
+        var deferred = false;
+        IDisposable? admission = null;
+        if (builtins != null)
+            admission = builtins.Admit(reference, holder, ref transform,
+                replayed => () => Change(reference, holder, mutation, replayed, frame, origin), out deferred);
+        // The admission, if any, is held until the completion callback has run.
+        using (admission)
+        {
+            if (deferred) return true;
+            Action? completed;
+            bool changed;
+            lock (_gate) changed = ChangeLocked(reference, holder, mutation, transform, frame, origin, out completed);
+            if (changed) completed?.Invoke();
+            return changed;
+        }
     }
 
     private bool ChangeLocked(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,

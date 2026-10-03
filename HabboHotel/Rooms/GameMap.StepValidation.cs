@@ -44,12 +44,15 @@ public partial class Gamemap
             _ => new(LegacyStepRejection.GuildGateDenied)
         };
 
+    // Sequenced like every gate write; the user and timer apply at the commit boundary.
     private static void OpenGuildGate(RoomUser user, Item gate)
     {
-        gate.InteractingUser = user.GetClient().GetHabbo().Id;
-        gate.LegacyDataString = "1";
-        gate.UpdateState(false, true);
-        gate.RequestUpdate(4, true);
+        var habboId = user.GetClient().GetHabbo().Id;
+        GateTransitionService.Apply(gate, "1", GateCloseReason.Walk, persist: false, afterWrite: opened =>
+        {
+            opened.InteractingUser = habboId;
+            opened.RequestUpdate(4, true);
+        });
     }
 
     /*
