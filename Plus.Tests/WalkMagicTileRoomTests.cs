@@ -180,13 +180,16 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(floor, map.Model.GetRelativeHeightmap());
         Assert.Equal(SquareState.Blocked, map.Model.SqState[1, 1]);
         Assert.NotNull(await Drop(12, 1, 1, InteractionType.None));
+        // Ordinary furniture retains master's dynamic OpenSquare bridge behavior.
+        Assert.Equal(SquareState.Open, map.Model.SqState[1, 1]);
+        Assert.True(map.CanRollItemHere(1, 1));
         await MoveObject().Parse(_room, _client, ClientPacket(11, 2, 2, 0));
-        // Remove the ordinary item before checking the underlying void permission.
+        // The floor opened by ordinary furniture stays open, as on master.
         await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
             .Parse(_client, ClientPacket(0, 12));
-        Assert.False(map.ResolvePlacement(1, 1).CanStack);
-        Assert.Equal(SquareState.Blocked, map.Model.SqState[1, 1]);
-        Assert.Equal((byte)0, map.GameMap[1, 1]);
+        Assert.True(map.ResolvePlacement(1, 1).CanStack);
+        Assert.Equal(SquareState.Open, map.Model.SqState[1, 1]);
+        Assert.Equal((byte)1, map.GameMap[1, 1]);
     }
 
     [Theory]
@@ -494,6 +497,197 @@ public partial class PlacedFurniRoomTests
             Assert.False(map.IsValidStep2(user, from, to, true, false));
         }
         finally { field.SetValue(null, previous); }
+    }
+
+    [Fact]
+    public void OrdinaryFurnitureKeepsLegacyRollerSupportOverModelVoid()
+    {
+        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", false, 0, false));
+        Set("_gamemap", map); map.GenerateMaps();
+        Assert.False(map.CanRollItemHere(1, 1));
+        var bridge = Add(10, 1, 1, z: 2, height: 0.5);
+        bridge.Definition.Walkable = true;
+        map.UpdateMapForItem(bridge);
+        Assert.Equal(SquareState.Open, map.Model.SqState[1, 1]);
+        Assert.Equal(2, map.Model.SqFloorHeight[1, 1]);
+        Assert.True(map.CanRollItemHere(1, 1));
+        Assert.Equal(2.5, map.SqAbsoluteHeight(1, 1));
+        var passenger = Add(11, 2, 1, z: 3);
+        _room.GetRoomItemHandler().UpdateItemOnRoller(passenger, new(1, 1), 42, 2.5);
+        Assert.Equal(1, passenger.GetX);
+        Assert.Equal(2.5, passenger.GetZ);
+    }
+
+    [Fact]
+    public async Task RotationKeepsUnsupportedHeightButRisesToNewSupportAndUsesHelperHeight()
+    {
+        var support = Add(10, 1, 1, height: 3);
+        var item = await Drop(11, 1, 1, InteractionType.None);
+        Assert.Equal(3, item!.GetZ);
+        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+            .Parse(_client, ClientPacket(0, (int)support.Id));
+        await MoveObject().Parse(_room, _client, ClientPacket(11, 1, 1, 2));
+        Assert.Equal(3, item.GetZ);
+        Add(12, 1, 1, height: 4);
+        await MoveObject().Parse(_room, _client, ClientPacket(11, 1, 1, 4));
+        Assert.Equal(4, item.GetZ);
+        Add(13, 1, 1, z: 0.75, type: InteractionType.WalkMagicTile);
+        await MoveObject().Parse(_room, _client, ClientPacket(11, 1, 1, 6));
+        Assert.Equal(0.75, item.GetZ);
+    }
+
+    [Theory]
+    [InlineData(InteractionType.None, true, false, true)]
+    [InlineData(InteractionType.None, false, false, false)]
+    [InlineData(InteractionType.WalkMagicTile, false, false, true)]
+    [InlineData(InteractionType.Stacktool, false, false, true)]
+    [InlineData(InteractionType.None, true, true, false)]
+    [InlineData(InteractionType.WalkMagicTile, true, true, false)]
+    public void WiredCollisionRespectsHelperCoverageAndExplicitBlockers(InteractionType type, bool helper, bool explicitBlock, bool expected)
+    {
+        var blocker = Add(10, 2, 2, height: 2, stackable: false);
+        if (helper) Add(11, 2, 2, z: 0.75, type: InteractionType.WalkMagicTile);
+        var item = Add(12, 1, 1, type: type);
+        var policy = new Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy(
+            new HashSet<uint>(), new HashSet<int>(), explicitBlock ? new HashSet<uint> { blocker.Id } : new HashSet<uint>());
+        Assert.Equal(expected, Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.MoveItem(_room, item, 2, 2, animate: false, collision: policy));
+        Assert.Equal(expected ? 2 : 1, item.GetX);
+        if (expected) Assert.Equal(helper ? 0.75 : 2, item.GetZ);
+    }
+
+    [Theory]
+    [InlineData(true, "1,1,0.75")]
+    [InlineData(false, "1,1,1.75")]
+    public void MountedMovementAlwaysEmitsHorseMvAndOnlyOffsetsRiderWithoutWalkTile(bool walkTile, string riderMv)
+    {
+        if (walkTile) Add(10, 1, 1, z: 0.75, type: InteractionType.WalkMagicTile);
+        else
+        {
+            var support = Add(10, 1, 1, height: 0.75);
+            support.Definition.Walkable = true;
+            _room.GetGameMap().UpdateMapForItem(support);
+        }
+        var rider = Viewer(1, 0);
+        var horse = new RoomUser(0, RoomId, 0, _room)
+        {
+            X = 1, Y = 0, RidingHorse = true,
+            BotData = (Plus.HabboHotel.Rooms.AI.RoomBot)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Plus.HabboHotel.Rooms.AI.RoomBot))
+        };
+        var roster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
+        roster[0] = horse;
+        rider.RidingHorse = true;
+        rider.HorseId = horse.VirtualId;
+        rider.Path = [new(1, 1), new(1, 0)];
+        rider.PathStep = 1;
+        rider.GoalX = rider.GoalY = 1;
+        rider.IsWalking = true;
+        _room.GetRoomUserManager().OnCycle();
+        Assert.Equal(riderMv, rider.Statusses["mv"]);
+        Assert.Equal("1,1,0.75", horse.Statusses["mv"]);
+        Assert.True(horse.UpdateNeeded);
+    }
+
+    [Fact]
+    public async Task ConcurrentProjectionFlushesDeliverSnapshotsInOrder()
+    {
+        Viewer();
+        var table = Add(10, 1, 1);
+        using var sending = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var laterReady = new ManualResetEventSlim();
+        var sends = 0;
+        _client.BeforeCapture = header =>
+        {
+            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref sends) != 1) return;
+            sending.Set();
+            Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
+        };
+        var first = Task.Run(() =>
+        {
+            table.Definition.Height = 1;
+            table.UpdateState();
+        });
+        Task? later = null;
+        try
+        {
+            Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
+            later = Task.Run(() =>
+            {
+                table.Definition.Height = 2;
+                laterReady.Set();
+                table.UpdateState();
+            });
+            Assert.True(laterReady.Wait(TimeSpan.FromSeconds(10)));
+            Assert.False(later.Wait(TimeSpan.FromMilliseconds(100)));
+            Assert.Equal(1, Volatile.Read(ref sends));
+        }
+        finally { release.Set(); }
+        await first;
+        if (later != null) await later;
+        Assert.Equal(2, sends);
+        var values = _client.Packets.Where(packet => packet.Header == ServerPacketHeader.HeightMapUpdateComposer).Select(packet =>
+        {
+            var body = new FlashIncomingPacket { Buffer = packet.Body.ToArray() };
+            Assert.Equal(1, body.ReadByte());
+            Assert.Equal(1, body.ReadByte()); Assert.Equal(1, body.ReadByte());
+            return body.ReadShort();
+        }).ToArray();
+        Assert.Equal(new short[] { 256, 512 }, values);
+        Assert.Equal((short)512, _room.GetGameMap().PlacementHeightMap()[1, 1]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProjectionDeliveryCannotOverlapBridgeConstructionOrMapRebuild(bool rebuild)
+    {
+        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", false, 0, false));
+        Set("_gamemap", map); map.GenerateMaps();
+        var bridge = Add(10, 2, 1, z: 2, height: 0.5);
+        var table = Add(11, 3, 2);
+        Viewer();
+        using var sending = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var mutationReady = new ManualResetEventSlim();
+        var sends = 0;
+        _client.BeforeCapture = header =>
+        {
+            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref sends) != 1) return;
+            sending.Set();
+            Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
+        };
+        var first = Task.Run(() =>
+        {
+            table.Definition.Height = 1;
+            table.UpdateState();
+        });
+        Task? mutation = null;
+        try
+        {
+            Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
+            mutation = Task.Run(() =>
+            {
+                mutationReady.Set();
+                if (rebuild) map.GenerateMaps();
+                else _room.GetRoomItemHandler().UpdateItemOnRoller(bridge, new(1, 1), 42, 2);
+                map.FlushPlacementUpdates();
+            });
+            Assert.True(mutationReady.Wait(TimeSpan.FromSeconds(10)));
+            Assert.False(mutation.Wait(TimeSpan.FromMilliseconds(100)));
+            Assert.Equal(SquareState.Blocked, map.Model.SqState[1, 1]);
+            Assert.Equal(1, Volatile.Read(ref sends));
+        }
+        finally { release.Set(); }
+        await first;
+        if (mutation != null) await mutation;
+        Assert.Equal(rebuild ? SquareState.Blocked : SquareState.Open, map.Model.SqState[1, 1]);
+        Assert.Equal((short)256, DeltaAt(3, 2));
+        if (!rebuild)
+        {
+            Assert.True(map.CanRollItemHere(1, 1));
+            Assert.Equal((short)640, DeltaAt(1, 1));
+            Assert.Equal((short)640, map.PlacementHeightMap()[1, 1]);
+        }
     }
 
     private short DeltaAt(int x, int y)

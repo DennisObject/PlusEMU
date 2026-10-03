@@ -13,6 +13,8 @@ public class Gamemap
 {
     private ConcurrentDictionary<Point, List<uint>> _coordinatedItems;
     private double[,] _itemHeightMap;
+    // Map mutations, dirty tracking, snapshots and delivery share one ordering boundary.
+    private readonly object _placementLock = new();
     private readonly Dictionary<Point, short> _placementMap = new();
     private readonly HashSet<Point> _placementDirty = new();
     private int _placementWidth;
@@ -27,7 +29,7 @@ public class Gamemap
         var helpers = items.Where(item => MagicTileHeight.IsMagicTile(item.Definition.InteractionType)).ToArray();
         if (helpers.Length > 0) return new(helpers.Max(item => item.GetZ), true, true);
         var height = Math.Max(Model.SqFloorHeight[x, y], items.Select(item => item.TotalHeight).DefaultIfEmpty(0).Max());
-        var canStack = x < StaticModel.MapSizeX && y < StaticModel.MapSizeY && StaticModel.SqState[x, y] != SquareState.Blocked
+        var canStack = Model.SqState[x, y] != SquareState.Blocked
             && !items.Any(item => !item.Definition.Stackable && (collision == null || !collision.ThroughFurni.Contains(item.Id)));
         return new(height, canStack, false);
     }
@@ -37,49 +39,73 @@ public class Gamemap
 
     public short[,] PlacementHeightMap()
     {
-        var result = new short[Model.MapSizeX, Model.MapSizeY];
-        for (var y = 0; y < Model.MapSizeY; y++)
-            for (var x = 0; x < Model.MapSizeX; x++)
-                result[x, y] = EncodePlacement(ResolvePlacement(x, y));
-        return result;
+        lock (_placementLock)
+        {
+            var result = new short[Model.MapSizeX, Model.MapSizeY];
+            for (var y = 0; y < Model.MapSizeY; y++)
+                for (var x = 0; x < Model.MapSizeX; x++)
+                    result[x, y] = EncodePlacement(ResolvePlacement(x, y));
+            return result;
+        }
     }
 
     internal IReadOnlyList<HeightMapUpdateComposer.Tile> RebuildPlacementUpdates()
     {
-        var changed = new List<HeightMapUpdateComposer.Tile>();
-        foreach (var point in _placementDirty.OrderBy(tile => tile.Y).ThenBy(tile => tile.X))
+        lock (_placementLock)
         {
-            if (!ValidTile(point.X, point.Y)) continue;
-            var value = EncodePlacement(ResolvePlacement(point.X, point.Y));
-            // Before the first mutation the projection is the model's floor with no furniture.
-            var previous = _placementMap.TryGetValue(point, out var stored) ? stored
-                : EncodePlacement(new(Model.SqFloorHeight[point.X, point.Y], point.X < StaticModel.MapSizeX && point.Y < StaticModel.MapSizeY && StaticModel.SqState[point.X, point.Y] != SquareState.Blocked, false));
-            _placementMap[point] = value;
-            if (value != previous) changed.Add(new(point.X, point.Y, value));
+            var changed = new List<HeightMapUpdateComposer.Tile>();
+            foreach (var point in _placementDirty.OrderBy(tile => tile.Y).ThenBy(tile => tile.X))
+            {
+                if (!ValidTile(point.X, point.Y)) continue;
+                var value = EncodePlacement(ResolvePlacement(point.X, point.Y));
+                // Before the first mutation the projection is the model's floor with no furniture.
+                var previous = _placementMap.TryGetValue(point, out var stored) ? stored
+                    : EncodePlacement(new(Model.SqFloorHeight[point.X, point.Y], point.X < StaticModel.MapSizeX && point.Y < StaticModel.MapSizeY && StaticModel.SqState[point.X, point.Y] != SquareState.Blocked, false));
+                _placementMap[point] = value;
+                if (value != previous) changed.Add(new(point.X, point.Y, value));
+            }
+            _placementDirty.Clear();
+            return changed;
         }
-        _placementDirty.Clear();
-        return changed;
     }
 
     internal void NotifyPlacementState(Item item)
     {
-        foreach (var point in item.GetCoords) _placementDirty.Add(point);
-        FlushPlacementUpdates();
+        lock (_placementLock)
+        {
+            foreach (var point in item.GetCoords) _placementDirty.Add(point);
+            FlushPlacementUpdates();
+        }
     }
 
     public void FlushPlacementUpdates()
     {
-        var changed = RebuildPlacementUpdates();
-        var resized = _placementWidth != Model.MapSizeX || _placementHeight != Model.MapSizeY;
-        _placementWidth = Model.MapSizeX;
-        _placementHeight = Model.MapSizeY;
-        if (changed.Count == 0 && !resized) return;
-        // The client's count and coordinates are unsigned bytes. Larger maps need a full refresh.
-        if (resized || changed.Any(tile => tile.X > byte.MaxValue || tile.Y > byte.MaxValue))
-            _room.SendPacket(new HeightMapComposer(PlacementHeightMap()));
-        else
-            foreach (var chunk in changed.Chunk(byte.MaxValue))
-                _room.SendPlacementUpdates(chunk);
+        lock (_placementLock)
+        {
+            // Capture and send under the same lock: later flushes cannot overtake this snapshot.
+            var changed = RebuildPlacementUpdates();
+            var resized = _placementWidth != Model.MapSizeX || _placementHeight != Model.MapSizeY;
+            _placementWidth = Model.MapSizeX;
+            _placementHeight = Model.MapSizeY;
+            if (changed.Count == 0 && !resized) return;
+            // The client's count and coordinates are unsigned bytes. Larger maps need a full refresh.
+            if (resized || changed.Any(tile => tile.X > byte.MaxValue || tile.Y > byte.MaxValue))
+                _room.SendPacket(new HeightMapComposer(PlacementHeightMap()));
+            else
+                foreach (var chunk in changed.Chunk(byte.MaxValue))
+                    _room.SendPlacementUpdates(chunk);
+        }
+    }
+
+    private void MarkPlacementDirty(Point point)
+    {
+        lock (_placementLock) _placementDirty.Add(point);
+    }
+
+    internal void SendPlacementHeightMap(Plus.HabboHotel.GameClients.GameClient session)
+    {
+        // Keep entry snapshots ordered with mutation broadcasts as well.
+        lock (_placementLock) session.Send(new HeightMapComposer(PlacementHeightMap()));
     }
 
     internal Item? WalkMagicAt(int x, int y) => x == Model.DoorX && y == Model.DoorY ? null
@@ -349,11 +375,16 @@ public class Gamemap
 
     public void GenerateMaps(bool checkLines = true)
     {
+        lock (_placementLock) GenerateMapsCore(checkLines);
+    }
+
+    private void GenerateMapsCore(bool checkLines)
+    {
         var maxX = 0;
         var maxY = 0;
         _coordinatedItems = new();
         for (var y = 0; y < Model.MapSizeY; y++)
-            for (var x = 0; x < Model.MapSizeX; x++) _placementDirty.Add(new(x, y));
+            for (var x = 0; x < Model.MapSizeX; x++) MarkPlacementDirty(new(x, y));
         if (checkLines)
         {
             var items = _room.GetRoomItemHandler().GetFloor.ToArray();
@@ -474,7 +505,12 @@ public class Gamemap
                 GenerateMaps();
                 return false;
             }
-            _placementDirty.Add(coord);
+            MarkPlacementDirty(coord);
+            // Ordinary furniture keeps the legacy bridge support over model void.
+            // Helpers override walking without changing the underlying floor geometry.
+            if (!MagicTileHeight.IsMagicTile(item.Definition.InteractionType)
+                && Model.SqState[coord.X, coord.Y] == SquareState.Blocked)
+                Model.OpenSquare(coord.X, coord.Y, item.GetZ);
             var walkMagic = WalkMagicAt(coord.X, coord.Y);
             if (walkMagic != null)
             {
@@ -485,10 +521,6 @@ public class Gamemap
                 return true;
             }
             if (IgnoreStacktool(item)) return true;
-            if (item.Definition.InteractionType != InteractionType.WalkMagicTile
-                && !MagicTileHeight.IsMagicTile(item.Definition.InteractionType)
-                && (coord.X >= StaticModel.MapSizeX || coord.Y >= StaticModel.MapSizeY)
-                && Model.SqState[coord.X, coord.Y] == SquareState.Blocked) Model.OpenSquare(coord.X, coord.Y, item.GetZ);
             if (_itemHeightMap[coord.X, coord.Y] <= item.TotalHeight)
             {
                 _itemHeightMap[coord.X, coord.Y] = item.TotalHeight - Model.SqFloorHeight[item.GetX, item.GetY];
@@ -703,6 +735,11 @@ public class Gamemap
 
     public bool RemoveFromMap(Item item, bool handleGameItem)
     {
+        lock (_placementLock) return RemoveFromMapCore(item, handleGameItem);
+    }
+
+    private bool RemoveFromMapCore(Item item, bool handleGameItem)
+    {
         if (handleGameItem)
             RemoveSpecialItem(item);
         if (_room.GotSoccer())
@@ -724,7 +761,7 @@ public class Gamemap
                 if (!conflictedName.ContainsKey(tile))
                     conflictedName.TryAdd(tile, items);
             }
-            _placementDirty.Add(point);
+            MarkPlacementDirty(point);
             SetDefaultValue(tile.X, tile.Y);
         }
         foreach (var coord in conflictedName.Keys.ToList())
@@ -742,6 +779,11 @@ public class Gamemap
     public bool RemoveFromMap(Item item) => RemoveFromMap(item, true);
 
     public bool AddItemToMap(Item item, bool handleGameItem, bool newItem = true)
+    {
+        lock (_placementLock) return AddItemToMapCore(item, handleGameItem, newItem);
+    }
+
+    private bool AddItemToMapCore(Item item, bool handleGameItem, bool newItem)
     {
         if (handleGameItem)
         {

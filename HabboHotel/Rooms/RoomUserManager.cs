@@ -854,7 +854,7 @@ public class RoomUserManager
                                     user.GetClient().GetHabbo().HopperId = 0;
                                 }
                             }
-                            if (!user.IsBot && user.RidingHorse && user.IsPet == false && _room.GetGameMap().WalkMagicAt(nextX, nextY) == null)
+                            if (!user.IsBot && user.RidingHorse && user.IsPet == false)
                             {
                                 var horse = GetRoomUserByVirtualId(user.HorseId);
                                 if (horse != null)
@@ -862,7 +862,8 @@ public class RoomUserManager
                                     horse.SetStatus("mv", $"{nextX},{nextY},{TextHandling.GetString(nextZ)}");
                                     horse.UpdateNeeded = true;
                                 }
-                                user.SetStatus("mv", $"{+nextX},{nextY},{TextHandling.GetString(nextZ + 1)}");
+                                var riderZ = _room.GetGameMap().WalkMagicAt(nextX, nextY) == null ? nextZ + 1 : nextZ;
+                                user.SetStatus("mv", $"{nextX},{nextY},{TextHandling.GetString(riderZ)}");
                                 user.UpdateNeeded = true;
                             }
                             else

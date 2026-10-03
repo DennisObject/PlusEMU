@@ -458,13 +458,6 @@ public class RoomItemHandling
         bool HasBlockingUsers(int x, int y) => wiredCollision == null
             ? _room.GetGameMap().SquareHasUsers(x, y)
             : wiredCollision.BlocksUsers(_room.GetGameMap().GetRoomUsers(new(x, y)));
-        if (wiredCollision != null)
-        {
-            foreach (var point in Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.Footprint(item, newX, newY, newRot))
-                if (!_room.GetGameMap().ValidTile(point.X, point.Y)
-                    || _room.GetGameMap().GetCoordinatedItems(point).Any(other => other.Id != item.Id && wiredCollision.BlocksFurni(other)))
-                    return false;
-        }
         var magic = MagicTileHeight.IsMagicTile(item.Definition.InteractionType);
         if (newItem)
         {
@@ -486,6 +479,9 @@ public class RoomItemHandling
             if (!map.ValidTile(tile.X, tile.Y)) return false;
             if (magic && tile.X == map.Model.DoorX && tile.Y == map.Model.DoorY) return false;
             var placement = map.ResolvePlacement(tile.X, tile.Y, item.Id, wiredCollision);
+            if (wiredCollision != null && map.GetCoordinatedItems(tile).Any(other => other.Id != item.Id
+                && (wiredCollision.BlockingFurni.Contains(other.Id)
+                    || !magic && !placement.HasHelper && wiredCollision.BlocksFurni(other)))) return false;
             if (!magic)
             {
                 if (HasBlockingUsers(tile.X, tile.Y) && !item.Definition.IsSeat && !placement.HasHelper) return false;
@@ -496,6 +492,10 @@ public class RoomItemHandling
         var newZ = height == -1
             ? footprint.Max(tile => map.ResolvePlacement(tile.X, tile.Y, item.Id, wiredCollision).PlacementZ)
             : height;
+        if (!magic && height == -1 && !newItem && item.Rotation != newRot
+            && item.GetX == newX && item.GetY == newY
+            && !footprint.Any(tile => map.ResolvePlacement(tile.X, tile.Y, item.Id, wiredCollision).HasHelper))
+            newZ = Math.Max(newZ, item.GetZ);
         if (magic)
         {
             var floorZ = footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]);

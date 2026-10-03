@@ -324,6 +324,7 @@ public partial class PlacedFurniRoomTests : IDisposable
 
     private sealed class TestClient : GameClient
     {
+        public Action<uint>? BeforeCapture { get; set; }
         public List<uint> Sent { get; } = new();
         public List<(uint Header, byte[] Body)> Packets { get; } = new();
         public TestClient() : base(null!, new FlashPacketFactory())
@@ -340,6 +341,7 @@ public partial class PlacedFurniRoomTests : IDisposable
             (true, false, 0, 0, 0);
         public override void CreateHeader(Memory<byte> memory, uint messageId)
         {
+            BeforeCapture?.Invoke(messageId);
             Sent.Add(messageId);
             Packets.Add((messageId, memory[6..].ToArray()));
         }
