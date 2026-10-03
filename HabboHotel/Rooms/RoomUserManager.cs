@@ -161,6 +161,7 @@ public class RoomUserManager
         var user = GetRoomUserByVirtualId(virtualId);
         if (user == null || !user.IsBot)
             return;
+        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) navigation.Remove(user);
         if (user.IsPet)
         {
             _pets.TryRemove(user.PetData.PetId, out var pet);
@@ -437,6 +438,7 @@ public class RoomUserManager
 
     private void RemoveRoomUser(RoomUser user)
     {
+        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) navigation.Remove(user);
         _room.GetWired()?.BeforeActorLeaves(user);
         if (!user.IsBot || !user.BotData.IsTemporary)
         {
@@ -636,6 +638,11 @@ public class RoomUserManager
         return true;
     }
 
+    private IMovementEngine? _movementEngine;
+    private IMovementEngine MovementEngine => _movementEngine ??=
+        _room.GetGameMap().Navigation is { UsesExecutor: true } navigation
+            ? navigation.Executor : new LegacyMovementEngine(CycleUsers);
+
     public void OnCycle()
     {
         lock (_stressSync)
@@ -643,7 +650,7 @@ public class RoomUserManager
             if (_disposed)
                 return;
             ProcessStressBots();
-            CycleUsers();
+            MovementEngine.Tick();
         }
     }
 

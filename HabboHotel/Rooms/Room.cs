@@ -340,70 +340,54 @@ public class Room : RoomData
 
     public void ProcessRoom()
     {
-        if (IsCrashed || MDisposed)
-            return;
+        if (IsCrashed || MDisposed) return;
+        using var owner = Plus.HabboHotel.Rooms.PathFinding.RoomOwnerScope.Enter(this);
         try
         {
-            if (GetRoomUserManager().GetRoomUsers().Count == 0)
-                IdleTime++;
-            else if (IdleTime > 0)
-                IdleTime = 0;
-            if (HasActivePromotion && Promotion.HasExpired) EndPromotion();
-            if (IdleTime >= 60 && !HasActivePromotion)
-            {
-                PlusEnvironment.Game.RoomManager.UnloadRoom(Id);
-                return;
-            }
-            try
-            {
-                GetGameMap().Navigation?.ApplyDirty();
-                GetRoomItemHandler().OnCycle();
-            }
-            catch (Exception e)
-            {
-                ExceptionLogger.LogException(e);
-            }
-            try
-            {
-                GetGameMap().Navigation?.ApplyDirty();
-                GetRoomUserManager().OnCycle();
-            }
-            catch (Exception e)
-            {
-                ExceptionLogger.LogException(e);
-            }
-            try
-            {
-                GetRoomUserManager().SerializeStatusUpdates();
-            }
-            catch (Exception e)
-            {
-                ExceptionLogger.LogException(e);
-            }
-            try
-            {
-                if (_gameItemHandler != null)
-                    _gameItemHandler.OnCycle();
-            }
-            catch (Exception e)
-            {
-                ExceptionLogger.LogException(e);
-            }
-            try
-            {
-                GetWired().OnCycle();
-                GetGameMap().FlushPlacementUpdates();
-            }
-            catch (Exception e)
-            {
-                ExceptionLogger.LogException(e);
-            }
+            if (!KeepRoomActive()) return;
+            RunRoomPhase(CycleFurniture);
+            RunRoomPhase(CycleActors);
+            RunRoomPhase(() => GetRoomUserManager().SerializeStatusUpdates());
+            RunRoomPhase(() => _gameItemHandler?.OnCycle());
+            RunRoomPhase(CycleWired);
         }
-        catch (Exception e)
-        {
-            ExceptionLogger.LogException(e);
-            OnRoomCrash(e);
-        }
+        catch (Exception error) { ExceptionLogger.LogException(error); OnRoomCrash(error); }
+    }
+
+    private bool KeepRoomActive()
+    {
+        if (GetRoomUserManager().GetRoomUsers().Count == 0) IdleTime++;
+        else if (IdleTime > 0) IdleTime = 0;
+        if (HasActivePromotion && Promotion.HasExpired) EndPromotion();
+        if (IdleTime < 60 || HasActivePromotion) return true;
+        PlusEnvironment.Game.RoomManager.UnloadRoom(Id);
+        return false;
+    }
+
+    private static void RunRoomPhase(Action phase)
+    {
+        try { phase(); }
+        catch (Exception error) { ExceptionLogger.LogException(error); }
+    }
+
+    private void CycleFurniture()
+    {
+        GetGameMap().Navigation?.ApplyDirty();
+        GetGameMap().Navigation?.DrainCommands();
+        GetRoomItemHandler().OnCycle();
+    }
+
+    private void CycleActors()
+    {
+        GetGameMap().Navigation?.ApplyDirty();
+        GetGameMap().Navigation?.DrainCommands();
+        GetRoomUserManager().OnCycle();
+    }
+
+    private void CycleWired()
+    {
+        GetWired().OnCycle();
+        GetGameMap().FlushPlacementUpdates();
     }
 
     private void OnRoomCrash(Exception e)

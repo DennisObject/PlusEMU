@@ -1,0 +1,21 @@
+namespace Plus.HabboHotel.Rooms.PathFinding;
+
+internal sealed class CommandIntake(MovementContext context)
+{
+    public void Consume(RoomUser actor)
+    {
+        var state = actor.Movement;
+        var command = state.Commands.Read();
+        if (command == null || command.Sequence <= state.ConsumedSequence) return;
+        state.ConsumedSequence = command.Sequence;
+        if (actor.Frozen || !actor.CanWalk && command.Origin == MoveOrigin.User) return;
+        state.GoalRevision++; state.Origin = command.Origin; state.Flags = command.Flags;
+        state.Route.Clear(); state.Cursor = 0; state.HasIntent = true;
+        state.WaitTicks = state.BlockReplans = state.StallTicks = 0;
+        actor.GoalX = command.X; actor.GoalY = command.Y;
+        state.Profile.Interaction = command.Origin == MoveOrigin.Interaction
+            ? new(actor.X, actor.Y, command.X, command.Y) : null;
+        actor.UnIdle(); actor.FreezeInteracting = false;
+        context.Replan(actor); context.RefreshMembership(actor);
+    }
+}
