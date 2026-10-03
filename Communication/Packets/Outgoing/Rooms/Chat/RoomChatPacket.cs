@@ -14,11 +14,6 @@ internal static class RoomChatPacket
         packet.WriteString(string.Empty);
         packet.WriteInteger(message.Length);
         packet.WriteString(string.Empty);
-        packet.WriteString(string.Empty);
-        packet.WriteString(string.Empty);
-        packet.WriteString(string.Empty);
-        packet.WriteString(string.Empty);
-        packet.WriteString(string.Empty);
-        packet.WriteString("icon-prefix-name");
+        packet.WriteInteger(-1);
     }
 }

@@ -75,12 +75,6 @@ public class UsersComposer : IServerPacket
                 packet.WriteInteger(habbo.HabboStats.AchievementPoints); //Achievement score
                 packet.WriteBoolean(false); //Builders club? TG: Is Moderator
                 packet.WriteString(""); // Nick icon
-                packet.WriteString(""); // Prefix text
-                packet.WriteString(""); // Prefix color
-                packet.WriteString(""); // Prefix icon
-                packet.WriteString(""); // Prefix effect
-                packet.WriteString(""); // Prefix font
-                packet.WriteString("icon-prefix-name");
             //}
             //else if (habbo.PetId > 0 && habbo.PetId != 100)
             //{

@@ -40,5 +40,8 @@ public class UserChangeComposer : IServerPacket
         packet.WriteInteger(0); // Background
         packet.WriteInteger(0); // Stand
         packet.WriteInteger(0); // Overlay
+        packet.WriteInteger(0); // Card background
+        packet.WriteString(""); // Nick icon
+        packet.WriteInteger(0); // Border
     }
 }
