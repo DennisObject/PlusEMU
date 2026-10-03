@@ -28,11 +28,11 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
-    public async Task ForcePlacementServiceDoesNotTreatAnInheritedTaskAsTheRoomOwner()
+    public void ForcePlacementServiceDoesNotTreatAnInheritedTaskAsTheRoomOwner()
     {
         var actor = ExecutorActor(0, 1);
         using (RoomOwnerScope.Enter(_room))
-            await Task.Run(() => actor.SetPos(2, 2, 1.25));
+            Task.Run(() => actor.SetPos(2, 2, 1.25)).GetAwaiter().GetResult();
         Assert.Equal((0, 1, 0d), (actor.X, actor.Y, actor.Z));
         ExecutorTick();
         Assert.Equal((2, 2, 1.25), (actor.X, actor.Y, actor.Z));
