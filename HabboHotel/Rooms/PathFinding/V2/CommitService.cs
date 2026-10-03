@@ -1,6 +1,7 @@
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
-internal sealed class CommitService(Room room, RoomNavigation navigation, MovementContext context, MovementCancellation cancellation)
+internal sealed class CommitService(Room room, RoomNavigation navigation, MovementContext context,
+    MovementCancellation cancellation, RouteFallbackService fallback)
 {
     private readonly MovementRules _rules = new(navigation.Grid, navigation.Settings);
     private readonly LandingService _landing = new(room, navigation, context, cancellation);
@@ -17,7 +18,8 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
         context.Claims.ReleaseBatch(actor);
         if (state.State != NavState.Active || state.LocationRevision != revision) return accepted > 0;
         if (accepted > 0) state.WaitTicks = state.BlockReplans = state.StallTicks = 0;
-        if (!context.Geometry.FinishInvalidation(actor)) Advance(actor, accepted, count);
+        Advance(actor, accepted, count);
+        context.Geometry.FinishInvalidation(actor);
         return accepted > 0;
     }
     private void LandPending(RoomUser actor, int accepted)
@@ -39,14 +41,8 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
     {
         var state = actor.Movement;
         state.Cursor += accepted;
-        if (accepted > 0) state.WaitTicks = state.BlockReplans = state.StallTicks = 0;
-        if (accepted != count)
-        {
-            actor.RemoveStatus("mv"); actor.UpdateNeeded = true;
-            state.Route.Clear(); state.Cursor = 0; state.GoalRevision++; state.AcceptedGoal = null;
-            context.Replan(actor);
-        }
-        if (state.Cursor >= state.Route.Count && accepted == count) cancellation.Cancel(actor);
+        if (accepted != count) { fallback.OnRouteBlocked(actor); return; }
+        if (state.Cursor >= state.Route.Count && fallback.RouteFinished(state)) cancellation.Cancel(actor);
     }
     private int ValidPrefix(RoomUser actor)
     {

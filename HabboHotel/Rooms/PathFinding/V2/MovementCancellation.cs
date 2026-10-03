@@ -8,6 +8,7 @@ internal sealed class MovementCancellation(MovementContext context)
         state.GoalRevision++; state.AcceptedGoal = null; state.RouteInvalidated = false; state.HasIntent = false; state.Route.Clear(); state.Cursor = 0;
         state.PendingCount = 0; state.WaitTicks = state.BlockReplans = state.StallTicks = 0;
         state.ConsumedSequence = Math.Max(state.ConsumedSequence, discardThrough);
+        state.Fallback.Reset();
         actor.GoalX = actor.X; actor.GoalY = actor.Y; actor.IsWalking = false;
         actor.SetStep = false; actor.PathRecalcNeeded = false; actor.Path.Clear();
         actor.RemoveStatus("mv"); actor.UpdateNeeded = true;
