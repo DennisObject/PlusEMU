@@ -113,7 +113,7 @@ public partial class PlacedFurniRoomTests
     {
         var remote = ExecutorFloor(10, 3, 2);
         var actor = ExecutorActor(0, 1);
-        actor.SetStatus(posture, "0.5"); actor.IsSitting = posture == "sit"; actor.IsLying = posture == "lay";
+        ReviewManualPosture(actor, posture);
         var version = actor.Movement.BoundVersion;
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(remote, 2, 2, 0));
         ExecutorTick();
@@ -150,6 +150,14 @@ public partial class PlacedFurniRoomTests
         state.Route.Count = 3; state.Route.GridVersion = grid.Version;
         state.Route.Set(0, grid.Reference(8)); state.Route.Set(1, grid.Reference(9)); state.Route.Set(2, grid.Reference(5));
         state.Route.GoalSurface = grid.Reference(5);
+    }
+
+    private static void ReviewManualPosture(RoomUser actor, string posture)
+    {
+        actor.SetStatus(posture, "0.5");
+        actor.IsSitting = posture == "sit"; actor.IsLying = posture == "lay";
+        // Manual posture commands also schedule the changed status for serialization.
+        actor.UpdateNeeded = true;
     }
 
     private (int Head, int Body) ReviewPacketFacing(RoomUser actor)
