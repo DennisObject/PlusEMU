@@ -190,7 +190,7 @@ public partial class PlacedFurniRoomTests
             if (item != landing) return;
             _room.GetGameMap().TeleportToItem(user, destination);
             afterPlacement = user.Movement.GoalRevision;
-            user.MoveTo(3, 3);
+            user.MoveTo(3, 1);
         });
         actor.MoveTo(2, 1); ExecutorTick(); ExecutorTick();
         Assert.Equal((3, 2, .75), (actor.X, actor.Y, actor.Z));
@@ -198,8 +198,8 @@ public partial class PlacedFurniRoomTests
         Assert.False(actor.HasStatus("mv")); Assert.False(actor.Movement.HasIntent);
         Assert.True(actor.Movement.Commands.Read()!.Sequence > actor.Movement.ConsumedSequence);
         ExecutorTick();
-        Assert.Equal((3, 3), (actor.GoalX, actor.GoalY));
-        Assert.Contains("/mv 3,3,0/", ExecutorUpdate(actor).Status);
+        Assert.Equal((3, 1), (actor.GoalX, actor.GoalY));
+        Assert.Contains("/mv 3,1,0/", ExecutorUpdate(actor).Status);
     }
 
     private RoomUser ExternalLifecycleHorse(int x, int y)
