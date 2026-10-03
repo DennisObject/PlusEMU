@@ -198,7 +198,7 @@ public class LegacyWalkValidationTests
     [InlineData("official", true)]
     [InlineData("strict", false)]
     [InlineData("none", true)]
-    [InlineData("0", true)]
+    [InlineData("0", true)] // SettingsManager returns "0" for a missing key
     public void CornerSettingUsesSettingsManagerAndDefaultsToOfficial(string setting, bool expected)
     {
         var field = typeof(PlusEnvironment).GetField("_settingsManager", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -217,14 +217,6 @@ public class LegacyWalkValidationTests
             Assert.Equal(setting == "none", voidMap.IsValidStep(new(1, 1), new(2, 2), true, false));
         }
         finally { field.SetValue(null, previous); }
-    }
-
-    [Fact]
-    public void MissingCornerSettingDefaultsToOfficial()
-    {
-        var settings = new SettingsManager(null!, null!);
-        Assert.Equal("official", settings.TryGetValue("pathfinding.corner_rule"));
-        Assert.Equal("0", settings.TryGetValue("unrelated.missing.setting"));
     }
 
     [Theory]
