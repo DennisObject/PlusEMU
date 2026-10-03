@@ -1,6 +1,4 @@
-﻿using Dapper;
-using Plus.Database;
-using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.UserData;
 using System.Diagnostics;
 
@@ -11,14 +9,14 @@ internal class Authenticator : IAuthenticator
     private readonly IEnumerable<IAuthenticationTask> _authenticationTasks;
     private readonly IGameClientManager _gameClientManager;
     private readonly IUserDataFactory _userDataFactory;
-    private readonly IDatabase _database;
+    private readonly ISsoTicketStore _ssoTickets;
 
-    public Authenticator(IEnumerable<IAuthenticationTask> authenticationTasks, IGameClientManager gameClientManager, IUserDataFactory userDataFactory, IDatabase database)
+    public Authenticator(IEnumerable<IAuthenticationTask> authenticationTasks, IGameClientManager gameClientManager, IUserDataFactory userDataFactory, ISsoTicketStore ssoTickets)
     {
         _authenticationTasks = authenticationTasks;
         _gameClientManager = gameClientManager;
         _userDataFactory = userDataFactory;
-        _database = database;
+        _ssoTickets = ssoTickets;
     }
 
     public async Task<AuthenticationError?> AuthenticateUsingSSO(GameClient session, string sso)
@@ -30,12 +28,9 @@ internal class Authenticator : IAuthenticator
         if (!Debugger.IsAttached && sso.Length < 15)
             return AuthenticationError.InvalidSSO;
 
-        var userId = await GetUserIdFromSso(sso);
-        if (userId == default)
+        // Single use even with a debugger attached: the ticket is cleared as it is read.
+        if (await _ssoTickets.Consume(sso) is not { } userId)
             return AuthenticationError.NoAccountFound;
-
-        if (!Debugger.IsAttached)
-            await ResetSso(userId);
 
         var canLogin = await CanLogin(userId);
         if (!canLogin)
@@ -54,18 +49,6 @@ internal class Authenticator : IAuthenticator
         _gameClientManager.RegisterClient(session, habbo.Id, habbo.Username);
         await RaiseHabboLoggedIn(habbo);
         return null;
-    }
-
-    private async Task<int> GetUserIdFromSso(string sso)
-    {
-        using var connection = _database.Connection();
-        return await connection.ExecuteScalarAsync<int>("SELECT id FROM users WHERE auth_ticket = @sso", new { sso });
-    }
-
-    private async Task ResetSso(int userId)
-    {
-        using var connection = _database.Connection();
-        await connection.ExecuteAsync("UPDATE users SET auth_ticket = NULL WHERE id = @userId", new { userId });
     }
 
     private async Task<bool> CanLogin(int userId)

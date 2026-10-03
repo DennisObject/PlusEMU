@@ -1,0 +1,63 @@
+using Dapper;
+using Microsoft.Extensions.Options;
+using Plus.Communication.Http;
+using Plus.Database;
+
+namespace Plus.HabboHotel.Users.Authentication;
+
+public class AccessTokenStore : IAccessTokenStore
+{
+    // Expired rows are kept a day for auditing, then removed when new tokens are issued.
+    private const int RetentionSeconds = 24 * 60 * 60;
+
+    private readonly IDatabase _database;
+    private readonly TimeProvider _time;
+    private readonly int _lifetimeSeconds;
+
+    public AccessTokenStore(IDatabase database, TimeProvider time, IOptions<AuthApiConfiguration> options)
+    {
+        _database = database;
+        _time = time;
+        _lifetimeSeconds = options.Value.AccessTokenLifetimeMinutes * 60;
+    }
+
+    public async Task<IssuedToken> Issue(int userId)
+    {
+        var now = Now();
+        var token = new IssuedToken(SecureToken.Generate(), now + _lifetimeSeconds);
+        using var connection = _database.Connection();
+        await connection.ExecuteAsync("DELETE FROM `user_access_tokens` WHERE `expires_at` < @cutoff", new { cutoff = now - RetentionSeconds });
+        await connection.ExecuteAsync(
+            "INSERT INTO `user_access_tokens` (`user_id`, `token_hash`, `created_at`, `expires_at`) VALUES (@userId, @hash, @now, @expiresAt)",
+            new { userId, hash = SecureToken.Hash(token.Value), now, expiresAt = token.ExpiresAt });
+        return token;
+    }
+
+    public async Task<int?> FindUser(string token)
+    {
+        if (string.IsNullOrEmpty(token))
+            return null;
+        using var connection = _database.Connection();
+        return await connection.ExecuteScalarAsync<int?>(
+            "SELECT `user_id` FROM `user_access_tokens` WHERE `token_hash` = @hash AND `revoked_at` IS NULL AND `expires_at` > @now LIMIT 1",
+            new { hash = SecureToken.Hash(token), now = Now() });
+    }
+
+    public async Task Revoke(string token)
+    {
+        if (string.IsNullOrEmpty(token))
+            return;
+        using var connection = _database.Connection();
+        await connection.ExecuteAsync("UPDATE `user_access_tokens` SET `revoked_at` = @now WHERE `token_hash` = @hash AND `revoked_at` IS NULL",
+            new { hash = SecureToken.Hash(token), now = Now() });
+    }
+
+    public async Task RevokeAll(int userId)
+    {
+        using var connection = _database.Connection();
+        await connection.ExecuteAsync("UPDATE `user_access_tokens` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
+            new { userId, now = Now() });
+    }
+
+    private long Now() => _time.GetUtcNow().ToUnixTimeSeconds();
+}
