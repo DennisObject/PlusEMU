@@ -1042,3 +1042,104 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("0", gate.LegacyDataString); Assert.Equal(2, Gates.PendingCount);
     }
 }
+
+// Every caller path enters the lane: snapshot restores decide equality at execution, aliases resolve before admission.
+public partial class PlacedFurniRoomTests
+{
+    [Fact]
+    public void GateLaneLegacySnapshotRestoreBehindAQueuedCloseIsEvaluatedAtExecution()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        ClickFromPacketThread(gate);
+        var box = new MatchPositionBox(_room, Furni(22, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
+        { StringData = "1;0;0", ItemsData = $"{gate.Id}:1,1,0,0,1" };
+        box.SetItems.TryAdd(gate.Id, gate);
+        using (RoomOwnerScope.Enter(_room)) Assert.True(box.Execute());
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(2, Gates.PendingCount);
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateLaneLegacySnapshotRestoreOnAnIdleGateStillSkipsEqualAndAppliesDifferent()
+    {
+        var gate = ClosableGate(state: "0"); ActorOn(new Point(0, 2)); var updates = 0;
+        _client.BeforeCapture = header => { if (header == ServerPacketHeader.ObjectUpdateComposer) updates++; };
+        foreach (var restored in new[] { "0", "1" })
+        {
+            var box = new MatchPositionBox(_room, Furni(22, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
+            { StringData = "1;0;0", ItemsData = $"{gate.Id}:1,1,0,0,{restored}" };
+            box.SetItems.TryAdd(gate.Id, gate);
+            using (RoomOwnerScope.Enter(_room)) box.Execute();
+            Assert.Equal(restored, gate.LegacyDataString);
+            if (restored == "0") Assert.Equal(0, updates);
+        }
+        Assert.Equal(1, updates);
+    }
+
+    [Fact]
+    public void GateLaneModernSnapshotRestoreBehindAQueuedCloseIsEvaluatedAtExecution()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        var box = Furni(41, InteractionType.WiredEffect, WiredBoxType.None);
+        var action = new Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction(_room, box,
+            Plus.HabboHotel.Items.Wired.Configuration.WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_match_to_sshot"),
+            new(), _ => { }, (_, _, _) => { }, new());
+        var proposed = new Plus.HabboHotel.Items.Wired.Configuration.WiredConfiguration
+        {
+            IntParams = [1, 0, 0, 0, 100], SelectedItems = [gate.Id],
+            Snapshots = [new(gate.Id, 0, gate.GetX, gate.GetY, gate.GetZ, gate.Rotation, "1")]
+        };
+        Assert.True(action.TryValidateConfiguration(proposed, out var config, out var error), error);
+        action.ApplyConfiguration(config);
+        var items = _room.GetRoomItemHandler().GetFloor.ToArray(); var users = _room.GetRoomUserManager().GetUserList().ToArray();
+        var context = new Plus.HabboHotel.Items.Wired.Runtime.WiredRuntimeContext(_room,
+            new(Plus.HabboHotel.Items.Wired.Runtime.WiredEventKind.Use), new(() => items, () => users), new NoWiredOperations());
+        ClickFromPacketThread(gate);
+        _room.RunFastPass(() => action.Execute(context));
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(2, Gates.PendingCount);
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    private sealed class AliasDirectory(uint roomId) : IWiredVariableDirectory
+    {
+        public uint? GetRoomOwner(uint id) => id == roomId ? 7u : null;
+        public WiredVariableDefinition? Find(uint itemId) => itemId == 30
+            ? new(30, roomId, 7, "echo", WiredVariableTarget.Furni, WiredVariableAvailability.RoomActive, true,
+                Link: new(roomId, new(WiredVariableTarget.Furni, "internal:@state"), false)) : null;
+    }
+
+    private static readonly WiredVariableReference AliasReference = new(WiredVariableTarget.Furni, "custom:30");
+
+    private WiredVariableModule AliasVariables(List<(Item Item, WiredVariableFrame Frame, string State)> notices)
+    {
+        var builtins = new RoomWiredBuiltinVariables(_room, stateChanged: (item, frame) => notices.Add((item, frame, item.LegacyDataString)));
+        return new WiredVariableModule(_room.Id, new AliasDirectory(_room.Id), new MemoryWiredVariableStore(), () => 1, builtins);
+    }
+
+    [Fact]
+    public void GateLaneAliasOpeningBehindAQueuedCloseQueuesAndAppliesAtTheDrain()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2)); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = AliasVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        ClickFromPacketThread(gate);
+        Assert.True(Task.Run(() => module.Mutate(AliasReference, holder, WiredVariableMutation.Set, 1, frame)).Result);
+        Assert.Equal(2, Gates.PendingCount); Assert.Empty(notices);
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Single(notices); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateLaneAliasCloseFromAnotherThreadQueuesInsteadOfBeingRefused()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2)); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = AliasVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        Assert.True(Task.Run(() => module.Mutate(AliasReference, holder, WiredVariableMutation.Set, 0, frame)).Result);
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(1, Gates.PendingCount);
+        DrainOnOwner();
+        Assert.Equal("0", gate.LegacyDataString); Assert.Single(notices);
+    }
+}
