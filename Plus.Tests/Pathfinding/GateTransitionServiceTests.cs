@@ -1,7 +1,10 @@
 using System.Drawing;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel;
+using Plus.Communication.Packets;
+using Plus.Communication.Packets.Incoming.Rooms.Furni;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Interactor;
 using Plus.HabboHotel.Items.Wired;
@@ -345,5 +348,159 @@ public partial class PlacedFurniRoomTests
         actor.MoveTo(2, 1);
         for (var cycle = 0; cycle < 10; cycle++) ExecutorTick();
         Assert.Equal("0", gate.LegacyDataString);
+    }
+}
+
+// Review fixes: serialized close transaction, fast Wired pass ownership, deferred variable writes, mannequin guards.
+public partial class PlacedFurniRoomTests
+{
+    private sealed class ProbeOccupancy(Action<IReadOnlyList<Point>> onQuery) : IGateOccupancy
+    {
+        public bool IsBlocked(IReadOnlyList<Point> footprint) { onQuery(footprint); return false; }
+    }
+
+    private GateTransition CloseWith(GateTransitionService service, Item gate)
+    {
+        using var owner = RoomOwnerScope.Enter(_room);
+        return service.TryClose(gate, GateCloseReason.Click, "0", persist: false);
+    }
+
+    [Fact]
+    public void GateCloseValidatesUnderPlacementSyncWithTheNavigationLockOrderedAfterIt()
+    {
+        var gate = ClosableGate(width: 2);
+        var map = _room.GetGameMap(); var held = new List<(bool Placement, bool Nav)>();
+        var service = new GateTransitionService(_room, () => new ProbeOccupancy(_ =>
+            held.Add((Monitor.IsEntered(map.PlacementSync), Monitor.IsEntered(gate.NavSync)))));
+        Assert.Equal(GateTransition.Applied, CloseWith(service, gate));
+        Assert.Equal(new[] { (true, false) }, held);
+        Assert.Equal("0", gate.LegacyDataString);
+    }
+
+    [Fact]
+    public void GateCloseBroadcastsAndRunsCallbacksOutsideEveryLock()
+    {
+        var gate = ClosableGate(width: 2); var map = _room.GetGameMap(); ActorOn(new Point(0, 2));
+        var observed = new List<(string Where, bool Placement, bool Nav)>();
+        _client.BeforeCapture = header =>
+        {
+            if (header == ServerPacketHeader.ObjectUpdateComposer)
+                observed.Add(("broadcast", Monitor.IsEntered(map.PlacementSync), Monitor.IsEntered(gate.NavSync)));
+        };
+        using (RoomOwnerScope.Enter(_room))
+            Gates.TryClose(gate, GateCloseReason.Click, "0", persist: false,
+                afterClose: _ => observed.Add(("after", Monitor.IsEntered(map.PlacementSync), Monitor.IsEntered(gate.NavSync))));
+        Assert.Equal(new[] { ("broadcast", false, false), ("after", false, false) }, observed);
+    }
+
+    [Fact]
+    public void GateCloseKeepsAPacketThreadMoveFromRelocatingTheGateMidTransaction()
+    {
+        var gate = ClosableGate(width: 2); var map = _room.GetGameMap();
+        Task? mover = null; var movedDuringValidation = true; IReadOnlyList<Point>? validated = null;
+        var service = new GateTransitionService(_room, () => new ProbeOccupancy(footprint =>
+        {
+            validated = footprint.ToArray();
+            mover = Task.Run(() => _room.GetRoomItemHandler().SetFloorItem(gate, 3, 3, 0));
+            Thread.Sleep(150); movedDuringValidation = mover.IsCompleted;
+        }));
+        Assert.Equal(GateTransition.Applied, CloseWith(service, gate));
+        Assert.False(movedDuringValidation);
+        Assert.True(mover!.Wait(TimeSpan.FromSeconds(5)));
+        Assert.Equal(new[] { new Point(1, 1), new Point(2, 1) }, validated!.OrderBy(p => p.X).ToArray());
+        Assert.Equal("0", gate.LegacyDataString); Assert.Equal((3, 3), (gate.GetX, gate.GetY));
+        Assert.Equal("0", gate.NavigationInputs is null ? "0" : map.Navigation!.Inputs.Read(gate.Id)!.State);
+    }
+
+    [Fact]
+    public void GateFastWiredPassRunsOnTheRoomOwnerSoConsecutiveTogglesAlternate()
+    {
+        var gate = ClosableGate(); var states = new List<string>();
+        _room.RunFastPass(() =>
+        {
+            new InteractorGate().OnWiredTrigger(gate); states.Add(gate.LegacyDataString);
+            new InteractorGate().OnWiredTrigger(gate); states.Add(gate.LegacyDataString);
+        });
+        Assert.Equal(new[] { "0", "1" }, states);
+        Assert.Equal(0, Gates.PendingCount);
+    }
+
+    private WiredVariableModule GateVariables(List<(Item Item, WiredVariableFrame Frame, string State)> notices)
+    {
+        var builtins = new RoomWiredBuiltinVariables(_room, stateChanged: (item, frame) => notices.Add((item, frame, item.LegacyDataString)));
+        return new WiredVariableModule(_room.Id, new GateDirectory(_room.Id), new MemoryWiredVariableStore(), () => 1, builtins);
+    }
+
+    private static readonly WiredVariableReference StateReference = new(WiredVariableTarget.Furni, "internal:@state");
+
+    private sealed class GateDirectory(uint roomId) : IWiredVariableDirectory
+    {
+        public uint? GetRoomOwner(uint id) => id == roomId ? 7u : null;
+        public WiredVariableDefinition? Find(uint itemId) => null;
+    }
+
+    [Fact]
+    public void GateVariableStateWriteFromAnotherThreadDefersTheWholeTransactionToTheOwner()
+    {
+        var gate = ClosableGate(); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]) { Depth = 3 };
+        Assert.True(Task.Run(() => module.Mutate(StateReference, holder, WiredVariableMutation.Set, 0, frame, origin: 2)).Result);
+        Assert.Equal("1", gate.LegacyDataString); Assert.Empty(notices); Assert.Empty(module.DrainChanges());
+        using (RoomOwnerScope.Enter(_room)) Gates.Drain();
+        Assert.Equal("0", gate.LegacyDataString);
+        var notice = Assert.Single(notices); Assert.Same(gate, notice.Item1); Assert.Same(frame, notice.Item2); Assert.Equal("0", notice.Item3);
+        var change = Assert.Single(module.DrainChanges());
+        Assert.Equal((1, 0, 2), (change.Before!.Value, change.After!.Value, change.Origin));
+    }
+
+    [Fact]
+    public void GateVariableStateWriteRefusedOnTheOwnerNeverNotifiesOrRecordsAChange()
+    {
+        var gate = ClosableGate(width: 2); ActorOn(NonAnchor(gate)); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        Assert.True(Task.Run(() => module.Mutate(StateReference, holder, WiredVariableMutation.Set, 0, frame, origin: 2)).Result);
+        using (RoomOwnerScope.Enter(_room)) Gates.Drain();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Empty(notices); Assert.Empty(module.DrainChanges());
+        Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateVariableStateWriteOnTheOwnerRefusalReturnsFalseAndSuccessNotifiesOnce()
+    {
+        var gate = ClosableGate(width: 2); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]); var (actor, navigation) = ActorOn(NonAnchor(gate));
+        using var owner = RoomOwnerScope.Enter(_room);
+        Assert.False(module.Mutate(StateReference, holder, WiredVariableMutation.Set, 0, frame));
+        navigation.Executor.Claims.Remove(actor);
+        Assert.True(module.Mutate(StateReference, holder, WiredVariableMutation.Set, 0, frame));
+        Assert.Single(notices); Assert.Equal("0", gate.LegacyDataString);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void GateMannequinPacketsRejectNonMannequinItemsBeforeMutating(bool figure)
+    {
+        var gate = ClosableGate(); _client.GetHabbo().Gender = "M"; _client.GetHabbo().Look = "hd-180-1.ch-210-66";
+        var packet = figure ? ClientPacket((int)gate.Id) : ClientPacket((int)gate.Id, "renamed");
+        IPacketEvent handler = figure ? new SetMannequinFigureEvent() : new SetMannequinNameEvent(_database);
+        handler.Parse(_client, packet).Wait();
+        Assert.Equal("1", gate.LegacyDataString);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void GateMannequinPacketsStillUpdateRealMannequins(bool figure)
+    {
+        var mannequin = ClosableGate(InteractionType.Mannequin, state: $"m{(char)5}.ch-1{(char)5}Default");
+        _client.GetHabbo().Gender = "F"; _client.GetHabbo().Look = "hd-180-1.ch-210-66";
+        var packet = figure ? ClientPacket((int)mannequin.Id) : ClientPacket((int)mannequin.Id, "renamed");
+        IPacketEvent handler = figure ? new SetMannequinFigureEvent() : new SetMannequinNameEvent(_database);
+        handler.Parse(_client, packet).Wait();
+        Assert.NotEqual($"m{(char)5}.ch-1{(char)5}Default", mannequin.LegacyDataString);
     }
 }
