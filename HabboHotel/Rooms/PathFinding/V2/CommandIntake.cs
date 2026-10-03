@@ -38,7 +38,7 @@ internal sealed class CommandIntake(MovementContext context, ForcePlacementServi
             ? new AcceptedGoal(actor.GoalX, actor.GoalY, grid.TopSlot(grid.Tile(actor.GoalX, actor.GoalY)))
             : GoalResolver.ResolveClick(grid, profile, new(actor.X, actor.Y, state.SupportZ),
                 actor.GoalX, actor.GoalY, context.Occupancy(actor));
-        state.AcceptedGoal = goal;
+        state.AcceptedGoal = GoalIdentity.Capture(grid, goal);
         actor.GoalX = goal.X; actor.GoalY = goal.Y;
     }
 }
