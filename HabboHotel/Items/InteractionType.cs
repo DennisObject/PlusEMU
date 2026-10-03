@@ -83,6 +83,7 @@ public enum InteractionType
     TentSmall,
     BadgeDisplay,
     Stacktool,
+    WalkMagicTile,
     Television,
 
     WiredEffect,

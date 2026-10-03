@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using Plus.Communication.Packets.Outgoing.Rooms.Engine;
+using System.Collections.Concurrent;
 using System.Drawing;
 using Plus.Core;
 using Plus.HabboHotel.Items;
@@ -12,6 +13,82 @@ public class Gamemap
 {
     private ConcurrentDictionary<Point, List<uint>> _coordinatedItems;
     private double[,] _itemHeightMap;
+    private readonly Dictionary<Point, short> _placementMap = new();
+    private readonly HashSet<Point> _placementDirty = new();
+    private int _placementWidth;
+    private int _placementHeight;
+
+    internal readonly record struct PlacementTile(double PlacementZ, bool CanStack, bool HasHelper);
+
+    internal PlacementTile ResolvePlacement(int x, int y, uint? excluding = null,
+        Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? collision = null)
+    {
+        var items = GetCoordinatedItems(new(x, y)).Where(item => item.Id != excluding).ToArray();
+        var helpers = items.Where(item => MagicTileHeight.IsMagicTile(item.Definition.InteractionType)).ToArray();
+        if (helpers.Length > 0) return new(helpers.Max(item => item.GetZ), true, true);
+        var height = Math.Max(Model.SqFloorHeight[x, y], items.Select(item => item.TotalHeight).DefaultIfEmpty(0).Max());
+        var canStack = x < StaticModel.MapSizeX && y < StaticModel.MapSizeY && StaticModel.SqState[x, y] != SquareState.Blocked
+            && !items.Any(item => !item.Definition.Stackable && (collision == null || !collision.ThroughFurni.Contains(item.Id)));
+        return new(height, canStack, false);
+    }
+
+    internal static short EncodePlacement(PlacementTile tile) => (short)(Math.Clamp((int)Math.Round(tile.PlacementZ * 256), 0, 0x3fff)
+        | (tile.CanStack ? 0 : 0x4000));
+
+    public short[,] PlacementHeightMap()
+    {
+        var result = new short[Model.MapSizeX, Model.MapSizeY];
+        for (var y = 0; y < Model.MapSizeY; y++)
+            for (var x = 0; x < Model.MapSizeX; x++)
+                result[x, y] = EncodePlacement(ResolvePlacement(x, y));
+        return result;
+    }
+
+    internal IReadOnlyList<HeightMapUpdateComposer.Tile> RebuildPlacementUpdates()
+    {
+        var changed = new List<HeightMapUpdateComposer.Tile>();
+        foreach (var point in _placementDirty.OrderBy(tile => tile.Y).ThenBy(tile => tile.X))
+        {
+            if (!ValidTile(point.X, point.Y)) continue;
+            var value = EncodePlacement(ResolvePlacement(point.X, point.Y));
+            // Before the first mutation the projection is the model's floor with no furniture.
+            var previous = _placementMap.TryGetValue(point, out var stored) ? stored
+                : EncodePlacement(new(Model.SqFloorHeight[point.X, point.Y], point.X < StaticModel.MapSizeX && point.Y < StaticModel.MapSizeY && StaticModel.SqState[point.X, point.Y] != SquareState.Blocked, false));
+            _placementMap[point] = value;
+            if (value != previous) changed.Add(new(point.X, point.Y, value));
+        }
+        _placementDirty.Clear();
+        return changed;
+    }
+
+    internal void NotifyPlacementState(Item item)
+    {
+        foreach (var point in item.GetCoords) _placementDirty.Add(point);
+        FlushPlacementUpdates();
+    }
+
+    public void FlushPlacementUpdates()
+    {
+        var changed = RebuildPlacementUpdates();
+        var resized = _placementWidth != Model.MapSizeX || _placementHeight != Model.MapSizeY;
+        _placementWidth = Model.MapSizeX;
+        _placementHeight = Model.MapSizeY;
+        if (changed.Count == 0 && !resized) return;
+        // The client's count and coordinates are unsigned bytes. Larger maps need a full refresh.
+        if (resized || changed.Any(tile => tile.X > byte.MaxValue || tile.Y > byte.MaxValue))
+            _room.SendPacket(new HeightMapComposer(PlacementHeightMap()));
+        else
+            foreach (var chunk in changed.Chunk(byte.MaxValue))
+                _room.SendPlacementUpdates(chunk);
+    }
+
+    internal Item? WalkMagicAt(int x, int y) => x == Model.DoorX && y == Model.DoorY ? null
+        : GetCoordinatedItems(new(x, y)).Where(item => item.Definition.InteractionType == InteractionType.WalkMagicTile)
+            .OrderByDescending(item => item.GetZ).ThenByDescending(item => item.Id).FirstOrDefault();
+
+    private bool IgnoreStacktool(Item item) => item.Definition.InteractionType == InteractionType.Stacktool
+        && PlusEnvironment.SettingsManager?.TryGetValue("pathfinding.stacktool_legacy_collision", "1") == "0";
+
     private Room _room;
     private byte[,] _structuralMap;
     private Point[] _roamTargets;
@@ -23,6 +100,8 @@ public class Gamemap
         StaticModel = model;
         DiagonalEnabled = true;
         Model = new(StaticModel);
+        _placementWidth = Model.MapSizeX;
+        _placementHeight = Model.MapSizeY;
         _coordinatedItems = new();
         _itemHeightMap = new double[Model.MapSizeX, Model.MapSizeY];
         _userMap = new();
@@ -265,6 +344,7 @@ public class Gamemap
     {
         RemoveFromMap(item);
         AddToMap(item);
+        FlushPlacementUpdates();
     }
 
     public void GenerateMaps(bool checkLines = true)
@@ -272,6 +352,8 @@ public class Gamemap
         var maxX = 0;
         var maxY = 0;
         _coordinatedItems = new();
+        for (var y = 0; y < Model.MapSizeY; y++)
+            for (var x = 0; x < Model.MapSizeX; x++) _placementDirty.Add(new(x, y));
         if (checkLines)
         {
             var items = _room.GetRoomItemHandler().GetFloor.ToArray();
@@ -342,6 +424,8 @@ public class Gamemap
             }
         }
         var tmpItems = _room.GetRoomItemHandler().GetFloor.ToArray();
+        foreach (var item in tmpItems)
+            foreach (var coord in item.GetCoords) AddCoordinatedItem(item, coord);
         foreach (var item in tmpItems.ToList())
         {
             if (item == null)
@@ -390,7 +474,21 @@ public class Gamemap
                 GenerateMaps();
                 return false;
             }
-            if (Model.SqState[coord.X, coord.Y] == SquareState.Blocked) Model.OpenSquare(coord.X, coord.Y, item.GetZ);
+            _placementDirty.Add(coord);
+            var walkMagic = WalkMagicAt(coord.X, coord.Y);
+            if (walkMagic != null)
+            {
+                GameMap[coord.X, coord.Y] = 1;
+                _itemHeightMap[coord.X, coord.Y] = walkMagic.GetZ - Model.SqFloorHeight[coord.X, coord.Y];
+                EffectMap[coord.X, coord.Y] = 0;
+                WriteStructural(coord.X, coord.Y, 1);
+                return true;
+            }
+            if (IgnoreStacktool(item)) return true;
+            if (item.Definition.InteractionType != InteractionType.WalkMagicTile
+                && !MagicTileHeight.IsMagicTile(item.Definition.InteractionType)
+                && (coord.X >= StaticModel.MapSizeX || coord.Y >= StaticModel.MapSizeY)
+                && Model.SqState[coord.X, coord.Y] == SquareState.Blocked) Model.OpenSquare(coord.X, coord.Y, item.GetZ);
             if (_itemHeightMap[coord.X, coord.Y] <= item.TotalHeight)
             {
                 _itemHeightMap[coord.X, coord.Y] = item.TotalHeight - Model.SqFloorHeight[item.GetX, item.GetY];
@@ -626,6 +724,7 @@ public class Gamemap
                 if (!conflictedName.ContainsKey(tile))
                     conflictedName.TryAdd(tile, items);
             }
+            _placementDirty.Add(point);
             SetDefaultValue(tile.X, tile.Y);
         }
         foreach (var coord in conflictedName.Keys.ToList())
@@ -913,7 +1012,7 @@ public class Gamemap
          * 3 = door
          * */
         var items = _room.GetGameMap().GetAllRoomItemForSquare(to.X, to.Y);
-        if (items.Count > 0)
+        if (items.Count > 0 && WalkMagicAt(to.X, to.Y) == null)
         {
             var hasGroupGate = items.ToList().Count(x => x.Definition.InteractionType == InteractionType.GuildGate) > 0;
             if (hasGroupGate)
@@ -997,7 +1096,7 @@ public class Gamemap
         if (!_room.RoomBlockingEnabled && SquareHasUsers(to.X, to.Y))
             return false;
         var items = _room.GetGameMap().GetAllRoomItemForSquare(to.X, to.Y);
-        if (items.Count > 0)
+        if (items.Count > 0 && WalkMagicAt(to.X, to.Y) == null)
         {
             var hasGroupGate = items.ToList().Count(x => x != null && x.Definition.InteractionType == InteractionType.GuildGate) > 0;
             if (hasGroupGate)
@@ -1089,6 +1188,7 @@ public class Gamemap
     {
         try
         {
+            if (WalkMagicAt(x, y) is { } walkMagic) return walkMagic.GetZ;
             var deduct = false;
             double highestStack = 0;
             var deductable = 0.0;
@@ -1096,7 +1196,7 @@ public class Gamemap
             {
                 foreach (var item in itemsOnSquare.ToList())
                 {
-                    if (item == null)
+                    if (item == null || IgnoreStacktool(item))
                         continue;
                     if (item.TotalHeight > highestStack)
                     {

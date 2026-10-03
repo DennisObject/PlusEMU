@@ -15,7 +15,7 @@ public static class RoomEngineSerializers
         packet.WriteString(FormattableString.Invariant($"{item.GetZ}"));
         packet.WriteString(FormattableString.Invariant($"{item.Definition.Height}"));
         packet.WriteInteger(FloorExtra(item));
-        ItemBehaviourUtility.Serialize(packet, item.ExtraData, item.UniqueNumber, item.UniqueSeries);
+        ItemBehaviourUtility.Serialize(packet, item);
         packet.WriteInteger(-1); // to-do: check
         packet.WriteInteger(item.Definition.Modes > 1 ? 1 : 0);
         packet.WriteInteger(item.UserId);
@@ -65,6 +65,8 @@ public static class RoomEngineSerializers
 
     internal static int FloorExtra(Item item)
     {
+        if (item.Definition.InteractionType == InteractionType.WalkMagicTile)
+            return MagicTileHeight.MultiWalk(item) ? 1 : 0;
         if (item.Definition.InteractionType == InteractionType.Gift)
             return GiftWrap.Style(item.LegacyDataString);
         else if (item.Definition.InteractionType == InteractionType.MusicDisc)

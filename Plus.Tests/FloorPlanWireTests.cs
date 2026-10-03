@@ -81,8 +81,8 @@ public class FloorPlanWireTests
             "RewardTrackProgressComposer",
             "RewardTrackPremiumPurchaseResultComposer"
         };
-        Assert.Equal(legacy.IncomingHeaders.Keys.OrderBy(key => key), hybrid.IncomingHeaders.Keys.OrderBy(key => key));
-        Assert.Equal(legacy.OutgoingHeaders.Keys.OrderBy(key => key), hybrid.OutgoingHeaders.Keys.OrderBy(key => key));
+        Assert.Equal(legacy.IncomingHeaders.Keys.OrderBy(key => key), hybrid.IncomingHeaders.Keys.Where(key => key != "UpdateMagicTileAdjacentEvent").OrderBy(key => key));
+        Assert.Equal(legacy.OutgoingHeaders.Keys.OrderBy(key => key), hybrid.OutgoingHeaders.Keys.Where(key => key != "HeightMapUpdateComposer").OrderBy(key => key));
         foreach (var (name, wire) in legacy.IncomingHeaders)
         {
             if (!changedIncoming.Contains(name))

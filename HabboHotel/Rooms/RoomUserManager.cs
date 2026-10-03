@@ -854,7 +854,7 @@ public class RoomUserManager
                                     user.GetClient().GetHabbo().HopperId = 0;
                                 }
                             }
-                            if (!user.IsBot && user.RidingHorse && user.IsPet == false)
+                            if (!user.IsBot && user.RidingHorse && user.IsPet == false && _room.GetGameMap().WalkMagicAt(nextX, nextY) == null)
                             {
                                 var horse = GetRoomUserByVirtualId(user.HorseId);
                                 if (horse != null)
@@ -998,8 +998,20 @@ public class RoomUserManager
             }
             var itemsOnSquare = _room.GetGameMap().GetAllRoomItemForSquare(user.X, user.Y);
             var model = _room.GetGameMap().Model;
-            var hasSeat = model.SqState[user.X, user.Y] == SquareState.Seat || itemsOnSquare.Any(squareItem => squareItem?.Definition?.IsSeat == true);
-            var hasBed = itemsOnSquare.Any(squareItem => squareItem?.Definition?.InteractionType is InteractionType.Bed or InteractionType.TentSmall);
+            var walkMagic = _room.GetGameMap().WalkMagicAt(user.X, user.Y);
+            if (walkMagic != null)
+            {
+                // Height rebinding is callback-free; movement still dispatches the legacy furni hooks.
+                user.Statusses.Remove("sit");
+                user.Statusses.Remove("lay");
+                user.IsSitting = false;
+                user.IsLying = false;
+                user.Z = walkMagic.GetZ;
+                user.UpdateNeeded = true;
+                if (!cyclegameitems) return;
+            }
+            var hasSeat = walkMagic == null && (model.SqState[user.X, user.Y] == SquareState.Seat || itemsOnSquare.Any(squareItem => squareItem?.Definition?.IsSeat == true));
+            var hasBed = walkMagic == null && itemsOnSquare.Any(squareItem => squareItem?.Definition?.InteractionType is InteractionType.Bed or InteractionType.TentSmall);
             if (RoomPosture.ReleaseSit(user.IsSitting, user.Statusses.ContainsKey("sit"), hasSeat))
             {
                 user.Statusses.Remove("sit");
@@ -1015,7 +1027,7 @@ public class RoomUserManager
             double newZ;
             if (itemsOnSquare != null || itemsOnSquare.Count != 0)
             {
-                if (user.RidingHorse && user.IsPet == false)
+                if (walkMagic == null && user.RidingHorse && user.IsPet == false)
                     newZ = _room.GetGameMap().SqAbsoluteHeight(user.X, user.Y, itemsOnSquare.ToList()) + 1;
                 else
                     newZ = _room.GetGameMap().SqAbsoluteHeight(user.X, user.Y, itemsOnSquare.ToList());
@@ -1027,7 +1039,7 @@ public class RoomUserManager
                 user.Z = newZ;
                 user.UpdateNeeded = true;
             }
-            if (model.SqState[user.X, user.Y] == SquareState.Seat)
+            if (walkMagic == null && model.SqState[user.X, user.Y] == SquareState.Seat)
             {
                 if (!user.Statusses.ContainsKey("sit"))
                     user.Statusses.Add("sit", "1.0");
@@ -1042,7 +1054,7 @@ public class RoomUserManager
             {
                 if (item == null)
                     continue;
-                if (item.Definition.IsSeat)
+                if (walkMagic == null && item.Definition.IsSeat)
                 {
                     if (!user.Statusses.ContainsKey("sit"))
                     {
@@ -1059,6 +1071,7 @@ public class RoomUserManager
                     case InteractionType.Bed:
                     case InteractionType.TentSmall:
                         {
+                            if (walkMagic != null) break;
                             if (!user.Statusses.ContainsKey("lay"))
                                 user.Statusses.Add("lay", $"{TextHandling.GetString(item.Definition.Height)} null");
                             user.Z = item.GetZ;

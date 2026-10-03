@@ -38,7 +38,7 @@ public class PlacedFurniRoomCollection;
 /// or walking over it and opening a wired box dereference a null room.
 /// </summary>
 [Collection("Placed furni room")]
-public class PlacedFurniRoomTests : IDisposable
+public partial class PlacedFurniRoomTests : IDisposable
 {
     private const uint RoomId = 42;
     private readonly FieldInfo _gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
@@ -208,7 +208,9 @@ public class PlacedFurniRoomTests : IDisposable
         using var stream = new MemoryStream();
         foreach (var value in values)
         {
-            if (value is string text)
+            if (value is bool flag)
+                stream.WriteByte(flag ? (byte)1 : (byte)0);
+            else if (value is string text)
             {
                 var bytes = Encoding.UTF8.GetBytes(text);
                 var length = new byte[2];
@@ -323,6 +325,7 @@ public class PlacedFurniRoomTests : IDisposable
     private sealed class TestClient : GameClient
     {
         public List<uint> Sent { get; } = new();
+        public List<(uint Header, byte[] Body)> Packets { get; } = new();
         public TestClient() : base(null!, new FlashPacketFactory())
         {
             Revision = new Revision
@@ -335,7 +338,11 @@ public class PlacedFurniRoomTests : IDisposable
         }
         internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer) =>
             (true, false, 0, 0, 0);
-        public override void CreateHeader(Memory<byte> memory, uint messageId) => Sent.Add(messageId);
+        public override void CreateHeader(Memory<byte> memory, uint messageId)
+        {
+            Sent.Add(messageId);
+            Packets.Add((messageId, memory[6..].ToArray()));
+        }
     }
 
     public void Dispose()

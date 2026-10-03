@@ -390,6 +390,7 @@ public class Room : RoomData
             try
             {
                 GetWired().OnCycle();
+                GetGameMap().FlushPlacementUpdates();
             }
             catch (Exception e)
             {
@@ -445,9 +446,21 @@ public class Room : RoomData
         return false;
     }
 
+    internal void SendPlacementUpdates(IReadOnlyList<HeightMapUpdateComposer.Tile> tiles)
+    {
+        var clients = _roomUserManager?.GetRoomUsers().Select(user => user.GetClient()).Where(client => client != null).ToArray()
+            ?? Array.Empty<GameClient>();
+        var supportsDelta = clients.Where(client => client.Revision.InternalIdToOutgoingIdMapping.ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapUpdateComposer)).ToArray();
+        GameClient.SendBroadcast(new HeightMapUpdateComposer(tiles), supportsDelta);
+        // Older profiles retain their existing header mappings and receive a full stacking map.
+        var olderClients = clients.Except(supportsDelta).ToArray();
+        if (olderClients.Length > 0)
+            GameClient.SendBroadcast(new HeightMapComposer(GetGameMap().PlacementHeightMap()), olderClients);
+    }
+
     public void SendObjects(GameClient session)
     {
-        session.Send(new HeightMapComposer(GetGameMap().Model.Heightmap));
+        session.Send(new HeightMapComposer(GetGameMap().PlacementHeightMap()));
         session.Send(new FloorHeightMapComposer(GetGameMap().Model.GetRelativeHeightmap(), GetGameMap().StaticModel.WallHeight));
         var snapshotUsers = _roomUserManager.GetUserList().Where(user => user != null).ToArray();
         foreach (var user in snapshotUsers)
