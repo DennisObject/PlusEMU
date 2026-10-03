@@ -249,6 +249,20 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
+    public void SamePositionMoveThatQuietlyResetsTheStateCancelsAQueuedApproach()
+    {
+        var item = ApproachFixture(InteractionType.Teleport);
+        var actor = ApproachActor(3, 0);
+        item.LegacyDataString = "1";
+        item.Interactor.OnTrigger(_client, item, 0, true);
+        Assert.True(_room.GetRoomItemHandler().SetFloorItem(_client, item, item.GetX, item.GetY, item.Rotation, false, false, true));
+        Assert.Equal("0", item.LegacyDataString);
+        for (var i = 0; i < 8; i++) { ExecutorTick(); Assert.Equal(0, item.InteractingUser); }
+        Assert.Equal(item.SquareInFront, actor.Coordinate);
+        Assert.True(actor.CanWalk); Assert.Null(Approaches.Peek(actor));
+    }
+
+    [Fact]
     public void BareSettingsRecordDefaultsApproachAutoInteractOn()
         => Assert.True(new PathfindingSettings().ApproachAutoInteract);
 
