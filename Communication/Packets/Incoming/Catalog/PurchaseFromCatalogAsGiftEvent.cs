@@ -64,19 +64,10 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
         }
         if (!_catalogManager.TryGetPage(pageId, out var page))
             return Task.CompletedTask;
-        if (!page.Enabled || !page.Visible || page.MinimumRank > session.GetHabbo().Rank || page.MinimumVip > session.GetHabbo().VipRank && session.GetHabbo().Rank == 1)
+        if (!page.CanOpen(session.GetHabbo()))
             return Task.CompletedTask;
-        if (!page.Items.TryGetValue(itemId, out var item))
-        {
-            if (page.ItemOffers.ContainsKey(itemId))
-            {
-                item = page.ItemOffers[itemId];
-                if (item == null)
-                    return Task.CompletedTask;
-            }
-            else
-                return Task.CompletedTask;
-        }
+        if (!page.Offers.TryGetValue(itemId, out var item))
+            return Task.CompletedTask;
         if (!ItemUtility.CanGiftItem(item))
             return Task.CompletedTask;
         if (!_itemManager.Gifts.TryGetValue(spriteId, out var presentId) || !_itemManager.Items.TryGetValue(presentId, out var presentData) || presentData.InteractionType != InteractionType.Gift)

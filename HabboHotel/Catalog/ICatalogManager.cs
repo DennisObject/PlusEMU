@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.Catalog.Clothing;
+﻿using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Catalog.Clothing;
 using Plus.HabboHotel.Catalog.Marketplace;
 using Plus.HabboHotel.Catalog.Pets;
 using Plus.HabboHotel.Catalog.Vouchers;
@@ -7,11 +8,12 @@ namespace Plus.HabboHotel.Catalog;
 
 public interface ICatalogManager
 {
-    Dictionary<int, int> ItemOffers { get; }
     Task Init();
     bool TryGetBot(uint itemId, out CatalogBot bot);
     bool TryGetPage(int pageId, out CatalogPage page);
     bool TryGetDeal(int dealId, out CatalogDeal deal);
+    // First page the user can open that sells this official offer id.
+    bool TryGetOffer(int offerId, Habbo habbo, out CatalogPage page, out CatalogItem item);
     ICollection<CatalogPage> Pages { get; }
     ICollection<CatalogPromotion> Promotions { get; }
     ICollection<ClubOffer> ClubOffers { get; }

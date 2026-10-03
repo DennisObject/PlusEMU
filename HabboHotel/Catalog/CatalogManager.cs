@@ -7,6 +7,7 @@ using Plus.HabboHotel.Catalog.Marketplace;
 using Plus.HabboHotel.Catalog.Pets;
 using Plus.HabboHotel.Catalog.Vouchers;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Catalog;
 
@@ -18,7 +19,7 @@ public class CatalogManager : ICatalogManager, IStartable
     private readonly Dictionary<int, Dictionary<int, CatalogItem>> _items;
     private readonly Dictionary<int, CatalogPage> _pages;
     private readonly Dictionary<int, CatalogPromotion> _promotions;
-    private readonly Dictionary<int, int> _itemOffers;
+    private readonly CatalogOfferIndex _offers = new();
     private readonly Dictionary<int, ClubOffer> _clubOffers = new();
 
     private readonly IClothingManager _clothingManager;
@@ -37,15 +38,12 @@ public class CatalogManager : ICatalogManager, IStartable
         _itemDataManager = itemDataManager;
         _database = database;
         _logger = logger;
-        _itemOffers = new();
         _pages = new();
         _botPresets = new();
         _items = new();
         _deals = new();
         _promotions = new();
     }
-
-    public Dictionary<int, int> ItemOffers => _itemOffers;
 
     public async Task Start() => await Init();
 
@@ -66,7 +64,7 @@ public class CatalogManager : ICatalogManager, IStartable
 
         using var connection = _database.Connection();
 
-        var items = await connection.QueryAsync<CatalogItem>("SELECT `id`,`item_id`,`catalog_name`,`cost_credits`,`cost_pixels`,`cost_diamonds`,`amount`,`page_id`,`limited_sells`,`limited_stack`,`offer_active` = '1' AS HaveOffer,`extradata`,`badge`,`offer_id`,`habbicon_id` FROM `catalog_items`");
+        var items = await connection.QueryAsync<CatalogItem>("SELECT `id`,`item_id`,`catalog_name`,`cost_credits`,`cost_pixels`,`cost_diamonds`,`amount`,`page_id`,`limited_sells`,`limited_stack`,`offer_active` = '1' AS HaveOffer,`extradata`,`badge`,`offer_id`,`habbicon_id`,`club_level` AS `ClubLevel`,`preview_image` AS `PreviewImage`,`order_num` AS `OrderNum` FROM `catalog_items` ORDER BY `order_num`, `id`");
         foreach(CatalogItem item in items)
         {
             if (item.Amount <= 0)
@@ -81,9 +79,6 @@ public class CatalogManager : ICatalogManager, IStartable
 
             if (!_items.ContainsKey(item.PageId))
                 _items[item.PageId] = new();
-
-            if (item.OfferId != -1 && !_itemOffers.ContainsKey(item.OfferId))
-                _itemOffers.Add(item.OfferId, item.PageId);
 
             item.Definition = definition;
             _items[item.PageId].Add(item.Id, item);
@@ -133,7 +128,7 @@ public class CatalogManager : ICatalogManager, IStartable
             _deals.Add(deal.Id, deal);
         }
 
-        var pages = await connection.QueryAsync<CatalogPage>("SELECT `id`,`parent_id`,`caption`,`page_link` as `link`,`visible`,`enabled`,`min_rank` as `minimumrank`,`min_vip` as `minimumvip`,`icon_image` as `icon`,`page_layout` as `layout`,`page_strings_1`,`page_strings_2` FROM `catalog_pages` ORDER BY `order_num`");
+        var pages = await connection.QueryAsync<CatalogPage>("SELECT `id`,`parent_id`,`caption`,`page_link` as `link`,`visible`,`enabled`,`min_rank` as `minimumrank`,`min_vip` as `minimumvip`,`icon_image` as `icon`,`page_layout` as `layout`,`catalog_mode` AS `CatalogMode`,`page_strings_1`,`page_strings_2` FROM `catalog_pages` ORDER BY `order_num`, `id`");
         foreach (CatalogPage page in pages)
         {
             if (_items.ContainsKey(page.Id))
@@ -144,13 +139,15 @@ public class CatalogManager : ICatalogManager, IStartable
             _pages.Add(page.Id, page);
         }
 
+        _offers.Build(_pages.Values);
+
         var bots = await connection.QueryAsync<CatalogBot>("SELECT `id`,`name`,`figure`,`motto`,`gender`,`ai_type` FROM `catalog_bot_presets`");
         foreach (CatalogBot bot in bots)
         {
             _botPresets.Add(bot.Id, bot);
         }
 
-        var promotions = await connection.QueryAsync<CatalogPromotion>("SELECT `id`,`title`,`image`,`unknown`,`page_link`,`parent_id` FROM `catalog_promotions`");
+        var promotions = await connection.QueryAsync<CatalogPromotion>("SELECT `id`,`title`,`image`,`unknown`,`page_link`,`parent_id`,`position`,`item_type` AS `ItemType`,`offer_id` AS `OfferId`,`product_code` AS `ProductCode`,`expires_at` AS `ExpiresAt` FROM `catalog_promotions`");
         foreach(CatalogPromotion promotion in promotions)
         {
             if (_promotions.ContainsKey(promotion.Id))
@@ -174,6 +171,8 @@ public class CatalogManager : ICatalogManager, IStartable
     public bool TryGetPage(int pageId, out CatalogPage page) => _pages.TryGetValue(pageId, out page);
 
     public bool TryGetDeal(int dealId, out CatalogDeal deal) => _deals.TryGetValue(dealId, out deal);
+
+    public bool TryGetOffer(int offerId, Habbo habbo, out CatalogPage page, out CatalogItem item) => _offers.TryGet(offerId, habbo, out page, out item);
 
     public ICollection<CatalogPage> Pages => _pages.Values;
 

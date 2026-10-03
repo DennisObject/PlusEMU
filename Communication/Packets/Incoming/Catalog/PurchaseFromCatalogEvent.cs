@@ -72,24 +72,15 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         var amount = packet.ReadInt();
         if (!_catalogManager.TryGetPage(pageId, out var page))
             return;
-        if (!page.Enabled || !page.Visible || page.MinimumRank > session.GetHabbo().Rank || page.MinimumVip > session.GetHabbo().VipRank && session.GetHabbo().Rank == 1)
+        if (!page.CanOpen(session.GetHabbo()))
             return;
         if (page.Layout is "club_buy" or "vip_buy")
         {
             PurchaseClubOffer(session, itemId);
             return;
         }
-        if (!page.Items.TryGetValue(itemId, out var item))
-        {
-            if (page.ItemOffers.ContainsKey(itemId))
-            {
-                item = page.ItemOffers[itemId];
-                if (item == null)
-                    return;
-            }
-            else
-                return;
-        }
+        if (!page.Offers.TryGetValue(itemId, out var item))
+            return;
         if (item.HabbiconId > 0)
         {
             try

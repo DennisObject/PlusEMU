@@ -16,7 +16,8 @@ public class GetCatalogIndexEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        session.Send(new CatalogIndexComposer(session, _catalogManager.Pages));
+        var mode = packet.ReadString();
+        session.Send(new CatalogIndexComposer(session, _catalogManager.Pages, CatalogModes.FromClient(mode)));
         session.Send(new CatalogItemDiscountComposer());
         session.Send(new BcBorrowedItemsComposer());
         return Task.CompletedTask;

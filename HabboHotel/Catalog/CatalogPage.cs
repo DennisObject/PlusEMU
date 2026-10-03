@@ -1,4 +1,6 @@
-﻿namespace Plus.HabboHotel.Catalog;
+﻿using Plus.HabboHotel.Users;
+
+namespace Plus.HabboHotel.Catalog;
 
 public class CatalogPage
 {
@@ -22,6 +24,8 @@ public class CatalogPage
 
     public string Layout { get; set; }
 
+    public string CatalogMode { get; set; } = CatalogModes.Normal;
+
     public string? PageStrings1 { get; set; }
 
     public string? PageStrings2 { get; set; }
@@ -32,7 +36,13 @@ public class CatalogPage
 
     public Dictionary<int, CatalogItem> Items { get; set; } = new();
 
-    public Dictionary<int, CatalogItem> ItemOffers { get; set; } = new();
+    // Offers by WireOfferId, in display order. Pages, purchases, gifts and preselection all resolve here.
+    public Dictionary<int, CatalogItem> Offers { get; set; } = new();
+
+    // Rank and VIP gates. Hidden pages (Visible = false) stay reachable by link, as on the official hotel.
+    public bool IsAvailableTo(Habbo habbo) => MinimumRank <= habbo.Rank && (MinimumVip <= habbo.VipRank || habbo.Rank != 1);
+
+    public bool CanOpen(Habbo habbo) => Enabled && IsAvailableTo(habbo);
 
     public CatalogItem? GetItem(int pId)
     {
