@@ -28,8 +28,11 @@ internal class RedeemOfferCreditsEvent : IPacketEvent
             foreach (DataRow row in table.Rows) creditsOwed += Convert.ToInt32(row["asking_price"]);
             if (creditsOwed >= 1)
             {
-                session.GetHabbo().Credits += creditsOwed;
-                session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+                lock (session.GetHabbo().WalletSync)
+                {
+                    session.GetHabbo().Credits += creditsOwed;
+                    session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+                }
             }
             using var dbClient = _database.GetQueryReactor();
             dbClient.RunQuery($"DELETE FROM `catalog_marketplace_offers` WHERE `user_id` = '{session.GetHabbo().Id}' AND `state` = '2'");
