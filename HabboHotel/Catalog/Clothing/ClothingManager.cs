@@ -6,23 +6,25 @@ namespace Plus.HabboHotel.Catalog.Clothing;
 public class ClothingManager : IClothingManager
 {
     private readonly IDatabase _database;
-    private readonly Dictionary<int, ClothingItem> _clothing;
+    private Dictionary<int, ClothingItem> _clothing = new();
 
     public ClothingManager(IDatabase database)
     {
         _database = database;
-        _clothing = new();
     }
 
     public ICollection<ClothingItem> GetClothingAllParts => _clothing.Values;
 
-    public async void Init()
+    // Synchronous and swapped in whole: the catalog reload calls this twice, and an async void reload could
+    // fill the same dictionary twice at once and crash the process with an unhandled duplicate key.
+    public void Init()
     {
-        _clothing.Clear();
         using var connection = _database.Connection();
-        var data = await connection.QueryAsync<(int Id, string ClothingName, string PartIds)>("SELECT `id`,`clothing_name`,`clothing_parts` FROM `catalog_clothing`");
+        var data = connection.Query<(int Id, string ClothingName, string PartIds)>("SELECT `id`,`clothing_name`,`clothing_parts` FROM `catalog_clothing`");
+        var clothing = new Dictionary<int, ClothingItem>();
         foreach (var row in data)
-            _clothing.Add(row.Id, new(row.Id, row.ClothingName, row.PartIds));
+            clothing.Add(row.Id, new(row.Id, row.ClothingName, row.PartIds));
+        _clothing = clothing;
     }
 
     public bool TryGetClothing(int itemId, out ClothingItem clothing) => _clothing.TryGetValue(itemId, out clothing);

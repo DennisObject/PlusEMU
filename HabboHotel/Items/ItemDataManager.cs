@@ -12,8 +12,8 @@ public class ItemDataManager : IItemDataManager
 {
     private readonly ILogger<ItemDataManager> _logger;
     private readonly IDatabase _database;
-    public Dictionary<int, uint> Gifts { get; } = new(0); //<SpriteId, Item>
-    public Dictionary<uint, ItemDefinition> Items { get; } = new(0);
+    public Dictionary<int, uint> Gifts { get; private set; } = new(0); //<SpriteId, Item>
+    public Dictionary<uint, ItemDefinition> Items { get; private set; } = new(0);
 
     public ItemDataManager(ILogger<ItemDataManager> logger, IDatabase database)
     {
@@ -21,10 +21,11 @@ public class ItemDataManager : IItemDataManager
         _database = database;
     }
 
+    // Builds new tables and swaps them in, so a reload never shows readers a half-loaded furniture table.
     public void Init()
     {
-        if (Items.Count > 0)
-            Items.Clear();
+        var gifts = new Dictionary<int, uint>();
+        var items = new Dictionary<uint, ItemDefinition>();
         using (var dbClient = _database.GetQueryReactor())
         {
             dbClient.SetQuery("SELECT * FROM `furniture`");
@@ -71,8 +72,8 @@ public class ItemDataManager : IItemDataManager
                             ExtraRot = row["extra_rot"].ToString() == "1",
                         };
 
-                        Gifts.TryAdd(definition.SpriteId, definition.Id);
-                        Items.Add(definition.Id, definition);
+                        gifts.TryAdd(definition.SpriteId, definition.Id);
+                        items.Add(definition.Id, definition);
                     }
                     catch (Exception e)
                     {
@@ -83,6 +84,8 @@ public class ItemDataManager : IItemDataManager
                 }
             }
         }
+        Gifts = gifts;
+        Items = items;
         _logger.LogInformation("Item Manager -> LOADED");
     }
 

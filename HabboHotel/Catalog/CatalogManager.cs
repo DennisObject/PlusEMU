@@ -14,13 +14,13 @@ namespace Plus.HabboHotel.Catalog;
 public class CatalogManager : ICatalogManager, IStartable
 {
     private readonly ILogger<CatalogManager> _logger;
-    private readonly Dictionary<uint, CatalogBot> _botPresets;
-    private readonly Dictionary<int, CatalogDeal> _deals;
-    private readonly Dictionary<int, Dictionary<int, CatalogItem>> _items;
-    private readonly Dictionary<int, CatalogPage> _pages;
-    private readonly Dictionary<int, CatalogPromotion> _promotions;
-    private readonly CatalogOfferIndex _offers = new();
-    private readonly Dictionary<int, ClubOffer> _clubOffers = new();
+    // Init builds new collections and swaps them in, so a reload never shows readers a half-loaded catalog.
+    private Dictionary<uint, CatalogBot> _botPresets = new();
+    private Dictionary<int, CatalogDeal> _deals = new();
+    private Dictionary<int, CatalogPage> _pages = new();
+    private Dictionary<int, CatalogPromotion> _promotions = new();
+    private CatalogOfferIndex _offers = new();
+    private Dictionary<int, ClubOffer> _clubOffers = new();
 
     private readonly IClothingManager _clothingManager;
     private readonly IDatabase _database;
@@ -38,11 +38,6 @@ public class CatalogManager : ICatalogManager, IStartable
         _itemDataManager = itemDataManager;
         _database = database;
         _logger = logger;
-        _pages = new();
-        _botPresets = new();
-        _items = new();
-        _deals = new();
-        _promotions = new();
     }
 
     public async Task Start() => await Init();
@@ -51,16 +46,13 @@ public class CatalogManager : ICatalogManager, IStartable
     {
         _voucherManager.Init();
         _clothingManager.Init();
-        if (_pages.Count > 0)
-            _pages.Clear();
-        if (_botPresets.Count > 0)
-            _botPresets.Clear();
-        if (_items.Count > 0)
-            _items.Clear();
-        if (_deals.Count > 0)
-            _deals.Clear();
-        if (_promotions.Count > 0)
-            _promotions.Clear();
+        var pagesById = new Dictionary<int, CatalogPage>();
+        var botPresets = new Dictionary<uint, CatalogBot>();
+        var itemsByPage = new Dictionary<int, Dictionary<int, CatalogItem>>();
+        var dealsById = new Dictionary<int, CatalogDeal>();
+        var promotionsById = new Dictionary<int, CatalogPromotion>();
+        var offerIndex = new CatalogOfferIndex();
+        var clubOffersById = new Dictionary<int, ClubOffer>();
 
         using var connection = _database.Connection();
 
@@ -77,17 +69,17 @@ public class CatalogManager : ICatalogManager, IStartable
                 continue;
             }
 
-            if (!_items.ContainsKey(item.PageId))
-                _items[item.PageId] = new();
+            if (!itemsByPage.ContainsKey(item.PageId))
+                itemsByPage[item.PageId] = new();
 
             item.Definition = definition;
-            _items[item.PageId].Add(item.Id, item);
+            itemsByPage[item.PageId].Add(item.Id, item);
         }
 
         var deals = await connection.QueryAsync<CatalogDeal>("SELECT `id`, `items`, `name`, `room_id` FROM `catalog_deals`");
         foreach (CatalogDeal deal in deals)
         {
-            if (_deals.ContainsKey(deal.Id))
+            if (dealsById.ContainsKey(deal.Id))
                 continue;
 
             var itemDataList = new List<CatalogItem>();
@@ -125,42 +117,47 @@ public class CatalogManager : ICatalogManager, IStartable
                 deal.ItemDataList = itemDataList;
             }
 
-            _deals.Add(deal.Id, deal);
+            dealsById.Add(deal.Id, deal);
         }
 
         var pages = await connection.QueryAsync<CatalogPage>("SELECT `id`,`parent_id`,`caption`,`page_link` as `link`,`visible`,`enabled`,`min_rank` as `minimumrank`,`min_vip` as `minimumvip`,`icon_image` as `icon`,`page_layout` as `layout`,`catalog_mode` AS `CatalogMode`,`page_strings_1`,`page_strings_2` FROM `catalog_pages` ORDER BY `order_num`, `id`");
         foreach (CatalogPage page in pages)
         {
-            if (_items.ContainsKey(page.Id))
-                page.Items = _items[page.Id];
+            if (itemsByPage.ContainsKey(page.Id))
+                page.Items = itemsByPage[page.Id];
 
             page.PageStringsList1 = !string.IsNullOrWhiteSpace(page.PageStrings1) ? page.PageStrings1!.Split("|").ToList() : new();
             page.PageStringsList2 = !string.IsNullOrWhiteSpace(page.PageStrings2) ? page.PageStrings2!.Split("|").ToList() : new();
-            _pages.Add(page.Id, page);
+            pagesById.Add(page.Id, page);
         }
 
-        _offers.Build(_pages.Values);
+        offerIndex.Build(pagesById.Values);
 
         var bots = await connection.QueryAsync<CatalogBot>("SELECT `id`,`name`,`figure`,`motto`,`gender`,`ai_type` FROM `catalog_bot_presets`");
         foreach (CatalogBot bot in bots)
         {
-            _botPresets.Add(bot.Id, bot);
+            botPresets.Add(bot.Id, bot);
         }
 
         var promotions = await connection.QueryAsync<CatalogPromotion>("SELECT `id`,`title`,`image`,`unknown`,`page_link`,`parent_id`,`position`,`item_type` AS `ItemType`,`offer_id` AS `OfferId`,`product_code` AS `ProductCode`,`expires_at` AS `ExpiresAt` FROM `catalog_promotions`");
         foreach(CatalogPromotion promotion in promotions)
         {
-            if (_promotions.ContainsKey(promotion.Id))
+            if (promotionsById.ContainsKey(promotion.Id))
                 continue;
 
-            _promotions.Add(promotion.Id, promotion);
+            promotionsById.Add(promotion.Id, promotion);
         }
 
-        _clubOffers.Clear();
         var clubOffers = await connection.QueryAsync<ClubOffer>("SELECT `id`,`name`,`days`,`credits`,`points`,`points_type` AS `PointsType`,`type` = 'VIP' AS `Vip`,`giftable` AS `Giftable` FROM `catalog_club_offers` WHERE `enabled` = 1 ORDER BY `id`");
         foreach (var offer in clubOffers)
-            _clubOffers.Add(offer.Id, offer);
+            clubOffersById.Add(offer.Id, offer);
 
+        _pages = pagesById;
+        _botPresets = botPresets;
+        _deals = dealsById;
+        _promotions = promotionsById;
+        _offers = offerIndex;
+        _clubOffers = clubOffersById;
         _petRaceManager.Init();
         _clothingManager.Init();
         _logger.LogInformation("Catalog Manager -> LOADED");
