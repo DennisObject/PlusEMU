@@ -729,3 +729,140 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(1, Gates.PendingCount); Assert.Empty(notices);
     }
 }
+
+// Per-gate FIFO sequencing (§16.3 r16 amendment): every write is evaluated once, in order, against committed state.
+public partial class PlacedFurniRoomTests
+{
+    private sealed class BlockedOccupancy(Action onQuery) : IGateOccupancy
+    {
+        public bool IsBlocked(IReadOnlyList<Point> footprint) { onQuery(); return true; }
+    }
+
+    private void DrainOnOwner() { using var owner = RoomOwnerScope.Enter(_room); Gates.Drain(); }
+
+    [Fact]
+    public void GateSequencedOffOwnerVariableCloseRunsBeforeALaterAbsoluteOpening()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2)); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        Assert.True(Task.Run(() => module.Mutate(StateReference, holder, WiredVariableMutation.Set, 0, frame)).Result);
+        Assert.Equal(GateTransition.Queued, Task.Run(() => GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false)).Result);
+        Assert.Equal("1", gate.LegacyDataString);
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+        Assert.Single(notices);
+    }
+
+    [Fact]
+    public void GateSequencedMultiStateGateTogglesTwiceThroughEveryStateInOrder()
+    {
+        var gate = ClosableGate(); gate.Definition.Modes = 3; ActorOn(new Point(0, 2));
+        ClickFromPacketThread(gate); ClickFromPacketThread(gate);
+        Assert.Equal("1", gate.LegacyDataString);
+        ExecutorTick();
+        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateSequencedAbsoluteToggleBehindAQueuedCloseIsEvaluatedAfterIt()
+    {
+        var gate = ClosableGate(); gate.Definition.Modes = 3; ActorOn(new Point(0, 2));
+        ClickFromPacketThread(gate);
+        var seen = new List<string>();
+        Assert.Equal(GateTransition.Queued, Task.Run(() => GateTransitionService.ToggleState(gate,
+            current => { seen.Add(current); return "0"; }, GateCloseReason.Wired, persist: false)).Result);
+        Assert.Empty(seen);
+        ExecutorTick();
+        Assert.Equal(new[] { "2" }, seen); Assert.Equal("0", gate.LegacyDataString);
+    }
+
+    [Fact]
+    public void GateSequencedPublicReadsUseCommittedStateWhileACloseIsQueuedAndLaterRefused()
+    {
+        var gate = ClosableGate(width: 2); ActorOn(NonAnchor(gate)); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        ClickFromPacketThread(gate);
+        Assert.Equal(1, Gates.PendingCount);
+        Assert.Equal(1, module.Read(StateReference, holder, frame)!.Value);
+        _room.RunFastPass(() => Assert.Equal(1, module.Read(StateReference, holder, frame)!.Value));
+        ExecutorTick();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(1, module.Read(StateReference, holder, frame)!.Value);
+        Assert.Empty(notices); Assert.Empty(module.DrainChanges());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void GateSequencedVariableTransformIsEvaluatedExactlyOnce(bool closing)
+    {
+        var gate = ClosableGate(state: closing ? "1" : "0"); ActorOn(new Point(0, 2)); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        var script = new Queue<int>(closing ? [0, 1] : [1, 0]); var calls = 0;
+        Func<int, int> transform = _ => { calls++; return script.Dequeue(); };
+        Assert.True(Task.Run(() => module.Change(StateReference, holder, WiredVariableMutation.Set, transform, frame, 2)).Result);
+        Assert.Equal(1, calls);
+        DrainOnOwner();
+        Assert.Equal(1, calls); Assert.Equal(closing ? "0" : "1", gate.LegacyDataString); Assert.Single(notices);
+    }
+
+    [Fact]
+    public void GateSequencedWriteArrivingDuringTheBroadcastIsAppendedNotCommitted()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        Assert.Equal(GateTransition.Queued, Task.Run(() => Gates.TryClose(gate, GateCloseReason.Click, "0", persist: false)).Result);
+        GateTransition? duringBroadcast = null; string? stateDuringBroadcast = null; var fired = false;
+        _client.BeforeCapture = header =>
+        {
+            if (header != ServerPacketHeader.ObjectUpdateComposer || fired) return;
+            fired = true;
+            duringBroadcast = Task.Run(() => GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false)).Result;
+            stateDuringBroadcast = gate.LegacyDataString;
+        };
+        DrainOnOwner();
+        Assert.Equal(GateTransition.Queued, duringBroadcast); Assert.Equal("0", stateDuringBroadcast);
+        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(1, Gates.PendingCount);
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateSequencedReentrantWriteFromACallbackIsAppended()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2)); GateTransition? reentrant = null;
+        using (RoomOwnerScope.Enter(_room))
+        {
+            Assert.Equal(GateTransition.Applied, Gates.TryClose(gate, GateCloseReason.Click, "0", persist: false,
+                afterClose: changed => reentrant = Gates.Toggle(changed, Flip, GateCloseReason.Wired, persist: false)));
+            Assert.Equal(GateTransition.Queued, reentrant); Assert.Equal("0", gate.LegacyDataString);
+            Gates.Drain();
+        }
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateSequencedNavigationRecordIsPublishedInsideTheMutationBeforeAnyNotification()
+    {
+        var gate = ClosableGate(width: 2); var (_, navigation) = ActorOn(new Point(0, 2)); var map = _room.GetGameMap();
+        var observed = new List<(string Record, bool Placement, bool Nav)>();
+        ((Plus.HabboHotel.Items.DataFormat.LegacyDataFormat)gate.ExtraData).DataUpdated += (_, _) =>
+            observed.Add((navigation.Inputs.Read(gate.Id)!.State, Monitor.IsEntered(map.PlacementSync), Monitor.IsEntered(gate.NavSync)));
+        Assert.Equal(GateTransition.Applied, CloseOnOwner(gate));
+        Assert.Equal(new[] { ("0", false, false) }, observed);
+    }
+
+    [Fact]
+    public void GateSequencedRetainedAutomaticClosesAreDeduplicatedPerGateAndNeverRetriedInTheSameDrain()
+    {
+        var gate = ClosableGate(); var attempts = 0;
+        var service = new GateTransitionService(_room, () => new BlockedOccupancy(() => attempts++));
+        Task.Run(() => service.TryClose(gate, GateCloseReason.Automatic, "0", persist: false)).Wait();
+        Task.Run(() => service.TryClose(gate, GateCloseReason.Automatic, "0", persist: false)).Wait();
+        using (RoomOwnerScope.Enter(_room)) service.Drain();
+        Assert.Equal(2, attempts); Assert.Equal(1, service.PendingCount);
+        using (RoomOwnerScope.Enter(_room)) service.Drain();
+        Assert.Equal(3, attempts); Assert.Equal(1, service.PendingCount);
+    }
+}
