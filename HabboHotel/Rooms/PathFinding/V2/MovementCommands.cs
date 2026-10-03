@@ -7,8 +7,11 @@ public enum MoveOrigin : byte { User, Bot, Wired, StaffCommand, Interaction }
 [Flags]
 public enum MoveFlags : byte { None = 0, IgnoreUsers = 1, Teleport = 2 }
 
+// Payload only; completion and automatic approach behavior belong to the next stack layer.
+public sealed record ApproachDescriptor(uint ItemId, long ItemRecordVersion, SurfaceRef ApproachSurfaceRef, int ActionKind);
+
 public sealed record MoveCommand(long Sequence, int X, int Y, MoveOrigin Origin,
-    MoveFlags Flags = MoveFlags.None);
+    MoveFlags Flags = MoveFlags.None, ApproachDescriptor? Approach = null);
 
 public sealed class MoveCommandSlot
 {

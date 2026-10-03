@@ -4,8 +4,10 @@ internal sealed class MovementExecutor(Room room, MovementContext context, Rebin
     CommitService commit, CommandIntake intake, MovementSearch search, AnnounceService announce,
     ActorTickService ticks) : IMovementEngine
 {
+    private readonly HashSet<RoomUser> _committed = new(ReferenceEqualityComparer.Instance);
     public void Tick()
     {
+        _committed.Clear();
         var actors = room.GetRoomUserManager().GetUserList().OrderBy(a => a.VirtualId).ToArray();
         foreach (var actor in actors) PhaseA(actor);
         search.Run();
@@ -19,14 +21,16 @@ internal sealed class MovementExecutor(Room room, MovementContext context, Rebin
         state.TickLocationRevision = state.LocationRevision;
         rebind.Rebind(actor); context.RefreshMembership(actor);
         ticks.BeforeMovement(actor);
-        commit.Commit(actor);
+        if (commit.Commit(actor)) _committed.Add(actor);
         if (Eligible(actor)) intake.Consume(actor);
     }
     private void PhaseC(RoomUser actor)
     {
         if (!Eligible(actor)) return;
-        announce.Announce(actor);
-        ticks.AfterMovement(actor);
+        announce.Announce(actor, _committed.Contains(actor));
+        if (!Eligible(actor)) return;
+        announce.SynchronizeHorse(actor);
+        if (Eligible(actor)) ticks.AfterMovement(actor);
     }
     private static bool Eligible(RoomUser actor) => actor.Movement.State == NavState.Active
         && actor.Movement.TickLocationRevision == actor.Movement.LocationRevision;

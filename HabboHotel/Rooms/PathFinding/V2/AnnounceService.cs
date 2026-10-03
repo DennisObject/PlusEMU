@@ -6,11 +6,21 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
 {
     private readonly BlockedStepPolicy _blocked = new(navigation.Settings, context, cancellation);
     private readonly MovementRules _rules = new(navigation.Grid, navigation.Settings);
-    public void Announce(RoomUser actor)
+    public void Announce(RoomUser actor, bool committed)
     {
         var state = actor.Movement;
-        if (!state.HasIntent || state.Route.Count == 0 || state.PendingCount != 0) return;
-        if (actor.Freezed || !actor.CanWalk && state.Origin != MoveOrigin.Interaction) { actor.RemoveStatus("mv"); state.StallTicks = 0; actor.UpdateNeeded = true; return; }
+        _blocked.TickStall(actor, committed);
+        if (!state.HasIntent || state.Route.Count == 0 || state.PendingCount != 0)
+        { ApplyIdleEffects(actor, committed); return; }
+        if (actor.Freezed || !actor.CanWalk && state.Origin != MoveOrigin.Interaction)
+        { actor.RemoveStatus("mv"); actor.UpdateNeeded = true; ApplyIdleEffects(actor, committed); return; }
+        var target = BuildBatch(actor);
+        if (state.PendingCount == 0) { _blocked.Handle(actor); ApplyIdleEffects(actor, committed); return; }
+        Publish(actor, target);
+    }
+    private NavPosition BuildBatch(RoomUser actor)
+    {
+        var state = actor.Movement;
         var profile = MovementProfiles.Refresh(room, navigation.Grid, navigation.Settings, actor);
         var from = new NavPosition(actor.X, actor.Y, state.SupportZ);
         var limit = actor.SuperFastWalking ? 3 : actor.FastWalking ? 2 : 1;
@@ -27,8 +37,12 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
             if (!context.Claims.TryClaim(actor, surface.Tile, kind, mask)) break;
             state.Pending[state.PendingCount++] = surface; from = target;
         }
-        if (state.PendingCount == 0) { _blocked.Handle(actor); return; }
-        Publish(actor, from);
+        return from;
+    }
+    private void ApplyIdleEffects(RoomUser actor, bool committed)
+    {
+        if (!committed && actor.Movement.PendingCount == 0)
+            context.FloorEffects.Apply(actor, actor.X, actor.Y);
     }
     private ClaimKind ClaimKindFor(ActorProfile profile, SurfaceRef surface, StepPurpose purpose)
     {
@@ -44,5 +58,26 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
         actor.RotBody = actor.RotHead = Rotation.Calculate(actor.X, actor.Y, target.X, target.Y, actor.MoonwalkEnabled);
         actor.SetStep = true; actor.SetX = target.X; actor.SetY = target.Y; actor.SetZ = target.Z;
         actor.IsWalking = true; actor.UpdateNeeded = true;
+        context.FloorEffects.Apply(actor, target.X, target.Y);
+    }
+    public void SynchronizeHorse(RoomUser actor)
+    {
+        if (!actor.RidingHorse || actor.IsBot) return;
+        var horse = room.GetRoomUserManager().GetRoomUserByVirtualId(actor.HorseId);
+        if (horse == null) return;
+        if (actor.HasStatus("mv"))
+        {
+            horse.SetStatus("mv", $"{actor.SetX},{actor.SetY},{TextHandling.GetString(actor.SetZ)}");
+            horse.SetStep = actor.SetStep;
+            horse.SetX = actor.SetX; horse.SetY = actor.SetY; horse.SetZ = actor.SetZ;
+            horse.RotBody = actor.RotBody; horse.RotHead = actor.RotHead;
+            horse.IsWalking = actor.IsWalking;
+        }
+        else
+        {
+            horse.RemoveStatus("mv"); horse.SetStep = false; horse.IsWalking = false;
+        }
+        horse.UpdateNeeded = true;
+        context.RefreshMembership(horse);
     }
 }

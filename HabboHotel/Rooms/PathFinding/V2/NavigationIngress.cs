@@ -22,6 +22,7 @@ public sealed partial class RoomNavigation
         => Post(new(RoomCommandKind.ForcePlace, actor, actor.Movement.LifetimeId, x, y, z, resolution, actor.Movement.Commands.Read()?.Sequence ?? 0));
     public void Remove(RoomUser actor)
     {
+        if (!UsesExecutor || actor.Movement.State == NavState.Removing) return;
         actor.Movement.State = NavState.Removing;
         Post(new(RoomCommandKind.Remove, actor, actor.Movement.LifetimeId));
     }
@@ -32,7 +33,14 @@ public sealed partial class RoomNavigation
         if (RoomOwnerScope.IsOwner(_room)) Executor.Handle(command);
         else _commands.Enqueue(command);
     }
-    internal V2MovementEngine Executor => _executor ??= new(_room, this);
+    internal V2MovementEngine Executor => _executor ??= new(_room, this, PlusEnvironment.DatabaseManager);
     public void DrainCommands() { if (UsesExecutor) _commands.Drain(Executor.Handle); }
+    public void RefreshPostures()
+    {
+        if (UsesExecutor && RoomOwnerScope.IsOwner(_room))
+        {
+            ApplyDirty(); Executor.RefreshPostures();
+        }
+    }
     public void CycleUsers() => Executor.Tick();
 }

@@ -11,8 +11,16 @@ internal sealed class MovementCancellation(MovementContext context)
         actor.GoalX = actor.X; actor.GoalY = actor.Y; actor.IsWalking = false;
         actor.SetStep = false; actor.PathRecalcNeeded = false; actor.Path.Clear();
         actor.RemoveStatus("mv"); actor.UpdateNeeded = true;
+        StopHorse(actor);
         context.Claims.ReleaseBatch(actor); context.Scheduler.Remove(actor);
         context.RefreshMembership(actor);
+    }
+    private void StopHorse(RoomUser actor)
+    {
+        if (actor.IsBot || !actor.RidingHorse) return;
+        var horse = context.Room.GetRoomUserManager().GetRoomUserByVirtualId(actor.HorseId);
+        if (horse == null) return;
+        horse.RemoveStatus("mv"); horse.IsWalking = false; horse.SetStep = false; horse.UpdateNeeded = true;
     }
     internal void Remove(RoomUser actor)
     {

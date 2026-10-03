@@ -1,10 +1,12 @@
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
-internal sealed class MovementContext(Room room, RoomNavigation navigation)
+internal sealed class MovementContext(Room room, RoomNavigation navigation, LandingEffects landingEffects, FloorEffectService floorEffects)
 {
     internal Room Room { get; } = room;
     internal RoomNavigation Navigation { get; } = navigation;
     internal NavGrid Grid => Navigation.Grid;
+    internal LandingEffects LandingEffects { get; } = landingEffects;
+    internal FloorEffectService FloorEffects { get; } = floorEffects;
     internal ClaimLedger Claims { get; } = new(navigation.Grid.SlotCapacity, navigation.Grid.SlotCapacity);
     internal SearchScheduler<RoomUser> Scheduler { get; } = new();
     private PlanningOccupancy ExecutionOccupancy { get; } = new(navigation.Grid.SlotCapacity);
