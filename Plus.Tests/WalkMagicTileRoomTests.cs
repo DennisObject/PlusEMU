@@ -888,6 +888,63 @@ public partial class PlacedFurniRoomTests
         Assert.Empty(map.GetCoordinatedItems(unused));
     }
 
+    [Fact]
+    public async Task VisitorEnteringDuringPausedRecipientResolutionReceivesTheFollowingMutation()
+    {
+        var table = Add(10, 1, 1, height: 1);
+        var map = _room.GetGameMap();
+        var existingClient = new TestClient();
+        existingClient.SetHabbo(new Plus.HabboHotel.Users.Habbo { Id = 8, CurrentRoom = _room });
+        var existingVisit = new RoomUser(8, RoomId, 0, _room); // Resolve this client through the real lookup path.
+        var roster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
+            .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
+        roster[0] = existingVisit;
+        using var resolving = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var lookups = 0;
+        var lookupUnderLock = false;
+        var game = PlusEnvironment.Game;
+        var clients = Proxy<IGameClientManager>((method, args) =>
+        {
+            Assert.Equal("GetClientByUserId", method);
+            if ((int)args[0]! != 8) return _client;
+            if (Interlocked.Increment(ref lookups) == 1)
+            {
+                lookupUnderLock = Monitor.IsEntered(map.PlacementSync);
+                resolving.Set();
+                Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
+            }
+            return existingClient;
+        });
+        _gameField.SetValue(null, Proxy<Plus.HabboHotel.IGame>((method, _) => method switch
+        {
+            "get_ClientManager" => clients,
+            "get_RoomManager" => game.RoomManager,
+            _ => throw new InvalidOperationException(method)
+        }));
+        table.Definition.Height = 2;
+        map.AddItemToMap(table, false); // Like a furniture commit, dirty the footprint before the flush.
+        var flush = Task.Run(map.FlushPlacementUpdates);
+        try
+        {
+            Assert.True(resolving.Wait(TimeSpan.FromSeconds(10)));
+            Viewer();
+            map.SendPlacementHeightMap(_client);
+            table.Definition.Height = 3;
+            map.AddItemToMap(table, false);
+        }
+        finally { release.Set(); }
+        await flush.WaitAsync(TimeSpan.FromSeconds(15));
+        map.FlushPlacementUpdates();
+        Assert.False(lookupUnderLock);
+        var entry = Assert.Single(_client.Packets.Where(packet => packet.Header == ServerPacketHeader.HeightMapComposer));
+        var full = new FlashIncomingPacket { Buffer = entry.Body.ToArray() };
+        Assert.Equal(4, full.ReadInt()); Assert.Equal(16, full.ReadInt());
+        var heights = Enumerable.Range(0, 16).Select(_ => full.ReadShort()).ToArray();
+        Assert.Equal((short)512, heights[5]);
+        Assert.Equal((short)768, DeltaAt(1, 1));
+    }
+
     [Theory]
     [InlineData("switch")]
     [InlineData("reenter")]

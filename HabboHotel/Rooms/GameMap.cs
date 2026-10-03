@@ -28,7 +28,10 @@ public class Gamemap
     // Arrays belong exclusively to the queued snapshot and are never changed after capture.
     private sealed record PlacementRecipient(GameClient Session, RoomUser Visit);
     private sealed record PlacementDelivery(long Version, short[,] Heights,
-        HeightMapUpdateComposer.Tile[]? Changes, PlacementRecipient[] Recipients, bool Entry = false);
+        HeightMapUpdateComposer.Tile[]? Changes, RoomUser[] Visits, GameClient? EntrySession = null)
+    {
+        public bool Entry => EntrySession != null;
+    }
     private int _placementWidth;
     private int _placementHeight;
 
@@ -94,7 +97,6 @@ public class Gamemap
 
     public void FlushPlacementUpdates()
     {
-        var recipients = CapturePlacementRecipients();
         lock (_placementLock)
         {
             if (_placementClosed) return;
@@ -106,7 +108,7 @@ public class Gamemap
             {
                 // Byte-sized delta counts/coordinates cannot represent larger maps.
                 var full = resized || changed.Any(tile => tile.X > byte.MaxValue || tile.Y > byte.MaxValue);
-                _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), full ? null : changed.ToArray(), recipients));
+                _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), full ? null : changed.ToArray(), CapturePlacementVisits()));
             }
         }
         DrainPlacementUpdates();
@@ -120,27 +122,18 @@ public class Gamemap
 
     internal void SendPlacementHeightMap(GameClient session)
     {
-        var recipients = CapturePlacementRecipients().Where(recipient => ReferenceEquals(recipient.Session, session)).ToArray();
         lock (_placementLock)
         {
-            if (_placementClosed || recipients.Length == 0) return;
-            _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), null, recipients, true));
+            if (_placementClosed) return;
+            var visits = CapturePlacementVisits();
+            if (visits.Length == 0) return;
+            _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), null, visits, session));
         }
         DrainPlacementUpdates();
     }
 
-    private PlacementRecipient[] CapturePlacementRecipients()
-    {
-        RoomUser[] visits;
-        lock (_placementLock)
-        {
-            if (_placementClosed || _placementRoom.MDisposed) return [];
-            visits = _placementRoom.GetRoomUserManager()?.GetRoomUsers().ToArray() ?? [];
-        }
-        // Resolve clients outside the map lock. Each avatar object identifies one room visit.
-        return visits.Select(visit => (Session: visit.GetClient(), Visit: visit))
-            .Where(pair => pair.Session != null).Select(pair => new PlacementRecipient(pair.Session!, pair.Visit)).ToArray();
-    }
+    // Capture visit identities with the projection under _placementLock; client lookup belongs to delivery.
+    private RoomUser[] CapturePlacementVisits() => _placementRoom.GetRoomUserManager()?.GetRoomUsers().ToArray() ?? [];
 
     private bool IsCurrentPlacementRecipient(PlacementRecipient recipient)
     {
@@ -194,8 +187,11 @@ public class Gamemap
             {
                 // Enumerate eligibility immediately before each client's send, including every delta chunk.
                 // A client can leave while an earlier recipient's synchronous send callback is still running.
-                var currentClients = delivery.Recipients.Where(IsCurrentPlacementRecipient).Select(recipient => recipient.Session);
-                bool CanSend(GameClient client) => delivery.Recipients.Any(recipient => ReferenceEquals(recipient.Session, client)
+                var recipients = delivery.Visits.Select(visit => (Session: visit.GetClient(), Visit: visit))
+                    .Where(pair => pair.Session != null && (delivery.EntrySession == null || ReferenceEquals(pair.Session, delivery.EntrySession)))
+                    .Select(pair => new PlacementRecipient(pair.Session!, pair.Visit)).ToArray();
+                var currentClients = recipients.Where(IsCurrentPlacementRecipient).Select(recipient => recipient.Session);
+                bool CanSend(GameClient client) => recipients.Any(recipient => ReferenceEquals(recipient.Session, client)
                     && IsCurrentPlacementRecipient(recipient));
                 bool SupportsDelta(GameClient client) => client.Revision.InternalIdToOutgoingIdMapping
                     .ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapUpdateComposer);
