@@ -261,6 +261,46 @@ public partial class PlacedFurniRoomTests
         Assert.DoesNotContain((2, 1), visited);
     }
 
+    [Fact]
+    public void LayeredNonGoalSurfaceOnTheGoalTileIsCrossedAsTransit()
+    {
+        // Walkthrough corridor along y=1: the floor under the deck at (2,1) holds a stationary occupant, so
+        // only the deck is a goal; the route crosses that floor, climbs the stair and returns onto the deck.
+        uint wall = 70;
+        foreach (var (x, y) in new[] { (1, 0), (2, 0), (3, 0), (0, 2), (1, 2), (2, 2), (3, 2) })
+            ExecutorFloor(wall++, x, y, height: 1).Definition.Walkable = false;
+        ExecutorFloor(20, 1, 1, height: 1); ExecutorFloor(21, 2, 1, z: 2);
+        _room.RoomBlockingEnabled = true;
+        var actor = LayeredActor(3, 1);
+        ExecutorAdditionalBot(2, 1, 5);
+        actor.MoveTo(2, 1);
+        var path = new List<(int, int, double)>();
+        for (var tick = 0; tick < 4; tick++) { ExecutorTick(); path.Add((actor.X, actor.Y, actor.Z)); }
+        Assert.Equal(new[] { (3, 1, 0d), (2, 1, 0d), (1, 1, 1d), (2, 1, 2d) }, path);
+        Assert.Equal(new SurfaceRef(LayeredTile(2, 1), 21, SurfaceKind.Top), actor.Movement.CurrentRef);
+    }
+
+    [Theory]
+    [InlineData(ClaimKind.Roller, false)]
+    [InlineData(ClaimKind.Roller, true)]
+    [InlineData(ClaimKind.Exclusive, false)]
+    [InlineData(ClaimKind.Exclusive, true)]
+    public void LayeredClaimsOnAFreedOrReassignedOverflowSlotAreCleared(ClaimKind kind, bool reassigned)
+    {
+        LayeredBridge();
+        var actor = LayeredActor(0, 3);
+        var claims = LayeredNavigation.Executor.Claims;
+        var deck = LayeredNavigation.Grid.SlotOf(new SurfaceRef(LayeredTile(2, 1), 21, SurfaceKind.Top));
+        Assert.True(deck >= LayeredNavigation.Grid.TileCount);
+        Assert.True(claims.TryClaim(actor, deck, kind, TargetOccupancy.None));
+        _room.GetRoomItemHandler().RemoveFurniture(null!, 21);
+        if (reassigned) ExecutorFloor(23, 3, 2, z: 2);
+        using (RoomOwnerScope.Enter(_room)) LayeredNavigation.ApplyDirty();
+        if (reassigned) Assert.Equal(deck, LayeredNavigation.Grid.SlotOf(new SurfaceRef(LayeredTile(3, 2), 23, SurfaceKind.Top)));
+        Assert.Equal(TargetOccupancy.None, claims.OccupancyAt(deck, 0));
+        Assert.True(claims.TryClaim(actor, deck, ClaimKind.Exclusive, (TargetOccupancy)127));
+    }
+
     private RoomNavigation LayeredNavigation => _room.GetGameMap().Navigation!;
     private int LayeredTile(int x, int y) => LayeredNavigation.Grid.Tile(x, y);
 
