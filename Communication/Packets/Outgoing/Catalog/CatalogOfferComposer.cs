@@ -16,5 +16,5 @@ public class CatalogOfferComposer : IServerPacket
     }
 
     public void Compose(IOutgoingPacket packet) =>
-        CatalogOfferWriter.Write(packet, _item, _item.OfferId, _item.HabbiconId > 0 ? _item.CatalogName : _item.Definition.ItemName);
+        CatalogOfferWriter.Write(packet, _item, _item.WireOfferId, _item.HabbiconId > 0 ? _item.CatalogName : _item.Definition.ItemName);
 }

@@ -7,6 +7,7 @@ using Plus.HabboHotel.Catalog.Marketplace;
 using Plus.HabboHotel.Catalog.Pets;
 using Plus.HabboHotel.Catalog.Vouchers;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Catalog;
 
@@ -18,7 +19,7 @@ public class CatalogManager : ICatalogManager, IStartable
     private readonly Dictionary<int, Dictionary<int, CatalogItem>> _items;
     private readonly Dictionary<int, CatalogPage> _pages;
     private readonly Dictionary<int, CatalogPromotion> _promotions;
-    private readonly Dictionary<int, int> _itemOffers;
+    private readonly CatalogOfferIndex _offers = new();
 
     private readonly IClothingManager _clothingManager;
     private readonly IDatabase _database;
@@ -36,15 +37,12 @@ public class CatalogManager : ICatalogManager, IStartable
         _itemDataManager = itemDataManager;
         _database = database;
         _logger = logger;
-        _itemOffers = new();
         _pages = new();
         _botPresets = new();
         _items = new();
         _deals = new();
         _promotions = new();
     }
-
-    public Dictionary<int, int> ItemOffers => _itemOffers;
 
     public async Task Start() => await Init();
 
@@ -62,7 +60,6 @@ public class CatalogManager : ICatalogManager, IStartable
             _deals.Clear();
         if (_promotions.Count > 0)
             _promotions.Clear();
-        _itemOffers.Clear();
 
         using var connection = _database.Connection();
 
@@ -81,9 +78,6 @@ public class CatalogManager : ICatalogManager, IStartable
 
             if (!_items.ContainsKey(item.PageId))
                 _items[item.PageId] = new();
-
-            if (item.OfferId != -1 && !_itemOffers.ContainsKey(item.OfferId))
-                _itemOffers.Add(item.OfferId, item.PageId);
 
             item.Definition = definition;
             _items[item.PageId].Add(item.Id, item);
@@ -138,17 +132,13 @@ public class CatalogManager : ICatalogManager, IStartable
         {
             if (_items.ContainsKey(page.Id))
                 page.Items = _items[page.Id];
-            // Offer ids are what the index, product offer lookups and purchases by offer resolve against.
-            foreach (var item in page.Items.Values)
-            {
-                if (item.OfferId != -1 && _itemOffers.TryGetValue(item.OfferId, out var ownerPageId) && ownerPageId == page.Id)
-                    page.ItemOffers.TryAdd(item.OfferId, item);
-            }
 
             page.PageStringsList1 = !string.IsNullOrWhiteSpace(page.PageStrings1) ? page.PageStrings1!.Split("|").ToList() : new();
             page.PageStringsList2 = !string.IsNullOrWhiteSpace(page.PageStrings2) ? page.PageStrings2!.Split("|").ToList() : new();
             _pages.Add(page.Id, page);
         }
+
+        _offers.Build(_pages.Values);
 
         var bots = await connection.QueryAsync<CatalogBot>("SELECT `id`,`name`,`figure`,`motto`,`gender`,`ai_type` FROM `catalog_bot_presets`");
         foreach (CatalogBot bot in bots)
@@ -175,6 +165,8 @@ public class CatalogManager : ICatalogManager, IStartable
     public bool TryGetPage(int pageId, out CatalogPage page) => _pages.TryGetValue(pageId, out page);
 
     public bool TryGetDeal(int dealId, out CatalogDeal deal) => _deals.TryGetValue(dealId, out deal);
+
+    public bool TryGetOffer(int offerId, Habbo habbo, out CatalogPage page, out CatalogItem item) => _offers.TryGet(offerId, habbo, out page, out item);
 
     public ICollection<CatalogPage> Pages => _pages.Values;
 

@@ -13,7 +13,7 @@ public class CatalogPageComposer : IServerPacket
     private readonly int _offerId;
     public uint MessageId => ServerPacketHeader.CatalogPageComposer;
 
-    // offerId is the offer the client asked to preselect, or -1.
+    // offerId is the wire offer id the client asked to preselect, or -1.
     public CatalogPageComposer(CatalogPage page, string mode, int offerId = -1)
     {
         _page = page;
@@ -32,9 +32,9 @@ public class CatalogPageComposer : IServerPacket
         foreach (var s in _page.PageStringsList2) packet.WriteString(s);
         if (!_page.Layout.Equals("frontpage") && !_page.Layout.Equals("club_buy"))
         {
-            packet.WriteInteger(_page.Items.Count);
-            foreach (var item in _page.Items.Values)
-                CatalogOfferWriter.Write(packet, item, item.Id, item.CatalogName);
+            packet.WriteInteger(_page.Offers.Count);
+            foreach (var item in _page.Offers.Values)
+                CatalogOfferWriter.Write(packet, item, item.WireOfferId, item.CatalogName);
         }
         else
             packet.WriteInteger(0);

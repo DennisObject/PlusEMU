@@ -22,7 +22,7 @@ public class GetCatalogPageEvent : IPacketEvent
             return Task.CompletedTask;
         if (!page.CanOpen(session.GetHabbo()))
             return Task.CompletedTask;
-        session.Send(new CatalogPageComposer(page, page.CatalogMode, page.ItemOffers.TryGetValue(offerId, out var offer) ? offer.Id : -1));
+        session.Send(new CatalogPageComposer(page, page.CatalogMode, page.Offers.ContainsKey(offerId) ? offerId : -1));
         return Task.CompletedTask;
     }
 }

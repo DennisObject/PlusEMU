@@ -53,7 +53,7 @@ public class CatalogIndexComposer : IServerPacket
         packet.WriteInteger(page.ParentId);
         packet.WriteString(page.Link);
         packet.WriteString(page.Caption);
-        var offerIds = page.Enabled ? page.ItemOffers.Keys.ToList() : new List<int>();
+        var offerIds = page.Enabled ? CatalogOfferIndex.OfficialOfferIds(page).ToList() : new List<int>();
         packet.WriteInteger(offerIds.Count);
         foreach (var offerId in offerIds) packet.WriteInteger(offerId);
         packet.WriteInteger(children.Count);

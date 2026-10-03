@@ -67,17 +67,8 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             return;
         if (!page.CanOpen(session.GetHabbo()))
             return;
-        if (!page.Items.TryGetValue(itemId, out var item))
-        {
-            if (page.ItemOffers.ContainsKey(itemId))
-            {
-                item = page.ItemOffers[itemId];
-                if (item == null)
-                    return;
-            }
-            else
-                return;
-        }
+        if (!page.Offers.TryGetValue(itemId, out var item))
+            return;
         if (item.HabbiconId > 0)
         {
             try

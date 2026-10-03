@@ -24,4 +24,13 @@ public class CatalogItem
     public int ClubLevel { get; set; }
     public string PreviewImage { get; set; } = string.Empty;
     public int OrderNum { get; set; }
+
+    private int? _wireOfferId;
+
+    // The id the client sees and buys with on this item's page; CatalogOfferIndex assigns it.
+    public int WireOfferId
+    {
+        get => _wireOfferId ?? (OfferId > 0 ? OfferId : Id);
+        set => _wireOfferId = value;
+    }
 }

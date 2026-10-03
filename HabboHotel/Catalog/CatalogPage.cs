@@ -36,7 +36,8 @@ public class CatalogPage
 
     public Dictionary<int, CatalogItem> Items { get; set; } = new();
 
-    public Dictionary<int, CatalogItem> ItemOffers { get; set; } = new();
+    // Offers by WireOfferId, in display order. Pages, purchases, gifts and preselection all resolve here.
+    public Dictionary<int, CatalogItem> Offers { get; set; } = new();
 
     // Rank and VIP gates. Hidden pages (Visible = false) stay reachable by link, as on the official hotel.
     public bool IsAvailableTo(Habbo habbo) => MinimumRank <= habbo.Rank && (MinimumVip <= habbo.VipRank || habbo.Rank != 1);
