@@ -607,19 +607,24 @@ public partial class PlacedFurniRoomTests
         { inCommit.Set(); Assert.True(release.Wait(TimeSpan.FromSeconds(5))); }));
         Assert.Equal(GateTransition.Queued, Task.Run(() => service.Toggle(gate, Flip, GateCloseReason.Click, persist: false)).Result);
         var drain = Task.Run(() => { using var owner = RoomOwnerScope.Enter(_room); service.Drain(); });
-        Assert.True(inCommit.Wait(TimeSpan.FromSeconds(5)));
-        Thread? contender = null;
-        service.DecisionHook = () => { contender = Thread.CurrentThread; reached.Set(); };
-        var click = Task.Run(() => service.Toggle(gate, Flip, GateCloseReason.Click, persist: false));
-        Assert.True(reached.Wait(TimeSpan.FromSeconds(5)));
-        // Reaching the hook proves the contender is at its decision; it may only finish once the commit lock is free.
-        SpinWait.SpinUntil(() => click.IsCompleted || (contender!.ThreadState & ThreadState.WaitSleepJoin) != 0, TimeSpan.FromSeconds(5));
-        var finishedWhileCommitting = click.IsCompleted;
-        release.Set();
-        Assert.True(Task.WhenAll(drain, click).Wait(TimeSpan.FromSeconds(5)));
-        Assert.False(finishedWhileCommitting);
-        // It decides only after the commit: appended behind the still-busy close, or applied once that close has ended.
-        Assert.True(click.Result is GateTransition.Queued or GateTransition.Applied);
+        try
+        {
+            Assert.True(inCommit.Wait(TimeSpan.FromSeconds(5)));
+            Thread? contender = null;
+            service.DecisionHook = () => { contender = Thread.CurrentThread; reached.Set(); };
+            var click = Task.Run(() => service.Toggle(gate, Flip, GateCloseReason.Click, persist: false));
+            Assert.True(reached.Wait(TimeSpan.FromSeconds(5)));
+            // Reaching the hook proves the contender is at its decision; it may only finish once the commit lock is free.
+            var settled = SpinWait.SpinUntil(() => click.IsCompleted || (contender!.ThreadState & ThreadState.WaitSleepJoin) != 0, TimeSpan.FromSeconds(5));
+            Assert.True(settled);
+            var finishedWhileCommitting = click.IsCompleted;
+            release.Set();
+            Assert.True(Task.WhenAll(drain, click).Wait(TimeSpan.FromSeconds(5)));
+            Assert.False(finishedWhileCommitting);
+            // It decides only after the commit: appended behind the still-busy close, or applied once that close has ended.
+            Assert.True(click.Result is GateTransition.Queued or GateTransition.Applied);
+        }
+        finally { release.Set(); }
         using (RoomOwnerScope.Enter(_room)) service.Drain();
         Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, service.PendingCount);
     }
