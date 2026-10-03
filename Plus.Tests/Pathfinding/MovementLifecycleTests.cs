@@ -7,6 +7,20 @@ namespace Plus.Tests;
 
 public partial class PlacedFurniRoomTests
 {
+    [Fact]
+    public void RoomNavigationRetriesEveryDirtyTileAfterARejectedPublication()
+    {
+        var navigation = new RoomNavigation(_room, _room.GetGameMap().StaticModel,
+            new() { Engine = PathfindingEngine.V2 });
+        navigation.Compiler.BeforePublish = _ => throw new InvalidOperationException("publication rejected");
+        Assert.Throws<InvalidOperationException>((Action)navigation.ApplyDirty);
+        var publishedTiles = 0;
+        navigation.Compiler.BeforePublish = tiles => publishedTiles = tiles.Count;
+        navigation.ApplyDirty();
+        Assert.Equal(navigation.Grid.SlotCapacity, publishedTiles);
+        Assert.Equal(1, navigation.Grid.Version);
+    }
+
     [Theory]
     [InlineData(PathfindingEngine.Shadow)]
     [InlineData(PathfindingEngine.V2)]
