@@ -1,3 +1,4 @@
+using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Xunit;
