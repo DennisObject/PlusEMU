@@ -983,3 +983,62 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(4, gate.UpdateCounter); Assert.True(gate.UpdateNeeded); Assert.Equal(0, Gates.PendingCount);
     }
 }
+
+// A prepared close keeps the position its operation reserved; a retained close never passes a waiting entry.
+public partial class PlacedFurniRoomTests
+{
+    [Fact]
+    public void GateOperationPreparedCloseKeepsItsPositionAheadOfAFollowerSubmittedDuringEvaluation()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        using var evaluating = new ManualResetEventSlim(); using var proceed = new ManualResetEventSlim();
+        Func<string, string?> slowClose = _ => { evaluating.Set(); proceed.Wait(TimeSpan.FromSeconds(5)); return "0"; };
+        var first = Task.Run(() => Gates.Toggle(gate, slowClose, GateCloseReason.Click, persist: false));
+        try
+        {
+            Assert.True(evaluating.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Equal(GateTransition.Queued, Task.Run(() => GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false)).Result);
+        }
+        finally { proceed.Set(); }
+        Assert.Equal(GateTransition.Queued, first.Result);
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateOperationPreparedVariableCloseKeepsItsPositionAheadOfAFollowerSubmittedDuringEvaluation()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2)); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        using var evaluating = new ManualResetEventSlim(); using var proceed = new ManualResetEventSlim();
+        Func<int, int> slowClose = _ => { evaluating.Set(); proceed.Wait(TimeSpan.FromSeconds(5)); return 0; };
+        var first = Task.Run(() => module.Change(StateReference, holder, WiredVariableMutation.Set, slowClose, frame));
+        try
+        {
+            Assert.True(evaluating.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Equal(GateTransition.Queued, Task.Run(() => GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false)).Result);
+        }
+        finally { proceed.Set(); }
+        Assert.True(first.Result);
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount); Assert.Single(notices);
+    }
+
+    [Fact]
+    public void GateOperationRetainedCloseWaitsWhileAFollowerIsPendingForTheGate()
+    {
+        var gate = ClosableGate(); var (actor, navigation) = ActorOn(new Point(0, 2));
+        Assert.True(navigation.Executor.Claims.TryClaim(actor, navigation.Grid.Tile(1, 1), ClaimKind.Shared, TargetOccupancy.None));
+        Assert.Equal(GateTransition.Queued, Task.Run(() => Gates.TryClose(gate, GateCloseReason.Automatic, "0", persist: false)).Result);
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(1, Gates.PendingCount);
+        navigation.Executor.Claims.Release(actor);
+        GateTransition? follower = null;
+        Assert.Equal(GateTransition.Queued, Task.Run(() => Gates.TryClose(gate, GateCloseReason.Click, "0", persist: false,
+            afterClose: _ => follower = GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false))).Result);
+        DrainOnOwner();
+        Assert.Equal(GateTransition.Queued, follower);
+        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(2, Gates.PendingCount);
+    }
+}
