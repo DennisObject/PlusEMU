@@ -5,6 +5,8 @@ using MySqlConnector;
 using Plus.Communication.Http;
 using Plus.Database;
 using Plus.Database.Interfaces;
+using Plus.HabboHotel.Rooms.Chat.Filter;
+using Plus.HabboHotel.Users.Authentication;
 using Xunit;
 
 namespace Plus.Tests;
@@ -64,4 +66,110 @@ internal static class AuthTestConfig
         configure?.Invoke(configuration);
         return Microsoft.Extensions.Options.Options.Create(configuration);
     }
+}
+
+internal sealed class FakeAccounts : IAccountStore
+{
+    public readonly List<AccountCredentials> Rows = [];
+    public readonly List<NewAccount> Created = [];
+    public readonly HashSet<string> Emails = new(StringComparer.OrdinalIgnoreCase);
+
+    public AccountCredentials Add(string username, string? password)
+    {
+        var row = new AccountCredentials(Rows.Count + 1, username, password);
+        Rows.Add(row);
+        return row;
+    }
+
+    public Task<AccountCredentials?> FindByUsername(string username) =>
+        Task.FromResult(Rows.FirstOrDefault(r => string.Equals(r.Username, username, StringComparison.OrdinalIgnoreCase)));
+
+    public Task UpgradePassword(int userId, string current, string replacement)
+    {
+        var index = Rows.FindIndex(r => r.Id == userId && r.Password == current);
+        if (index >= 0)
+            Rows[index] = Rows[index] with { Password = replacement };
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> UsernameExists(string username) => Task.FromResult(Rows.Any(r => string.Equals(r.Username, username, StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>When set, each email check waits (up to 100 ms) until this many checks are in
+    /// flight, so unserialized check-then-insert races are guaranteed to overlap.</summary>
+    public int ConcurrentEmailChecks;
+    private int _emailChecksArrived;
+    private readonly TaskCompletionSource _emailChecksGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public async Task<bool> EmailExists(string email)
+    {
+        if (Interlocked.Increment(ref _emailChecksArrived) >= ConcurrentEmailChecks)
+            _emailChecksGate.TrySetResult();
+        await Task.WhenAny(_emailChecksGate.Task, Task.Delay(100));
+        lock (Emails)
+            return Emails.Contains(email);
+    }
+
+    public async Task<int?> Create(NewAccount account)
+    {
+        await Task.Yield();
+        if (await UsernameExists(account.Username))
+            return null;
+        lock (Emails)
+        {
+            Created.Add(account);
+            Emails.Add(account.Email);
+            return Add(account.Username, account.PasswordHash).Id;
+        }
+    }
+}
+
+internal sealed class FakeSsoTickets : ISsoTicketStore
+{
+    public readonly Dictionary<string, int> Live = [];
+
+    public Task<IssuedToken> Issue(int userId)
+    {
+        var token = new IssuedToken(SecureToken.Generate(), 1000);
+        Live[token.Value] = userId;
+        return Task.FromResult(token);
+    }
+
+    public Task<int?> FindUser(string ticket) => Task.FromResult(Live.TryGetValue(ticket, out var id) ? id : (int?)null);
+
+    public Task<int?> Consume(string ticket) => Task.FromResult(Live.Remove(ticket, out var id) ? id : (int?)null);
+}
+
+internal sealed class FakeAccessTokens : IAccessTokenStore
+{
+    public readonly Dictionary<string, int> Live = [];
+
+    public Task<IssuedToken> Issue(int userId)
+    {
+        var token = new IssuedToken(SecureToken.Generate(), 2000);
+        Live[token.Value] = userId;
+        return Task.FromResult(token);
+    }
+
+    public Task<int?> FindUser(string token) => Task.FromResult(Live.TryGetValue(token, out var id) ? id : (int?)null);
+
+    public Task Revoke(string token)
+    {
+        Live.Remove(token);
+        return Task.CompletedTask;
+    }
+
+    public Task RevokeAll(int userId)
+    {
+        foreach (var key in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
+            Live.Remove(key);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeWordFilter(params string[] words) : IWordFilterManager
+{
+    public void Init() { }
+    public string CheckMessage(string message) => message;
+    public bool CheckBannedWords(string message) => false;
+    public bool IsFiltered(string message) => words.Any(message.Contains);
 }
