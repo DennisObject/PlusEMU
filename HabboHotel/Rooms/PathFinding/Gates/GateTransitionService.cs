@@ -37,14 +37,23 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
     public static bool IsGate(Item item)
         => item.Definition.InteractionType is InteractionType.Gate or InteractionType.GuildGate or InteractionType.GateVip;
 
-    public static bool IsClosing(Item item, string newState)
-        => IsGate(item) && item.LegacyDataString == OpenState && newState != OpenState;
+    public static bool IsClosing(Item item, string newState) => IsClosing(item, item.LegacyDataString, newState);
+
+    public static bool IsClosing(Item item, string currentState, string newState)
+        => IsGate(item) && currentState == OpenState && newState != OpenState;
+
+    // The state legacy would show: a close that is still queued has already happened there.
+    public static string EffectiveState(Item item)
+        => (IsGate(item) ? item.GetRoom()?.GetGameMap()?.Gates?.QueuedClosedState(item) : null) ?? item.LegacyDataString;
+
+    private string? QueuedClosedState(Item item) => _explicit.TryGetValue(item.Id, out var queued) ? queued.ClosedState : null;
 
     // Opening and non-gate writes are unchanged; only a closing transition is guarded.
     public static GateTransition Apply(Item item, string state, GateCloseReason reason, bool persist = true, Action<Item>? afterWrite = null)
     {
         var gates = item.GetRoom()?.GetGameMap()?.Gates;
         if (gates != null && IsClosing(item, state)) return gates.TryClose(item, reason, state, persist, afterWrite);
+        if (gates != null && IsGate(item) && state == OpenState) return gates.Open(item, state, persist, afterWrite);
         item.LegacyDataString = state;
         item.UpdateState(persist, true);
         afterWrite?.Invoke(item);
@@ -59,6 +68,19 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
         var gates = IsGate(item) ? item.GetRoom()?.GetGameMap()?.Gates : null;
         if (gates != null) return gates.Toggle(item, nextState, reason, persist, afterWrite);
         return nextState(item.LegacyDataString) is { } state ? Apply(item, state, reason, persist, afterWrite) : GateTransition.Unchanged;
+    }
+
+    // An absolute opening is the latest word: it cancels a close that is still queued for this gate.
+    private GateTransition Open(Item item, string state, bool persist, Action<Item>? afterWrite)
+    {
+        LegacyDataFormat? data;
+        lock (_sync)
+        {
+            if (_explicit.TryRemove(item.Id, out _)) Interlocked.Increment(ref _cancelledInQueue);
+            data = item.StoreStateQuietly(state);
+        }
+        Publish(item, data, persist, afterWrite, rebuildGrid: false);
+        return GateTransition.Applied;
     }
 
     public GateTransition TryClose(Item item, GateCloseReason reason, string closedState = "0", bool persist = true, Action<Item>? afterClose = null)

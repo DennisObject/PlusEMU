@@ -39,8 +39,9 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     {
         if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state" || RoomOwnerScope.IsOwner(room)) return false;
         if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || room.GetGameMap()?.Gates is not { } gates) return false;
-        if (!int.TryParse(item.LegacyDataString, out var current)) return false;
-        if (!GateTransitionService.IsClosing(item, transform(current).ToString(CultureInfo.InvariantCulture))) return false;
+        var effective = GateTransitionService.EffectiveState(item);
+        if (!int.TryParse(effective, out var current)) return false;
+        if (!GateTransitionService.IsClosing(item, effective, transform(current).ToString(CultureInfo.InvariantCulture))) return false;
         gates.Post(replay);
         return true;
     }
@@ -109,7 +110,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         {
             var item = FindItem(holder);
             if (item is null || value < 0 || item.Definition.Modes <= value
-                || !int.TryParse(item.LegacyDataString, out var previous) || previous == value) return false;
+                || !int.TryParse(GateTransitionService.EffectiveState(item), out var previous) || previous == value) return false;
             var next = value.ToString(CultureInfo.InvariantCulture);
             // Closing writes from other threads are deferred whole (TryDefer) so nothing is notified early.
             if (GateTransitionService.IsClosing(item, next) && !RoomOwnerScope.IsOwner(room)) return false;
@@ -136,7 +137,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         {
             "@id" => unchecked((int)item.Id), "@owner_id" => checked((int)item.OwnerId),
             "@class_id" => item.Definition.SpriteId, "@height" => Hundredths(item.TotalHeight - item.GetZ),
-            "@state" => int.TryParse(item.LegacyDataString, out var state) ? state : null,
+            "@state" => int.TryParse(GateTransitionService.EffectiveState(item), out var state) ? state : null,
             "@position.x" => item.GetX, "@position.y" => item.GetY, "@altitude" => Hundredths(item.GetZ),
             "@rotation" => item.Rotation, "@dimensions.x" => item.Definition.Width, "@dimensions.y" => item.Definition.Length,
             "@is_stackable" => Flag(item.IsFloorItem && item.Definition.Stackable),
