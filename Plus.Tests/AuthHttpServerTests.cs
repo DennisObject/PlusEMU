@@ -18,7 +18,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     private readonly FakeAccounts _accounts = new();
     private readonly FakeSsoTickets _tickets = new();
     private readonly FakeAccessTokens _tokens = new();
-    private readonly FakeModeration _moderation = new();
+    private readonly FakeBans _bans = new();
     private HttpClient _http = new();
     private AuthHttpServer? _server;
 
@@ -40,7 +40,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
             configure?.Invoke(c);
         });
         var sessions = new SessionIssuer(_tickets, _tokens);
-        var login = new LoginService(_accounts, Hasher, new LoginThrottle(TimeProvider.System, options), sessions, _moderation);
+        var login = new LoginService(_accounts, Hasher, new LoginThrottle(TimeProvider.System, options), sessions, _bans);
         var registration = new RegistrationService(_accounts, Hasher, sessions, new FakeWordFilter(), options);
         _server = new AuthHttpServer(options, login, registration, _tickets, _tokens);
         await _server.Start();
@@ -344,7 +344,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     public async Task BannedAccountsAreToldWhyOnceThePasswordIsRight()
     {
         _accounts.Add("Dennis", Hasher.Hash("correct horse"));
-        _moderation.Bans["Dennis"] = new ModerationBan(ModerationBanType.Username, "Dennis", "Scamming", 2_000_000_000);
+        _bans.ByUsernameOrAddress["Dennis"] = new LoginBan("Scamming", 2_000_000_000);
         await Start();
 
         var wrong = await Post("/api/auth/login", new { username = "Dennis", password = "nope" });

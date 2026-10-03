@@ -64,7 +64,7 @@ public class AuthEndpoints
                     error = "This account is banned.",
                     code = AuthErrorCode.Banned,
                     banReason = result.Ban!.Reason,
-                    banExpiresAt = (long)result.Ban.Expire
+                    banExpiresAt = result.Ban.ExpiresAt
                 }, statusCode: StatusCodes.Status403Forbidden);
             default:
                 return Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidCredentials, InvalidCredentials);

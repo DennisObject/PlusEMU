@@ -18,7 +18,7 @@ public enum LoginStatus
 /// <param name="Session">Set on success.</param>
 /// <param name="RetryAfter">How long a throttled caller must wait.</param>
 /// <param name="Ban">The account or address ban that refused a correct password.</param>
-public sealed record LoginResult(LoginStatus Status, AuthSession? Session = null, TimeSpan RetryAfter = default, ModerationBan? Ban = null);
+public sealed record LoginResult(LoginStatus Status, AuthSession? Session = null, TimeSpan RetryAfter = default, LoginBan? Ban = null);
 
 /// <summary>
 /// Password login for the HTTP API: verifies the password, upgrades legacy rows and hands out a
@@ -31,16 +31,16 @@ public class LoginService : ILoginService
     private readonly IPasswordHasher _hasher;
     private readonly ILoginThrottle _throttle;
     private readonly ISessionIssuer _sessions;
-    private readonly IModerationManager _moderation;
+    private readonly IBanLookup _bans;
     private readonly Lazy<string> _decoyHash;
 
-    public LoginService(IAccountStore accounts, IPasswordHasher hasher, ILoginThrottle throttle, ISessionIssuer sessions, IModerationManager moderation)
+    public LoginService(IAccountStore accounts, IPasswordHasher hasher, ILoginThrottle throttle, ISessionIssuer sessions, IBanLookup bans)
     {
         _accounts = accounts;
         _hasher = hasher;
         _throttle = throttle;
         _sessions = sessions;
-        _moderation = moderation;
+        _bans = bans;
         _decoyHash = new(() => hasher.Hash(SecureToken.Generate()));
     }
 
@@ -67,7 +67,7 @@ public class LoginService : ILoginService
             await _accounts.UpgradePassword(account!.Id, stored, _hasher.Hash(password));
 
         _throttle.RecordSuccess(username);
-        if (_moderation.IsBanned(account!.Username, out var ban) || _moderation.IsBanned(address, out ban))
+        if (await _bans.Find(account!.Username, address) is { } ban)
             return new(LoginStatus.Banned, Ban: ban);
 
         return new(LoginStatus.Success, await _sessions.Issue(account.Id, account.Username));

@@ -11,10 +11,10 @@ public class LoginServiceTests
     private readonly FakeAccounts _accounts = new();
     private readonly FakeSsoTickets _tickets = new();
     private readonly FakeAccessTokens _tokens = new();
-    private readonly FakeModeration _moderation = new();
+    private readonly FakeBans _bans = new();
     private readonly LoginThrottle _throttle = new(TimeProvider.System, AuthTestConfig.Options(c => c.MaxFailedLoginsPerAccount = 3));
 
-    private LoginService Service() => new(_accounts, Hasher, _throttle, new SessionIssuer(_tickets, _tokens), _moderation);
+    private LoginService Service() => new(_accounts, Hasher, _throttle, new SessionIssuer(_tickets, _tokens), _bans);
 
     [Fact]
     public async Task CorrectPasswordIssuesASsoTicketAndASeparateAccessToken()
@@ -81,7 +81,7 @@ public class LoginServiceTests
     public async Task BannedAccountsOrAddressesGetNoSessionButOnlyAfterTheRightPassword(string banned)
     {
         _accounts.Add("Dennis", Hasher.Hash("correct horse"));
-        _moderation.Bans[banned] = new ModerationBan(ModerationBanType.Username, banned, "Scamming", 2_000_000_000);
+        _bans.ByUsernameOrAddress[banned] = new LoginBan("Scamming", 2_000_000_000);
 
         var wrong = await Service().Login("Dennis", "wrong horse", "10.0.0.1");
         var right = await Service().Login("Dennis", "correct horse", "10.0.0.1");
