@@ -20,6 +20,10 @@ public class Item
     private object? _navSync;
     internal object NavSync => LazyInitializer.EnsureInitialized(ref _navSync);
     internal bool HasNavigationLock => _navSync != null;
+    // Enabled before room admission; attachment may follow or be removed later.
+    // PlacementSync may nest NavSync. NavSync never nests PlacementSync or callbacks.
+    private bool _navigationSynchronized;
+    internal void EnableNavigationSynchronization() => Volatile.Write(ref _navigationSynchronized, true);
     private NavInputs? _navigationInputs;
     internal NavInputs? NavigationInputs
     {
@@ -29,7 +33,7 @@ public class Item
 
     private void PublishIfAttached(bool stateOnly = false)
     {
-        if (NavigationInputs == null) return;
+        if (!Volatile.Read(ref _navigationSynchronized)) return;
         lock (NavSync)
             if (NavigationInputs is { } inputs && (!stateOnly || NavItemRecord.StateRelevant(Definition)))
                 inputs.PublishCurrent(this);
@@ -47,7 +51,7 @@ public class Item
         get => _extraData;
         set
         {
-            if (NavigationInputs == null) { _extraData = value; if (NavigationInputs != null) PublishIfAttached(true); return; }
+            if (!Volatile.Read(ref _navigationSynchronized)) { _extraData = value; return; }
             lock (NavSync)
             {
                 _extraData = value;
@@ -69,10 +73,9 @@ public class Item
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         set
         {
-            if (NavigationInputs == null)
+            if (!Volatile.Read(ref _navigationSynchronized))
             {
                 if (_extraData is LegacyDataFormat data) data.Data = value;
-                if (NavigationInputs != null) PublishIfAttached(true);
                 return;
             }
             SetNavigationState(value);
@@ -110,7 +113,7 @@ public class Item
         get => _groupId;
         set
         {
-            if (NavigationInputs == null) { _groupId = value; if (NavigationInputs != null) PublishIfAttached(); return; }
+            if (!Volatile.Read(ref _navigationSynchronized)) { _groupId = value; return; }
             lock (NavSync)
             {
                 if (_groupId == value) return;
@@ -132,7 +135,7 @@ public class Item
         get => _rotation;
         set
         {
-            if (NavigationInputs == null) { _rotation = value; if (NavigationInputs != null) PublishIfAttached(); return; }
+            if (!Volatile.Read(ref _navigationSynchronized)) { _rotation = value; return; }
             lock (NavSync)
             {
                 if (_rotation == value) return;
@@ -158,7 +161,7 @@ public class Item
         get => _getX;
         set
         {
-            if (NavigationInputs == null) { _getX = value; if (NavigationInputs != null) PublishIfAttached(); return; }
+            if (!Volatile.Read(ref _navigationSynchronized)) { _getX = value; return; }
             lock (NavSync)
             {
                 if (_getX == value) return;
@@ -174,7 +177,7 @@ public class Item
         get => _getY;
         set
         {
-            if (NavigationInputs == null) { _getY = value; if (NavigationInputs != null) PublishIfAttached(); return; }
+            if (!Volatile.Read(ref _navigationSynchronized)) { _getY = value; return; }
             lock (NavSync)
             {
                 if (_getY == value) return;
@@ -190,7 +193,7 @@ public class Item
         get => _getZ;
         set
         {
-            if (NavigationInputs == null) { _getZ = value; if (NavigationInputs != null) PublishIfAttached(); return; }
+            if (!Volatile.Read(ref _navigationSynchronized)) { _getZ = value; return; }
             lock (NavSync)
             {
                 if (_getZ == value) return;
@@ -426,10 +429,9 @@ public class Item
 
     internal void SetPlacementState(int pX, int pY, double pZ, Dictionary<int, ThreeDCoord> tiles, int? rotation)
     {
-        if (NavigationInputs == null)
+        if (!Volatile.Read(ref _navigationSynchronized))
         {
             WritePlacement(pX, pY, pZ, tiles, rotation);
-            if (NavigationInputs != null) PublishIfAttached();
             return;
         }
         lock (NavSync)

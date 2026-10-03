@@ -65,12 +65,18 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
         var top = records?.MaxBy(r => (r.Top, r.Z, r.ItemId));
         grid.PillowTiles[t] = Array.Empty<int>();
         grid.LegacyZ[t] = top?.Top ?? z;
-        // TODO(P2 WalkMagicTile): before choosing top, compile the highest walk magic
-        // record as the sole Transit surface at its base Z (highest item id breaks ties).
-        // InteractionType.WalkMagicTile is supplied by the parallel magic-tile PR.
+        var walkMagic = records?.Where(r => r.Interaction == InteractionType.WalkMagicTile)
+            .MaxBy(r => (r.Z, r.ItemId));
         if (t == grid.DoorTile)
         {
             flags = NavFlags.Door; kind = SurfaceKind.Door; z = grid.DoorZ;
+        }
+        else if (walkMagic != null)
+        {
+            // The helper is the sole surface, even over void, seats or gates.
+            support = walkMagic.ItemId;
+            z = walkMagic.Z; kind = SurfaceKind.WalkMagic; flags = NavFlags.Transit;
+            grid.LegacyZ[t] = z;
         }
         else if (top != null)
         {

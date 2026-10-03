@@ -121,5 +121,38 @@ public class NavGridCompilerTests
             Assert.Equal(!collision, grid.Active(1)); Assert.Equal(collision ? 4 : 0, grid.LegacyZ[1]);
         }
     }
+
+    [Fact]
+    public void WalkMagicCompilesOneSurfaceByBaseHeightThenIdAndPreservesDoorsAndLocks()
+    {
+        var (grid, inputs, compiler) = NavTest.Create(7, 1, states: [SquareState.Open,
+            SquareState.Blocked, SquareState.Seat, SquareState.Open, SquareState.Open,
+            SquareState.Open, SquareState.Blocked], door: 6);
+        inputs.Publish(NavTest.Record(1, 1, [0, 1, 2, 3, 4, 5, 6], z: 9, h: 8, walkable: false));
+        inputs.Publish(NavTest.Record(2, 2, [2], z: 10, h: 2, seat: true));
+        inputs.Publish(NavTest.Record(3, 3, [3], z: 10, h: 2, interaction: InteractionType.Bed));
+        inputs.Publish(NavTest.Record(4, 4, [4], z: 20, walkable: false, interaction: InteractionType.GuildGate));
+        inputs.Publish(NavTest.Record(5, 5, [5], z: 20, walkable: false, interaction: InteractionType.Gate));
+        var low = NavTest.Record(100, 6, [0, 1, 2, 3, 4, 5, 6], z: 1, h: 100,
+            walkable: false, interaction: InteractionType.WalkMagicTile);
+        var high = low with { ItemId = 10, Version = 7, Z = 1.5004, Height = 0 };
+        var tie = high with { ItemId = 11, Version = 8 };
+        inputs.Publish(high); inputs.Publish(tie); inputs.Publish(low);
+        grid.FloorLocks[5] = 1; compiler.ApplyNow();
+        for (var tile = 0; tile < 6; tile++)
+        {
+            Assert.Equal(SurfaceKind.WalkMagic, grid.Kind[tile]);
+            Assert.Equal(NavFlags.Transit | (tile == 5 ? NavFlags.FloorLocked : NavFlags.None), grid.Flags[tile]);
+            Assert.Equal(1.5004, grid.WalkZ[tile]); Assert.Equal(grid.WalkZ[tile], grid.LegacyZ[tile]);
+            Assert.Equal((uint)11, grid.SupportItem[tile]); Assert.False(grid.TileVoid[tile]);
+            Assert.Empty(grid.PillowTiles[tile]);
+        }
+        Assert.Equal(SurfaceKind.Door, grid.Kind[6]); Assert.Equal(NavFlags.Door, grid.Flags[6]);
+        Assert.Equal(7, grid.ActiveNodeCount); Assert.Equal(7, grid.SlotCapacity);
+        inputs.Publish(tie with { Version = 9, Removed = true }); compiler.ApplyNow();
+        Assert.Equal((uint)10, grid.SupportItem[1]);
+        inputs.Publish(high with { Version = 10, Removed = true }); compiler.ApplyNow();
+        Assert.Equal(1, grid.WalkZ[1]); Assert.Equal((uint)100, grid.SupportItem[1]);
+    }
     private static void Set(object target, string name, object value) => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(target, value);
 }

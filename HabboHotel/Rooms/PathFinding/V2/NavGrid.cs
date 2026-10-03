@@ -6,7 +6,7 @@ public enum NavFlags : ushort
     None = 0, Transit = 1, GoalOnlySeat = 2, GoalOnlyBed = 4, Door = 8,
     GuildGate = 16, Roller = 32, FloorLocked = 64, ModelSeat = 128
 }
-public enum SurfaceKind : byte { Floor, Top, SeatBase, BedBase, Door, GateBase }
+public enum SurfaceKind : byte { Floor, Top, SeatBase, BedBase, Door, GateBase, WalkMagic }
 public readonly record struct SurfaceRef(int Tile, uint SupportItemId, SurfaceKind Kind);
 public readonly record struct NavPosition(int X, int Y, double Z, int Slot = -1);
 

@@ -265,4 +265,46 @@ public class NavInputsTests
         item.GetZ = 99; Assert.True(navigation.Inputs.Read(item.Id)!.Removed);
     }
 
+    [Fact]
+    public void AdmissionEnablesSynchronizationBeforeExposureAndPlacementSerializesWithAttach()
+    {
+        var fixture = Plus.Tests.Performance.RoomPerformanceFixture.Create(0, 0);
+        var handler = fixture.Room.GetRoomItemHandler();
+        var navigation = NavTest.Enable(fixture.Map);
+        var item = NavTest.Item(width: 2);
+        using var admitted = new ManualResetEventSlim(); using var placed = new ManualResetEventSlim();
+        Exception? admissionError = null; Exception? placementError = null;
+        var admission = new Thread(() =>
+        {
+            try { Assert.True(handler.AdmitFloorItem(item)); }
+            catch (Exception e) { admissionError = e; }
+            finally { admitted.Set(); }
+        });
+        var placement = new Thread(() =>
+        {
+            try { item.SetPlacementState(2, 2, 1.5004,
+                Plus.HabboHotel.Rooms.Gamemap.GetAffectedTiles(1, 2, 2, 2, 2), 2); }
+            catch (Exception e) { placementError = e; }
+            finally { placed.Set(); }
+        });
+        lock (item.NavSync)
+        {
+            admission.Start();
+            Assert.True(SpinWait.SpinUntil(() => (admission.ThreadState & ThreadState.WaitSleepJoin) != 0, 5000));
+            Assert.Null(handler.GetItem(item.Id)); Assert.Null(item.NavigationInputs);
+            placement.Start();
+            Assert.True(SpinWait.SpinUntil(() => placed.IsSet || (placement.ThreadState & ThreadState.WaitSleepJoin) != 0, 5000));
+            // Admission has enabled locking, although the attachment pointer is still null.
+            Assert.False(placed.IsSet); Assert.Equal((0, 0, 0.0, 0), (item.GetX, item.GetY, item.GetZ, item.Rotation));
+            navigation.Inputs.Attach(item); navigation.Compiler.ApplyNow();
+            Assert.Equal(new[] { 0, 1 }, navigation.Inputs.AppliedRecords[item.Id].Footprint);
+        }
+        Assert.True(admission.Join(5000)); Assert.True(placement.Join(5000));
+        Assert.True(admitted.IsSet); Assert.True(placed.IsSet); Assert.Null(admissionError); Assert.Null(placementError);
+        navigation.Compiler.ApplyNow();
+        Assert.Equal((2, 2, 1.5004, 2), (item.GetX, item.GetY, item.GetZ, item.Rotation));
+        Assert.Equal(new[] { 10, 14 }, navigation.Inputs.AppliedRecords[item.Id].Footprint);
+        Assert.Equal(1.5004, navigation.Grid.WalkZ[10]); Assert.Equal(1.5004, navigation.Grid.WalkZ[14]);
+    }
+
 }

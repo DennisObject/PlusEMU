@@ -13,14 +13,21 @@ rooms attach their floor items at load; placements, moves, rotations, walkabilit
 state and adjustable-height changes, rollers, individual and bulk pickups publish
 incrementally. Initial item construction and multi-field placement happen before
 admission exposes a new instance. Admission and pickup serialize membership plus
-record publication under NavSync; all room callbacks run outside it. Fast setters
-reread the volatile attachment after writing so an attachment cannot lose a late
-write. Unchanged footprints are reused, cosmetic states are skipped and identical
+record publication under NavSync; all room callbacks run outside it. A persistent
+navigation synchronization mode is enabled before admission exposes an item,
+independently of its attachment pointer. PlacementSync may nest NavSync; navigation
+transactions never acquire PlacementSync. Unchanged footprints are reused,
+cosmetic states are skipped and identical
 records are coalesced. Item setters serialize on NavSync; multi-field placement
 and placement writes publish one coherent geometry record. Removed instances
 are detached and leave a versioned tombstone. Only the room thread applies the
 grid. The compiler reads each live record once at the apply boundary and computes
 old/new footprint closure before compiling and committing AppliedRecords.
+
+Walk Magic Tiles compile as one WalkMagic transit surface at the highest helper
+Z, with the higher item id breaking ties. Other furniture is ignored, including
+seats and gates; void becomes standable and the model door retains its own surface.
+Stacktool collision follows the room's stacktool_legacy_collision snapshot.
 
 Compatibility mode has only tile slots, including holes for blocked/void tiles:
 SlotCapacity = width × height while ActiveNodeCount counts standable surfaces.
@@ -80,9 +87,9 @@ Overflow free-list holes and layered contact tests belong to P3; P1 verifies hig
 sparse tile slots, overlapping zero-height walkable items, shuffled records,
 sub-0.001 heights and actor-aware occupied/shared-door goals.
 
-The Walk Magic compiler hook is explicitly marked TODO because this base lacks
-InteractionType.WalkMagicTile. The parallel magic PR supplies that interaction;
-this PR does not invent it or implement its executor/widget behavior.
+Master's Walk Magic Tile interaction and placement/widget contracts are retained.
+The compiler implements its compatibility surface rule; the parity corpus also
+checks helper overlaps, seats/gates, void corners and both Stacktool settings.
 
 The height parity corpus excludes ambiguous legacy stack ordering, adjustable-seat
 Z (D9 fix), actor-dependent guild access and raised open gates. Those cases have

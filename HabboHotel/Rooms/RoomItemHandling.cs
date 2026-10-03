@@ -187,9 +187,7 @@ public class RoomItemHandling
                     }
                     continue;
                 }
-                if (!_floorItems.ContainsKey(item.Id))
-                    _floorItems.TryAdd(item.Id, item);
-                _room.GetGameMap().Navigation?.Inputs.Attach(item);
+                AdmitFloorItem(item);
             }
             else if (item.IsWallItem)
             {
@@ -483,6 +481,7 @@ public class RoomItemHandling
             }
         }
         var map = _room.GetGameMap();
+        if (newItem && item.IsFloorItem && map.Navigation != null) item.EnableNavigationSynchronization();
         var duplicate = false;
         lock (map.PlacementSync)
         {
@@ -525,14 +524,19 @@ public class RoomItemHandling
                     newRot = 0;
                 if (newItem)
                 {
+                    // Initialize private geometry before membership or navigation publication.
+                    item.SetPlacementState(newX, newY, newZ, affectedTiles, newRot);
+                    item.RoomId = _room.RoomId;
                     if (item.IsFloorItem) duplicate = !AdmitFloorItem(item);
                     else if (item.IsWallItem) duplicate = !_wallItems.TryAdd(item.Id, item);
                 }
                 if (!duplicate)
                 {
-                    if (!newItem) map.RemoveFromMap(item, false);
-                    item.SetPlacementState(newX, newY, newZ, affectedTiles, newRot);
-                    if (newItem) item.RoomId = _room.RoomId;
+                    if (!newItem)
+                    {
+                        map.RemoveFromMap(item, false);
+                        item.SetPlacementState(newX, newY, newZ, affectedTiles, newRot);
+                    }
                     map.AddItemToMap(item, false, newItem);
                 }
             }
@@ -699,6 +703,7 @@ public class RoomItemHandling
     {
         var inputs = _room.GetGameMap().Navigation?.Inputs;
         if (inputs == null) return _floorItems.TryAdd(item.Id, item);
+        item.EnableNavigationSynchronization();
         lock (item.NavSync)
         {
             if (!_floorItems.TryAdd(item.Id, item)) return false;

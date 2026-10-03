@@ -24,6 +24,7 @@ public sealed class NavInputs
 
     public void Attach(Item item)
     {
+        item.EnableNavigationSynchronization();
         lock (item.NavSync)
         {
             item.NavigationInputs = this;
