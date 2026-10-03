@@ -25,7 +25,7 @@ public partial class PlacedFurniRoomTests
     {
         var actor = ExecutorActor(0, 1);
         actor.MoveTo(3, 1); ExecutorTick();
-        actor.NeedsAutokick = true;
+        _room.OwnerId = 99; actor.IdleTime = 7200;
         ExecutorTick();
         Assert.Equal(NavState.Removing, actor.Movement.State);
         Assert.Equal((0, 1), (actor.X, actor.Y));
