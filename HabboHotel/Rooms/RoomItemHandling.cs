@@ -510,9 +510,15 @@ public class RoomItemHandling
 
     public bool SetFloorItem(Item item, int newX, int newY, double newZ)
     {
-        if (_room == null || !CanMoveFloorItem(item, newX, newY, newZ)) return false;
-        var move = new[] { new FloorMove(item, newX, newY, ResolveFloorZ(item, newX, newY, newZ)) };
-        CommitFloorMoves(move);
+        if (_room == null) return false;
+        FloorMove[] move;
+        // Validation, height resolution and the positional commit see one placement state.
+        lock (_room.GetGameMap().PlacementSync)
+        {
+            if (!CanMoveFloorItem(item, newX, newY, newZ)) return false;
+            move = [new(item, newX, newY, ResolveFloorZ(item, newX, newY, newZ))];
+            CommitFloorMoves(move);
+        }
         SettleFloorMoves(move);
         return true;
     }
@@ -540,7 +546,7 @@ public class RoomItemHandling
             : MagicTileHeight.Clamp(newZ, footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]));
     }
 
-    // Map and position writes only, all under one placement lock. Callers preflight with CanMoveFloorItem.
+    // Map and position writes only. Callers hold PlacementSync from their CanMoveFloorItem preflight on.
     internal void CommitFloorMoves(IReadOnlyList<FloorMove> moves)
     {
         var map = _room.GetGameMap();

@@ -220,7 +220,6 @@ public partial class Gamemap
 
     private Room _room;
     private byte[,] _structuralMap;
-    private readonly ConcurrentDictionary<Point, byte> _floorStatusWrites = new();
     private Point[] _roamTargets;
     private ConcurrentDictionary<Point, List<RoomUser>> _userMap;
 
@@ -441,6 +440,20 @@ public partial class Gamemap
         map[x, y] = state;
         _roamTargets = null;
     }
+
+    // The walkability an item writes when it is the top of its cell: 1 walkable or an open floor
+    // gate, 3 seat/bed/small tent, otherwise 0 (blocked).
+    internal byte ItemWalkState(Item item)
+    {
+        if (item.Definition.Walkable) return 1;
+        if (item.GetZ <= Model.SqFloorHeight[item.GetX, item.GetY] + 0.1 && item.Definition.InteractionType == InteractionType.Gate
+            && item.LegacyDataString == "1") return 1;
+        return item.Definition.IsSeat || item.Definition.InteractionType is InteractionType.Bed or InteractionType.TentSmall
+            ? (byte)3 : (byte)0;
+    }
+
+    // Walkability without avatars: furniture plus explicit floor-status writes, until the cell is rebuilt.
+    internal byte StructuralState(Point tile) => StructuralTile(tile.X, tile.Y);
 
     private byte StructuralTile(int x, int y)
     {
@@ -689,24 +702,9 @@ public partial class Gamemap
                 }
 
                 //SwimHalloween
-                if (item.Definition.Walkable) // If this item is walkable and on the floor, allow users to walk here.
-                {
-                    if (GameMap[coord.X, coord.Y] != 3)
-                        GameMap[coord.X, coord.Y] = 1;
-                }
-                else if (item.GetZ <= Model.SqFloorHeight[item.GetX, item.GetY] + 0.1 && item.Definition.InteractionType == InteractionType.Gate &&
-                         item.LegacyDataString == "1") // If this item is a gate, open, and on the floor, allow users to walk here.
-                {
-                    if (GameMap[coord.X, coord.Y] != 3)
-                        GameMap[coord.X, coord.Y] = 1;
-                }
-                else if (item.Definition.IsSeat || item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall)
-                    GameMap[coord.X, coord.Y] = 3;
-                else // Finally, if it's none of those, block the square.
-                {
-                    if (GameMap[coord.X, coord.Y] != 3)
-                        GameMap[coord.X, coord.Y] = 0;
-                }
+                var state = ItemWalkState(item);
+                if (state == 3 || GameMap[coord.X, coord.Y] != 3)
+                    GameMap[coord.X, coord.Y] = state;
             }
 
             // Set bad maps
@@ -1063,12 +1061,8 @@ public partial class Gamemap
     {
         GameMap[x, y] = status;
         WriteStructural(x, y, status);
-        _floorStatusWrites[new(x, y)] = status;
         Navigation?.SetFloorStatus(x, y, status);
     }
-
-    // Mirrors v2 floor-status overrides: furniture rebuilding GameMap does not release an explicit lock.
-    internal bool IsFloorLocked(Point tile) => _floorStatusWrites.TryGetValue(tile, out var status) && status == 0;
 
     public double GetHeightForSquareFromData(Point coord)
     {

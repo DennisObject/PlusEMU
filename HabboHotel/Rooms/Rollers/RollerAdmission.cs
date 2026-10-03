@@ -19,7 +19,7 @@ internal sealed class RollerAdmission(Room room, IRollerTransportEngine engine) 
         if (!room.GetGameMap().CanRollItemHere(destination.X, destination.Y)
             || !NextRollerClear(destination, departing)) return false;
         return move.Cargo is { } cargo
-            ? AdmitsCargo(cargo, move, departures) && engine.AdmitsCargo(move, departing)
+            ? AdmitsCargo(cargo, move, departures) && engine.AdmitsCargo(move, departures)
             : engine.AdmitsActor(move, departing);
     }
 

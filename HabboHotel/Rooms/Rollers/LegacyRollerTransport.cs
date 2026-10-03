@@ -1,3 +1,4 @@
+using System.Drawing;
 using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Rooms.Rollers;
@@ -11,8 +12,7 @@ internal sealed class LegacyRollerTransport(Room room, RoomItemHandling handler)
     public bool AdmitsActor(RollerMove move, RollerDepartures departing)
     {
         var map = room.GetGameMap(); var to = move.Destination;
-        // Explicit floor locks are structural: departing occupants never release them.
-        if (map.IsFloorLocked(to)) return false;
+        if (StructurallyLocked(to, departing)) return false;
         if (departing.IsEmpty)
             return map.IsValidStep(new Vector2D(move.Origin.X, move.Origin.Y), new Vector2D(to.X, to.Y), true, false, true)
                 && map.GetFloorStatus(to) != 0;
@@ -22,9 +22,19 @@ internal sealed class LegacyRollerTransport(Room room, RoomItemHandling handler)
     }
 
     // Legacy has no claims; the shared furniture rules are the whole cargo admission.
-    public bool AdmitsCargo(RollerMove move, RollerDepartures departing) => true;
+    public bool AdmitsCargo(RollerMove move, IRollerDepartureView departures) => true;
 
     public bool Reserve(TransportGroup group) => true;
+
+    // A structural 0 is an explicit floor lock unless departing solid cargo explains it: that cargo's
+    // departure rebuilds the cell, which (as legacy always did) erases any lock there. Avatars never
+    // write the structural map, so a lock under a departing user survives until the cell is rebuilt.
+    private bool StructurallyLocked(Point tile, RollerDepartures departing)
+    {
+        var map = room.GetGameMap();
+        return map.StructuralState(tile) == 0 && !departing.Items.Select(handler.GetItem)
+            .Any(cargo => cargo != null && map.ItemWalkState(cargo) == 0);
+    }
 
     // Clear every origin before marking destinations so a rotating loop keeps its occupied tiles.
     public void CommitActors(IReadOnlyList<RollerMove> moves)

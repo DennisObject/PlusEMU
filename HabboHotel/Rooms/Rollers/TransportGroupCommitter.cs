@@ -7,14 +7,19 @@ internal sealed class TransportGroupCommitter(Room room, IRollerTransportEngine 
 {
     internal bool TryCommit(TransportGroup group)
     {
-        if (!validator.IsValid(group) || !engine.Reserve(group)) return false;
         var ordered = group.Moves.OrderBy(move => move.Roller.Id).ToList();
         var actors = ordered.Where(move => move.Actor != null).ToList();
         var furniture = ordered.Where(move => move.Cargo != null)
             .Select(move => new FloorMove(move.Cargo!, move.Destination.X, move.Destination.Y, move.CarriedZ)).ToList();
         var items = room.GetRoomItemHandler();
-        items.CommitFloorMoves(furniture);
-        engine.CommitActors(actors);
+        // Final validation and the positional commit see one placement state; no concurrent move or
+        // rotation can land between them.
+        lock (room.GetGameMap().PlacementSync)
+        {
+            if (!validator.IsValid(group) || !engine.Reserve(group)) return false;
+            items.CommitFloorMoves(furniture);
+            engine.CommitActors(actors);
+        }
         engine.Publish(actors);
         items.SettleFloorMoves(furniture);
         room.SendPacket(ordered.Select(move => move.Slide).ToList());
