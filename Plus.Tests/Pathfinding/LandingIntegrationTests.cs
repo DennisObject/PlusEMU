@@ -11,7 +11,7 @@ public partial class PlacedFurniRoomTests
     {
         var item = Add(10, 1, 1, type: InteractionType.Effect);
         item.Definition.EffectId = 17; InitializeNativeState(item);
-        var (_, actor) = ExecutorActor(0, 1);
+        var actor = ExecutorActor(0, 1);
         actor.MoveTo(1, 1); ExecutorTick();
         Assert.Equal(0, _client.GetHabbo().Effects.CurrentEffect);
         ExecutorTick();
@@ -23,7 +23,7 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public void AnnounceServiceAppliesTheTargetFloorEffect()
     {
-        var (_, actor) = ExecutorActor(0, 1);
+        var actor = ExecutorActor(0, 1);
         _room.GetGameMap().EffectMap[1, 1] = 1;
         _client.GetHabbo().Gender = "M";
         actor.MoveTo(1, 1); ExecutorTick();
