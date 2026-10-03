@@ -330,3 +330,20 @@ public partial class PlacedFurniRoomTests
         }
     }
 }
+
+public partial class PlacedFurniRoomTests
+{
+    [Fact]
+    public void GateV2MemberOpenedGuildGateStaysOpenWhileTheMemberStandsOnItAndClosesAfterDeparture()
+    {
+        var gate = ReviewGuildGate(member: true);
+        var actor = ReviewGateActor(true);
+        actor.MoveTo(1, 1); ExecutorTick(); ExecutorTick();
+        for (var cycle = 0; cycle < 10; cycle++) ExecutorTick();
+        Assert.Equal((1, 1), (actor.X, actor.Y)); Assert.Equal("1", gate.LegacyDataString);
+        Assert.True(gate.UpdateCounter > 0);
+        actor.MoveTo(2, 1);
+        for (var cycle = 0; cycle < 10; cycle++) ExecutorTick();
+        Assert.Equal("0", gate.LegacyDataString);
+    }
+}
