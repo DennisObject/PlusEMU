@@ -879,3 +879,102 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(3, attempts); Assert.Equal(1, service.PendingCount);
     }
 }
+
+// Per-gate operation tokens: one active operation per gate, admitted under the gate lock, cleared after full completion.
+public partial class PlacedFurniRoomTests
+{
+    [Fact]
+    public void GateOperationDrainNeverOvertakesAnImmediateOpeningStillPublishing()
+    {
+        var gate = ClosableGate(state: "0"); ActorOn(new Point(0, 2));
+        using var published = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+        var held = false; var broadcasts = new List<string>();
+        _client.BeforeCapture = header =>
+        {
+            if (header != ServerPacketHeader.ObjectUpdateComposer) return;
+            broadcasts.Add(gate.LegacyDataString);
+            if (held) return;
+            held = true; published.Set(); release.Wait(TimeSpan.FromSeconds(5));
+        };
+        try
+        {
+            var opening = Task.Run(() => GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false));
+            Assert.True(published.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Equal(GateTransition.Queued, Task.Run(() => GateTransitionService.Apply(gate, "0", GateCloseReason.Wired, persist: false)).Result);
+            DrainOnOwner();
+            Assert.Equal("1", gate.LegacyDataString); Assert.Equal(1, Gates.PendingCount);
+            release.Set();
+            Assert.Equal(GateTransition.Applied, opening.Result);
+        }
+        finally { release.Set(); }
+        DrainOnOwner();
+        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+        Assert.Equal(new[] { "1", "0" }, broadcasts);
+    }
+
+    [Fact]
+    public void GateOperationConcurrentVariableIncrementsOnAMultiStateGateBothApply()
+    {
+        var gate = ClosableGate(state: "0"); gate.Definition.Modes = 3; ActorOn(new Point(0, 2)); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        using var evaluating = new ManualResetEventSlim(); using var proceed = new ManualResetEventSlim();
+        Func<int, int> slowIncrement = value => { evaluating.Set(); proceed.Wait(TimeSpan.FromSeconds(5)); return value + 1; };
+        var first = Task.Run(() => module.Change(StateReference, holder, WiredVariableMutation.Set, slowIncrement, frame));
+        try
+        {
+            Assert.True(evaluating.Wait(TimeSpan.FromSeconds(5)));
+            var second = Task.Run(() => module.Change(StateReference, holder, WiredVariableMutation.Set, value => value + 1, frame));
+            Assert.True(second.Wait(TimeSpan.FromSeconds(5)));
+        }
+        finally { proceed.Set(); }
+        Assert.True(first.Wait(TimeSpan.FromSeconds(5)));
+        DrainOnOwner();
+        Assert.Equal("2", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+        Assert.Equal(2, notices.Count);
+    }
+
+    [Fact]
+    public void GateOperationNestedWriteDuringAReplayAppendsBehindTheExistingFollower()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2)); GateTransition? nested = null;
+        var builtins = new RoomWiredBuiltinVariables(_room, stateChanged: (item, _) =>
+            nested = GateTransitionService.Apply(item, "2", GateCloseReason.Wired, persist: false));
+        var module = new WiredVariableModule(_room.Id, new GateDirectory(_room.Id), new MemoryWiredVariableStore(), () => 1, builtins);
+        var holder = WiredVariableRuntimeFrames.FurniHolder(gate); var frame = new WiredVariableFrame(_room.Id, [holder]);
+        Assert.True(Task.Run(() => module.Mutate(StateReference, holder, WiredVariableMutation.Set, 0, frame)).Result);
+        Assert.Equal(GateTransition.Queued, Task.Run(() => GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false)).Result);
+        DrainOnOwner();
+        Assert.Equal(GateTransition.Queued, nested);
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(1, Gates.PendingCount);
+        DrainOnOwner();
+        Assert.Equal("2", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateOperationLegacyGuildOpeningQueuesBehindAPendingCloseAndAppliesItsEffectsAtCommit()
+    {
+        var gate = AccessGate(InteractionType.GuildGate); gate.LegacyDataString = "1";
+        UseGroups(id => id == 7 ? GuildGroup(7) : null);
+        var user = Viewer(0, 1);
+        Assert.Equal(GateTransition.Queued, Task.Run(() => Gates.TryClose(gate, GateCloseReason.Click, "0", persist: false)).Result);
+        Assert.True(_room.GetGameMap().IsValidStep2(user, new(0, 1), new(1, 1), true, false));
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, gate.InteractingUser); Assert.Equal(2, Gates.PendingCount);
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(7, gate.InteractingUser);
+        Assert.Equal(4, gate.UpdateCounter); Assert.True(gate.UpdateNeeded); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateOperationExecutorGuildOpeningQueuesBehindAPendingCloseAndAppliesItsEffectsAtCommit()
+    {
+        var gate = ReviewGuildGate(member: true); gate.LegacyDataString = "1";
+        var actor = ReviewGateActor(true); var navigation = _room.GetGameMap().Navigation!;
+        Assert.Equal(GateTransition.Queued, Task.Run(() => Gates.TryClose(gate, GateCloseReason.Click, "0", persist: false)).Result);
+        navigation.Executor.Context.GuildGates.Accept(actor, actor.Movement.Profile, navigation.Grid.Tile(1, 1), StepPurpose.Transit);
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, gate.InteractingUser); Assert.Equal(2, Gates.PendingCount);
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(7, gate.InteractingUser);
+        Assert.Equal(4, gate.UpdateCounter); Assert.True(gate.UpdateNeeded); Assert.Equal(0, Gates.PendingCount);
+    }
+}
