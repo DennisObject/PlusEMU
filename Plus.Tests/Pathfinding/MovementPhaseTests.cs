@@ -63,6 +63,26 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
+    public async Task NativeFastWalkClickKeepsTheHorseAsAPassenger()
+    {
+        var rider = ExecutorActor(0, 1);
+        var horse = ExecutorAdditionalBot(0, 1, 2); ExecutorTick();
+        rider.RidingHorse = horse.RidingHorse = true;
+        rider.HorseId = horse.VirtualId; horse.HorseId = rider.VirtualId;
+        rider.FastWalking = true;
+        await new Plus.Communication.Packets.Incoming.Rooms.Engine.MoveAvatarEvent()
+            .Parse(_client, ClientPacket(3, 1));
+        ExecutorTick();
+        Assert.Equal("2,1,1", rider.Statusses["mv"]);
+        Assert.Equal("2,1,0", horse.Statusses["mv"]);
+        Assert.Equal(0, horse.Movement.PendingCount);
+        Assert.False(horse.Movement.HasIntent);
+        ExecutorTick();
+        Assert.Equal((2, 1, 1d), (rider.X, rider.Y, rider.Z));
+        Assert.Equal((2, 1, 0d), (horse.X, horse.Y, horse.Z));
+    }
+
+    [Fact]
     public void AnnounceServiceMountExcludesItsHorseAndMirrorsHorseMovement()
     {
         var rider = ExecutorActor(0, 1);
