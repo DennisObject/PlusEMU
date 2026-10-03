@@ -13,6 +13,7 @@ public sealed class PathSearch(NavGrid grid, PathfindingSettings settings)
         if (!grid.InBounds(req.GoalX, req.GoalY)) return PathOutcome.InvalidGoal;
         var actor = req.Actor;
         var legacy = actor.LegacyOverride;
+        into.View = legacy ? GraphView.LegacyTile : GraphView.Surface;
         var diagonal = actor.DiagonalEnabled;
         var width = grid.Width; var height = grid.Height;
         var stamps = ws.Stamp; var costs = ws.G; var parents = ws.Parent; var sequences = ws.Sequence;

@@ -2,28 +2,39 @@ namespace Plus.HabboHotel.Rooms.PathFinding;
 
 internal sealed class LandingService(Room room, RoomNavigation navigation, MovementContext context, MovementCancellation cancellation)
 {
-    public void Land(RoomUser actor, SurfaceRef surface)
+    public void Land(RoomUser actor, SurfaceRef surface, GraphView view)
     {
         var state = actor.Movement; var revision = state.LocationRevision;
         var wasLaying = actor.HasStatus("lay");
-        var target = navigation.Grid.Position(surface.Tile);
-        room.GetGameMap().UpdateUserMovement(new(actor.X, actor.Y), new(target.X, target.Y), actor);
-        foreach (var item in room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y)).ToList())
-        {
-            item.UserWalksOffFurni(actor);
-            if (state.LocationRevision != revision || state.State != NavState.Active) return;
-        }
-        if (state.LocationRevision != revision || state.State != NavState.Active) return;
-        actor.InitializePosition(target.X, target.Y, target.Z);
-        state.CurrentRef = surface; state.SupportZ = target.Z;
-        MirrorHorse(actor, target);
-        context.RefreshMembership(actor);
+        var initial = context.Graph.Position(surface.Tile, view);
+        room.GetGameMap().UpdateUserMovement(new(actor.X, actor.Y), new(initial.X, initial.Y), actor);
+        if (!LeaveOrigin(actor, revision)) return;
+        navigation.ApplyDirty();
+        var landing = context.Graph.ResolveLanding(surface.Tile, view, initial.Z);
+        SetLandingPosition(actor, landing);
         if (surface.Tile == navigation.Grid.DoorTile && !actor.IsBot)
         {
             room.GetRoomUserManager().RemoveUserFromRoom(actor.GetClient(), true);
             return;
         }
         Arrive(actor, revision, wasLaying);
+    }
+    private bool LeaveOrigin(RoomUser actor, long revision)
+    {
+        foreach (var item in room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y)).ToList())
+        {
+            item.UserWalksOffFurni(actor);
+            if (actor.Movement.LocationRevision != revision || actor.Movement.State != NavState.Active) return false;
+        }
+        return actor.Movement.LocationRevision == revision && actor.Movement.State == NavState.Active;
+    }
+    private void SetLandingPosition(RoomUser actor, LandingSurface landing)
+    {
+        var target = landing.Position; var state = actor.Movement;
+        actor.InitializePosition(target.X, target.Y, target.Z + context.Graph.RiderOffset(actor, target.Slot));
+        state.CurrentRef = landing.Support; state.SupportZ = target.Z; state.BoundVersion = navigation.Grid.Version;
+        MirrorHorse(actor, target);
+        context.RefreshMembership(actor);
     }
     private void Arrive(RoomUser actor, long revision, bool wasLaying)
     {

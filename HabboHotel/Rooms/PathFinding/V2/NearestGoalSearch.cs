@@ -11,14 +11,14 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
     public PathOutcome Find(in SearchRequest request, PathWorkspace workspace, Route route)
     {
         _workspace = workspace; _request = request;
-        route.Clear(); workspace.Begin(); _head = _tail = 0; _best = -1; _distance = (long.MaxValue, ulong.MaxValue);
+        route.Clear(); route.View = request.Actor.LegacyOverride ? GraphView.LegacyTile : GraphView.Surface; workspace.Begin(); _head = _tail = 0; _best = -1; _distance = (long.MaxValue, ulong.MaxValue);
         _first = grid.InBounds(request.Start.X, request.Start.Y)
-            && grid.WalkZ[grid.Tile(request.Start.X, request.Start.Y)] == request.Start.Z
+            && (request.Actor.LegacyOverride || grid.WalkZ[grid.Tile(request.Start.X, request.Start.Y)] == request.Start.Z)
             ? grid.Tile(request.Start.X, request.Start.Y) : grid.SlotCapacity;
         workspace.Stamp[_first] = workspace.Generation; workspace.Parent[_first] = -1;
         workspace.HeapNode[_tail++] = _first;
         if (_first != grid.SlotCapacity) Consider(_first);
-        var cap = settings.MaxExpansionsPerSearch ?? grid.ActiveNodeCount + 1;
+        var cap = settings.MaxExpansionsPerSearch ?? (_request.Actor.LegacyOverride ? grid.SlotCapacity : grid.ActiveNodeCount) + 1;
         while (_head < _tail)
         {
             if (workspace.Expansions++ >= cap) return PathOutcome.BudgetCancelled;
@@ -32,7 +32,7 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
 
     private void Expand(int current)
     {
-        var from = current == grid.SlotCapacity ? _request.Start : grid.Position(current);
+        var from = current == grid.SlotCapacity ? _request.Start : grid.Position(current, _request.Actor.LegacyOverride);
         foreach (var (dx, dy) in PathTieBreak.Neighbours)
         {
             if (!_request.Actor.DiagonalEnabled && dx != 0 && dy != 0) continue;
@@ -40,9 +40,9 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
             if (!grid.InBounds(x, y)) continue;
             var slot = grid.Tile(x, y);
             if (_workspace.Stamp[slot] == _workspace.Generation) continue;
-            var purpose = (grid.Flags[slot] & NavFlags.Transit) != 0 ? StepPurpose.Transit : StepPurpose.Goal;
+            var purpose = _request.Actor.LegacyOverride || (grid.Flags[slot] & NavFlags.Transit) != 0 ? StepPurpose.Transit : StepPurpose.Goal;
             _workspace.CanStepCalls++;
-            if (!_rules.CanStep(_request.Actor, from, grid.Position(slot), purpose,
+            if (!_rules.CanStep(_request.Actor, from, grid.Position(slot, _request.Actor.LegacyOverride), purpose,
                 OccupancyView.Planning, _request.Occupancy).Ok) continue;
             _workspace.Stamp[slot] = _workspace.Generation; _workspace.Parent[slot] = current;
             Consider(slot);
@@ -61,13 +61,16 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
         _distance = distance; _best = slot;
     }
 
+    private SurfaceRef Reference(int tile) => _request.Actor.LegacyOverride
+        ? new(tile, 0, SurfaceKind.Floor) : grid.Reference(tile);
+
     private void BuildRoute(Route route)
     {
         var count = 0;
         for (var node = _best; node != _first; node = _workspace.Parent[node]) count++;
         route.EnsureCapacity(count); route.Count = count; route.GridVersion = grid.Version;
         for (var node = _best; node != _first; node = _workspace.Parent[node])
-            route.Set(--count, grid.Reference(node));
-        route.GoalSurface = grid.Reference(_best);
+            route.Set(--count, Reference(node));
+        route.GoalSurface = Reference(_best);
     }
 }
