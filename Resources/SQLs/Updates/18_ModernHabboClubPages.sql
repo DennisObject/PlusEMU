@@ -1,3 +1,4 @@
+-- Apply while PlusEMU is stopped; SQL updates are not automatic.
 -- Modern Habbo Club is rendered by vip_buy; club_buy is the legacy two-tier page.
 -- Keep the configured subscription lengths and prices unchanged.
 UPDATE catalog_pages
