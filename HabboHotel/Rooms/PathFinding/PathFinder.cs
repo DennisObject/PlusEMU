@@ -23,9 +23,13 @@ public static class PathFinder
     };
 
     public static List<Vector2D> FindPath(RoomUser user, bool diag, Gamemap map, Vector2D start, Vector2D end)
+        => FindPath(user, diag, map, start, end, null);
+
+    internal static List<Vector2D> FindPath(RoomUser user, bool diag, Gamemap map, Vector2D start, Vector2D end, PathFinderMetrics? metrics)
     {
+        if (metrics != null) metrics.Expansions = metrics.CanStepCalls = metrics.HeapOperations = 0;
         var path = new List<Vector2D>();
-        var nodes = FindPathReversed(user, diag, map, start, end);
+        var nodes = FindPathReversed(user, diag, map, start, end, metrics);
         if (nodes != null)
         {
             path.Add(end);
@@ -39,7 +43,10 @@ public static class PathFinder
     }
 
     public static PathFinderNode FindPathReversed(RoomUser user, bool diag, Gamemap map, Vector2D start,
-        Vector2D end)
+        Vector2D end) => FindPathReversed(user, diag, map, start, end, null);
+
+    private static PathFinderNode FindPathReversed(RoomUser user, bool diag, Gamemap map, Vector2D start,
+        Vector2D end, PathFinderMetrics? metrics)
     {
         if (!map.ValidTile(start.X, start.Y) || !map.ValidTile(end.X, end.Y))
             return null;
@@ -52,15 +59,18 @@ public static class PathFinder
         Enqueue(first);
         while (open.TryDequeue(out var entry, out _))
         {
+            if (metrics != null) metrics.HeapOperations++;
             var current = entry.Node;
             if (current.InClosed || entry.Cost != current.Cost)
                 continue;
+            if (metrics != null) metrics.Expansions++;
             current.InClosed = true;
             if (current.Position.Equals(end))
                 return current;
             foreach (var offset in diag ? DiagMovePoints : NoDiagMovePoints)
             {
                 var to = current.Position + offset;
+                if (metrics != null) metrics.CanStepCalls++;
                 if (!map.IsValidStep(current.Position, to, to.Equals(end), user.AllowOverride, false, user))
                     continue;
                 var node = nodes[to.X, to.Y] ??= new PathFinderNode(to);
@@ -77,6 +87,7 @@ public static class PathFinder
         void Enqueue(PathFinderNode node)
         {
             var heuristic = Math.Max(Math.Abs(node.Position.X - end.X), Math.Abs(node.Position.Y - end.Y));
+            if (metrics != null) metrics.HeapOperations++;
             open.Enqueue((node, node.Cost), (node.Cost + heuristic, node.Position.GetDistanceSquared(end), order++));
         }
     }

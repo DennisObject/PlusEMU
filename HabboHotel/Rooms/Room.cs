@@ -356,6 +356,7 @@ public class Room : RoomData
             }
             try
             {
+                GetGameMap().Navigation?.ApplyDirty();
                 GetRoomItemHandler().OnCycle();
             }
             catch (Exception e)
@@ -364,6 +365,7 @@ public class Room : RoomData
             }
             try
             {
+                GetGameMap().Navigation?.ApplyDirty();
                 GetRoomUserManager().OnCycle();
             }
             catch (Exception e)

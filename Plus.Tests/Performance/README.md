@@ -132,3 +132,34 @@ or game tick, bot AI/pathfinding workload, or frontend performance is proven by
 these results. The 500-bot/one-observer server paths were already small; the
 fanout defect is much larger with 500 human recipients. Manual game testing and
 parent integration review remain required before publication/deployment.
+
+## Pathfinding v2 P1
+
+```bash
+DOTNET_TieredCompilation=0 PLUSEMU_PATHFINDING_BENCHMARK=/tmp/pathfinding.txt \
+  dotnet test Plus.Tests/Plus.Tests.csproj -c Release -p:Platform=AnyCPU --no-build \
+  --filter FullyQualifiedName~PathfindingBenchmarks
+cat /tmp/pathfinding.txt
+```
+
+The environment gate leaves the normal suite fast. The harness compares legacy
+and production v2 Find on identical open, maze, directed-cliff unreachable and
+separate-component terrain. It verifies v2 against BFS before timing, warms
+connectivity/workspace/route buffers, and reports p50/p95/p99, allocations,
+expansions, validator calls, heap operations and retained array payloads.
+The 64² maze has six alternating wall openings, a 133-step route and over 2,000
+expansions; the 256² cliff proves unreachable only after visiting the left half.
+Targets from spec §8 are printed alongside observations, not asserted as portable
+latency guarantees on the shared VPS. No timing assertions mask correctness.
+
+The movement row uses 100 temporary bots on 64² and two real legacy movement
+cycles plus fixture setup. It reports the existing executor baseline: P1 does
+not implement the P2 movement phases or their zero-allocation target. Hook/status
+allocation remains included in that row. Workspace retention is globally bounded
+to 64 MiB and per size to the room-worker concurrency; active-node count changes
+cannot retain unbounded room-sized arrays.
+
+Legacy public method signatures and behavior stay intact. An internal benchmark
+overload collects counters with the same search, including its known heuristic
+and mutable-heap defects. V2 changes corner rules and optimizes tick count, so
+legacy route length is not used as a correctness oracle.

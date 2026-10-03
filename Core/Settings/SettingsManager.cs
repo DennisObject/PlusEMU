@@ -26,4 +26,5 @@ public class SettingsManager : ISettingsManager
     public string TryGetValue(string value) => TryGetValue(value, "0");
 
     public string TryGetValue(string value, string defaultValue) => _settings.TryGetValue(value, out var setting) ? setting : defaultValue;
+    public string? GetOptionalValue(string key) => _settings.GetValueOrDefault(key);
 }

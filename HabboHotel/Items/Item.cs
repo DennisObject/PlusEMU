@@ -17,12 +17,30 @@ namespace Plus.HabboHotel.Items;
 
 public class Item
 {
+    internal object NavSync { get; } = new();
+    internal NavInputs? NavigationInputs { get; set; }
+    internal int NavMutationDepth;
+
+    private void MutateNavigation(Action mutation)
+    {
+        lock (NavSync)
+        {
+            mutation();
+            NavigationInputs?.PublishCurrent(this);
+        }
+    }
+
     public uint Id { get; set; }
     public bool IsTemporary { get; internal init; }
     public uint OwnerId { get; set; }
     public uint RoomId { get; set; }
     public ItemDefinition Definition { get; set; }
-    public IFurniObjectData ExtraData { get; set; } = FurniObjectData.Empty;
+    private IFurniObjectData _extraData = FurniObjectData.Empty;
+    public IFurniObjectData ExtraData
+    {
+        get => _extraData;
+        set => MutateNavigation(() => _extraData = value);
+    }
     public uint UniqueNumber { get; set; }
     public uint UniqueSeries { get; set; }
     public string WallCoordinates = string.Empty;
@@ -36,8 +54,10 @@ public class Item
         }
         set
         {
-            if (ExtraData is LegacyDataFormat data)
-                data.Data = value;
+            MutateNavigation(() =>
+            {
+                if (ExtraData is LegacyDataFormat data) data.Data = value;
+            });
         }
     }
 
@@ -51,7 +71,8 @@ public class Item
     public string Figure = string.Empty;
     public FreezePowerUp FreezePowerUp;
     public string Gender;
-    public int GroupId;
+    private int _groupId;
+    public int GroupId { get => _groupId; set => MutateNavigation(() => _groupId = value); }
     public int InteractingBallUser;
     public int InteractingUser;
     public int InteractingUser2;
@@ -59,7 +80,8 @@ public class Item
     public byte InteractionCountHelper;
     public bool MagicRemove = false;
     public bool PendingReset = false;
-    public int Rotation;
+    private int _rotation;
+    public int Rotation { get => _rotation; set => MutateNavigation(() => _rotation = value); }
 
     public Team Team;
     public int UpdateCounter;
@@ -71,11 +93,14 @@ public class Item
 
     public Dictionary<int, ThreeDCoord> GetAffectedTiles { get; private set; } = new();
 
-    public int GetX { get; set; }
+    private int _getX;
+    public int GetX { get => _getX; set => MutateNavigation(() => _getX = value); }
 
-    public int GetY { get; set; }
+    private int _getY;
+    public int GetY { get => _getY; set => MutateNavigation(() => _getY = value); }
 
-    public double GetZ { get; set; }
+    private double _getZ;
+    public double GetZ { get => _getZ; set => MutateNavigation(() => _getZ = value); }
 
     public bool UpdateNeeded
     {
@@ -300,13 +325,25 @@ public class Item
 
     public void SetState(int pX, int pY, double pZ, Dictionary<int, ThreeDCoord> tiles)
     {
-        if (GetX != pX || GetY != pY || !double.IsInfinity(pZ) && GetZ != pZ)
-            Interlocked.Increment(ref _movementGeneration);
-        GetX = pX;
-        GetY = pY;
-        if (!double.IsInfinity(pZ)) GetZ = pZ;
-        GetAffectedTiles = tiles;
-        MagicTileHeight.Sync(this);
+        lock (NavSync)
+        {
+            NavMutationDepth++;
+            try
+            {
+                if (GetX != pX || GetY != pY || !double.IsInfinity(pZ) && GetZ != pZ)
+                    Interlocked.Increment(ref _movementGeneration);
+                GetX = pX;
+                GetY = pY;
+                if (!double.IsInfinity(pZ)) GetZ = pZ;
+                GetAffectedTiles = tiles;
+                MagicTileHeight.Sync(this);
+            }
+            finally
+            {
+                NavMutationDepth--;
+                NavigationInputs?.PublishCurrent(this);
+            }
+        }
     }
 
     public void ProcessUpdates()
@@ -1103,6 +1140,7 @@ public class Item
         if (GetRoom() == null)
             return;
         MagicTileHeight.Sync(this);
+        lock (NavSync) NavigationInputs?.PublishCurrent(this);
         if (inDb)
             GetRoom().GetRoomItemHandler().UpdateItem(this);
         if (IsFloorItem)
@@ -1159,8 +1197,12 @@ public class Item
 
     public void Destroy()
     {
-        _room = null;
-        Definition = null;
-        GetAffectedTiles.Clear();
+        lock (NavSync)
+        {
+            NavigationInputs?.Remove(this);
+            _room = null;
+            Definition = null;
+            GetAffectedTiles.Clear();
+        }
     }
 }

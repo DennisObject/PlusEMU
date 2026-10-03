@@ -181,6 +181,7 @@ public class WiredTemporaryPacketGuardTests
     private sealed class EnabledExchangeSettings : ISettingsManager
     {
         public string TryGetValue(string value) => "1";
+        public string? GetOptionalValue(string key) => "1";
         public Task Reload() => throw new NotSupportedException();
     }
 }

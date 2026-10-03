@@ -228,6 +228,9 @@ public class Gamemap
         _room = room;
         _placementRoom = room;
         StaticModel = model;
+        if (model.MapSizeX is > 0 and <= 256 && model.MapSizeY is > 0 and <= 256)
+            Navigation = new(room, model, PlusEnvironment.SettingsManager is { } settings
+                ? PathfindingSettings.Load(settings) : new());
         DiagonalEnabled = true;
         Model = new(StaticModel);
         _placementWidth = Model.MapSizeX;
@@ -240,6 +243,8 @@ public class Gamemap
         FillFloorStates(GameMap);
         _structuralMap = (byte[,])GameMap.Clone();
     }
+
+    public RoomNavigation? Navigation { get; }
 
     public bool DiagonalEnabled { get; set; }
 
@@ -495,6 +500,7 @@ public class Gamemap
 
     private void GenerateMapsCore(bool checkLines)
     {
+        Navigation?.Inputs.MarkAllDirty();
         var maxX = 0;
         var maxY = 0;
         _coordinatedItems = new();
@@ -1034,6 +1040,7 @@ public class Gamemap
     {
         GameMap[x, y] = status;
         WriteStructural(x, y, status);
+        Navigation?.SetFloorStatus(x, y, status);
     }
 
     public double GetHeightForSquareFromData(Point coord)
