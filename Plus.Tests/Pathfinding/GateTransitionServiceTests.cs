@@ -592,3 +592,81 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
     }
 }
+
+// Review round 3: toggle decisions are atomic with commits, modern toggles are pending-aware, openings stay immediate.
+public partial class PlacedFurniRoomTests
+{
+    private static string? Flip(string state) => state == "1" ? "0" : "1";
+
+    [Fact]
+    public void GateDrainCommitIsAtomicWithAToggleSoADoubleClickNeverDoubleCloses()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        using var inCommit = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+        var service = new GateTransitionService(_room, () => new ProbeOccupancy(_ =>
+        { inCommit.Set(); Assert.True(release.Wait(TimeSpan.FromSeconds(5))); }));
+        Assert.Equal(GateTransition.Queued, Task.Run(() => service.Toggle(gate, Flip, GateCloseReason.Click, persist: false)).Result);
+        var drain = Task.Run(() => { using var owner = RoomOwnerScope.Enter(_room); service.Drain(); });
+        Assert.True(inCommit.Wait(TimeSpan.FromSeconds(5)));
+        var click = Task.Run(() => service.Toggle(gate, Flip, GateCloseReason.Click, persist: false));
+        Thread.Sleep(150); var finishedWhileCommitting = click.IsCompleted;
+        release.Set();
+        Assert.True(Task.WhenAll(drain, click).Wait(TimeSpan.FromSeconds(5)));
+        Assert.False(finishedWhileCommitting);
+        Assert.Equal(GateTransition.Applied, click.Result);
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, service.PendingCount);
+    }
+
+    private sealed class NoWiredOperations : Plus.HabboHotel.Items.Wired.Runtime.IWiredRuntimeOperations
+    {
+        public bool CallStacks(Plus.HabboHotel.Items.Wired.Runtime.WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => throw new NotSupportedException();
+        public bool SendSignal(Plus.HabboHotel.Items.Wired.Runtime.WiredRuntimeContext context, IEnumerable<Item> receivers, Plus.HabboHotel.Items.Wired.Runtime.WiredSelection selection, bool negative = false) => throw new NotSupportedException();
+        public void ResetTimers(IEnumerable<Item> targets) => throw new NotSupportedException();
+    }
+
+    private Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction ToggleAction(Item gate, out Plus.HabboHotel.Items.Wired.Runtime.WiredRuntimeContext context)
+    {
+        var box = Furni(40, InteractionType.WiredEffect, WiredBoxType.None);
+        var action = new Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction(_room, box,
+            Plus.HabboHotel.Items.Wired.Configuration.WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_toggle_state"),
+            new(), _ => { }, (_, _, _) => { }, new());
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [gate.Id] }, out var config, out var error), error);
+        action.ApplyConfiguration(config);
+        var items = _room.GetRoomItemHandler().GetFloor.ToArray(); var users = _room.GetRoomUserManager().GetUserList().ToArray();
+        context = new(_room, new(Plus.HabboHotel.Items.Wired.Runtime.WiredEventKind.Use), new(() => items, () => users), new NoWiredOperations());
+        return action;
+    }
+
+    [Fact]
+    public void GateModernToggleAfterAPacketCloseCancelsItSoTheGateStaysOpen()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        var action = ToggleAction(gate, out var context);
+        ClickFromPacketThread(gate);
+        Assert.Equal(1, Gates.PendingCount);
+        _room.RunFastPass(() => Assert.True(action.Execute(context)));
+        Assert.Equal("1", gate.LegacyDataString);
+        ExecutorTick();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateModernToggleOnAPlainOpenGateStillClosesImmediatelyOnTheFastPass()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        var action = ToggleAction(gate, out var context);
+        _room.RunFastPass(() => Assert.True(action.Execute(context)));
+        Assert.Equal("0", gate.LegacyDataString);
+    }
+
+    [Fact]
+    public void GateOffOwnerVariableOpeningIsImmediateAndReadsBack()
+    {
+        var gate = ClosableGate(state: "0"); var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        Assert.True(Task.Run(() => module.Mutate(StateReference, holder, WiredVariableMutation.Set, 1, frame)).Result);
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(1, module.Read(StateReference, holder, frame)!.Value);
+        Assert.Equal(0, Gates.PendingCount); Assert.Single(notices);
+    }
+}
