@@ -34,6 +34,14 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         };
     }
 
+    public bool TryDefer(WiredVariableReference reference, WiredVariableHolder holder, Action replay)
+    {
+        if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state" || RoomOwnerScope.IsOwner(room)) return false;
+        if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || room.GetGameMap()?.Gates is not { } gates) return false;
+        gates.Post(replay);
+        return true;
+    }
+
     public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)
     {
         if (reference.Target != holder.Target || frame.RoomId != room.Id || !frame.Contains(holder)) return null;
@@ -99,7 +107,10 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             var item = FindItem(holder);
             if (item is null || value < 0 || item.Definition.Modes <= value
                 || !int.TryParse(item.LegacyDataString, out var previous) || previous == value) return false;
-            if (GateTransitionService.Apply(item, value.ToString(CultureInfo.InvariantCulture), GateCloseReason.Wired) == GateTransition.Refused)
+            var next = value.ToString(CultureInfo.InvariantCulture);
+            // Closing writes from other threads are deferred whole (TryDefer) so nothing is notified early.
+            if (GateTransitionService.IsClosing(item, next) && !RoomOwnerScope.IsOwner(room)) return false;
+            if (GateTransitionService.Apply(item, next, GateCloseReason.Wired) == GateTransition.Refused)
                 return false;
             if (stateChanged is not null) completed = () => stateChanged(item, frame);
             return true;

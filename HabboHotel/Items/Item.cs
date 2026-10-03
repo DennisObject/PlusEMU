@@ -84,7 +84,18 @@ public class Item
 
 
 
-    private void SetNavigationState(string value)
+    private void SetNavigationState(string value) => StoreNavigationState(value)?.NotifyDataUpdated();
+
+    // For callers that must notify only after releasing their own locks.
+    internal LegacyDataFormat? StoreStateQuietly(string value)
+    {
+        if (Volatile.Read(ref _navigationSynchronized)) return StoreNavigationState(value);
+        if (_extraData is not LegacyDataFormat data) return null;
+        data.StoreWithoutNotification(value);
+        return data;
+    }
+
+    private LegacyDataFormat? StoreNavigationState(string value)
     {
         LegacyDataFormat? changed = null;
         lock (NavSync)
@@ -96,7 +107,7 @@ public class Item
             }
             if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
         }
-        changed?.NotifyDataUpdated();
+        return changed;
     }
 
     /// TODO @80O: Cleanup shit below

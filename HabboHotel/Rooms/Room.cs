@@ -333,12 +333,16 @@ public class Room : RoomData
         }
     }
 
-    internal void ProcessWiredOnly()
+    internal void ProcessWiredOnly() => RunFastPass(() => GetWired().OnFastCycle());
+
+    // Serialized with ProcessRoom (one process task at a time), so it owns the room just like a full tick.
+    internal void RunFastPass(Action pass)
     {
         lock (NavigationSync)
         {
             if (IsCrashed || MDisposed) return;
-            try { GetWired().OnFastCycle(); }
+            using var owner = Plus.HabboHotel.Rooms.PathFinding.RoomOwnerScope.Enter(this);
+            try { pass(); }
             catch (Exception e) { ExceptionLogger.LogException(e); }
         }
     }
