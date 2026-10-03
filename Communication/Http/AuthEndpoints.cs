@@ -99,24 +99,30 @@ public class AuthEndpoints
         Error(StatusCodes.Status501NotImplemented, AuthErrorCode.NotImplemented, "Password reset by email is not available yet. Please contact a staff member.");
 
     /// <summary>
-    /// Gives a client that only holds an SSO ticket (e.g. one handed over by a CMS) an access token.
-    /// The ticket is not used up, so the game login can still redeem it.
+    /// Gives a client that only holds an SSO ticket (e.g. one handed over by a CMS) an access token,
+    /// once per ticket. The ticket is not used up, so the game login can still redeem it.
     /// </summary>
     private async Task<IResult> ExchangeSsoTicket(SsoTokenRequest body)
     {
-        if (string.IsNullOrEmpty(body.SsoTicket) || await _ssoTickets.FindUser(body.SsoTicket) is not { } userId)
+        if (string.IsNullOrEmpty(body.SsoTicket) || await _ssoTickets.Exchange(body.SsoTicket) is not { } userId)
             return Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidTicket, "This login ticket is invalid or has expired.");
 
         var token = await _accessTokens.Issue(userId);
         return Results.Json(new { accessToken = token.Value, accessTokenExpiresAt = token.ExpiresAt });
     }
 
-    // Takes HttpRequest, not HttpContext: a Task-returning (HttpContext) handler would bind as a
-    // raw RequestDelegate and its result would never be written.
-    private async Task<IResult> Logout(HttpRequest request)
+    /// <summary>Revokes the bearer access token and clears that user's outstanding game ticket,
+    /// plus any ticket sent in the body by clients that log out without a token.</summary>
+    private async Task<IResult> Logout(LogoutRequest body, HttpRequest request)
     {
         if (BearerToken(request) is { } token)
+        {
+            if (await _accessTokens.FindUser(token) is { } userId)
+                await _ssoTickets.Revoke(userId);
             await _accessTokens.Revoke(token);
+        }
+        if (!string.IsNullOrEmpty(body.SsoTicket))
+            await _ssoTickets.Consume(body.SsoTicket);
         return Results.Json(new { ok = true });
     }
 
@@ -148,4 +154,5 @@ public class AuthEndpoints
     public sealed record UsernameRequest(string? Username);
     public sealed record EmailRequest(string? Email);
     public sealed record SsoTokenRequest(string? SsoTicket);
+    public sealed record LogoutRequest(string? SsoTicket);
 }

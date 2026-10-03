@@ -148,7 +148,23 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
 
     public Task<int?> FindUser(string ticket) => Task.FromResult(Live.TryGetValue(ticket, out var id) ? id : (int?)null);
 
-    public Task<int?> Consume(string ticket) => Task.FromResult(Live.Remove(ticket, out var id) ? id : (int?)null);
+    public Task<int?> Consume(string ticket)
+    {
+        Exchanged.Remove(ticket);
+        return Task.FromResult(Live.Remove(ticket, out var id) ? id : (int?)null);
+    }
+
+    public readonly HashSet<string> Exchanged = [];
+
+    public Task<int?> Exchange(string ticket) =>
+        Task.FromResult(Live.TryGetValue(ticket, out var id) && Exchanged.Add(ticket) ? id : (int?)null);
+
+    public Task Revoke(int userId)
+    {
+        foreach (var ticket in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
+            Live.Remove(ticket);
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class FakeAccessTokens : IAccessTokenStore

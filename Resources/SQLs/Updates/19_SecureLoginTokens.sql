@@ -3,9 +3,11 @@
 -- SSO tickets are single-use and short-lived. A consumed ticket is cleared to ''
 -- (the stock dump declares auth_ticket NOT NULL).
 ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_expires_at` int(11) unsigned NULL DEFAULT NULL AFTER `auth_ticket`;
+-- Set once the ticket has been traded for an HTTP access token (allowed once per ticket).
+ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_exchanged` tinyint(1) NOT NULL DEFAULT 0 AFTER `auth_ticket_expires_at`;
 
 -- Tickets issued before this migration never expired and doubled as HTTP bearer tokens.
-UPDATE `users` SET `auth_ticket` = '', `auth_ticket_expires_at` = NULL WHERE `auth_ticket` <> '';
+UPDATE `users` SET `auth_ticket` = '', `auth_ticket_expires_at` = NULL, `auth_ticket_exchanged` = 0 WHERE `auth_ticket` <> '';
 
 -- HTTP bearer tokens. Only the SHA-256 hex digest of a token is stored:
 -- token_hash = SHA2(<token>, 256).

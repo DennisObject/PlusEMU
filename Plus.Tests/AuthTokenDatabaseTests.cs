@@ -80,6 +80,53 @@ public sealed class AuthTokenDatabaseTests : IDisposable
     }
 
     [AuthDatabaseFact]
+    public async Task TicketsMatchCaseExactly()
+    {
+        var store = new SsoTicketStore(_database, _time, AuthTestConfig.Options());
+        var userId = User();
+        var ticket = await store.Issue(userId);
+        var otherCase = SwapCase(ticket.Value);
+
+        Assert.Null(await store.FindUser(otherCase));
+        Assert.Null(await store.Exchange(otherCase));
+        Assert.Null(await store.Consume(otherCase));
+        Assert.Equal(userId, await store.Consume(ticket.Value));
+    }
+
+    [AuthDatabaseFact]
+    public async Task ATicketCanBeExchangedOnceAndStillLogsIntoTheGame()
+    {
+        var store = new SsoTicketStore(_database, _time, AuthTestConfig.Options());
+        var userId = User();
+        var ticket = await store.Issue(userId);
+
+        var exchanges = await Task.WhenAll(Enumerable.Range(0, 16).Select(_ => Task.Run(() => store.Exchange(ticket.Value))));
+
+        Assert.Equal(userId, Assert.Single(exchanges, e => e != null));
+        Assert.Null(await store.Exchange(ticket.Value));
+        Assert.Equal(userId, await store.Consume(ticket.Value));
+        Assert.Null(await store.Exchange(ticket.Value));
+
+        var next = await store.Issue(userId);
+        Assert.Equal(userId, await store.Exchange(next.Value));
+    }
+
+    [AuthDatabaseFact]
+    public async Task RevokingAUserClearsTheirOutstandingTicket()
+    {
+        var store = new SsoTicketStore(_database, _time, AuthTestConfig.Options());
+        var userId = User();
+        var ticket = await store.Issue(userId);
+
+        await store.Revoke(userId);
+
+        Assert.Null(await store.Exchange(ticket.Value));
+        Assert.Null(await store.Consume(ticket.Value));
+    }
+
+    private static string SwapCase(string value) => new(value.Select(c => char.IsUpper(c) ? char.ToLowerInvariant(c) : char.ToUpperInvariant(c)).ToArray());
+
+    [AuthDatabaseFact]
     public async Task AccessTokensAreStoredHashedAndExpireOrRevoke()
     {
         var store = new AccessTokenStore(_database, _time, AuthTestConfig.Options(c => c.AccessTokenLifetimeMinutes = 10));

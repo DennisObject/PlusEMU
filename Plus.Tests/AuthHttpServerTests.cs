@@ -202,6 +202,10 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         var token = (await Json(response)).GetProperty("accessToken").GetString()!;
         Assert.NotEqual(ticket.Value, token);
         Assert.Equal(42, _tokens.Live[token]);
+        var again = await Post("/api/auth/sso-token", new { ssoTicket = ticket.Value });
+        Assert.Equal(HttpStatusCode.Unauthorized, again.StatusCode);
+        Assert.Equal(AuthErrorCode.InvalidTicket, (await Json(again)).GetProperty("code").GetString());
+        Assert.Single(_tokens.Live);
         Assert.Equal(42, await _tickets.Consume(ticket.Value));
         Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/sso-token", new { ssoTicket = ticket.Value })).StatusCode);
         var empty = await Post("/api/auth/sso-token", new { ssoTicket = "" });
@@ -276,6 +280,33 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.Equal("Something went wrong. Please try again.", JsonDocument.Parse(body).RootElement.GetProperty("error").GetString());
         Assert.Equal(AuthErrorCode.ServerError, JsonDocument.Parse(body).RootElement.GetProperty("code").GetString());
         Assert.DoesNotContain("secret", body);
+    }
+
+    [Fact]
+    public async Task LogoutWithTheBearerAlsoClearsTheUsersOutstandingTicket()
+    {
+        _accounts.Add("Dennis", Hasher.Hash("correct horse"));
+        await Start();
+        var session = await Json(await Post("/api/auth/login", new { username = "Dennis", password = "correct horse" }));
+        var ticket = session.GetProperty("ssoTicket").GetString()!;
+
+        await Post("/api/auth/logout", new { }, bearer: session.GetProperty("accessToken").GetString());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/sso-token", new { ssoTicket = ticket })).StatusCode);
+        Assert.Null(await _tickets.Consume(ticket));
+        Assert.Empty(_tokens.Live);
+    }
+
+    [Fact]
+    public async Task LogoutClearsATicketSentInTheBody()
+    {
+        await Start();
+        var ticket = await _tickets.Issue(42);
+
+        var response = await Post("/api/auth/logout", new { ssoTicket = ticket.Value, rememberToken = "" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null(await _tickets.Consume(ticket.Value));
     }
 
     [Fact]
