@@ -16,13 +16,13 @@ public class GetCatalogPageEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var pageId = packet.ReadInt();
-        packet.ReadInt();
-        var cataMode = packet.ReadString();
+        var offerId = packet.ReadInt();
+        packet.ReadString(); // catalog mode; the page answers with its own
         if (!_catalogManager.TryGetPage(pageId, out var page))
             return Task.CompletedTask;
-        if (!page.Enabled || !page.Visible || page.MinimumRank > session.GetHabbo().Rank || page.MinimumVip > session.GetHabbo().VipRank && session.GetHabbo().Rank == 1)
+        if (!page.CanOpen(session.GetHabbo()))
             return Task.CompletedTask;
-        session.Send(new CatalogPageComposer(page, cataMode));
+        session.Send(new CatalogPageComposer(page, page.CatalogMode, page.ItemOffers.TryGetValue(offerId, out var offer) ? offer.Id : -1));
         return Task.CompletedTask;
     }
 }

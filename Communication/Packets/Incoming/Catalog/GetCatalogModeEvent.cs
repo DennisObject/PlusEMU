@@ -16,7 +16,7 @@ internal class GetCatalogModeEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var mode = packet.ReadString();
-        session.Send(new CatalogIndexComposer(session, _catalog.Pages));
+        session.Send(new CatalogIndexComposer(session, _catalog.Pages, CatalogModes.FromClient(mode)));
         return Task.CompletedTask;
     }
 }

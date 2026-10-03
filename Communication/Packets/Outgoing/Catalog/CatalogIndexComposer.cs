@@ -5,43 +5,30 @@ namespace Plus.Communication.Packets.Outgoing.Catalog;
 
 public class CatalogIndexComposer : IServerPacket
 {
+    // The client rejects deeper trees, so pages below this depth are left out.
+    public const int MaximumDepth = 20;
+
     private readonly GameClient _session;
-    private readonly ICollection<CatalogPage> _pages;
+    private readonly string _mode;
+    private readonly ILookup<int, CatalogPage> _children;
 
     public uint MessageId => ServerPacketHeader.CatalogIndexComposer;
 
-    public CatalogIndexComposer(GameClient session, ICollection<CatalogPage> pages)
+    public CatalogIndexComposer(GameClient session, ICollection<CatalogPage> pages, string mode = CatalogModes.Normal)
     {
         _session = session;
-        _pages = pages;
+        _mode = mode;
+        var habbo = session.GetHabbo();
+        _children = pages.Where(page => page.CatalogMode == mode && page.IsAvailableTo(habbo)).ToLookup(page => page.ParentId);
     }
 
     public void Compose(IOutgoingPacket packet)
     {
         WriteRootIndex(packet);
-        foreach (var parent in _pages)
-        {
-            if (parent.ParentId != -1 || parent.MinimumRank > _session.GetHabbo().Rank || parent.MinimumVip > _session.GetHabbo().VipRank && _session.GetHabbo().Rank == 1)
-                continue;
-            WritePage(packet, parent, CalcTreeSize(_pages, parent.Id));
-            foreach (var child in _pages)
-            {
-                if (child.ParentId != parent.Id || child.MinimumRank > _session.GetHabbo().Rank || child.MinimumVip > _session.GetHabbo().VipRank && _session.GetHabbo().Rank == 1)
-                    continue;
-                if (child.Enabled)
-                    WritePage(packet, child, CalcTreeSize(_pages, child.Id));
-                else
-                    WriteNodeIndex(packet, child, CalcTreeSize(_pages, child.Id));
-                foreach (var subChild in _pages)
-                {
-                    if (subChild.ParentId != child.Id || subChild.MinimumRank > _session.GetHabbo().Rank)
-                        continue;
-                    WritePage(packet, subChild, 0);
-                }
-            }
-        }
+        foreach (var page in _children[-1])
+            WriteNode(packet, page, 1);
         packet.WriteBoolean(false);
-        packet.WriteString("NORMAL");
+        packet.WriteString(_mode);
     }
 
     public void WriteRootIndex(IOutgoingPacket packet)
@@ -53,44 +40,24 @@ public class CatalogIndexComposer : IServerPacket
         packet.WriteString("root");
         packet.WriteString(string.Empty);
         packet.WriteInteger(0);
-        packet.WriteInteger(CalcTreeSize(_pages, -1));
+        packet.WriteInteger(_children[-1].Count());
     }
 
-    public void WriteNodeIndex(IOutgoingPacket packet, CatalogPage page, int treeSize)
+    private void WriteNode(IOutgoingPacket packet, CatalogPage page, int depth)
     {
+        var children = depth < MaximumDepth ? _children[page.Id].ToList() : new List<CatalogPage>();
         packet.WriteBoolean(page.Visible);
         packet.WriteInteger(page.Icon);
-        packet.WriteInteger(-1);
+        // A disabled page stays in the tree as a heading the client cannot open.
+        packet.WriteInteger(page.Enabled ? page.Id : -1);
         packet.WriteInteger(page.ParentId);
         packet.WriteString(page.Link);
         packet.WriteString(page.Caption);
-        packet.WriteInteger(0);
-        packet.WriteInteger(treeSize);
-    }
-
-    public void WritePage(IOutgoingPacket packet, CatalogPage page, int treeSize)
-    {
-        packet.WriteBoolean(page.Visible);
-        packet.WriteInteger(page.Icon);
-        packet.WriteInteger(page.Id);
-        packet.WriteInteger(page.ParentId);
-        packet.WriteString(page.Link);
-        packet.WriteString(page.Caption);
-        packet.WriteInteger(page.ItemOffers.Count);
-        foreach (var i in page.ItemOffers.Keys) packet.WriteInteger(i);
-        packet.WriteInteger(treeSize);
-    }
-
-    public int CalcTreeSize(ICollection<CatalogPage> pages, int parentId)
-    {
-        var i = 0;
-        foreach (var page in pages)
-        {
-            if (page.MinimumRank > _session.GetHabbo().Rank || page.MinimumVip > _session.GetHabbo().VipRank && _session.GetHabbo().Rank == 1 || page.ParentId != parentId)
-                continue;
-            if (page.ParentId == parentId)
-                i++;
-        }
-        return i;
+        var offerIds = page.Enabled ? page.ItemOffers.Keys.ToList() : new List<int>();
+        packet.WriteInteger(offerIds.Count);
+        foreach (var offerId in offerIds) packet.WriteInteger(offerId);
+        packet.WriteInteger(children.Count);
+        foreach (var child in children)
+            WriteNode(packet, child, depth + 1);
     }
 }

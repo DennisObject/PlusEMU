@@ -62,10 +62,11 @@ public class CatalogManager : ICatalogManager, IStartable
             _deals.Clear();
         if (_promotions.Count > 0)
             _promotions.Clear();
+        _itemOffers.Clear();
 
         using var connection = _database.Connection();
 
-        var items = await connection.QueryAsync<CatalogItem>("SELECT `id`,`item_id`,`catalog_name`,`cost_credits`,`cost_pixels`,`cost_diamonds`,`amount`,`page_id`,`limited_sells`,`limited_stack`,`offer_active` = '1' AS HaveOffer,`extradata`,`badge`,`offer_id`,`habbicon_id` FROM `catalog_items`");
+        var items = await connection.QueryAsync<CatalogItem>("SELECT `id`,`item_id`,`catalog_name`,`cost_credits`,`cost_pixels`,`cost_diamonds`,`amount`,`page_id`,`limited_sells`,`limited_stack`,`offer_active` = '1' AS HaveOffer,`extradata`,`badge`,`offer_id`,`habbicon_id`,`club_level` AS `ClubLevel`,`preview_image` AS `PreviewImage`,`order_num` AS `OrderNum` FROM `catalog_items` ORDER BY `order_num`, `id`");
         foreach(CatalogItem item in items)
         {
             if (item.Amount <= 0)
@@ -132,11 +133,17 @@ public class CatalogManager : ICatalogManager, IStartable
             _deals.Add(deal.Id, deal);
         }
 
-        var pages = await connection.QueryAsync<CatalogPage>("SELECT `id`,`parent_id`,`caption`,`page_link` as `link`,`visible`,`enabled`,`min_rank` as `minimumrank`,`min_vip` as `minimumvip`,`icon_image` as `icon`,`page_layout` as `layout`,`page_strings_1`,`page_strings_2` FROM `catalog_pages` ORDER BY `order_num`");
+        var pages = await connection.QueryAsync<CatalogPage>("SELECT `id`,`parent_id`,`caption`,`page_link` as `link`,`visible`,`enabled`,`min_rank` as `minimumrank`,`min_vip` as `minimumvip`,`icon_image` as `icon`,`page_layout` as `layout`,`catalog_mode` AS `CatalogMode`,`page_strings_1`,`page_strings_2` FROM `catalog_pages` ORDER BY `order_num`, `id`");
         foreach (CatalogPage page in pages)
         {
             if (_items.ContainsKey(page.Id))
                 page.Items = _items[page.Id];
+            // Offer ids are what the index, product offer lookups and purchases by offer resolve against.
+            foreach (var item in page.Items.Values)
+            {
+                if (item.OfferId != -1 && _itemOffers.TryGetValue(item.OfferId, out var ownerPageId) && ownerPageId == page.Id)
+                    page.ItemOffers.TryAdd(item.OfferId, item);
+            }
 
             page.PageStringsList1 = !string.IsNullOrWhiteSpace(page.PageStrings1) ? page.PageStrings1!.Split("|").ToList() : new();
             page.PageStringsList2 = !string.IsNullOrWhiteSpace(page.PageStrings2) ? page.PageStrings2!.Split("|").ToList() : new();
@@ -149,7 +156,7 @@ public class CatalogManager : ICatalogManager, IStartable
             _botPresets.Add(bot.Id, bot);
         }
 
-        var promotions = await connection.QueryAsync<CatalogPromotion>("SELECT `id`,`title`,`image`,`unknown`,`page_link`,`parent_id` FROM `catalog_promotions`");
+        var promotions = await connection.QueryAsync<CatalogPromotion>("SELECT `id`,`title`,`image`,`unknown`,`page_link`,`parent_id`,`position`,`item_type` AS `ItemType`,`offer_id` AS `OfferId`,`product_code` AS `ProductCode`,`expires_at` AS `ExpiresAt` FROM `catalog_promotions`");
         foreach(CatalogPromotion promotion in promotions)
         {
             if (_promotions.ContainsKey(promotion.Id))

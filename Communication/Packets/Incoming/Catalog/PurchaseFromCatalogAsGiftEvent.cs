@@ -64,7 +64,7 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
         }
         if (!_catalogManager.TryGetPage(pageId, out var page))
             return Task.CompletedTask;
-        if (!page.Enabled || !page.Visible || page.MinimumRank > session.GetHabbo().Rank || page.MinimumVip > session.GetHabbo().VipRank && session.GetHabbo().Rank == 1)
+        if (!page.CanOpen(session.GetHabbo()))
             return Task.CompletedTask;
         if (!page.Items.TryGetValue(itemId, out var item))
         {

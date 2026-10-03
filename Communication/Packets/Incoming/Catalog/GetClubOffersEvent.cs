@@ -21,7 +21,7 @@ internal class GetClubOffersEvent : IPacketEvent
         var pageId = _catalogManager.ItemOffers[offerId];
         if (!_catalogManager.TryGetPage(pageId, out var page))
             return Task.CompletedTask;
-        if (!page.Enabled || !page.Visible || page.MinimumRank > session.GetHabbo().Rank || page.MinimumVip > session.GetHabbo().VipRank && session.GetHabbo().Rank == 1)
+        if (!page.CanOpen(session.GetHabbo()))
             return Task.CompletedTask;
         if (!page.ItemOffers.ContainsKey(offerId))
             return Task.CompletedTask;

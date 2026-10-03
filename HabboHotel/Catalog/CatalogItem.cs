@@ -21,4 +21,7 @@ public class CatalogItem
     public int CostDiamonds { get; set; }
     public string Badge { get; set; }
     public int OfferId { get; set; }
+    public int ClubLevel { get; set; }
+    public string PreviewImage { get; set; } = string.Empty;
+    public int OrderNum { get; set; }
 }

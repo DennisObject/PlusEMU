@@ -65,7 +65,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         var amount = packet.ReadInt();
         if (!_catalogManager.TryGetPage(pageId, out var page))
             return;
-        if (!page.Enabled || !page.Visible || page.MinimumRank > session.GetHabbo().Rank || page.MinimumVip > session.GetHabbo().VipRank && session.GetHabbo().Rank == 1)
+        if (!page.CanOpen(session.GetHabbo()))
             return;
         if (!page.Items.TryGetValue(itemId, out var item))
         {
