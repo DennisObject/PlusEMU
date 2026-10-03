@@ -42,6 +42,8 @@ internal static class HabbiconTestSupport
                 BinaryPrimitives.WriteInt32BigEndian(bytes, number);
                 stream.Write(bytes);
             }
+            else if (value is bool flag)
+                stream.WriteByte(flag ? (byte)1 : (byte)0);
             else if (value is string text)
             {
                 var bytes = Encoding.UTF8.GetBytes(text);

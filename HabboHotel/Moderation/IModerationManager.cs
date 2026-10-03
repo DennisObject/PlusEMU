@@ -9,6 +9,11 @@ public interface IModerationManager
     void Init();
     void ReCacheBans();
     void BanUser(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp);
+
+    /// <summary>
+    /// Removes a username ban from the database and cache. Returns false when no ban row existed.
+    /// </summary>
+    bool UnbanUser(string username);
     bool TryAddTicket(ModerationTicket ticket);
     bool TryGetTicket(int ticketId, out ModerationTicket ticket);
     bool UserHasTickets(int userId);

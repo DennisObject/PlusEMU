@@ -112,7 +112,10 @@ public class ItemFactory : IItemFactory
         return item;
     }
 
-    public List<Item> CreateMultipleItems(ItemDefinition definition, Habbo habbo, string extraData, int amount, int groupId = 0)
+    public List<Item> CreateMultipleItems(ItemDefinition definition, Habbo habbo, string extraData, int amount, int groupId = 0) =>
+        CreateMultipleItems(definition, habbo.Id, extraData, amount, groupId);
+
+    public List<Item> CreateMultipleItems(ItemDefinition definition, int ownerId, string extraData, int amount, int groupId = 0)
     {
         if (definition == null) throw new InvalidOperationException("Data cannot be null.");
         var items = new List<Item>();
@@ -121,7 +124,7 @@ public class ItemFactory : IItemFactory
         {
             dbClient.SetQuery("INSERT INTO `items` (base_item,user_id,room_id,x,y,z,wall_pos,rot,extra_data) VALUES(@did,@uid,@rid,@x,@y,@z,@wallpos,@rot,@flags);");
             dbClient.AddParameter("did", definition.Id);
-            dbClient.AddParameter("uid", habbo.Id);
+            dbClient.AddParameter("uid", ownerId);
             dbClient.AddParameter("rid", 0);
             dbClient.AddParameter("x", 0);
             dbClient.AddParameter("y", 0);
@@ -133,7 +136,7 @@ public class ItemFactory : IItemFactory
             var item = new Item()
             {
                 Id = Convert.ToUInt32(dbClient.InsertQuery()),
-                OwnerId = (uint)habbo.Id,
+                OwnerId = (uint)ownerId,
                 Definition = definition,
                 ExtraData = FurniExtraData.Load(definition, extraData, keepLegacy: true),
                 GroupId = groupId

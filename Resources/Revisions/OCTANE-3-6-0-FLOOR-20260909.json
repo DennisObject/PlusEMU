@@ -303,7 +303,31 @@
     "PublishPhotoEvent": 2068,
     "PurchasePhotoEvent": 2408,
     "RenderRoomEvent": 3226,
-    "RenderRoomThumbnailEvent": 1982
+    "RenderRoomThumbnailEvent": 1982,
+    "HousekeepingFindUserByNameEvent": 9100,
+    "HousekeepingFindUserByIdEvent": 9101,
+    "HousekeepingBanUserEvent": 9102,
+    "HousekeepingUnbanUserEvent": 9103,
+    "HousekeepingMuteUserEvent": 9104,
+    "HousekeepingKickUserEvent": 9105,
+    "HousekeepingForceDisconnectUserEvent": 9106,
+    "HousekeepingSetUserRankEvent": 9107,
+    "HousekeepingTradeLockUserEvent": 9108,
+    "HousekeepingResetUserPasswordEvent": 9109,
+    "HousekeepingFindRoomByIdEvent": 9110,
+    "HousekeepingSearchRoomsEvent": 9111,
+    "HousekeepingRoomStateEvent": 9112,
+    "HousekeepingMuteRoomEvent": 9113,
+    "HousekeepingKickAllFromRoomEvent": 9114,
+    "HousekeepingTransferRoomOwnershipEvent": 9115,
+    "HousekeepingDeleteRoomEvent": 9116,
+    "HousekeepingGiveCreditsEvent": 9117,
+    "HousekeepingGiveCurrencyEvent": 9118,
+    "HousekeepingGrantItemEvent": 9119,
+    "HousekeepingSetHcSubscriptionEvent": 9120,
+    "HousekeepingSendHotelAlertEvent": 9121,
+    "HousekeepingGetDashboardEvent": 9122,
+    "HousekeepingListActionLogEvent": 9123
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -606,6 +630,12 @@
     "CameraPurchaseOKComposer": 2783,
     "CameraPublishStatusComposer": 2057,
     "CompetitionStatusComposer": 133,
-    "ThumbnailStatusComposer": 3595
+    "ThumbnailStatusComposer": 3595,
+    "HousekeepingUserDetailComposer": 9200,
+    "HousekeepingActionResultComposer": 9201,
+    "HousekeepingRoomDetailComposer": 9202,
+    "HousekeepingRoomListComposer": 9203,
+    "HousekeepingDashboardComposer": 9204,
+    "HousekeepingActionLogComposer": 9205
   }
 }
