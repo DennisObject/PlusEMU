@@ -15,6 +15,7 @@ public class InteractorGenericSwitch : IFurniInteractor
         var modes = item.Definition.Modes - 1;
         if (session == null || !hasRights || modes <= 0) return;
         PlusEnvironment.Game.QuestManager.ProgressUserQuest(session, QuestType.FurniSwitch);
+        if (GateTransitionService.CancelQueuedClose(item)) return;
         var before = item.LegacyDataString;
         var currentMode = 0;
         var newMode = 0;
@@ -36,6 +37,7 @@ public class InteractorGenericSwitch : IFurniInteractor
     {
         var modes = item.Definition.Modes - 1;
         if (modes == 0) return;
+        if (GateTransitionService.CancelQueuedClose(item)) return;
         var currentMode = 0;
         var newMode = 0;
         if (string.IsNullOrEmpty(item.LegacyDataString))

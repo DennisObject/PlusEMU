@@ -23,6 +23,7 @@ public class InteractorGate : IFurniInteractor
     // Closing goes through the owner-task operation; the follow-up runs only once the new state is written.
     private static void Toggle(Item item, GateCloseReason reason, Action<Item>? afterChange)
     {
+        if (GateTransitionService.CancelQueuedClose(item)) return;
         var modes = item.Definition.Modes - 1;
         if (modes <= 0) item.UpdateState(false, true);
         var newMode = NextMode(item, modes);

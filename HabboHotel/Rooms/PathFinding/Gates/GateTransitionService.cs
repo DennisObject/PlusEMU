@@ -14,11 +14,23 @@ public enum GateTransition { Applied, Refused, Queued }
 public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupancy)
 {
     private const string OpenState = "1";
-    private readonly record struct CloseRequest(Item Item, GateCloseReason Reason, string ClosedState, bool Persist, Action<Item>? AfterClose);
+    // A class on purpose: queued requests are matched by identity, never by value.
+    private sealed class CloseRequest(Item item, GateCloseReason reason, string closedState, bool persist, Action<Item>? afterClose)
+    {
+        public Item Item { get; } = item;
+        public GateCloseReason Reason { get; } = reason;
+        public string ClosedState { get; } = closedState;
+        public bool Persist { get; } = persist;
+        public Action<Item>? AfterClose { get; } = afterClose;
+    }
+
     private readonly ConcurrentQueue<Action> _queue = new();
     private readonly List<CloseRequest> _retained = new();
+    // At most one explicit (click/Wired) close per gate waits in the queue; a later toggle cancels it.
+    private readonly ConcurrentDictionary<uint, CloseRequest> _explicit = new();
+    private int _cancelledInQueue;
 
-    public int PendingCount => _queue.Count + _retained.Count;
+    public int PendingCount => _queue.Count - Volatile.Read(ref _cancelledInQueue) + _retained.Count;
 
     public static bool IsGate(Item item)
         => item.Definition.InteractionType is InteractionType.Gate or InteractionType.GuildGate or InteractionType.GateVip;
@@ -41,8 +53,19 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
     {
         var request = new CloseRequest(item, reason, closedState, persist, afterClose);
         if (RoomOwnerScope.IsOwner(room)) return Close(request);
-        _queue.Enqueue(() => Run(request));
+        if (reason == GateCloseReason.Automatic || _explicit.TryAdd(item.Id, request))
+            _queue.Enqueue(() => Run(request));
         return GateTransition.Queued;
+    }
+
+    // A toggle that finds a close still queued is the "open" half of a double click: it cancels that close.
+    public static bool CancelQueuedClose(Item item) => item.GetRoom()?.GetGameMap()?.Gates?.Cancel(item) == true;
+
+    private bool Cancel(Item item)
+    {
+        if (!_explicit.TryRemove(item.Id, out _)) return false;
+        Interlocked.Increment(ref _cancelledInQueue);
+        return true;
     }
 
     // Runs `work` now on the room task, otherwise on the next drain, in order with queued closes.
@@ -69,9 +92,19 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
 
     private void Run(CloseRequest request)
     {
+        if (request.Reason != GateCloseReason.Automatic && !TakeExplicit(request)) return;
         if (!ReferenceEquals(room.GetRoomItemHandler().GetItem(request.Item.Id), request.Item)) return;
         if (Close(request) == GateTransition.Refused && request.Reason == GateCloseReason.Automatic)
             _retained.Add(request);
+    }
+
+    private bool TakeExplicit(CloseRequest request)
+    {
+        if (_explicit.TryGetValue(request.Item.Id, out var queued) && ReferenceEquals(queued, request)
+            && ((ICollection<KeyValuePair<uint, CloseRequest>>)_explicit).Remove(new(request.Item.Id, request)))
+            return true;
+        Interlocked.Decrement(ref _cancelledInQueue);
+        return false;
     }
 
     private GateTransition Close(CloseRequest request)
