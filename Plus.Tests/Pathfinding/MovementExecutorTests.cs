@@ -300,7 +300,7 @@ public partial class PlacedFurniRoomTests
     private (int X, int Y, string Z, string Status) ExecutorUpdate(RoomUser actor)
     {
         var sent = _client.Packets.Last(packet => packet.Header == ServerPacketHeader.UserUpdateComposer);
-        var body = new FlashIncomingPacket { Buffer = sent.Body };
+        var body = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
         var count = body.ReadInt();
         for (var i = 0; i < count; i++)
         {
