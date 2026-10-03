@@ -36,6 +36,8 @@ public class PurchaseFromCatalogEvent : IPacketEvent
     private readonly IBadgeManager _badgeManager;
     private readonly IItemFactory _itemFactory;
     private readonly IClubMembershipService _clubMemberships;
+    // Window id the client's club purchase page requests offers for.
+    private const int ClubWindow = 1;
 
     public PurchaseFromCatalogEvent(ICatalogManager catalogManager,
         IDatabase database,
@@ -397,39 +399,24 @@ public class PurchaseFromCatalogEvent : IPacketEvent
     private void PurchaseClubOffer(GameClient session, int offerId)
     {
         var habbo = session.GetHabbo();
-        if (!_catalogManager.TryGetClubOffer(offerId, out var offer) || offer.Days <= 0)
+        int? expiry = null;
+        if (_catalogManager.TryGetClubOffer(offerId, out var offer))
+            expiry = _clubMemberships.Purchase(habbo, offer);
+        if (expiry == null)
         {
             session.Send(new PurchaseErrorComposer(0));
             return;
         }
-        var pointsBalance = offer.PointsType switch
-        {
-            0 => habbo.Duckets,
-            5 => habbo.Diamonds,
-            _ => -1
-        };
-        if (habbo.Credits < offer.Credits || offer.Points > 0 && pointsBalance < offer.Points)
-        {
-            session.Send(new PurchaseErrorComposer(0));
-            return;
-        }
-        var expiry = _clubMemberships.Extend(habbo.Id, offer.Days);
         if (offer.Credits > 0)
-        {
-            habbo.Credits -= offer.Credits;
             session.Send(new CreditBalanceComposer(habbo.Credits));
-        }
-        if (offer.Points > 0 && offer.PointsType == 0)
-        {
-            habbo.Duckets -= offer.Points;
-            session.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, -offer.Points));
-        }
-        else if (offer.Points > 0)
-        {
-            habbo.Diamonds -= offer.Points;
-            session.Send(new HabboActivityPointNotificationComposer(habbo.Diamonds, -offer.Points, 5));
-        }
+        if (offer.Points > 0)
+            session.Send(offer.PointsType == 5
+                ? new HabboActivityPointNotificationComposer(habbo.Diamonds, -offer.Points, 5)
+                : new HabboActivityPointNotificationComposer(habbo.Duckets, -offer.Points));
         session.Send(new PurchaseOkComposer());
-        session.Send(new ScrSendUserInfoComposer(expiry - (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+        var membershipEnd = DateTimeOffset.FromUnixTimeSeconds(expiry.Value).UtcDateTime;
+        // The client caches offers; resend them so the next confirmation shows the new end date.
+        session.Send(new HabboClubOffersComposer(_catalogManager.ClubOffers, ClubWindow, membershipEnd));
+        session.Send(new ScrSendUserInfoComposer(expiry.Value - (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds(), ScrSendUserInfoComposer.PurchaseResponse));
     }
 }

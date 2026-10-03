@@ -5,10 +5,18 @@ namespace Plus.Communication.Packets.Outgoing.Users;
 // Club status stays free for everyone; the day counters show time bought on the club page.
 public class ScrSendUserInfoComposer : IServerPacket
 {
+    public const int InfoResponse = 1;
+    public const int PurchaseResponse = 2;
+
     private readonly int _secondsLeft;
+    private readonly int _responseType;
     public uint MessageId => ServerPacketHeader.ScrSendUserInfoComposer;
 
-    public ScrSendUserInfoComposer(int secondsLeft = 0) => _secondsLeft = Math.Max(0, secondsLeft);
+    public ScrSendUserInfoComposer(int secondsLeft = 0, int responseType = InfoResponse)
+    {
+        _secondsLeft = Math.Max(0, secondsLeft);
+        _responseType = responseType;
+    }
 
     public void Compose(IOutgoingPacket packet)
     {
@@ -19,7 +27,7 @@ public class ScrSendUserInfoComposer : IServerPacket
         packet.WriteInteger(daysLeft - periodsAhead * 31); //display days
         packet.WriteInteger(2);
         packet.WriteInteger(periodsAhead); //display months
-        packet.WriteInteger(1);
+        packet.WriteInteger(_responseType);
         packet.WriteBoolean(true); // hc
         packet.WriteBoolean(true); // vip
         packet.WriteInteger(0);
