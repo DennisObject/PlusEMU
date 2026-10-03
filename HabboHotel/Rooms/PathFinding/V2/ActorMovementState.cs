@@ -18,6 +18,7 @@ public sealed class ActorMovementState
     internal Point? RegisteredMapCoordinate { get; set; }
     public double SupportZ { get; internal set; }
     public Route Route { get; } = new();
+    public RouteStateMachine Fallback { get; } = new();
     public int Cursor { get; internal set; }
     public SurfaceRef[] Pending { get; } = new SurfaceRef[3];
     public int PendingCount { get; internal set; }

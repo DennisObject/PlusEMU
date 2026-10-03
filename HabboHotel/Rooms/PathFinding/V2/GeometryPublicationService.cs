@@ -1,7 +1,7 @@
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
 // Runs between compilation and Version publication. No arrival or game hooks run here.
-internal sealed class GeometryPublicationService(MovementContext context, RebindService rebind)
+internal sealed class GeometryPublicationService(MovementContext context, RebindService rebind, RouteFallbackService fallback)
 {
     private NavGrid Grid => context.Grid;
 
@@ -80,18 +80,17 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
     private void Invalidate(RoomUser actor)
     {
         var state = actor.Movement;
-        state.GoalRevision++; state.RouteInvalidated = true; state.AcceptedGoal = null;
-        if (state.LandingInProgress) return;
-        if (state.PendingCount == 0) FinishInvalidation(actor);
-        else context.Replan(actor);
+        state.RouteInvalidated = true;
+        fallback.OnRouteInvalidated(actor);
+        if (!state.LandingInProgress) FinishInvalidation(actor);
     }
 
     internal bool FinishInvalidation(RoomUser actor)
     {
         var state = actor.Movement;
         if (!state.RouteInvalidated || state.LandingInProgress || state.PendingCount != 0) return false;
-        state.RouteInvalidated = false; state.Route.Clear(); state.Cursor = 0;
-        if (state.State == NavState.Active) context.Replan(actor);
+        state.RouteInvalidated = false;
+        if (state.State == NavState.Active) fallback.RecomputePrefix(actor);
         return true;
     }
 }

@@ -2,15 +2,16 @@ using Plus.Utilities;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
-internal sealed class AnnounceService(Room room, RoomNavigation navigation, MovementContext context, MovementCancellation cancellation)
+internal sealed class AnnounceService(Room room, RoomNavigation navigation, MovementContext context,
+    MovementCancellation cancellation, RouteFallbackService fallback)
 {
-    private readonly BlockedStepPolicy _blocked = new(navigation.Settings, context, cancellation);
+    private readonly BlockedStepPolicy _blocked = new(navigation.Settings, cancellation, fallback);
     private readonly MovementRules _rules = new(navigation.Grid, navigation.Settings);
     public void Announce(RoomUser actor, bool committed)
     {
         var state = actor.Movement;
         _blocked.TickStall(actor, committed);
-        if (!state.HasIntent || state.Route.Count == 0 || state.PendingCount != 0)
+        if (!state.HasIntent || state.Cursor >= state.Route.Count || state.PendingCount != 0)
         { ClearCompletedAnnouncement(actor); ApplyIdleEffects(actor, committed); return; }
         if (actor.Freezed)
         { actor.RemoveStatus("mv"); actor.UpdateNeeded = true; ApplyIdleEffects(actor, committed); return; }
@@ -37,8 +38,7 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
             var surface = state.Route.Steps[i];
             if (!context.Graph.IsValid(surface, state.Route.View)) break;
             var target = context.Graph.Position(surface.Tile, state.Route.View);
-            var purpose = state.Origin == MoveOrigin.Interaction ? StepPurpose.Interaction
-                : i == state.Route.Count - 1 ? StepPurpose.Goal : StepPurpose.Transit;
+            var purpose = state.Route.PurposeAt(i, state.Origin);
             if (!ClaimStep(actor, profile, from, target, surface, purpose, out temporaryBlock)) break;
             state.Pending[state.PendingCount++] = surface; from = target;
         }
