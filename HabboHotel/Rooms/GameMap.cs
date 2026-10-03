@@ -23,9 +23,12 @@ public class Gamemap
     private long _placementVersion;
     private long _placementDeliveredVersion;
     private bool _placementSending;
+    private bool _placementClosed;
+    private readonly Room _placementRoom;
     // Arrays belong exclusively to the queued snapshot and are never changed after capture.
+    private sealed record PlacementRecipient(GameClient Session, RoomUser Visit);
     private sealed record PlacementDelivery(long Version, short[,] Heights,
-        HeightMapUpdateComposer.Tile[]? Changes, GameClient? Session = null);
+        HeightMapUpdateComposer.Tile[]? Changes, PlacementRecipient[] Recipients, bool Entry = false);
     private int _placementWidth;
     private int _placementHeight;
 
@@ -62,6 +65,7 @@ public class Gamemap
     {
         lock (_placementLock)
         {
+            if (_placementClosed) return Array.Empty<HeightMapUpdateComposer.Tile>();
             var changed = new List<HeightMapUpdateComposer.Tile>();
             foreach (var point in _placementDirty.OrderBy(tile => tile.Y).ThenBy(tile => tile.X))
             {
@@ -81,14 +85,19 @@ public class Gamemap
     internal void NotifyPlacementState(Item item)
     {
         lock (_placementLock)
+        {
+            if (_placementClosed) return;
             foreach (var point in item.GetCoords) _placementDirty.Add(point);
+        }
         FlushPlacementUpdates();
     }
 
     public void FlushPlacementUpdates()
     {
+        var recipients = CapturePlacementRecipients();
         lock (_placementLock)
         {
+            if (_placementClosed) return;
             var changed = RebuildPlacementUpdates();
             var resized = _placementWidth != Model.MapSizeX || _placementHeight != Model.MapSizeY;
             _placementWidth = Model.MapSizeX;
@@ -97,7 +106,7 @@ public class Gamemap
             {
                 // Byte-sized delta counts/coordinates cannot represent larger maps.
                 var full = resized || changed.Any(tile => tile.X > byte.MaxValue || tile.Y > byte.MaxValue);
-                _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), full ? null : changed.ToArray()));
+                _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), full ? null : changed.ToArray(), recipients));
             }
         }
         DrainPlacementUpdates();
@@ -105,14 +114,52 @@ public class Gamemap
 
     private void MarkPlacementDirty(Point point)
     {
-        lock (_placementLock) _placementDirty.Add(point);
+        lock (_placementLock)
+            if (!_placementClosed) _placementDirty.Add(point);
     }
 
     internal void SendPlacementHeightMap(GameClient session)
     {
+        var recipients = CapturePlacementRecipients().Where(recipient => ReferenceEquals(recipient.Session, session)).ToArray();
         lock (_placementLock)
-            _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), null, session));
+        {
+            if (_placementClosed || recipients.Length == 0) return;
+            _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), null, recipients, true));
+        }
         DrainPlacementUpdates();
+    }
+
+    private PlacementRecipient[] CapturePlacementRecipients()
+    {
+        RoomUser[] visits;
+        lock (_placementLock)
+        {
+            if (_placementClosed || _placementRoom.MDisposed) return [];
+            visits = _placementRoom.GetRoomUserManager()?.GetRoomUsers().ToArray() ?? [];
+        }
+        // Resolve clients outside the map lock. Each avatar object identifies one room visit.
+        return visits.Select(visit => (Session: visit.GetClient(), Visit: visit))
+            .Where(pair => pair.Session != null).Select(pair => new PlacementRecipient(pair.Session!, pair.Visit)).ToArray();
+    }
+
+    private bool IsCurrentPlacementRecipient(PlacementRecipient recipient)
+    {
+        lock (_placementLock)
+        {
+            if (_placementClosed || _placementRoom.MDisposed || !recipient.Session.IsAuthenticated
+                || !ReferenceEquals(recipient.Session.GetHabbo()?.CurrentRoom, _placementRoom)) return false;
+            return ReferenceEquals(_placementRoom.GetRoomUserManager()?.GetRoomUserByVirtualId(recipient.Visit.VirtualId), recipient.Visit);
+        }
+    }
+
+    internal void ClosePlacementUpdates()
+    {
+        lock (_placementLock)
+        {
+            _placementClosed = true;
+            _placementOutbound.Clear();
+            _placementDirty.Clear();
+        }
     }
 
     private void DrainPlacementUpdates()
@@ -122,7 +169,7 @@ public class Gamemap
         lock (_placementLock)
         {
             // Never wait for a sender: synchronous disconnect can be waiting for the caller's Wired lock.
-            if (_placementSending) return;
+            if (_placementClosed || _placementSending) return;
             _placementSending = true;
         }
         while (true)
@@ -130,28 +177,35 @@ public class Gamemap
             PlacementDelivery delivery;
             lock (_placementLock)
             {
-                if (!_placementOutbound.TryDequeue(out delivery!))
+                if (_placementClosed || !_placementOutbound.TryDequeue(out delivery!))
                 {
                     _placementSending = false;
                     return;
                 }
                 // A full latest snapshot replaces consecutive superseded broadcasts, including their deltas.
                 // Entry snapshots keep their place in the queue and are never discarded.
-                while (delivery.Session == null && _placementOutbound.TryPeek(out var next)
-                    && next.Session == null && next.Version > delivery.Version)
+                while (!delivery.Entry && _placementOutbound.TryPeek(out var next)
+                    && !next.Entry && next.Version > delivery.Version)
                     delivery = _placementOutbound.Dequeue() with { Changes = null };
                 if (delivery.Version <= _placementDeliveredVersion) continue;
                 _placementDeliveredVersion = delivery.Version;
             }
             try
             {
-                if (delivery.Session != null)
-                    delivery.Session.Send(new HeightMapComposer(delivery.Heights));
-                else if (delivery.Changes == null)
-                    _room.SendPacket(new HeightMapComposer(delivery.Heights));
-                else
+                // Enumerate eligibility immediately before each client's send, including every delta chunk.
+                // A client can leave while an earlier recipient's synchronous send callback is still running.
+                var currentClients = delivery.Recipients.Where(IsCurrentPlacementRecipient).Select(recipient => recipient.Session);
+                bool CanSend(GameClient client) => delivery.Recipients.Any(recipient => ReferenceEquals(recipient.Session, client)
+                    && IsCurrentPlacementRecipient(recipient));
+                bool SupportsDelta(GameClient client) => client.Revision.InternalIdToOutgoingIdMapping
+                    .ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapUpdateComposer);
+                if (delivery.Changes != null)
                     foreach (var chunk in delivery.Changes.Chunk(byte.MaxValue))
-                        _room.SendPlacementUpdates(chunk, delivery.Heights);
+                        GameClient.SendBroadcast(new HeightMapUpdateComposer(chunk), currentClients.Where(SupportsDelta), CanSend);
+                var needsFull = currentClients.Where(client => client.Revision.InternalIdToOutgoingIdMapping
+                    .ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapComposer)
+                    && (delivery.Changes == null || !SupportsDelta(client)));
+                GameClient.SendBroadcast(new HeightMapComposer(delivery.Heights), needsFull, CanSend);
             }
             catch (Exception error)
             {
@@ -176,6 +230,7 @@ public class Gamemap
     public Gamemap(Room room, RoomModel model)
     {
         _room = room;
+        _placementRoom = room;
         StaticModel = model;
         DiagonalEnabled = true;
         Model = new(StaticModel);
@@ -1471,21 +1526,26 @@ public class Gamemap
 
     public void Dispose()
     {
-        _userMap.Clear();
-        Model.Destroy();
-        _coordinatedItems.Clear();
-        Array.Clear(GameMap, 0, GameMap.Length);
-        Array.Clear(EffectMap, 0, EffectMap.Length);
-        Array.Clear(_itemHeightMap, 0, _itemHeightMap.Length);
-        _userMap = null;
-        _structuralMap = null;
-        _roamTargets = null;
-        GameMap = null;
-        EffectMap = null;
-        _itemHeightMap = null;
-        _coordinatedItems = null;
-        Model = null;
-        _room = null;
-        StaticModel = null;
+        lock (_placementLock)
+        {
+            if (Model == null) return;
+            ClosePlacementUpdates();
+            _userMap.Clear();
+            Model.Destroy();
+            _coordinatedItems.Clear();
+            Array.Clear(GameMap, 0, GameMap.Length);
+            Array.Clear(EffectMap, 0, EffectMap.Length);
+            Array.Clear(_itemHeightMap, 0, _itemHeightMap.Length);
+            _userMap = null;
+            _structuralMap = null;
+            _roamTargets = null;
+            GameMap = null;
+            EffectMap = null;
+            _itemHeightMap = null;
+            _coordinatedItems = null;
+            Model = null;
+            _room = null;
+            StaticModel = null;
+        }
     }
 }

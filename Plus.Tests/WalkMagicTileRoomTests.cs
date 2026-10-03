@@ -888,6 +888,128 @@ public partial class PlacedFurniRoomTests
         Assert.Empty(map.GetCoordinatedItems(unused));
     }
 
+    [Theory]
+    [InlineData("switch")]
+    [InlineData("reenter")]
+    [InlineData("unload")]
+    [InlineData("disconnect")]
+    public async Task BlockedPlacementDrainDiscardsMapsFromEndedRoomVisits(string transition)
+    {
+        var table = Add(10, 1, 1, height: 1);
+        Viewer();
+        var map = _room.GetGameMap();
+        var roster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
+            .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
+        var blocker = new TestClient();
+        blocker.SetHabbo(new Plus.HabboHotel.Users.Habbo { Id = 8, CurrentRoom = _room });
+        var blockingVisit = new RoomUser(8, RoomId, 0, _room);
+        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(blockingVisit, blocker);
+        roster[0] = blockingVisit;
+        using var sending = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var sends = 0;
+        blocker.SendCallback = _ =>
+        {
+            if (Interlocked.Increment(ref sends) == 1)
+            {
+                sending.Set();
+                Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
+            }
+            return false;
+        };
+        // Hold one different client's send so every map for the tested client remains queued.
+        var drain = Task.Run(() => map.SendPlacementHeightMap(blocker));
+        try
+        {
+            Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
+            map.SendPlacementHeightMap(_client);
+            table.Definition.Height = 2; table.UpdateState();
+            switch (transition)
+            {
+                case "switch":
+                {
+                    EnterProjectionRoom();
+                    break;
+                }
+                case "reenter":
+                {
+                    _client.GetHabbo().CurrentRoom = null;
+                    roster.TryRemove(1, out _);
+                    var nextVisit = new RoomUser(7, RoomId, 1, _room); // Same virtual ID, different visit identity.
+                    typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextVisit, _client);
+                    roster[1] = nextVisit;
+                    _client.GetHabbo().CurrentRoom = _room;
+                    table.Definition.Height = 3;
+                    map.SendPlacementHeightMap(_client);
+                    break;
+                }
+                case "unload":
+                    map.Dispose();
+                    map.SendPlacementHeightMap(_client); // Closed queues also reject future entry/flush requests.
+                    map.FlushPlacementUpdates();
+                    break;
+                case "disconnect":
+                    _client.IsAuthenticated = false;
+                    break;
+            }
+        }
+        finally { release.Set(); }
+        await drain.WaitAsync(TimeSpan.FromSeconds(15));
+        var packets = _client.Packets.Where(packet => packet.Header is ServerPacketHeader.HeightMapComposer or ServerPacketHeader.HeightMapUpdateComposer).ToArray();
+        if (transition is "unload" or "disconnect") Assert.Empty(packets);
+        else
+        {
+            var packet = Assert.Single(packets);
+            Assert.Equal(ServerPacketHeader.HeightMapComposer, packet.Header);
+            var full = new FlashIncomingPacket { Buffer = packet.Body.ToArray() };
+            Assert.Equal(4, full.ReadInt()); Assert.Equal(16, full.ReadInt());
+            var heights = Enumerable.Range(0, 16).Select(_ => full.ReadShort()).ToArray();
+            if (transition == "switch") Assert.All(heights, value => Assert.Equal((short)256, value));
+            else Assert.Equal((short)768, heights[5]);
+        }
+    }
+
+    private Gamemap EnterProjectionRoom()
+    {
+        var nextRoom = (Room)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        nextRoom.Id = RoomId + 1;
+        var nextUsers = new RoomUserManager(nextRoom);
+        var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", false, 0, false));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextUsers);
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom));
+        typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextMap);
+        nextMap.GenerateMaps();
+        _client.GetHabbo().CurrentRoom = nextRoom;
+        var nextVisit = new RoomUser(7, nextRoom.Id, 1, nextRoom);
+        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextVisit, _client);
+        var nextRoster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
+            .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(nextUsers)!;
+        nextRoster[1] = nextVisit;
+        nextMap.SendPlacementHeightMap(_client);
+        return nextMap;
+    }
+
+    [Fact]
+    public void VisitChangeDuringEncodingDropsTheOldMapAtTheTransportBoundary()
+    {
+        Add(10, 1, 1, height: 2);
+        Viewer();
+        var sent = new List<byte[]>();
+        var encodings = 0;
+        _client.SendCallback = args => { sent.Add(args.MemoryBuffer.Slice(6).ToArray()); return false; };
+        _client.BeforeCapture = header =>
+        {
+            if (header == ServerPacketHeader.HeightMapComposer && Interlocked.Increment(ref encodings) == 1)
+                EnterProjectionRoom();
+        };
+        _room.GetGameMap().SendPlacementHeightMap(_client);
+        // Encoding A re-enters B and sends B's full map before A reaches its transport callback.
+        var body = new FlashIncomingPacket { Buffer = Assert.Single(sent) };
+        Assert.Equal(4, body.ReadInt()); Assert.Equal(16, body.ReadInt());
+        for (var index = 0; index < 16; index++) Assert.Equal((short)256, body.ReadShort());
+        Assert.Equal(2, encodings);
+    }
+
     private short DeltaAt(int x, int y)
     {
         foreach (var sent in _client.Packets.Where(packet => packet.Header == ServerPacketHeader.HeightMapUpdateComposer).Reverse())
