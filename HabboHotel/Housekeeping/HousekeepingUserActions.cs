@@ -39,9 +39,11 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     private readonly ISettingsManager _settings;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IDatabase _database;
+    // Held for every write to an account so it cannot interleave with that account's login.
+    private readonly IAccountSessionGate _sessionGate;
 
     public HousekeepingUserActions(IHousekeepingUserStore users, IGameClientManager clients, IModerationManager moderation, IPermissionManager permissions,
-        ISettingsManager settings, IPasswordHasher passwordHasher, IDatabase database)
+        ISettingsManager settings, IPasswordHasher passwordHasher, IDatabase database, IAccountSessionGate sessionGate)
     {
         _users = users;
         _clients = clients;
@@ -50,6 +52,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         _settings = settings;
         _passwordHasher = passwordHasher;
         _database = database;
+        _sessionGate = sessionGate;
     }
 
     public HousekeepingOutcome Ban(Habbo actor, int userId, string reason, int hours)
@@ -57,6 +60,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         reason = HousekeepingLimits.Normalize(reason);
         if (!HousekeepingLimits.InRange(hours, 1, HousekeepingLimits.MaxBanHours) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
+        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         var expire = UnixTimestamp.GetNow() + hours * 3600.0;
         _moderation.BanUser(actor.Username, ModerationBanType.Username, user.Username, reason.Length > 0 ? reason : "No reason specified.", expire);
@@ -67,6 +71,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
 
     public HousekeepingOutcome Unban(Habbo actor, int userId)
     {
+        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         return _moderation.UnbanUser(user.Username)
             ? HousekeepingOutcome.Success(Label(user), "unbanned")
@@ -78,6 +83,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         reason = HousekeepingLimits.Normalize(reason);
         if (!HousekeepingLimits.InRange(minutes, 1, HousekeepingLimits.MaxMuteMinutes) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
+        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         var seconds = minutes * 60.0;
         Execute("UPDATE `users` SET `time_muted` = @seconds WHERE `id` = @userId LIMIT 1", new { seconds, userId });
@@ -93,6 +99,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     {
         reason = HousekeepingLimits.Normalize(reason);
         if (!HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength)) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
+        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         if (_clients.Online(userId) is not { } client) return HousekeepingOutcome.Fail(UserOffline, Label(user));
         var room = client.GetHabbo().CurrentRoom;
@@ -106,6 +113,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     {
         reason = HousekeepingLimits.Normalize(reason);
         if (!HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength)) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
+        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         if (_clients.Online(userId) is not { } client) return HousekeepingOutcome.Fail(UserOffline, Label(user));
         if (reason.Length > 0) client.SendNotification(reason);
@@ -118,6 +126,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         if (rankId <= 0) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         if (!_permissions.TryGetGroup(rankId, out _)) return HousekeepingOutcome.Fail(RankNotFound, HousekeepingTarget.User(userId), $"rankId={rankId}");
         if (!HousekeepingRankPolicy.CanAssign(actor.Rank, rankId)) return HousekeepingOutcome.Fail(RankTooHigh, HousekeepingTarget.User(userId), $"rankId={rankId}");
+        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         Execute("UPDATE `users` SET `rank` = @rankId WHERE `id` = @userId LIMIT 1", new { rankId, userId });
         if (_clients.Online(userId) is { } client)
@@ -136,6 +145,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         reason = HousekeepingLimits.Normalize(reason);
         if (!HousekeepingLimits.InRange(hours, 1, HousekeepingLimits.MaxTradeLockHours) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
+        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         var until = UnixTimestamp.GetNow() + hours * 3600.0;
         Execute("INSERT INTO `user_info` (`user_id`, `trading_locked`, `trading_locks_count`) VALUES (@userId, @until, 1) " +
@@ -150,10 +160,12 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
 
     public HousekeepingOutcome ResetPassword(Habbo actor, int userId)
     {
+        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         var password = GeneratePassword();
         // The SSO ticket is cleared (login rejects empty tickets) and the live session closed so old credentials stop working at once.
         Execute("UPDATE `users` SET `password` = @hash, `auth_ticket` = '' WHERE `id` = @userId LIMIT 1", new { hash = _passwordHasher.Hash(password), userId });
+        _sessionGate.Revoke(userId);
         _clients.GetClientByUserId(userId)?.Disconnect();
         // The plaintext only travels back to the acting operator; the audit detail never contains it.
         return HousekeepingOutcome.Success(Label(user), "password_reset", password);

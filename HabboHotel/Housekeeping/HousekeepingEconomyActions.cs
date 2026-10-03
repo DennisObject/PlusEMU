@@ -7,6 +7,7 @@ using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Subscriptions;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Authentication;
 using static Plus.HabboHotel.Housekeeping.HousekeepingErrors;
 using static Plus.HabboHotel.Housekeeping.HousekeepingUserTargets;
 
@@ -42,9 +43,11 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
     private readonly IItemFactory _itemFactory;
     private readonly IClubMembershipService _clubMemberships;
     private readonly IDatabase _database;
+    // Held for every write to an account so it cannot interleave with that account's login.
+    private readonly IAccountSessionGate _sessionGate;
 
     public HousekeepingEconomyActions(IHousekeepingUserStore users, IGameClientManager clients, IItemDataManager itemData, IItemFactory itemFactory,
-        IClubMembershipService clubMemberships, IDatabase database)
+        IClubMembershipService clubMemberships, IDatabase database, IAccountSessionGate sessionGate)
     {
         _users = users;
         _clients = clients;
@@ -52,11 +55,13 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
         _itemFactory = itemFactory;
         _clubMemberships = clubMemberships;
         _database = database;
+        _sessionGate = sessionGate;
     }
 
     public HousekeepingOutcome Give(Habbo actor, int userId, HousekeepingCurrency currency, int amount)
     {
         if (!Enum.IsDefined(currency) || !HousekeepingLimits.InRange(amount, 1, HousekeepingLimits.MaxGrantAmount)) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
+        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         var detail = $"currency={currency} amount={amount}";
         if (_clients.Online(userId) is { } client)
@@ -75,17 +80,19 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
             }
             return HousekeepingOutcome.Success(Label(user), detail);
         }
-        // Offline wallets live in the users row; the online guard keeps a concurrent login from overwriting the grant.
+        // Offline wallets live in the users row. The session gate keeps logins from loading it mid-grant, and
+        // logout saves the live wallet before the session is unregistered.
         int updated;
         using (var connection = _database.Connection())
             updated = connection.Execute($"UPDATE `users` SET `{Column(currency)}` = `{Column(currency)}` + @amount " +
-                                         $"WHERE `id` = @userId AND `online` = 0 AND `{Column(currency)}` <= @limit", new { amount, userId, limit = int.MaxValue - amount });
+                                         $"WHERE `id` = @userId AND `{Column(currency)}` <= @limit", new { amount, userId, limit = int.MaxValue - amount });
         return updated == 1 ? HousekeepingOutcome.Success(Label(user), detail) : HousekeepingOutcome.Fail(EconomyFailed, Label(user), detail);
     }
 
     public HousekeepingOutcome GrantItem(Habbo actor, int userId, int itemId, int quantity)
     {
         if (itemId <= 0 || !HousekeepingLimits.InRange(quantity, 1, HousekeepingLimits.MaxItemQuantity)) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
+        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         if (!_itemData.Items.TryGetValue((uint)itemId, out var definition) || UngrantableItems.Contains(definition.InteractionType))
             return HousekeepingOutcome.Fail(ItemNotFound, Label(user), $"itemId={itemId}");
@@ -97,6 +104,7 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
                 if (client.GetHabbo().Inventory.Furniture.AddItem(item.ToInventoryItem()))
                     client.Send(new FurniListNotificationComposer(item.Id, 1));
             }
+            client.Send(new FurniListUpdateComposer());
         }
         return HousekeepingOutcome.Success(Label(user), $"itemId={itemId} item={definition.ItemName} quantity={quantity}");
     }
@@ -104,6 +112,7 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
     public HousekeepingOutcome SetClub(Habbo actor, int userId, int days)
     {
         if (!HousekeepingLimits.InRange(days, 0, HousekeepingLimits.MaxClubDays)) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
+        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         var expiry = _clubMemberships.Grant(user.Id, days);
         _clients.Online(userId)?.Send(new ScrSendUserInfoComposer(expiry - (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
