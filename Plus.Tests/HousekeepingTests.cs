@@ -628,9 +628,10 @@ public class ClientPermissionWireTests
     [Fact]
     public void RankMetadataAndAllowlistedRightsFollowTheRendererPermissionBlock()
     {
-        var rights = new PermissionComponent(new() { "mod_tool", "acc_housekeeping", "acc_catalogfurni", "housekeeping_economy" }, new());
+        var rights = new PermissionComponent(new() { "mod_tool", "acc_furni_delete", "acc_housekeeping", "acc_catalogfurni", "housekeeping_economy", "acc_furnidata_edit" }, new());
         var composer = new UserRightsComposer(7, true, "Developer", "DEV", ClientPermissions.Resolve(rights, true));
-        Assert.Equal(new object[] { 2, 7, true, 7, "Developer", "DEV", 3, "acc_camera", 1, "acc_housekeeping", 1, "acc_catalogfurni", 1 }, Writes(composer));
+        Assert.Equal(new object[] { 2, 7, true, 7, "Developer", "DEV", 5, "acc_camera", 1, "acc_housekeeping", 1, "acc_catalogfurni", 1,
+            "acc_furnidata_edit", 1, "acc_furni_delete", 1 }, Writes(composer));
     }
 
     [Fact]

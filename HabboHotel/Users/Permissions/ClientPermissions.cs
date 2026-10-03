@@ -11,7 +11,8 @@ namespace Plus.HabboHotel.Users.Permissions;
 /// </summary>
 internal static class ClientPermissions
 {
-    internal static readonly string[] Exposed = { "acc_housekeeping", "acc_soundboard_manage", "acc_catalogfurni" };
+    internal static readonly string[] Exposed =
+        { "acc_housekeeping", "acc_soundboard_manage", "acc_catalogfurni", "acc_furnidata_edit", "acc_furni_delete" };
 
     internal static IReadOnlyList<string> Resolve(PermissionComponent permissions, bool hasCamera)
     {
