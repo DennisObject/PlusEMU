@@ -47,7 +47,7 @@ public class Item
         get => _extraData;
         set
         {
-            if (NavigationInputs == null) { _extraData = value; PublishIfAttached(true); return; }
+            if (NavigationInputs == null) { _extraData = value; if (NavigationInputs != null) PublishIfAttached(true); return; }
             lock (NavSync)
             {
                 _extraData = value;
@@ -66,29 +66,35 @@ public class Item
                 return data.Data;
             return string.Empty;
         }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         set
         {
             if (NavigationInputs == null)
             {
                 if (_extraData is LegacyDataFormat data) data.Data = value;
-                PublishIfAttached(true);
+                if (NavigationInputs != null) PublishIfAttached(true);
                 return;
             }
-            LegacyDataFormat? changed = null;
-            lock (NavSync)
-            {
-                if (_extraData is LegacyDataFormat data)
-                {
-                    data.StoreWithoutNotification(value);
-                    changed = data;
-                }
-                if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
-            }
-            changed?.NotifyDataUpdated();
+            SetNavigationState(value);
         }
     }
 
 
+
+    private void SetNavigationState(string value)
+    {
+        LegacyDataFormat? changed = null;
+        lock (NavSync)
+        {
+            if (_extraData is LegacyDataFormat data)
+            {
+                data.StoreWithoutNotification(value);
+                changed = data;
+            }
+            if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
+        }
+        changed?.NotifyDataUpdated();
+    }
 
     /// TODO @80O: Cleanup shit below
     private Room? _room;
@@ -104,7 +110,7 @@ public class Item
         get => _groupId;
         set
         {
-            if (NavigationInputs == null) { _groupId = value; PublishIfAttached(); return; }
+            if (NavigationInputs == null) { _groupId = value; if (NavigationInputs != null) PublishIfAttached(); return; }
             lock (NavSync)
             {
                 if (_groupId == value) return;
@@ -126,7 +132,7 @@ public class Item
         get => _rotation;
         set
         {
-            if (NavigationInputs == null) { _rotation = value; PublishIfAttached(); return; }
+            if (NavigationInputs == null) { _rotation = value; if (NavigationInputs != null) PublishIfAttached(); return; }
             lock (NavSync)
             {
                 if (_rotation == value) return;
@@ -152,7 +158,7 @@ public class Item
         get => _getX;
         set
         {
-            if (NavigationInputs == null) { _getX = value; PublishIfAttached(); return; }
+            if (NavigationInputs == null) { _getX = value; if (NavigationInputs != null) PublishIfAttached(); return; }
             lock (NavSync)
             {
                 if (_getX == value) return;
@@ -168,7 +174,7 @@ public class Item
         get => _getY;
         set
         {
-            if (NavigationInputs == null) { _getY = value; PublishIfAttached(); return; }
+            if (NavigationInputs == null) { _getY = value; if (NavigationInputs != null) PublishIfAttached(); return; }
             lock (NavSync)
             {
                 if (_getY == value) return;
@@ -184,7 +190,7 @@ public class Item
         get => _getZ;
         set
         {
-            if (NavigationInputs == null) { _getZ = value; PublishIfAttached(); return; }
+            if (NavigationInputs == null) { _getZ = value; if (NavigationInputs != null) PublishIfAttached(); return; }
             lock (NavSync)
             {
                 if (_getZ == value) return;
@@ -423,7 +429,7 @@ public class Item
         if (NavigationInputs == null)
         {
             WritePlacement(pX, pY, pZ, tiles, rotation);
-            PublishIfAttached();
+            if (NavigationInputs != null) PublishIfAttached();
             return;
         }
         lock (NavSync)
