@@ -13,6 +13,7 @@ internal sealed class MovementExecutor(Room room, MovementContext context, Rebin
         search.Run();
         foreach (var actor in actors) PhaseC(actor);
         context.Claims.ReleaseRollers();
+        ticks.EndCycle();
     }
     private void PhaseA(RoomUser actor)
     {
@@ -20,7 +21,7 @@ internal sealed class MovementExecutor(Room room, MovementContext context, Rebin
         if (state.State != NavState.Active) return;
         state.TickLocationRevision = state.LocationRevision;
         rebind.Rebind(actor); context.RefreshMembership(actor);
-        ticks.BeforeMovement(actor);
+        if (!ticks.BeforeMovement(actor)) return;
         if (commit.Commit(actor)) _committed.Add(actor);
         if (Eligible(actor)) intake.Consume(actor);
     }

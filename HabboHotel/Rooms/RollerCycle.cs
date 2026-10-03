@@ -5,8 +5,8 @@ using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Rooms;
 
-// Resolve downstream rollers before checking clearance: only objects which actually
-// leave their tile this cycle cease to obstruct an upstream roller.
+// Compatibility transport retains legacy registry order and its dormant clearance.
+// Shared clearance and simultaneous groups belong to the stacked planner layer.
 internal sealed class RollerCycle
 {
     private readonly Room _room;
@@ -37,24 +37,14 @@ internal sealed class RollerCycle
     {
         if (!_visited.Add(roller.Id)) return;
         var destination = roller.SquareInFront;
-        foreach (var next in ItemsAt(destination).Where(item => item.IsRoller)) Process(next);
         var target = ItemsAt(destination);
-        var nextIsRoller = target.Any(item => item.IsRoller);
-        if (!Clear(target)) return;
+        var nextIsRoller = target.Any(item => item.Definition.InteractionType == InteractionType.Roller);
         MoveFurniture(roller, destination, nextIsRoller);
         MoveUser(roller, destination, nextIsRoller);
     }
 
     private List<Item> ItemsAt(Point tile)
         => _room.GetGameMap().GetAllRoomItemForSquare(tile.X, tile.Y).ToList();
-
-    private static bool Clear(List<Item> items)
-    {
-        var rollers = items.Where(item => item.IsRoller).ToList();
-        if (rollers.Count == 0) return true;
-        var top = rollers.Max(item => item.TotalHeight);
-        return items.All(item => item.TotalHeight <= top);
-    }
 
     private void MoveFurniture(Item roller, Point destination, bool nextIsRoller)
     {

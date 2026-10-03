@@ -4,6 +4,7 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
 {
     private SearchScheduler<RoomUser> _scheduler => context.Scheduler;
     private readonly PathSearch _search = new(navigation.Grid, navigation.Settings);
+    private readonly NearestGoalSearch _nearest = new(navigation.Grid, navigation.Settings);
     public void Remove(RoomUser actor) => _scheduler.Remove(actor);
     public void Enqueue(RoomUser actor)
     {
@@ -20,16 +21,30 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
     private SearchResult Search(SearchJob<RoomUser> job)
     {
         var actor = job.Actor; var state = actor.Movement;
-        var profile = MovementProfiles.Refresh(room, navigation.Grid, navigation.Settings, actor);
+        var profile = context.Profiles.Refresh(actor);
         var occupancy = context.Occupancy(actor);
         var start = new NavPosition(actor.X, actor.Y, state.SupportZ);
-        var goal = InteractionGoal(actor, start) ?? GoalResolver.ResolveClick(navigation.Grid, profile, start, actor.GoalX, actor.GoalY, occupancy);
+        var goal = state.AcceptedGoal ?? InteractionGoal(actor, start) ?? GoalResolver.ResolveClick(navigation.Grid, profile, start, actor.GoalX, actor.GoalY, occupancy);
         actor.GoalX = goal.X; actor.GoalY = goal.Y;
         using var lease = PathWorkspacePool.Rent(navigation.Grid.SlotCapacity,
             profile.LegacyOverride ? navigation.Grid.SlotCapacity : navigation.Grid.ActiveNodeCount);
         var outcome = state.Origin == MoveOrigin.Interaction && goal.Slot >= 0
             ? InteractionRoute(actor, start, goal) : _search.Find(new(profile, start, goal.X, goal.Y, occupancy, goal), lease.Workspace, state.Route);
-        return new(outcome, lease.Workspace.Expansions);
+        return ResolveNearest(actor, start, profile, occupancy, lease.Workspace, outcome);
+    }
+    private SearchResult ResolveNearest(RoomUser actor, NavPosition start, ActorProfile profile,
+        PlanningOccupancy occupancy, PathWorkspace workspace, PathOutcome outcome)
+    {
+        var state = actor.Movement;
+        var expansions = workspace.Expansions;
+        if (navigation.Settings.UnreachablePolicy == "nearest" && outcome is PathOutcome.InvalidGoal or PathOutcome.Unreachable)
+        {
+            outcome = _nearest.Find(new(profile, start, actor.GoalX, actor.GoalY, occupancy), workspace, state.Route);
+            expansions += workspace.Expansions;
+            if (state.Route.GoalSurface is { } target)
+            { actor.GoalX = target.Tile % navigation.Grid.Width; actor.GoalY = target.Tile / navigation.Grid.Width; }
+        }
+        return new(outcome, expansions);
     }
     private AcceptedGoal? InteractionGoal(RoomUser actor, NavPosition start)
     {

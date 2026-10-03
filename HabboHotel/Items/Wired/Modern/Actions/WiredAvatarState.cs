@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
@@ -8,9 +9,24 @@ public sealed class WiredAvatarState
 {
     private sealed record Freeze(bool Frozen, bool CanWalk, int Effect, bool CancelOnTeleport);
     private readonly Dictionary<RoomUser, Freeze> _frozen = [];
+    private readonly Room? _room;
+    public WiredAvatarState(Room? room = null) => _room = room;
     private static readonly ConditionalWeakTable<Room, WiredAvatarState> Rooms = new();
-    public static WiredAvatarState For(Room room) => Rooms.GetValue(room, _ => new());
+    public static WiredAvatarState For(Room room) => Rooms.GetValue(room, value => new(value));
     public bool FreezeUser(RoomUser user, int effect, bool cancelOnTeleport)
+    {
+        if (_room?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
+        {
+            navigation.RunOwner(user, (actor, sequence) =>
+            {
+                navigation.CancelThrough(actor, sequence);
+                FreezeActor(actor, effect, cancelOnTeleport);
+            });
+        }
+        else FreezeActor(user, effect, cancelOnTeleport);
+        return true;
+    }
+    private void FreezeActor(RoomUser user, int effect, bool cancelOnTeleport)
     {
         var original = _frozen.GetValueOrDefault(user);
         _frozen[user] = new(original?.Frozen ?? user.Frozen, original?.CanWalk ?? user.CanWalk, effect, cancelOnTeleport);
@@ -18,7 +34,6 @@ public sealed class WiredAvatarState
         user.GoalX = user.X; user.GoalY = user.Y; user.Frozen = true; user.CanWalk = false; user.UpdateNeeded = true;
         // Plus bots have no stored effect/version to restore safely. Their actual movement freeze still applies.
         if (!user.IsBot && effect > 0) user.ApplyEffect(effect);
-        return true;
     }
     public bool Thaw(RoomUser user, bool teleport = false)
     {

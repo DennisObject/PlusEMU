@@ -4,6 +4,7 @@ using System.Globalization;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Wired.Modern;
 
@@ -118,34 +119,52 @@ public static class WiredRoomOperations
     public static bool RelocateAvatar(Room room, RoomUser avatar, int x, int y,
         bool slide, bool throughUsers = false)
     {
+        if (!CanRelocateAvatar(room, avatar, x, y, throughUsers)) return false;
+        if (room.GetGameMap().Navigation is { UsesExecutor: true } navigation)
+            navigation.RunOwner(avatar, (actor, sequence) => RelocateOwned(room, navigation, actor, x, y, slide, throughUsers, sequence));
+        else RelocateLegacy(room, avatar, x, y, slide);
+        return true;
+    }
+
+    private static bool CanRelocateAvatar(Room room, RoomUser avatar, int x, int y, bool throughUsers)
+    {
         var map = room.GetGameMap();
         if (room.GetRoomUserManager().GetRoomUserByVirtualId(avatar.VirtualId) != avatar
-            || !map.ValidTile(x, y) || map.Model.SqState[x, y] != SquareState.Open)
-            return false;
-        if (avatar.X == x && avatar.Y == y)
-            return false;
-        if (!throughUsers && (!map.CanWalk(x, y, false)
-                             || map.GetRoomUsers(new(x, y)).Any(other => other != avatar)))
-            return false;
+            || !map.ValidTile(x, y) || map.Model.SqState[x, y] != SquareState.Open) return false;
+        if (avatar.X == x && avatar.Y == y) return false;
+        return throughUsers || map.CanWalk(x, y, false) && !map.GetRoomUsers(new(x, y)).Any(other => other != avatar);
+    }
 
+    private static void RelocateOwned(Room room, RoomNavigation navigation, RoomUser actor,
+        int x, int y, bool slide, bool throughUsers, long discardThrough)
+    {
+        if (!CanRelocateAvatar(room, actor, x, y, throughUsers)) return;
+        var source = (actor.X, actor.Y, actor.Z);
+        var wasLaying = actor.HasStatus("lay");
+        navigation.ForcePlaceThrough(actor, x, y, room.GetGameMap().SqAbsoluteHeight(x, y), ForceResolution.ExactZ, discardThrough);
+        navigation.Executor.Context.LandingEffects.Apply(actor, wasLaying);
+        if (slide)
+            room.SendPacket(new SlideObjectBundleComposer(source.X, source.Y, source.Z,
+                actor.X, actor.Y, actor.Z, 0, actor.VirtualId, 0));
+    }
+
+    private static void RelocateLegacy(Room room, RoomUser avatar, int x, int y, bool slide)
+    {
+        var map = room.GetGameMap();
         avatar.ClearMovement(true);
         var source = avatar.Coordinate;
         var oldZ = avatar.Z;
         var z = map.SqAbsoluteHeight(x, y);
-        // Relocation changes both occupancy indexes before statuses are rebuilt.
         map.UpdateUserMovement(source, new(x, y), avatar);
         map.GameMap[source.X, source.Y] = avatar.SqState;
         avatar.SqState = map.GameMap[x, y];
         avatar.SetPos(x, y, z);
         map.GameMap[x, y] = 1;
-        avatar.GoalX = x;
-        avatar.GoalY = y;
-        avatar.UpdateNeeded = true;
+        avatar.GoalX = x; avatar.GoalY = y; avatar.UpdateNeeded = true;
         room.GetRoomUserManager().UpdateUserStatus(avatar, true);
         if (slide)
             room.SendPacket(new SlideObjectBundleComposer(source.X, source.Y, oldZ, x, y,
                 avatar.Z, 0, avatar.VirtualId, 0));
-        return true;
     }
 
     public static WiredFurniSnapshot Capture(Item item) => new(item.Id, item.Definition.Id,

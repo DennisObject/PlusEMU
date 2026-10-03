@@ -1,4 +1,5 @@
 using Plus.Database;
+using Plus.HabboHotel;
 using Plus.HabboHotel.Quests;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
@@ -12,14 +13,18 @@ internal sealed class V2MovementEngine : IMovementEngine
     private readonly RebindService _rebind;
     internal ClaimLedger Claims => Context.Claims;
     internal MovementContext Context { get; }
-    internal V2MovementEngine(Room room, RoomNavigation navigation, IDatabase database)
+    internal V2MovementEngine(Room room, RoomNavigation navigation, IDatabase database, IGame game)
     {
+        var rewards = RewardTrackManager.Current;
         Context = new(room, navigation, new LandingEffects(room, database),
-            new FloorEffectService(room, client => RewardTrackManager.Current?.Progress(client, RewardTrackActions.Swim)));
+            new FloorEffectService(room, client => rewards?.Progress(client, RewardTrackActions.Swim)),
+            new MovementProfileService(room, navigation.Grid, navigation.Settings,
+                (groupId, habboId) => game.GroupManager.TryGetGroup(groupId, out var group) && group.IsMember(habboId)));
         _cancellation = new(Context);
         _placement = new(room, navigation, Context, _cancellation);
         _admission = new(room, Context, _placement);
         _rebind = new RebindService(room, navigation.Grid);
+        Context.Geometry = new(Context, _rebind);
         var commit = new CommitService(room, navigation, Context, _cancellation);
         var intake = new CommandIntake(Context);
         var search = new MovementSearch(room, navigation, Context, _cancellation);
@@ -43,6 +48,7 @@ internal sealed class V2MovementEngine : IMovementEngine
         if (actor.Movement.State == NavState.Removing) return;
         switch (command.Kind)
         {
+            case RoomCommandKind.ActorAction: command.Action?.Invoke(actor, command.CommandSequence); break;
             case RoomCommandKind.Admit: _admission.Admit(actor); break;
             case RoomCommandKind.Cancel: _cancellation.Cancel(actor, command.CommandSequence); break;
             case RoomCommandKind.ForcePlace: _placement.Place(actor, command); break;

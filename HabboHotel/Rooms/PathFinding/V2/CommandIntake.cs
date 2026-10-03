@@ -16,6 +16,18 @@ internal sealed class CommandIntake(MovementContext context)
         state.Profile.Interaction = command.Origin == MoveOrigin.Interaction
             ? new(actor.X, actor.Y, command.X, command.Y) : null;
         actor.UnIdle(); actor.FreezeInteracting = false;
+        ResolveGoal(actor);
         context.Replan(actor); context.RefreshMembership(actor);
+    }
+    private void ResolveGoal(RoomUser actor)
+    {
+        var state = actor.Movement; var grid = context.Grid;
+        var profile = context.Profiles.Refresh(actor);
+        var goal = state.Origin == MoveOrigin.Interaction && grid.InBounds(actor.GoalX, actor.GoalY)
+            ? new AcceptedGoal(actor.GoalX, actor.GoalY, grid.Tile(actor.GoalX, actor.GoalY))
+            : GoalResolver.ResolveClick(grid, profile, new(actor.X, actor.Y, state.SupportZ),
+                actor.GoalX, actor.GoalY, context.Occupancy(actor));
+        state.AcceptedGoal = goal;
+        actor.GoalX = goal.X; actor.GoalY = goal.Y;
     }
 }

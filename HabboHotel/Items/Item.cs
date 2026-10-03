@@ -215,7 +215,7 @@ public class Item
     }
     
     [Obsolete("Will be removed in near future. @80O")]
-    public bool IsRoller => Definition.InteractionType == InteractionType.Roller;
+    public bool IsRoller { get; set; }
 
     [Obsolete("Will be removed in near future. @80O")]
     public Point Coordinate => new(GetX, GetY);

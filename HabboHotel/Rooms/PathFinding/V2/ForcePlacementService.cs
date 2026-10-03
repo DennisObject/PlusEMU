@@ -8,6 +8,7 @@ internal sealed class ForcePlacementService(Room room, RoomNavigation navigation
         cancellation.Cancel(actor, command.CommandSequence);
         room.GetGameMap().RemoveUserFromMap(actor, new(actor.X, actor.Y));
         actor.InitializePosition(command.X, command.Y, command.Z);
+        actor.GoalX = command.X; actor.GoalY = command.Y;
         actor.Movement.LocationRevision++;
         Bind(actor, command.Z, command.Resolution);
         room.GetGameMap().AddUserToMap(actor, new(actor.X, actor.Y));

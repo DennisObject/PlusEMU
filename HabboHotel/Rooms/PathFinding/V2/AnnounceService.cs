@@ -11,17 +11,23 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
         var state = actor.Movement;
         _blocked.TickStall(actor, committed);
         if (!state.HasIntent || state.Route.Count == 0 || state.PendingCount != 0)
-        { ApplyIdleEffects(actor, committed); return; }
-        if (actor.Freezed || !actor.CanWalk && state.Origin != MoveOrigin.Interaction)
+        { ClearCompletedAnnouncement(actor); ApplyIdleEffects(actor, committed); return; }
+        if (actor.Freezed)
         { actor.RemoveStatus("mv"); actor.UpdateNeeded = true; ApplyIdleEffects(actor, committed); return; }
         var target = BuildBatch(actor);
         if (state.PendingCount == 0) { _blocked.Handle(actor); ApplyIdleEffects(actor, committed); return; }
         Publish(actor, target);
     }
+    private static void ClearCompletedAnnouncement(RoomUser actor)
+    {
+        if (actor.IsBot && actor.RidingHorse) return;
+        if (actor.Movement.PendingCount != 0 || !actor.HasStatus("mv")) return;
+        actor.RemoveStatus("mv"); actor.UpdateNeeded = true;
+    }
     private NavPosition BuildBatch(RoomUser actor)
     {
         var state = actor.Movement;
-        var profile = MovementProfiles.Refresh(room, navigation.Grid, navigation.Settings, actor);
+        var profile = context.Profiles.Refresh(actor);
         var from = new NavPosition(actor.X, actor.Y, state.SupportZ);
         var limit = actor.SuperFastWalking ? 3 : actor.FastWalking ? 2 : 1;
         for (var i = state.Cursor; i < state.Route.Count && state.PendingCount < limit; i++)
