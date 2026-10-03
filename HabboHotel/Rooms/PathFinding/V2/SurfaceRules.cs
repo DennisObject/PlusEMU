@@ -34,11 +34,12 @@ internal static class SurfaceRules
         _ => null
     };
 
-    // Passable items block [z, z + h); everything else blocks at least epsilon, so zero-height blockers still block.
+    // Walkable items, open gates, seats and beds block [z, z + h); everything else, including a closed
+    // non-walkable guild gate, blocks at least epsilon, so zero-height blockers still block.
     internal static (double From, double To) BlockingInterval(NavItemRecord item)
     {
         var passable = item.Walkable || item.Seat || OpenGate(item)
-            || item.Interaction is InteractionType.Bed or InteractionType.TentSmall or InteractionType.GuildGate;
+            || item.Interaction is InteractionType.Bed or InteractionType.TentSmall;
         return (item.Z, item.Z + (passable ? item.Height : Math.Max(item.Height, Epsilon)));
     }
 
