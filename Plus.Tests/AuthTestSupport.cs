@@ -5,6 +5,7 @@ using MySqlConnector;
 using Plus.Communication.Http;
 using Plus.Database;
 using Plus.Database.Interfaces;
+using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Users.Authentication;
 using Xunit;
@@ -183,4 +184,26 @@ internal sealed class FakeWordFilter(params string[] words) : IWordFilterManager
     public string CheckMessage(string message) => message;
     public bool CheckBannedWords(string message) => false;
     public bool IsFiltered(string message) => words.Any(message.Contains);
+}
+
+internal sealed class FakeModeration : IModerationManager
+{
+    public readonly Dictionary<string, ModerationBan> Bans = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool IsBanned(string key, out ModerationBan ban) => Bans.TryGetValue(key, out ban!);
+
+    public ICollection<string> UserMessagePresets => [];
+    public ICollection<string> RoomMessagePresets => [];
+    public ICollection<ModerationTicket> GetTickets => [];
+    public Dictionary<string, List<ModerationPresetActions>> UserActionPresets => [];
+    public void Init() { }
+    public void ReCacheBans() { }
+    public void BanUser(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp) => throw new NotSupportedException();
+    public bool TryAddTicket(ModerationTicket ticket) => throw new NotSupportedException();
+    public bool TryGetTicket(int ticketId, out ModerationTicket ticket) => throw new NotSupportedException();
+    public bool UserHasTickets(int userId) => false;
+    public ModerationTicket GetTicketBySenderId(int userId) => throw new NotSupportedException();
+    public bool HasMachineBanCheck(string machineId) => false;
+    public bool UsernameBanCheck(string username) => Bans.ContainsKey(username);
+    public void RemoveBan(string value) => Bans.Remove(value);
 }

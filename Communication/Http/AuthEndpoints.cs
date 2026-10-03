@@ -48,47 +48,55 @@ public class AuthEndpoints
     private async Task<IResult> Login(LoginRequest body, HttpContext context)
     {
         if (string.IsNullOrWhiteSpace(body.Username) || string.IsNullOrEmpty(body.Password))
-            return Error(StatusCodes.Status400BadRequest, "Please enter both your Habbo name and password.");
+            return Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, "Please enter both your Habbo name and password.");
 
         var result = await _login.Login(body.Username.Trim(), body.Password, AuthHttpServer.ClientAddress(context));
-        return result.Status switch
+        switch (result.Status)
         {
-            LoginStatus.Success => Results.Json(new
-            {
-                ssoTicket = result.SsoTicket.Value,
-                username = result.Username,
-                accessToken = result.AccessToken.Value,
-                accessTokenExpiresAt = result.AccessToken.ExpiresAt
-            }),
-            LoginStatus.Throttled => Error(StatusCodes.Status429TooManyRequests, TooManyAttempts),
-            _ => Error(StatusCodes.Status401Unauthorized, InvalidCredentials)
-        };
+            case LoginStatus.Success:
+                return Session(result.Session!);
+            case LoginStatus.Throttled:
+                AuthHttpServer.SetRetryAfter(context.Response, result.RetryAfter);
+                return Error(StatusCodes.Status429TooManyRequests, AuthErrorCode.RateLimited, TooManyAttempts);
+            case LoginStatus.Banned:
+                return Results.Json(new
+                {
+                    error = "This account is banned.",
+                    code = AuthErrorCode.Banned,
+                    banReason = result.Ban!.Reason,
+                    banExpiresAt = (long)result.Ban.Expire
+                }, statusCode: StatusCodes.Status403Forbidden);
+            default:
+                return Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidCredentials, InvalidCredentials);
+        }
     }
 
     private async Task<IResult> Register(RegisterRequest body, HttpContext context)
     {
         if (string.IsNullOrWhiteSpace(body.Username) || string.IsNullOrEmpty(body.Password) || string.IsNullOrWhiteSpace(body.Email))
-            return Error(StatusCodes.Status400BadRequest, "Choose a Habbo name, email and password.");
+            return Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, "Choose a Habbo name, email and password.");
 
-        var username = body.Username.Trim();
-        var result = await _registration.Register(new(username, body.Password, body.Email.Trim(), body.Figure, body.Gender, AuthHttpServer.ClientAddress(context)));
+        var result = await _registration.Register(new(body.Username.Trim(), body.Password, body.Email.Trim(), body.Figure, body.Gender, AuthHttpServer.ClientAddress(context)));
         return result.Status switch
         {
-            RegistrationStatus.Created => Results.Json(new { username }),
-            RegistrationStatus.Taken => Results.Json(new { error = result.Error, available = false }, statusCode: StatusCodes.Status409Conflict),
-            _ => Error(StatusCodes.Status400BadRequest, result.Error)
+            RegistrationStatus.Created => Session(result.Session!),
+            RegistrationStatus.UsernameTaken or RegistrationStatus.EmailTaken =>
+                Results.Json(new { error = result.Error, code = TakenCode(result.Status), available = false }, statusCode: StatusCodes.Status409Conflict),
+            _ => Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, result.Error)
         };
     }
 
-    private async Task<IResult> CheckUsername(UsernameRequest body) =>
-        string.IsNullOrWhiteSpace(body.Username) ? Error(StatusCodes.Status400BadRequest, "Choose a Habbo name.") : Availability(await _registration.CheckUsername(body.Username.Trim()));
+    private async Task<IResult> CheckUsername(UsernameRequest body) => string.IsNullOrWhiteSpace(body.Username)
+        ? Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, "Choose a Habbo name.")
+        : Availability(await _registration.CheckUsername(body.Username.Trim()));
 
-    private async Task<IResult> CheckEmail(EmailRequest body) =>
-        string.IsNullOrWhiteSpace(body.Email) ? Error(StatusCodes.Status400BadRequest, "Enter your email address.") : Availability(await _registration.CheckEmail(body.Email.Trim()));
+    private async Task<IResult> CheckEmail(EmailRequest body) => string.IsNullOrWhiteSpace(body.Email)
+        ? Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, "Enter your email address.")
+        : Availability(await _registration.CheckEmail(body.Email.Trim()));
 
     // No mail transport exists yet. Same answer for every address, so nothing is revealed.
     private static IResult ForgotPassword(EmailRequest body) =>
-        Error(StatusCodes.Status501NotImplemented, "Password reset by email is not available yet. Please contact a staff member.");
+        Error(StatusCodes.Status501NotImplemented, AuthErrorCode.NotImplemented, "Password reset by email is not available yet. Please contact a staff member.");
 
     /// <summary>
     /// Gives a client that only holds an SSO ticket (e.g. one handed over by a CMS) an access token.
@@ -97,7 +105,7 @@ public class AuthEndpoints
     private async Task<IResult> ExchangeSsoTicket(SsoTokenRequest body)
     {
         if (string.IsNullOrEmpty(body.SsoTicket) || await _ssoTickets.FindUser(body.SsoTicket) is not { } userId)
-            return Error(StatusCodes.Status401Unauthorized, "This login ticket is invalid or has expired.");
+            return Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidTicket, "This login ticket is invalid or has expired.");
 
         var token = await _accessTokens.Issue(userId);
         return Results.Json(new { accessToken = token.Value, accessTokenExpiresAt = token.ExpiresAt });
@@ -118,10 +126,22 @@ public class AuthEndpoints
         return header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) && header.Length > 7 ? header[7..].Trim() : null;
     }
 
-    private static IResult Availability(Availability result) =>
-        result.Available ? Results.Json(new { available = true }) : Results.Json(new { available = false, error = result.Error });
+    /// <summary>Login and register both answer with the same session fields.</summary>
+    private static IResult Session(AuthSession session) => Results.Json(new
+    {
+        ssoTicket = session.SsoTicket.Value,
+        username = session.Username,
+        accessToken = session.AccessToken.Value,
+        accessTokenExpiresAt = session.AccessToken.ExpiresAt
+    });
 
-    private static IResult Error(int status, string error) => Results.Json(new { error }, statusCode: status);
+    private static IResult Availability(Availability result) => result.Available
+        ? Results.Json(new { available = true })
+        : Results.Json(new { available = false, error = result.Error, code = result.Reason == RegistrationStatus.Invalid ? AuthErrorCode.Validation : TakenCode(result.Reason) });
+
+    private static string TakenCode(RegistrationStatus status) => status == RegistrationStatus.EmailTaken ? AuthErrorCode.EmailTaken : AuthErrorCode.NameTaken;
+
+    private static IResult Error(int status, string code, string error) => Results.Json(new { error, code }, statusCode: status);
 
     public sealed record LoginRequest(string? Username, string? Password);
     public sealed record RegisterRequest(string? Username, string? Password, string? Email, string? Figure, string? Gender);

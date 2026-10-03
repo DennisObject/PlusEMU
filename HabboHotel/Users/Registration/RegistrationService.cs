@@ -18,12 +18,15 @@ public enum RegistrationStatus
 {
     Created,
     Invalid,
-    Taken
+    UsernameTaken,
+    EmailTaken
 }
 
-public sealed record RegistrationResult(RegistrationStatus Status, string Error = "");
+/// <param name="Session">Set when created: the new user is logged in straight away.</param>
+public sealed record RegistrationResult(RegistrationStatus Status, string Error = "", AuthSession? Session = null);
 
-public sealed record Availability(bool Available, string Error = "");
+/// <param name="Reason">Why the value is unavailable: Invalid, UsernameTaken or EmailTaken.</param>
+public sealed record Availability(bool Available, RegistrationStatus Reason = RegistrationStatus.Created, string Error = "");
 
 public class RegistrationService : IRegistrationService
 {
@@ -36,13 +39,15 @@ public class RegistrationService : IRegistrationService
 
     private readonly IAccountStore _accounts;
     private readonly IPasswordHasher _hasher;
+    private readonly ISessionIssuer _sessions;
     private readonly IWordFilterManager _wordFilter;
     private readonly RegistrationDefaults _defaults;
 
-    public RegistrationService(IAccountStore accounts, IPasswordHasher hasher, IWordFilterManager wordFilter, IOptions<AuthApiConfiguration> options)
+    public RegistrationService(IAccountStore accounts, IPasswordHasher hasher, ISessionIssuer sessions, IWordFilterManager wordFilter, IOptions<AuthApiConfiguration> options)
     {
         _accounts = accounts;
         _hasher = hasher;
+        _sessions = sessions;
         _wordFilter = wordFilter;
         _defaults = options.Value.Registration;
     }
@@ -57,34 +62,39 @@ public class RegistrationService : IRegistrationService
         var account = new NewAccount(request.Username, passwordHash, request.Email, RegistrationValidator.FigureOrDefault(request.Figure, _defaults.Look),
             RegistrationValidator.Gender(request.Gender), request.Address);
 
+        int? userId;
         await _registrationLock.WaitAsync();
         try
         {
             if (await _accounts.UsernameExists(request.Username))
-                return new(RegistrationStatus.Taken, UsernameTaken);
+                return new(RegistrationStatus.UsernameTaken, UsernameTaken);
             if (await _accounts.EmailExists(request.Email))
-                return new(RegistrationStatus.Taken, EmailTaken);
+                return new(RegistrationStatus.EmailTaken, EmailTaken);
             // The unique username index still decides races with writers outside this process.
-            return await _accounts.Create(account) == null ? new(RegistrationStatus.Taken, UsernameTaken) : new(RegistrationStatus.Created);
+            userId = await _accounts.Create(account);
         }
         finally
         {
             _registrationLock.Release();
         }
+
+        if (userId is not { } id)
+            return new(RegistrationStatus.UsernameTaken, UsernameTaken);
+        return new(RegistrationStatus.Created, Session: await _sessions.Issue(id, request.Username));
     }
 
     public async Task<Availability> CheckUsername(string username)
     {
         if (UsernameError(username) is { } error)
-            return new(false, error);
-        return await _accounts.UsernameExists(username) ? new(false, UsernameTaken) : new(true);
+            return new(false, RegistrationStatus.Invalid, error);
+        return await _accounts.UsernameExists(username) ? new(false, RegistrationStatus.UsernameTaken, UsernameTaken) : new(true);
     }
 
     public async Task<Availability> CheckEmail(string email)
     {
         if (RegistrationValidator.EmailError(email) is { } error)
-            return new(false, error);
-        return await _accounts.EmailExists(email) ? new(false, EmailTaken) : new(true);
+            return new(false, RegistrationStatus.Invalid, error);
+        return await _accounts.EmailExists(email) ? new(false, RegistrationStatus.EmailTaken, EmailTaken) : new(true);
     }
 
     private string? UsernameError(string username) => RegistrationValidator.UsernameError(username, _defaults.ReservedNames, _wordFilter.IsFiltered);

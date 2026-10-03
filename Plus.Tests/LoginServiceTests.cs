@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users.Authentication;
 using Xunit;
 
@@ -10,9 +11,10 @@ public class LoginServiceTests
     private readonly FakeAccounts _accounts = new();
     private readonly FakeSsoTickets _tickets = new();
     private readonly FakeAccessTokens _tokens = new();
+    private readonly FakeModeration _moderation = new();
     private readonly LoginThrottle _throttle = new(TimeProvider.System, AuthTestConfig.Options(c => c.MaxFailedLoginsPerAccount = 3));
 
-    private LoginService Service() => new(_accounts, Hasher, _throttle, _tickets, _tokens);
+    private LoginService Service() => new(_accounts, Hasher, _throttle, new SessionIssuer(_tickets, _tokens), _moderation);
 
     [Fact]
     public async Task CorrectPasswordIssuesASsoTicketAndASeparateAccessToken()
@@ -22,10 +24,11 @@ public class LoginServiceTests
         var result = await Service().Login("dennis", "correct horse", "10.0.0.1");
 
         Assert.Equal(LoginStatus.Success, result.Status);
-        Assert.Equal("Dennis", result.Username);
-        Assert.Equal(row.Id, _tickets.Live[result.SsoTicket.Value]);
-        Assert.Equal(row.Id, _tokens.Live[result.AccessToken.Value]);
-        Assert.NotEqual(result.SsoTicket.Value, result.AccessToken.Value);
+        var session = result.Session!;
+        Assert.Equal("Dennis", session.Username);
+        Assert.Equal(row.Id, _tickets.Live[session.SsoTicket.Value]);
+        Assert.Equal(row.Id, _tokens.Live[session.AccessToken.Value]);
+        Assert.NotEqual(session.SsoTicket.Value, session.AccessToken.Value);
     }
 
     [Fact]
@@ -68,7 +71,26 @@ public class LoginServiceTests
         var result = await service.Login("Dennis", "correct horse", "10.0.0.9");
 
         Assert.Equal(LoginStatus.Throttled, result.Status);
+        Assert.InRange(result.RetryAfter, TimeSpan.FromMinutes(14), TimeSpan.FromMinutes(15));
         Assert.Empty(_tickets.Live);
+    }
+
+    [Theory]
+    [InlineData("Dennis")]
+    [InlineData("10.0.0.1")]
+    public async Task BannedAccountsOrAddressesGetNoSessionButOnlyAfterTheRightPassword(string banned)
+    {
+        _accounts.Add("Dennis", Hasher.Hash("correct horse"));
+        _moderation.Bans[banned] = new ModerationBan(ModerationBanType.Username, banned, "Scamming", 2_000_000_000);
+
+        var wrong = await Service().Login("Dennis", "wrong horse", "10.0.0.1");
+        var right = await Service().Login("Dennis", "correct horse", "10.0.0.1");
+
+        Assert.Equal(LoginStatus.InvalidCredentials, wrong.Status);
+        Assert.Equal(LoginStatus.Banned, right.Status);
+        Assert.Equal("Scamming", right.Ban!.Reason);
+        Assert.Empty(_tickets.Live);
+        Assert.Empty(_tokens.Live);
     }
 
     [Fact]

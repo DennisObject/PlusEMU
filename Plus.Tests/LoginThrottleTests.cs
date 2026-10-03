@@ -57,6 +57,19 @@ public class LoginThrottleTests
     }
 
     [Fact]
+    public void ReportsHowLongTheLockLasts()
+    {
+        var throttle = Throttle();
+        for (var i = 0; i < 3; i++)
+            throttle.RecordFailure("Dennis", "10.0.0.1");
+
+        _time.Advance(TimeSpan.FromMinutes(5));
+
+        Assert.Equal(TimeSpan.FromMinutes(10), throttle.BlockedFor("Dennis", "10.0.0.2"));
+        Assert.Equal(TimeSpan.Zero, throttle.BlockedFor("Other", "10.0.0.2"));
+    }
+
+    [Fact]
     public void SuccessClearsTheAccountButNotTheAddress()
     {
         var throttle = Throttle(perAccount: 3, perAddress: 3);
@@ -70,4 +83,9 @@ public class LoginThrottleTests
         throttle.RecordFailure("other", "10.0.0.1");
         Assert.True(throttle.IsBlocked("anyone", "10.0.0.1"));
     }
+}
+
+internal static class LoginThrottleTestExtensions
+{
+    public static bool IsBlocked(this LoginThrottle throttle, string username, string address) => throttle.BlockedFor(username, address) > TimeSpan.Zero;
 }

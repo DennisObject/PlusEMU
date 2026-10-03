@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Plus.Communication.Http;
+using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Registration;
 using Xunit;
@@ -17,6 +18,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     private readonly FakeAccounts _accounts = new();
     private readonly FakeSsoTickets _tickets = new();
     private readonly FakeAccessTokens _tokens = new();
+    private readonly FakeModeration _moderation = new();
     private HttpClient _http = new();
     private AuthHttpServer? _server;
 
@@ -37,8 +39,9 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
             c.MaxFailedLoginsPerAccount = 3;
             configure?.Invoke(c);
         });
-        var login = new LoginService(_accounts, Hasher, new LoginThrottle(TimeProvider.System, options), _tickets, _tokens);
-        var registration = new RegistrationService(_accounts, Hasher, new FakeWordFilter(), options);
+        var sessions = new SessionIssuer(_tickets, _tokens);
+        var login = new LoginService(_accounts, Hasher, new LoginThrottle(TimeProvider.System, options), sessions, _moderation);
+        var registration = new RegistrationService(_accounts, Hasher, sessions, new FakeWordFilter(), options);
         _server = new AuthHttpServer(options, login, registration, _tickets, _tokens);
         await _server.Start();
         _http.Dispose();
@@ -82,6 +85,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("Not found.", (await Json(response)).GetProperty("error").GetString());
+        Assert.Equal(AuthErrorCode.NotFound, (await Json(response)).GetProperty("code").GetString());
     }
 
     [Fact]
@@ -111,6 +115,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, unknown.StatusCode);
         Assert.Equal(await wrong.Content.ReadAsStringAsync(), await unknown.Content.ReadAsStringAsync());
+        Assert.Equal(AuthErrorCode.InvalidCredentials, (await Json(wrong)).GetProperty("code").GetString());
         Assert.Equal(HttpStatusCode.BadRequest, (await Post("/api/auth/login", new { username = "Dennis" })).StatusCode);
 
         await Post("/api/auth/login", new { username = "Dennis", password = "nope" });
@@ -119,6 +124,8 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.TooManyRequests, locked.StatusCode);
         Assert.Equal(AuthEndpoints.TooManyAttempts, (await Json(locked)).GetProperty("error").GetString());
+        Assert.Equal(AuthErrorCode.RateLimited, (await Json(locked)).GetProperty("code").GetString());
+        Assert.InRange(int.Parse(locked.Headers.GetValues("Retry-After").Single()), 890, 900);
         Assert.Empty(_tickets.Live);
     }
 
@@ -130,15 +137,24 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
 
         var created = await Post("/api/auth/register", new { username = "NewHabbo", email = "new@example.com", password = "long enough", figure = "hd-180-1", gender = "M", templateId = 3 });
         var taken = await Post("/api/auth/register", new { username = "taken", email = "other@example.com", password = "long enough" });
+        var emailTaken = await Post("/api/auth/register", new { username = "Another", email = "NEW@example.com", password = "long enough" });
         var invalid = await Post("/api/auth/register", new { username = "Mod", email = "x@example.com", password = "long enough" });
 
         Assert.Equal(HttpStatusCode.OK, created.StatusCode);
-        Assert.Equal("NewHabbo", (await Json(created)).GetProperty("username").GetString());
-        Assert.False((await Json(created)).TryGetProperty("ssoTicket", out _));
+        var session = await Json(created);
+        Assert.Equal("NewHabbo", session.GetProperty("username").GetString());
+        var userId = _accounts.Rows.Single(r => r.Username == "NewHabbo").Id;
+        Assert.Equal(userId, _tickets.Live[session.GetProperty("ssoTicket").GetString()!]);
+        Assert.Equal(userId, _tokens.Live[session.GetProperty("accessToken").GetString()!]);
+        Assert.Equal(2000, session.GetProperty("accessTokenExpiresAt").GetInt64());
         Assert.Equal(HttpStatusCode.Conflict, taken.StatusCode);
         Assert.False((await Json(taken)).GetProperty("available").GetBoolean());
+        Assert.Equal(AuthErrorCode.NameTaken, (await Json(taken)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, emailTaken.StatusCode);
+        Assert.Equal(AuthErrorCode.EmailTaken, (await Json(emailTaken)).GetProperty("code").GetString());
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         Assert.Equal("That Habbo name is not allowed.", (await Json(invalid)).GetProperty("error").GetString());
+        Assert.Equal(AuthErrorCode.Validation, (await Json(invalid)).GetProperty("code").GetString());
         Assert.StartsWith("$argon2id$", Assert.Single(_accounts.Created).PasswordHash);
     }
 
@@ -153,6 +169,9 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         var takenName = await Json(await Post("/api/auth/check-username", new { username = "TAKEN" }));
         Assert.False(takenName.GetProperty("available").GetBoolean());
         Assert.Equal("That Habbo name is already taken.", takenName.GetProperty("error").GetString());
+        Assert.Equal(AuthErrorCode.NameTaken, takenName.GetProperty("code").GetString());
+        Assert.Equal(AuthErrorCode.Validation, (await Json(await Post("/api/auth/check-username", new { username = "x" }))).GetProperty("code").GetString());
+        Assert.Equal(AuthErrorCode.EmailTaken, (await Json(await Post("/api/auth/check-email", new { email = "taken@example.com" }))).GetProperty("code").GetString());
         Assert.False((await Json(await Post("/api/auth/check-email", new { email = "taken@example.com" }))).GetProperty("available").GetBoolean());
         Assert.True((await Json(await Post("/api/auth/check-email", new { email = "fresh@example.com" }))).GetProperty("available").GetBoolean());
     }
@@ -167,6 +186,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         var unknown = await Post("/api/auth/forgot-password", new { email = "nobody@example.com" });
 
         Assert.Equal(HttpStatusCode.NotImplemented, known.StatusCode);
+        Assert.Equal(AuthErrorCode.NotImplemented, (await Json(known)).GetProperty("code").GetString());
         Assert.Equal(await known.Content.ReadAsStringAsync(), await unknown.Content.ReadAsStringAsync());
     }
 
@@ -184,7 +204,9 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.Equal(42, _tokens.Live[token]);
         Assert.Equal(42, await _tickets.Consume(ticket.Value));
         Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/sso-token", new { ssoTicket = ticket.Value })).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/sso-token", new { ssoTicket = "" })).StatusCode);
+        var empty = await Post("/api/auth/sso-token", new { ssoTicket = "" });
+        Assert.Equal(HttpStatusCode.Unauthorized, empty.StatusCode);
+        Assert.Equal(AuthErrorCode.InvalidTicket, (await Json(empty)).GetProperty("code").GetString());
     }
 
     [Fact]
@@ -252,6 +274,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
         Assert.Equal("Something went wrong. Please try again.", JsonDocument.Parse(body).RootElement.GetProperty("error").GetString());
+        Assert.Equal(AuthErrorCode.ServerError, JsonDocument.Parse(body).RootElement.GetProperty("code").GetString());
         Assert.DoesNotContain("secret", body);
     }
 
@@ -266,6 +289,8 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, oversized.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, malformed.StatusCode);
         Assert.Equal("Invalid request.", (await Json(malformed)).GetProperty("error").GetString());
+        Assert.Equal(AuthErrorCode.InvalidRequest, (await Json(malformed)).GetProperty("code").GetString());
+        Assert.Equal(AuthErrorCode.PayloadTooLarge, (await Json(oversized)).GetProperty("code").GetString());
     }
 
     [Fact]
@@ -279,7 +304,29 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
         Assert.Equal(AuthEndpoints.TooManyAttempts, (await Json(limited)).GetProperty("error").GetString());
+        Assert.Equal(AuthErrorCode.RateLimited, (await Json(limited)).GetProperty("code").GetString());
+        Assert.InRange(int.Parse(limited.Headers.GetValues("Retry-After").Single()), 1, 60);
         Assert.Equal(HttpStatusCode.OK, (await _http.GetAsync("/api/health")).StatusCode);
+    }
+
+    [Fact]
+    public async Task BannedAccountsAreToldWhyOnceThePasswordIsRight()
+    {
+        _accounts.Add("Dennis", Hasher.Hash("correct horse"));
+        _moderation.Bans["Dennis"] = new ModerationBan(ModerationBanType.Username, "Dennis", "Scamming", 2_000_000_000);
+        await Start();
+
+        var wrong = await Post("/api/auth/login", new { username = "Dennis", password = "nope" });
+        var banned = await Post("/api/auth/login", new { username = "Dennis", password = "correct horse" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, banned.StatusCode);
+        var body = await Json(banned);
+        Assert.Equal(AuthErrorCode.Banned, body.GetProperty("code").GetString());
+        Assert.Equal("Scamming", body.GetProperty("banReason").GetString());
+        Assert.Equal(2_000_000_000, body.GetProperty("banExpiresAt").GetInt64());
+        Assert.False(body.TryGetProperty("ssoTicket", out _));
+        Assert.Empty(_tickets.Live);
     }
 
     [Theory]

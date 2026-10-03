@@ -61,8 +61,8 @@ public class AuthHttpServer : IAuthHttpServer
         // when proxies are configured.
         if (_configuration.TrustedProxies.Length > 0)
             app.UseForwardedHeaders();
-        app.UseExceptionHandler(error => error.Run(context => WriteError(context, StatusCodes.Status500InternalServerError, "Something went wrong. Please try again.")));
-        app.UseStatusCodePages(context => WriteError(context.HttpContext, context.HttpContext.Response.StatusCode, ErrorFor(context.HttpContext.Response.StatusCode)));
+        app.UseExceptionHandler(error => error.Run(context => WriteError(context, StatusCodes.Status500InternalServerError)));
+        app.UseStatusCodePages(context => WriteError(context.HttpContext, context.HttpContext.Response.StatusCode));
         app.Use(AddSecurityHeaders);
         app.UseRateLimiter();
         _endpoints.Map(app);
@@ -123,7 +123,12 @@ public class AuthHttpServer : IAuthHttpServer
     private void ConfigureRateLimiter(RateLimiterOptions options)
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-        options.OnRejected = (context, _) => new(WriteError(context.HttpContext, StatusCodes.Status429TooManyRequests, AuthEndpoints.TooManyAttempts));
+        options.OnRejected = (context, _) =>
+        {
+            // A full hashing queue carries no retry hint; a few seconds is enough for it to drain.
+            SetRetryAfter(context.HttpContext.Response, context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter) ? retryAfter : TimeSpan.FromSeconds(5));
+            return new(WriteError(context.HttpContext, StatusCodes.Status429TooManyRequests));
+        };
         // Chained in order: a client over its per-address budget is turned away before it can
         // wait for one of the few password hashing slots (each Argon2id check uses ~19 MiB).
         options.GlobalLimiter = PartitionedRateLimiter.CreateChained(
@@ -155,20 +160,25 @@ public class AuthHttpServer : IAuthHttpServer
         return next();
     }
 
-    private static string ErrorFor(int status) => status switch
+    /// <summary>Retry-After in whole seconds, never less than one.</summary>
+    public static void SetRetryAfter(HttpResponse response, TimeSpan wait) =>
+        response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static (string Code, string Error) ErrorFor(int status) => status switch
     {
-        StatusCodes.Status404NotFound => "Not found.",
-        StatusCodes.Status405MethodNotAllowed => "Method not allowed.",
-        StatusCodes.Status413PayloadTooLarge => "Request too large.",
-        StatusCodes.Status429TooManyRequests => AuthEndpoints.TooManyAttempts,
-        >= 500 => "Something went wrong. Please try again.",
-        _ => "Invalid request."
+        StatusCodes.Status404NotFound => (AuthErrorCode.NotFound, "Not found."),
+        StatusCodes.Status405MethodNotAllowed => (AuthErrorCode.MethodNotAllowed, "Method not allowed."),
+        StatusCodes.Status413PayloadTooLarge => (AuthErrorCode.PayloadTooLarge, "Request too large."),
+        StatusCodes.Status429TooManyRequests => (AuthErrorCode.RateLimited, AuthEndpoints.TooManyAttempts),
+        >= 500 => (AuthErrorCode.ServerError, "Something went wrong. Please try again."),
+        _ => (AuthErrorCode.InvalidRequest, "Invalid request.")
     };
 
-    private static Task WriteError(HttpContext context, int status, string error)
+    private static Task WriteError(HttpContext context, int status)
     {
+        var (code, error) = ErrorFor(status);
         context.Response.StatusCode = status;
         context.Response.Headers.CacheControl = "no-store";
-        return context.Response.WriteAsJsonAsync(new { error });
+        return context.Response.WriteAsJsonAsync(new { error, code });
     }
 }

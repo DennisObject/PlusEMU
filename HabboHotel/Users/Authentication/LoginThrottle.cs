@@ -26,8 +26,12 @@ public class LoginThrottle : ILoginThrottle
         _addressLimit = options.Value.MaxFailedLoginsPerAddress;
     }
 
-    public bool IsBlocked(string username, string address) =>
-        Count(AccountKey(username)) >= _accountLimit || Count(AddressKey(address)) >= _addressLimit;
+    public TimeSpan BlockedFor(string username, string address)
+    {
+        var account = Remaining(AccountKey(username), _accountLimit);
+        var byAddress = Remaining(AddressKey(address), _addressLimit);
+        return account > byAddress ? account : byAddress;
+    }
 
     public void RecordFailure(string username, string address)
     {
@@ -40,7 +44,8 @@ public class LoginThrottle : ILoginThrottle
     /// account cannot be used to reset guessing against others.</summary>
     public void RecordSuccess(string username) => _failures.TryRemove(AccountKey(username), out _);
 
-    private int Count(string key) => _failures.TryGetValue(key, out var window) && !Expired(window) ? window.Count : 0;
+    private TimeSpan Remaining(string key, int limit) =>
+        _failures.TryGetValue(key, out var window) && !Expired(window) && window.Count >= limit ? window.Start + _window - _time.GetUtcNow() : TimeSpan.Zero;
 
     private void Increment(string key)
     {

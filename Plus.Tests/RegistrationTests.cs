@@ -9,9 +9,11 @@ public class RegistrationTests
 {
     private static readonly Argon2idPasswordHasher Hasher = new();
     private readonly FakeAccounts _accounts = new();
+    private readonly FakeSsoTickets _tickets = new();
+    private readonly FakeAccessTokens _tokens = new();
 
     private RegistrationService Service(params string[] reserved) =>
-        new(_accounts, Hasher, new FakeWordFilter("badword"), AuthTestConfig.Options(c => c.Registration.ReservedNames = reserved));
+        new(_accounts, Hasher, new SessionIssuer(_tickets, _tokens), new FakeWordFilter("badword"), AuthTestConfig.Options(c => c.Registration.ReservedNames = reserved));
 
     private static RegistrationRequest Request(string username = "NewHabbo", string password = "long enough", string email = "new@example.com",
         string? figure = null, string? gender = null) => new(username, password, email, figure, gender, "10.0.0.1");
@@ -90,6 +92,10 @@ public class RegistrationTests
 
         Assert.Equal(RegistrationStatus.Created, result.Status);
         var created = Assert.Single(_accounts.Created);
+        var userId = _accounts.Rows.Single(r => r.Username == "NewHabbo").Id;
+        Assert.Equal("NewHabbo", result.Session!.Username);
+        Assert.Equal(userId, _tickets.Live[result.Session.SsoTicket.Value]);
+        Assert.Equal(userId, _tokens.Live[result.Session.AccessToken.Value]);
         Assert.Equal(PasswordVerificationResult.Success, Hasher.Verify("long enough", created.PasswordHash));
         Assert.Equal(new RegistrationDefaults().Look, created.Look);
         Assert.Equal("F", created.Gender);
@@ -102,8 +108,9 @@ public class RegistrationTests
         _accounts.Add("Dennis", "x");
         _accounts.Emails.Add("taken@example.com");
 
-        Assert.Equal(RegistrationStatus.Taken, (await Service().Register(Request(username: "dennis"))).Status);
-        Assert.Equal(RegistrationStatus.Taken, (await Service().Register(Request(email: "TAKEN@example.com"))).Status);
+        Assert.Equal(RegistrationStatus.UsernameTaken, (await Service().Register(Request(username: "dennis"))).Status);
+        Assert.Equal(RegistrationStatus.EmailTaken, (await Service().Register(Request(email: "TAKEN@example.com"))).Status);
+        Assert.Empty(_tickets.Live);
         Assert.Empty(_accounts.Created);
     }
 
@@ -128,7 +135,9 @@ public class RegistrationTests
 
         Assert.Equal(new Availability(true), await service.CheckUsername("Fresh"));
         Assert.False((await service.CheckUsername("DENNIS")).Available);
-        Assert.False((await service.CheckUsername("TheOwner")).Available);
+        Assert.Equal(new Availability(false, RegistrationStatus.UsernameTaken, "That Habbo name is already taken."), await service.CheckUsername("DENNIS"));
+        Assert.Equal(RegistrationStatus.Invalid, (await service.CheckUsername("TheOwner")).Reason);
+        Assert.Equal(RegistrationStatus.EmailTaken, (await service.CheckEmail("taken@example.com")).Reason);
         Assert.NotEmpty((await service.CheckUsername("x")).Error);
         Assert.Equal(new Availability(true), await service.CheckEmail("fresh@example.com"));
         Assert.False((await service.CheckEmail("taken@example.com")).Available);
