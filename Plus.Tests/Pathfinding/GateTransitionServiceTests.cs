@@ -1143,3 +1143,83 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("0", gate.LegacyDataString); Assert.Single(notices);
     }
 }
+
+// A variable alias can be retargeted between target resolution and the write: the admitted target is rechecked.
+public partial class PlacedFurniRoomTests
+{
+    private sealed class RetargetDirectory(uint roomId) : IWiredVariableDirectory
+    {
+        public bool ToState { get; set; }
+        public uint? GetRoomOwner(uint id) => id == roomId ? 7u : null;
+        public WiredVariableDefinition? Find(uint itemId) => itemId switch
+        {
+            30 => new(30, roomId, 7, "echo", WiredVariableTarget.Furni, WiredVariableAvailability.RoomActive, true,
+                Link: new(roomId, new(WiredVariableTarget.Furni, ToState ? "internal:@state" : "custom:31"), false)),
+            31 => new(31, roomId, 7, "points", WiredVariableTarget.Furni, WiredVariableAvailability.RoomActive, true),
+            _ => null
+        };
+    }
+
+    private static readonly WiredVariableReference PointsReference = new(WiredVariableTarget.Furni, "custom:31");
+
+    private (WiredVariableModule Module, RetargetDirectory Directory, WiredVariableHolder Holder, WiredVariableFrame Frame,
+        List<(Item Item, WiredVariableFrame Frame, string State)> Notices) RetargetWorld(Item gate, bool toState)
+    {
+        var notices = new List<(Item Item, WiredVariableFrame Frame, string State)>();
+        var directory = new RetargetDirectory(_room.Id) { ToState = toState };
+        var builtins = new RoomWiredBuiltinVariables(_room, stateChanged: (item, frame) => notices.Add((item, frame, item.LegacyDataString)));
+        var module = new WiredVariableModule(_room.Id, directory, new MemoryWiredVariableStore(), () => 1, builtins);
+        var holder = WiredVariableRuntimeFrames.FurniHolder(gate); var frame = new WiredVariableFrame(_room.Id, [holder]);
+        Assert.True(module.Change(PointsReference, holder, WiredVariableMutation.Give, _ => 5, frame));
+        return (module, directory, holder, frame, notices);
+    }
+
+    [Fact]
+    public void GateRetargetNonStateAliasBecomingStateBeforeAdmissionRetriesIntoTheLane()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        var (module, directory, holder, frame, notices) = RetargetWorld(gate, toState: false);
+        ClickFromPacketThread(gate);
+        module.ResolutionHook = attempt => { if (attempt == 1) directory.ToState = true; };
+        Assert.True(Task.Run(() => module.Mutate(AliasReference, holder, WiredVariableMutation.Set, 1, frame)).Result);
+        Assert.Equal(2, Gates.PendingCount); Assert.Equal(5, module.Read(PointsReference, holder, frame)!.Value);
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Single(notices); Assert.Equal(5, module.Read(PointsReference, holder, frame)!.Value);
+    }
+
+    [Fact]
+    public void GateRetargetStateAliasBecomingNonStateBeforeTheWriteReleasesTheLaneAndWritesTheNewTarget()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        var (module, directory, holder, frame, notices) = RetargetWorld(gate, toState: true);
+        module.ResolutionHook = attempt => { if (attempt == 1) directory.ToState = false; };
+        Assert.True(Task.Run(() => module.Mutate(AliasReference, holder, WiredVariableMutation.Set, 7, frame)).Result);
+        Assert.Equal(7, module.Read(PointsReference, holder, frame)!.Value);
+        Assert.Equal("1", gate.LegacyDataString); Assert.Empty(notices); Assert.Equal(0, Gates.PendingCount);
+        Assert.Equal(GateTransition.Applied, RunOwner(() => Gates.TryClose(gate, GateCloseReason.Click, "0", persist: false)));
+    }
+
+    [Fact]
+    public void GateRetargetPersistentMismatchRefusesWithoutEffects()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        var (module, directory, holder, frame, notices) = RetargetWorld(gate, toState: true);
+        module.ResolutionHook = _ => directory.ToState = !directory.ToState;
+        Assert.False(Task.Run(() => module.Mutate(AliasReference, holder, WiredVariableMutation.Set, 7, frame)).Result);
+        Assert.Equal(5, module.Read(PointsReference, holder, frame)!.Value);
+        Assert.Equal("1", gate.LegacyDataString); Assert.Empty(notices); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateRetargetQueuedReplayRefusesWhenItsAdmittedTargetWasRetargeted()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        var (module, directory, holder, frame, notices) = RetargetWorld(gate, toState: true);
+        Assert.True(Task.Run(() => module.Mutate(AliasReference, holder, WiredVariableMutation.Set, 0, frame)).Result);
+        Assert.Equal(1, Gates.PendingCount);
+        directory.ToState = false;
+        DrainOnOwner();
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(5, module.Read(PointsReference, holder, frame)!.Value);
+        Assert.Empty(notices); Assert.Equal(0, Gates.PendingCount);
+    }
+}
