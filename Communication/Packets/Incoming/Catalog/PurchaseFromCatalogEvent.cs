@@ -20,6 +20,8 @@ using Plus.HabboHotel.Users.Effects;
 using Dapper;
 using Plus.HabboHotel.Habbicons;
 using Plus.Communication.Packets.Outgoing.Habbicons;
+using Plus.Communication.Packets.Outgoing.Users;
+using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.Communication.Packets.Incoming.Catalog;
 
@@ -33,6 +35,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
     private readonly IItemDataManager _itemManager;
     private readonly IBadgeManager _badgeManager;
     private readonly IItemFactory _itemFactory;
+    private readonly IClubMembershipService _clubMemberships;
 
     public PurchaseFromCatalogEvent(ICatalogManager catalogManager,
         IDatabase database,
@@ -41,7 +44,8 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         IItemDataManager itemManager,
         IBadgeManager badgeManager,
         IItemFactory itemFactory,
-        IHabbiconService habbicons)
+        IHabbiconService habbicons,
+        IClubMembershipService clubMemberships)
     {
         _catalogManager = catalogManager;
         _habbicons = habbicons;
@@ -51,6 +55,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         _itemManager = itemManager;
         _badgeManager = badgeManager;
         _itemFactory = itemFactory;
+        _clubMemberships = clubMemberships;
     }
     public async Task Parse(GameClient session, IIncomingPacket packet)
     {
@@ -67,6 +72,11 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             return;
         if (!page.Enabled || !page.Visible || page.MinimumRank > session.GetHabbo().Rank || page.MinimumVip > session.GetHabbo().VipRank && session.GetHabbo().Rank == 1)
             return;
+        if (page.Layout is "club_buy" or "vip_buy")
+        {
+            PurchaseClubOffer(session, itemId);
+            return;
+        }
         if (!page.Items.TryGetValue(itemId, out var item))
         {
             if (page.ItemOffers.ContainsKey(itemId))
@@ -382,5 +392,44 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             await _badgeManager.GiveBadge(session.GetHabbo(), badge.Code);
         session.Send(new PurchaseOkComposer(item, item.Definition));
         session.Send(new FurniListUpdateComposer());
+    }
+
+    private void PurchaseClubOffer(GameClient session, int offerId)
+    {
+        var habbo = session.GetHabbo();
+        if (!_catalogManager.TryGetClubOffer(offerId, out var offer) || offer.Days <= 0)
+        {
+            session.Send(new PurchaseErrorComposer(0));
+            return;
+        }
+        var pointsBalance = offer.PointsType switch
+        {
+            0 => habbo.Duckets,
+            5 => habbo.Diamonds,
+            _ => -1
+        };
+        if (habbo.Credits < offer.Credits || offer.Points > 0 && pointsBalance < offer.Points)
+        {
+            session.Send(new PurchaseErrorComposer(0));
+            return;
+        }
+        var expiry = _clubMemberships.Extend(habbo.Id, offer.Days);
+        if (offer.Credits > 0)
+        {
+            habbo.Credits -= offer.Credits;
+            session.Send(new CreditBalanceComposer(habbo.Credits));
+        }
+        if (offer.Points > 0 && offer.PointsType == 0)
+        {
+            habbo.Duckets -= offer.Points;
+            session.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, -offer.Points));
+        }
+        else if (offer.Points > 0)
+        {
+            habbo.Diamonds -= offer.Points;
+            session.Send(new HabboActivityPointNotificationComposer(habbo.Diamonds, -offer.Points, 5));
+        }
+        session.Send(new PurchaseOkComposer());
+        session.Send(new ScrSendUserInfoComposer(expiry - (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
     }
 }

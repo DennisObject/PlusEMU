@@ -2,22 +2,28 @@
 
 namespace Plus.Communication.Packets.Outgoing.Users;
 
-// TODO @80O: Implement
+// Club status stays free for everyone; the day counters show time bought on the club page.
 public class ScrSendUserInfoComposer : IServerPacket
 {
+    private readonly int _secondsLeft;
     public uint MessageId => ServerPacketHeader.ScrSendUserInfoComposer;
+
+    public ScrSendUserInfoComposer(int secondsLeft = 0) => _secondsLeft = Math.Max(0, secondsLeft);
 
     public void Compose(IOutgoingPacket packet)
     {
+        var daysLeft = (int)Math.Ceiling(_secondsLeft / 86400.0);
+        // The current period holds 1-31 days, so a fresh month reads as 31 days rather than 0.
+        var periodsAhead = Math.Max(0, daysLeft - 1) / 31;
         packet.WriteString("habbo_club");
-        packet.WriteInteger(0); //display days
+        packet.WriteInteger(daysLeft - periodsAhead * 31); //display days
         packet.WriteInteger(2);
-        packet.WriteInteger(0); //display months
+        packet.WriteInteger(periodsAhead); //display months
         packet.WriteInteger(1);
         packet.WriteBoolean(true); // hc
         packet.WriteBoolean(true); // vip
         packet.WriteInteger(0);
         packet.WriteInteger(0);
-        packet.WriteInteger(495);
+        packet.WriteInteger(_secondsLeft > 0 ? _secondsLeft / 60 : 495);
     }
 }
