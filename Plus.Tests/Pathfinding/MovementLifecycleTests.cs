@@ -71,11 +71,14 @@ public partial class PlacedFurniRoomTests
         var blocker = ExecutorAdditionalBot(2, 1, 2); ExecutorTick();
         Assert.Equal((1, 1), (actor.X, actor.Y));
         Assert.False(blocker.Movement.HasIntent);
-        Assert.Equal(1, actor.Movement.BlockReplans);
+        Assert.Equal(RouteState.Suspect, actor.Movement.Fallback.State);
+        Assert.Equal(0, actor.Movement.BlockReplans);
         Assert.False(actor.HasStatus("mv"));
         ExecutorTick();
         Assert.True(actor.HasStatus("mv"));
         Assert.NotEqual("2,1,0", actor.Statusses["mv"]);
+        Assert.Equal(RouteState.Normal, actor.Movement.Fallback.State);
+        Assert.Equal(0, actor.Movement.BlockReplans);
     }
 
     [Fact]
