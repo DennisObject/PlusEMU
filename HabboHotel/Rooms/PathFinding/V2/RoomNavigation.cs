@@ -3,8 +3,8 @@ using NLog;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
-// Room-thread adapter. P1 never writes actors, legacy maps, paths or goals.
-public sealed class RoomNavigation
+// Shadow comparison and optional room-owned movement share one compiled graph.
+public sealed partial class RoomNavigation
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly Room _room;
@@ -15,6 +15,7 @@ public sealed class RoomNavigation
     public NavInputs Inputs { get; }
     public NavGrid Grid { get; }
     public NavGridCompiler Compiler { get; }
+    public bool UsesExecutor => Settings.Engine == PathfindingEngine.V2;
     public bool Enabled => Settings.Engine == PathfindingEngine.Shadow;
 
     public RoomNavigation(Room room, RoomModel model, PathfindingSettings settings)
@@ -28,17 +29,26 @@ public sealed class RoomNavigation
         }
         Grid = new(width, height, z, states, model.DoorY * width + model.DoorX, model.DoorZ);
         Inputs = new(width, height); Compiler = new(Grid, Inputs, settings);
+        Compiler.BeforePublish = tiles =>
+        {
+            if (UsesExecutor && RoomOwnerScope.IsOwner(_room)) Executor.Context.Geometry.BeforePublish(tiles);
+        };
         _occupancy = new(Grid.SlotCapacity); _search = new(Grid, settings);
         Inputs.MarkAllDirty();
-        if (settings.Engine == PathfindingEngine.V2 || settings.LayeringEnabled)
-            Logger.Warn("Room {0}: P1 supports legacy/shadow and K=1 only; movement remains legacy.", room.RoomId);
+        if (settings.LayeringEnabled)
+            Logger.Warn("Room {0}: Only compatibility surfaces (K=1) are supported.", room.RoomId);
     }
 
     public void ApplyDirty()
     {
-        if (!Enabled) return;
+        if (!Enabled && !UsesExecutor) return;
         try { Compiler.ApplyNow(); }
-        catch (Exception error) { Logger.Warn(error, "Pathfinding shadow compile failed for room {0}; legacy continues.", _room.RoomId); }
+        catch (Exception error)
+        {
+            Inputs.MarkAllDirty();
+            if (UsesExecutor) throw;
+            Logger.Warn(error, "Pathfinding shadow compile failed for room {0}; legacy continues.", _room.RoomId);
+        }
     }
     public void SetFloorStatus(int x, int y, byte status)
     {

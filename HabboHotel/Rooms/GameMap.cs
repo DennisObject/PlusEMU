@@ -261,6 +261,11 @@ public class Gamemap
 
     public void AddUserToMap(RoomUser user, Point coord)
     {
+        if (Navigation?.UsesExecutor == true)
+        {
+            if (user.Movement.RegisteredMapCoordinate is { } previous) RemoveUserFromMap(user, previous);
+            user.Movement.RegisteredMapCoordinate = coord;
+        }
         if (_userMap.ContainsKey(coord))
             _userMap[coord].Add(user);
         else
@@ -277,6 +282,11 @@ public class Gamemap
     {
         if (item == null || user == null)
             return;
+        if (Navigation is { UsesExecutor: true } navigation)
+        {
+            navigation.ForcePlace(user, item.GetX, item.GetY, item.GetZ, ForceResolution.ExactZ);
+            return;
+        }
         GameMap[user.X, user.Y] = user.SqState;
         UpdateUserMovement(new(user.Coordinate.X, user.Coordinate.Y), new(item.Coordinate.X, item.Coordinate.Y), user);
         user.X = item.GetX;
@@ -301,8 +311,17 @@ public class Gamemap
 
     public void RemoveUserFromMap(RoomUser user, Point coord)
     {
-        if (_userMap.ContainsKey(coord))
-            _userMap[coord].RemoveAll(x => x != null && x.VirtualId == user.VirtualId);
+        if (Navigation?.UsesExecutor == true)
+        {
+            // Walk-off callbacks run after map movement but before physical X/Y changes.
+            coord = user.Movement.RegisteredMapCoordinate ?? coord;
+            user.Movement.RegisteredMapCoordinate = null;
+            if (_userMap.TryGetValue(coord, out var registered))
+                registered.RemoveAll(other => ReferenceEquals(other, user));
+            return;
+        }
+        if (_userMap.TryGetValue(coord, out var users))
+            users.RemoveAll(other => other != null && other.VirtualId == user.VirtualId);
     }
 
     public bool MapGotUser(Point coord) => GetRoomUsers(coord).Count > 0;

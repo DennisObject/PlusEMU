@@ -105,24 +105,44 @@ public class RoomUserManager
         }
     }
 
+    private bool UsesV2Movement => _room.GetGameMap().Navigation?.UsesExecutor == true;
+
+    private void SetSpawnPosition(RoomUser actor, int x, int y, double z)
+    {
+        if (UsesV2Movement) actor.InitializePosition(x, y, z);
+        else actor.SetPos(x, y, z);
+    }
+
+    private void PublishSpawn(RoomUser actor)
+    {
+        if (!UsesV2Movement) return;
+        _users.TryAdd(actor.InternalRoomId, actor);
+        AdmitSpawn(actor);
+    }
+
+    private void AdmitSpawn(RoomUser actor)
+    {
+        if (UsesV2Movement) _room.GetGameMap().Navigation!.Admit(actor);
+    }
+
     public RoomUser DeployBot(RoomBot bot, Pet pet)
     {
         var user = new RoomUser(0, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room);
         bot.VirtualId = user.VirtualId;
         var personalId = user.VirtualId;
         user.InternalRoomId = personalId;
-        _users.TryAdd(personalId, user);
+        if (!UsesV2Movement) _users.TryAdd(personalId, user);
         var model = _room.GetGameMap().Model;
         if (bot.X > 0 && bot.Y > 0 && bot.X < model.MapSizeX && bot.Y < model.MapSizeY)
         {
-            user.SetPos(bot.X, bot.Y, bot.Z);
+            SetSpawnPosition(user, bot.X, bot.Y, bot.Z);
             user.SetRot(bot.Rot, false);
         }
         else
         {
             bot.X = model.DoorX;
             bot.Y = model.DoorY;
-            user.SetPos(model.DoorX, model.DoorY, model.DoorZ);
+            SetSpawnPosition(user, model.DoorX, model.DoorY, model.DoorZ);
             user.SetRot(model.DoorOrientation, false);
         }
         user.BotData = bot;
@@ -136,6 +156,7 @@ public class RoomUserManager
         else
             user.BotAi.Init(bot.BotId, user.VirtualId, _room.RoomId, user, _room);
         user.UpdateNeeded = true;
+        PublishSpawn(user);
         _room.SendUser(user);
         if (user.IsPet)
         {
@@ -161,6 +182,7 @@ public class RoomUserManager
         var user = GetRoomUserByVirtualId(virtualId);
         if (user == null || !user.IsBot)
             return;
+        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) navigation.Remove(user);
         if (user.IsPet)
         {
             _pets.TryRemove(user.PetData.PetId, out var pet);
@@ -196,7 +218,7 @@ public class RoomUserManager
         var personalId = user.VirtualId;
         user.InternalRoomId = personalId;
         session.GetHabbo().CurrentRoom = _room;
-        if (!_users.TryAdd(personalId, user))
+        if (!UsesV2Movement && !_users.TryAdd(personalId, user))
             return false;
         user.WiredRoomEntry = WiredRoomEntrySnapshot.Capture(_room, session.GetHabbo());
         var model = _room.GetGameMap().Model;
@@ -213,7 +235,7 @@ public class RoomUserManager
                 model.DoorY = square.Y;
                 model.DoorZ = (int)_room.GetGameMap().GetHeightForSquareFromData(square);
             }
-            user.SetPos(model.DoorX, model.DoorY, model.DoorZ);
+            SetSpawnPosition(user, model.DoorX, model.DoorY, model.DoorZ);
             user.SetRot(model.DoorOrientation, false);
         }
         else if (!user.IsBot && (user.GetClient().GetHabbo().IsTeleporting || user.GetClient().GetHabbo().IsHopping))
@@ -229,7 +251,7 @@ public class RoomUserManager
                 {
                     item.LegacyDataString = "2";
                     item.UpdateState(false, true);
-                    user.SetPos(item.GetX, item.GetY, item.GetZ);
+                    SetSpawnPosition(user, item.GetX, item.GetY, item.GetZ);
                     user.SetRot(item.Rotation, false);
                     if (session.GetHabbo().TeleporterId != 0)
                         RewardTrackManager.Current?.Progress(session, RewardTrackActions.Teleport);
@@ -241,7 +263,7 @@ public class RoomUserManager
                 {
                     item.LegacyDataString = "1";
                     item.UpdateState(false, true);
-                    user.SetPos(item.GetX, item.GetY, item.GetZ);
+                    SetSpawnPosition(user, item.GetX, item.GetY, item.GetZ);
                     user.SetRot(item.Rotation, false);
                     user.AllowOverride = false;
                     item.InteractingUser2 = session.GetHabbo().Id;
@@ -251,10 +273,12 @@ public class RoomUserManager
             }
             else
             {
-                user.SetPos(model.DoorX, model.DoorY, model.DoorZ - 1);
+                SetSpawnPosition(user, model.DoorX, model.DoorY, model.DoorZ - 1);
                 user.SetRot(model.DoorOrientation, false);
             }
         }
+        if (UsesV2Movement && !_users.TryAdd(personalId, user)) return false;
+        AdmitSpawn(user);
         _room.SendUser(user);
         if (_room.CheckRights(session, true))
         {
@@ -313,6 +337,7 @@ public class RoomUserManager
                 session.GetHabbo().TentId = 0;
             session.EndCameraContext();
             var user = GetRoomUserByHabbo(session.GetHabbo().Id);
+            if (user != null && UsesV2Movement) _room.GetGameMap().Navigation!.Remove(user);
             if (user != null) _room.GetWired()?.BeforeActorLeaves(user);
             session.GetHabbo().CurrentRoom = null;
             if (user != null)
@@ -437,6 +462,7 @@ public class RoomUserManager
 
     private void RemoveRoomUser(RoomUser user)
     {
+        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) navigation.Remove(user);
         _room.GetWired()?.BeforeActorLeaves(user);
         if (!user.IsBot || !user.BotData.IsTemporary)
         {
@@ -613,6 +639,11 @@ public class RoomUserManager
 
     public void UpdateUserStatusses()
     {
+        if (UsesV2Movement)
+        {
+            _room.GetGameMap().Navigation!.RefreshPostures();
+            return;
+        }
         foreach (var user in GetUserList())
         {
             if (user == null)
@@ -636,6 +667,20 @@ public class RoomUserManager
         return true;
     }
 
+    internal bool ValidateMovementActor(RoomUser actor)
+    {
+        if (IsValid(actor) && !actor.NeedsAutokick) return true;
+        var client = actor.GetClient();
+        if (client?.GetHabbo()?.CurrentRoom == _room) RemoveUserFromRoom(client, true);
+        else RemoveRoomUser(actor);
+        return false;
+    }
+
+    private IMovementEngine? _movementEngine;
+    private IMovementEngine MovementEngine => _movementEngine ??=
+        _room.GetGameMap().Navigation is { UsesExecutor: true } navigation
+            ? navigation.Executor : new LegacyMovementEngine(CycleUsers);
+
     public void OnCycle()
     {
         lock (_stressSync)
@@ -643,7 +688,7 @@ public class RoomUserManager
             if (_disposed)
                 return;
             ProcessStressBots();
-            CycleUsers();
+            MovementEngine.Tick();
         }
     }
 
@@ -1332,10 +1377,13 @@ public class RoomUserManager
 
     public void Dispose()
     {
+        var room = _room;
+        if (room == null) return;
+        // Match the tick's room-owner -> stress-request lock order.
+        lock (room.NavigationSync)
         lock (_stressSync)
         {
-            if (_disposed)
-                return;
+            if (_disposed) return;
             _disposed = true;
             _stressRequests.Clear();
             DisposeUsers();
@@ -1344,6 +1392,7 @@ public class RoomUserManager
 
     private void DisposeUsers()
     {
+        _room.GetGameMap()?.Navigation?.Shutdown();
         foreach (var user in _users.Values.ToArray()) _room.GetWired()?.BeforeActorLeaves(user);
         UpdatePets();
         UpdateBots();
