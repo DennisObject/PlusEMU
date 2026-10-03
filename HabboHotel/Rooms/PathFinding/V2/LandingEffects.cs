@@ -26,7 +26,7 @@ public sealed class LandingEffects
         var location = new Location(actor.X, actor.Y, actor.Z, actor.Movement.LocationRevision);
         try
         {
-            var items = _room.GetGameMap().GetAllRoomItemForSquare(actor.X, actor.Y).ToArray();
+            var items = SurfaceContacts.Of(_room, actor, _room.GetGameMap().GetAllRoomItemForSquare(actor.X, actor.Y));
             foreach (var item in items)
             {
                 if (!ApplyItem(actor, item) || !IsHere(actor, location)) return;

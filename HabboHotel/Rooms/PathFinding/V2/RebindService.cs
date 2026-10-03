@@ -21,14 +21,27 @@ internal sealed class RebindService(Room room, NavGrid Grid)
         var sit = actor.Statusses.GetValueOrDefault("sit");
         var lay = actor.Statusses.GetValueOrDefault("lay");
         var rotation = (actor.RotHead, actor.RotBody);
-        if (Grid.Active(current.Tile))
+        var slot = SupportAfterPublish(current, state.SupportZ);
+        if (slot >= 0)
         {
-            state.CurrentRef = Grid.Reference(current.Tile); state.SupportZ = Grid.WalkZ[current.Tile];
+            state.CurrentRef = Grid.Reference(slot); state.SupportZ = Grid.WalkZ[slot];
         }
         else { state.CurrentRef = null; state.SupportZ = oldZ; }
         PostureService.Apply(room, Grid, actor);
         if (correction || actor.Z != oldZ || sit != actor.Statusses.GetValueOrDefault("sit")
             || lay != actor.Statusses.GetValueOrDefault("lay") || rotation != (actor.RotHead, actor.RotBody))
             actor.UpdateNeeded = true;
+    }
+
+    // §5.3 step 2: a surviving support keeps its slot; otherwise land on the highest surface at or
+    // below the old Z, else the highest. Surfaces dropped by the pinned overflow cap go off-graph.
+    private int SupportAfterPublish(SurfaceRef current, double supportZ)
+    {
+        if (!Grid.Layered) return Grid.Active(current.Tile) ? current.Tile : -1;
+        if (Grid.ForcedOffGraph.Contains(current)) return -1;
+        var slot = Grid.SlotOf(current);
+        if (slot >= 0 && Grid.Active(slot)) return slot;
+        var below = SurfaceSelection.Select(Grid, current.Tile, supportZ, ForceResolution.NearestAtOrBelow);
+        return below >= 0 ? below : SurfaceSelection.Select(Grid, current.Tile, supportZ, ForceResolution.Highest);
     }
 }

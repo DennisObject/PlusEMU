@@ -685,25 +685,7 @@ public class Gamemap
             if (_itemHeightMap[coord.X, coord.Y] <= item.TotalHeight)
             {
                 _itemHeightMap[coord.X, coord.Y] = item.TotalHeight - Model.SqFloorHeight[item.GetX, item.GetY];
-                EffectMap[coord.X, coord.Y] = 0;
-                switch (item.Definition.InteractionType)
-                {
-                    case InteractionType.Pool:
-                        EffectMap[coord.X, coord.Y] = 1;
-                        break;
-                    case InteractionType.NormalSkates:
-                        EffectMap[coord.X, coord.Y] = 2;
-                        break;
-                    case InteractionType.IceSkates:
-                        EffectMap[coord.X, coord.Y] = 3;
-                        break;
-                    case InteractionType.Lowpool:
-                        EffectMap[coord.X, coord.Y] = 4;
-                        break;
-                    case InteractionType.Haloweenpool:
-                        EffectMap[coord.X, coord.Y] = 5;
-                        break;
-                }
+                EffectMap[coord.X, coord.Y] = ItemEffect(item.Definition.InteractionType);
 
                 //SwimHalloween
                 Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
@@ -762,6 +744,16 @@ public class Gamemap
             }
         }
     }
+
+    internal static byte ItemEffect(InteractionType interaction) => interaction switch
+    {
+        InteractionType.Pool => 1,
+        InteractionType.NormalSkates => 2,
+        InteractionType.IceSkates => 3,
+        InteractionType.Lowpool => 4,
+        InteractionType.Haloweenpool => 5,
+        _ => 0
+    };
 
     public List<Item> GetCoordinatedItems(Point coord)
     {

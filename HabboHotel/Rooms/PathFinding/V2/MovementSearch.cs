@@ -56,7 +56,7 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
     private AcceptedGoal? InteractionGoal(RoomUser actor, NavPosition start)
     {
         if (actor.Movement.Origin != MoveOrigin.Interaction || !navigation.Grid.InBounds(actor.GoalX, actor.GoalY)) return null;
-        return new(actor.GoalX, actor.GoalY, navigation.Grid.Tile(actor.GoalX, actor.GoalY));
+        return new(actor.GoalX, actor.GoalY, navigation.Grid.TopSlot(navigation.Grid.Tile(actor.GoalX, actor.GoalY)));
     }
     private PathOutcome InteractionRoute(RoomUser actor, NavPosition start, AcceptedGoal goal, Route route)
     {

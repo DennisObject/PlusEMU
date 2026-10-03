@@ -29,15 +29,17 @@ public sealed partial class RoomNavigation
             z[y * width + x] = model.SqFloorHeight[x, y]; states[y * width + x] = model.SqState[x, y];
         }
         Grid = new(width, height, z, states, model.DoorY * width + model.DoorX, model.DoorZ);
-        Inputs = new(width, height); Compiler = new(Grid, Inputs, settings);
+        // Layered surfaces need the v2 executor; legacy and shadow keep the K=1 graph.
+        var layered = settings.LayeringEnabled && settings.Engine == PathfindingEngine.V2;
+        Inputs = new(width, height); Compiler = new(Grid, Inputs, settings with { LayeringEnabled = layered });
         Compiler.BeforePublish = tiles =>
         {
             if (UsesExecutor && RoomOwnerScope.IsOwner(_room)) Executor.Context.Geometry.BeforePublish(tiles);
         };
         _occupancy = new(Grid.SlotCapacity); _search = new(Grid, settings);
         Inputs.MarkAllDirty();
-        if (settings.LayeringEnabled)
-            Logger.Warn("Room {0}: Only compatibility surfaces (K=1) are supported.", room.RoomId);
+        if (settings.LayeringEnabled && !layered)
+            Logger.Warn("Room {0}: layering requires pathfinding.engine = v2; using single surfaces (K=1).", room.RoomId);
     }
 
     public void ApplyDirty()
