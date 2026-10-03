@@ -90,6 +90,18 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
+    public void LayeredSharedDoorGoalIsAcceptedWhileOccupied()
+    {
+        LayeredBridge();
+        var actor = LayeredActor(1, 0);
+        var bot = ExecutorAdditionalBot(0, 0, 5);
+        ExecutorTick();
+        actor.MoveTo(0, 0); ExecutorTick(); ExecutorTick();
+        Assert.Null(_room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId));
+        Assert.Equal((0, 0), (bot.X, bot.Y));
+    }
+
+    [Fact]
     public void LayeredCoalescedRugsBlockAsOneNodeAndFireEachHookOnce()
     {
         LayeredBridge();
