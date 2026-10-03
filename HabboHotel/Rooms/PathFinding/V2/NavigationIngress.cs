@@ -16,14 +16,11 @@ public sealed partial class RoomNavigation
         state.Commands.Publish(new(state.NextSequence(), x, y, origin, flags, approach));
     }
 
-    // Null when the item has no published record or its approach tile is not a walkable surface.
+    // Safe off the room task: only the item's published record and state generation are read; the
+    // approach surface is bound by the owner at intake.
     internal ApproachDescriptor? DescribeApproach(Item item, int actionKind)
-    {
-        var front = item.SquareInFront;
-        if (!Grid.InBounds(front.X, front.Y) || Inputs.Read(item.Id) is not { Removed: false } record) return null;
-        var tile = Grid.Tile(front.X, front.Y);
-        return Grid.Active(tile) ? new(item.Id, record.Version, Grid.Reference(tile), actionKind) : null;
-    }
+        => Inputs.Read(item.Id) is { Removed: false } record
+            ? new(item.Id, record.Version, ApproachDescriptor.Unresolved, actionKind, item.StateGeneration) : null;
 
     internal void ItemStateChanged(uint itemId) => _executor?.Context.Approaches.CancelItem(itemId);
 

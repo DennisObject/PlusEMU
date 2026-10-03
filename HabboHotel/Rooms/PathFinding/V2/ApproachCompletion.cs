@@ -22,14 +22,15 @@ internal sealed class ApproachCompletion(Room room, RoomNavigation navigation, A
         return state.State == NavState.Active && state.LifetimeId == intent.LifetimeId
             && state.LocationRevision == landingRevision
             && !(state.Commands.Read()?.Sequence > intent.Sequence)
-            && state.CurrentRef == intent.Descriptor.ApproachSurfaceRef
+            && state.CurrentRef == intent.Surface
             && ItemUnchanged(intent.Descriptor) && HasPermission(actor);
     }
 
     private bool ItemUnchanged(ApproachDescriptor descriptor)
         => navigation.Inputs.Read(descriptor.ItemId) is { Removed: false } record
             && record.Version == descriptor.ItemRecordVersion
-            && room.GetRoomItemHandler().GetItem(descriptor.ItemId) != null;
+            && room.GetRoomItemHandler().GetItem(descriptor.ItemId) is { } item
+            && item.StateGeneration == descriptor.StateGeneration;
 
     private bool HasPermission(RoomUser actor)
         => !actor.IsBot && actor.GetClient()?.GetHabbo() is { } habbo && ReferenceEquals(habbo.CurrentRoom, room);
