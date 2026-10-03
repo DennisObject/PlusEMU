@@ -569,6 +569,7 @@ public class Room : RoomData
             return;
         IsCrashed = false;
         MDisposed = true;
+        _gamemap?.Navigation?.Shutdown();
         _gamemap?.ClosePlacementUpdates();
         // Drop every user before the managers are destroyed. A habbo left
         // pointing at this room makes the next enter throw and disconnect.

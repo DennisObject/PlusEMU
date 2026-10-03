@@ -18,7 +18,7 @@ internal sealed class RollerTransport(Room room, RoomNavigation navigation)
             || !grid.InBounds(destination.X, destination.Y)
             || !room.GetGameMap().CanRollItemHere(destination.X, destination.Y)) return null;
         var slot = grid.Tile(destination.X, destination.Y);
-        var profile = MovementProfiles.Refresh(room, grid, navigation.Settings, actor);
+        var profile = Context.Profiles.Refresh(actor);
         var from = new NavPosition(actor.X, actor.Y, sourceZ);
         if (!new MovementRules(grid, navigation.Settings).CanStep(profile, from, grid.Position(slot),
                 StepPurpose.Roller, OccupancyView.Execution, Context.OccupancyAt(actor, slot)).Ok) return null;

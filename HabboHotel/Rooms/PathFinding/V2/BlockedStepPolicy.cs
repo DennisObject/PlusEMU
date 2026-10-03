@@ -17,7 +17,7 @@ internal sealed class BlockedStepPolicy(PathfindingSettings settings, MovementCo
         if (state.BlockReplans >= settings.MaxBlockReplans)
         { cancellation.Cancel(actor); return; }
         if (state.WaitTicks <= settings.BlockWaitTicks) return;
-        state.Route.Clear(); state.Cursor = 0; state.BlockReplans++; state.GoalRevision++;
+        state.Route.Clear(); state.Cursor = 0; state.BlockReplans++; state.GoalRevision++; state.AcceptedGoal = null;
         context.Replan(actor);
     }
 }

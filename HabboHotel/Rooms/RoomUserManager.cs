@@ -667,6 +667,15 @@ public class RoomUserManager
         return true;
     }
 
+    internal bool ValidateMovementActor(RoomUser actor)
+    {
+        if (IsValid(actor) && !actor.NeedsAutokick) return true;
+        var client = actor.GetClient();
+        if (client?.GetHabbo()?.CurrentRoom == _room) RemoveUserFromRoom(client, true);
+        else RemoveRoomUser(actor);
+        return false;
+    }
+
     private IMovementEngine? _movementEngine;
     private IMovementEngine MovementEngine => _movementEngine ??=
         _room.GetGameMap().Navigation is { UsesExecutor: true } navigation
@@ -1347,6 +1356,7 @@ public class RoomUserManager
 
     private void DisposeUsers()
     {
+        _room.GetGameMap()?.Navigation?.Shutdown();
         foreach (var user in _users.Values.ToArray()) _room.GetWired()?.BeforeActorLeaves(user);
         UpdatePets();
         UpdateBots();

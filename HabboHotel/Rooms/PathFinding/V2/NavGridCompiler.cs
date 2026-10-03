@@ -4,6 +4,7 @@ namespace Plus.HabboHotel.Rooms.PathFinding;
 
 public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingSettings settings)
 {
+    internal Action<IReadOnlySet<int>>? BeforePublish { get; set; }
     public void ApplyNow() => Apply();
     public void RebuildAll() { inputs.MarkAllDirty(); Apply(); }
 
@@ -49,6 +50,7 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
         }
         foreach (var t in tiles) Compile(t, covering.GetValueOrDefault(t));
         foreach (var (id, record) in selected) inputs.AppliedRecords[id] = record;
+        BeforePublish?.Invoke(tiles);
         grid.Version++;
     }
 

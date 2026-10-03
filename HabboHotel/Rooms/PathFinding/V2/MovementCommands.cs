@@ -32,11 +32,11 @@ public sealed class MoveCommandSlot
 }
 
 public enum NavState : byte { PendingAdmission, Active, Removing }
-public enum RoomCommandKind : byte { Admit, Remove, Cancel, ForcePlace }
+public enum RoomCommandKind : byte { Admit, Remove, Cancel, ForcePlace, ActorAction }
 public enum ForceResolution : byte { ExactZ, NearestAtOrBelow, Highest }
 
 public sealed record RoomCommand(RoomCommandKind Kind, RoomUser Actor, long LifetimeId,
-    int X = 0, int Y = 0, double Z = 0, ForceResolution Resolution = ForceResolution.ExactZ, long CommandSequence = 0);
+    int X = 0, int Y = 0, double Z = 0, ForceResolution Resolution = ForceResolution.ExactZ, long CommandSequence = 0, Action<RoomUser, long>? Action = null);
 
 public sealed class RoomCommandQueue
 {

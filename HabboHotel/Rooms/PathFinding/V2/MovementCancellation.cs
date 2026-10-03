@@ -5,7 +5,7 @@ internal sealed class MovementCancellation(MovementContext context)
     internal void Cancel(RoomUser actor, long discardThrough = 0)
     {
         var state = actor.Movement;
-        state.GoalRevision++; state.HasIntent = false; state.Route.Clear(); state.Cursor = 0;
+        state.GoalRevision++; state.AcceptedGoal = null; state.RouteInvalidated = false; state.HasIntent = false; state.Route.Clear(); state.Cursor = 0;
         state.PendingCount = 0; state.WaitTicks = state.BlockReplans = state.StallTicks = 0;
         state.ConsumedSequence = Math.Max(state.ConsumedSequence, discardThrough);
         actor.GoalX = actor.X; actor.GoalY = actor.Y; actor.IsWalking = false;

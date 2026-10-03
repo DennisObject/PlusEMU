@@ -29,6 +29,10 @@ public sealed partial class RoomNavigation
         }
         Grid = new(width, height, z, states, model.DoorY * width + model.DoorX, model.DoorZ);
         Inputs = new(width, height); Compiler = new(Grid, Inputs, settings);
+        Compiler.BeforePublish = tiles =>
+        {
+            if (UsesExecutor && RoomOwnerScope.IsOwner(_room)) Executor.Context.Geometry.BeforePublish(tiles);
+        };
         _occupancy = new(Grid.SlotCapacity); _search = new(Grid, settings);
         Inputs.MarkAllDirty();
         if (settings.LayeringEnabled)
