@@ -53,8 +53,11 @@ internal class ConvertCreditsCommand : IChatCommand
                     totalValue += value;
                     if (value > 0)
                     {
-                        session.GetHabbo().Credits += value;
-                        session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+                        lock (session.GetHabbo().WalletSync)
+                        {
+                            session.GetHabbo().Credits += value;
+                            session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+                        }
                     }
                 }
             }
