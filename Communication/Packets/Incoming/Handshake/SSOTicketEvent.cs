@@ -13,7 +13,6 @@ using Plus.Core.Settings;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.Cache;
-using Plus.HabboHotel.Camera;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Permissions;
@@ -22,6 +21,7 @@ using Plus.HabboHotel.Rewards;
 using Plus.HabboHotel.Subscriptions;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Messenger.FriendBar;
+using Plus.HabboHotel.Users.Permissions;
 
 namespace Plus.Communication.Packets.Incoming.Handshake;
 
@@ -78,7 +78,7 @@ public class SsoTicketEvent : IPacketEvent
             session.Send(new NavigatorSettingsComposer(session.GetHabbo().HomeRoom));
             session.Send(new FavouritesComposer(session.GetHabbo().FavoriteRooms));
             session.Send(new FigureSetIdsComposer(session.GetHabbo().Clothing.GetClothingParts));
-            session.Send(new UserRightsComposer(session.GetHabbo().Rank, session.GetHabbo().IsAmbassador, CameraAccess.HasPermission(_settingsManager, session.GetHabbo())));
+            session.Send(ClientPermissions.Composer(session.GetHabbo(), _permissionManager, _settingsManager));
             session.Send(new AvailabilityStatusComposer());
             session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats.AchievementPoints));
             session.Send(new BuildersClubMembershipComposer());
