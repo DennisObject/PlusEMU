@@ -10,6 +10,7 @@ public sealed partial class NavGrid
     private readonly SortedSet<int> _freeOverflow = new();
     private readonly HashSet<SurfaceRef> _forcedOffGraph = new();
     private readonly Dictionary<int, SurfaceRef> _releasedSlots = new();
+    private readonly Dictionary<int, SurfaceRef> _leftPrimaries = new();
     private int _overflowHighWater;
 
     public bool Layered { get; private set; }
@@ -78,7 +79,16 @@ public sealed partial class NavGrid
         for (var t = 0; t < TileCount; t++)
             foreach (var slot in TileSurfaces(t))
                 if (slot != t) ReleaseSlot(slot);
+                else _leftPrimaries[t] = Reference(t);
         Layered = false;
+    }
+
+    // After the K=1 recompile, a primary slot that now holds a different surface is released too.
+    internal void SettleLeftPrimaries()
+    {
+        foreach (var (slot, previous) in _leftPrimaries)
+            if (!Active(slot) || Reference(slot) != previous) _releasedSlots.TryAdd(slot, previous);
+        _leftPrimaries.Clear();
     }
 
     internal void SetTileSurfaces(int tile, ReadOnlySpan<int> slots)
