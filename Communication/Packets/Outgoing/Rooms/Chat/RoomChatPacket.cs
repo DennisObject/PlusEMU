@@ -11,9 +11,6 @@ internal static class RoomChatPacket
         packet.WriteInteger(emotion);
         packet.WriteInteger(colour);
         packet.WriteInteger(0);
-        packet.WriteString(string.Empty);
         packet.WriteInteger(message.Length);
-        packet.WriteString(string.Empty);
-        packet.WriteInteger(-1);
     }
 }

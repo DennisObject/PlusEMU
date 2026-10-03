@@ -50,7 +50,6 @@ public class UsersComposer : IServerPacket
                 packet.WriteInteger(habbo.Id);
                 packet.WriteString(habbo.Username);
                 packet.WriteString(habbo.Motto);
-                WriteAvatarDecorations(packet);
                 packet.WriteString(habbo.Look);
                 packet.WriteInteger(user.VirtualId);
                 packet.WriteInteger(user.X);
@@ -74,7 +73,6 @@ public class UsersComposer : IServerPacket
                 packet.WriteString(""); //Whats this? TG: Swim Figure
                 packet.WriteInteger(habbo.HabboStats.AchievementPoints); //Achievement score
                 packet.WriteBoolean(false); //Builders club? TG: Is Moderator
-                packet.WriteString(""); // Nick icon
             //}
             //else if (habbo.PetId > 0 && habbo.PetId != 100)
             //{
@@ -123,7 +121,6 @@ public class UsersComposer : IServerPacket
             packet.WriteString(user.BotData.Motto);
 
             //base.WriteString("26 30 ffffff 5 3 302 4 2 201 11 1 102 12 0 -1 28 4 401 24");
-            WriteAvatarDecorations(packet);
             packet.WriteString(user.PetData.Look.ToLower());
             packet.WriteInteger(user.VirtualId);
             packet.WriteInteger(user.X);
@@ -146,7 +143,6 @@ public class UsersComposer : IServerPacket
             packet.WriteInteger(user.BotAi.BaseId);
             packet.WriteString(user.BotData.Name);
             packet.WriteString(user.BotData.Motto);
-            WriteAvatarDecorations(packet);
             packet.WriteString(user.BotData.Look.ToLower());
             packet.WriteInteger(user.VirtualId);
             packet.WriteInteger(user.X);
@@ -166,15 +162,6 @@ public class UsersComposer : IServerPacket
         }
         packet.WriteString(""); // Room entry method
         packet.WriteInteger(0); // Room entry teleport
-        packet.WriteInteger(0); // Border
-    }
-
-    private static void WriteAvatarDecorations(IOutgoingPacket packet)
-    {
-        packet.WriteInteger(0); // Background
-        packet.WriteInteger(0); // Stand
-        packet.WriteInteger(0); // Overlay
-        packet.WriteInteger(0); // Card background
     }
 
     public string PetFigureForType(int type)

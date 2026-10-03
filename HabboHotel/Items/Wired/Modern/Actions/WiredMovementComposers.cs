@@ -1,6 +1,7 @@
 using System.Globalization;
 using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing;
+using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
@@ -45,15 +46,13 @@ public sealed record WiredClickSettingsComposer(int UserOption, int FurniOption)
     public void Compose(IOutgoingPacket packet) { packet.WriteInteger(UserOption); packet.WriteInteger(FurniOption); }
 }
 
-/// <summary>Active Octane chat parser includes the colour/prefix extension and optional bubble width.</summary>
+/// <summary>The official chat packet with the wired bubble width as its optional trailing int.</summary>
 public sealed record WiredChatComposer(int VirtualId, string Message, int BubbleStyle, int BubbleWidth, bool Private, bool Shout = false) : IServerPacket
 {
     public uint MessageId => Private ? ServerPacketHeader.WhisperComposer : Shout ? ServerPacketHeader.ShoutComposer : ServerPacketHeader.ChatComposer;
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(VirtualId); packet.WriteString(Message); packet.WriteInteger(0); packet.WriteInteger(BubbleStyle);
-        packet.WriteInteger(0); packet.WriteString(""); packet.WriteInteger(Message.Length);
-        for (var index = 0; index < 6; index++) packet.WriteString("");
-        packet.WriteString("icon-prefix-name"); packet.WriteInteger(BubbleWidth);
+        RoomChatPacket.Write(packet, VirtualId, Message, 0, BubbleStyle);
+        packet.WriteInteger(BubbleWidth);
     }
 }

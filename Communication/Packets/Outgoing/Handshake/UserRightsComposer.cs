@@ -25,8 +25,6 @@ public class UserRightsComposer : IServerPacket
         packet.WriteInteger(_rank);
         packet.WriteString(""); // Rank name
         packet.WriteString(""); // Rank badge
-        packet.WriteString(""); // Rank prefix
-        packet.WriteString(""); // Prefix color
         packet.WriteInteger(_hasCamera ? 1 : 0);
         if (_hasCamera)
         {
