@@ -117,11 +117,11 @@ public class MovementCommandTests
         var outer = Room();
         using (RoomOwnerScope.Enter(outer))
         {
-            Assert.Throws<InvalidOperationException>(() =>
+            Assert.Throws<InvalidOperationException>((Action)(() =>
             {
                 using var scope = RoomOwnerScope.Enter(Room());
                 throw new InvalidOperationException("owner callback failed");
-            });
+            }));
             Assert.Same(outer, RoomOwnerScope.CurrentOwner);
             Assert.True(RoomOwnerScope.IsOwner(outer));
         }
