@@ -602,18 +602,26 @@ public partial class PlacedFurniRoomTests
     public void GateDrainCommitIsAtomicWithAToggleSoADoubleClickNeverDoubleCloses()
     {
         var gate = ClosableGate(); ActorOn(new Point(0, 2));
-        using var inCommit = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+        using var inCommit = new ManualResetEventSlim(); using var release = new ManualResetEventSlim(); using var reached = new ManualResetEventSlim();
         var service = new GateTransitionService(_room, () => new ProbeOccupancy(_ =>
         { inCommit.Set(); Assert.True(release.Wait(TimeSpan.FromSeconds(5))); }));
         Assert.Equal(GateTransition.Queued, Task.Run(() => service.Toggle(gate, Flip, GateCloseReason.Click, persist: false)).Result);
         var drain = Task.Run(() => { using var owner = RoomOwnerScope.Enter(_room); service.Drain(); });
         Assert.True(inCommit.Wait(TimeSpan.FromSeconds(5)));
+        Thread? contender = null;
+        service.DecisionHook = () => { contender = Thread.CurrentThread; reached.Set(); };
         var click = Task.Run(() => service.Toggle(gate, Flip, GateCloseReason.Click, persist: false));
-        Thread.Sleep(150); var finishedWhileCommitting = click.IsCompleted;
+        Assert.True(reached.Wait(TimeSpan.FromSeconds(5)));
+        // Reaching the hook proves the contender is at its decision; it may only finish once the commit lock is free.
+        SpinWait.SpinUntil(() => click.IsCompleted || (contender!.ThreadState & ThreadState.WaitSleepJoin) != 0, TimeSpan.FromSeconds(5));
+        var finishedWhileCommitting = click.IsCompleted;
         release.Set();
         Assert.True(Task.WhenAll(drain, click).Wait(TimeSpan.FromSeconds(5)));
         Assert.False(finishedWhileCommitting);
-        Assert.Equal(GateTransition.Applied, click.Result);
+        // The drained close is still in flight when the contender decides, so it is appended behind it.
+        Assert.Equal(GateTransition.Queued, click.Result);
+        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(1, service.PendingCount);
+        using (RoomOwnerScope.Enter(_room)) service.Drain();
         Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, service.PendingCount);
     }
 
