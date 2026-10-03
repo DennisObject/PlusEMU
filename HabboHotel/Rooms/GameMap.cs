@@ -904,6 +904,8 @@ public class Gamemap
             return IsValidBotStep(from, to, endOfPath);
         if (@override)
             return true;
+        if (!ValidTile(from.X, from.Y) || !TilesTouching(from.X, from.Y, to.X, to.Y) || !ValidCorner(from, to))
+            return false;
         /*
          * 0 = blocked
          * 1 = open
@@ -958,6 +960,7 @@ public class Gamemap
             if (user.Path.Count > 0)
                 user.Path.Clear();
             user.PathRecalcNeeded = true;
+            return false;
         }
         var heightDiff = SqAbsoluteHeight(to.X, to.Y) - SqAbsoluteHeight(from.X, from.Y);
         if (heightDiff > 1.5 && !user.RidingHorse)
@@ -983,6 +986,8 @@ public class Gamemap
                 return IsValidBotStep(from, to, endOfPath);
             return true;
         }
+        if (!ValidTile(from.X, from.Y) || !TilesTouching(from.X, from.Y, to.X, to.Y) || !ValidCorner(from, to))
+            return false;
         /*
          * 0 = blocked
          * 1 = open
@@ -1007,6 +1012,34 @@ public class Gamemap
                 return false;
         }
         return true;
+    }
+
+    private bool ValidCorner(Vector2D from, Vector2D to)
+    {
+        if (from.X == to.X || from.Y == to.Y)
+            return true;
+        var rule = PlusEnvironment.SettingsManager?.TryGetValue("pathfinding.corner_rule");
+        if (rule == "none")
+            return true;
+        var a = new Vector2D(to.X, from.Y);
+        var b = new Vector2D(from.X, to.Y);
+        if (!HasSurface(a) || !HasSurface(b))
+            return false;
+        var height = SqAbsoluteHeight(from.X, from.Y);
+        var aOpen = StructuralTile(a.X, a.Y) == 1 && SqAbsoluteHeight(a.X, a.Y) - height <= 1.5;
+        var bOpen = StructuralTile(b.X, b.Y) == 1 && SqAbsoluteHeight(b.X, b.Y) - height <= 1.5;
+        return rule == "strict" ? aOpen && bOpen : aOpen || bOpen;
+    }
+
+    private bool HasSurface(Vector2D tile)
+    {
+        if (!ValidTile(tile.X, tile.Y))
+            return false;
+        // OpenSquare mutates the dynamic model when furniture is placed over void.
+        // Check the original model and current furniture so removed supports stay void.
+        return (tile.X < StaticModel.MapSizeX && tile.Y < StaticModel.MapSizeY &&
+                StaticModel.SqState[tile.X, tile.Y] != SquareState.Blocked) ||
+               GetAllRoomItemForSquare(tile.X, tile.Y).Count > 0;
     }
 
     public static bool CanWalk(byte state, bool overriding)
