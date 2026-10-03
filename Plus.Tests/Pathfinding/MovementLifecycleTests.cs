@@ -7,6 +7,24 @@ namespace Plus.Tests;
 public partial class PlacedFurniRoomTests
 {
     [Fact]
+    public void ForcePlacementServiceOffGraphPlacementClearsThePreviousSupportPosture()
+    {
+        Add(10, 1, 1, z: .25, height: .5, seat: true);
+        var actor = ExecutorActor(0, 1);
+        actor.MoveTo(1, 1); ExecutorTick(); ExecutorTick();
+        Assert.True(actor.HasStatus("sit"));
+        var events = ExecutorWalkEvents(); events.Clear();
+        actor.SetPos(2, 2, 5.1234); ExecutorTick();
+        Assert.Equal((2, 2, 5.1234), (actor.X, actor.Y, actor.Z));
+        Assert.Null(actor.Movement.CurrentRef);
+        Assert.False(actor.HasStatus("sit")); Assert.False(actor.HasStatus("lay"));
+        Assert.False(actor.IsSitting); Assert.False(actor.IsLying);
+        Assert.DoesNotContain("/sit ", ExecutorUpdate(actor).Status);
+        Assert.DoesNotContain("/lay ", ExecutorUpdate(actor).Status);
+        Assert.Empty(events);
+    }
+
+    [Fact]
     public void AdmissionServiceKeepsPendingActorsOutOfTheMapUntilOwnerDrain()
     {
         var actor = ExecutorActor(0, 1);
