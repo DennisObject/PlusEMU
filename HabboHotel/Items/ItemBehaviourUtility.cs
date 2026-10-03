@@ -271,6 +271,14 @@ internal static class ItemBehaviourUtility
         }
     }
 
+    public static IOutgoingPacket Serialize(IOutgoingPacket packet, Item item)
+    {
+        var data = MagicTileHeight.IsMagicTile(item.Definition.InteractionType)
+            ? new LegacyDataFormat { Data = MagicTileHeight.ToWire(item.GetZ).ToString(System.Globalization.CultureInfo.InvariantCulture) }
+            : item.ExtraData;
+        return Serialize(packet, data, item.UniqueNumber, item.UniqueSeries);
+    }
+
     public static IOutgoingPacket Serialize(IOutgoingPacket packet, IFurniObjectData stuffData, uint uniqueNumber, uint uniqueSeries)
     {
         var type = (int)stuffData.StructureType;

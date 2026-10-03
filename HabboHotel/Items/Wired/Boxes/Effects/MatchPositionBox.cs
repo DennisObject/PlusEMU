@@ -146,8 +146,8 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
     {
         if (item.Rotation == rotation)
             return;
-        item.Rotation = rotation;
-        item.UpdateState(false, true);
+        if (Instance.GetRoomItemHandler().SetFloorItem(null!, item, item.GetX, item.GetY, rotation, false, false, false, height: item.GetZ))
+            item.UpdateState(false, true);
     }
 
     private void SetPosition(Item item, int coordX, int coordY, double coordZ)

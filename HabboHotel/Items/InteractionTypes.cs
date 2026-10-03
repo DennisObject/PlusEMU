@@ -169,6 +169,8 @@ public static class InteractionTypes
                 return InteractionType.TentSmall;
             case "badge_display":
                 return InteractionType.BadgeDisplay;
+            case "tile_walkmagic":
+                return InteractionType.WalkMagicTile;
             case "stacktool":
                 return InteractionType.Stacktool;
             case "television":

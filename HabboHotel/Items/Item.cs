@@ -113,7 +113,7 @@ public class Item
         get
         {
             var curHeight = 0.0;
-            if (Definition.AdjustableHeights.Count > 1)
+            if (Definition.AdjustableHeights?.Count > 1)
             {
                 if (int.TryParse(LegacyDataString, out var num2) && Definition.AdjustableHeights.Count - 1 >= num2)
                     curHeight = GetZ + Definition.AdjustableHeights[num2];
@@ -306,6 +306,7 @@ public class Item
         GetY = pY;
         if (!double.IsInfinity(pZ)) GetZ = pZ;
         GetAffectedTiles = tiles;
+        MagicTileHeight.Sync(this);
     }
 
     public void ProcessUpdates()
@@ -1101,8 +1102,11 @@ public class Item
     {
         if (GetRoom() == null)
             return;
+        MagicTileHeight.Sync(this);
         if (inDb)
             GetRoom().GetRoomItemHandler().UpdateItem(this);
+        if (IsFloorItem)
+            GetRoom().GetGameMap()?.NotifyPlacementState(this);
         if (inRoom)
         {
             if (IsFloorItem)

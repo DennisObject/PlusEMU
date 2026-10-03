@@ -390,6 +390,7 @@ public class Room : RoomData
             try
             {
                 GetWired().OnCycle();
+                GetGameMap().FlushPlacementUpdates();
             }
             catch (Exception e)
             {
@@ -447,7 +448,7 @@ public class Room : RoomData
 
     public void SendObjects(GameClient session)
     {
-        session.Send(new HeightMapComposer(GetGameMap().Model.Heightmap));
+        GetGameMap().SendPlacementHeightMap(session);
         session.Send(new FloorHeightMapComposer(GetGameMap().Model.GetRelativeHeightmap(), GetGameMap().StaticModel.WallHeight));
         var snapshotUsers = _roomUserManager.GetUserList().Where(user => user != null).ToArray();
         foreach (var user in snapshotUsers)
@@ -582,6 +583,7 @@ public class Room : RoomData
             return;
         IsCrashed = false;
         MDisposed = true;
+        _gamemap?.ClosePlacementUpdates();
         // Drop every user before the managers are destroyed. A habbo left
         // pointing at this room makes the next enter throw and disconnect.
         if (_roomUserManager != null)

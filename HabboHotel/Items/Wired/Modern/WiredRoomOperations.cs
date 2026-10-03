@@ -70,18 +70,20 @@ public static class WiredRoomOperations
         if (!item.IsFloorItem || !ValidRotation(item, rotation)
             || height is { } z && (!double.IsFinite(z) || z < 0 || z > 80)) return false;
         var map = room.GetGameMap();
+        var magic = MagicTileHeight.IsMagicTile(item.Definition.InteractionType);
         foreach (var point in Footprint(item, x, y, rotation))
         {
-            if (!map.ValidTile(point.X, point.Y) || map.Model.SqState[point.X, point.Y] != SquareState.Open)
-                return false;
-            if (!throughUsers && !item.Definition.IsSeat && (collision?.BlocksUsers(map.GetRoomUsers(point)) ?? map.GetRoomUsers(point).Count != 0))
+            if (!map.ValidTile(point.X, point.Y)) return false;
+            if (magic && point.X == map.Model.DoorX && point.Y == map.Model.DoorY) return false;
+            var placement = map.ResolvePlacement(point.X, point.Y, item.Id, collision);
+            if (!magic && !placement.HasHelper && map.Model.SqState[point.X, point.Y] != SquareState.Open) return false;
+            if (!magic && !placement.HasHelper && !throughUsers && !item.Definition.IsSeat && (collision?.BlocksUsers(map.GetRoomUsers(point)) ?? map.GetRoomUsers(point).Count != 0))
                 return false;
             var others = map.GetCoordinatedItems(point).Where(other => other.Id != item.Id).ToArray();
             if (others.Any(other => collision?.BlockingFurni.Contains(other.Id) == true)
-                || !throughFurni && others.Any(other => collision?.BlocksFurni(other) ?? !other.Definition.Stackable))
+                || !magic && !placement.HasHelper && !throughFurni && others.Any(other => collision?.BlocksFurni(other) ?? !other.Definition.Stackable))
                 return false;
-            var top = height ?? Math.Max(map.Model.SqFloorHeight[point.X, point.Y],
-                others.Select(other => other.TotalHeight).DefaultIfEmpty(0).Max());
+            var top = height ?? placement.PlacementZ;
             if (top + item.Definition.Height > 80)
                 return false;
         }

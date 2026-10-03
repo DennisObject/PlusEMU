@@ -1,6 +1,8 @@
-﻿using System.Collections.Concurrent;
+﻿using Plus.Communication.Packets.Outgoing.Rooms.Engine;
+using System.Collections.Concurrent;
 using System.Drawing;
 using Plus.Core;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.PathFinding;
@@ -12,6 +14,210 @@ public class Gamemap
 {
     private ConcurrentDictionary<Point, List<uint>> _coordinatedItems;
     private double[,] _itemHeightMap;
+    // Map mutations and snapshot capture share a lock; delivery never holds it.
+    private readonly object _placementLock = new();
+    private readonly Dictionary<Point, short> _placementMap = new();
+    private readonly HashSet<Point> _placementDirty = new();
+    internal object PlacementSync => _placementLock;
+    private readonly Queue<PlacementDelivery> _placementOutbound = new();
+    private long _placementVersion;
+    private long _placementDeliveredVersion;
+    private bool _placementSending;
+    private bool _placementClosed;
+    private readonly Room _placementRoom;
+    // Arrays belong exclusively to the queued snapshot and are never changed after capture.
+    private sealed record PlacementRecipient(GameClient Session, RoomUser Visit);
+    private sealed record PlacementDelivery(long Version, short[,] Heights,
+        HeightMapUpdateComposer.Tile[]? Changes, RoomUser[] Visits, GameClient? EntrySession = null)
+    {
+        public bool Entry => EntrySession != null;
+    }
+    private int _placementWidth;
+    private int _placementHeight;
+
+    internal readonly record struct PlacementTile(double PlacementZ, bool CanStack, bool HasHelper);
+
+    internal PlacementTile ResolvePlacement(int x, int y, uint? excluding = null,
+        Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? collision = null)
+    {
+        var items = GetCoordinatedItems(new(x, y)).Where(item => item.Id != excluding).ToArray();
+        var helpers = items.Where(item => MagicTileHeight.IsMagicTile(item.Definition.InteractionType)).ToArray();
+        if (helpers.Length > 0) return new(helpers.Max(item => item.GetZ), true, true);
+        var height = Math.Max(Model.SqFloorHeight[x, y], items.Select(item => item.TotalHeight).DefaultIfEmpty(0).Max());
+        var canStack = Model.SqState[x, y] != SquareState.Blocked
+            && !items.Any(item => !item.Definition.Stackable && (collision == null || !collision.ThroughFurni.Contains(item.Id)));
+        return new(height, canStack, false);
+    }
+
+    internal static short EncodePlacement(PlacementTile tile) => (short)(Math.Clamp((int)Math.Round(tile.PlacementZ * 256), 0, 0x3fff)
+        | (tile.CanStack ? 0 : 0x4000));
+
+    public short[,] PlacementHeightMap()
+    {
+        lock (_placementLock)
+        {
+            var result = new short[Model.MapSizeX, Model.MapSizeY];
+            for (var y = 0; y < Model.MapSizeY; y++)
+                for (var x = 0; x < Model.MapSizeX; x++)
+                    result[x, y] = EncodePlacement(ResolvePlacement(x, y));
+            return result;
+        }
+    }
+
+    internal IReadOnlyList<HeightMapUpdateComposer.Tile> RebuildPlacementUpdates()
+    {
+        lock (_placementLock)
+        {
+            if (_placementClosed) return Array.Empty<HeightMapUpdateComposer.Tile>();
+            var changed = new List<HeightMapUpdateComposer.Tile>();
+            foreach (var point in _placementDirty.OrderBy(tile => tile.Y).ThenBy(tile => tile.X))
+            {
+                if (!ValidTile(point.X, point.Y)) continue;
+                var value = EncodePlacement(ResolvePlacement(point.X, point.Y));
+                // Before the first mutation the projection is the model's floor with no furniture.
+                var previous = _placementMap.TryGetValue(point, out var stored) ? stored
+                    : EncodePlacement(new(Model.SqFloorHeight[point.X, point.Y], point.X < StaticModel.MapSizeX && point.Y < StaticModel.MapSizeY && StaticModel.SqState[point.X, point.Y] != SquareState.Blocked, false));
+                _placementMap[point] = value;
+                if (value != previous) changed.Add(new(point.X, point.Y, value));
+            }
+            _placementDirty.Clear();
+            return changed;
+        }
+    }
+
+    internal void NotifyPlacementState(Item item)
+    {
+        lock (_placementLock)
+        {
+            if (_placementClosed) return;
+            foreach (var point in item.GetCoords) _placementDirty.Add(point);
+        }
+        FlushPlacementUpdates();
+    }
+
+    public void FlushPlacementUpdates()
+    {
+        lock (_placementLock)
+        {
+            if (_placementClosed) return;
+            var changed = RebuildPlacementUpdates();
+            var resized = _placementWidth != Model.MapSizeX || _placementHeight != Model.MapSizeY;
+            _placementWidth = Model.MapSizeX;
+            _placementHeight = Model.MapSizeY;
+            if (changed.Count != 0 || resized)
+            {
+                // Byte-sized delta counts/coordinates cannot represent larger maps.
+                var full = resized || changed.Any(tile => tile.X > byte.MaxValue || tile.Y > byte.MaxValue);
+                _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), full ? null : changed.ToArray(), CapturePlacementVisits()));
+            }
+        }
+        DrainPlacementUpdates();
+    }
+
+    private void MarkPlacementDirty(Point point)
+    {
+        lock (_placementLock)
+            if (!_placementClosed) _placementDirty.Add(point);
+    }
+
+    internal void SendPlacementHeightMap(GameClient session)
+    {
+        lock (_placementLock)
+        {
+            if (_placementClosed) return;
+            var visits = CapturePlacementVisits();
+            if (visits.Length == 0) return;
+            _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), null, visits, session));
+        }
+        DrainPlacementUpdates();
+    }
+
+    // Capture visit identities with the projection under _placementLock; client lookup belongs to delivery.
+    private RoomUser[] CapturePlacementVisits() => _placementRoom.GetRoomUserManager()?.GetRoomUsers().ToArray() ?? [];
+
+    private bool IsCurrentPlacementRecipient(PlacementRecipient recipient)
+    {
+        lock (_placementLock)
+        {
+            if (_placementClosed || _placementRoom.MDisposed || !recipient.Session.IsAuthenticated
+                || !ReferenceEquals(recipient.Session.GetHabbo()?.CurrentRoom, _placementRoom)) return false;
+            return ReferenceEquals(_placementRoom.GetRoomUserManager()?.GetRoomUserByVirtualId(recipient.Visit.VirtualId), recipient.Visit);
+        }
+    }
+
+    internal void ClosePlacementUpdates()
+    {
+        lock (_placementLock)
+        {
+            _placementClosed = true;
+            _placementOutbound.Clear();
+            _placementDirty.Clear();
+        }
+    }
+
+    private void DrainPlacementUpdates()
+    {
+        // A recursive caller must leave delivery to a later flush after its mutation completes.
+        if (Monitor.IsEntered(_placementLock)) return;
+        lock (_placementLock)
+        {
+            // Never wait for a sender: synchronous disconnect can be waiting for the caller's Wired lock.
+            if (_placementClosed || _placementSending) return;
+            _placementSending = true;
+        }
+        while (true)
+        {
+            PlacementDelivery delivery;
+            lock (_placementLock)
+            {
+                if (_placementClosed || !_placementOutbound.TryDequeue(out delivery!))
+                {
+                    _placementSending = false;
+                    return;
+                }
+                // A full latest snapshot replaces consecutive superseded broadcasts, including their deltas.
+                // Entry snapshots keep their place in the queue and are never discarded.
+                while (!delivery.Entry && _placementOutbound.TryPeek(out var next)
+                    && !next.Entry && next.Version > delivery.Version)
+                    delivery = _placementOutbound.Dequeue() with { Changes = null };
+                if (delivery.Version <= _placementDeliveredVersion) continue;
+                _placementDeliveredVersion = delivery.Version;
+            }
+            try
+            {
+                // Enumerate eligibility immediately before each client's send, including every delta chunk.
+                // A client can leave while an earlier recipient's synchronous send callback is still running.
+                var recipients = delivery.Visits.Select(visit => (Session: visit.GetClient(), Visit: visit))
+                    .Where(pair => pair.Session != null && (delivery.EntrySession == null || ReferenceEquals(pair.Session, delivery.EntrySession)))
+                    .Select(pair => new PlacementRecipient(pair.Session!, pair.Visit)).ToArray();
+                var currentClients = recipients.Where(IsCurrentPlacementRecipient).Select(recipient => recipient.Session);
+                bool CanSend(GameClient client) => recipients.Any(recipient => ReferenceEquals(recipient.Session, client)
+                    && IsCurrentPlacementRecipient(recipient));
+                bool SupportsDelta(GameClient client) => client.Revision.InternalIdToOutgoingIdMapping
+                    .ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapUpdateComposer);
+                if (delivery.Changes != null)
+                    foreach (var chunk in delivery.Changes.Chunk(byte.MaxValue))
+                        GameClient.SendBroadcast(new HeightMapUpdateComposer(chunk), currentClients.Where(SupportsDelta), CanSend);
+                var needsFull = currentClients.Where(client => client.Revision.InternalIdToOutgoingIdMapping
+                    .ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapComposer)
+                    && (delivery.Changes == null || !SupportsDelta(client)));
+                GameClient.SendBroadcast(new HeightMapComposer(delivery.Heights), needsFull, CanSend);
+            }
+            catch (Exception error)
+            {
+                // Send failures cannot roll back a completed mutation or stop later queued snapshots.
+                ExceptionLogger.LogException(error);
+            }
+        }
+    }
+
+    internal Item? WalkMagicAt(int x, int y) => x == Model.DoorX && y == Model.DoorY ? null
+        : GetCoordinatedItems(new(x, y)).Where(item => item.Definition.InteractionType == InteractionType.WalkMagicTile)
+            .OrderByDescending(item => item.GetZ).ThenByDescending(item => item.Id).FirstOrDefault();
+
+    private bool IgnoreStacktool(Item item) => item.Definition.InteractionType == InteractionType.Stacktool
+        && PlusEnvironment.SettingsManager?.TryGetValue("pathfinding.stacktool_legacy_collision", "1") == "0";
+
     private Room _room;
     private byte[,] _structuralMap;
     private Point[] _roamTargets;
@@ -20,9 +226,12 @@ public class Gamemap
     public Gamemap(Room room, RoomModel model)
     {
         _room = room;
+        _placementRoom = room;
         StaticModel = model;
         DiagonalEnabled = true;
         Model = new(StaticModel);
+        _placementWidth = Model.MapSizeX;
+        _placementHeight = Model.MapSizeY;
         _coordinatedItems = new();
         _itemHeightMap = new double[Model.MapSizeX, Model.MapSizeY];
         _userMap = new();
@@ -263,15 +472,34 @@ public class Gamemap
 
     public void UpdateMapForItem(Item item)
     {
-        RemoveFromMap(item);
-        AddToMap(item);
+        lock (_placementLock)
+        {
+            RemoveFromMapCore(item);
+            AddItemToMapCore(item);
+        }
+        RemoveItemEffects(item);
+        AddItemEffects(item);
+        FlushPlacementUpdates();
     }
 
     public void GenerateMaps(bool checkLines = true)
     {
+        Item[] items;
+        lock (_placementLock)
+        {
+            GenerateMapsCore(checkLines);
+            items = _room.GetRoomItemHandler().GetFloor.ToArray();
+        }
+        foreach (var item in items) AddItemEffects(item);
+    }
+
+    private void GenerateMapsCore(bool checkLines)
+    {
         var maxX = 0;
         var maxY = 0;
         _coordinatedItems = new();
+        for (var y = 0; y < Model.MapSizeY; y++)
+            for (var x = 0; x < Model.MapSizeX; x++) MarkPlacementDirty(new(x, y));
         if (checkLines)
         {
             var items = _room.GetRoomItemHandler().GetFloor.ToArray();
@@ -294,7 +522,7 @@ public class Gamemap
             if (maxY < Model.MapSizeY)
                 maxY = Model.MapSizeY;
             Model.SetMapsize(maxX + 7, maxY + 7);
-            GenerateMaps(false);
+            GenerateMapsCore(false);
             return;
         }
         if (maxX != StaticModel.MapSizeX || maxY != StaticModel.MapSizeY)
@@ -342,11 +570,13 @@ public class Gamemap
             }
         }
         var tmpItems = _room.GetRoomItemHandler().GetFloor.ToArray();
+        foreach (var item in tmpItems)
+            foreach (var coord in item.GetCoords) AddCoordinatedItem(item, coord);
         foreach (var item in tmpItems.ToList())
         {
             if (item == null)
                 continue;
-            if (!AddItemToMap(item))
+            if (!AddItemToMapCore(item))
                 continue;
         }
         Array.Clear(tmpItems, 0, tmpItems.Length);
@@ -381,16 +611,31 @@ public class Gamemap
             if (coord.X > Model.MapSizeX - 1)
             {
                 Model.AddX();
-                GenerateMaps();
+                GenerateMapsCore(true);
                 return false;
             }
             if (coord.Y > Model.MapSizeY - 1)
             {
                 Model.AddY();
-                GenerateMaps();
+                GenerateMapsCore(true);
                 return false;
             }
-            if (Model.SqState[coord.X, coord.Y] == SquareState.Blocked) Model.OpenSquare(coord.X, coord.Y, item.GetZ);
+            MarkPlacementDirty(coord);
+            // Ordinary furniture keeps the legacy bridge support over model void.
+            // Helpers override walking without changing the underlying floor geometry.
+            if (!MagicTileHeight.IsMagicTile(item.Definition.InteractionType)
+                && Model.SqState[coord.X, coord.Y] == SquareState.Blocked)
+                Model.OpenSquare(coord.X, coord.Y, item.GetZ);
+            var walkMagic = WalkMagicAt(coord.X, coord.Y);
+            if (walkMagic != null)
+            {
+                GameMap[coord.X, coord.Y] = 1;
+                _itemHeightMap[coord.X, coord.Y] = walkMagic.GetZ - Model.SqFloorHeight[coord.X, coord.Y];
+                EffectMap[coord.X, coord.Y] = 0;
+                WriteStructural(coord.X, coord.Y, 1);
+                return true;
+            }
+            if (IgnoreStacktool(item)) return true;
             if (_itemHeightMap[coord.X, coord.Y] <= item.TotalHeight)
             {
                 _itemHeightMap[coord.X, coord.Y] = item.TotalHeight - Model.SqFloorHeight[item.GetX, item.GetY];
@@ -605,10 +850,20 @@ public class Gamemap
 
     public bool RemoveFromMap(Item item, bool handleGameItem)
     {
-        if (handleGameItem)
-            RemoveSpecialItem(item);
-        if (_room.GotSoccer())
-            _room.GetSoccer().OnGateRemove(item);
+        bool removed;
+        lock (_placementLock) removed = RemoveFromMapCore(item);
+        if (handleGameItem) RemoveItemEffects(item);
+        return removed;
+    }
+
+    internal void RemoveItemEffects(Item item)
+    {
+        RemoveSpecialItem(item);
+        if (_room.GotSoccer()) _room.GetSoccer().OnGateRemove(item);
+    }
+
+    private bool RemoveFromMapCore(Item item)
+    {
         var isRemoved = false;
         foreach (var coord in item.GetCoords.ToList())
         {
@@ -626,6 +881,7 @@ public class Gamemap
                 if (!conflictedName.ContainsKey(tile))
                     conflictedName.TryAdd(tile, items);
             }
+            MarkPlacementDirty(point);
             SetDefaultValue(tile.X, tile.Y);
         }
         foreach (var coord in conflictedName.Keys.ToList())
@@ -644,81 +900,90 @@ public class Gamemap
 
     public bool AddItemToMap(Item item, bool handleGameItem, bool newItem = true)
     {
-        if (handleGameItem)
+        bool added;
+        lock (_placementLock) added = AddItemToMapCore(item);
+        if (handleGameItem) AddItemEffects(item);
+        return added;
+    }
+
+    internal void AddItemEffects(Item item)
+    {
+        AddSpecialItems(item);
+        switch (item.Definition.InteractionType)
         {
-            AddSpecialItems(item);
-            switch (item.Definition.InteractionType)
+            case InteractionType.FootballGoalRed:
+            case InteractionType.Footballcounterred:
+            case InteractionType.Banzaiscorered:
+            case InteractionType.Banzaigatered:
+            case InteractionType.Freezeredcounter:
+            case InteractionType.FreezeRedGate:
             {
-                case InteractionType.FootballGoalRed:
-                case InteractionType.Footballcounterred:
-                case InteractionType.Banzaiscorered:
-                case InteractionType.Banzaigatered:
-                case InteractionType.Freezeredcounter:
-                case InteractionType.FreezeRedGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                        _room.GetGameManager().AddFurnitureToTeam(item, Team.Red);
-                    break;
-                }
-                case InteractionType.FootballGoalGreen:
-                case InteractionType.Footballcountergreen:
-                case InteractionType.Banzaiscoregreen:
-                case InteractionType.Banzaigategreen:
-                case InteractionType.Freezegreencounter:
-                case InteractionType.FreezeGreenGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                        _room.GetGameManager().AddFurnitureToTeam(item, Team.Green);
-                    break;
-                }
-                case InteractionType.FootballGoalBlue:
-                case InteractionType.Footballcounterblue:
-                case InteractionType.Banzaiscoreblue:
-                case InteractionType.Banzaigateblue:
-                case InteractionType.Freezebluecounter:
-                case InteractionType.FreezeBlueGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                        _room.GetGameManager().AddFurnitureToTeam(item, Team.Blue);
-                    break;
-                }
-                case InteractionType.FootballGoalYellow:
-                case InteractionType.Footballcounteryellow:
-                case InteractionType.Banzaiscoreyellow:
-                case InteractionType.Banzaigateyellow:
-                case InteractionType.Freezeyellowcounter:
-                case InteractionType.FreezeYellowGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                        _room.GetGameManager().AddFurnitureToTeam(item, Team.Yellow);
-                    break;
-                }
-                case InteractionType.Freezeexit:
-                {
-                    _room.GetFreeze().AddExitTile(item);
-                    break;
-                }
-                case InteractionType.Roller:
-                {
-                    if (!_room.GetRoomItemHandler().GetRollers().Contains(item))
-                        _room.GetRoomItemHandler().TryAddRoller(item.Id, item);
-                    break;
-                }
+                if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
+                    _room.GetGameManager().AddFurnitureToTeam(item, Team.Red);
+                break;
+            }
+            case InteractionType.FootballGoalGreen:
+            case InteractionType.Footballcountergreen:
+            case InteractionType.Banzaiscoregreen:
+            case InteractionType.Banzaigategreen:
+            case InteractionType.Freezegreencounter:
+            case InteractionType.FreezeGreenGate:
+            {
+                if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
+                    _room.GetGameManager().AddFurnitureToTeam(item, Team.Green);
+                break;
+            }
+            case InteractionType.FootballGoalBlue:
+            case InteractionType.Footballcounterblue:
+            case InteractionType.Banzaiscoreblue:
+            case InteractionType.Banzaigateblue:
+            case InteractionType.Freezebluecounter:
+            case InteractionType.FreezeBlueGate:
+            {
+                if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
+                    _room.GetGameManager().AddFurnitureToTeam(item, Team.Blue);
+                break;
+            }
+            case InteractionType.FootballGoalYellow:
+            case InteractionType.Footballcounteryellow:
+            case InteractionType.Banzaiscoreyellow:
+            case InteractionType.Banzaigateyellow:
+            case InteractionType.Freezeyellowcounter:
+            case InteractionType.FreezeYellowGate:
+            {
+                if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
+                    _room.GetGameManager().AddFurnitureToTeam(item, Team.Yellow);
+                break;
+            }
+            case InteractionType.Freezeexit:
+            {
+                _room.GetFreeze().AddExitTile(item);
+                break;
+            }
+            case InteractionType.Roller:
+            {
+                if (!_room.GetRoomItemHandler().GetRollers().Contains(item))
+                    _room.GetRoomItemHandler().TryAddRoller(item.Id, item);
+                break;
             }
         }
+    }
+
+    private bool AddItemToMapCore(Item item)
+    {
         if (item.Definition.Type != ItemType.Floor)
             return true;
         foreach (var coord in item.GetCoords.ToList()) AddCoordinatedItem(item, new(coord.X, coord.Y));
         if (item.GetX > Model.MapSizeX - 1)
         {
             Model.AddX();
-            GenerateMaps();
+            GenerateMapsCore(true);
             return false;
         }
         if (item.GetY > Model.MapSizeY - 1)
         {
             Model.AddY();
-            GenerateMaps();
+            GenerateMapsCore(true);
             return false;
         }
         var @return = true;
@@ -913,7 +1178,7 @@ public class Gamemap
          * 3 = door
          * */
         var items = _room.GetGameMap().GetAllRoomItemForSquare(to.X, to.Y);
-        if (items.Count > 0)
+        if (items.Count > 0 && WalkMagicAt(to.X, to.Y) == null)
         {
             var hasGroupGate = items.ToList().Count(x => x.Definition.InteractionType == InteractionType.GuildGate) > 0;
             if (hasGroupGate)
@@ -997,7 +1262,7 @@ public class Gamemap
         if (!_room.RoomBlockingEnabled && SquareHasUsers(to.X, to.Y))
             return false;
         var items = _room.GetGameMap().GetAllRoomItemForSquare(to.X, to.Y);
-        if (items.Count > 0)
+        if (items.Count > 0 && WalkMagicAt(to.X, to.Y) == null)
         {
             var hasGroupGate = items.ToList().Count(x => x != null && x.Definition.InteractionType == InteractionType.GuildGate) > 0;
             if (hasGroupGate)
@@ -1035,11 +1300,12 @@ public class Gamemap
     {
         if (!ValidTile(tile.X, tile.Y))
             return false;
+        if (WalkMagicAt(tile.X, tile.Y) != null) return true;
         // OpenSquare mutates the dynamic model when furniture is placed over void.
         // Check the original model and current furniture so removed supports stay void.
         return (tile.X < StaticModel.MapSizeX && tile.Y < StaticModel.MapSizeY &&
                 StaticModel.SqState[tile.X, tile.Y] != SquareState.Blocked) ||
-               GetAllRoomItemForSquare(tile.X, tile.Y).Count > 0;
+               GetAllRoomItemForSquare(tile.X, tile.Y).Any(item => !IgnoreStacktool(item));
     }
 
     public static bool CanWalk(byte state, bool overriding)
@@ -1089,6 +1355,7 @@ public class Gamemap
     {
         try
         {
+            if (WalkMagicAt(x, y) is { } walkMagic) return walkMagic.GetZ;
             var deduct = false;
             double highestStack = 0;
             var deductable = 0.0;
@@ -1096,7 +1363,7 @@ public class Gamemap
             {
                 foreach (var item in itemsOnSquare.ToList())
                 {
-                    if (item == null)
+                    if (item == null || IgnoreStacktool(item))
                         continue;
                     if (item.TotalHeight > highestStack)
                     {
@@ -1255,21 +1522,26 @@ public class Gamemap
 
     public void Dispose()
     {
-        _userMap.Clear();
-        Model.Destroy();
-        _coordinatedItems.Clear();
-        Array.Clear(GameMap, 0, GameMap.Length);
-        Array.Clear(EffectMap, 0, EffectMap.Length);
-        Array.Clear(_itemHeightMap, 0, _itemHeightMap.Length);
-        _userMap = null;
-        _structuralMap = null;
-        _roamTargets = null;
-        GameMap = null;
-        EffectMap = null;
-        _itemHeightMap = null;
-        _coordinatedItems = null;
-        Model = null;
-        _room = null;
-        StaticModel = null;
+        lock (_placementLock)
+        {
+            if (Model == null) return;
+            ClosePlacementUpdates();
+            _userMap.Clear();
+            Model.Destroy();
+            _coordinatedItems.Clear();
+            Array.Clear(GameMap, 0, GameMap.Length);
+            Array.Clear(EffectMap, 0, EffectMap.Length);
+            Array.Clear(_itemHeightMap, 0, _itemHeightMap.Length);
+            _userMap = null;
+            _structuralMap = null;
+            _roamTargets = null;
+            GameMap = null;
+            EffectMap = null;
+            _itemHeightMap = null;
+            _coordinatedItems = null;
+            Model = null;
+            _room = null;
+            StaticModel = null;
+        }
     }
 }

@@ -321,6 +321,7 @@ public static class ClientPacketHeader
     public const uint SaveEnforcedCategorySettingsEvent = 531; //3413
     public const uint RespectPetEvent = 1967; //1618
     public const uint GetMarketplaceCanMakeOfferEvent = 1552; //1647
+    public const uint UpdateMagicTileAdjacentEvent = 48008;
     public const uint UpdateMagicTileEvent = 2997; //1248
     public const uint GetStickyNoteEvent = 2469; //2796
     public const uint IgnoreUserEvent = 2374; //2394

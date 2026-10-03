@@ -23,5 +23,7 @@ public class SettingsManager : ISettingsManager
         _logger.LogInformation("Loaded " + _settings.Count + " server settings.");
     }
 
-    public string TryGetValue(string value) => _settings.ContainsKey(value) ? _settings[value] : "0";
+    public string TryGetValue(string value) => TryGetValue(value, "0");
+
+    public string TryGetValue(string value, string defaultValue) => _settings.TryGetValue(value, out var setting) ? setting : defaultValue;
 }

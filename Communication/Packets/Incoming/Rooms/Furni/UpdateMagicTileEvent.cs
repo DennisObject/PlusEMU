@@ -11,69 +11,45 @@ internal class UpdateMagicTileEvent : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().InRoom)
-            return Task.CompletedTask;
-        var room = session.GetHabbo().CurrentRoom;
-        if (room == null)
-            return Task.CompletedTask;
-        if (!room.CheckRights(session, false, true) && !session.GetHabbo().Permissions.HasRight("room_item_use_any_stack_tile"))
-            return Task.CompletedTask;
+        var room = AuthorizedRoom(session);
+        if (room == null) return Task.CompletedTask;
         var itemId = packet.ReadUInt();
         var requestedHeight = packet.ReadInt();
         var item = room.GetRoomItemHandler().GetItem(itemId);
         if (item == null || item.IsTemporary || !MagicTileHeight.IsMagicTile(item.Definition.InteractionType))
             return Task.CompletedTask;
 
-        var footprint = Footprint(item);
-        var floorZ = footprint.Max(tile => (double)room.GetGameMap().Model.SqFloorHeight[tile.X, tile.Y]);
-        var stackBelowZ = footprint.Max(tile => StackHeightBelow(room, item, tile, floorZ));
-        var height = MagicTileHeight.Resolve(requestedHeight, floorZ, stackBelowZ);
-
-        if (!room.GetRoomItemHandler().SetFloorItem(item, item.GetX, item.GetY, height))
-            return Task.CompletedTask;
-        room.SendPacket(new ObjectUpdateComposer(item));
-        room.SendPacket(new UpdateMagicTileComposer(itemId, MagicTileHeight.ToWire(height)));
+        bool? multiWalk = packet.HasDataRemaining() ? packet.ReadBool() : null;
+        Apply(room, item, requestedHeight, multiWalk);
         return Task.CompletedTask;
     }
 
-    private static List<Point> Footprint(Item item)
+    internal static Room? AuthorizedRoom(GameClient session)
     {
-        var tiles = new List<Point> { item.Coordinate };
-        tiles.AddRange(item.GetAffectedTiles.Values.Select(tile => new Point(tile.X, tile.Y)));
-        return tiles;
+        var habbo = session.GetHabbo();
+        var room = habbo?.CurrentRoom;
+        return habbo != null && room != null
+            && (room.CheckRights(session, false, true) || habbo.Permissions.HasRight("room_item_use_any_stack_tile")) ? room : null;
     }
 
-    private static double StackHeightBelow(Room room, Item tileItem, Point tile, double floorZ)
+    internal static void Apply(Room room, Item item, int requestedHeight, bool? multiWalk = null)
     {
-        var highest = floorZ;
-        foreach (var other in room.GetRoomItemHandler().GetFurniObjects(tile.X, tile.Y))
+        var footprint = item.GetCoords.Distinct().ToArray();
+        var floorZ = footprint.Max(tile => (double)room.GetGameMap().Model.SqFloorHeight[tile.X, tile.Y]);
+        var stackBelowZ = footprint.Max(tile => room.GetGameMap().ResolvePlacement(tile.X, tile.Y, item.Id).PlacementZ);
+        var height = MagicTileHeight.Resolve(requestedHeight, floorZ, stackBelowZ);
+
+        if (!room.GetRoomItemHandler().SetFloorItem(item, item.GetX, item.GetY, height))
+            return;
+        if (item.Definition.InteractionType == InteractionType.WalkMagicTile && multiWalk.HasValue)
         {
-            if (other == null || other.Id == tileItem.Id)
-                continue;
-            highest = Math.Max(highest, other.TotalHeight);
+            item.ExtraData = new Plus.HabboHotel.Items.DataFormat.LegacyDataFormat
+                { Data = MagicTileHeight.ToWire(height).ToString(System.Globalization.CultureInfo.InvariantCulture) + (multiWalk.Value ? ";1" : "") };
+            room.GetRoomItemHandler().UpdateItem(item);
         }
-        return highest;
-    }
-}
-
-/// <summary>
-/// Height rules for the stack-height widget: only magic tiles may be adjusted, "-100" matches the
-/// stack below, and every result is clamped between the floor and the furniture height limit.
-/// </summary>
-internal static class MagicTileHeight
-{
-    internal const double MaximumHeight = 40.0;
-    internal const int MatchBelow = -100;
-
-    internal static bool IsMagicTile(InteractionType type) => type == InteractionType.Stacktool;
-
-    internal static double Resolve(int requested, double floorZ, double stackBelowZ)
-    {
-        var height = requested == MatchBelow ? stackBelowZ : requested / 100.0;
-        if (double.IsNaN(height))
-            height = floorZ;
-        return Math.Clamp(height, floorZ, Math.Max(floorZ, MaximumHeight));
+        room.GetRoomUserManager().UpdateUserStatusses();
+        room.SendPacket(new ObjectUpdateComposer(item));
+        room.SendPacket(new UpdateMagicTileComposer(item.Id, MagicTileHeight.ToWire(height)));
     }
 
-    internal static int ToWire(double height) => (int)Math.Round(height * 100.0);
 }
