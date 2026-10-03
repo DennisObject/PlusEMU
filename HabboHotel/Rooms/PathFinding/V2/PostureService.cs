@@ -11,7 +11,9 @@ public static class PostureService
         actor.IsSitting = actor.IsLying = false;
         if (state.CurrentRef is not { } surface) return;
         actor.Z = state.SupportZ + RiderOffset(actor, surface);
-        var flags = grid.Flags[surface.Tile];
+        var slot = grid.Layered ? grid.SlotOf(surface) : surface.Tile;
+        if (slot < 0) return;
+        var flags = grid.Flags[slot];
         if ((flags & (NavFlags.GoalOnlySeat | NavFlags.GoalOnlyBed)) == 0) return;
         var item = room.GetRoomItemHandler().GetItem(surface.SupportItemId);
         if (item != null) ItemPosture(actor, item, flags);

@@ -21,6 +21,7 @@ internal sealed class V2MovementEngine : IMovementEngine
         Context = new(room, navigation, new LandingEffects(room, database),
             new FloorEffectService(room, client => rewards?.Progress(client, RewardTrackActions.Swim)),
             new MovementProfileService(room, navigation.Grid, navigation.Settings, ActorAccessResolver.ForGame(game)));
+        navigation.Compiler.SurfacePinned = surface => Context.Claims.Pinned(navigation.Grid.SlotOf(surface));
         _cancellation = new(Context);
         _placement = new(room, navigation, Context, _cancellation);
         _admission = new(room, Context, _placement);

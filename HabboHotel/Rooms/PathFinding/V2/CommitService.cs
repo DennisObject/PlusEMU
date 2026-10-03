@@ -34,7 +34,7 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
         var state = actor.Movement;
         var target = state.Pending[state.PendingCount - 1];
         var command = state.Commands.Read();
-        return context.Graph.IsSeat(target.Tile) && state.Route.GoalSurface == target
+        return context.Graph.IsSeat(target) && state.Route.GoalSurface == target
             && command != null && command.Sequence > state.ConsumedSequence && !actor.Frozen
             && (actor.CanWalk || command.Origin != MoveOrigin.User);
     }
@@ -58,11 +58,11 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
         {
             var step = state.Pending[i];
             if (!context.Graph.IsValid(step, state.PendingView)) break;
-            var to = context.Graph.Position(step.Tile, state.PendingView);
+            var to = context.Graph.Position(step, state.PendingView);
             var purpose = state.Origin == MoveOrigin.Interaction ? StepPurpose.Interaction
                 : to.X == actor.GoalX && to.Y == actor.GoalY ? StepPurpose.Goal : StepPurpose.Transit;
-            if (!_rules.CanStep(profile, from, to, purpose, OccupancyView.Execution, context.OccupancyAt(actor, step.Tile)).Ok) break;
-            context.GuildGates.Accept(actor, profile, step.Tile, purpose);
+            if (!_rules.CanStep(profile, from, to, purpose, OccupancyView.Execution, context.OccupancyAt(actor, to.Slot)).Ok) break;
+            context.GuildGates.Accept(actor, profile, to.Slot, purpose);
             accepted++; from = to;
         }
         return accepted;

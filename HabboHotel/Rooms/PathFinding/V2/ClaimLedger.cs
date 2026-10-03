@@ -17,18 +17,19 @@ public sealed class ClaimMember(RoomUser actor)
 public sealed class ClaimLedger
 {
     private readonly Dictionary<RoomUser, ClaimMember> _members = new(ReferenceEqualityComparer.Instance);
-    private readonly List<Claim>?[] _claims;
+    private readonly NavGrid? _grid;
+    private List<Claim>?[] _claims;
     // Roller cargo destinations: R claims owned by no actor, released with the other roller claims.
-    private readonly int[] _cargoReservations;
+    private int[] _cargoReservations;
     private readonly List<int> _cargoSlots = new();
     private readonly record struct Claim(ClaimMember Owner, ClaimKind Kind);
     private enum ReleaseMode { All, Batch, Roller }
     // Lifetime ids are positive, so this group excludes nobody (roller cargo belongs to no actor).
     public const long NoGroup = long.MinValue;
-    public ClaimMember?[] Head { get; }
+    public ClaimMember?[] Head { get; private set; }
     public ClaimMember?[] OffGraphHead { get; }
-    public int[] Count { get; }
-    public int[] StationaryCount { get; }
+    public int[] Count { get; private set; }
+    public int[] StationaryCount { get; private set; }
     public int[] TileCount { get; }
 
     public ClaimLedger(int slotCapacity, int tileCount)
@@ -38,6 +39,20 @@ public sealed class ClaimLedger
         TileCount = new int[tileCount]; _claims = new List<Claim>?[slotCapacity];
         _cargoReservations = new int[slotCapacity];
     }
+
+    // Layered grids map overflow slots back to their tile for off-graph occupancy.
+    internal ClaimLedger(NavGrid grid) : this(grid.SlotCapacity, grid.TileCount) => _grid = grid;
+
+    // Overflow slots only grow; existing slot-indexed state keeps its index (§5.3).
+    internal void EnsureCapacity(int slots)
+    {
+        if (slots <= Head.Length) return;
+        Head = Grow(Head, slots); Count = Grow(Count, slots);
+        StationaryCount = Grow(StationaryCount, slots); _claims = Grow(_claims, slots);
+        _cargoReservations = Grow(_cargoReservations, slots);
+    }
+
+    internal bool Pinned(int slot) => slot >= 0 && slot < Head.Length && (Count[slot] > 0 || _claims[slot] is { Count: > 0 });
 
     public ClaimMember Move(RoomUser actor, int? slot, int tile, bool walking, long groupId)
     {
@@ -126,8 +141,9 @@ public sealed class ClaimLedger
         for (var member = Head[slot]; member != null; member = member.Next)
             if (Counts(member, excludingGroup, departing))
                 result |= member.Walking ? TargetOccupancy.Walking : TargetOccupancy.Stationary;
-        if (slot < OffGraphHead.Length)
-            for (var member = OffGraphHead[slot]; member != null; member = member.Next)
+        var tile = _grid?.TileOf(slot) ?? slot;
+        if (tile < OffGraphHead.Length)
+            for (var member = OffGraphHead[tile]; member != null; member = member.Next)
                 if (Counts(member, excludingGroup, departing)) result |= TargetOccupancy.OffGraph;
         if (_claims[slot] is { } claims)
             foreach (var claim in claims)
@@ -180,6 +196,12 @@ public sealed class ClaimLedger
                     claims.RemoveAt(entry);
             member.Claims.RemoveAt(index);
         }
+    }
+
+    private static T[] Grow<T>(T[] array, int length)
+    {
+        Array.Resize(ref array, length);
+        return array;
     }
 
     private static TargetOccupancy ClaimBit(ClaimKind kind) => kind switch

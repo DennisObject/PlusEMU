@@ -37,51 +37,52 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
         {
             var surface = state.Route.Steps[i];
             if (!context.Graph.IsValid(surface, state.Route.View)) break;
-            var target = context.Graph.Position(surface.Tile, state.Route.View);
+            var target = context.Graph.Position(surface, state.Route.View);
             var purpose = state.Route.PurposeAt(i, state.Origin);
-            if (!ClaimStep(actor, profile, from, target, surface, purpose, out temporaryBlock)) break;
+            if (!ClaimStep(actor, profile, from, target, purpose, out temporaryBlock)) break;
             state.Pending[state.PendingCount++] = surface; from = target;
         }
         return from;
     }
     private bool ClaimStep(RoomUser actor, ActorProfile profile, NavPosition from, NavPosition target,
-        SurfaceRef surface, StepPurpose purpose, out bool temporaryBlock)
+        StepPurpose purpose, out bool temporaryBlock)
     {
         temporaryBlock = false;
-        var occupancy = context.OccupancyAt(actor, surface.Tile);
-        var mask = ClaimMatrix.BlockingMask(profile, navigation.Grid.Flags[surface.Tile], purpose, OccupancyView.Execution);
+        var slot = target.Slot;
+        var occupancy = context.OccupancyAt(actor, slot);
+        var mask = ClaimMatrix.BlockingMask(profile, navigation.Grid.Flags[slot], purpose, OccupancyView.Execution);
         var result = _rules.CanStep(profile, from, target, purpose, OccupancyView.Execution, occupancy);
         if (!result.Ok)
         {
-            var blockers = occupancy.Targets[surface.Tile] & mask;
+            var blockers = occupancy.Targets[slot] & mask;
             var transient = TargetOccupancy.Walking | TargetOccupancy.ExclusiveClaim | TargetOccupancy.GoalClaim | TargetOccupancy.SharedClaim;
             temporaryBlock = result.Reason == StepReason.Occupied && (blockers & ~transient) == 0;
             return false;
         }
-        if (!context.Claims.TryClaim(actor, surface.Tile, ClaimKindFor(profile, surface, purpose), mask)) return false;
-        context.GuildGates.Accept(actor, profile, surface.Tile, purpose);
+        if (!context.Claims.TryClaim(actor, slot, ClaimKindFor(profile, slot, purpose), mask)) return false;
+        context.GuildGates.Accept(actor, profile, slot, purpose);
         return true;
     }
     private void ApplyIdleEffects(RoomUser actor, bool committed)
     {
         if (!committed && actor.Movement.PendingCount == 0)
-            context.FloorEffects.Apply(actor, actor.X, actor.Y);
+            context.FloorEffects.Apply(actor, actor.X, actor.Y, actor.Movement.CurrentRef);
     }
-    private ClaimKind ClaimKindFor(ActorProfile profile, SurfaceRef surface, StepPurpose purpose)
+    private ClaimKind ClaimKindFor(ActorProfile profile, int slot, StepPurpose purpose)
     {
-        if (profile.LegacyOverride || profile.IgnoreUsers || (navigation.Grid.Flags[surface.Tile] & NavFlags.Door) != 0) return ClaimKind.Shared;
+        if (profile.LegacyOverride || profile.IgnoreUsers || (navigation.Grid.Flags[slot] & NavFlags.Door) != 0) return ClaimKind.Shared;
         return !profile.Walkthrough ? ClaimKind.Exclusive : purpose == StepPurpose.Goal ? ClaimKind.Goal : ClaimKind.Shared;
     }
     private void Publish(RoomUser actor, NavPosition target)
     {
         var state = actor.Movement;
         actor.Statusses.Remove("sit"); actor.Statusses.Remove("lay"); actor.IsSitting = actor.IsLying = false;
-        var z = target.Z + context.Graph.RiderOffset(actor, state.Pending[state.PendingCount - 1].Tile);
+        var z = target.Z + context.Graph.RiderOffset(actor, target.Slot);
         actor.SetStatus("mv", $"{target.X},{target.Y},{TextHandling.GetString(z)}");
         actor.RotBody = actor.RotHead = Rotation.Calculate(actor.X, actor.Y, target.X, target.Y, actor.MoonwalkEnabled);
         actor.SetStep = true; actor.SetX = target.X; actor.SetY = target.Y; actor.SetZ = target.Z;
         actor.IsWalking = true; actor.UpdateNeeded = true;
-        context.FloorEffects.Apply(actor, target.X, target.Y);
+        context.FloorEffects.Apply(actor, target.X, target.Y, state.Pending[state.PendingCount - 1]);
     }
     public void SynchronizeHorse(RoomUser actor)
     {
