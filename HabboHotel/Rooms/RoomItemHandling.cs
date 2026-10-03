@@ -143,7 +143,11 @@ public class RoomItemHandling
     {
         if (_floorItems.Count > 0)
         {
-            foreach (var previous in _floorItems.Values) _room.GetWired()?.DetachRoomItem(previous);
+            foreach (var previous in _floorItems.Values)
+            {
+                _room.GetGameMap().Navigation?.Inputs.Remove(previous);
+                _room.GetWired()?.DetachRoomItem(previous);
+            }
             _floorItems.Clear();
         }
         if (_wallItems.Count > 0)
@@ -183,8 +187,7 @@ public class RoomItemHandling
                     }
                     continue;
                 }
-                if (!_floorItems.ContainsKey(item.Id))
-                    _floorItems.TryAdd(item.Id, item);
+                AdmitFloorItem(item);
             }
             else if (item.IsWallItem)
             {
@@ -280,6 +283,15 @@ public class RoomItemHandling
 
     private void RemoveRoomItem(Item item)
     {
+        var inputs = _room.GetGameMap().Navigation?.Inputs;
+        if (inputs != null && item.IsFloorItem)
+        {
+            lock (item.NavSync)
+            {
+                if (!_floorItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item))) return;
+                inputs.Remove(item);
+            }
+        }
         if (item.IsFloorItem)
             _room.SendPacket(new ObjectRemoveComposer(item, item.UserId));
         else if (item.IsWallItem)
@@ -291,7 +303,7 @@ public class RoomItemHandling
         else
         {
             _room.GetWired()?.DetachRoomItem(item);
-            _floorItems.TryRemove(item.Id, out item);
+            if (inputs == null) _floorItems.TryRemove(item.Id, out item);
             //mFloorItems.OnCycle();
             _room.GetGameMap().RemoveFromMap(item);
         }
@@ -469,6 +481,7 @@ public class RoomItemHandling
             }
         }
         var map = _room.GetGameMap();
+        if (newItem && item.IsFloorItem && map.Navigation != null) item.EnableNavigationSynchronization();
         var duplicate = false;
         lock (map.PlacementSync)
         {
@@ -511,15 +524,19 @@ public class RoomItemHandling
                     newRot = 0;
                 if (newItem)
                 {
-                    if (item.IsFloorItem) duplicate = !_floorItems.TryAdd(item.Id, item);
+                    // Initialize private geometry before membership or navigation publication.
+                    item.SetPlacementState(newX, newY, newZ, affectedTiles, newRot);
+                    item.RoomId = _room.RoomId;
+                    if (item.IsFloorItem) duplicate = !AdmitFloorItem(item);
                     else if (item.IsWallItem) duplicate = !_wallItems.TryAdd(item.Id, item);
                 }
                 if (!duplicate)
                 {
-                    if (!newItem) map.RemoveFromMap(item, false);
-                    item.Rotation = newRot;
-                    item.SetState(newX, newY, newZ, affectedTiles);
-                    if (newItem) item.RoomId = _room.RoomId;
+                    if (!newItem)
+                    {
+                        map.RemoveFromMap(item, false);
+                        item.SetPlacementState(newX, newY, newZ, affectedTiles, newRot);
+                    }
                     map.AddItemToMap(item, false, newItem);
                 }
             }
@@ -680,6 +697,21 @@ public class RoomItemHandling
         }
     }
 
+    // Admission serializes membership and record publication with pickup. Only
+    // that transaction shares NavSync; callbacks do not.
+    internal bool AdmitFloorItem(Item item)
+    {
+        var inputs = _room.GetGameMap().Navigation?.Inputs;
+        if (inputs == null) return _floorItems.TryAdd(item.Id, item);
+        item.EnableNavigationSynchronization();
+        lock (item.NavSync)
+        {
+            if (!_floorItems.TryAdd(item.Id, item)) return false;
+            inputs.Attach(item);
+            return true;
+        }
+    }
+
     public List<Item> RemoveItems(GameClient session)
     {
         var items = new List<Item>();
@@ -689,7 +721,18 @@ public class RoomItemHandling
                 continue;
             if (item.IsFloorItem)
             {
-                _floorItems.TryRemove(item.Id, out var I);
+                Item I;
+                var inputs = _room.GetGameMap().Navigation?.Inputs;
+                if (inputs == null) _floorItems.TryRemove(item.Id, out I);
+                else
+                {
+                    lock (item.NavSync)
+                    {
+                        if (!_floorItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item))) continue;
+                        inputs.Remove(item);
+                        I = item;
+                    }
+                }
                 // TODO @80O: Items refactor
                 session.GetHabbo().Inventory.Furniture.AddItem(I.ToInventoryItem());
                 _room.SendPacket(new ObjectRemoveComposer(item, item.UserId));

@@ -17,6 +17,8 @@ namespace Plus.HabboHotel.Rooms;
 
 public class RoomUser
 {
+    internal ActorProfile? NavigationProfile { get; set; }
+
     public WiredRoomEntrySnapshot WiredRoomEntry { get; internal set; }
     private GameClient _mClient;
     private Room _mRoom;

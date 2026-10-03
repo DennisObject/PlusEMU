@@ -228,6 +228,12 @@ public class Gamemap
         _room = room;
         _placementRoom = room;
         StaticModel = model;
+        // Settings are fixed at room load. Legacy never allocates navigation state or
+        // attaches items, so its setters and update cycles take the original fast path.
+        if (PlusEnvironment.SettingsManager is { } settings
+            && settings.GetOptionalValue("pathfinding.engine") is "shadow" or "v2"
+            && model.MapSizeX is > 0 and <= 256 && model.MapSizeY is > 0 and <= 256)
+            Navigation = new(room, model, PathfindingSettings.Load(settings));
         DiagonalEnabled = true;
         Model = new(StaticModel);
         _placementWidth = Model.MapSizeX;
@@ -240,6 +246,8 @@ public class Gamemap
         FillFloorStates(GameMap);
         _structuralMap = (byte[,])GameMap.Clone();
     }
+
+    public RoomNavigation? Navigation { get; }
 
     public bool DiagonalEnabled { get; set; }
 
@@ -495,6 +503,7 @@ public class Gamemap
 
     private void GenerateMapsCore(bool checkLines)
     {
+        Navigation?.Inputs.MarkAllDirty();
         var maxX = 0;
         var maxY = 0;
         _coordinatedItems = new();
@@ -1034,6 +1043,7 @@ public class Gamemap
     {
         GameMap[x, y] = status;
         WriteStructural(x, y, status);
+        Navigation?.SetFloorStatus(x, y, status);
     }
 
     public double GetHeightForSquareFromData(Point coord)

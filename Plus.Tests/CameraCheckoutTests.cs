@@ -238,6 +238,7 @@ public class CameraCheckoutTests
             ["camera.publish.cooldown"]="180", ["camera.competition.enabled"]="0", ["camera.competition.daily"]="3", ["camera.competition.require_email"]="0"
         };
         public string TryGetValue(string key) => Values.GetValueOrDefault(key,"0");
+        public string? GetOptionalValue(string key) => Values.GetValueOrDefault(key);
         public Task Reload() => Task.CompletedTask;
     }
     private sealed class TestDefinitions : IItemDataManager

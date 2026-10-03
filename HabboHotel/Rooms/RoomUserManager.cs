@@ -748,7 +748,11 @@ public class RoomUserManager
                 {
                     if (user.Path.Count > 1)
                         user.Path.Clear();
+                    var shadow = _room.GetGameMap().Navigation;
+                    var legacyStarted = shadow?.Enabled == true ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
                     user.Path = PathFinder.FindPath(user, _room.GetGameMap().DiagonalEnabled, _room.GetGameMap(), new(user.X, user.Y), new(user.GoalX, user.GoalY));
+                    if (shadow?.Enabled == true)
+                        shadow.Compare(user, user.Path, System.Diagnostics.Stopwatch.GetTimestamp() - legacyStarted);
                     if (user.Path.Count > 1)
                     {
                         user.PathStep = 1;

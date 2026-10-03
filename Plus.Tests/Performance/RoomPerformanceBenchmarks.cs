@@ -76,12 +76,12 @@ internal sealed class RoomPerformanceFixture
     public List<RoomUser> Users { get; } = new();
     public List<FlashGameClient> Clients { get; } = new();
 
-    public static RoomPerformanceFixture Create(int botCount, int userCount)
+    public static RoomPerformanceFixture Create(int botCount, int userCount, int mapSize = 4)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var map = new Gamemap(room, new RoomModel("benchmark", 0, 0, 0, 0, "0000\r0000\r0000\r0000", false, 0, false));
-        var grid = new byte[4, 4];
-        for (var x = 0; x < 4; x++) for (var y = 0; y < 4; y++) grid[x, y] = 1;
+        var map = new Gamemap(room, new RoomModel("benchmark", 0, 0, 0, 0, string.Join('\r', Enumerable.Repeat(new string('0', mapSize), mapSize)), false, 0, false));
+        var grid = new byte[mapSize, mapSize];
+        for (var x = 0; x < mapSize; x++) for (var y = 0; y < mapSize; y++) grid[x, y] = 1;
         typeof(Gamemap).GetProperty(nameof(Gamemap.GameMap))!.SetValue(map, grid);
         var manager = new RoomUserManager(room);
         SetField(room, "_gamemap", map);
