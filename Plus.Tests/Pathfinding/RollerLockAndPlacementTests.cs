@@ -87,6 +87,32 @@ public partial class PlacedFurniRoomTests
         Assert.DoesNotContain(true, underLock);
     }
 
+    [Theory]
+    [InlineData(PathfindingEngine.Legacy)]
+    [InlineData(PathfindingEngine.V2)]
+    public void EarlierHookRotatingAHelperOntoAHigherFloorRejectsItsStaleGroup(PathfindingEngine engine)
+    {
+        Set("_gamemap", new Gamemap(_room, new RoomModel("roller-floor", 0, 0, 0, 0, "0000\r0002\r0000\r0000", false, 0, false)));
+        _room.GetGameMap().GenerateMaps();
+        PlannerRoller(5, 0, 3, 2); ExecutorFloor(40, 1, 3);
+        PlannerRoller(10, 1, 1, 2);
+        var helper = Add(20, 1, 1, z: .5, type: InteractionType.WalkMagicTile, length: 2);
+        InstallRollerChainEngine(engine);
+        var rider = PlannerActor(1, 0, 3, .5);
+        var fired = false;
+        PlannerObserveWalkOn(() =>
+        {
+            if (fired) return;
+            fired = true;
+            Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, helper, 1, 1, 2, false, false, false, height: helper.GetZ));
+        });
+        StartPlannerRollers(); ExecutorTick();
+        Assert.True(fired);
+        Assert.Equal((1, 3), (rider.X, rider.Y));
+        Assert.Equal((1, 1, .5, 2), (helper.GetX, helper.GetY, helper.GetZ, helper.Rotation));
+        Assert.Equal(1, PlannerSlides());
+    }
+
     // A guild gate away from the rollers makes every capability refresh consult group membership.
     private void PlannerObserveMembership(Action observe)
     {
