@@ -8,6 +8,7 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
     internal LandingEffects LandingEffects { get; } = landingEffects;
     internal FloorEffectService FloorEffects { get; } = floorEffects;
     internal MovementProfileService Profiles { get; } = profiles;
+    internal TransportLandingService TransportLandings { get; } = new(room);
     internal GeometryPublicationService Geometry { get; set; } = null!;
     internal ClaimLedger Claims { get; } = new(navigation.Grid.SlotCapacity, navigation.Grid.SlotCapacity);
     internal SearchScheduler<RoomUser> Scheduler { get; } = new();

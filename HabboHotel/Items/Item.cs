@@ -215,7 +215,7 @@ public class Item
     }
     
     [Obsolete("Will be removed in near future. @80O")]
-    public bool IsRoller { get; set; }
+    public bool IsRoller { get; }
 
     [Obsolete("Will be removed in near future. @80O")]
     public Point Coordinate => new(GetX, GetY);

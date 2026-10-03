@@ -442,7 +442,8 @@ public class RoomUser
     {
         if (GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
         {
-            navigation.Move(this, pX, pY, IsBot ? MoveOrigin.Bot : MoveOrigin.User);
+            navigation.Move(this, pX, pY, IsBot ? MoveOrigin.Bot : MoveOrigin.User,
+                TeleportEnabled ? MoveFlags.Teleport : MoveFlags.None);
             return;
         }
         if (TeleportEnabled)
