@@ -10,7 +10,7 @@ using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Rooms;
 
-public class Gamemap
+public partial class Gamemap
 {
     private ConcurrentDictionary<Point, List<uint>> _coordinatedItems;
     private double[,] _itemHeightMap;
@@ -1190,84 +1190,9 @@ public class Gamemap
     {
         if (user == null)
             return false;
-        if (!ValidTile(to.X, to.Y))
-            return false;
-        // Execution, not only path search. Temporary stress bots keep AllowOverride so
-        // crowded tiles stay usable. Walls and height still apply; only occupancy is ignored.
-        if (@override && user.BotData?.IsTemporary == true)
-            return IsValidBotStep(from, to, endOfPath);
-        if (@override)
-            return true;
-        if (!ValidTile(from.X, from.Y) || !TilesTouching(from.X, from.Y, to.X, to.Y) || !ValidCorner(from, to))
-            return false;
-        /*
-         * 0 = blocked
-         * 1 = open
-         * 2 = last step
-         * 3 = door
-         * */
-        var items = _room.GetGameMap().GetAllRoomItemForSquare(to.X, to.Y);
-        if (items.Count > 0 && WalkMagicAt(to.X, to.Y) == null)
-        {
-            var hasGroupGate = items.ToList().Count(x => x.Definition.InteractionType == InteractionType.GuildGate) > 0;
-            if (hasGroupGate)
-            {
-                var I = items.FirstOrDefault(x => x.Definition.InteractionType == InteractionType.GuildGate);
-                if (I != null)
-                {
-                    if (!PlusEnvironment.Game.GroupManager.TryGetGroup(I.GroupId, out var group))
-                        return false;
-                    if (user.GetClient() == null || user.GetClient().GetHabbo() == null)
-                        return false;
-                    if (group.IsMember(user.GetClient().GetHabbo().Id))
-                    {
-                        I.InteractingUser = user.GetClient().GetHabbo().Id;
-                        I.LegacyDataString = "1";
-                        I.UpdateState(false, true);
-                        I.RequestUpdate(4, true);
-                        return true;
-                    }
-                    if (user.Path.Count > 0)
-                        user.Path.Clear();
-                    user.PathRecalcNeeded = false;
-                    return false;
-                }
-            }
-        }
-        var chair = false;
-        double highestZ = -1;
-        foreach (var item in items.ToList())
-        {
-            if (item == null)
-                continue;
-            if (item.GetZ < highestZ)
-            {
-                chair = false;
-                continue;
-            }
-            highestZ = item.GetZ;
-            if (item.Definition.IsSeat)
-                chair = true;
-        }
-        if (GameMap[to.X, to.Y] == 3 && !endOfPath && !chair || GameMap[to.X, to.Y] == 0 || GameMap[to.X, to.Y] == 2 && !endOfPath)
-        {
-            if (user.Path.Count > 0)
-                user.Path.Clear();
-            user.PathRecalcNeeded = true;
-            return false;
-        }
-        var heightDiff = SqAbsoluteHeight(to.X, to.Y) - SqAbsoluteHeight(from.X, from.Y);
-        if (heightDiff > 1.5 && !user.RidingHorse)
-            return false;
-
-        //Check this last, because ya.
-        var userx = _room.GetRoomUserManager().GetUserForSquare(to.X, to.Y);
-        if (userx != null)
-        {
-            if (!userx.IsWalking && endOfPath)
-                return false;
-        }
-        return true;
+        var check = IsValidStepPure(user, from, to, endOfPath, @override);
+        ApplyStepEffects(user, check);
+        return check.Ok;
     }
 
     public bool IsValidStep(Vector2D from, Vector2D to, bool endOfPath, bool overriding, bool roller = false, RoomUser? user = null)

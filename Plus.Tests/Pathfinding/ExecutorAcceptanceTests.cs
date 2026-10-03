@@ -48,7 +48,8 @@ public partial class PlacedFurniRoomTests
         Assert.True(first.Movement.HasIntent); Assert.True(second.Movement.HasIntent);
         Assert.False(first.HasStatus("mv")); Assert.False(second.HasStatus("mv"));
         ExecutorTick();
-        Assert.Equal(1, first.Movement.BlockReplans); Assert.Equal(1, second.Movement.BlockReplans);
+        Assert.Equal(RouteState.Suspect, first.Movement.Fallback.State); Assert.Equal(RouteState.Suspect, second.Movement.Fallback.State);
+        Assert.Equal(0, first.Movement.BlockReplans); Assert.Equal(0, second.Movement.BlockReplans);
         for (var tick = 0; tick < 12; tick++)
         { ExecutorTick(); Assert.NotEqual(first.Coordinate, second.Coordinate); }
         Assert.False(first.Movement.HasIntent); Assert.False(second.Movement.HasIntent);

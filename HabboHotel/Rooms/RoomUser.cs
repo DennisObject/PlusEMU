@@ -423,6 +423,7 @@ public class RoomUser
         PendingWalkSteps.Clear();
         PendingWalkOrigin = null;
         PendingWalkConsumesPath = false;
+        Movement.Fallback.Reset();
         Statusses.Remove("mv");
         GoalX = 0;
         GoalY = 0;
@@ -457,6 +458,7 @@ public class RoomUser
         }
         if (GetRoom().GetGameMap().SquareHasUsers(pX, pY) && !pOverride || Frozen)
             return;
+        LegacyRouteFallback.OnCommand(this);
         UnIdle();
         GoalX = pX;
         GoalY = pY;
