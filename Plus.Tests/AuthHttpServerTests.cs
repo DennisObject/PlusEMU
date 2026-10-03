@@ -201,6 +201,27 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PasswordHashingRoutesRunAFewAtATimeAndTheRestWait()
+    {
+        var hold = new TaskCompletionSource();
+        _accounts.HoldLookups = hold.Task;
+        await Start(c => c.MaxConcurrentPasswordChecks = 1);
+
+        var login = Post("/api/auth/login", new { username = "Dennis", password = "x" });
+        await _accounts.LookupStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var register = Post("/api/auth/register", new { username = "Waiting", email = "waiting@example.com", password = "long enough" });
+        Assert.Equal(HttpStatusCode.OK, (await _http.GetAsync("/api/health")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Post("/api/auth/check-username", new { username = "Fresh" })).StatusCode);
+        await Task.Delay(200);
+        Assert.False(register.IsCompleted);
+
+        hold.SetResult();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await login).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await register).StatusCode);
+    }
+
+    [Fact]
     public async Task UnexpectedFailuresAnswerWithAGenericJsonError()
     {
         _accounts.FailLookupsWith = new InvalidOperationException("Server=db;Password=secret");

@@ -36,6 +36,7 @@
         "SsoTicketLifetimeSeconds": 300,
         "AccessTokenLifetimeMinutes": 1440,
         "RequestsPerMinute": 60,
+        "MaxConcurrentPasswordChecks": 4,
         "FailedLoginWindowMinutes": 15,
         "MaxFailedLoginsPerAccount": 10,
         "MaxFailedLoginsPerAddress": 30,

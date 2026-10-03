@@ -61,7 +61,13 @@ public class LoginThrottle : ILoginThrottle
 
     private bool Expired(Window window) => _time.GetUtcNow() - window.Start >= _window;
 
-    private static string AccountKey(string username) => "u:" + username.Trim().ToLowerInvariant();
+    // users.username holds at most 125 characters; longer input cannot name an account and is
+    // cut so a flood of huge names cannot bloat the table.
+    private static string AccountKey(string username)
+    {
+        var name = username.Trim().ToLowerInvariant();
+        return "u:" + (name.Length > 125 ? name[..125] : name);
+    }
     private static string AddressKey(string address) => "a:" + address;
 
     private sealed record Window(DateTimeOffset Start, int Count);

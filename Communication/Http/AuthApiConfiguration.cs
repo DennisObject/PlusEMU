@@ -18,6 +18,10 @@ public class AuthApiConfiguration
     /// <summary>Requests per minute per client IP across /api/auth.</summary>
     public int RequestsPerMinute { get; set; } = 60;
 
+    /// <summary>Login and register requests hashing passwords at once (each Argon2id check uses
+    /// about 19 MiB). Further requests wait in line.</summary>
+    public int MaxConcurrentPasswordChecks { get; set; } = 4;
+
     public int FailedLoginWindowMinutes { get; set; } = 15;
     public int MaxFailedLoginsPerAccount { get; set; } = 10;
     public int MaxFailedLoginsPerAddress { get; set; } = 30;

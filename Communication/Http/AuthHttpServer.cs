@@ -125,6 +125,15 @@ public class AuthHttpServer : IAuthHttpServer
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         options.OnRejected = (context, _) => new(WriteError(context.HttpContext, StatusCodes.Status429TooManyRequests, AuthEndpoints.TooManyAttempts));
+        // Bounds the memory Argon2id can take under a burst; other routes are not limited here.
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context => HashesPasswords(context.Request.Path)
+            ? RateLimitPartition.GetConcurrencyLimiter("password", _ => new ConcurrencyLimiterOptions
+            {
+                PermitLimit = _configuration.MaxConcurrentPasswordChecks,
+                QueueLimit = 100,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            })
+            : RateLimitPartition.GetNoLimiter(""));
         options.AddPolicy(RateLimitPolicy, context => RateLimitPartition.GetFixedWindowLimiter(ClientAddress(context), _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = _configuration.RequestsPerMinute,
@@ -132,6 +141,9 @@ public class AuthHttpServer : IAuthHttpServer
             QueueLimit = 0
         }));
     }
+
+    private static bool HashesPasswords(PathString path) =>
+        path.Equals("/api/auth/login", StringComparison.OrdinalIgnoreCase) || path.Equals("/api/auth/register", StringComparison.OrdinalIgnoreCase);
 
     private static Task AddSecurityHeaders(HttpContext context, Func<Task> next)
     {
