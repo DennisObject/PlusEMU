@@ -217,6 +217,41 @@ public partial class PlacedFurniRoomTests
         Assert.NotNull(floor);
     }
 
+    [Theory]
+    [InlineData(InteractionType.VendingMachine)]
+    [InlineData(InteractionType.Teleport)]
+    [InlineData(InteractionType.Hopper)]
+    public void RugPlacedOnTheApproachTileJustBeforeTheClickStillStartsOnArrival(InteractionType kind)
+    {
+        var item = ApproachFixture(kind);
+        var actor = ApproachActor(3, 0);
+        ExecutorFloor(20, 1, 0);
+        item.Interactor.OnTrigger(_client, item, 0, true);
+        WalkToLanding(actor, 4);
+        Assert.Equal(item.SquareInFront, actor.Coordinate);
+        Assert.Equal(7, item.InteractingUser);
+    }
+
+    [Theory]
+    [InlineData(InteractionType.VendingMachine)]
+    [InlineData(InteractionType.Teleport)]
+    [InlineData(InteractionType.Hopper)]
+    public void StateChangeBetweenPublishAndIntakeCancelsTheApproach(InteractionType kind)
+    {
+        var item = ApproachFixture(kind);
+        var actor = ApproachActor(3, 0);
+        item.Interactor.OnTrigger(_client, item, 0, true);
+        item.UpdateState(false, true);
+        WalkToLanding(actor, 3);
+        Assert.Equal(item.SquareInFront, actor.Coordinate);
+        Assert.Equal(0, item.InteractingUser); Assert.Equal("0", item.LegacyDataString);
+        Assert.True(actor.CanWalk); Assert.Null(Approaches.Peek(actor));
+    }
+
+    [Fact]
+    public void BareSettingsRecordDefaultsApproachAutoInteractOn()
+        => Assert.True(new PathfindingSettings().ApproachAutoInteract);
+
     [Fact]
     public void NewerCommandConsumedWithoutAnApproachReplacesTheBoundIntent()
     {
