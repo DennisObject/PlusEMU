@@ -108,7 +108,7 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
-    public void RollerPreservesLegacyTransportWhenDormantDestinationClearanceDoesNotBlockCargo()
+    public void RollerTransportsActorWhenDestinationCargoRollsAwayThisCycle()
     {
         ExecutorRoller(10, 0, 1); ExecutorRoller(11, 1, 1);
         var cargo = ExecutorFloor(12, 1, 1, z: 1, height: 1);
@@ -122,7 +122,7 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
-    public void LegacyRollerLoopCharacterizesDormantClearanceAndRetainedCarryZ()
+    public void LegacyRollerChainClearsDestinationCargoAndRetainsCarryZ()
     {
         ExecutorRoller(10, 0, 1); ExecutorRoller(11, 1, 1);
         var cargo = ExecutorFloor(12, 1, 1, z: 1, height: 1);

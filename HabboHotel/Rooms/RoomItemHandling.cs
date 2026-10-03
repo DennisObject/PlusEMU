@@ -7,6 +7,7 @@ using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Rooms.Rollers;
 
 namespace Plus.HabboHotel.Rooms;
 
@@ -57,11 +58,9 @@ public class RoomItemHandling
     }
 
     private readonly ConcurrentDictionary<uint, Item> _movedItems;
-    private readonly List<uint> _rollerItemsMoved;
-    private readonly List<IServerPacket> _rollerMessages;
 
     private readonly ConcurrentDictionary<uint, Item> _rollers;
-    private readonly List<int> _rollerUsersMoved;
+    private RollerCycle? _legacyRollerCycle;
     private readonly Room _room;
     private readonly ConcurrentDictionary<uint, Item> _wallItems;
     private int _mRollerCycle;
@@ -82,9 +81,6 @@ public class RoomItemHandling
         _rollers = new();
         _wallItems = new();
         _floorItems = new();
-        _rollerItemsMoved = new();
-        _rollerUsersMoved = new();
-        _rollerMessages = new();
         _roomItemUpdateQueue = new();
     }
 
@@ -313,106 +309,19 @@ public class RoomItemHandling
         _room.GetRoomUserManager().UpdateUserStatusses();
     }
 
-    private List<IServerPacket> CycleRollers()
+    // Both engines share the §14.9 planner; each group sends its own slides before its hooks run.
+    private void CycleRollers()
     {
-        if (_room.GetGameMap().Navigation?.UsesExecutor == true) return CycleV2Rollers();
-        if (!GotRollers)
-            return new();
-        if (_mRollerCycle >= _mRollerSpeed || _mRollerSpeed == 0)
-        {
-            _rollerItemsMoved.Clear();
-            _rollerUsersMoved.Clear();
-            _rollerMessages.Clear();
-            List<Item> itemsOnRoller;
-            List<Item> itemsOnNext;
-            foreach (var roller in _rollers.Values.ToList())
-            {
-                if (roller == null)
-                    continue;
-                var nextSquare = roller.SquareInFront;
-                itemsOnRoller = _room.GetGameMap().GetRoomItemForSquare(roller.GetX, roller.GetY, roller.GetZ);
-                itemsOnNext = _room.GetGameMap().GetAllRoomItemForSquare(nextSquare.X, nextSquare.Y).ToList();
-                if (itemsOnRoller.Count > 10)
-                    itemsOnRoller = _room.GetGameMap().GetRoomItemForSquare(roller.GetX, roller.GetY, roller.GetZ).Take(10).ToList();
-                var nextSquareIsRoller = itemsOnNext.Count(x => x.Definition.InteractionType == InteractionType.Roller) > 0;
-                var nextRollerClear = true;
-                var nextZ = 0.0;
-                var nextRoller = false;
-                foreach (var item in itemsOnNext.ToList())
-                {
-                    if (item.IsRoller)
-                    {
-                        if (item.TotalHeight > nextZ)
-                            nextZ = item.TotalHeight;
-                        nextRoller = true;
-                    }
-                }
-                if (nextRoller)
-                {
-                    foreach (var item in itemsOnNext.ToList())
-                    {
-                        if (item.TotalHeight > nextZ)
-                            nextRollerClear = false;
-                    }
-                }
-                if (itemsOnRoller.Count > 0)
-                {
-                    foreach (var rItem in itemsOnRoller.ToList())
-                    {
-                        if (rItem == null)
-                            continue;
-                        if (!_rollerItemsMoved.Contains(rItem.Id) && _room.GetGameMap().CanRollItemHere(nextSquare.X, nextSquare.Y) && nextRollerClear && roller.GetZ < rItem.GetZ &&
-                            _room.GetRoomUserManager().GetUserForSquare(nextSquare.X, nextSquare.Y) == null)
-                        {
-                            if (!nextSquareIsRoller)
-                                nextZ = rItem.GetZ - roller.Definition.Height;
-                            else
-                                nextZ = rItem.GetZ;
-                            _rollerMessages.Add(UpdateItemOnRoller(rItem, nextSquare, roller.Id, nextZ));
-                            _rollerItemsMoved.Add(rItem.Id);
-                        }
-                    }
-                }
-                var rollerUser = _room.GetGameMap().GetRoomUsers(roller.Coordinate).FirstOrDefault();
-                if (rollerUser != null && !rollerUser.IsWalking && nextRollerClear &&
-                    _room.GetGameMap().IsValidStep(new(roller.GetX, roller.GetY), new(nextSquare.X, nextSquare.Y), true, false, true) &&
-                    _room.GetGameMap().CanRollItemHere(nextSquare.X, nextSquare.Y) && _room.GetGameMap().GetFloorStatus(nextSquare) != 0)
-                {
-                    if (!_rollerUsersMoved.Contains(rollerUser.HabboId))
-                    {
-                        if (!nextSquareIsRoller)
-                            nextZ = rollerUser.Z - roller.Definition.Height;
-                        else
-                            nextZ = rollerUser.Z;
-                        rollerUser.IsRolling = true;
-                        rollerUser.RollerDelay = 1;
-                        _rollerMessages.Add(UpdateUserOnRoller(rollerUser, nextSquare, roller.Id, nextZ));
-                        _rollerUsersMoved.Add(rollerUser.HabboId);
-                    }
-                }
-            }
-            _mRollerCycle = 0;
-            return _rollerMessages;
-        }
-        _mRollerCycle++;
-        return new();
-    }
-
-    private List<IServerPacket> CycleV2Rollers()
-    {
-        if (!GotRollers) return new();
         if (_mRollerCycle < _mRollerSpeed && _mRollerSpeed != 0)
         {
             _mRollerCycle++;
-            return new();
+            return;
         }
-        _rollerItemsMoved.Clear();
-        _rollerUsersMoved.Clear();
-        _rollerMessages.Clear();
-        new RollerCycle(_room, this, _rollerItemsMoved, _rollerUsersMoved, _rollerMessages)
-            .Run(_rollers.Values.ToList());
+        var cycle = _room.GetGameMap().Navigation is { UsesExecutor: true } navigation
+            ? navigation.Executor.Rollers
+            : _legacyRollerCycle ??= new(_room, new LegacyRollerTransport(_room, this));
+        cycle.Run(_rollers.Values.ToList());
         _mRollerCycle = 0;
-        return _rollerMessages;
     }
 
     public IServerPacket UpdateItemOnRoller(Item pItem, Point nextCoord, uint pRolledId, double nextZ)
@@ -431,19 +340,22 @@ public class RoomItemHandling
         pUser.Y = pNextCoord.Y;
         pUser.Z = nextZ;
         _room.GetGameMap().GameMap[pUser.X, pUser.Y] = 0;
-        if (pUser != null && pUser.GetClient() != null && pUser.GetClient().GetHabbo() != null)
-        {
-            var items = _room.GetGameMap().GetRoomItemForSquare(pNextCoord.X, pNextCoord.Y);
-            foreach (var item in items.ToList())
-            {
-                if (item == null)
-                    continue;
-                _room.GetWired().TriggerEvent(WiredBoxType.TriggerWalkOnFurni, pUser.GetClient().GetHabbo(), item);
-            }
-            var roller = _room.GetRoomItemHandler().GetItem(pRollerId);
-            if (roller != null) _room.GetWired().TriggerEvent(WiredBoxType.TriggerWalkOffFurni, pUser.GetClient().GetHabbo(), roller);
-        }
+        TriggerRollerLanding(pUser, pNextCoord, pRollerId);
         return mMessage;
+    }
+
+    internal void TriggerRollerLanding(RoomUser user, Point destination, uint rollerId)
+    {
+        var habbo = user.GetClient()?.GetHabbo();
+        if (habbo == null) return;
+        foreach (var item in _room.GetGameMap().GetRoomItemForSquare(destination.X, destination.Y).ToList())
+        {
+            if (item == null)
+                continue;
+            _room.GetWired().TriggerEvent(WiredBoxType.TriggerWalkOnFurni, habbo, item);
+        }
+        var roller = GetItem(rollerId);
+        if (roller != null) _room.GetWired().TriggerEvent(WiredBoxType.TriggerWalkOffFurni, habbo, roller);
     }
 
     private void SaveFurniture()
@@ -598,36 +510,79 @@ public class RoomItemHandling
 
     public bool SetFloorItem(Item item, int newX, int newY, double newZ)
     {
-        if (_room == null || item.IsTemporary && (!OwnsTemporary(item)
-            || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanMoveItem(_room, item, newX, newY, item.Rotation, newZ)))
+        if (_room == null) return false;
+        FloorMove[] move;
+        // Validation, height resolution and the positional commit see one placement state.
+        lock (_room.GetGameMap().PlacementSync)
+        {
+            if (!CanMoveFloorItem(item, newX, newY, newZ)) return false;
+            move = [new(item, newX, newY, ResolveFloorZ(item, newX, newY, newZ))];
+            CommitFloorMoves(move);
+        }
+        SettleFloorMoves(move);
+        return true;
+    }
+
+    // Every rejection of the in-place furniture setter, evaluated without mutating anything.
+    internal bool CanMoveFloorItem(Item item, int newX, int newY, double newZ,
+        Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? collision = null)
+    {
+        if (item.IsTemporary && (!OwnsTemporary(item)
+            || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanMoveItem(_room, item, newX, newY, item.Rotation, newZ, collision: collision)))
             return false;
+        if (!MagicTileHeight.IsMagicTile(item.Definition.InteractionType)) return true;
+        var map = _room.GetGameMap();
+        return !MoveFootprint(item, newX, newY).Any(tile => !map.ValidTile(tile.X, tile.Y)
+            || tile.X == map.Model.DoorX && tile.Y == map.Model.DoorY && (newX != item.GetX || newY != item.GetY));
+    }
+
+    // The in-place setter's height adjustment: helpers are clamped to their footprint's floor.
+    internal double ResolveFloorZ(Item item, int newX, int newY, double newZ)
+    {
+        if (!MagicTileHeight.IsMagicTile(item.Definition.InteractionType)) return newZ;
+        var map = _room.GetGameMap();
+        var footprint = MoveFootprint(item, newX, newY).Where(tile => map.ValidTile(tile.X, tile.Y)).ToArray();
+        return footprint.Length == 0 ? newZ
+            : MagicTileHeight.Clamp(newZ, footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]));
+    }
+
+    // Map and position writes only. Callers hold PlacementSync from their CanMoveFloorItem preflight on.
+    internal void CommitFloorMoves(IReadOnlyList<FloorMove> moves)
+    {
         var map = _room.GetGameMap();
         lock (map.PlacementSync)
         {
-            if (MagicTileHeight.IsMagicTile(item.Definition.InteractionType))
+            foreach (var move in moves) map.RemoveFromMap(move.Item, false);
+            foreach (var move in moves)
             {
-                var footprint = Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, item.Rotation)
-                    .Values.Select(tile => new Point(tile.X, tile.Y)).Append(new Point(newX, newY)).Distinct().ToArray();
-                if (footprint.Any(tile => !map.ValidTile(tile.X, tile.Y)
-                    || tile.X == map.Model.DoorX && tile.Y == map.Model.DoorY
-                        && (newX != item.GetX || newY != item.GetY))) return false;
-                newZ = MagicTileHeight.Clamp(newZ, footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]));
+                var item = move.Item;
+                item.SetState(move.X, move.Y, move.Z, Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, move.X, move.Y, item.Rotation));
+                map.AddItemToMap(item, false);
             }
-            map.RemoveFromMap(item, false);
-            item.SetState(newX, newY, newZ, Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, newX, newY, item.Rotation));
-            map.AddItemToMap(item, false);
         }
-        map.RemoveItemEffects(item);
-        map.AddItemEffects(item);
-        if (item.Definition.InteractionType == InteractionType.Toner)
-            if (_room.TonerData == null)
-                _room.TonerData = new(item.Id);
-        UpdateItem(item);
-        map.FlushPlacementUpdates();
-        if (item.Definition.InteractionType == InteractionType.WalkMagicTile)
-            _room.GetRoomUserManager().UpdateUserStatusses();
-        return true;
     }
+
+    // Deferred effects, persistence, placement flush and posture refresh, once for the whole set.
+    internal void SettleFloorMoves(IReadOnlyList<FloorMove> moves)
+    {
+        if (moves.Count == 0) return;
+        var map = _room.GetGameMap();
+        foreach (var item in moves.Select(move => move.Item))
+        {
+            map.RemoveItemEffects(item);
+            map.AddItemEffects(item);
+            if (item.Definition.InteractionType == InteractionType.Toner && _room.TonerData == null)
+                _room.TonerData = new(item.Id);
+            UpdateItem(item);
+        }
+        map.FlushPlacementUpdates();
+        if (moves.Any(move => move.Item.Definition.InteractionType == InteractionType.WalkMagicTile))
+            _room.GetRoomUserManager().UpdateUserStatusses();
+    }
+
+    private static IEnumerable<Point> MoveFootprint(Item item, int x, int y)
+        => Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, x, y, item.Rotation)
+            .Values.Select(tile => new Point(tile.X, tile.Y)).Append(new Point(x, y)).Distinct();
 
     public bool SetWallItem(GameClient session, Item item)
     {
@@ -685,7 +640,7 @@ public class RoomItemHandling
         {
             try
             {
-                _room.SendPacket(CycleRollers());
+                CycleRollers();
             }
             catch //(Exception e)
             {
@@ -854,9 +809,8 @@ public class RoomItemHandling
         _wallItems.Clear();
         _floorItems.Clear();
         _temporaryItems.Clear();
-        _rollerItemsMoved.Clear();
-        _rollerUsersMoved.Clear();
-        _rollerMessages.Clear();
         _roomItemUpdateQueue = null;
     }
 }
+
+internal readonly record struct FloorMove(Item Item, int X, int Y, double Z);

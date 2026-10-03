@@ -19,14 +19,21 @@ internal sealed class ForcePlacementService(Room room, RoomNavigation navigation
     }
     public void Place(RoomUser actor, RoomCommand command)
     {
-        cancellation.Cancel(actor, command.CommandSequence);
-        room.GetGameMap().RemoveUserFromMap(actor, new(actor.X, actor.Y));
-        actor.InitializePosition(command.X, command.Y, command.Z);
-        actor.GoalX = command.X; actor.GoalY = command.Y;
-        actor.Movement.LocationRevision++;
+        Relocate(actor, command.X, command.Y, command.Z, command.CommandSequence);
         Bind(actor, command.Z, command.Resolution);
-        room.GetGameMap().AddUserToMap(actor, new(actor.X, actor.Y));
         context.RefreshMembership(actor);
+    }
+
+    // Moves the actor without binding a surface; callers bind after publishing the final geometry.
+    internal void Relocate(RoomUser actor, int x, int y, double z, long sequence)
+    {
+        cancellation.Cancel(actor, sequence);
+        room.GetGameMap().RemoveUserFromMap(actor, new(actor.X, actor.Y));
+        actor.InitializePosition(x, y, z);
+        actor.GoalX = x; actor.GoalY = y;
+        actor.Movement.LocationRevision++;
+        actor.Movement.CurrentRef = null; actor.Movement.SupportZ = z;
+        room.GetGameMap().AddUserToMap(actor, new(x, y));
         actor.UpdateNeeded = true;
     }
     internal void Bind(RoomUser actor, double z, ForceResolution resolution)

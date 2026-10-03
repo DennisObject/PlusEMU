@@ -441,6 +441,20 @@ public partial class Gamemap
         _roamTargets = null;
     }
 
+    // The walkability an item writes when it is the top of its cell: 1 walkable or an open floor
+    // gate, 3 seat/bed/small tent, otherwise 0 (blocked).
+    internal byte ItemWalkState(Item item)
+    {
+        if (item.Definition.Walkable) return 1;
+        if (item.GetZ <= Model.SqFloorHeight[item.GetX, item.GetY] + 0.1 && item.Definition.InteractionType == InteractionType.Gate
+            && item.LegacyDataString == "1") return 1;
+        return item.Definition.IsSeat || item.Definition.InteractionType is InteractionType.Bed or InteractionType.TentSmall
+            ? (byte)3 : (byte)0;
+    }
+
+    // Walkability without avatars: furniture plus explicit floor-status writes, until the cell is rebuilt.
+    internal byte StructuralState(Point tile) => StructuralTile(tile.X, tile.Y);
+
     private byte StructuralTile(int x, int y)
     {
         var map = _structuralMap ?? GameMap;
@@ -486,6 +500,7 @@ public partial class Gamemap
 
     private void SetDefaultValue(int x, int y)
     {
+        Navigation?.ReleaseFloorStatus(x, y);
         GameMap[x, y] = 0;
         EffectMap[x, y] = 0;
         _itemHeightMap[x, y] = 0.0;
@@ -523,6 +538,7 @@ public partial class Gamemap
     private void GenerateMapsCore(bool checkLines)
     {
         Navigation?.Inputs.MarkAllDirty();
+        Navigation?.ReleaseFloorStatuses();
         var maxX = 0;
         var maxY = 0;
         _coordinatedItems = new();
@@ -657,6 +673,7 @@ public partial class Gamemap
             var walkMagic = WalkMagicAt(coord.X, coord.Y);
             if (walkMagic != null)
             {
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 GameMap[coord.X, coord.Y] = 1;
                 _itemHeightMap[coord.X, coord.Y] = walkMagic.GetZ - Model.SqFloorHeight[coord.X, coord.Y];
                 EffectMap[coord.X, coord.Y] = 0;
@@ -688,29 +705,18 @@ public partial class Gamemap
                 }
 
                 //SwimHalloween
-                if (item.Definition.Walkable) // If this item is walkable and on the floor, allow users to walk here.
-                {
-                    if (GameMap[coord.X, coord.Y] != 3)
-                        GameMap[coord.X, coord.Y] = 1;
-                }
-                else if (item.GetZ <= Model.SqFloorHeight[item.GetX, item.GetY] + 0.1 && item.Definition.InteractionType == InteractionType.Gate &&
-                         item.LegacyDataString == "1") // If this item is a gate, open, and on the floor, allow users to walk here.
-                {
-                    if (GameMap[coord.X, coord.Y] != 3)
-                        GameMap[coord.X, coord.Y] = 1;
-                }
-                else if (item.Definition.IsSeat || item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall)
-                    GameMap[coord.X, coord.Y] = 3;
-                else // Finally, if it's none of those, block the square.
-                {
-                    if (GameMap[coord.X, coord.Y] != 3)
-                        GameMap[coord.X, coord.Y] = 0;
-                }
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
+                var state = ItemWalkState(item);
+                if (state == 3 || GameMap[coord.X, coord.Y] != 3)
+                    GameMap[coord.X, coord.Y] = state;
             }
 
             // Set bad maps
             if (item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall)
+            {
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 GameMap[coord.X, coord.Y] = 3;
+            }
             WriteStructural(coord.X, coord.Y, GameMap[coord.X, coord.Y]);
         }
         catch (Exception e)
