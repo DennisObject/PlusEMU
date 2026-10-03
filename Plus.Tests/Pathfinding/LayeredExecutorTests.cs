@@ -129,7 +129,7 @@ public partial class PlacedFurniRoomTests
         ExecutorFloor(22, 2, 1);
         var actor = LayeredActor(2, 1);
         var floor = actor.Movement.CurrentRef;
-        var deck = ExecutorFloor(21, 2, 1, z: 2); ExecutorTick();
+        var deck = LayeredFloorOnto(21, 2, 1, 2); ExecutorTick();
         Assert.Equal((0d, floor), (actor.Z, actor.Movement.CurrentRef));
         actor.SetPos(2, 1, 2); ExecutorTick();
         var deckSlot = LayeredNavigation.Grid.SlotOf(actor.Movement.CurrentRef!.Value);
@@ -147,7 +147,7 @@ public partial class PlacedFurniRoomTests
     {
         var actor = LayeredActor(3, 2);
         LayeredNavigation.Compiler.SurfacePinned = _ => true;
-        for (uint id = 40; id < 44; id++) { ExecutorFloor(id, 3, 2, z: (id - 39) * 2); ExecutorTick(); }
+        for (uint id = 40; id < 44; id++) { LayeredFloorOnto(id, 3, 2, (id - 39) * 2); ExecutorTick(); }
         Assert.Equal(4, LayeredNavigation.Grid.SurfaceCount(LayeredTile(3, 2)));
         Assert.Null(actor.Movement.CurrentRef);
         Assert.Equal((3, 2, 0d), (actor.X, actor.Y, actor.Z));
@@ -257,6 +257,14 @@ public partial class PlacedFurniRoomTests
         ExecutorFloor(20, 1, 1, height: 1);
         ExecutorFloor(22, 2, 1);
         ExecutorFloor(21, 2, 1, z: 2);
+    }
+
+    // Legacy placement refuses tiles with users, so furniture arrives above an actor by a direct move.
+    private Item LayeredFloorOnto(uint id, int x, int y, double z)
+    {
+        var item = ExecutorFloor(id, 3, 0, z: z);
+        Assert.True(_room.GetRoomItemHandler().SetFloorItem(item, x, y, z));
+        return item;
     }
 
     private RoomUser LayeredActor(int x, int y)
