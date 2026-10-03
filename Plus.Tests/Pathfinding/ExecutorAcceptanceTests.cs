@@ -74,6 +74,21 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
+    public void ExecutorDeferredReplacementRemovesTheCommittedMvWhileItsSearchWaits()
+    {
+        var first = ExecutorConfiguredActor(new() { Engine = PathfindingEngine.V2,
+            MaxExpansionsPerRoomTick = 1 });
+        var second = AcceptanceBot(0, 2, 2); ExecutorTick();
+        first.MoveTo(3, 1); second.MoveTo(3, 2); ExecutorTick();
+        Assert.Equal("1,1,0", first.Statusses["mv"]);
+        first.MoveTo(3, 1); ExecutorTick();
+        Assert.Equal((1, 1), (first.X, first.Y)); Assert.True(first.Movement.HasIntent);
+        Assert.Equal(0, first.Movement.Route.Count); Assert.Equal(0, first.Movement.PendingCount);
+        Assert.False(first.HasStatus("mv"));
+        Assert.DoesNotContain("/mv ", ExecutorUpdate(first).Status);
+    }
+
+    [Fact]
     public void ExecutorPendingAdmissionActorInTheRosterIsSkippedUntilAdmissionDrains()
     {
         ExecutorActor(0, 1);
