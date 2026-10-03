@@ -504,3 +504,91 @@ public partial class PlacedFurniRoomTests
         Assert.NotEqual($"m{(char)5}.ch-1{(char)5}Default", mannequin.LegacyDataString);
     }
 }
+
+// A toggle on a gate with a queued close cancels that close, so double-clicks net out as they do in legacy.
+public partial class PlacedFurniRoomTests
+{
+    private void ClickFromPacketThread(Item gate)
+        => Task.Run(() => new InteractorGate().OnTrigger(_client, gate, 0, true)).Wait();
+
+    [Fact]
+    public void GateTwoPacketThreadClicksInOneTickLeaveAnOpenGateOpen()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        ClickFromPacketThread(gate);
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(1, Gates.PendingCount);
+        ClickFromPacketThread(gate);
+        Assert.Equal(0, Gates.PendingCount);
+        ExecutorTick();
+        Assert.Equal("1", gate.LegacyDataString);
+    }
+
+    [Fact]
+    public void GateThreePacketThreadClicksInOneTickCloseTheGate()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        ClickFromPacketThread(gate); ClickFromPacketThread(gate); ClickFromPacketThread(gate);
+        Assert.Equal(1, Gates.PendingCount);
+        ExecutorTick();
+        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateClickOnAClosedGateStillOpensImmediatelyAndTheNextClickQueuesTheClose()
+    {
+        var gate = ClosableGate(state: "0"); ActorOn(new Point(0, 2));
+        ClickFromPacketThread(gate);
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+        ClickFromPacketThread(gate);
+        Assert.Equal("1", gate.LegacyDataString); Assert.Equal(1, Gates.PendingCount);
+        ExecutorTick();
+        Assert.Equal("0", gate.LegacyDataString);
+    }
+
+    [Fact]
+    public void GateGenericSwitchTogglesCancelAQueuedCloseToo()
+    {
+        UseGameService("get_QuestManager", Proxy<IQuestManager>((_, _) => null));
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        Task.Run(() => new InteractorGenericSwitch().OnTrigger(_client, gate, 0, true)).Wait();
+        Assert.Equal(1, Gates.PendingCount);
+        Task.Run(() => new InteractorGenericSwitch().OnTrigger(_client, gate, 0, true)).Wait();
+        Assert.Equal(0, Gates.PendingCount);
+        ExecutorTick();
+        Assert.Equal("1", gate.LegacyDataString);
+    }
+
+    [Fact]
+    public void GateWiredToggleOnTheOwnerCancelsAPacketThreadClose()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        ClickFromPacketThread(gate);
+        Assert.Equal(1, Gates.PendingCount);
+        using (RoomOwnerScope.Enter(_room)) new InteractorGate().OnWiredTrigger(gate);
+        Assert.Equal(0, Gates.PendingCount); Assert.Equal("1", gate.LegacyDataString);
+        ExecutorTick();
+        Assert.Equal("1", gate.LegacyDataString);
+    }
+
+    [Fact]
+    public void GateQueuedAutomaticCloseSurvivesAClickWhichQueuesItsOwnClose()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        Assert.Equal(GateTransition.Queued, Task.Run(() => Gates.TryClose(gate, GateCloseReason.Automatic, "0", persist: false)).Result);
+        ClickFromPacketThread(gate);
+        Assert.Equal(2, Gates.PendingCount);
+        ExecutorTick();
+        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+
+    [Fact]
+    public void GateRepeatedExplicitCloseRequestsCoalesceIntoOne()
+    {
+        var gate = ClosableGate(); ActorOn(new Point(0, 2));
+        Task.Run(() => Gates.TryClose(gate, GateCloseReason.Wired, "0", persist: false)).Wait();
+        Task.Run(() => Gates.TryClose(gate, GateCloseReason.Wired, "0", persist: false)).Wait();
+        Assert.Equal(1, Gates.PendingCount);
+        ExecutorTick();
+        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+    }
+}
