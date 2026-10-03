@@ -16,4 +16,5 @@ internal sealed class RebindService(Room room, NavGrid Grid)
         }
         else state.CurrentRef = null;
         if (actor.Z != oldZ) actor.UpdateNeeded = true;
-    }}
+    }
+}

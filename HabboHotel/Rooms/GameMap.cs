@@ -277,6 +277,11 @@ public class Gamemap
     {
         if (item == null || user == null)
             return;
+        if (Navigation is { UsesExecutor: true } navigation)
+        {
+            navigation.ForcePlace(user, item.GetX, item.GetY, item.GetZ, ForceResolution.ExactZ);
+            return;
+        }
         GameMap[user.X, user.Y] = user.SqState;
         UpdateUserMovement(new(user.Coordinate.X, user.Coordinate.Y), new(item.Coordinate.X, item.Coordinate.Y), user);
         user.X = item.GetX;
@@ -301,8 +306,9 @@ public class Gamemap
 
     public void RemoveUserFromMap(RoomUser user, Point coord)
     {
-        if (_userMap.ContainsKey(coord))
-            _userMap[coord].RemoveAll(x => x != null && x.VirtualId == user.VirtualId);
+        if (!_userMap.TryGetValue(coord, out var users)) return;
+        if (Navigation?.UsesExecutor == true) users.RemoveAll(other => ReferenceEquals(other, user));
+        else users.RemoveAll(other => other != null && other.VirtualId == user.VirtualId);
     }
 
     public bool MapGotUser(Point coord) => GetRoomUsers(coord).Count > 0;

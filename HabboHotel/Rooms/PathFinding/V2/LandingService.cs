@@ -5,9 +5,14 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
     public void Land(RoomUser actor, SurfaceRef surface)
     {
         var state = actor.Movement; var revision = state.LocationRevision;
+        var wasLaying = actor.HasStatus("lay");
         var target = navigation.Grid.Position(surface.Tile);
         room.GetGameMap().UpdateUserMovement(new(actor.X, actor.Y), new(target.X, target.Y), actor);
-        foreach (var item in room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y)).ToList()) item.UserWalksOffFurni(actor);
+        foreach (var item in room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y)).ToList())
+        {
+            item.UserWalksOffFurni(actor);
+            if (state.LocationRevision != revision || state.State != NavState.Active) return;
+        }
         if (state.LocationRevision != revision || state.State != NavState.Active) return;
         actor.InitializePosition(target.X, target.Y, target.Z);
         state.CurrentRef = surface; state.SupportZ = target.Z;
@@ -18,9 +23,9 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
             room.GetRoomUserManager().RemoveUserFromRoom(actor.GetClient(), true);
             return;
         }
-        Arrive(actor, revision);
+        Arrive(actor, revision, wasLaying);
     }
-    private void Arrive(RoomUser actor, long revision)
+    private void Arrive(RoomUser actor, long revision, bool wasLaying)
     {
         var items = room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y)).ToList();
         foreach (var item in items)
@@ -34,6 +39,7 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
             if (actor.Movement.LocationRevision != revision || actor.Movement.State != NavState.Active) return;
         }
         PostureService.Apply(room, navigation.Grid, actor);
+        context.LandingEffects.Apply(actor, wasLaying);
         actor.UpdateNeeded = true;
     }
     private void MirrorHorse(RoomUser actor, NavPosition target)
@@ -41,6 +47,7 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
         if (!actor.RidingHorse || actor.IsBot) return;
         var horse = room.GetRoomUserManager().GetRoomUserByVirtualId(actor.HorseId);
         if (horse == null) return;
+        room.GetGameMap().UpdateUserMovement(new(horse.X, horse.Y), new(target.X, target.Y), horse);
         horse.InitializePosition(target.X, target.Y, target.Z);
         horse.Movement.SupportZ = target.Z; horse.Movement.CurrentRef = actor.Movement.CurrentRef;
         context.RefreshMembership(horse); horse.UpdateNeeded = true;
