@@ -448,14 +448,22 @@ public class Room : RoomData
 
     internal void SendPlacementUpdates(IReadOnlyList<HeightMapUpdateComposer.Tile> tiles)
     {
-        var clients = _roomUserManager?.GetRoomUsers().Select(user => user.GetClient()).Where(client => client != null).ToArray()
-            ?? Array.Empty<GameClient>();
-        var supportsDelta = clients.Where(client => client.Revision.InternalIdToOutgoingIdMapping.ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapUpdateComposer)).ToArray();
-        GameClient.SendBroadcast(new HeightMapUpdateComposer(tiles), supportsDelta);
-        // Older profiles retain their existing header mappings and receive a full stacking map.
-        var olderClients = clients.Except(supportsDelta).ToArray();
-        if (olderClients.Length > 0)
-            GameClient.SendBroadcast(new HeightMapComposer(GetGameMap().PlacementHeightMap()), olderClients);
+        try
+        {
+            var clients = _roomUserManager?.GetRoomUsers().Select(user => user.GetClient()).Where(client => client != null).ToArray()
+                ?? Array.Empty<GameClient>();
+            var supportsDelta = clients.Where(client => client.Revision.InternalIdToOutgoingIdMapping.ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapUpdateComposer)).ToArray();
+            GameClient.SendBroadcast(new HeightMapUpdateComposer(tiles), supportsDelta);
+            // Older profiles retain their existing header mappings and receive a full stacking map.
+            var olderClients = clients.Except(supportsDelta).Where(client => client.Revision.InternalIdToOutgoingIdMapping.ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapComposer)).ToArray();
+            if (olderClients.Length > 0)
+                GameClient.SendBroadcast(new HeightMapComposer(GetGameMap().PlacementHeightMap()), olderClients);
+        }
+        catch (Exception e)
+        {
+            // Like other room broadcasts, a failed send must not roll back a furniture mutation.
+            ExceptionLogger.LogException(e);
+        }
     }
 
     public void SendObjects(GameClient session)
