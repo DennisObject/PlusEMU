@@ -32,7 +32,7 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
     private sealed class Lane
     {
         public GateOperation? Active { get; set; }
-        public Queue<Entry> Pending { get; } = new();
+        public LinkedList<Entry> Pending { get; } = new();
     }
 
     private sealed class StateWrite(Item item, Func<string, string?> next, GateCloseReason reason, bool persist, Action<Item>? after)
@@ -193,18 +193,20 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
 
     private void Append(Lane lane, Item item, Action<GateOperation> run)
     {
-        lane.Pending.Enqueue(new(item, run));
+        lane.Pending.AddLast(new Entry(item, run));
         _order.Enqueue(item.Id);
     }
 
-    // Gives the operation back and queues the prepared work in one step, so nothing can pass it.
+    // Converts the operation into prepared owner work at the HEAD, ahead of everything that queued behind it
+    // while it evaluated, and gives the operation back in the same step so nothing can pass it.
     private void Requeue(GateOperation operation, Action<GateOperation> run)
     {
         lock (_sync)
         {
             var lane = LaneOf(operation.Item.Id);
             if (ReferenceEquals(lane.Active, operation)) lane.Active = null;
-            Append(lane, operation.Item, run);
+            lane.Pending.AddFirst(new Entry(operation.Item, run));
+            _order.Enqueue(operation.Item.Id);
         }
     }
 
@@ -231,7 +233,8 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
             if (!_lanes.TryGetValue(id, out var lane)) return;
             if (lane.Active != null) { _order.Enqueue(id); return; }
             if (lane.Pending.Count == 0) return;
-            entry = lane.Pending.Dequeue();
+            entry = lane.Pending.First!.Value;
+            lane.Pending.RemoveFirst();
             operation = lane.Active = new GateOperation(entry.Item);
         }
         try { entry.Run(operation); }
@@ -244,7 +247,8 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
         lock (_sync)
         {
             var lane = LaneOf(write.Item.Id);
-            if (lane.Active != null) { _retained[write.Item.Id] = write; return; }
+            // Not part of the FIFO, but it never commits ahead of an operation or an entry waiting for the gate.
+            if (lane.Active != null || lane.Pending.Count > 0) { _retained[write.Item.Id] = write; return; }
             operation = lane.Active = new GateOperation(write.Item);
         }
         try { RunState(write, operation); }
