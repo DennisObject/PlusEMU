@@ -676,6 +676,7 @@ public class RoomUserManager
         return false;
     }
 
+    private readonly LegacyRouteFallback _routeFallback = new();
     private IMovementEngine? _movementEngine;
     private IMovementEngine MovementEngine => _movementEngine ??=
         _room.GetGameMap().Navigation is { UsesExecutor: true } navigation
@@ -731,6 +732,7 @@ public class RoomUserManager
                 if (_room.GotFreeze())
                     _room.GetFreeze().CycleUser(user);
                 var invalidStep = false;
+                var holdAnnounce = false;
                 if (user.IsRolling)
                 {
                     if (user.RollerDelay <= 0)
@@ -743,8 +745,10 @@ public class RoomUserManager
                 }
                 if (user.SetStep)
                 {
-                    if (ValidPendingWalk(user))
+                    var ownRoute = user.PendingWalkConsumesPath;
+                    if (ValidPendingWalk(user, out var rejection))
                     {
+                        LegacyRouteFallback.OnStepCommitted(user);
                         if (!user.RidingHorse)
                             _room.GetGameMap().UpdateUserMovement(new(user.Coordinate.X, user.Coordinate.Y), new(user.SetX, user.SetY), user);
                         var coordinatedItems = _room.GetGameMap().GetCoordinatedItems(new(user.X, user.Y));
@@ -788,6 +792,8 @@ public class RoomUserManager
                     user.PendingWalkSteps.Clear();
                     user.PendingWalkOrigin = null;
                     user.PendingWalkConsumesPath = false;
+                    if (!rejection.Ok)
+                        ResolveCommitRejection(user, ownRoute, rejection, ref invalidStep, ref holdAnnounce);
                 }
                 if (user.PathRecalcNeeded)
                 {
@@ -814,37 +820,9 @@ public class RoomUserManager
                 if (user.IsWalking && !user.Freezed)
                 {
                     if (invalidStep || user.PathStep >= user.Path.Count || user.GoalX == user.X && user.GoalY == user.Y) //No path found, or reached goal (:
-                    {
-                        user.IsWalking = false;
+                        StopWalking(user);
+                    else if (holdAnnounce)
                         user.RemoveStatus("mv");
-                        if (user.Statusses.ContainsKey("sign"))
-                            user.RemoveStatus("sign");
-                        if (user.IsBot && user.BotData.TargetUser > 0)
-                        {
-                            if (user.CarryItemId > 0)
-                            {
-                                var target = _room.GetRoomUserManager().GetRoomUserByHabbo(user.BotData.TargetUser);
-                                if (target != null && Gamemap.TilesTouching(user.X, user.Y, target.X, target.Y))
-                                {
-                                    user.SetRot(Rotation.Calculate(user.X, user.Y, target.X, target.Y), false);
-                                    target.SetRot(Rotation.Calculate(target.X, target.Y, user.X, user.Y), false);
-                                    target.CarryItem(user.CarryItemId);
-                                }
-                            }
-                            user.CarryItem(0);
-                            user.BotData.TargetUser = 0;
-                        }
-                        if (user.RidingHorse && user.IsPet == false && !user.IsBot)
-                        {
-                            var mascotaVinculada = GetRoomUserByVirtualId(user.HorseId);
-                            if (mascotaVinculada != null)
-                            {
-                                mascotaVinculada.IsWalking = false;
-                                mascotaVinculada.RemoveStatus("mv");
-                                mascotaVinculada.UpdateNeeded = true;
-                            }
-                        }
-                    }
                     else
                     {
                         var from = new Vector2D(user.X, user.Y);
@@ -852,11 +830,11 @@ public class RoomUserManager
                         user.PendingWalkOrigin = from;
                         user.PendingWalkConsumesPath = true;
                         var steps = user.SuperFastWalking ? 3 : user.FastWalking ? 2 : 1;
+                        var announceRejection = default(LegacyStepCheck);
                         for (var i = 0; i < steps && user.PathStep < user.Path.Count; i++)
                         {
                             var next = user.Path[user.Path.Count - user.PathStep - 1];
-                            if (!Gamemap.TilesTouching(from.X, from.Y, next.X, next.Y) ||
-                                !_room.GetGameMap().IsValidStep2(user, from, next, user.GoalX == next.X && user.GoalY == next.Y, user.AllowOverride))
+                            if (!TryWalkStep(user, from, next, out announceRejection))
                                 break;
                             user.PendingWalkSteps.Add(next);
                             user.PathStep++;
@@ -958,6 +936,8 @@ public class RoomUserManager
                                     _room.GetGameMap().GameMap[nextX, nextY] = 1;
                             }
                         }
+                        else if (!announceRejection.Ok && !_routeFallback.OnBlocked(_room.GetGameMap(), user))
+                            StopWalking(user);
                     }
                     if (!user.RidingHorse)
                         user.UpdateNeeded = true;
@@ -1004,16 +984,78 @@ public class RoomUserManager
         }
     }
 
-    private bool ValidPendingWalk(RoomUser user)
+    private void StopWalking(RoomUser user)
     {
+        user.IsWalking = false;
+        user.RemoveStatus("mv");
+        if (user.Statusses.ContainsKey("sign"))
+            user.RemoveStatus("sign");
+        if (user.IsBot && user.BotData.TargetUser > 0)
+        {
+            if (user.CarryItemId > 0)
+            {
+                var target = _room.GetRoomUserManager().GetRoomUserByHabbo(user.BotData.TargetUser);
+                if (target != null && Gamemap.TilesTouching(user.X, user.Y, target.X, target.Y))
+                {
+                    user.SetRot(Rotation.Calculate(user.X, user.Y, target.X, target.Y), false);
+                    target.SetRot(Rotation.Calculate(target.X, target.Y, user.X, user.Y), false);
+                    target.CarryItem(user.CarryItemId);
+                }
+            }
+            user.CarryItem(0);
+            user.BotData.TargetUser = 0;
+        }
+        if (user.RidingHorse && user.IsPet == false && !user.IsBot)
+        {
+            var mascotaVinculada = GetRoomUserByVirtualId(user.HorseId);
+            if (mascotaVinculada != null)
+            {
+                mascotaVinculada.IsWalking = false;
+                mascotaVinculada.RemoveStatus("mv");
+                mascotaVinculada.UpdateNeeded = true;
+            }
+        }
+    }
+
+    // The actor's own route goes to the blocked-route fallback; mirrored movement keeps legacy effects.
+    private void ResolveCommitRejection(RoomUser user, bool ownRoute, LegacyStepCheck rejection,
+        ref bool invalidStep, ref bool holdAnnounce)
+    {
+        if (!ownRoute || user.PathRecalcNeeded || !user.IsWalking)
+        {
+            _room.GetGameMap().ApplyStepEffects(user, rejection);
+            return;
+        }
+        if (!_routeFallback.OnBlocked(_room.GetGameMap(), user))
+        {
+            invalidStep = true;
+            return;
+        }
+        holdAnnounce = invalidStep;
+        invalidStep = false;
+    }
+
+    private bool TryWalkStep(RoomUser user, Vector2D from, Vector2D to, out LegacyStepCheck check)
+    {
+        var map = _room.GetGameMap();
+        check = Gamemap.TilesTouching(from.X, from.Y, to.X, to.Y)
+            ? map.IsValidStepPure(user, from, to, user.GoalX == to.X && user.GoalY == to.Y, user.AllowOverride)
+            : new(LegacyStepRejection.NotAdjacent);
+        if (check.Ok)
+            map.ApplyStepEffects(user, check);
+        return check.Ok;
+    }
+
+    private bool ValidPendingWalk(RoomUser user, out LegacyStepCheck rejection)
+    {
+        rejection = default;
         var from = user.PendingWalkOrigin ?? new Vector2D(user.X, user.Y);
         if (user.PendingWalkSteps.Count == 0)
             return _room.GetGameMap().IsValidStep2(user, from, new(user.SetX, user.SetY), user.GoalX == user.SetX && user.GoalY == user.SetY, user.AllowOverride);
         var accepted = 0;
         foreach (var to in user.PendingWalkSteps)
         {
-            if (!Gamemap.TilesTouching(from.X, from.Y, to.X, to.Y) ||
-                !_room.GetGameMap().IsValidStep2(user, from, to, user.GoalX == to.X && user.GoalY == to.Y, user.AllowOverride))
+            if (!TryWalkStep(user, from, to, out rejection))
                 break;
             accepted++;
             from = to;

@@ -23,13 +23,21 @@ public static class PathFinder
     };
 
     public static List<Vector2D> FindPath(RoomUser user, bool diag, Gamemap map, Vector2D start, Vector2D end)
-        => FindPath(user, diag, map, start, end, null);
+        => FindPath(user, diag, map, start, end, null, null);
 
     internal static List<Vector2D> FindPath(RoomUser user, bool diag, Gamemap map, Vector2D start, Vector2D end, PathFinderMetrics? metrics)
+        => FindPath(user, diag, map, start, end, metrics, null);
+
+    // Blocked-route fallback: uncapped, and additionally rejects edges the admission check refuses.
+    internal static List<Vector2D> FindPath(RoomUser user, bool diag, Gamemap map, Vector2D start, Vector2D end,
+        Func<Vector2D, Vector2D, bool, bool> admit) => FindPath(user, diag, map, start, end, null, admit);
+
+    private static List<Vector2D> FindPath(RoomUser user, bool diag, Gamemap map, Vector2D start, Vector2D end,
+        PathFinderMetrics? metrics, Func<Vector2D, Vector2D, bool, bool>? admit)
     {
         if (metrics != null) metrics.Expansions = metrics.CanStepCalls = metrics.HeapOperations = 0;
         var path = new List<Vector2D>();
-        var nodes = FindPathReversed(user, diag, map, start, end, metrics);
+        var nodes = FindPathReversed(user, diag, map, start, end, metrics, admit);
         if (nodes != null)
         {
             path.Add(end);
@@ -43,10 +51,10 @@ public static class PathFinder
     }
 
     public static PathFinderNode FindPathReversed(RoomUser user, bool diag, Gamemap map, Vector2D start,
-        Vector2D end) => FindPathReversed(user, diag, map, start, end, null);
+        Vector2D end) => FindPathReversed(user, diag, map, start, end, null, null);
 
     private static PathFinderNode FindPathReversed(RoomUser user, bool diag, Gamemap map, Vector2D start,
-        Vector2D end, PathFinderMetrics? metrics)
+        Vector2D end, PathFinderMetrics? metrics, Func<Vector2D, Vector2D, bool, bool>? admit)
     {
         if (!map.ValidTile(start.X, start.Y) || !map.ValidTile(end.X, end.Y))
             return null;
@@ -71,7 +79,8 @@ public static class PathFinder
             {
                 var to = current.Position + offset;
                 if (metrics != null) metrics.CanStepCalls++;
-                if (!map.IsValidStep(current.Position, to, to.Equals(end), user.AllowOverride, false, user))
+                if (!map.IsValidStep(current.Position, to, to.Equals(end), user.AllowOverride, false, user)
+                    || admit != null && !admit(current.Position, to, to.Equals(end)))
                     continue;
                 var node = nodes[to.X, to.Y] ??= new PathFinderNode(to);
                 var cost = current.Cost + 1;
