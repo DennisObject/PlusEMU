@@ -39,6 +39,9 @@ public class Item
                 inputs.PublishCurrent(this);
     }
     internal int NavMutationDepth;
+    private long _stateGeneration;
+    // Bumped by every UpdateState; lets queued approach intents notice a state change that was never in a record.
+    internal long StateGeneration => Volatile.Read(ref _stateGeneration);
 
     public uint Id { get; set; }
     public bool IsTemporary { get; internal init; }
@@ -1303,6 +1306,7 @@ public class Item
             return;
         MagicTileHeight.Sync(this);
         PublishIfAttached(true);
+        Interlocked.Increment(ref _stateGeneration);
         GetRoom().GetGameMap()?.Navigation?.ItemStateChanged(Id);
         if (inDb)
             GetRoom().GetRoomItemHandler().UpdateItem(this);
