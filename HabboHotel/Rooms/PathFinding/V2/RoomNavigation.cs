@@ -43,7 +43,12 @@ public sealed partial class RoomNavigation
     {
         if (!Enabled && !UsesExecutor) return;
         try { Compiler.ApplyNow(); }
-        catch (Exception error) { Logger.Warn(error, "Pathfinding shadow compile failed for room {0}; legacy continues.", _room.RoomId); }
+        catch (Exception error)
+        {
+            Inputs.MarkAllDirty();
+            if (UsesExecutor) throw;
+            Logger.Warn(error, "Pathfinding shadow compile failed for room {0}; legacy continues.", _room.RoomId);
+        }
     }
     public void SetFloorStatus(int x, int y, byte status)
     {

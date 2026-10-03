@@ -14,8 +14,8 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
         { ClearCompletedAnnouncement(actor); ApplyIdleEffects(actor, committed); return; }
         if (actor.Freezed)
         { actor.RemoveStatus("mv"); actor.UpdateNeeded = true; ApplyIdleEffects(actor, committed); return; }
-        var target = BuildBatch(actor);
-        if (state.PendingCount == 0) { _blocked.Handle(actor); ApplyIdleEffects(actor, committed); return; }
+        var target = BuildBatch(actor, out var temporaryBlock);
+        if (state.PendingCount == 0) { _blocked.Handle(actor, temporaryBlock); ApplyIdleEffects(actor, committed); return; }
         Publish(actor, target);
     }
     private static void ClearCompletedAnnouncement(RoomUser actor)
@@ -24,8 +24,9 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
         if (actor.Movement.PendingCount != 0 || !actor.HasStatus("mv")) return;
         actor.RemoveStatus("mv"); actor.UpdateNeeded = true;
     }
-    private NavPosition BuildBatch(RoomUser actor)
+    private NavPosition BuildBatch(RoomUser actor, out bool temporaryBlock)
     {
+        temporaryBlock = false;
         var state = actor.Movement;
         var profile = context.Profiles.Refresh(actor);
         var from = new NavPosition(actor.X, actor.Y, state.SupportZ);
@@ -37,13 +38,26 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
             var target = navigation.Grid.Position(surface.Tile);
             var purpose = state.Origin == MoveOrigin.Interaction ? StepPurpose.Interaction
                 : i == state.Route.Count - 1 ? StepPurpose.Goal : StepPurpose.Transit;
-            if (!_rules.CanStep(profile, from, target, purpose, OccupancyView.Execution, context.OccupancyAt(actor, surface.Tile)).Ok) break;
-            var kind = ClaimKindFor(profile, surface, purpose);
-            var mask = ClaimMatrix.BlockingMask(profile, navigation.Grid.Flags[surface.Tile], purpose, OccupancyView.Execution);
-            if (!context.Claims.TryClaim(actor, surface.Tile, kind, mask)) break;
+            if (!ClaimStep(actor, profile, from, target, surface, purpose, out temporaryBlock)) break;
             state.Pending[state.PendingCount++] = surface; from = target;
         }
         return from;
+    }
+    private bool ClaimStep(RoomUser actor, ActorProfile profile, NavPosition from, NavPosition target,
+        SurfaceRef surface, StepPurpose purpose, out bool temporaryBlock)
+    {
+        temporaryBlock = false;
+        var occupancy = context.OccupancyAt(actor, surface.Tile);
+        var mask = ClaimMatrix.BlockingMask(profile, navigation.Grid.Flags[surface.Tile], purpose, OccupancyView.Execution);
+        var result = _rules.CanStep(profile, from, target, purpose, OccupancyView.Execution, occupancy);
+        if (!result.Ok)
+        {
+            var blockers = occupancy.Targets[surface.Tile] & mask;
+            var transient = TargetOccupancy.Walking | TargetOccupancy.ExclusiveClaim | TargetOccupancy.GoalClaim | TargetOccupancy.SharedClaim;
+            temporaryBlock = result.Reason == StepReason.Occupied && (blockers & ~transient) == 0;
+            return false;
+        }
+        return context.Claims.TryClaim(actor, surface.Tile, ClaimKindFor(profile, surface, purpose), mask);
     }
     private void ApplyIdleEffects(RoomUser actor, bool committed)
     {

@@ -23,7 +23,7 @@ internal class MoveAvatarEvent : IPacketEvent
             room.GetWired().Dispatch(new(WiredEventKind.ClickTile) { Actor = user, X = moveX, Y = moveY });
         if (!user.CanWalk || moveX == user.X && moveY == user.Y)
             return Task.CompletedTask;
-        if (user.RidingHorse)
+        if (user.RidingHorse && room.GetGameMap().Navigation?.UsesExecutor != true)
         {
             var horse = room.GetRoomUserManager().GetRoomUserByVirtualId(user.HorseId);
             if (horse != null)

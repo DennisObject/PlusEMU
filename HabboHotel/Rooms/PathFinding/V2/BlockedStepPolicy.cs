@@ -9,14 +9,14 @@ internal sealed class BlockedStepPolicy(PathfindingSettings settings, MovementCo
         { state.StallTicks = 0; return; }
         if (++state.StallTicks >= settings.MaxWalkStallTicks) cancellation.Cancel(actor);
     }
-    public void Handle(RoomUser actor)
+    public void Handle(RoomUser actor, bool temporaryBlock)
     {
         var state = actor.Movement;
         actor.RemoveStatus("mv"); actor.UpdateNeeded = true;
         state.WaitTicks++;
         if (state.BlockReplans >= settings.MaxBlockReplans)
         { cancellation.Cancel(actor); return; }
-        if (state.WaitTicks <= settings.BlockWaitTicks) return;
+        if (temporaryBlock && state.WaitTicks <= settings.BlockWaitTicks) return;
         state.Route.Clear(); state.Cursor = 0; state.BlockReplans++; state.GoalRevision++; state.AcceptedGoal = null;
         context.Replan(actor);
     }

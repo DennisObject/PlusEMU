@@ -1,6 +1,6 @@
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
-internal sealed class CommandIntake(MovementContext context)
+internal sealed class CommandIntake(MovementContext context, ForcePlacementService placement)
 {
     public void Consume(RoomUser actor)
     {
@@ -9,6 +9,7 @@ internal sealed class CommandIntake(MovementContext context)
         if (command == null || command.Sequence <= state.ConsumedSequence) return;
         state.ConsumedSequence = command.Sequence;
         if (actor.Frozen || !actor.CanWalk && command.Origin == MoveOrigin.User) return;
+        if ((command.Flags & MoveFlags.Teleport) != 0) { placement.Teleport(actor, command); return; }
         state.GoalRevision++; state.Origin = command.Origin; state.Flags = command.Flags;
         state.Route.Clear(); state.Cursor = 0; state.HasIntent = true;
         state.WaitTicks = state.BlockReplans = state.StallTicks = 0;

@@ -26,7 +26,7 @@ internal sealed class V2MovementEngine : IMovementEngine
         _rebind = new RebindService(room, navigation.Grid);
         Context.Geometry = new(Context, _rebind);
         var commit = new CommitService(room, navigation, Context, _cancellation);
-        var intake = new CommandIntake(Context);
+        var intake = new CommandIntake(Context, _placement);
         var search = new MovementSearch(room, navigation, Context, _cancellation);
         var announce = new AnnounceService(room, navigation, Context, _cancellation);
         _executor = new(room, Context, _rebind, commit, intake, search, announce, new(room));
