@@ -8,6 +8,19 @@ namespace Plus.Tests;
 public partial class PlacedFurniRoomTests
 {
     [Fact]
+    public void CommandIntakeStaffTeleportPreservesOnlyTheDestinationWiredLandingHook()
+    {
+        ExecutorFloor(11, 0, 1);
+        var target = ExecutorFloor(10, 3, 2, z: .75);
+        var actor = ExecutorActor(0, 1);
+        var events = ExecutorWalkEvents(); events.Clear();
+        actor.TeleportEnabled = true; actor.MoveTo(3, 2); ExecutorTick();
+        Assert.Equal(new[] { (Plus.HabboHotel.Items.Wired.WiredBoxType.TriggerWalkOnFurni, target.Id) },
+            events.Select(entry => (entry.Kind, entry.Item)).ToArray());
+        Assert.Equal((3, 2, .75), (actor.X, actor.Y, actor.Z));
+    }
+
+    [Fact]
     public void RoomNavigationRetriesEveryDirtyTileAfterARejectedPublication()
     {
         var navigation = new RoomNavigation(_room, _room.GetGameMap().StaticModel,
