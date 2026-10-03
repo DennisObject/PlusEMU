@@ -6,6 +6,50 @@ namespace Plus.Tests;
 
 public partial class PlacedFurniRoomTests
 {
+    [Theory]
+    [InlineData(PathfindingEngine.Shadow)]
+    [InlineData(PathfindingEngine.V2)]
+    public void RoomNavigationOnlyIsolatesShadowCompilerFailures(PathfindingEngine engine)
+    {
+        var navigation = new RoomNavigation(_room, _room.GetGameMap().StaticModel, new() { Engine = engine });
+        var failure = new InvalidOperationException("publication rejected");
+        navigation.Compiler.BeforePublish = _ => throw failure;
+        if (engine == PathfindingEngine.V2)
+            Assert.Same(failure, Assert.Throws<InvalidOperationException>((Action)navigation.ApplyDirty));
+        else navigation.ApplyDirty();
+    }
+
+    [Fact]
+    public void CommandIntakeStaffTeleportModeUsesRoomOwnedForcedPlacement()
+    {
+        ExecutorFloor(10, 3, 2, z: .75);
+        var actor = ExecutorActor(0, 1); actor.TeleportEnabled = true;
+        var revision = actor.Movement.LocationRevision;
+        actor.MoveTo(3, 2);
+        Assert.Equal((0, 1, 0d), (actor.X, actor.Y, actor.Z));
+        ExecutorTick();
+        Assert.Equal((3, 2, .75), (actor.X, actor.Y, actor.Z));
+        Assert.True(actor.Movement.LocationRevision > revision);
+        Assert.False(actor.HasStatus("mv")); Assert.False(actor.Movement.HasIntent);
+        Assert.Contains(actor, _room.GetGameMap().GetRoomUsers(new(3, 2)));
+        Assert.DoesNotContain(actor, _room.GetGameMap().GetRoomUsers(new(0, 1)));
+        Assert.Contains(_client.Packets, packet => packet.Header == ServerPacketHeader.SlideObjectBundleComposer);
+    }
+
+    [Fact]
+    public void BlockedStepPolicyReplansStaticBlockersWithoutWaiting()
+    {
+        var actor = ExecutorActor(0, 1); actor.MoveTo(3, 1); ExecutorTick();
+        var blocker = ExecutorAdditionalBot(2, 1, 2); ExecutorTick();
+        Assert.Equal((1, 1), (actor.X, actor.Y));
+        Assert.False(blocker.Movement.HasIntent);
+        Assert.Equal(1, actor.Movement.BlockReplans);
+        Assert.False(actor.HasStatus("mv"));
+        ExecutorTick();
+        Assert.True(actor.HasStatus("mv"));
+        Assert.NotEqual("2,1,0", actor.Statusses["mv"]);
+    }
+
     [Fact]
     public void ForcePlacementServiceOffGraphPlacementClearsThePreviousSupportPosture()
     {
