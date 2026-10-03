@@ -352,4 +352,16 @@ public static class ServerPacketHeader
     public const uint RewardTrackClaimResultComposer = 48004;
     public const uint RewardTrackProgressComposer = 48005;
     public const uint RewardTrackPremiumPurchaseResultComposer = 48006;
+    // Octane catalog editor and furni editor; the same ids on the wire.
+    public const uint FurniEditorSearchResultComposer = 10040;
+    public const uint FurniEditorDetailResultComposer = 10041;
+    public const uint FurniEditorInteractionsResultComposer = 10043;
+    public const uint FurniEditorResultComposer = 10044;
+    public const uint FurnitureDataReloadComposer = 10047;
+    public const uint FurniEditorImportTextResultComposer = 10049;
+    public const uint CatalogAdminResultComposer = 10059;
+    public const uint CatalogAdminOfferDetailsComposer = 10062;
+    public const uint CatalogAdminPageDetailsComposer = 10063;
+    public const uint CatalogStudioSessionComposer = 10067;
+    public const uint CatalogStudioHistoryComposer = 10071;
 }
