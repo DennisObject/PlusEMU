@@ -173,8 +173,10 @@ public partial class PlacedFurniRoomTests
         item.Interactor.OnTrigger(_client, item, 0, true);
         ExecutorTick();
         var bound = Approaches.Peek(actor)!;
-        Add(12, 2, 0, height: 4, stackable: false);
+        var goalRevision = actor.Movement.GoalRevision;
+        Add(12, 3, 1, height: 4, stackable: false);
         ExecutorTick();
+        Assert.True(actor.Movement.GoalRevision > goalRevision);
         Assert.Same(bound, Approaches.Peek(actor));
         for (var i = 0; i < 6 && item.InteractingUser == 0; i++) ExecutorTick();
         Assert.Equal(item.SquareInFront, actor.Coordinate);
