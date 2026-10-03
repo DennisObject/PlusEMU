@@ -23,7 +23,7 @@ public sealed class HousekeepingDatabaseFactAttribute : FactAttribute
     }
 }
 
-// Runs against a disposable schema built from Original Database.sql and every update, including 18_Housekeeping.sql.
+// Runs against a disposable schema built from Original Database.sql and every update, including 20_Housekeeping.sql.
 [Collection("HousekeepingDatabase")]
 public class HousekeepingDatabaseTests
 {
@@ -65,7 +65,7 @@ public class HousekeepingDatabaseTests
     [HousekeepingDatabaseFact]
     public void MigrationIsIdempotentAndOnlyGrantsRanksHoldingModBanAny()
     {
-        var migration = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/18_Housekeeping.sql"));
+        var migration = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/20_Housekeeping.sql"));
         Execute(migration);
         Execute(migration);
         Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM permissions WHERE permission = 'acc_housekeeping'"));
