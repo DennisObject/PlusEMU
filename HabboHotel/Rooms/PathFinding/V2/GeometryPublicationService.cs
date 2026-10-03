@@ -36,7 +36,7 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
             var target = state.Pending[index];
             var privileged = state.Profile.LegacyOverride || state.Origin == MoveOrigin.Interaction;
             if (!tiles.Contains(target.Tile)
-                || (Grid.Active(target.Tile) || privileged) && Grid.Reference(target.Tile) == target) continue;
+                || (Grid.Active(target.Tile) || privileged) && context.Graph.IsValid(target, state.PendingView)) continue;
             context.Claims.ReleaseBatch(actor);
             state.PendingCount = 0; actor.SetStep = false;
             actor.RemoveStatus("mv"); actor.UpdateNeeded = true;

@@ -1,3 +1,5 @@
+using System.Drawing;
+
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
 public sealed class ActorMovementState
@@ -13,11 +15,13 @@ public sealed class ActorMovementState
     internal long TickLocationRevision { get; set; }
     public long LocationRevision { get; internal set; }
     public SurfaceRef? CurrentRef { get; internal set; }
+    internal Point? RegisteredMapCoordinate { get; set; }
     public double SupportZ { get; internal set; }
     public Route Route { get; } = new();
     public int Cursor { get; internal set; }
     public SurfaceRef[] Pending { get; } = new SurfaceRef[3];
     public int PendingCount { get; internal set; }
+    internal GraphView PendingView { get; set; }
     public bool HasIntent { get; internal set; }
     internal bool RouteInvalidated { get; set; }
     internal bool LandingInProgress { get; set; }

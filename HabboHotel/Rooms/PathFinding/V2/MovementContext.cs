@@ -5,6 +5,8 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
     internal Room Room { get; } = room;
     internal RoomNavigation Navigation { get; } = navigation;
     internal NavGrid Grid => Navigation.Grid;
+    internal RouteGraph Graph { get; } = new(navigation.Grid);
+    internal GuildGateExecution GuildGates { get; } = new(room, navigation.Grid);
     internal LandingEffects LandingEffects { get; } = landingEffects;
     internal FloorEffectService FloorEffects { get; } = floorEffects;
     internal MovementProfileService Profiles { get; } = profiles;

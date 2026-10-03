@@ -29,13 +29,14 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
         temporaryBlock = false;
         var state = actor.Movement;
         var profile = context.Profiles.Refresh(actor);
+        state.PendingView = state.Route.View;
         var from = new NavPosition(actor.X, actor.Y, state.SupportZ);
         var limit = actor.SuperFastWalking ? 3 : actor.FastWalking ? 2 : 1;
         for (var i = state.Cursor; i < state.Route.Count && state.PendingCount < limit; i++)
         {
             var surface = state.Route.Steps[i];
-            if (navigation.Grid.Reference(surface.Tile) != surface) break;
-            var target = navigation.Grid.Position(surface.Tile);
+            if (!context.Graph.IsValid(surface, state.Route.View)) break;
+            var target = context.Graph.Position(surface.Tile, state.Route.View);
             var purpose = state.Origin == MoveOrigin.Interaction ? StepPurpose.Interaction
                 : i == state.Route.Count - 1 ? StepPurpose.Goal : StepPurpose.Transit;
             if (!ClaimStep(actor, profile, from, target, surface, purpose, out temporaryBlock)) break;
@@ -57,7 +58,9 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
             temporaryBlock = result.Reason == StepReason.Occupied && (blockers & ~transient) == 0;
             return false;
         }
-        return context.Claims.TryClaim(actor, surface.Tile, ClaimKindFor(profile, surface, purpose), mask);
+        if (!context.Claims.TryClaim(actor, surface.Tile, ClaimKindFor(profile, surface, purpose), mask)) return false;
+        context.GuildGates.Accept(actor, profile, surface.Tile, purpose);
+        return true;
     }
     private void ApplyIdleEffects(RoomUser actor, bool committed)
     {
@@ -73,7 +76,7 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
     {
         var state = actor.Movement;
         actor.Statusses.Remove("sit"); actor.Statusses.Remove("lay"); actor.IsSitting = actor.IsLying = false;
-        var z = target.Z + PostureService.RiderOffset(actor, state.Pending[state.PendingCount - 1]);
+        var z = target.Z + context.Graph.RiderOffset(actor, state.Pending[state.PendingCount - 1].Tile);
         actor.SetStatus("mv", $"{target.X},{target.Y},{TextHandling.GetString(z)}");
         actor.RotBody = actor.RotHead = Rotation.Calculate(actor.X, actor.Y, target.X, target.Y, actor.MoonwalkEnabled);
         actor.SetStep = true; actor.SetX = target.X; actor.SetY = target.Y; actor.SetZ = target.Z;

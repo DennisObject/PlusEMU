@@ -1377,10 +1377,13 @@ public class RoomUserManager
 
     public void Dispose()
     {
+        var room = _room;
+        if (room == null) return;
+        // Match the tick's room-owner -> stress-request lock order.
+        lock (room.NavigationSync)
         lock (_stressSync)
         {
-            if (_disposed)
-                return;
+            if (_disposed) return;
             _disposed = true;
             _stressRequests.Clear();
             DisposeUsers();

@@ -261,6 +261,11 @@ public class Gamemap
 
     public void AddUserToMap(RoomUser user, Point coord)
     {
+        if (Navigation?.UsesExecutor == true)
+        {
+            if (user.Movement.RegisteredMapCoordinate is { } previous) RemoveUserFromMap(user, previous);
+            user.Movement.RegisteredMapCoordinate = coord;
+        }
         if (_userMap.ContainsKey(coord))
             _userMap[coord].Add(user);
         else
@@ -306,9 +311,17 @@ public class Gamemap
 
     public void RemoveUserFromMap(RoomUser user, Point coord)
     {
-        if (!_userMap.TryGetValue(coord, out var users)) return;
-        if (Navigation?.UsesExecutor == true) users.RemoveAll(other => ReferenceEquals(other, user));
-        else users.RemoveAll(other => other != null && other.VirtualId == user.VirtualId);
+        if (Navigation?.UsesExecutor == true)
+        {
+            // Walk-off callbacks run after map movement but before physical X/Y changes.
+            coord = user.Movement.RegisteredMapCoordinate ?? coord;
+            user.Movement.RegisteredMapCoordinate = null;
+            if (_userMap.TryGetValue(coord, out var registered))
+                registered.RemoveAll(other => ReferenceEquals(other, user));
+            return;
+        }
+        if (_userMap.TryGetValue(coord, out var users))
+            users.RemoveAll(other => other != null && other.VirtualId == user.VirtualId);
     }
 
     public bool MapGotUser(Point coord) => GetRoomUsers(coord).Count > 0;

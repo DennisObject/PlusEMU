@@ -6,7 +6,8 @@ internal sealed class RebindService(Room room, NavGrid Grid)
     {
         var state = actor.Movement;
         if (state.BoundVersion == Grid.Version) return;
-        RebindAtVersion(actor, Grid.Version, false);
+        // Dirty-tile publication already rebound affected actors before Version changed.
+        state.BoundVersion = Grid.Version;
     }
 
     internal void BeforePublish(RoomUser actor) => RebindAtVersion(actor, Grid.Version + 1, true);

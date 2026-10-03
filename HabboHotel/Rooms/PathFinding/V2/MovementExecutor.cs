@@ -10,10 +10,11 @@ internal sealed class MovementExecutor(Room room, MovementContext context, Rebin
         _committed.Clear();
         var actors = room.GetRoomUserManager().GetUserList().OrderBy(a => a.VirtualId).ToArray();
         foreach (var actor in actors) PhaseA(actor);
+        if (room.MDisposed) return;
         search.Run();
         foreach (var actor in actors) PhaseC(actor);
         context.Claims.ReleaseRollers();
-        ticks.EndCycle();
+        if (!room.MDisposed) ticks.EndCycle();
     }
     private void PhaseA(RoomUser actor)
     {

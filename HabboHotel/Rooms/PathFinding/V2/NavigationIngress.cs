@@ -28,9 +28,14 @@ public sealed partial class RoomNavigation
     public void Shutdown()
     {
         if (!UsesExecutor) return;
-        using var owner = RoomOwnerScope.Enter(_room);
-        foreach (var actor in _room.GetRoomUserManager().GetUserList()) Remove(actor);
-        DrainCommands();
+        lock (_room.NavigationSync)
+        {
+            var manager = _room.GetRoomUserManager();
+            if (manager == null) return;
+            using var owner = RoomOwnerScope.Enter(_room);
+            foreach (var actor in manager.GetUserList()) Remove(actor);
+            DrainCommands();
+        }
     }
     public void Admit(RoomUser actor) => Post(new(RoomCommandKind.Admit, actor, actor.Movement.LifetimeId));
     public void Cancel(RoomUser actor) => Post(new(RoomCommandKind.Cancel, actor, actor.Movement.LifetimeId, CommandSequence: actor.Movement.Commands.Read()?.Sequence ?? 0));

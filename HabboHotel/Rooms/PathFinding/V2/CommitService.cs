@@ -23,15 +23,15 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
     private void LandPending(RoomUser actor, int accepted)
     {
         actor.Movement.LandingInProgress = true;
-        try { _landing.Land(actor, actor.Movement.Pending[accepted - 1]); }
+        try { _landing.Land(actor, actor.Movement.Pending[accepted - 1], actor.Movement.PendingView); }
         finally { actor.Movement.LandingInProgress = false; }
     }
-    private static bool ReplacedSeatGoal(RoomUser actor)
+    private bool ReplacedSeatGoal(RoomUser actor)
     {
         var state = actor.Movement;
         var target = state.Pending[state.PendingCount - 1];
         var command = state.Commands.Read();
-        return target.Kind == SurfaceKind.SeatBase && state.Route.GoalSurface == target
+        return context.Graph.IsSeat(target.Tile) && state.Route.GoalSurface == target
             && command != null && command.Sequence > state.ConsumedSequence && !actor.Frozen
             && (actor.CanWalk || command.Origin != MoveOrigin.User);
     }
@@ -57,11 +57,12 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
         for (var i = 0; i < state.PendingCount; i++)
         {
             var step = state.Pending[i];
-            if (navigation.Grid.Reference(step.Tile) != step) break;
-            var to = navigation.Grid.Position(step.Tile);
+            if (!context.Graph.IsValid(step, state.PendingView)) break;
+            var to = context.Graph.Position(step.Tile, state.PendingView);
             var purpose = state.Origin == MoveOrigin.Interaction ? StepPurpose.Interaction
                 : to.X == actor.GoalX && to.Y == actor.GoalY ? StepPurpose.Goal : StepPurpose.Transit;
             if (!_rules.CanStep(profile, from, to, purpose, OccupancyView.Execution, context.OccupancyAt(actor, step.Tile)).Ok) break;
+            context.GuildGates.Accept(actor, profile, step.Tile, purpose);
             accepted++; from = to;
         }
         return accepted;
