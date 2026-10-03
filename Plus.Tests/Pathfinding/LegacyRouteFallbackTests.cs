@@ -199,6 +199,14 @@ public partial class PlacedFurniRoomTests
     // (2,2) holds the pad the walker leaves to.
     private (RoomUser Actor, RoomUser Walker) LegacyTruncatedBehindWalker()
     {
+        var (actor, walker) = LegacyBlockedBehindWalker();
+        // The walking-only blocker is waited for (block_wait_ticks) before the fallback runs.
+        ExecutorTick();
+        return (actor, walker);
+    }
+
+    private (RoomUser Actor, RoomUser Walker) LegacyBlockedBehindWalker()
+    {
         FallbackModel("xxxxxxxx\r00000000\rxx0xxxxx");
         var gate = FallbackGate(20, 6, 1);
         ExecutorFloor(25, 2, 2);
