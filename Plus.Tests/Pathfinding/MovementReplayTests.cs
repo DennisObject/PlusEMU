@@ -33,7 +33,11 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((finalX, finalY, finalZ), legacy[^1].Location);
         var differences = ClassifyReplayDifferences(legacy, v2);
         Assert.All(differences, difference => Assert.Equal(ReplayDifference.TimingPhaseChange, difference));
-        if (scenario is "normal" or "fast" or "superfast") Assert.NotEmpty(differences);
+        if (scenario is "normal" or "fast" or "superfast")
+        {
+            Assert.Empty(differences);
+            Assert.Equal(legacy.Select(FrameBytes), v2.Select(FrameBytes));
+        }
         ReportReplay(scenario, stream, differences);
     }
 
