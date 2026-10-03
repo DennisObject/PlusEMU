@@ -87,7 +87,29 @@ internal sealed class FurniEditorRepository
         FROM catalog_items ci LEFT JOIN catalog_pages cp ON cp.id = ci.page_id WHERE ci.item_id = @itemId ORDER BY ci.id LIMIT @limit
         """, new { itemId = id.ToString(), limit = MaxCatalogRefs }, _transaction).ToList();
 
-    public int CatalogRefCount(uint id) => _connection.QuerySingle<int>("SELECT COUNT(*) FROM catalog_items WHERE item_id = @itemId", new { itemId = id.ToString() }, _transaction);
+    // Everything that still needs this definition: placed or owned furni, catalog offers and deals ("id*amount;..."),
+    // unopened gifts and open marketplace listings (a listed item only exists as its definition id).
+    public List<string> References(uint id)
+    {
+        var references = new List<string>();
+        var parameters = new { id, itemId = id.ToString() };
+        void Count(string sql, string label)
+        {
+            int count = _connection.QuerySingle<int>(sql, parameters, _transaction);
+            if (count > 0)
+                references.Add($"{count} {label}");
+        }
+        Count("SELECT COUNT(*) FROM items WHERE base_item = @id", "placed or owned items");
+        Count("SELECT COUNT(*) FROM catalog_items WHERE item_id = @itemId", "catalog offers");
+        Count("SELECT COUNT(*) FROM user_presents WHERE base_id = @id", "unopened gifts");
+        Count("SELECT COUNT(*) FROM catalog_marketplace_offers WHERE item_id = @id AND state = '1'", "open marketplace offers");
+        var deals = _connection.Query<(int Id, string Items)>("SELECT id, items FROM catalog_deals WHERE items LIKE CONCAT('%', @itemId, '%')", parameters, _transaction)
+            .Where(deal => deal.Items.Split(';').Any(entry => entry.Split('*')[0].Trim() == parameters.itemId))
+            .Select(deal => $"#{deal.Id}").ToList();
+        if (deals.Count > 0)
+            references.Add($"catalog deals {string.Join(", ", deals)}");
+        return references;
+    }
 
     public List<string> InteractionTypes() =>
         _connection.Query<string>("SELECT DISTINCT interaction_type FROM furniture WHERE interaction_type <> ''", transaction: _transaction).ToList();

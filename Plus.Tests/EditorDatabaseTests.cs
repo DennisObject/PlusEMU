@@ -226,7 +226,11 @@ public sealed class EditorDatabaseTests : IDisposable
         Assert.Equal((2, "1", "gate", "1,2"), Scalar<(int, string, string, string)>("SELECT width, can_stack, interaction_type, vending_ids FROM furniture WHERE id = @id", (int)chair));
         Assert.False(furni.Update(staff, chair, "{\"vendingIds\":\"1;2\"}").Success);
 
-        Assert.False(furni.Delete(staff, placed).Success);
+        Assert.Equal("Cannot delete: still used by 1 placed or owned items", furni.Delete(staff, placed).Message);
+        var gifted = InsertFurniture($"{Tag}_gifted", 990005);
+        Execute($"INSERT INTO user_presents (item_id, base_id, extra_data) VALUES (0, {gifted}, ''); INSERT INTO catalog_deals (items, name, room_id) VALUES ('1*2;{gifted}*3', 'e3test deal', 0)");
+        var refused = furni.Delete(staff, gifted).Message;
+        Assert.StartsWith("Cannot delete: still used by 1 unopened gifts, catalog deals #", refused);
         var unused = InsertFurniture($"{Tag}_unused", 990004);
         Assert.True(furni.Delete(staff, unused).Success);
 
@@ -292,6 +296,8 @@ public sealed class EditorDatabaseTests : IDisposable
 
     private void Cleanup() => Execute("""
         DELETE FROM items WHERE base_item IN (SELECT id FROM furniture WHERE item_name LIKE 'e3test%');
+        DELETE FROM user_presents WHERE base_id IN (SELECT id FROM furniture WHERE item_name LIKE 'e3test%');
+        DELETE FROM catalog_deals WHERE name LIKE 'e3test%';
         DELETE FROM catalog_items WHERE catalog_name LIKE 'e3test%';
         DELETE FROM catalog_pages WHERE page_link LIKE 'e3test%';
         DELETE FROM furniture WHERE item_name LIKE 'e3test%';

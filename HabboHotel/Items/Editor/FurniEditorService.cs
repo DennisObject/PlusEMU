@@ -126,10 +126,8 @@ public sealed class FurniEditorService : IFurniEditorService
             var repository = new FurniEditorRepository(connection, transaction);
             if (repository.Item(id) is not { } current)
                 return new(false, $"Item not found: {id}");
-            if (repository.UsageCount(id) is var used and > 0)
-                return new(false, $"Cannot delete: {used} instances exist in the game", id);
-            if (repository.CatalogRefCount(id) is var offers and > 0)
-                return new(false, $"Cannot delete: item is referenced by {offers} catalog entries", id);
+            if (repository.References(id) is { Count: > 0 } references)
+                return new(false, $"Cannot delete: still used by {string.Join(", ", references)}", id);
             repository.Delete(id);
             repository.Log(actor.Id, actor.Username, "delete", id, current.ItemName, Json(current), null);
             transaction.Commit();
