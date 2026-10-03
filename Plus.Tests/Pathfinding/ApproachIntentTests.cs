@@ -40,7 +40,7 @@ public partial class PlacedFurniRoomTests
     {
         var navigation = _room.GetGameMap().Navigation!;
         var tile = navigation.Grid.Tile(item.SquareInFront.X, item.SquareInFront.Y);
-        return new(item.Id, navigation.Inputs.Read(item.Id)!.Version, navigation.Grid.Reference(tile), kind);
+        return new(item.Id, navigation.Inputs.Read(item.Id)!.Version, navigation.Grid.Reference(tile), kind, item.StateGeneration);
     }
 
     private void WalkToLanding(RoomUser actor, int ticks) { for (var i = 0; i < ticks; i++) ExecutorTick(); }
