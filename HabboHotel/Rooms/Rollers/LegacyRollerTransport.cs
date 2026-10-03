@@ -9,6 +9,8 @@ internal sealed class LegacyRollerTransport(Room room, RoomItemHandling handler)
 {
     public bool CanRide(RoomUser actor) => !actor.IsWalking;
 
+    public void RefreshCapabilities(IEnumerable<RoomUser> actors) { }
+
     public bool AdmitsActor(RollerMove move, RollerDepartures departing)
     {
         var map = room.GetGameMap(); var to = move.Destination;
@@ -30,11 +32,7 @@ internal sealed class LegacyRollerTransport(Room room, RoomItemHandling handler)
     // departure rebuilds the cell, which (as legacy always did) erases any lock there. Avatars never
     // write the structural map, so a lock under a departing user survives until the cell is rebuilt.
     private bool StructurallyLocked(Point tile, RollerDepartures departing)
-    {
-        var map = room.GetGameMap();
-        return map.StructuralState(tile) == 0 && !departing.Items.Select(handler.GetItem)
-            .Any(cargo => cargo != null && map.ItemWalkState(cargo) == 0);
-    }
+        => room.GetGameMap().StructuralState(tile) == 0 && !departing.ReleasesFloorStatus(room);
 
     // Clear every origin before marking destinations so a rotating loop keeps its occupied tiles.
     public void CommitActors(IReadOnlyList<RollerMove> moves)

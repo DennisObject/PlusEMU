@@ -20,6 +20,7 @@ internal sealed class RollerLoadBuilder(Room room, IRollerTransportEngine engine
             var load = Load(roller, cargoSeen, actorsSeen);
             if (load.Moves.Count > 0) loads.Add(load);
         }
+        engine.RefreshCapabilities(actorsSeen);
         return loads;
     }
 

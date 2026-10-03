@@ -5,6 +5,9 @@ internal interface IRollerTransportEngine
 {
     bool CanRide(RoomUser actor);
 
+    // Snapshot actor capabilities (they may consult other services) before any placement lock is taken.
+    void RefreshCapabilities(IEnumerable<RoomUser> actors);
+
     bool AdmitsActor(RollerMove move, RollerDepartures departing);
 
     // Engine occupancy that furniture may not land on anywhere in its footprint, beyond the shared rules.

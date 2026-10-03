@@ -69,6 +69,14 @@ internal sealed class RollerDepartures
 
     internal bool AllUsersLeave(IEnumerable<RoomUser> occupants) => occupants.All(Users.Contains);
 
+    // Solid cargo leaving the tile rebuilds its legacy cell, which ends any explicit floor status
+    // there; a structural 0 under it is attributed to the cargo, exactly as legacy does.
+    internal bool ReleasesFloorStatus(Room room)
+    {
+        var map = room.GetGameMap(); var items = room.GetRoomItemHandler();
+        return Items.Select(items.GetItem).Any(cargo => cargo != null && map.ItemWalkState(cargo) == 0);
+    }
+
     internal static RollerDepartures Of(IEnumerable<RollerMove> moves)
     {
         var list = moves.ToList();

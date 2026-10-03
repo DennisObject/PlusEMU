@@ -15,18 +15,24 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
     public bool CanRide(RoomUser actor) => actor.Movement.State == NavState.Active && !actor.IsWalking
         && actor.Movement.PendingCount == 0;
 
+    public void RefreshCapabilities(IEnumerable<RoomUser> actors)
+    {
+        foreach (var actor in actors) context.Profiles.Refresh(actor);
+    }
+
     public bool AdmitsActor(RollerMove move, RollerDepartures departing)
     {
         var to = move.Destination;
         if (!Grid.InBounds(to.X, to.Y)) return false;
         var actor = move.Actor!; var slot = Grid.Tile(to.X, to.Y);
-        var profile = context.Profiles.Refresh(actor);
+        var profile = actor.Movement.Profile;
         var from = new NavPosition(move.Origin.X, move.Origin.Y, move.SourceZ);
         var occupancy = context.OccupancyAt(actor, slot, departing.Users);
         var rules = new MovementRules(Grid, navigation.Settings);
         var result = departing.IsEmpty || departing.Roller?.Definition.Walkable != true
             ? rules.CanStep(profile, from, Grid.Position(slot), StepPurpose.Roller, OccupancyView.Execution, occupancy)
-            : rules.CanRollOntoVacatedRoller(profile, from, Grid.Position(slot), occupancy);
+            : rules.CanRollOntoVacatedRoller(profile, from, Grid.Position(slot), occupancy,
+                departing.ReleasesFloorStatus(context.Room));
         return result.Ok;
     }
 
@@ -90,7 +96,7 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
         var slot = Grid.Tile(tile.X, tile.Y);
         if (actor == null)
             return context.Claims.TryReserveCargo(slot, Anything, departing.Users) ? () => context.Claims.ReleaseCargo(slot) : null;
-        var mask = ClaimMatrix.BlockingMask(context.Profiles.Refresh(actor), Grid.Flags[slot], StepPurpose.Roller, OccupancyView.Execution);
+        var mask = ClaimMatrix.BlockingMask(actor.Movement.Profile, Grid.Flags[slot], StepPurpose.Roller, OccupancyView.Execution);
         return context.Claims.TryClaim(actor, slot, ClaimKind.Roller, mask, departing.Users)
             ? () => context.Claims.ReleaseRollers(actor) : null;
     }

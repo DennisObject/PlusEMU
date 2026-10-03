@@ -500,6 +500,7 @@ public partial class Gamemap
 
     private void SetDefaultValue(int x, int y)
     {
+        Navigation?.ReleaseFloorStatus(x, y);
         GameMap[x, y] = 0;
         EffectMap[x, y] = 0;
         _itemHeightMap[x, y] = 0.0;
@@ -537,6 +538,7 @@ public partial class Gamemap
     private void GenerateMapsCore(bool checkLines)
     {
         Navigation?.Inputs.MarkAllDirty();
+        Navigation?.ReleaseFloorStatuses();
         var maxX = 0;
         var maxY = 0;
         _coordinatedItems = new();
@@ -671,6 +673,7 @@ public partial class Gamemap
             var walkMagic = WalkMagicAt(coord.X, coord.Y);
             if (walkMagic != null)
             {
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 GameMap[coord.X, coord.Y] = 1;
                 _itemHeightMap[coord.X, coord.Y] = walkMagic.GetZ - Model.SqFloorHeight[coord.X, coord.Y];
                 EffectMap[coord.X, coord.Y] = 0;
@@ -702,6 +705,7 @@ public partial class Gamemap
                 }
 
                 //SwimHalloween
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 var state = ItemWalkState(item);
                 if (state == 3 || GameMap[coord.X, coord.Y] != 3)
                     GameMap[coord.X, coord.Y] = state;
@@ -709,7 +713,10 @@ public partial class Gamemap
 
             // Set bad maps
             if (item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall)
+            {
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 GameMap[coord.X, coord.Y] = 3;
+            }
             WriteStructural(coord.X, coord.Y, GameMap[coord.X, coord.Y]);
         }
         catch (Exception e)

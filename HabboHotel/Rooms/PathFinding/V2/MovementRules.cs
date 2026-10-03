@@ -51,13 +51,16 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings)
     }
 
     // A roller tile whose departing cargo leaves this cycle is the bare roller surface: next-roller
-    // clearance already proved nothing staying rises above it (§14.9). Locks and occupancy still apply.
+    // clearance already proved nothing staying rises above it (§14.9). Locks and occupancy still apply,
+    // except an explicit floor status the departing cargo's cell rebuild releases (legacy lifetime).
     public StepResult CanRollOntoVacatedRoller(ActorProfile actor, in NavPosition from, in NavPosition to,
-        PlanningOccupancy occupancy)
+        PlanningOccupancy occupancy, bool floorStatusReleased = false)
     {
         if (!Adjacent(from, to)) return new(StepReason.BoundsOrAdjacency);
         var tile = grid.Tile(to.X, to.Y);
-        var flags = grid.Flags[tile] & NavFlags.FloorLocked | NavFlags.Transit | NavFlags.Roller;
+        var locked = floorStatusReleased ? Volatile.Read(ref grid.FloorLocks[tile]) != 0
+            : (grid.Flags[tile] & NavFlags.FloorLocked) != 0;
+        var flags = (locked ? NavFlags.FloorLocked : NavFlags.None) | NavFlags.Transit | NavFlags.Roller;
         return CanEnter(actor, from, to, tile, flags, StepPurpose.Roller, OccupancyView.Execution, occupancy);
     }
 

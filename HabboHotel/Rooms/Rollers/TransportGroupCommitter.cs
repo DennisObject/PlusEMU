@@ -12,6 +12,7 @@ internal sealed class TransportGroupCommitter(Room room, IRollerTransportEngine 
         var furniture = ordered.Where(move => move.Cargo != null)
             .Select(move => new FloorMove(move.Cargo!, move.Destination.X, move.Destination.Y, move.CarriedZ)).ToList();
         var items = room.GetRoomItemHandler();
+        engine.RefreshCapabilities(actors.Select(move => move.Actor!));
         // Final validation and the positional commit see one placement state; no concurrent move or
         // rotation can land between them.
         lock (room.GetGameMap().PlacementSync)
