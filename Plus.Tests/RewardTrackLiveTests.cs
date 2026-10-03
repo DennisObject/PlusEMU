@@ -124,11 +124,18 @@ public class RewardTrackLiveTests
 
     private static async Task<Revision> Profile(string name)
     {
-        var cache = new RevisionsCache();
-        typeof(RevisionsCache).GetField("_directory", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(cache, Path.Join(AppContext.BaseDirectory, "revisions"));
-        await cache.Start();
-        return cache.Revisions[name];
+        var temporary = Directory.CreateTempSubdirectory("plusemu-reward-revisions-");
+        try
+        {
+            foreach (var file in Directory.GetFiles(Path.Join(AppContext.BaseDirectory, "revisions")))
+                File.Copy(file, Path.Join(temporary.FullName, Path.GetFileName(file)));
+            var cache = new RevisionsCache();
+            typeof(RevisionsCache).GetField("_directory", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(cache, temporary.FullName);
+            await cache.Start();
+            return cache.Revisions[name];
+        }
+        finally { temporary.Delete(recursive: true); }
     }
 
     private static async Task<RewardTrackManager> Manager(FakeDatabase database, IBadgeManager badges)
