@@ -24,10 +24,19 @@ public partial class PlacedFurniRoomTests
     public void AnnounceServiceAppliesTheTargetFloorEffect()
     {
         var actor = ExecutorActor(0, 1);
-        _room.GetGameMap().EffectMap[1, 1] = 1;
+        _room.GetGameMap().EffectMap[1, 1] = 3;
         _client.GetHabbo().Gender = "M";
         actor.MoveTo(1, 1); ExecutorTick();
         Assert.True(actor.HasStatus("mv"));
         Assert.Equal(38, _client.GetHabbo().Effects.CurrentEffect);
+    }
+    [Fact]
+    public void AnnounceServiceAppliesTheTargetSwimEffect()
+    {
+        var actor = ExecutorActor(0, 1);
+        _room.GetGameMap().EffectMap[1, 1] = 1;
+        actor.MoveTo(1, 1); ExecutorTick();
+        Assert.True(actor.HasStatus("mv"));
+        Assert.Equal(29, _client.GetHabbo().Effects.CurrentEffect);
     }
 }
