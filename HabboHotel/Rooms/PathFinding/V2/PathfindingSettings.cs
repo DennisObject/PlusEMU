@@ -28,8 +28,7 @@ public sealed record PathfindingSettings
     public int? MaxExpansionsPerSearch { get; init; }
     public int MaxExpansionsPerRoomTick { get; init; } = 200000;
     public double ShadowLogSample { get; init; } = 0.05;
-    // Off for bare records so engine tests are unaffected; Load() defaults to on (pathfinding.approach_auto_interact = 1).
-    public bool ApproachAutoInteract { get; init; }
+    public bool ApproachAutoInteract { get; init; } = true;
 
     public static PathfindingSettings Load(ISettingsManager manager)
     {
