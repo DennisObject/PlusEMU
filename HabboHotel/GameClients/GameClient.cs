@@ -184,14 +184,11 @@ public abstract class GameClient
 
     public void Send(IServerPacket composer)
     {
-        lock (_sendLock)
-        {
-            var outgoingMessageId = Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
-            var encoded = EncodePacket(composer, outgoingMessageId);
-            if (encoded == null) return;
-            SendEncoded(encoded);
-            LogPacket(composer, outgoingMessageId);
-        }
+        var outgoingMessageId = Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
+        var encoded = EncodePacket(composer, outgoingMessageId);
+        if (encoded == null) return;
+        SendEncoded(encoded);
+        LogPacket(composer, outgoingMessageId);
     }
 
     // Encoding belongs to this broadcast only: composers can reference mutable room state.
@@ -200,20 +197,17 @@ public abstract class GameClient
         var encodedPackets = new Dictionary<(Revision, IPacketFactory, Type, uint), byte[]>();
         foreach (var client in clients)
         {
-            lock (client._sendLock)
+            var outgoingMessageId = client.Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
+            var key = (client.Revision, client._packetFactory, client.GetType(), outgoingMessageId);
+            byte[] buffer;
+            if (client._server.HasOutgoingPacketInjectors(composer.MessageId) || !encodedPackets.TryGetValue(key, out buffer!))
             {
-                var outgoingMessageId = client.Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
-                var key = (client.Revision, client._packetFactory, client.GetType(), outgoingMessageId);
-                byte[] buffer;
-                if (client._server.HasOutgoingPacketInjectors(composer.MessageId) || !encodedPackets.TryGetValue(key, out buffer!))
-                {
-                    buffer = client.EncodePacket(composer, outgoingMessageId)!;
-                    if (buffer == null) continue;
-                    if (!client._server.HasOutgoingPacketInjectors(composer.MessageId)) encodedPackets.Add(key, buffer);
-                }
-                client.SendEncoded(buffer, canSend == null ? null : () => canSend(client));
-                client.LogPacket(composer, outgoingMessageId);
+                buffer = client.EncodePacket(composer, outgoingMessageId)!;
+                if (buffer == null) continue;
+                if (!client._server.HasOutgoingPacketInjectors(composer.MessageId)) encodedPackets.Add(key, buffer);
             }
+            client.SendEncoded(buffer, canSend == null ? null : () => canSend(client));
+            client.LogPacket(composer, outgoingMessageId);
         }
     }
 
@@ -241,6 +235,19 @@ public abstract class GameClient
     }
 
     private void SendEncoded(byte[] buffer, Func<bool>? canSend = null)
+    {
+        if (!SupportsLegacyCrypto || _outgoingRc4 == null)
+        {
+            SendEncodedCore(buffer, canSend);
+            return;
+        }
+        lock (_sendLock)
+        {
+            SendEncodedCore(buffer, canSend);
+        }
+    }
+
+    private void SendEncodedCore(byte[] buffer, Func<bool>? canSend)
     {
         var args = new SocketAsyncEventArgs();
         args.SetBuffer(buffer.AsMemory());
