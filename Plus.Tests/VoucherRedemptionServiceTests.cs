@@ -1,5 +1,6 @@
 using Plus.HabboHotel.Catalog.Vouchers;
 using Plus.HabboHotel.Users;
+using System.Reflection;
 using Xunit;
 
 namespace Plus.Tests;
@@ -51,6 +52,23 @@ public sealed class VoucherRedemptionServiceTests
         Assert.Equal(8, habbo.Duckets);
         Assert.Equal(1, voucher.CurrentUses);
         Assert.Equal(3, sent.Count);
+    }
+
+    [Fact]
+    public void ClosedWalletDoesNotClaimVoucher()
+    {
+        var voucher = new Voucher("CREDIT", "credits", 25, 0, 2);
+        var habbo = new Habbo { Id = 7, Credits = 10 };
+        typeof(Habbo).GetField("_habboSaved", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(habbo, true);
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+        var store = new RecordingStore();
+
+        new VoucherRedemptionService(new VoucherManagerFake(voucher), store).Redeem(client, "CREDIT");
+
+        Assert.Empty(store.Claims);
+        Assert.Equal(10, habbo.Credits);
+        Assert.Equal(0, voucher.CurrentUses);
+        Assert.Empty(sent);
     }
 
     private sealed class VoucherManagerFake(Voucher voucher) : IVoucherManager

@@ -40,6 +40,7 @@ public sealed class VoucherRedemptionService(IVoucherManager vouchers, IVoucherC
 {
     public void Redeem(GameClient session, string code)
     {
+        var habbo = session.GetHabbo();
         code = code.Replace("\r", "");
         if (!vouchers.TryGetVoucher(code, out var voucher))
         {
@@ -47,23 +48,22 @@ public sealed class VoucherRedemptionService(IVoucherManager vouchers, IVoucherC
             return;
         }
 
-        lock (voucher)
-        {
-            switch (claims.Claim(session.GetHabbo().Id, code))
-            {
-                case VoucherClaimResult.AlreadyUsed:
-                    session.SendNotification("You've already used this voucher code, one per each user, sorry!");
-                    return;
-                case VoucherClaimResult.Exhausted:
-                    session.SendNotification("Oops, this voucher has reached the maximum usage limit!");
-                    return;
-            }
-            voucher.MarkUsed();
-        }
-
-        var habbo = session.GetHabbo();
         lock (habbo.WalletSync)
         {
+            if (habbo.WalletClosed) return;
+            lock (voucher)
+            {
+                switch (claims.Claim(habbo.Id, code))
+                {
+                    case VoucherClaimResult.AlreadyUsed:
+                        session.SendNotification("You've already used this voucher code, one per each user, sorry!");
+                        return;
+                    case VoucherClaimResult.Exhausted:
+                        session.SendNotification("Oops, this voucher has reached the maximum usage limit!");
+                        return;
+                }
+                voucher.MarkUsed();
+            }
             if (voucher.Type == VoucherType.Credit)
             {
                 habbo.Credits += voucher.Value;
@@ -74,7 +74,7 @@ public sealed class VoucherRedemptionService(IVoucherManager vouchers, IVoucherC
                 habbo.Duckets += voucher.Value;
                 session.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, voucher.Value));
             }
+            session.Send(new VoucherRedeemOkComposer());
         }
-        session.Send(new VoucherRedeemOkComposer());
     }
 }
