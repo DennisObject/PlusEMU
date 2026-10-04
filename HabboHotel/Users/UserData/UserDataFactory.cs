@@ -11,13 +11,17 @@ public class UserDataFactory : IUserDataFactory
     private readonly IDatabase _database;
     private readonly IEnumerable<IUserDataLoadingTask> _userDataLoadingTasks;
     private readonly IUserPersistenceService _persistence;
+    private readonly IUserComponentLoader _components;
+    private readonly Clothing.IClothingStore _clothingStore;
 
-    public UserDataFactory(BadgeManager badgeManager, IDatabase database, IEnumerable<IUserDataLoadingTask> userDataLoadingTasks, IUserPersistenceService persistence)
+    public UserDataFactory(BadgeManager badgeManager, IDatabase database, IEnumerable<IUserDataLoadingTask> userDataLoadingTasks, IUserPersistenceService persistence, IUserComponentLoader components, Clothing.IClothingStore clothingStore)
     {
         _badgeManager = badgeManager;
         _database = database;
         _userDataLoadingTasks = userDataLoadingTasks;
         _persistence = persistence;
+        _components = components;
+        _clothingStore = clothingStore;
     }
 
     public async Task<Habbo?> Create(int userId, CancellationToken cancellationToken = default)
@@ -27,6 +31,9 @@ public class UserDataFactory : IUserDataFactory
         if (habbo == null) return null;
         habbo.Persistence = _persistence;
         habbo.SessionStartedAt = DateTimeOffset.UtcNow;
+        var components = _components.Load(userId);
+        habbo.Clothing = new(components.Clothing, habbo, _clothingStore);
+        habbo.Effects = new(components.Effects, habbo);
 
         foreach (var task in _userDataLoadingTasks)
         {

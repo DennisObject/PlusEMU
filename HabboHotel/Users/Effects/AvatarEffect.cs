@@ -1,19 +1,17 @@
 ﻿using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
-using Plus.Utilities;
-using Dapper;
 
 namespace Plus.HabboHotel.Users.Effects;
 
 public sealed class AvatarEffect
 {
-    public AvatarEffect(int id, int userId, int spriteId, double duration, bool activated, double timestampActivated, int quantity, IAvatarEffectStore? store = null)
+    public AvatarEffect(int id, int userId, int spriteId, double duration, bool activated, DateTimeOffset? timestampActivated, int quantity, IAvatarEffectStore? store = null)
     {
         Id = id;
         UserId = userId;
         SpriteId = spriteId;
         Duration = duration;
         Activated = activated;
-        TimestampActivated = timestampActivated;
+        ActivatedAt = timestampActivated;
         Quantity = quantity;
         _store = store;
     }
@@ -30,11 +28,11 @@ public sealed class AvatarEffect
 
     public bool Activated { get; set; }
 
-    public double TimestampActivated { get; set; }
+    public DateTimeOffset? ActivatedAt { get; set; }
 
     public int Quantity { get; set; }
 
-    public double TimeUsed => UnixTimestamp.GetNow() - TimestampActivated;
+    public double TimeUsed => ActivatedAt is { } activatedAt ? (DateTimeOffset.UtcNow - activatedAt).TotalSeconds : 0;
 
     public double TimeLeft
     {
@@ -53,10 +51,10 @@ public sealed class AvatarEffect
     /// </summary>
     public bool Activate()
     {
-        var tsNow = UnixTimestamp.GetNow();
+        var tsNow = DateTimeOffset.UtcNow;
         Store.Activate(Id, tsNow);
         Activated = true;
-        TimestampActivated = tsNow;
+        ActivatedAt = tsNow;
         return true;
     }
 
@@ -64,8 +62,8 @@ public sealed class AvatarEffect
     {
         Quantity--;
         Activated = false;
-        TimestampActivated = 0;
-        Store.SaveQuantity(Id, Quantity, false, 0);
+        ActivatedAt = null;
+        Store.SaveQuantity(Id, Quantity, false, null);
         habbo.Client.Send(new AvatarEffectExpiredComposer(this));
         // reset fx if in room?
     }
@@ -73,7 +71,7 @@ public sealed class AvatarEffect
     public void AddToQuantity()
     {
         Quantity++;
-        Store.SaveQuantity(Id, Quantity, Activated, TimestampActivated);
+        Store.SaveQuantity(Id, Quantity, Activated, ActivatedAt);
     }
 
     private IAvatarEffectStore Store => _store ?? new AvatarEffectStore(PlusEnvironment.DatabaseManager);

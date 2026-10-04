@@ -25782,7 +25782,7 @@ CREATE TABLE `user_effects` (
   `effect_id` int(11) DEFAULT '1',
   `total_duration` int(11) DEFAULT '3600',
   `is_activated` tinyint(1) DEFAULT '0',
-  `activated_stamp` double DEFAULT '0',
+  `activated_stamp` datetime DEFAULT NULL,
   `quantity` int(11) DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`)

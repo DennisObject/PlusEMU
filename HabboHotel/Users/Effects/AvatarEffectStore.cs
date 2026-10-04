@@ -7,8 +7,8 @@ public interface IAvatarEffectStore
 {
     IReadOnlyList<AvatarEffect> Load(int userId);
     AvatarEffect Create(int userId, int spriteId, double duration);
-    void Activate(int id, double timestamp);
-    void SaveQuantity(int id, int quantity, bool activated, double activatedStamp);
+    void Activate(int id, DateTimeOffset timestamp);
+    void SaveQuantity(int id, int quantity, bool activated, DateTimeOffset? activatedAt);
 }
 
 public sealed class AvatarEffectStore(IDatabase database) : IAvatarEffectStore
@@ -26,23 +26,23 @@ public sealed class AvatarEffectStore(IDatabase database) : IAvatarEffectStore
     {
         using var connection = database.Connection();
         var id = connection.ExecuteScalar<int>("INSERT INTO `user_effects` (`user_id`,`effect_id`,`total_duration`,`is_activated`,`activated_stamp`,`quantity`) " +
-            "VALUES (@userId, @spriteId, @duration, false, 0, 1); SELECT LAST_INSERT_ID()", new { userId, spriteId, duration });
-        return new(id, userId, spriteId, duration, false, 0, 1, this);
+            "VALUES (@userId, @spriteId, @duration, false, NULL, 1); SELECT LAST_INSERT_ID()", new { userId, spriteId, duration });
+        return new(id, userId, spriteId, duration, false, null, 1, this);
     }
 
-    public void Activate(int id, double timestamp)
+    public void Activate(int id, DateTimeOffset timestamp)
     {
         using var connection = database.Connection();
         connection.Execute("UPDATE `user_effects` SET `is_activated` = true, `activated_stamp` = @timestamp WHERE `id` = @id", new { timestamp, id });
     }
 
-    public void SaveQuantity(int id, int quantity, bool activated, double activatedStamp)
+    public void SaveQuantity(int id, int quantity, bool activated, DateTimeOffset? activatedAt)
     {
         using var connection = database.Connection();
         if (quantity < 1) connection.Execute("DELETE FROM `user_effects` WHERE `id` = @id", new { id });
         else connection.Execute("UPDATE `user_effects` SET `quantity` = @quantity, `is_activated` = @activated, `activated_stamp` = @activatedStamp WHERE `id` = @id",
-            new { quantity, activated, activatedStamp, id });
+            new { quantity, activated, activatedStamp = activatedAt?.UtcDateTime, id });
     }
 
-    private sealed record EffectRow(int Id, int UserId, int SpriteId, double Duration, bool Activated, double TimestampActivated, int Quantity);
+    private sealed record EffectRow(int Id, int UserId, int SpriteId, double Duration, bool Activated, DateTimeOffset? TimestampActivated, int Quantity);
 }

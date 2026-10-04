@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
 using Plus.HabboHotel.Users.Clothing.Parts;
-using Dapper;
 
 namespace Plus.HabboHotel.Users.Clothing;
 
@@ -12,6 +11,16 @@ public sealed class ClothingComponent
     /// </summary>
     private readonly ConcurrentDictionary<int, ClothingParts> _allClothing = new();
     private Habbo _habbo;
+    private readonly IClothingStore? _store;
+
+    public ClothingComponent() { }
+
+    internal ClothingComponent(IEnumerable<ClothingParts> clothing, Habbo habbo, IClothingStore store)
+    {
+        foreach (var part in clothing) _allClothing.TryAdd(part.PartId, part);
+        _habbo = habbo;
+        _store = store;
+    }
 
     public ICollection<ClothingParts> GetClothingParts => _allClothing.Values;
 
@@ -23,13 +32,6 @@ public sealed class ClothingComponent
     {
         if (_allClothing.Count > 0)
             return false;
-        using (var connection = PlusEnvironment.DatabaseManager.Connection())
-        {
-            foreach (var row in connection.Query<ClothingRow>("SELECT `id`, `part_id` AS PartId, `part` FROM `user_clothing` WHERE `user_id` = @id", new { id = habbo.Id }))
-            {
-                _allClothing.TryAdd(row.PartId, new(row.Id, row.PartId, row.Part));
-            }
-        }
         _habbo = habbo;
         return true;
     }
@@ -40,9 +42,7 @@ public sealed class ClothingComponent
         {
             if (!_allClothing.ContainsKey(partId))
             {
-                using var connection = PlusEnvironment.DatabaseManager.Connection();
-                var newId = connection.ExecuteScalar<int>("INSERT INTO `user_clothing` (`user_id`,`part_id`,`part`) VALUES (@userId, @partId, @part); SELECT LAST_INSERT_ID()",
-                    new { userId = _habbo.Id, partId, part = clothingName });
+                var newId = (_store ?? throw new InvalidOperationException("Clothing persistence is not configured.")).Add(_habbo.Id, partId, clothingName);
                 _allClothing.TryAdd(partId, new(newId, partId, clothingName));
             }
         }
@@ -58,5 +58,4 @@ public sealed class ClothingComponent
         _allClothing.Clear();
     }
 
-    private sealed record ClothingRow(int Id, int PartId, string Part);
 }

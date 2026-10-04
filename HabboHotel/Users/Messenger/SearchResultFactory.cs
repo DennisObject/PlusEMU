@@ -1,5 +1,4 @@
-﻿using System.Data;
-using Plus.Database;
+﻿using Plus.Database;
 using Dapper;
 
 namespace Plus.HabboHotel.Users.Messenger;
@@ -19,8 +18,7 @@ public class SearchResultFactory : ISearchResultFactory
         return connection.Query<SearchResultRow>(
                 "SELECT `id`, `username`, `motto`, `look`, `last_online` AS LastOnline FROM `users` WHERE `username` LIKE @query LIMIT 50",
                 new { query = $"{query}%" })
-            .Select(row => new SearchResult(row.Id, row.Username, row.Motto, row.Look,
-                row.LastOnline?.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty))
+            .Select(row => new SearchResult(row.Id, row.Username, row.Motto, row.Look, row.LastOnline))
             .ToList();
     }
 

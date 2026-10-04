@@ -1,8 +1,5 @@
 ﻿using System.Collections.Concurrent;
-using System.Data;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
-using Plus.Utilities;
-using Dapper;
 
 namespace Plus.HabboHotel.Users.Effects;
 
@@ -13,6 +10,14 @@ public sealed class EffectsComponent
     /// </summary>
     private readonly ConcurrentDictionary<int, AvatarEffect> _effects = new();
     private Habbo _habbo;
+
+    public EffectsComponent() { }
+
+    internal EffectsComponent(IEnumerable<AvatarEffect> effects, Habbo habbo)
+    {
+        foreach (var effect in effects) _effects.TryAdd(effect.Id, effect);
+        _habbo = habbo;
+    }
 
     public ICollection<AvatarEffect> GetAllEffects => _effects.Values;
 
@@ -25,10 +30,6 @@ public sealed class EffectsComponent
     {
         if (_effects.Count > 0)
             return false;
-        foreach (var effect in new AvatarEffectStore(PlusEnvironment.DatabaseManager).Load(habbo.Id))
-        {
-            _effects.TryAdd(effect.Id, effect);
-        }
         _habbo = habbo;
         CurrentEffect = 0;
         return true;

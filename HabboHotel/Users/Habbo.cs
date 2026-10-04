@@ -245,8 +245,6 @@ public class Habbo
         Client = client;
         //Quests = data.Quests;
         _disconnected = false;
-        InitFx();
-        InitClothing();
     }
 
 
