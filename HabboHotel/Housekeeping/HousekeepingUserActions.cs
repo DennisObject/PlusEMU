@@ -37,13 +37,15 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     private readonly IModerationManager _moderation;
     private readonly IPermissionManager _permissions;
     private readonly ISettingsManager _settings;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly IBoundedPasswordHasher _passwordHasher;
+    private readonly ISessionIssuer _sessions;
     private readonly IDatabase _database;
     // Held for every write to an account so it cannot interleave with that account's login.
     private readonly IAccountSessionGate _sessionGate;
 
     public HousekeepingUserActions(IHousekeepingUserStore users, IGameClientManager clients, IModerationManager moderation, IPermissionManager permissions,
-        ISettingsManager settings, IPasswordHasher passwordHasher, IDatabase database, IAccountSessionGate sessionGate)
+        ISettingsManager settings, IBoundedPasswordHasher passwordHasher, IDatabase database, IAccountSessionGate sessionGate,
+        ISessionIssuer sessions)
     {
         _users = users;
         _clients = clients;
@@ -53,6 +55,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         _passwordHasher = passwordHasher;
         _database = database;
         _sessionGate = sessionGate;
+        _sessions = sessions;
     }
 
     public HousekeepingOutcome Ban(Habbo actor, int userId, string reason, int hours)
@@ -65,6 +68,8 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         var expire = UnixTimestamp.GetNow() + hours * 3600.0;
         _moderation.BanUser(actor.Username, ModerationBanType.Username, user.Username, reason.Length > 0 ? reason : "No reason specified.", expire);
         Execute("UPDATE `user_info` SET `bans` = `bans` + 1 WHERE `user_id` = @userId", new { userId });
+        // BanUser already signed the account out everywhere; the stamp also stops a game login already past its ticket.
+        _sessionGate.Revoke(userId);
         _clients.GetClientByUserId(userId)?.Disconnect();
         return HousekeepingOutcome.Success(Label(user), $"hours={hours} reason={HousekeepingLimits.AuditValue(reason)}");
     }
@@ -129,6 +134,10 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         Execute("UPDATE `users` SET `rank` = @rankId WHERE `id` = @userId LIMIT 1", new { rankId, userId });
+        // Credential hygiene: a demoted account signs in again. Rights are never read from tokens, and a
+        // live session keeps running with the refreshed rights below.
+        if (rankId < user.Rank)
+            SignOutEverywhere(userId);
         if (_clients.Online(userId) is { } client)
         {
             // Rights are resolved at login; refresh them so a demotion takes effect immediately.
@@ -163,12 +172,24 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         var password = GeneratePassword();
-        // The SSO ticket is cleared (login rejects empty tickets) and the live session closed so old credentials stop working at once.
-        Execute("UPDATE `users` SET `password` = @hash, `auth_ticket` = '' WHERE `id` = @userId LIMIT 1", new { hash = _passwordHasher.Hash(password), userId });
-        _sessionGate.Revoke(userId);
+        // The new hash is written before the revocation: a login that reads the row after the generation bump must
+        // already find the new password, or it would pass with the old one under the new generation.
+        Execute("UPDATE `users` SET `password` = @hash WHERE `id` = @userId LIMIT 1", new { hash = _passwordHasher.Hash(password).GetAwaiter().GetResult(), userId });
+        SignOutEverywhere(userId);
         _clients.GetClientByUserId(userId)?.Disconnect();
         // The plaintext only travels back to the acting operator; the audit detail never contains it.
         return HousekeepingOutcome.Success(Label(user), "password_reset", password);
+    }
+
+    /// <summary>
+    /// Revokes the game ticket, access tokens and remember tokens (bumping the credential generation), then stamps
+    /// the account so a game login already past its ticket cannot finish. Callers hold the account's session gate.
+    /// </summary>
+    private void SignOutEverywhere(int userId)
+    {
+        // Housekeeping actions run synchronously on the packet thread; the emulator has no synchronization context.
+        _sessions.RevokeAll(userId).GetAwaiter().GetResult();
+        _sessionGate.Revoke(userId);
     }
 
     internal static string GeneratePassword() => RandomNumberGenerator.GetString(PasswordAlphabet, PasswordLength);

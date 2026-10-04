@@ -4,6 +4,8 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Dapper;
 using Plus.Database;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users.Authentication;
 
 namespace Plus.HabboHotel.Moderation;
 
@@ -11,6 +13,8 @@ public sealed class ModerationManager : IModerationManager
 {
     private readonly IDatabase _database;
     private readonly ILogger<ModerationManager> _logger;
+    private readonly ISessionIssuer _sessions;
+    private readonly IGameClientManager _clients;
     private readonly Dictionary<string, ModerationBan> _bans = new();
     private readonly Dictionary<int, List<ModerationPresetActions>> _moderationCfhTopicActions = new();
 
@@ -30,8 +34,10 @@ public sealed class ModerationManager : IModerationManager
 
     public ICollection<ModerationTicket> GetTickets => _modTickets.Values;
 
-    public ModerationManager(IDatabase database, ILogger<ModerationManager> logger)
+    public ModerationManager(IDatabase database, ILogger<ModerationManager> logger, ISessionIssuer sessions, IGameClientManager clients)
     {
+        _sessions = sessions;
+        _clients = clients;
         _database = database;
         _logger = logger;
     }
@@ -236,6 +242,30 @@ public sealed class ModerationManager : IModerationManager
         // REPLACE keeps one row per value, so a re-ban must also refresh the cached expiry.
         if (type == ModerationBanType.Machine || type == ModerationBanType.Username)
             _bans[banValue] = new(type, banValue, reason, expireTimestamp);
+
+        // Every ban path (mod tool, :ban, :ipban, :mip, word-filter bans, housekeeping) signs the banned accounts out
+        // everywhere. The ban row is written first, so a login that misses the revocation still sees the ban.
+        foreach (var userId in BannedAccounts(type, banValue))
+            _sessions.RevokeAll(userId).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Accounts a ban covers. Game sessions carry no client address, so an IP ban reaches the accounts last seen
+    /// at that address (users.ip_last); a machine ban reaches the sessions online with that machine id.
+    /// </summary>
+    internal IReadOnlyList<int> BannedAccounts(ModerationBanType type, string banValue)
+    {
+        if (type == ModerationBanType.Machine)
+        {
+#pragma warning disable CS0618 // The handshake's machine id only lives on the session.
+            return _clients.GetClients.Where(client => client.MachineId == banValue && client.GetHabbo() != null)
+                .Select(client => client.GetHabbo().Id).Distinct().ToList();
+#pragma warning restore CS0618
+        }
+        using var connection = _database.Connection();
+        return connection.Query<int>(type == ModerationBanType.Ip
+            ? "SELECT `id` FROM `users` WHERE `ip_last` = @banValue"
+            : "SELECT `id` FROM `users` WHERE `username` = @banValue", new { banValue }).ToList();
     }
 
     public bool UnbanUser(string username)

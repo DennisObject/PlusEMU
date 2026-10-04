@@ -47,7 +47,7 @@ public class HousekeepingDatabaseTests
             throw new InvalidOperationException("Housekeeping database tests require a disposable task_housekeeping_tests_ schema.");
         _database = new(connectionString);
         Execute("DELETE FROM users WHERE id BETWEEN 920000 AND 920099; DELETE FROM user_info WHERE user_id BETWEEN 920000 AND 920099; " +
-                "DELETE FROM rooms WHERE id BETWEEN 920000 AND 920099; DELETE FROM bans WHERE value LIKE 'hk\\_%'; DELETE FROM housekeeping_log; " +
+                "DELETE FROM rooms WHERE id BETWEEN 920000 AND 920099; DELETE FROM bans; DELETE FROM housekeeping_log; " +
                 "DELETE FROM housekeeping_online_peaks; DELETE FROM user_club_memberships WHERE user_id BETWEEN 920000 AND 920099");
         Execute("INSERT INTO users (id, username, auth_ticket, `rank`, credits, activity_points, vip_points, mail, ip_last, online) VALUES " +
                 $"({Owner}, 'hk_owner', '', 9, 0, 0, 0, 'owner@hotel', '10.0.0.1', 0), ({Target}, 'hk_o''brien', 'old-ticket', 1, 100, 50, 5, 'target@hotel', '10.0.0.2', 0), " +
@@ -67,6 +67,14 @@ public class HousekeepingDatabaseTests
         using var connection = _database.Connection();
         return connection.ExecuteScalar<T>(sql)!;
     }
+
+    private static readonly IOptions<AuthApiConfiguration> AuthOptions = Options.Create(new AuthApiConfiguration());
+    private static readonly BoundedPasswordHasher Hasher = new(new Argon2idPasswordHasher(), AuthOptions);
+
+    private SessionIssuer Sessions() =>
+        new(new SsoTicketStore(_database, TimeProvider.System, AuthOptions), new AccessTokenStore(_database, TimeProvider.System, AuthOptions),
+            new RememberTokenStore(_database, TimeProvider.System, AuthOptions), new CredentialGenerations(_database),
+            new AccountStore(_database, TimeProvider.System, AuthOptions), new BanLookup(_database, TimeProvider.System));
 
     private static Habbo Staff(int rank = 9) => new() { Id = Owner, Username = "hk_owner", Rank = rank, Permissions = new(new(), new()) };
 
@@ -139,7 +147,7 @@ public class HousekeepingDatabaseTests
     [HousekeepingDatabaseFact]
     public void BansUseParametersAndUnbanRemovesTheRow()
     {
-        var moderation = new ModerationManager(_database, NullLogger<ModerationManager>.Instance);
+        var moderation = new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients);
         moderation.BanUser("hk_owner", ModerationBanType.Username, "hk_o'brien", "it's spam", UnixTimestamp.GetNow() + 3600);
         Assert.True(moderation.IsBanned("hk_o'brien", out _));
         Assert.Equal("it's spam", Scalar<string>("SELECT reason FROM bans WHERE value = 'hk_o''brien'"));
@@ -152,7 +160,7 @@ public class HousekeepingDatabaseTests
     public void PasswordResetStoresOnlyAHashAndRevokesTheSsoTicket()
     {
         var hasher = new Argon2idPasswordHasher();
-        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, hasher, _database, new AccountSessionGate());
+        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, Hasher, _database, new AccountSessionGate(), Sessions());
         var outcome = actions.ResetPassword(Staff(), Target);
         Assert.True(outcome.Ok);
         var stored = Scalar<string>($"SELECT password FROM users WHERE id = {Target}");
@@ -166,7 +174,7 @@ public class HousekeepingDatabaseTests
     [HousekeepingDatabaseFact]
     public void OfflineSanctionsPersistMuteAndTradeLock()
     {
-        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, null!, _database, new AccountSessionGate());
+        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, null!, _database, new AccountSessionGate(), null!);
         Assert.True(actions.Mute(Staff(), Target, "", 15).Ok);
         Assert.Equal(900, Scalar<double>($"SELECT time_muted FROM users WHERE id = {Target}"));
         Assert.True(actions.TradeLock(Staff(), Target, 2, "").Ok);
@@ -195,8 +203,8 @@ public class HousekeepingDatabaseTests
     {
         Execute("INSERT INTO housekeeping_online_peaks (day, peak) VALUES (UTC_DATE(), 12), (UTC_DATE() - INTERVAL 3 DAY, 40)");
         new HousekeepingAuditLog(_database).Write(Owner, "hk_owner", "user.mute", HousekeepingOutcome.Success(HousekeepingTarget.User(Target), "minutes=5"));
-        new ModerationManager(_database, NullLogger<ModerationManager>.Instance).BanUser("hk_owner", ModerationBanType.Username, "hk_peer", "x", PlusEnvironment.GetUnixTimestamp() + 60);
-        var lookups = new HousekeepingLookups(_clients, null!, new ModerationManager(_database, NullLogger<ModerationManager>.Instance), NoLoadedRooms(), _database);
+        new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients).BanUser("hk_owner", ModerationBanType.Username, "hk_peer", "x", PlusEnvironment.GetUnixTimestamp() + 60);
+        var lookups = new HousekeepingLookups(_clients, null!, new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients), NoLoadedRooms(), _database);
         var dashboard = lookups.Dashboard();
         Assert.Equal((12, 40, 2), (dashboard.PeakOnlineToday, dashboard.PeakOnlineAllTime, dashboard.SanctionsLast24h));
         Assert.Equal(Scalar<int>("SELECT COUNT(*) FROM users"), dashboard.TotalUsers);
@@ -225,7 +233,7 @@ public class HousekeepingDatabaseTests
         var (login, release, session, gate) = StartLogin();
         var disconnected = false;
         session.DisconnectRequested = () => disconnected = true;
-        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, new Argon2idPasswordHasher(), _database, gate);
+        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, Hasher, _database, gate, Sessions());
         var reset = Task.Run(() => actions.ResetPassword(Staff(), Target));
         await Task.Delay(300);
         Assert.False(reset.IsCompleted);
@@ -239,7 +247,7 @@ public class HousekeepingDatabaseTests
     public async Task PasswordResetAfterTheTicketResolvedRejectsTheLogin()
     {
         var gate = new AccountSessionGate();
-        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, new Argon2idPasswordHasher(), _database, gate);
+        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, Hasher, _database, gate, Sessions());
         HousekeepingOutcome? reset = null;
         // The staff reset lands right after the login has used up its ticket, before it reaches the gate.
         var authenticator = Authenticator(new SlowLogin(_users, Task.CompletedTask), gate, afterConsume: () => reset = actions.ResetPassword(Staff(), Target));

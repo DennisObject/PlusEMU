@@ -105,7 +105,7 @@ public class HousekeepingActionTests
     {
         var store = new FakeUserStore(users);
         var clients = new FakeClients();
-        return (new(store, clients, null!, null!, null!, null!, null!, gate), new(store, clients, items, itemFactory, null!, null!, gate), clients);
+        return (new(store, clients, null!, null!, null!, null!, null!, gate, null!), new(store, clients, items, itemFactory, null!, null!, gate), clients);
     }
 
     [Fact]
