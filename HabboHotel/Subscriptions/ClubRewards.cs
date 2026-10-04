@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using Dapper;
 using Plus.Core.Settings;
 using Plus.Database;
@@ -115,7 +116,7 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
         var spent = connection.ExecuteScalar<long>("SELECT COALESCE(SUM(credits), 0) FROM club_credit_spending WHERE user_id = @id AND spent_at >= @start AND spent_at < @end", new { id = habbo.Id, start, end = NextPayday(now).ToUnixTimeSeconds() });
         var rewarded = connection.ExecuteScalar<long>("SELECT COALESCE(SUM(streak_bonus + spending_bonus), 0) FROM club_paydays WHERE user_id = @id AND paid = 1", new { id = habbo.Id });
         var missed = connection.ExecuteScalar<long>("SELECT COALESCE(SUM(streak_bonus + spending_bonus), 0) FROM club_paydays WHERE user_id = @id AND paid = 0", new { id = habbo.Id });
-        return new(streak, membership.FirstStartedAt > 0 ? DateTimeOffset.FromUnixTimeSeconds(membership.FirstStartedAt).ToString("dd-MM-yyyy") : "", Percentage,
+        return new(streak, membership.FirstStartedAt > 0 ? DateTimeOffset.FromUnixTimeSeconds(membership.FirstStartedAt).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture) : "", Percentage,
             (int)Math.Min(int.MaxValue, missed), (int)Math.Min(int.MaxValue, rewarded), (int)Math.Min(int.MaxValue, spent), StreakBonus(streak), SpendingBonus(spent, Percentage), (int)((NextPayday(now) - now).TotalMinutes));
     }
 

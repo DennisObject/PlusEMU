@@ -1,4 +1,4 @@
-﻿namespace Plus.Communication.Packets.Outgoing;
+namespace Plus.Communication.Packets.Outgoing;
 
 public static class ServerPacketHeader
 {
@@ -8,9 +8,6 @@ public static class ServerPacketHeader
     public const uint AuthenticationOkComposer = 1079; //1442
     public const uint UserObjectComposer = 845; //1823
     public const uint UserPerksComposer = 1790; //2807
-    public const uint HabboClubExtendOfferComposer = 3964;
-    public const uint ClubGiftReceivedComposer = 659;
-    public const uint PickMonthlyClubGiftComposer = 2188;
     public const uint KickbackInfoComposer = 4001; //3277
     public const uint UserRightsComposer = 3315; //1862
     public const uint GenericErrorComposer = 905; //169
@@ -357,13 +354,6 @@ public static class ServerPacketHeader
     public const uint RewardTrackClaimResultComposer = 48004;
     public const uint RewardTrackProgressComposer = 48005;
     public const uint RewardTrackPremiumPurchaseResultComposer = 48006;
-    // Housekeeping (in-client admin panel); internal IDs match Octane's wire IDs.
-    public const uint HousekeepingUserDetailComposer = 9200;
-    public const uint HousekeepingActionResultComposer = 9201;
-    public const uint HousekeepingRoomDetailComposer = 9202;
-    public const uint HousekeepingRoomListComposer = 9203;
-    public const uint HousekeepingDashboardComposer = 9204;
-    public const uint HousekeepingActionLogComposer = 9205;
     // Octane catalog editor and furni editor; the same ids on the wire.
     public const uint FurniEditorSearchResultComposer = 10040;
     public const uint FurniEditorDetailResultComposer = 10041;
@@ -377,6 +367,14 @@ public static class ServerPacketHeader
     public const uint CatalogStudioSessionComposer = 10067;
     public const uint CatalogStudioHistoryComposer = 10071;
     public const uint CatalogStudioOperationComposer = 10072;
-    public const uint CatalogStudioValidationComposer = 10073;
-    public const uint CatalogStudioDocumentResultComposer = 10078;
+    // Housekeeping (in-client admin panel); internal IDs match Octane's wire IDs.
+    public const uint HousekeepingUserDetailComposer = 9200;
+    public const uint HousekeepingActionResultComposer = 9201;
+    public const uint HousekeepingRoomDetailComposer = 9202;
+    public const uint HousekeepingRoomListComposer = 9203;
+    public const uint HousekeepingDashboardComposer = 9204;
+    public const uint HousekeepingActionLogComposer = 9205;
+    public const uint HabboClubExtendOfferComposer = 3964;
+    public const uint ClubGiftReceivedComposer = 659;
+    public const uint PickMonthlyClubGiftComposer = 2188;
 }

@@ -8,13 +8,10 @@ public sealed class ActorProfile
     // Plus's inverted RoomBlockingEnabled: true means walkthrough.
     public bool Walkthrough { get; set; }
     public bool DiagonalEnabled { get; set; } = true;
-    public int CapabilityVersion { get; private set; }
-    private readonly HashSet<int> _groups = new();
-    public bool IsMember(int group) => _groups.Contains(group);
-    public void SetMembership(int group, bool member)
-    {
-        if (member ? _groups.Add(group) : _groups.Remove(group)) CapabilityVersion++;
-    }
+    public ActorAccess Access { get; } = new();
+    public int CapabilityVersion => Access.CapabilityVersion;
+    public bool IsMember(int group) => Access.IsMember(group);
+    public void SetMembership(int group, bool member) => Access.SetMembership(group, member);
     public InteractionAuthorization? Interaction { get; set; }
 }
 

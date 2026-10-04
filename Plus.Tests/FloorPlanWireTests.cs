@@ -89,13 +89,13 @@ public class FloorPlanWireTests
         foreach (var (name, wire) in legacy.IncomingHeaders)
         {
             // Housekeeping is Octane-only and disabled (0) in the other revisions.
-            if (!changedIncoming.Contains(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal) && !OctaneEditor(name))
+            if (!changedIncoming.Contains(name) && !OctaneEditor(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal))
                 Assert.Equal(wire, hybrid.IncomingHeaders[name]);
         }
 
         foreach (var (name, wire) in legacy.OutgoingHeaders)
         {
-            if (!changedOutgoing.Contains(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal) && !OctaneEditor(name))
+            if (!changedOutgoing.Contains(name) && !OctaneEditor(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal))
                 Assert.Equal(wire, hybrid.OutgoingHeaders[name]);
         }
     }

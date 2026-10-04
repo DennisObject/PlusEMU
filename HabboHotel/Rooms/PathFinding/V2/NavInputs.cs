@@ -12,6 +12,7 @@ public sealed class NavInputs
     public int Height { get; }
     // Only the room owner accesses AppliedRecords.
     internal Dictionary<uint, NavItemRecord> AppliedRecords { get; } = new();
+    internal Action<uint>? ItemPublished { get; set; }
     internal IEnumerable<uint> ItemIds => _records.Keys;
     internal NavItemRecord? Read(uint id) => _records.GetValueOrDefault(id);
 
@@ -80,6 +81,7 @@ public sealed class NavInputs
             // Install first, then mark both footprints. A racing drain cannot lose a move.
             if (old != null) foreach (var t in old.Footprint) MarkDirty(t);
             foreach (var t in next.Footprint) MarkDirty(t);
+            ItemPublished?.Invoke(next.ItemId);
             return true;
         }
     }
