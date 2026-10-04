@@ -19,10 +19,13 @@ public sealed class RoomFurnitureLoader(IDatabase database, IItemDataManager def
         using var connection = database.Connection();
         return connection.Query<ItemRow>("""
             SELECT items.id, items.user_id AS UserId, items.base_item AS BaseItem, users.username,
+                   COALESCE(items_groups.group_id, 0) AS GroupId,
                    items.extra_data AS ExtraData, items.x, items.y, items.z, items.rot AS Rotation,
                    items.limited_number AS LimitedNumber, items.limited_stack AS LimitedStack,
                    items.wall_pos AS WallPosition
-            FROM items LEFT JOIN users ON users.id = items.user_id
+            FROM items
+            LEFT JOIN items_groups ON items_groups.id = items.id
+            LEFT JOIN users ON users.id = items.user_id
             WHERE items.room_id = @roomId
             """, new { roomId }).Select(row => Materialize(row, roomId)).Where(item => item != null).Select(item => item!).ToArray();
     }
@@ -36,7 +39,7 @@ public sealed class RoomFurnitureLoader(IDatabase database, IItemDataManager def
             Definition = definition, ExtraData = FurniExtraData.Load(definition, row.ExtraData ?? "", keepLegacy: true),
             GetX = row.X, GetY = row.Y, GetZ = row.Z, Rotation = row.Rotation,
             UniqueNumber = row.LimitedNumber, UniqueSeries = row.LimitedStack,
-            WallCoordinates = row.WallPosition ?? "", RoomId = roomId
+            WallCoordinates = row.WallPosition ?? "", GroupId = row.GroupId, RoomId = roomId
         };
         MagicTileHeight.Sync(item);
         return item;
@@ -47,6 +50,7 @@ public sealed class RoomFurnitureLoader(IDatabase database, IItemDataManager def
         public uint Id { get; set; }
         public uint UserId { get; set; }
         public uint BaseItem { get; set; }
+        public int GroupId { get; set; }
         public string? Username { get; set; }
         public string? ExtraData { get; set; }
         public int X { get; set; }

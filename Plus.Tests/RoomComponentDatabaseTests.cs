@@ -45,6 +45,7 @@ public sealed class RoomComponentDatabaseTests
                     x INT NOT NULL DEFAULT 0, y INT NOT NULL DEFAULT 0, z DOUBLE NOT NULL DEFAULT 0, rot INT NOT NULL DEFAULT 0,
                     extra_data TEXT, wall_pos VARCHAR(100), base_item INT UNSIGNED NOT NULL DEFAULT 0,
                     limited_number INT UNSIGNED NOT NULL DEFAULT 0, limited_stack INT UNSIGNED NOT NULL DEFAULT 0);
+                CREATE TABLE items_groups (id INT UNSIGNED PRIMARY KEY, group_id INT NOT NULL);
                 CREATE TABLE users (id INT PRIMARY KEY, username VARCHAR(100));
                 CREATE TABLE logs_client_trade (
                     id INT AUTO_INCREMENT PRIMARY KEY, `1id` INT, `2id` INT, `1items` TEXT, `2items` TEXT, `timestamp` CHAR(20));
@@ -63,6 +64,7 @@ public sealed class RoomComponentDatabaseTests
                 INSERT INTO users VALUES (7, 'owner');
                 INSERT INTO items (id, user_id, room_id, x, y, z, rot, extra_data, wall_pos, base_item, limited_number, limited_stack)
                     VALUES (92, 7, 42, 2, 3, 2, 4, '100;1', '', 500, 6, 7), (93, 7, 42, 0, 0, 0, 0, '', '', 999, 0, 0);
+                INSERT INTO items_groups VALUES (92, 123);
                 INSERT INTO rooms VALUES (42, 0);
                 INSERT INTO user_roomvisits VALUES (42, 7, 0);
                 """);
@@ -114,8 +116,8 @@ public sealed class RoomComponentDatabaseTests
             };
             var loadedFurniture = new RoomFurnitureLoader(new ProbeDatabase(databaseConnection), new TestItemDataManager(definition)).Load(42);
             var loadedItem = Assert.Single(loadedFurniture);
-            Assert.Equal((92u, 7u, "owner", 2, 3, 2d, 4, 6u, 7u),
-                (loadedItem.Id, loadedItem.OwnerId, loadedItem.Username, loadedItem.GetX, loadedItem.GetY, loadedItem.GetZ,
+            Assert.Equal((92u, 7u, "owner", 123, 2, 3, 2d, 4, 6u, 7u),
+                (loadedItem.Id, loadedItem.OwnerId, loadedItem.Username, loadedItem.GroupId, loadedItem.GetX, loadedItem.GetY, loadedItem.GetZ,
                     loadedItem.Rotation, loadedItem.UniqueNumber, loadedItem.UniqueSeries));
             Assert.Equal("200;1", loadedItem.LegacyDataString);
         }
