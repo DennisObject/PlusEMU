@@ -174,19 +174,17 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         }
         if (item.IsLimited)
         {
-            if (item.LimitedEditionStack <= item.LimitedEditionSells)
+            using var connection = _database.Connection();
+            if (CatalogLimitedStock.Reserve(connection, item.Id) is not { } serial)
             {
                 session.SendNotification("This item has sold out!\n\n" + "Please note, you have not recieved another item (You have also not been charged for it!)");
                 session.Send(new CatalogUpdatedComposer());
                 session.Send(new PurchaseOkComposer());
                 return;
             }
-            item.LimitedEditionSells++;
-            using var connection = _database.Connection();
-            connection.Execute("UPDATE `catalog_items` SET `limited_sells` = @limitedSells WHERE `id` = @itemId LIMIT 1",
-                new { limitedSells = item.LimitedEditionSells, itemId = item.Id });
+            item.LimitedEditionSells = (uint)serial;
 
-            limitedEditionSells = item.LimitedEditionSells;
+            limitedEditionSells = (uint)serial;
             limitedEditionStack = item.LimitedEditionStack;
         }
         void ChargePurchase()
