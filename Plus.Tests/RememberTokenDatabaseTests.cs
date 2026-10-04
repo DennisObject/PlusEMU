@@ -61,15 +61,18 @@ public sealed class RememberTokenDatabaseTests : IDisposable
     }
 
     [AuthDatabaseFact]
-    public async Task ConcurrentUseOfOneTokenRotatesOnceAndTreatsTheRestAsReuse()
+    public async Task ConcurrentUseOfOneTokenRotatesOnceDetectsReuseOnceAndIgnoresTheRest()
     {
         var userId = User();
         var token = await _store.Issue(userId);
 
         var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() => _store.Rotate(token.Value))));
 
-        var winner = Assert.Single(results, r => r.Status == RememberRotationStatus.Rotated);
-        Assert.All(results.Where(r => r != winner), r => Assert.Equal(RememberRotationStatus.Reused, r.Status));
+        // The first late caller detects the reuse and revokes the family; the others then present a
+        // revoked token, which has no further effect.
+        Assert.Single(results, r => r.Status == RememberRotationStatus.Rotated);
+        Assert.Single(results, r => r.Status == RememberRotationStatus.Reused);
+        Assert.Equal(6, results.Count(r => r.Status == RememberRotationStatus.Invalid));
     }
 
     [AuthDatabaseFact]
@@ -79,7 +82,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
         var expiring = await _store.Issue(userId);
         var loggedOut = await _store.Issue(userId);
 
-        await _store.RevokeFamily(loggedOut.Value);
+        await RevokeFamily(loggedOut.Value);
         _time.Advance(TimeSpan.FromDays(31));
 
         Assert.Equal(RememberRotationStatus.Invalid, (await _store.Rotate(expiring.Value)).Status);
@@ -96,7 +99,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
         var laptop = await _store.Issue(userId);
         var phoneNow = await Use(phone.Value);
 
-        await _store.RevokeFamily(phone.Value);
+        await RevokeFamily(phone.Value);
 
         Assert.Equal(RememberRotationStatus.Invalid, (await _store.Rotate(phoneNow.Value)).Status);
         Assert.Equal(RememberRotationStatus.Rotated, (await _store.Rotate(laptop.Value)).Status);
@@ -127,6 +130,16 @@ public sealed class RememberTokenDatabaseTests : IDisposable
             connection.Execute("UPDATE users SET credential_generation = 7 WHERE id = @userId", new { userId });
 
         Assert.Equal(7, (await _store.Rotate(token.Value)).Generation);
+    }
+
+    private async Task RevokeFamily(string token)
+    {
+        var owner = await _store.FindOwner(token);
+        using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        await _store.RevokeSession(owner!.SessionId!, new CredentialScope(connection, transaction));
+        transaction.Commit();
     }
 
     private async Task<IssuedToken> Use(string token)

@@ -36,11 +36,10 @@ public class AuthHttpServer : IAuthHttpServer
     private readonly AuthEndpoints _endpoints;
     private WebApplication? _app;
 
-    public AuthHttpServer(IOptions<AuthApiConfiguration> options, ILoginService login, IRegistrationService registration, ISessionIssuer sessions,
-        ISsoTicketStore ssoTickets, IAccessTokenStore accessTokens, IRememberTokenStore rememberTokens)
+    public AuthHttpServer(IOptions<AuthApiConfiguration> options, ILoginService login, IRegistrationService registration, ISessionIssuer sessions)
     {
         _configuration = options.Value;
-        _endpoints = new(login, registration, sessions, ssoTickets, accessTokens, rememberTokens);
+        _endpoints = new(login, registration, sessions);
     }
 
     public IReadOnlyCollection<string> Urls => _app?.Urls.ToList() ?? [];

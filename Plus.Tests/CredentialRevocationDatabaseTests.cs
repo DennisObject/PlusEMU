@@ -75,7 +75,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     {
         var userId = User();
         var issuer = Issuer();
-        var session = await issuer.Issue(userId, "x", await issuer.Generation(userId));
+        var session = await issuer.Issue(userId, "x", await issuer.Generation(userId), "203.0.113.8");
         var paused = new PausedTickets(_tickets);
         var racing = new SessionIssuer(paused, _access, _remember, _generations, _accounts, new BanLookup(_database, TimeProvider.System));
 
@@ -93,7 +93,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     {
         var userId = User();
         var issuer = Issuer();
-        var session = await issuer.Issue(userId, "x", await issuer.Generation(userId));
+        var session = await issuer.Issue(userId, "x", await issuer.Generation(userId), "203.0.113.8");
 
         var token = await issuer.ExchangeTicket(session!.SsoTicket.Value);
 
@@ -111,6 +111,103 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         var account = await _accounts.FindByUsername(await Name(userId));
 
         Assert.Equal(new AccountCredentials(userId, await Name(userId), "secret", 5), account);
+    }
+
+    [AuthDatabaseFact]
+    public async Task LogoutLandingMidResumeVoidsThatDevicesSession()
+    {
+        var userId = User();
+        var device = (await Issuer().Issue(userId, "x", await _generations.Current(userId), "203.0.113.8", remember: true))!;
+        var paused = new PausedAccounts(_accounts);
+        var racing = Issuer(accounts: paused);
+
+        var pending = racing.Resume(device.RememberToken!.Value.Value, "203.0.113.8", withTicket: true);
+        await paused.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await Issuer().Logout(device.AccessToken.Value, device.SsoTicket.Value, device.RememberToken!.Value.Value);
+        paused.Release.SetResult();
+
+        Assert.Equal(ResumeStatus.Invalid, (await pending).Status);
+        await AssertNothingLive(userId);
+    }
+
+    [AuthDatabaseFact]
+    public async Task LogoutLandingMidTicketExchangeVoidsTheExchange()
+    {
+        var userId = User();
+        var device = (await Issuer().Issue(userId, "x", await _generations.Current(userId), "203.0.113.8"))!;
+        var paused = new PausedTickets(_tickets);
+        var racing = new SessionIssuer(paused, _access, _remember, _generations, _accounts, new BanLookup(_database, TimeProvider.System));
+
+        var pending = racing.ExchangeTicket(device.SsoTicket.Value);
+        await paused.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await Issuer().Logout(null, device.SsoTicket.Value, null);
+        paused.Release.SetResult();
+
+        Assert.Null(await pending);
+        await AssertNothingLive(userId);
+    }
+
+    [AuthDatabaseFact]
+    public async Task LogoutSignsOutOnlyThatDevice()
+    {
+        var userId = User();
+        var issuer = Issuer();
+        var phone = (await issuer.Issue(userId, "x", await _generations.Current(userId), "203.0.113.8", remember: true))!;
+        var laptop = (await issuer.Issue(userId, "x", await _generations.Current(userId), "203.0.113.9", remember: true))!;
+
+        await issuer.Logout(phone.AccessToken.Value, null, null);
+
+        Assert.Null(await _access.FindUser(phone.AccessToken.Value));
+        Assert.Equal(RememberRotationStatus.Invalid, (await _remember.Rotate(phone.RememberToken!.Value.Value)).Status);
+        Assert.Equal(userId, await _access.FindUser(laptop.AccessToken.Value));
+        Assert.Equal(userId, await _tickets.FindUser(laptop.SsoTicket.Value));
+        Assert.Equal(ResumeStatus.Resumed, (await issuer.Resume(laptop.RememberToken!.Value.Value, "203.0.113.9", withTicket: false)).Status);
+    }
+
+    [AuthDatabaseFact]
+    public async Task LogoutWithOnlyTheRememberTokenEndsThatSessionsAccessToo()
+    {
+        var userId = User();
+        var issuer = Issuer();
+        var device = (await issuer.Issue(userId, "x", await _generations.Current(userId), "203.0.113.8", remember: true))!;
+
+        await issuer.Logout(null, null, device.RememberToken!.Value.Value);
+
+        await AssertNothingLive(userId);
+    }
+
+    [AuthDatabaseFact]
+    public async Task ReplayingAnAlreadyRevokedTokenHasNoSideEffects()
+    {
+        var userId = User();
+        var issuer = Issuer();
+        var first = (await issuer.Issue(userId, "x", await _generations.Current(userId), "203.0.113.8", remember: true))!.RememberToken!.Value.Value;
+        await issuer.Resume(first, "203.0.113.8", withTicket: false);
+        Assert.Equal(ResumeStatus.Invalid, (await issuer.Resume(first, "203.0.113.8", withTicket: false)).Status);
+        var afterTheft = await _generations.Current(userId);
+        var recovered = (await issuer.Issue(userId, "x", afterTheft, "203.0.113.8", remember: true))!;
+
+        Assert.Equal(ResumeStatus.Invalid, (await issuer.Resume(first, "203.0.113.8", withTicket: false)).Status);
+
+        Assert.Equal(afterTheft, await _generations.Current(userId));
+        Assert.Equal(userId, await _access.FindUser(recovered.AccessToken.Value));
+        Assert.Equal(userId, await _tickets.FindUser(recovered.SsoTicket.Value));
+    }
+
+    [AuthDatabaseFact]
+    public async Task FirstReuseDetectionCommitsNothingUnlessTheAccountRevokeSucceeds()
+    {
+        var userId = User();
+        var token = await _remember.Issue(userId);
+        var rotation = await _remember.Rotate(token.Value);
+        await _remember.Continue(userId, rotation.FamilyId);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _remember.Rotate(token.Value, (_, _) => throw new InvalidOperationException("crash")));
+        var before = await _generations.Current(userId);
+        var reuse = await _remember.Rotate(token.Value, async (id, scope) => await _generations.Bump(id, scope));
+
+        Assert.Equal(RememberRotationStatus.Reused, reuse.Status);
+        Assert.Equal(before + 1, await _generations.Current(userId));
     }
 
     [AuthDatabaseFact]
@@ -140,8 +237,8 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         await issuer.RevokeAll(userId);
 
         Assert.Equal(before + 1, await issuer.Generation(userId));
-        Assert.Null(await issuer.Issue(userId, "x", before, remember: true));
-        Assert.NotNull(await issuer.Issue(userId, "x", before + 1, remember: true));
+        Assert.Null(await issuer.Issue(userId, "x", before, "203.0.113.8", remember: true));
+        Assert.NotNull(await issuer.Issue(userId, "x", before + 1, "203.0.113.8", remember: true));
         await issuer.RevokeAll(userId);
         await AssertNothingLive(userId);
     }
@@ -200,18 +297,20 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         public readonly TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public readonly TaskCompletionSource Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public async Task<int?> Exchange(string ticket)
+        public async Task<CredentialOwner?> Exchange(string ticket)
         {
-            var userId = await inner.Exchange(ticket);
+            var owner = await inner.Exchange(ticket);
             Entered.TrySetResult();
             await Release.Task;
-            return userId;
+            return owner;
         }
 
-        public Task<IssuedToken> Issue(int userId, CredentialScope? scope = null) => inner.Issue(userId, scope);
+        public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) => inner.Issue(userId, sessionId, scope);
         public Task<int?> FindUser(string ticket) => inner.FindUser(ticket);
+        public Task<CredentialOwner?> FindOwner(string ticket) => inner.FindOwner(ticket);
         public Task<int?> Consume(string ticket) => inner.Consume(ticket);
         public Task Revoke(int userId, CredentialScope? scope = null) => inner.Revoke(userId, scope);
+        public Task RevokeSession(int userId, string sessionId, CredentialScope scope) => inner.RevokeSession(userId, sessionId, scope);
     }
 
     private sealed class PausedBans : IBanLookup

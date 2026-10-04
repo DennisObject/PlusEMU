@@ -157,15 +157,23 @@ internal sealed class FakeAccounts : IAccountStore
 internal sealed class FakeSsoTickets : ISsoTicketStore
 {
     public readonly Dictionary<string, int> Live = [];
+    public readonly HashSet<string> Exchanged = [];
+    private readonly Dictionary<string, string?> _sessions = [];
 
-    public Task<IssuedToken> Issue(int userId, CredentialScope? scope = null)
+    public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null)
     {
+        foreach (var old in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
+            Live.Remove(old);
         var token = new IssuedToken(SecureToken.Generate(), 1000);
         Live[token.Value] = userId;
+        _sessions[token.Value] = sessionId;
         return Task.FromResult(token);
     }
 
     public Task<int?> FindUser(string ticket) => Task.FromResult(Live.TryGetValue(ticket, out var id) ? id : (int?)null);
+
+    public Task<CredentialOwner?> FindOwner(string ticket) =>
+        Task.FromResult(Live.TryGetValue(ticket, out var id) ? new CredentialOwner(id, _sessions.GetValueOrDefault(ticket)) : null);
 
     public Task<int?> Consume(string ticket)
     {
@@ -173,14 +181,19 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
         return Task.FromResult(Live.Remove(ticket, out var id) ? id : (int?)null);
     }
 
-    public readonly HashSet<string> Exchanged = [];
-
-    public Task<int?> Exchange(string ticket) =>
-        Task.FromResult(Live.TryGetValue(ticket, out var id) && Exchanged.Add(ticket) ? id : (int?)null);
+    public async Task<CredentialOwner?> Exchange(string ticket) =>
+        await FindOwner(ticket) is { } owner && Exchanged.Add(ticket) ? owner : null;
 
     public Task Revoke(int userId, CredentialScope? scope = null)
     {
         foreach (var ticket in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
+            Live.Remove(ticket);
+        return Task.CompletedTask;
+    }
+
+    public Task RevokeSession(int userId, string sessionId, CredentialScope scope)
+    {
+        foreach (var ticket in Live.Where(p => p.Value == userId && _sessions.GetValueOrDefault(p.Key) == sessionId).Select(p => p.Key).ToList())
             Live.Remove(ticket);
         return Task.CompletedTask;
     }
@@ -189,15 +202,20 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
 internal sealed class FakeAccessTokens : IAccessTokenStore
 {
     public readonly Dictionary<string, int> Live = [];
+    private readonly Dictionary<string, string?> _sessions = [];
 
-    public Task<IssuedToken> Issue(int userId, CredentialScope? scope = null)
+    public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null)
     {
         var token = new IssuedToken(SecureToken.Generate(), 2000);
         Live[token.Value] = userId;
+        _sessions[token.Value] = sessionId;
         return Task.FromResult(token);
     }
 
     public Task<int?> FindUser(string token) => Task.FromResult(Live.TryGetValue(token, out var id) ? id : (int?)null);
+
+    public Task<CredentialOwner?> FindOwner(string token) =>
+        Task.FromResult(Live.TryGetValue(token, out var id) ? new CredentialOwner(id, _sessions.GetValueOrDefault(token)) : null);
 
     public Task Revoke(string token)
     {
@@ -207,9 +225,13 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
 
     public Task<int> Prune(long cutoff, int batch) => Task.FromResult(0);
 
-    public Task RevokeAll(int userId, CredentialScope? scope = null)
+    public Task RevokeAll(int userId, CredentialScope? scope = null) => RemoveWhere(p => p.Value == userId);
+
+    public Task RevokeSession(string sessionId, CredentialScope scope) => RemoveWhere(p => _sessions.GetValueOrDefault(p.Key) == sessionId);
+
+    private Task RemoveWhere(Func<KeyValuePair<string, int>, bool> match)
     {
-        foreach (var key in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
+        foreach (var key in Live.Where(match).Select(p => p.Key).ToList())
             Live.Remove(key);
         return Task.CompletedTask;
     }
@@ -275,25 +297,27 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
 
     public Task<int> Prune(long cutoff, int batch) => Task.FromResult(0);
 
-    public Task<RememberRotation> Rotate(string token)
+    public async Task<RememberRotation> Rotate(string token, Func<int, CredentialScope, Task>? onReuse = null)
     {
-        if (!_rows.TryGetValue(token, out var row))
-            return Task.FromResult(new RememberRotation(RememberRotationStatus.Invalid));
+        if (!_rows.TryGetValue(token, out var row) || row.Revoked)
+            return new(RememberRotationStatus.Invalid);
         if (row.Used)
         {
             RevokeWhere(r => r.Family == row.Family);
-            return Task.FromResult(new RememberRotation(RememberRotationStatus.Reused, row.UserId, row.Family));
+            if (onReuse != null)
+                await onReuse(row.UserId, null!);
+            return new(RememberRotationStatus.Reused, row.UserId, row.Family);
         }
-        if (row.Revoked)
-            return Task.FromResult(new RememberRotation(RememberRotationStatus.Invalid));
         _rows[token] = row with { Used = true };
-        return Task.FromResult(new RememberRotation(RememberRotationStatus.Rotated, row.UserId, row.Family));
+        return new(RememberRotationStatus.Rotated, row.UserId, row.Family);
     }
 
-    public Task RevokeFamily(string token)
+    public Task<CredentialOwner?> FindOwner(string token) =>
+        Task.FromResult(_rows.TryGetValue(token, out var row) ? new CredentialOwner(row.UserId, row.Family) : null);
+
+    public Task RevokeSession(string sessionId, CredentialScope scope)
     {
-        if (_rows.TryGetValue(token, out var row))
-            RevokeWhere(r => r.Family == row.Family);
+        RevokeWhere(r => r.Family == sessionId);
         return Task.CompletedTask;
     }
 
@@ -319,16 +343,19 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
     }
 }
 
-/// <summary>In-memory credential generations; writes run without a database scope.</summary>
+/// <summary>In-memory credential generations and sessions; writes run without a database scope.
+/// Sessions are known once started (or, for remember families created by the fake store, unless
+/// revoked).</summary>
 internal sealed class FakeGenerations : ICredentialGenerations
 {
     private readonly Dictionary<int, long> _generations = [];
+    private readonly HashSet<string> _revokedSessions = [];
 
     public Task<long> Current(int userId) => Task.FromResult(_generations.GetValueOrDefault(userId));
 
-    public async Task<bool> WriteIfCurrent(int userId, long generation, Func<CredentialScope, Task> writes)
+    public async Task<bool> WriteIfCurrent(int userId, long generation, string? sessionId, Func<CredentialScope, Task> writes)
     {
-        if (_generations.GetValueOrDefault(userId) != generation)
+        if (_generations.GetValueOrDefault(userId) != generation || sessionId != null && _revokedSessions.Contains(sessionId))
             return false;
         await writes(null!);
         return true;
@@ -336,9 +363,25 @@ internal sealed class FakeGenerations : ICredentialGenerations
 
     public async Task Revoke(int userId, Func<CredentialScope, Task> revocations)
     {
-        _generations[userId] = _generations.GetValueOrDefault(userId) + 1;
+        await Bump(userId, null!);
         await revocations(null!);
     }
+
+    public Task Bump(int userId, CredentialScope scope)
+    {
+        _generations[userId] = _generations.GetValueOrDefault(userId) + 1;
+        return Task.CompletedTask;
+    }
+
+    public async Task RevokeSession(int userId, string sessionId, Func<CredentialScope, Task> revocations)
+    {
+        _revokedSessions.Add(sessionId);
+        await revocations(null!);
+    }
+
+    public Task StartSession(int userId, string sessionId, CredentialScope scope) => Task.CompletedTask;
+
+    public Task<int> PruneSessions(long cutoff, int batch) => Task.FromResult(0);
 }
 
 /// <summary>Blocks every hash until released, counting how many ran.</summary>

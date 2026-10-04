@@ -103,13 +103,13 @@ public sealed class AuthTokenDatabaseTests : IDisposable
 
         var exchanges = await Task.WhenAll(Enumerable.Range(0, 16).Select(_ => Task.Run(() => store.Exchange(ticket.Value))));
 
-        Assert.Equal(userId, Assert.Single(exchanges, e => e != null));
+        Assert.Equal(userId, Assert.Single(exchanges, e => e != null)!.UserId);
         Assert.Null(await store.Exchange(ticket.Value));
         Assert.Equal(userId, await store.Consume(ticket.Value));
         Assert.Null(await store.Exchange(ticket.Value));
 
         var next = await store.Issue(userId);
-        Assert.Equal(userId, await store.Exchange(next.Value));
+        Assert.Equal(userId, (await store.Exchange(next.Value))?.UserId);
     }
 
     [AuthDatabaseFact]

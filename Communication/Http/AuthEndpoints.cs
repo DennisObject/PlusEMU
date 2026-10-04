@@ -19,19 +19,12 @@ public class AuthEndpoints
     private readonly ILoginService _login;
     private readonly IRegistrationService _registration;
     private readonly ISessionIssuer _sessions;
-    private readonly ISsoTicketStore _ssoTickets;
-    private readonly IAccessTokenStore _accessTokens;
-    private readonly IRememberTokenStore _rememberTokens;
 
-    public AuthEndpoints(ILoginService login, IRegistrationService registration, ISessionIssuer sessions, ISsoTicketStore ssoTickets,
-        IAccessTokenStore accessTokens, IRememberTokenStore rememberTokens)
+    public AuthEndpoints(ILoginService login, IRegistrationService registration, ISessionIssuer sessions)
     {
         _login = login;
         _registration = registration;
         _sessions = sessions;
-        _ssoTickets = ssoTickets;
-        _accessTokens = accessTokens;
-        _rememberTokens = rememberTokens;
     }
 
     public void Map(IEndpointRouteBuilder routes)
@@ -144,20 +137,11 @@ public class AuthEndpoints
         return Results.Json(new { accessToken = token.Value, accessTokenExpiresAt = token.ExpiresAt });
     }
 
-    /// <summary>Revokes the bearer access token and clears that user's outstanding game ticket,
-    /// plus any ticket sent in the body by clients that log out without a token.</summary>
+    /// <summary>Ends this device's login session: the bearer token's, the body ticket's and the
+    /// body remember token's session, with their ticket, access tokens and remember family.</summary>
     private async Task<IResult> Logout(LogoutRequest body, HttpRequest request)
     {
-        if (BearerToken(request) is { } token)
-        {
-            if (await _accessTokens.FindUser(token) is { } userId)
-                await _ssoTickets.Revoke(userId);
-            await _accessTokens.Revoke(token);
-        }
-        if (!string.IsNullOrEmpty(body.SsoTicket))
-            await _ssoTickets.Consume(body.SsoTicket);
-        if (!string.IsNullOrEmpty(body.RememberToken))
-            await _rememberTokens.RevokeFamily(body.RememberToken);
+        await _sessions.Logout(BearerToken(request), body.SsoTicket, body.RememberToken);
         return Results.Json(new { ok = true });
     }
 

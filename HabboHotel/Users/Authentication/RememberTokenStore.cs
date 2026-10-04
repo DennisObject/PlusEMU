@@ -1,5 +1,4 @@
 using System.Data;
-using System.Security.Cryptography;
 using Dapper;
 using Microsoft.Extensions.Options;
 using Plus.Communication.Http;
@@ -20,10 +19,15 @@ public class RememberTokenStore : IRememberTokenStore
         _lifetimeSeconds = options.Value.RememberTokenLifetimeDays * 24 * 60 * 60;
     }
 
-    public Task<IssuedToken> Issue(int userId, CredentialScope? scope = null) =>
-        Continue(userId, Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16)), scope);
+    public async Task<IssuedToken> Issue(int userId, CredentialScope? scope = null)
+    {
+        var sessionId = CredentialGenerations.NewSessionId();
+        using var owned = scope == null ? _database.Connection() : null;
+        await CredentialGenerations.StartSession(scope?.Connection ?? owned!, scope?.Transaction, sessionId, userId);
+        return await Continue(userId, sessionId, scope);
+    }
 
-    public async Task<RememberRotation> Rotate(string token)
+    public async Task<RememberRotation> Rotate(string token, Func<int, CredentialScope, Task>? onReuse = null)
     {
         if (string.IsNullOrEmpty(token))
             return new(RememberRotationStatus.Invalid);
@@ -43,16 +47,20 @@ public class RememberTokenStore : IRememberTokenStore
             "SELECT `family_id` AS FamilyId, `expires_at` AS ExpiresAt, `used_at` AS UsedAt, `revoked_at` AS RevokedAt " +
             "FROM `user_remember_tokens` WHERE `token_hash` = @hash FOR UPDATE", new { hash }, transaction);
 
+        // Revoked (incl. an earlier reuse) or expired tokens change nothing, so replaying an old
+        // token cannot keep signing the account out.
+        if (row.RevokedAt != null || row.ExpiresAt <= Now() || generation < 0)
+            return new(RememberRotationStatus.Invalid);
         if (row.UsedAt != null)
         {
-            // Someone presented a token that was already traded in: assume it was stolen.
-            await connection.ExecuteAsync("UPDATE `user_remember_tokens` SET `revoked_at` = @now WHERE `family_id` = @FamilyId AND `revoked_at` IS NULL",
-                new { now = Now(), row.FamilyId }, transaction);
+            // A live token that was already traded in: someone else holds it.
+            var scope = new CredentialScope(connection, transaction);
+            await RevokeSession(row.FamilyId, scope);
+            if (onReuse != null)
+                await onReuse(userId.Value, scope);
             transaction.Commit();
             return new(RememberRotationStatus.Reused, userId.Value, row.FamilyId);
         }
-        if (row.RevokedAt != null || row.ExpiresAt <= Now() || generation < 0)
-            return new(RememberRotationStatus.Invalid);
 
         await connection.ExecuteAsync("UPDATE `user_remember_tokens` SET `used_at` = @now WHERE `token_hash` = @hash", new { now = Now(), hash }, transaction);
         transaction.Commit();
@@ -70,16 +78,18 @@ public class RememberTokenStore : IRememberTokenStore
         return token;
     }
 
-    public async Task RevokeFamily(string token)
+    public async Task<CredentialOwner?> FindOwner(string token)
     {
         if (string.IsNullOrEmpty(token))
-            return;
+            return null;
         using var connection = _database.Connection();
-        await connection.ExecuteAsync(
-            "UPDATE `user_remember_tokens` SET `revoked_at` = @now WHERE `revoked_at` IS NULL AND `family_id` = " +
-            "(SELECT `family_id` FROM (SELECT `family_id` FROM `user_remember_tokens` WHERE `token_hash` = @hash) AS `family`)",
-            new { now = Now(), hash = SecureToken.Hash(token) });
+        return await connection.QueryFirstOrDefaultAsync<CredentialOwner>(
+            "SELECT `user_id` AS UserId, `family_id` AS SessionId FROM `user_remember_tokens` WHERE `token_hash` = @hash", new { hash = SecureToken.Hash(token) });
     }
+
+    public Task RevokeSession(string sessionId, CredentialScope scope) =>
+        scope.Connection.ExecuteAsync("UPDATE `user_remember_tokens` SET `revoked_at` = @now WHERE `family_id` = @sessionId AND `revoked_at` IS NULL",
+            new { now = Now(), sessionId }, scope.Transaction);
 
     public async Task RevokeAll(int userId, CredentialScope? scope = null)
     {

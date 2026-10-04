@@ -74,7 +74,7 @@ public class LoginService : ILoginService
             return new(LoginStatus.Banned, Ban: ban);
         }
 
-        var session = await _sessions.Issue(account.Id, account.Username, account.Generation, remember);
+        var session = await _sessions.Issue(account.Id, account.Username, account.Generation, address, remember);
         return session == null ? new(LoginStatus.InvalidCredentials) : new(LoginStatus.Success, session);
     }
 

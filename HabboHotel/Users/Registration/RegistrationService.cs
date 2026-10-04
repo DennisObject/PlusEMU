@@ -82,7 +82,7 @@ public class RegistrationService : IRegistrationService
         if (userId is not { } id)
             return new(RegistrationStatus.UsernameTaken, UsernameTaken);
         // A new account starts at generation 0, so a revoke any time after the insert voids this session.
-        var session = await _sessions.Issue(id, request.Username, AccountStore.NewAccountGeneration);
+        var session = await _sessions.Issue(id, request.Username, AccountStore.NewAccountGeneration, request.Address);
         return new(RegistrationStatus.Created, Session: session);
     }
 

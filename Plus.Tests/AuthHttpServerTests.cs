@@ -52,7 +52,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         var hasher = new BoundedPasswordHasher(_innerHasher, options);
         var login = new LoginService(_accounts, hasher, new LoginThrottle(TimeProvider.System, options), sessions, _bans);
         var registration = new RegistrationService(_accounts, hasher, sessions, new FakeWordFilter(), options);
-        _server = new AuthHttpServer(options, login, registration, sessions, _tickets, _tokens, _remember);
+        _server = new AuthHttpServer(options, login, registration, sessions);
         await _server.Start();
         _http.Dispose();
         _http = new HttpClient { BaseAddress = new Uri(_server.Urls.Single()) };

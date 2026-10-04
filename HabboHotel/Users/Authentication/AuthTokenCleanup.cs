@@ -4,8 +4,9 @@ using Plus.Core;
 namespace Plus.HabboHotel.Users.Authentication;
 
 /// <summary>
-/// Deletes access and remember tokens a day after they expire, every ten minutes in small
-/// batches. An expired token is refused either way, so nothing is needed for reuse detection.
+/// Deletes access and remember tokens a day after they expire, then login sessions nothing refers
+/// to any more, every ten minutes in small batches. An expired token is refused either way, so
+/// nothing is needed for reuse detection.
 /// </summary>
 public class AuthTokenCleanup : IStartable
 {
@@ -15,13 +16,16 @@ public class AuthTokenCleanup : IStartable
 
     private readonly IRememberTokenStore _rememberTokens;
     private readonly IAccessTokenStore _accessTokens;
+    private readonly ICredentialGenerations _sessions;
     private readonly TimeProvider _time;
     private readonly ILogger<AuthTokenCleanup> _logger;
 
-    public AuthTokenCleanup(IRememberTokenStore rememberTokens, IAccessTokenStore accessTokens, TimeProvider time, ILogger<AuthTokenCleanup> logger)
+    public AuthTokenCleanup(IRememberTokenStore rememberTokens, IAccessTokenStore accessTokens, ICredentialGenerations sessions, TimeProvider time,
+        ILogger<AuthTokenCleanup> logger)
     {
         _rememberTokens = rememberTokens;
         _accessTokens = accessTokens;
+        _sessions = sessions;
         _time = time;
         _logger = logger;
     }
@@ -38,7 +42,9 @@ public class AuthTokenCleanup : IStartable
     public async Task<int> PruneExpired()
     {
         var cutoff = _time.GetUtcNow().ToUnixTimeSeconds() - RetentionSeconds;
-        return await PruneInBatches(batch => _rememberTokens.Prune(cutoff, batch)) + await PruneInBatches(batch => _accessTokens.Prune(cutoff, batch));
+        return await PruneInBatches(batch => _rememberTokens.Prune(cutoff, batch))
+            + await PruneInBatches(batch => _accessTokens.Prune(cutoff, batch))
+            + await PruneInBatches(batch => _sessions.PruneSessions(cutoff, batch));
     }
 
     private async Task<int> PruneInBatches(Func<int, Task<int>> prune)
