@@ -24,6 +24,8 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
     private ITimer? _timer;
     private int _running;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<int, int> _announcedGifts = new();
+    public int StartOrder => 80;
+
     public Task Start()
     {
         permissions.AccessChanged += Normalize;

@@ -1,9 +1,10 @@
-﻿using System.Data;
+﻿using Dapper;
+using Plus.Core;
 using Plus.Database;
 
 namespace Plus.HabboHotel.Catalog.Pets;
 
-public class PetRaceManager : IPetRaceManager
+public class PetRaceManager : IPetRaceManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly List<PetRace> _races = new();
@@ -12,23 +13,16 @@ public class PetRaceManager : IPetRaceManager
     {
         _database = database;
     }
-    public void Init()
+    public int StartOrder => 20;
+    public Task Start() => Load();
+    public void Init() => Load().GetAwaiter().GetResult();
+
+    private async Task Load()
     {
-        if (_races.Count > 0)
-            _races.Clear();
-        using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("SELECT * FROM `catalog_pet_races`");
-        var data = dbClient.GetTable();
-        if (data != null)
-        {
-            foreach (DataRow row in data.Rows)
-            {
-                var race = new PetRace(Convert.ToInt32(row["raceid"]), Convert.ToInt32(row["color1"]), Convert.ToInt32(row["color2"]), Convert.ToString(row["has1color"]) == "1",
-                    Convert.ToString(row["has2color"]) == "1");
-                if (!_races.Contains(race))
-                    _races.Add(race);
-            }
-        }
+        using var connection = _database.Connection();
+        var races = await connection.QueryAsync<PetRace>("SELECT raceid AS RaceId, color1 AS PrimaryColour, color2 AS SecondaryColour, has1color AS HasPrimaryColour, has2color AS HasSecondaryColour FROM catalog_pet_races");
+        _races.Clear();
+        _races.AddRange(races);
     }
 
     public List<PetRace> GetRacesForRaceId(int raceId)

@@ -10,7 +10,7 @@ using Plus.Utilities;
 
 namespace Plus.HabboHotel.Rooms;
 
-public class RoomManager : IRoomManager
+public class RoomManager : IRoomManager, IStartable
 {
     private readonly ILogger<RoomManager> _logger;
     private readonly IDatabase _database;
@@ -90,10 +90,15 @@ public class RoomManager : IRoomManager
     private const string SelectModel = "SELECT id, door_x AS DoorX, door_y AS DoorY, door_z AS DoorZ, door_dir AS DoorDir, " +
         "heightmap, required_club_level AS RequiredClubLevel, required_permission AS RequiredPermission, wall_height AS WallHeight FROM room_models ";
 
-    public void LoadModels()
+    public int StartOrder => 20;
+    public Task Start() => LoadModelsAsync();
+
+    public void LoadModels() => LoadModelsAsync().GetAwaiter().GetResult();
+
+    private async Task LoadModelsAsync()
     {
         using var connection = _database.Connection();
-        var models = connection.Query<ModelRow>(SelectModel + "WHERE custom = FALSE");
+        var models = await connection.QueryAsync<ModelRow>(SelectModel + "WHERE custom = FALSE");
         _roomModels.Clear();
         foreach (var row in models)
             _roomModels.Add(row.Id, CreateModel(row, false));

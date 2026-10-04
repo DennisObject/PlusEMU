@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using Plus.Core;
+using System.Data;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
@@ -8,7 +9,7 @@ using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Items;
 
-public class ItemDataManager : IItemDataManager
+public class ItemDataManager : IItemDataManager, IStartable
 {
     private readonly ILogger<ItemDataManager> _logger;
     private readonly IDatabase _database;
@@ -19,6 +20,13 @@ public class ItemDataManager : IItemDataManager
     {
         _logger = logger;
         _database = database;
+    }
+
+    public int StartOrder => 10;
+    public Task Start()
+    {
+        Init();
+        return Task.CompletedTask;
     }
 
     public void Init()

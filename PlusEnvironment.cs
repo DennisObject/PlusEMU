@@ -119,17 +119,14 @@ public class PlusEnvironment : IPlusEnvironment
             //Get the configuration & Game set.
             await _languageManager.Reload();
             await _settingsManager.Reload();
-            _figureManager.Init();
 
             //Have our encryption ready.
             HabboEncryptionV2.Initialize(new());
 
-            //Make sure Rcon is connected before we allow clients to Connect.
-            _rcon.Init(_rconConfiguration.Hostname, _rconConfiguration.Port, _rconConfiguration.AllowedAddresses);
+            await StartupSequence.Start(_startableTasks);
 
-            _itemDataManager.Init();
-            foreach (var task in _startableTasks.OrderBy(task => task.StartOrder))
-                await task.Start();
+            // Managers are ready before any listener accepts requests.
+            _rcon.Init(_rconConfiguration.Hostname, _rconConfiguration.Port, _rconConfiguration.AllowedAddresses);
             _flashServer.Start();
             _nitroServer.Start();
             await _authHttpServer.Start();

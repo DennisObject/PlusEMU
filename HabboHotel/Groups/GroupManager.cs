@@ -1,4 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using Dapper;
+using Plus.Core;
+using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
 using System.Data;
 using Microsoft.Extensions.Logging;
@@ -9,7 +11,7 @@ using Plus.Utilities;
 
 namespace Plus.HabboHotel.Groups;
 
-public class GroupManager : IGroupManager
+public class GroupManager : IGroupManager, IStartable
 {
     private readonly ILogger<GroupManager> _logger;
     private readonly IDatabase _database;
@@ -47,35 +49,29 @@ public class GroupManager : IGroupManager
 
     public ICollection<GroupColours> BadgeBackColours => _backgroundColours.Values;
 
-    public void Init()
+    public int StartOrder => 20;
+    public Task Start() => Load();
+
+    public void Init() => Load().GetAwaiter().GetResult();
+
+    private async Task Load()
     {
+        using var connection = _database.Connection();
+        var items = await connection.QueryAsync<(int Id, string Type, string FirstValue, string SecondValue)>("SELECT id, type, firstvalue, secondvalue FROM groups_items WHERE enabled = TRUE");
         _bases.Clear();
         _symbols.Clear();
         _baseColours.Clear();
         _symbolColours.Clear();
         _backgroundColours.Clear();
-        using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("SELECT `id`,`type`,`firstvalue`,`secondvalue` FROM `groups_items` WHERE `enabled` = '1'");
-        var groupItems = dbClient.GetTable();
-        foreach (DataRow groupItem in groupItems.Rows)
+        foreach (var item in items)
         {
-            switch (groupItem["type"].ToString())
+            switch (item.Type)
             {
-                case "base":
-                    _bases.Add(new(Convert.ToInt32(groupItem["id"]), groupItem["firstvalue"].ToString(), groupItem["secondvalue"].ToString()));
-                    break;
-                case "symbol":
-                    _symbols.Add(new(Convert.ToInt32(groupItem["id"]), groupItem["firstvalue"].ToString(), groupItem["secondvalue"].ToString()));
-                    break;
-                case "color":
-                    _baseColours.Add(new(Convert.ToInt32(groupItem["id"]), groupItem["firstvalue"].ToString()));
-                    break;
-                case "color2":
-                    _symbolColours.Add(Convert.ToInt32(groupItem["id"]), new(Convert.ToInt32(groupItem["id"]), groupItem["firstvalue"].ToString()));
-                    break;
-                case "color3":
-                    _backgroundColours.Add(Convert.ToInt32(groupItem["id"]), new(Convert.ToInt32(groupItem["id"]), groupItem["firstvalue"].ToString()));
-                    break;
+                case "base": _bases.Add(new(item.Id, item.FirstValue, item.SecondValue)); break;
+                case "symbol": _symbols.Add(new(item.Id, item.FirstValue, item.SecondValue)); break;
+                case "color": _baseColours.Add(new(item.Id, item.FirstValue)); break;
+                case "color2": _symbolColours.Add(item.Id, new(item.Id, item.FirstValue)); break;
+                case "color3": _backgroundColours.Add(item.Id, new(item.Id, item.FirstValue)); break;
             }
         }
     }

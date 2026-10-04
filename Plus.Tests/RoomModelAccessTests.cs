@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using System.Reflection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MySqlConnector;
@@ -175,42 +176,44 @@ public sealed class RoomModelAccessTests
         Assert.True(model.CanCreate(Access(true, [new UserPermissionOverride(ExtraPermission, false)])));
     }
 
-    private static IDatabase ReaderDatabase(DataTable data, Action? read = null)
+    private static IDatabase ReaderDatabase(DataTable data, Action? read = null) =>
+        Proxy<IDatabase>((method, _) => method == "Connection" ? new ReaderConnection(data, read) : throw new InvalidOperationException(method));
+
+    private sealed class ReaderConnection(DataTable data, Action? read) : DbConnection
     {
-        return Proxy<IDatabase>((method, _) => method == "Connection" ? Connection() : throw new InvalidOperationException(method));
+        private ConnectionState _state;
+        public override string ConnectionString { get; set; } = "room-model-memory";
+        public override string Database => "room-model-memory";
+        public override string DataSource => "room-model-memory";
+        public override string ServerVersion => "1";
+        public override ConnectionState State => _state;
+        public override void Open() => _state = ConnectionState.Open;
+        public override void Close() => _state = ConnectionState.Closed;
+        public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
+        protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => throw new NotSupportedException();
+        protected override DbCommand CreateDbCommand() => new ReaderCommand(this, data, read);
+    }
 
-        IDbConnection Connection()
+    private sealed class ReaderCommand(DbConnection connection, DataTable data, Action? read) : DbCommand
+    {
+        private readonly MySqlParameterCollection _parameters = new MySqlCommand().Parameters;
+        public override string CommandText { get; set; } = "";
+        public override int CommandTimeout { get; set; }
+        public override CommandType CommandType { get; set; }
+        public override bool DesignTimeVisible { get; set; }
+        public override UpdateRowSource UpdatedRowSource { get; set; }
+        protected override DbConnection? DbConnection { get; set; } = connection;
+        protected override DbTransaction? DbTransaction { get; set; }
+        protected override DbParameterCollection DbParameterCollection => _parameters;
+        protected override DbParameter CreateDbParameter() => new MySqlParameter();
+        public override void Cancel() { }
+        public override void Prepare() { }
+        public override int ExecuteNonQuery() => throw new NotSupportedException();
+        public override object? ExecuteScalar() => throw new NotSupportedException();
+        protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
-            var state = ConnectionState.Closed;
-            return Proxy<IDbConnection>((method, _) => method switch
-            {
-                "get_State" => state,
-                "get_ConnectionString" => "room-model-memory",
-                "Open" => Change(ConnectionState.Open),
-                "Close" or "Dispose" => Change(ConnectionState.Closed),
-                "CreateCommand" => Command(),
-                _ => throw new NotSupportedException(method)
-            });
-            object? Change(ConnectionState next) { state = next; return null; }
-        }
-
-        IDbCommand Command()
-        {
-            var parameters = new MySqlCommand().Parameters;
-            string sql = "";
-            return Proxy<IDbCommand>((method, args) =>
-            {
-                switch (method)
-                {
-                    case "set_CommandText": sql = (string)args[0]!; return null;
-                    case "get_CommandText": return sql;
-                    case "get_Parameters": return parameters;
-                    case "CreateParameter": return new MySqlParameter();
-                    case "set_CommandTimeout": case "set_CommandType": case "Dispose": return null;
-                    case "ExecuteReader": read?.Invoke(); return data.CreateDataReader();
-                    default: throw new NotSupportedException(method);
-                }
-            });
+            read?.Invoke();
+            return data.CreateDataReader();
         }
     }
 

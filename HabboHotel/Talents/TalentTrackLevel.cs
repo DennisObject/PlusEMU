@@ -1,12 +1,10 @@
-﻿using System.Data;
-
-namespace Plus.HabboHotel.Talents;
+﻿namespace Plus.HabboHotel.Talents;
 
 public class TalentTrackLevel
 {
     private readonly Dictionary<int, TalentTrackSubLevel> _subLevels;
 
-    public TalentTrackLevel(string type, int level, string dataActions, string dataGifts)
+    public TalentTrackLevel(string type, int level, string dataActions, string dataGifts, IEnumerable<TalentTrackSubLevel> subLevels)
     {
         Type = type;
         Level = level;
@@ -20,8 +18,7 @@ public class TalentTrackLevel
             if (Gifts == null) Gifts = new();
             Gifts.Add(str);
         }
-        _subLevels = new();
-        Init();
+        _subLevels = subLevels.ToDictionary(subLevel => subLevel.Level);
     }
 
     public string Type { get; set; }
@@ -31,24 +28,6 @@ public class TalentTrackLevel
 
     public List<string> Gifts { get; }
 
-    public void Init()
-    {
-        DataTable? getTable = null;
-        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-        {
-            dbClient.SetQuery("SELECT `sub_level`,`badge_code`,`required_progress` FROM `talents_sub_levels` WHERE `talent_level` = @TalentLevel");
-            dbClient.AddParameter("TalentLevel", Level);
-            getTable = dbClient.GetTable();
-        }
-        if (getTable != null)
-        {
-            foreach (DataRow row in getTable.Rows)
-            {
-                _subLevels.Add(Convert.ToInt32(row["sub_level"]),
-                    new(Convert.ToInt32(row["sub_level"]), Convert.ToString(row["badge_code"]), Convert.ToInt32(row["required_progress"])));
-            }
-        }
-    }
 
     public ICollection<TalentTrackSubLevel> GetSubLevels() => _subLevels.Values;
 }

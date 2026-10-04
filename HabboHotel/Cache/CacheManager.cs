@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using Plus.Core;
+using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
 using Dapper;
 using Microsoft.Extensions.Logging;
@@ -9,7 +10,7 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Cache;
 
-public class CacheManager : ICacheManager
+public class CacheManager : ICacheManager, IStartable
 {
     private readonly ILogger<CacheManager> _logger;
     private readonly IProcessComponent _process;
@@ -24,6 +25,13 @@ public class CacheManager : ICacheManager
         _gameClientManager = gameClientManager;
         _logger = logger;
         _usersCached = new();
+    }
+
+    public int StartOrder => 90;
+    public Task Start()
+    {
+        Init();
+        return Task.CompletedTask;
     }
 
     public void Init()

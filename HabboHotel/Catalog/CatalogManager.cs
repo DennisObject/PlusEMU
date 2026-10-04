@@ -41,12 +41,20 @@ public class CatalogManager : ICatalogManager, IStartable
         _logger = logger;
     }
 
-    public async Task Start() => await Init();
+    public int StartOrder => 30;
+
+    public Task Start() => Load();
 
     public async Task Init()
     {
         _voucherManager.Init();
         _clothingManager.Init();
+        _petRaceManager.Init();
+        await Load();
+    }
+
+    private async Task Load()
+    {
         var pagesById = new Dictionary<int, CatalogPage>();
         var botPresets = new Dictionary<uint, CatalogBot>();
         var itemsByPage = new Dictionary<int, Dictionary<int, CatalogItem>>();
@@ -159,8 +167,6 @@ public class CatalogManager : ICatalogManager, IStartable
         _promotions = promotionsById;
         _offers = offerIndex;
         _clubOffers = clubOffersById;
-        _petRaceManager.Init();
-        _clothingManager.Init();
         _logger.LogInformation("Catalog Manager -> LOADED");
     }
 

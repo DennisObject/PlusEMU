@@ -1,3 +1,4 @@
+using Plus.Core;
 using Dapper;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Outgoing.Inventory.Badges;
@@ -9,7 +10,7 @@ using Plus.HabboHotel.Users.Badges;
 
 namespace Plus.HabboHotel.Badges;
 
-public class BadgeManager : IBadgeManager
+public class BadgeManager : IBadgeManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly GameClientManager _gameClientManager;
@@ -25,6 +26,9 @@ public class BadgeManager : IBadgeManager
         _logger = logger;
         _badges = new Dictionary<string, BadgeDefinition>();
     }
+
+    public int StartOrder => 20;
+    public Task Start() => Init();
 
     public async Task Init()
     {

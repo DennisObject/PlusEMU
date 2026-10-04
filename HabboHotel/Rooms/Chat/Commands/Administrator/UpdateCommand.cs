@@ -318,7 +318,7 @@ internal class UpdateCommand : IChatCommand
                     session.SendWhisper("Oops, you do not have the 'command_update_bots' permission.");
                     break;
                 }
-                _botManager.Init();
+                _botManager.Init().GetAwaiter().GetResult();
                 session.SendWhisper("Bot managaer successfully reloaded.");
                 break;
             }
@@ -351,7 +351,7 @@ internal class UpdateCommand : IChatCommand
                     session.SendWhisper("Oops, you do not have the 'command_update_badge_definitions' permission.");
                     break;
                 }
-                _badgeManager.Init();
+                _badgeManager.Init().GetAwaiter().GetResult();
                 session.SendWhisper("Badge definitions successfully reloaded.");
                 break;
             }

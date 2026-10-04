@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using Plus.Core;
+using System.Diagnostics.CodeAnalysis;
 using System.Data;
 using Dapper;
 using Microsoft.Extensions.Logging;
@@ -9,7 +10,7 @@ using Plus.HabboHotel.Users.Navigator.SavedSearches;
 
 namespace Plus.HabboHotel.Navigator;
 
-public sealed class NavigatorManager : INavigatorManager
+public sealed class NavigatorManager : INavigatorManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly ILogger<NavigatorManager> _logger;
@@ -33,50 +34,36 @@ public sealed class NavigatorManager : INavigatorManager
         _featuredRooms = new();
     }
 
-    public void Init()
+    public int StartOrder => 20;
+    public Task Start() => Load();
+
+    public void Init() => Load().GetAwaiter().GetResult();
+
+    private async Task Load()
     {
-        if (_searchResultLists.Count > 0)
-            _searchResultLists.Clear();
-        if (_featuredRooms.Count > 0)
-            _featuredRooms.Clear();
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery("SELECT * FROM `navigator_categories` ORDER BY `id` ASC");
-            var table = dbClient.GetTable();
-            if (table != null)
-            {
-                foreach (DataRow row in table.Rows)
-                {
-                    if (Convert.ToInt32(row["enabled"]) == 1)
-                    {
-                        if (!_searchResultLists.ContainsKey(Convert.ToInt32(row["id"])))
-                        {
-                            _searchResultLists.Add(Convert.ToInt32(row["id"]),
-                                new(Convert.ToInt32(row["id"]), Convert.ToString(row["category"]), Convert.ToString(row["category_identifier"]), Convert.ToString(row["public_name"]),
-                                    true, -1, Convert.ToString(row["required_permission"]) ?? string.Empty, NavigatorViewModeUtility.GetViewModeByString(Convert.ToString(row["view_mode"])),
-                                    Convert.ToString(row["category_type"]), Convert.ToString(row["search_allowance"]), Convert.ToInt32(row["order_id"])));
-                        }
-                    }
-                }
-            }
-            dbClient.SetQuery("SELECT `room_id`,`caption`,`description`,`image_url`,`enabled` FROM `navigator_publics` ORDER BY `order_num` ASC");
-            var getPublics = dbClient.GetTable();
-            if (getPublics != null)
-            {
-                foreach (DataRow row in getPublics.Rows)
-                {
-                    if (Convert.ToInt32(row["enabled"]) == 1)
-                    {
-                        if (!_featuredRooms.ContainsKey(Convert.ToUInt32(row["room_id"])))
-                        {
-                            _featuredRooms.Add(Convert.ToUInt32(row["room_id"]),
-                                new(Convert.ToInt32(row["room_id"]), Convert.ToString(row["caption"]), Convert.ToString(row["description"]), Convert.ToString(row["image_url"])));
-                        }
-                    }
-                }
-            }
-        }
+        using var connection = _database.Connection();
+        var categories = await connection.QueryAsync<CategoryRow>("SELECT id, category, category_identifier AS CategoryIdentifier, public_name AS PublicName, COALESCE(required_permission, '') AS RequiredPermission, view_mode AS ViewMode, category_type AS CategoryType, search_allowance AS SearchAllowance, order_id AS OrderId FROM navigator_categories WHERE enabled = TRUE ORDER BY id");
+        var publics = await connection.QueryAsync<FeaturedRoom>("SELECT room_id AS RoomId, caption, description, image_url AS Images FROM navigator_publics WHERE enabled = TRUE ORDER BY order_num");
+        _searchResultLists.Clear();
+        _featuredRooms.Clear();
+        foreach (var category in categories)
+            _searchResultLists.TryAdd(category.Id, new(category.Id, category.Category, category.CategoryIdentifier, category.PublicName, true, -1, category.RequiredPermission, NavigatorViewModeUtility.GetViewModeByString(category.ViewMode), category.CategoryType, category.SearchAllowance, category.OrderId));
+        foreach (var featured in publics)
+            _featuredRooms.TryAdd((uint)featured.RoomId, featured);
         _logger.LogInformation("Navigator -> LOADED");
+    }
+
+    private sealed class CategoryRow
+    {
+        public int Id { get; set; }
+        public string Category { get; set; } = string.Empty;
+        public string CategoryIdentifier { get; set; } = string.Empty;
+        public string PublicName { get; set; } = string.Empty;
+        public string RequiredPermission { get; set; } = string.Empty;
+        public string ViewMode { get; set; } = string.Empty;
+        public string CategoryType { get; set; } = string.Empty;
+        public string SearchAllowance { get; set; } = string.Empty;
+        public int OrderId { get; set; }
     }
 
     public List<SearchResultList> GetCategoriessForSearch(string category) => _searchResultLists.Where(cat => cat.Value.Category == category).OrderBy(cat => cat.Value.OrderId).Select(cat => cat.Value).ToList();
@@ -107,12 +94,12 @@ public sealed class NavigatorManager : INavigatorManager
 
     public async Task SaveHomeRoom(Habbo habbo, uint roomId)
     {
-        habbo.HomeRoom = roomId;
-
         if (!RoomFactory.TryGetData(roomId, out _))
             return;
 
+        habbo.HomeRoom = roomId;
+
         using var connection = _database.Connection();
-        await connection.ExecuteAsync("UPDATE users SET home_room = @roomid WHERE id = @userid LIMIT 1", new { roomid = roomId, userid = habbo.Id });
+        await connection.ExecuteAsync("UPDATE users_settings SET home_room = @roomid WHERE id = @userid LIMIT 1", new { roomid = roomId, userid = habbo.Id });
     }
 }

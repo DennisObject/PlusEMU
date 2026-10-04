@@ -11,10 +11,7 @@ public class PluginsCache : IPluginsCache, IStartable
         _plugins = pluginDefinitions.ToDictionary(kvp => kvp, kvp => plugins.First(p => p.GetType() == kvp.PluginClass));
     }
 
-    public Task Start()
-    {
-        foreach (var (_, plugin) in _plugins)
-            Task.Run(plugin.Start);
-        return Task.CompletedTask;
-    }
+    public int StartOrder => 100;
+
+    public Task Start() => Task.WhenAll(_plugins.Values.Select(plugin => Task.Run(plugin.Start)));
 }

@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Plus.Core;
+using Microsoft.Extensions.Logging;
 using Plus.HabboHotel.Rooms.Chat.Commands;
 using Plus.HabboHotel.Rooms.Chat.Emotions;
 using Plus.HabboHotel.Rooms.Chat.Filter;
@@ -9,7 +10,7 @@ using Plus.HabboHotel.Rooms.Chat.Styles;
 
 namespace Plus.HabboHotel.Rooms.Chat;
 
-public sealed class ChatManager : IChatManager
+public sealed class ChatManager : IChatManager, IStartable
 {
     private readonly ILogger<ChatManager> _logger;
 
@@ -68,6 +69,13 @@ public sealed class ChatManager : IChatManager
         _petLocale = petLocale;
         _chatStyles = chatStyleManager;
         _logger = logger;
+    }
+
+    public int StartOrder => 30;
+    public Task Start()
+    {
+        _logger.LogInformation("Chat Manager -> LOADED");
+        return Task.CompletedTask;
     }
 
     public void Init()

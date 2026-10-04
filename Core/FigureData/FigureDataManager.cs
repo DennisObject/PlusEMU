@@ -7,7 +7,7 @@ using Plus.Utilities;
 
 namespace Plus.Core.FigureData;
 
-public class FigureDataManager : IFigureDataManager
+public class FigureDataManager : IFigureDataManager, IStartable
 {
     private readonly ICatalogManager _catalogManager;
     private readonly ILogger<FigureDataManager> _logger;
@@ -28,6 +28,13 @@ public class FigureDataManager : IFigureDataManager
             "ch",
             "lg"
         };
+    }
+
+    public int StartOrder => 10;
+    public Task Start()
+    {
+        Init();
+        return Task.CompletedTask;
     }
 
     public void Init()

@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using Plus.Core;
+using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
@@ -6,7 +7,7 @@ using Plus.Utilities;
 
 namespace Plus.HabboHotel.Items.Televisions;
 
-public class TelevisionManager : ITelevisionManager
+public class TelevisionManager : ITelevisionManager, IStartable
 {
     private readonly ILogger<TelevisionManager> _logger;
     private readonly IDatabase _database;
@@ -21,6 +22,13 @@ public class TelevisionManager : ITelevisionManager
 
 
     public ICollection<TelevisionItem> TelevisionList => Televisions.Values;
+
+    public int StartOrder => 20;
+    public Task Start()
+    {
+        Init();
+        return Task.CompletedTask;
+    }
 
     public void Init()
     {

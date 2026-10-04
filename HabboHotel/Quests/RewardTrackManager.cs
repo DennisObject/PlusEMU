@@ -38,6 +38,8 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
         Current = this;
     }
 
+    public int StartOrder => 30;
+
     public async Task Start()
     {
         try

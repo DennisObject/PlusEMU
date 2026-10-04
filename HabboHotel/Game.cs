@@ -24,13 +24,11 @@ namespace Plus.HabboHotel;
 // Game services need to be implemented behind an interface.
 // Dependency inject the required services in the IPacketEvent
 // This class will be obsolete. Do not reference to Game().<Service> but inject it instead.
-public class Game : IGame, IStartable
+public class Game : IGame
 {
     private readonly IGameClientManager _clientManager;
-    private readonly IModerationManager _moderationManager;
     private readonly IItemDataManager _itemDataManager;
     private readonly ICatalogManager _catalogManager;
-    private readonly ITelevisionManager _televisionManager; //TODO: Initialize from the item manager.
     private readonly INavigatorManager _navigatorManager;
     private readonly IRoomManager _roomManager;
     private readonly IChatManager _chatManager;
@@ -38,15 +36,10 @@ public class Game : IGame, IStartable
     private readonly IQuestManager _questManager;
     private readonly IAchievementManager _achievementManager;
 
-    private IBadgeManager _badgeManager;
     private IBotManager _botManager;
     private ICacheManager _cacheManager;
     private readonly int _cycleSleepTime = 25;
     private IGameDataManager _gameDataManager;
-    private IServerStatusUpdater _globalUpdater;
-    private IAccessControl _permissionManager;
-    private IRewardManager _rewardManager;
-    private ITalentTrackManager _talentTrackManager;
     private bool _cycleActive;
 
     private bool _cycleEnded;
@@ -54,68 +47,31 @@ public class Game : IGame, IStartable
 
     public Game(
         IGameClientManager gameClientManager,
-        IModerationManager moderationManager,
         IItemDataManager itemDataManager,
         ICatalogManager catalogManager,
-        ITelevisionManager televisionManager,
         INavigatorManager navigatorManager,
         IRoomManager roomManager,
         IChatManager chatManager,
         IGroupManager groupManager,
         IQuestManager questManager,
         IAchievementManager achievementManager,
-        ITalentTrackManager talentTrackManager,
         IGameDataManager gameDataManager,
-        IServerStatusUpdater serverStatusUpdater,
         IBotManager botManager,
-        ICacheManager cacheManager,
-        IRewardManager rewardManager,
-        IBadgeManager badgeManager,
-        IAccessControl permissionManager)
+        ICacheManager cacheManager)
     {
         _clientManager = gameClientManager;
-        _moderationManager = moderationManager;
         _itemDataManager = itemDataManager;
         _catalogManager = catalogManager;
-        _televisionManager = televisionManager;
         _navigatorManager = navigatorManager;
         _roomManager = roomManager;
         _chatManager = chatManager;
         _groupManager = groupManager;
         _questManager = questManager;
         _achievementManager = achievementManager;
-        _talentTrackManager = talentTrackManager;
         _gameDataManager = gameDataManager;
-        _globalUpdater = serverStatusUpdater;
         _botManager = botManager;
         _cacheManager = cacheManager;
-        _rewardManager = rewardManager;
-        _badgeManager = badgeManager;
-        _permissionManager = permissionManager;
     }
-
-    public Task Init()
-    {
-        _moderationManager.Init();
-        _televisionManager.Init();
-        _navigatorManager.Init();
-        _roomManager.LoadModels();
-        _chatManager.Init();
-        _groupManager.Init();
-        _questManager.Init();
-        _talentTrackManager.Init();
-        _gameDataManager.Init();
-        _globalUpdater.Init();
-        _botManager.Init();
-        _rewardManager.Init();
-        _badgeManager.Init();
-        _permissionManager.Init();
-        _cacheManager.Init();
-        return Task.CompletedTask;
-    }
-
-    public int StartOrder => 100;
-    public Task Start() => Init();
 
     public void StartGameLoop()
     {

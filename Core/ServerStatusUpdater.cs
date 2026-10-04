@@ -1,11 +1,12 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Dapper;
+using Microsoft.Extensions.Logging;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Core;
 
-public class ServerStatusUpdater : IDisposable, IServerStatusUpdater
+public class ServerStatusUpdater : IDisposable, IServerStatusUpdater, IStartable
 {
     private const int UpdateInSeconds = 30;
     private readonly ILogger<ServerStatusUpdater> _logger;
@@ -21,16 +22,21 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater
         _roomManager = roomManager;
     }
 
-    private Timer _timer;
+    private Timer? _timer;
 
     public void Dispose()
     {
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.RunQuery("UPDATE `server_status` SET `users_online` = '0', `loaded_rooms` = '0'");
-        }
-        _timer.Dispose();
+        using var connection = _database.Connection();
+        connection.Execute("UPDATE server_status SET users_online = 0, loaded_rooms = 0");
+        _timer?.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    public int StartOrder => 90;
+    public Task Start()
+    {
+        Init();
+        return Task.CompletedTask;
     }
 
     public void Init()
@@ -40,7 +46,7 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater
         _logger.LogInformation("Server Status Updater has been started.");
     }
 
-    public void OnTick(object obj)
+    public void OnTick(object? obj)
     {
         UpdateOnlineUsers();
     }
@@ -51,14 +57,9 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater
         var usersOnline = _gameClientManager.Count;
         var roomCount = _roomManager.Count;
         Console.Title = $"Plus Emulator - {usersOnline} users online - {roomCount} rooms loaded - {uptime.Days} day(s) {uptime.Hours} hour(s) uptime";
-        using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("UPDATE `server_status` SET `users_online` = @users, `loaded_rooms` = @loadedRooms LIMIT 1;");
-        dbClient.AddParameter("users", usersOnline);
-        dbClient.AddParameter("loadedRooms", roomCount);
-        dbClient.RunQuery();
+        using var connection = _database.Connection();
+        connection.Execute("UPDATE server_status SET users_online = @users, loaded_rooms = @loadedRooms LIMIT 1", new { users = usersOnline, loadedRooms = roomCount });
         // Daily online peaks feed the housekeeping dashboard.
-        dbClient.SetQuery("INSERT INTO `housekeeping_online_peaks` (`day`, `peak`) VALUES (UTC_DATE(), @users) ON DUPLICATE KEY UPDATE `peak` = GREATEST(`peak`, @users);");
-        dbClient.AddParameter("users", usersOnline);
-        dbClient.RunQuery();
+        connection.Execute("INSERT INTO housekeeping_online_peaks (day, peak) VALUES (UTC_DATE(), @users) ON DUPLICATE KEY UPDATE peak = GREATEST(peak, @users)", new { users = usersOnline });
     }
 }

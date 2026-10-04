@@ -1,3 +1,4 @@
+using Plus.Core;
 using System.Collections.Frozen;
 using System.Data;
 using System.Text.Json;
@@ -11,13 +12,14 @@ using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.HabboHotel.Permissions;
 
-public sealed partial class AccessControl : IAccessControl, IDisposable
+public sealed partial class AccessControl : IAccessControl, IDisposable, IStartable
 {
     private readonly IDatabase _database;
     private readonly IGameClientManager _clients;
     private readonly ILogger<AccessControl> _logger;
     private readonly TimeProvider _clock;
     private readonly object _sync = new();
+    private readonly SemaphoreSlim _reload = new(1, 1);
     private FrozenDictionary<int, AccessRole> _roles = new Dictionary<int, AccessRole>().ToFrozenDictionary();
     private string[] _registry = Array.Empty<string>();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<int, DateTimeOffset> _refreshAt = new();
@@ -33,20 +35,29 @@ public sealed partial class AccessControl : IAccessControl, IDisposable
         _clock = clock;
     }
 
-    public void Init()
+    public int StartOrder => 20;
+    public Task Start() => Load();
+
+    public void Init() => Load().GetAwaiter().GetResult();
+
+    private async Task Load()
     {
-        lock (_sync)
+        await _reload.WaitAsync();
+        try
         {
             using var connection = _database.Connection();
-            var rows = connection.Query<RoleRow>("SELECT id, slug, name, weight, security_level AS SecurityLevel, badge_code AS BadgeCode, is_staff AS IsStaff FROM roles").ToArray();
-            var permissions = connection.Query<RolePermissionRow>("SELECT role_id AS RoleId, permission_key AS PermissionKey FROM role_permissions").ToArray();
-            var limits = connection.Query<RoleLimitRow>("SELECT role_id AS RoleId, limit_key AS LimitKey, value FROM role_limits").ToArray();
+            var rows = (await connection.QueryAsync<RoleRow>("SELECT id, slug, name, weight, security_level AS SecurityLevel, badge_code AS BadgeCode, is_staff AS IsStaff FROM roles")).ToArray();
+            var permissions = (await connection.QueryAsync<RolePermissionRow>("SELECT role_id AS RoleId, permission_key AS PermissionKey FROM role_permissions")).ToArray();
+            var limits = (await connection.QueryAsync<RoleLimitRow>("SELECT role_id AS RoleId, limit_key AS LimitKey, value FROM role_limits")).ToArray();
             var definitions = PermissionKeys.All.Concat(PermissionKeys.ForRoles(rows.Select(role => role.Slug))).DistinctBy(permission => permission.Key).ToArray();
-            connection.Open();
+            if (connection is System.Data.Common.DbConnection asyncConnection)
+                await asyncConnection.OpenAsync();
+            else
+                connection.Open();
             using var transaction = connection.BeginTransaction();
-            connection.Execute("UPDATE acl_permissions SET is_orphan = 1", transaction: transaction);
+            await connection.ExecuteAsync("UPDATE acl_permissions SET is_orphan = 1", transaction: transaction);
             foreach (var permission in definitions)
-                connection.Execute("INSERT INTO acl_permissions (`key`, category, description, is_orphan) VALUES (@Key, @Category, @Description, 0) " +
+                await connection.ExecuteAsync("INSERT INTO acl_permissions (`key`, category, description, is_orphan) VALUES (@Key, @Category, @Description, 0) " +
                     "ON DUPLICATE KEY UPDATE category = @Category, description = @Description, is_orphan = 0", permission, transaction);
             transaction.Commit();
             var registry = definitions.Select(permission => permission.Key).ToArray();
@@ -54,15 +65,22 @@ public sealed partial class AccessControl : IAccessControl, IDisposable
                 role.SecurityLevel, role.BadgeCode, role.IsStaff, permissions.Where(p => p.RoleId == role.Id).Select(p => p.PermissionKey).ToArray(),
                 limits.Where(limit => limit.RoleId == role.Id).ToFrozenDictionary(limit => limit.LimitKey, limit => limit.Value, StringComparer.Ordinal)));
             if (!roles.Values.Any(role => role.Slug == "default")) throw new InvalidOperationException("The default access role is missing. Apply the RBAC migration.");
-            _registry = registry;
-            _roles = roles;
-            foreach (var entry in _resolved.Values.ToArray())
-                if (!ReferenceEquals(GetOnlineHabbo(entry.Habbo.Id), entry.Habbo)) Evict(entry);
-            Prune(connection);
-            foreach (var client in _clients.GetClients.ToArray())
-                if (client.GetHabbo() is { AccessClosed: false } habbo) Resolve(habbo.Id);
-            _expiryTimer ??= _clock.CreateTimer(_ => RefreshExpired(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-            _logger.LogInformation("Loaded {Roles} access roles and {Permissions} permission keys", _roles.Count, _registry.Length);
+            lock (_sync)
+            {
+                _registry = registry;
+                _roles = roles;
+                foreach (var entry in _resolved.Values.ToArray())
+                    if (!ReferenceEquals(GetOnlineHabbo(entry.Habbo.Id), entry.Habbo)) Evict(entry);
+                Prune(connection);
+                foreach (var client in _clients.GetClients.ToArray())
+                    if (client.GetHabbo() is { AccessClosed: false } habbo) Resolve(habbo.Id);
+                _expiryTimer ??= _clock.CreateTimer(_ => RefreshExpired(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+                _logger.LogInformation("Loaded {Roles} access roles and {Permissions} permission keys", _roles.Count, _registry.Length);
+            }
+        }
+        finally
+        {
+            _reload.Release();
         }
     }
 

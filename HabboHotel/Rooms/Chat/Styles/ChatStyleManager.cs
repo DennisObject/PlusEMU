@@ -1,11 +1,12 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Data;
+﻿using Dapper;
+using Plus.Core;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
 
 namespace Plus.HabboHotel.Rooms.Chat.Styles;
 
-public sealed class ChatStyleManager : IChatStyleManager
+public sealed class ChatStyleManager : IChatStyleManager, IStartable
 {
     private readonly ILogger<ChatStyleManager> _logger;
     private readonly IDatabase _database;
@@ -19,32 +20,18 @@ public sealed class ChatStyleManager : IChatStyleManager
         _styles = new();
     }
 
-    public void Init()
+    public int StartOrder => 20;
+    public Task Start() => Load();
+    public void Init() => Load().GetAwaiter().GetResult();
+
+    private async Task Load()
     {
-        if (_styles.Count > 0)
-            _styles.Clear();
-        DataTable? table = null;
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery("SELECT * FROM `room_chat_styles`;");
-            table = dbClient.GetTable();
-            if (table != null)
-            {
-                foreach (DataRow row in table.Rows)
-                {
-                    try
-                    {
-                        if (!_styles.ContainsKey(Convert.ToInt32(row["id"])))
-                            _styles.Add(Convert.ToInt32(row["id"]), new(Convert.ToInt32(row["id"]), Convert.ToString(row["name"]), Convert.ToString(row["required_permission"]) ?? string.Empty, Convert.ToInt32(row["requires_hc"]) == 1, Convert.ToInt32(row["enabled"]) == 1));
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError("Unable to load ChatBubble for ID [" + Convert.ToInt32(row["id"]) + "]", ex);
-                    }
-                }
-            }
-        }
-        _logger.LogInformation("Loaded " + _styles.Count + " chat styles.");
+        using var connection = _database.Connection();
+        var styles = await connection.QueryAsync<ChatStyle>("SELECT id, name, COALESCE(required_permission, '') AS RequiredPermission, requires_hc AS RequiresHc, enabled FROM room_chat_styles");
+        _styles.Clear();
+        foreach (var style in styles)
+            _styles.TryAdd(style.Id, style);
+        _logger.LogInformation("Loaded {Count} chat styles.", _styles.Count);
     }
 
     public IReadOnlyList<int> GetAllowedStyleIds(Plus.HabboHotel.Permissions.UserAccess access) =>

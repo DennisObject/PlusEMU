@@ -43,5 +43,4 @@ public interface IGame
     [Obsolete("Use dependency injection instead.")] IBotManager BotManager { get; }
 
     [Obsolete("Use dependency injection instead.")] ICacheManager CacheManager { get; }
-    Task Init();
 }
