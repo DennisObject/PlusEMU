@@ -7,7 +7,6 @@ internal class RoomBadgeCommand : IChatCommand
 {
     private readonly IBadgeManager _badgeManager;
     public string Key => "roombadge";
-    public string PermissionRequired => "command_room_badge";
 
     public string Parameters => "%badge%";
 
@@ -29,6 +28,9 @@ internal class RoomBadgeCommand : IChatCommand
         foreach (var user in room.GetRoomUserManager().GetUserList().ToList())
         {
             if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null)
+                continue;
+            if (user.GetClient()?.GetHabbo() is not { } target ||
+                target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access))
                 continue;
             if (!user.GetClient().GetHabbo().Inventory.Badges.HasBadge(badgeCode))
             {

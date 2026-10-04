@@ -52,7 +52,7 @@ public sealed class NavigatorManager : INavigatorManager
                         {
                             _searchResultLists.Add(Convert.ToInt32(row["id"]),
                                 new(Convert.ToInt32(row["id"]), Convert.ToString(row["category"]), Convert.ToString(row["category_identifier"]), Convert.ToString(row["public_name"]),
-                                    true, -1, Convert.ToInt32(row["required_rank"]), NavigatorViewModeUtility.GetViewModeByString(Convert.ToString(row["view_mode"])),
+                                    true, -1, Convert.ToString(row["required_permission"]) ?? string.Empty, NavigatorViewModeUtility.GetViewModeByString(Convert.ToString(row["view_mode"])),
                                     Convert.ToString(row["category_type"]), Convert.ToString(row["search_allowance"]), Convert.ToInt32(row["order_id"])));
                         }
                     }

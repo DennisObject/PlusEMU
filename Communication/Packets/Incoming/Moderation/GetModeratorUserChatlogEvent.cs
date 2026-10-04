@@ -1,4 +1,6 @@
-﻿using System.Data;
+﻿using Plus.Communication.Attributes;
+using Plus.HabboHotel.Permissions;
+using System.Data;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -8,6 +10,7 @@ using Plus.Utilities;
 
 namespace Plus.Communication.Packets.Incoming.Moderation;
 
+[RequiresPermission(PermissionKeys.ModerationTool)]
 internal class GetModeratorUserChatlogEvent : IPacketEvent
 {
     public readonly IChatlogManager _chatlogManager;
@@ -21,8 +24,6 @@ internal class GetModeratorUserChatlogEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().Permissions.HasRight("mod_tool"))
-            return Task.CompletedTask;
         var data = PlusEnvironment.GetHabboById(packet.ReadInt());
         if (data == null)
         {

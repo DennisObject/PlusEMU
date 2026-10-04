@@ -2,7 +2,7 @@
 
 public class SearchResultList
 {
-    public SearchResultList(int id, string category, string categoryIdentifier, string publicName, bool canDoActions, int colour, int requiredRank, NavigatorViewMode viewMode, string categoryType,
+    public SearchResultList(int id, string category, string categoryIdentifier, string publicName, bool canDoActions, int colour, string requiredPermission, NavigatorViewMode viewMode, string categoryType,
         string searchAllowance, int orderId)
     {
         Id = id;
@@ -11,7 +11,7 @@ public class SearchResultList
         PublicName = publicName;
         CanDoActions = canDoActions;
         Colour = colour;
-        RequiredRank = requiredRank;
+        RequiredPermission = requiredPermission;
         ViewMode = viewMode;
         CategoryType = NavigatorCategoryTypeUtility.GetCategoryTypeByString(categoryType);
         SearchAllowance = NavigatorSearchAllowanceUtility.GetSearchAllowanceByString(searchAllowance);
@@ -31,7 +31,7 @@ public class SearchResultList
 
     public int Colour { get; set; }
 
-    public int RequiredRank { get; set; }
+    public string RequiredPermission { get; set; }
 
     public NavigatorViewMode ViewMode { get; set; }
 

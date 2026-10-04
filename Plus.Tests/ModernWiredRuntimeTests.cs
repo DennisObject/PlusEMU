@@ -311,7 +311,7 @@ public class ModernWiredRuntimeTests
         var (destination, _, _) = World(); destination.Id = 42;
         f.Habbo.Gender = "M"; f.Habbo.Look = "test"; f.Habbo.Motto = "";
         f.Habbo.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
-        f.Habbo.Permissions = new([], []);
+        f.Habbo.Access = EditorTestSupport.Access([]);
         Assert.True(destination.GetRoomUserManager().AddAvatarToRoom(f.Habbo.Client));
         var joined = Assert.IsType<RoomUser>(destination.GetRoomUserManager().GetRoomUserByHabbo(f.Habbo.Id));
         Assert.NotSame(f.User, joined);
@@ -1134,7 +1134,7 @@ public class ModernWiredRuntimeTests
     private static (Room Room, Gamemap Map, ConcurrentDictionary<uint, Item> Items) World()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", false, 0, true));
+        var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true));
         var handler = new RoomItemHandling(room);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);

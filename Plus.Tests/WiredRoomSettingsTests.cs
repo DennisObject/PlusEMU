@@ -56,8 +56,8 @@ public class WiredRoomSettingsTests
         Assert.Equal(adminAllowed, settings.CanInspect(Client(room, 4)));
         Assert.False(settings.CanModify(Client(room, 2)));
         Assert.True(settings.CanManage(Client(room, 1))); Assert.True(settings.CanModify(Client(room, 1)));
-        Assert.True(settings.CanManage(Client(room, 5, "room_any_owner")));
-        Assert.True(settings.CanInspect(Client(room, 6, "room_any_rights")));
+        Assert.True(settings.CanManage(Client(room, 5, "room.owner.any")));
+        Assert.True(settings.CanInspect(Client(room, 6, "room.rights.any")));
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public class WiredRoomSettingsTests
     {
         var client = new FlashGameClient(null!, new FlashPacketFactory());
         client.SetHabbo(new Habbo { Id = id, Username = id == room.OwnerId ? "owner" : "user" + id,
-            CurrentRoom = room, Permissions = new([.. rights], []) }); return client;
+            CurrentRoom = room, Access = EditorTestSupport.Access([.. rights]) }); return client;
     }
     private static void Set(object obj, string name, object value) =>
         obj.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(obj, value);

@@ -5,7 +5,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User.Fun;
 internal class MoonwalkCommand : IChatCommand
 {
     public string Key => "moonwalk";
-    public string PermissionRequired => "command_moonwalk";
 
     public string Parameters => "";
 

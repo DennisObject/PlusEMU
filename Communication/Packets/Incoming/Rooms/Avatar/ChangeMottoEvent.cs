@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Engine;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Database;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
@@ -45,7 +46,7 @@ internal class ChangeMottoEvent : IPacketEvent
             newMotto = newMotto.Substring(0, 38);
         if (newMotto == session.GetHabbo().Motto)
             return Task.CompletedTask;
-        if (!session.GetHabbo().Permissions.HasRight("word_filter_override"))
+        if (!session.GetHabbo().Access.Can(PermissionKeys.ChatFilterBypass))
             newMotto = _wordFilterManager.CheckMessage(newMotto);
         session.GetHabbo().Motto = newMotto;
         using (var dbClient = _database.GetQueryReactor())

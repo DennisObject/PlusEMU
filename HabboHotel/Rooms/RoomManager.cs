@@ -89,7 +89,7 @@ public class RoomManager : IRoomManager
         if (_roomModels.Count > 0)
             _roomModels.Clear();
         using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("SELECT id,door_x,door_y,door_z,door_dir,heightmap,club_only,poolmap,`wall_height` FROM `room_models` WHERE `custom` = '0'");
+        dbClient.SetQuery("SELECT id,door_x,door_y,door_z,door_dir,heightmap,required_club_level,required_permission,poolmap,`wall_height` FROM `room_models` WHERE `custom` = '0'");
         var data = dbClient.GetTable();
         if (data == null)
             return;
@@ -97,7 +97,10 @@ public class RoomManager : IRoomManager
         {
             var model = Convert.ToString(row["id"]);
             _roomModels.Add(model, new(model, Convert.ToInt32(row["door_x"]), Convert.ToInt32(row["door_y"]), (double)row["door_z"], Convert.ToInt32(row["door_dir"]),
-                Convert.ToString(row["heightmap"]), ConvertExtensions.EnumToBool(row["club_only"].ToString()), Convert.ToInt32(row["wall_height"]), false));
+                Convert.ToString(row["heightmap"]), Convert.ToInt32(row["required_club_level"]), Convert.ToInt32(row["wall_height"]), false)
+            {
+                RequiredPermission = row.IsNull("required_permission") ? null : Convert.ToString(row["required_permission"])
+            });
         }
     }
 
@@ -105,7 +108,7 @@ public class RoomManager : IRoomManager
     {
         DataRow row = null;
         using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("SELECT id,door_x,door_y,door_z,door_dir,heightmap,club_only,poolmap,`wall_height` FROM `room_models` WHERE `custom` = '1' AND `id` = @modelId LIMIT 1");
+        dbClient.SetQuery("SELECT id,door_x,door_y,door_z,door_dir,heightmap,required_club_level,required_permission,poolmap,`wall_height` FROM `room_models` WHERE `custom` = '1' AND `id` = @modelId LIMIT 1");
         dbClient.AddParameter("modelId", id);
         row = dbClient.GetRow();
         if (row == null)
@@ -114,7 +117,10 @@ public class RoomManager : IRoomManager
         if (!_roomModels.ContainsKey(model))
         {
             _roomModels.Add(model, new(model, Convert.ToInt32(row["door_x"]), Convert.ToInt32(row["door_y"]), Convert.ToDouble(row["door_z"]), Convert.ToInt32(row["door_dir"]),
-                Convert.ToString(row["heightmap"]), ConvertExtensions.EnumToBool(row["club_only"].ToString()), Convert.ToInt32(row["wall_height"]), true));
+                Convert.ToString(row["heightmap"]), Convert.ToInt32(row["required_club_level"]), Convert.ToInt32(row["wall_height"]), true)
+            {
+                RequiredPermission = row.IsNull("required_permission") ? null : Convert.ToString(row["required_permission"])
+            });
         }
         return true;
     }

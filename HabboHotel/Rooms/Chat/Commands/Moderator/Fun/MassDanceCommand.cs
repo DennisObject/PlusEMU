@@ -6,7 +6,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator.Fun;
 internal class MassDanceCommand : IChatCommand
 {
     public string Key => "massdance";
-    public string PermissionRequired => "command_massdance";
 
     public string Parameters => "%DanceId%";
 
@@ -31,6 +30,9 @@ internal class MassDanceCommand : IChatCommand
             foreach (var u in users.ToList())
             {
                 if (u == null)
+                    continue;
+                if (u.GetClient()?.GetHabbo() is not { } target ||
+                    target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access))
                     continue;
                 if (u.CarryItemId > 0)
                     u.CarryItemId = 0;

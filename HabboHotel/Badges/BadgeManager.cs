@@ -38,7 +38,7 @@ public class BadgeManager : IBadgeManager
         if (habbo.Inventory.Badges.HasBadge(code))
             return;
 
-        if (!_badges.TryGetValue(code.ToUpper(), out var badge) || badge.RequiredRight.Length > 0 && !habbo.Permissions.HasRight(badge.RequiredRight))
+        if (!_badges.TryGetValue(code.ToUpper(), out var badge) || badge.RequiredRight.Length > 0 && !habbo.Access.Can(badge.RequiredRight))
             return;
 
         using var connection = _database.Connection();

@@ -1,9 +1,12 @@
+using Plus.Communication.Attributes;
+using Plus.HabboHotel.Permissions;
 using Plus.Communication.Packets.Outgoing.FurniEditor;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Editor;
 
 namespace Plus.Communication.Packets.Incoming.FurniEditor;
 
+[RequiresPermission(PermissionKeys.CatalogEdit)]
 public class FurniEditorDetailEvent : IPacketEvent
 {
     private readonly IFurniEditorService _furniEditor;

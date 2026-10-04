@@ -11,6 +11,7 @@ using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Interactor;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Navigator;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 using Xunit;
@@ -70,13 +71,14 @@ public class UpstreamPortTests
     [Fact]
     public void MissingRoomCategoryFallsBackWithoutReadingTheList()
     {
-        var category = Category("category", requiredRank: 1);
-        Assert.Equal(36, RoomCategoryChoice.Resolve(12, null, 1, 1, 1, applyOwnerRule: true));
-        Assert.Equal(12, RoomCategoryChoice.Resolve(12, category, 1, 9, 9, applyOwnerRule: true));
-        Assert.Equal(36, RoomCategoryChoice.Resolve(12, Category("category", 5), 1, 9, 9, applyOwnerRule: false));
-        Assert.Equal(36, RoomCategoryChoice.Resolve(12, Category("query", 1), 7, 9, 9, applyOwnerRule: false));
-        Assert.Equal(36, RoomCategoryChoice.Resolve(12, Category("category", 2), 5, 2, 9, applyOwnerRule: true));
-        Assert.Equal(12, RoomCategoryChoice.Resolve(12, Category("category", 2), 5, 9, 9, applyOwnerRule: true));
+        var access = UserAccess.Create([], [new("navigator.searches.staff", false)], ["navigator.searches.staff"]);
+        var category = Category("category", "");
+        Assert.Equal(36, RoomCategoryChoice.Resolve(12, null, UserAccess.Empty, 1, 1, applyOwnerRule: true));
+        Assert.Equal(12, RoomCategoryChoice.Resolve(12, category, UserAccess.Empty, 9, 9, applyOwnerRule: true));
+        Assert.Equal(36, RoomCategoryChoice.Resolve(12, Category("category", "navigator.searches.staff"), UserAccess.Empty, 9, 9, applyOwnerRule: false));
+        Assert.Equal(36, RoomCategoryChoice.Resolve(12, Category("query", ""), access, 9, 9, applyOwnerRule: false));
+        Assert.Equal(36, RoomCategoryChoice.Resolve(12, Category("category", "navigator.searches.staff"), access, 2, 9, applyOwnerRule: true));
+        Assert.Equal(12, RoomCategoryChoice.Resolve(12, Category("category", "navigator.searches.staff"), access, 9, 9, applyOwnerRule: true));
     }
 
     [Fact]
@@ -171,8 +173,8 @@ public class UpstreamPortTests
         .Where(value => value > 0)
         .ToList();
 
-    private static SearchResultList Category(string type, int requiredRank) =>
-        new(1, "cat", "cat", "Cat", true, 1, requiredRank, NavigatorViewMode.Regular, type, "NOTHING", 1);
+    private static SearchResultList Category(string type, string requiredPermission) =>
+        new(1, "cat", "cat", "Cat", true, 1, requiredPermission, NavigatorViewMode.Regular, type, "NOTHING", 1);
 
     private static ItemDefinition Definition(InteractionType type, int modes = 1) => new()
     {

@@ -15,7 +15,8 @@ using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Messenger;
-using Plus.HabboHotel.Users.Permissions;
+using Plus.HabboHotel.Permissions;
+using Plus.Communication.Attributes;
 using Xunit;
 using static Plus.Tests.HabbiconTestSupport;
 
@@ -24,31 +25,15 @@ namespace Plus.Tests;
 public class HousekeepingPolicyTests
 {
     [Theory]
-    [InlineData(7, 6, true)]
-    [InlineData(7, 1, true)]
-    [InlineData(7, 7, false)]
-    [InlineData(7, 8, false)]
+    [InlineData(70, 60, true)]
+    [InlineData(70, 70, false)]
+    [InlineData(70, 80, false)]
     [InlineData(0, 0, false)]
-    [InlineData(7, 0, false)]
-    public void StaffOnlyTargetStrictlyLowerRanks(int operatorRank, int targetRank, bool allowed) =>
-        Assert.Equal(allowed, HousekeepingRankPolicy.CanTarget(operatorRank, targetRank));
+    public void StaffOnlyTargetStrictlyLowerRoleWeights(int actorWeight, int targetWeight, bool allowed) =>
+        Assert.Equal(allowed, Access(actorWeight).Outranks(Access(targetWeight)));
 
-    [Theory]
-    [InlineData(7, 6, true)]
-    [InlineData(7, 7, false)]
-    [InlineData(7, 9, false)]
-    [InlineData(7, 0, false)]
-    [InlineData(7, -1, false)]
-    public void StaffOnlyGrantRanksBelowTheirOwn(int operatorRank, int newRank, bool allowed) =>
-        Assert.Equal(allowed, HousekeepingRankPolicy.CanAssign(operatorRank, newRank));
-
-    [Theory]
-    [InlineData(7, 0, true)]
-    [InlineData(7, 6, true)]
-    [InlineData(7, 7, false)]
-    [InlineData(0, 0, false)]
-    public void RoomsFollowTheirOwnersRank(int operatorRank, int ownerRank, bool allowed) =>
-        Assert.Equal(allowed, HousekeepingRankPolicy.CanManageRoom(operatorRank, ownerRank));
+    internal static UserAccess Access(int weight, params string[] rights) => UserAccess.Create(
+        [new(new AccessRole(weight, "test", "Test", weight, Math.Min(weight / 10, 7), "", false, rights, new Dictionary<string, int>()))]);
 
     [Fact]
     public void BalancesRejectGrantsThatOverflowTheWireInt()
@@ -95,17 +80,20 @@ public class HousekeepingPolicyTests
 public class HousekeepingActionTests
 {
     private static Habbo Staff(int rank = 7, params string[] rights) =>
-        new() { Id = 1, Username = "staff", Rank = rank, Permissions = new(rights.ToList(), new()) };
+        new() { Id = 1, Username = "staff", Access = HousekeepingPolicyTests.Access(rank * 10, rights) };
 
-    private static (HousekeepingUserActions Users, HousekeepingEconomyActions Economy, FakeClients Clients) Actions(params HousekeepingUserRecord[] users) =>
+    private static (HousekeepingUserActions Users, HousekeepingEconomyActions Economy, FakeClients Clients) Actions(params (HousekeepingUserRecord User, UserAccess Access)[] users) =>
         Actions(new AccountSessionGate(), null!, null!, users);
 
     private static (HousekeepingUserActions Users, HousekeepingEconomyActions Economy, FakeClients Clients) Actions(IAccountSessionGate gate,
-        IItemDataManager items, IItemFactory itemFactory, params HousekeepingUserRecord[] users)
+        IItemDataManager items, IItemFactory itemFactory, params (HousekeepingUserRecord User, UserAccess Access)[] users)
     {
-        var store = new FakeUserStore(users);
+        var store = new FakeUserStore(users.Select(user => user.User));
+        var permissions = DispatchProxy.Create<IAccessControl, AccessProxy>();
+        ((AccessProxy)(object)permissions).Users = users.ToDictionary(user => user.User.Id, user => user.Access);
+        ((AccessProxy)(object)permissions).Users.TryAdd(1, Staff().Access);
         var clients = new FakeClients();
-        return (new(store, clients, null!, null!, null!, null!, null!, gate, null!), new(store, clients, items, itemFactory, null!, null!, gate), clients);
+        return (new(store, clients, null!, permissions, null!, null!, gate, null!), new(store, clients, items, itemFactory, null!, null!, gate, permissions), clients);
     }
 
     [Fact]
@@ -119,7 +107,7 @@ public class HousekeepingActionTests
         Assert.False(grant.IsCompleted);
 
         // The login finishes loading (balance 100) and registers before it leaves the gate.
-        var target = new Habbo { Id = 2, Rank = 1, Credits = 100 };
+        var target = new Habbo { Id = 2, Access = HousekeepingPolicyTests.Access(10), Credits = 100 };
         clients.Online[2] = Client(target).Client;
         login.Dispose();
 
@@ -135,7 +123,7 @@ public class HousekeepingActionTests
         ((ItemsProxy)(object)items).Items[1500] = definition;
         var factory = DispatchProxy.Create<IItemFactory, FactoryProxy>();
         var (_, economy, clients) = Actions(new AccountSessionGate(), items, factory, User(2, 1));
-        var target = new Habbo { Id = 2, Rank = 1, Inventory = new() { Furniture = new([], []) } };
+        var target = new Habbo { Id = 2, Access = HousekeepingPolicyTests.Access(10), Inventory = new() { Furniture = new([], []) } };
         var (client, sent) = Client(target);
         clients.Online[2] = client;
 
@@ -160,7 +148,20 @@ public class HousekeepingActionTests
                 : throw new NotSupportedException(method?.Name);
     }
 
-    private static HousekeepingUserRecord User(int id, int rank) => new() { Id = id, Username = "user" + id, Rank = rank };
+    private static (HousekeepingUserRecord User, UserAccess Access) User(int id, int rank) =>
+        (new() { Id = id, Username = "user" + id }, HousekeepingPolicyTests.Access(rank * 10));
+
+    public class AccessProxy : DispatchProxy
+    {
+        public Dictionary<int, UserAccess> Users { get; set; } = new();
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name switch
+        {
+            nameof(IAccessControl.Resolve) => Users.GetValueOrDefault((int)args![0]!, UserAccess.Empty),
+            nameof(IAccessControl.Outranks) => (int)args![0]! != (int)args[1]! &&
+                Users.GetValueOrDefault((int)args[0]!, UserAccess.Empty).Outranks(Users.GetValueOrDefault((int)args[1]!, UserAccess.Empty)),
+            _ => throw new NotSupportedException(method?.Name)
+        };
+    }
 
     [Theory]
     [InlineData(0)]
@@ -225,7 +226,7 @@ public class HousekeepingActionTests
     public void OnlineCurrencyGrantsUpdateTheLiveWalletAndRejectOverflow()
     {
         var (_, economy, clients) = Actions(User(2, 1));
-        var target = new Habbo { Id = 2, Rank = 1, Credits = 100 };
+        var target = new Habbo { Id = 2, Access = HousekeepingPolicyTests.Access(10), Credits = 100 };
         var (client, sent) = Client(target);
         clients.Online[2] = client;
 
@@ -256,7 +257,7 @@ public class HousekeepingActionTests
         public ICollection<GameClient> GetClients => Online.Values;
         public GameClient? GetClientByUserId(int userId) => Online.GetValueOrDefault(userId);
         public GameClient? GetClientByUsername(string username) => Online.Values.FirstOrDefault(client => client.GetHabbo().Username == username);
-        public void SendPacket(IServerPacket packet, string fuse = "") => Broadcasts.Add(packet);
+        public void SendPacket(IServerPacket packet, PermissionDefinition? permission = null) => Broadcasts.Add(packet);
         public void OnCycle() { }
         public bool TryGetClient(Guid clientId, out GameClient client) => throw new NotSupportedException();
         public bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername) => throw new NotSupportedException();
@@ -309,7 +310,7 @@ public class AccountSessionGateTests
 public class HousekeepingHandlerTests
 {
     private static Habbo Staff(params string[] rights) =>
-        new() { Id = 1, Username = "staff", Rank = 7, Permissions = new(rights.ToList(), new()) };
+        new() { Id = 1, Username = "staff", Access = HousekeepingPolicyTests.Access(70, rights) };
 
     private static (string Key, bool Ok, int ActionId, string Message) Result(byte[] payload)
     {
@@ -441,13 +442,10 @@ public class HousekeepingHandlerTests
     }
 
     [Fact]
-    public async Task LookupsNeedPanelAccess()
+    public void LookupsNeedPanelAccess()
     {
-        var (client, sent) = Client(Staff());
-        var runner = new HousekeepingActionRunner(new FakeAudit(), NullLogger<HousekeepingActionRunner>.Instance);
-        await new HousekeepingListActionLogEvent(runner, new FakeAudit()).Parse(client, Incoming(50));
-        await new HousekeepingFindUserByIdEvent(runner, new HousekeepingActionTests.FakeUserStore([]), null!).Parse(client, Incoming(2));
-        Assert.Empty(sent);
+        Assert.Equal(HousekeepingRights.Access, typeof(HousekeepingListActionLogEvent).GetCustomAttribute<RequiresPermissionAttribute>()!.Permissions.Single());
+        Assert.Equal(HousekeepingRights.Access, typeof(HousekeepingFindUserByIdEvent).GetCustomAttribute<RequiresPermissionAttribute>()!.Permissions.Single());
     }
 
     [Fact]
@@ -618,32 +616,13 @@ public class HousekeepingWireTests
 
 public class ClientPermissionWireTests
 {
-    private static List<object> Writes(UserRightsComposer composer)
+    [Fact]
+    public void ResolvedMetadataAndConcreteGrantsFollowTheRendererBlock()
     {
+        var access = UserAccess.Create([new(new AccessRole(9, "developer", "Developer", 90, 7, "DEV", true,
+            [PermissionKeys.Ambassador, PermissionKeys.CameraUse, PermissionKeys.HousekeepingAccess], new Dictionary<string, int>()))]);
         var packet = new RecordingPacket();
-        composer.Compose(packet);
-        return packet.Writes;
+        new UserRightsComposer(access).Compose(packet);
+        Assert.Equal(new object[] { 2, 7, true, 9, "Developer", "DEV", 3, "ambassador", 1, "camera.use", 1, "housekeeping.access", 1 }, packet.Writes);
     }
-
-    [Fact]
-    public void RankMetadataAndAllowlistedRightsFollowTheRendererPermissionBlock()
-    {
-        var rights = new PermissionComponent(new() { "mod_tool", "acc_furni_delete", "acc_housekeeping", "acc_catalogfurni", "housekeeping_economy", "acc_furnidata_edit" }, new());
-        var composer = new UserRightsComposer(7, true, "Developer", "DEV", ClientPermissions.Resolve(rights, true));
-        Assert.Equal(new object[] { 2, 7, true, 7, "Developer", "DEV", 5, "acc_camera", 1, "acc_housekeeping", 1, "acc_catalogfurni", 1,
-            "acc_furnidata_edit", 1, "acc_furni_delete", 1 }, Writes(composer));
-    }
-
-    [Fact]
-    public void CameraStaysGovernedByCameraSettingsNotARankRight()
-    {
-        var rights = new PermissionComponent(new() { "acc_camera", "acc_soundboard_manage" }, new());
-        Assert.Equal(new[] { "acc_soundboard_manage" }, ClientPermissions.Resolve(rights, false));
-        Assert.Equal(new[] { "acc_camera" }, ClientPermissions.Resolve(new(new(), new()), true));
-    }
-
-    [Fact]
-    public void UsersWithoutRightsGetAnEmptyPermissionMap() =>
-        Assert.Equal(new object[] { 2, 1, false, 1, "User", "", 0 },
-            Writes(new UserRightsComposer(1, false, "User", "", ClientPermissions.Resolve(new(new() { "mod_tool" }, new()), false))));
 }

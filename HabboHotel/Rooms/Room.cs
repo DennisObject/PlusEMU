@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using Plus.HabboHotel.Permissions;
+using System.Data;
 using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
@@ -275,11 +276,11 @@ public class Room : RoomData
                 return false;
             if (session.GetHabbo().Username == OwnerName && Type == "private")
                 return true;
-            if (session.GetHabbo().Permissions.HasRight("room_any_owner"))
+            if (session.GetHabbo().Access.Can(PermissionKeys.RoomOwnerAny))
                 return true;
             if (!requireOwnership && Type == "private")
             {
-                if (session.GetHabbo().Permissions.HasRight("room_any_rights"))
+                if (session.GetHabbo().Access.Can(PermissionKeys.RoomRightsAny))
                     return true;
                 if (UsersWithRights.Contains(session.GetHabbo().Id))
                     return true;

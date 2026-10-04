@@ -26,7 +26,7 @@ internal class SaveEnforcedCategorySettingsEvent : IPacketEvent
         if (tradeSettings < 0 || tradeSettings > 2)
             tradeSettings = 0;
         _navigationManager.TryGetSearchResultList(categoryId, out var searchResultList);
-        categoryId = RoomCategoryChoice.Resolve(categoryId, searchResultList, session.GetHabbo().Rank, session.GetHabbo().Id, room.OwnerId, applyOwnerRule: false);
+        categoryId = RoomCategoryChoice.Resolve(categoryId, searchResultList, session.GetHabbo().Access, session.GetHabbo().Id, room.OwnerId, applyOwnerRule: false);
         return Task.CompletedTask;
     }
 }

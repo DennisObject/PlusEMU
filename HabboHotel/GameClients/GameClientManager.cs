@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using Plus.HabboHotel.Permissions;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Data;
 using System.Diagnostics;
@@ -48,7 +49,7 @@ public class GameClientManager : IGameClientManager
         HandleTimeouts();
     }
 
-    public GameClient? GetClientByUserId(int userId) => _userIdRegister.ContainsKey(userId) ? _userIdRegister[userId] : null;
+    public GameClient? GetClientByUserId(int userId) => _userIdRegister.TryGetValue(userId, out var client) ? client : null;
 
     public GameClient? GetClientByUsername(string username) => _usernameRegister.ContainsKey(username.ToLower()) ? _usernameRegister[username.ToLower()] : null;
 
@@ -88,7 +89,7 @@ public class GameClientManager : IGameClientManager
         {
             if (client == null || client.GetHabbo() == null)
                 continue;
-            if (client.GetHabbo().Rank < 2 || client.GetHabbo().Id == exclude)
+            if (!client.GetHabbo().Access.Can(PermissionKeys.StaffReceiveAlerts) || client.GetHabbo().Id == exclude)
                 continue;
             client.Send(message);
         }
@@ -100,7 +101,7 @@ public class GameClientManager : IGameClientManager
         {
             if (client == null || client.GetHabbo() == null)
                 continue;
-            if (client.GetHabbo().Permissions.HasRight("mod_tool") && !client.GetHabbo().Permissions.HasRight("staff_ignore_mod_alert"))
+            if (client.GetHabbo().Access.Can(PermissionKeys.ModerationTool) && !client.GetHabbo().Access.Can(PermissionKeys.StaffIgnoreModAlert))
             {
                 try
                 {
@@ -138,23 +139,20 @@ public class GameClientManager : IGameClientManager
         {
             if (client == null || client.GetHabbo() == null)
                 continue;
-            if (client.GetHabbo().Permissions.HasRight("mod_tool") && !client.GetHabbo().Permissions.HasRight("staff_ignore_advertisement_reports"))
+            if (client.GetHabbo().Access.Can(PermissionKeys.ModerationTool) && !client.GetHabbo().Access.Can(PermissionKeys.StaffIgnoreAdvertisementReports))
                 client.Send(new MotdNotificationComposer(builder.ToString()));
         }
     }
 
 
-    public void SendPacket(IServerPacket packet, string fuse = "")
+    public void SendPacket(IServerPacket packet, PermissionDefinition? permission = null)
     {
         foreach (var client in _clients.Values.ToList())
         {
             if (client == null || client.GetHabbo() == null)
                 continue;
-            if (!string.IsNullOrEmpty(fuse))
-            {
-                if (!client.GetHabbo().Permissions.HasRight(fuse))
-                    continue;
-            }
+            if (permission != null && !client.GetHabbo().Access.Can(permission.Key))
+                continue;
             client.Send(packet);
         }
     }

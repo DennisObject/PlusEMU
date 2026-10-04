@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users;
 using Plus.Utilities;
@@ -9,7 +10,6 @@ internal class BanCommand : ITargetChatCommand
 {
     private readonly IModerationManager _moderationManager;
     public string Key => "ban";
-    public string PermissionRequired => "command_ban";
 
     public string Parameters => "%username% %length% %reason% ";
 
@@ -25,7 +25,7 @@ internal class BanCommand : ITargetChatCommand
     public async Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
         using var deadline = new CancellationTokenSource(ModerationManager.BanBudget);
-        if (target.Permissions.HasRight("mod_soft_ban") && !session.GetHabbo().Permissions.HasRight("mod_ban_any"))
+        if (!session.GetHabbo().Access.Outranks(target.Access))
         {
             session.SendWhisper("Oops, you cannot ban that user.");
             return;

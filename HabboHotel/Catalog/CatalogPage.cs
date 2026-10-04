@@ -16,9 +16,7 @@ public class CatalogPage
 
     public int Icon { get; set; }
 
-    public int MinimumRank { get; set; }
-
-    public int MinimumVip { get; set; }
+    public string? RequiredPermission { get; set; }
 
     public bool Visible { get; set; }
 
@@ -39,8 +37,8 @@ public class CatalogPage
     // Offers by WireOfferId, in display order. Pages, purchases, gifts and preselection all resolve here.
     public Dictionary<int, CatalogItem> Offers { get; set; } = new();
 
-    // Rank and VIP gates. Hidden pages (Visible = false) stay reachable by link, as on the official hotel.
-    public bool IsAvailableTo(Habbo habbo) => MinimumRank <= habbo.Rank && (MinimumVip <= habbo.VipRank || habbo.Rank != 1);
+    // Permission gates. Hidden pages (Visible = false) stay reachable by link, as on the official hotel.
+    public bool IsAvailableTo(Habbo habbo) => string.IsNullOrEmpty(RequiredPermission) || habbo.Access.Can(RequiredPermission);
 
     public bool CanOpen(Habbo habbo) => Enabled && IsAvailableTo(habbo);
 

@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Permissions;
 using System.Data.Common;
 using System.Text.Json;
 using NLog;
@@ -39,14 +40,14 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
                 session.Send(new WiredValidationErrorComposer("The save packet does not match this Wired box."));
                 return Task.CompletedTask;
             }
-            if (box.Type == WiredBoxType.EffectGiveUserBadge && !session.GetHabbo().Permissions.HasRight("room_item_wired_rewards"))
+            if (box.Type == WiredBoxType.EffectGiveUserBadge && !session.GetHabbo().Access.Can(PermissionKeys.RoomItemWiredRewards))
             {
                 session.Send(new WiredValidationErrorComposer("You do not have permission to configure Wired rewards."));
                 return Task.CompletedTask;
             }
             var rewardName = box is IWiredConfiguredItem rewardBox ? rewardBox.Descriptor.CanonicalName
                 : WiredLegacyEditorProjection.TryGetDescriptor(box, out var rewardDescriptor) ? rewardDescriptor.CanonicalName : null;
-            if (rewardName == "wf_act_give_reward" && !session.GetHabbo().Permissions.HasRight("mod_tool"))
+            if (rewardName == "wf_act_give_reward" && !session.GetHabbo().Access.Can(PermissionKeys.ModerationTool))
             {
                 session.Send(new WiredValidationErrorComposer("You do not have permission to configure Wired rewards."));
                 return Task.CompletedTask;

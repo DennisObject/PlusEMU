@@ -6,7 +6,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 internal class StatsCommand : IChatCommand
 {
     public string Key => "stats";
-    public string PermissionRequired => "command_stats";
 
     public string Parameters => "";
 

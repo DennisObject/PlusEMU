@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Plus.HabboHotel.Permissions;
 
 namespace Plus.HabboHotel.Catalog.Admin;
 
@@ -16,14 +17,20 @@ public static partial class CatalogAdminValidation
     [GeneratedRegex("^[A-Za-z0-9_.-]{0,128}$")]
     private static partial Regex PageLinkPattern();
 
+    [GeneratedRegex("^[a-z0-9_]+(?:\\.[a-z0-9_]+)*$")]
+    private static partial Regex PermissionPattern();
+
+    public static bool Available(string? permission, UserAccess access) =>
+        string.IsNullOrEmpty(permission) || access.Can(permission);
+
     [GeneratedRegex("^[a-z0-9_]{1,64}$")]
     private static partial Regex LayoutPattern();
 
-    public static Dictionary<string, string> Page(CatalogAdminPage page, CatalogPageRow? existing, int actorRank, Func<int, CatalogPageRow?> findPage)
+    public static Dictionary<string, string> Page(CatalogAdminPage page, CatalogPageRow? existing, UserAccess access, Func<int, CatalogPageRow?> findPage)
     {
         var errors = new Dictionary<string, string>();
-        if (existing != null && existing.MinRank > actorRank)
-            errors[Form] = "You cannot edit a page above your rank.";
+        if (existing != null && !Available(existing.RequiredPermission, access))
+            errors[Form] = "You cannot edit a page requiring a permission you do not have.";
         Text(errors, "caption", page.Caption, 128, required: true);
         if (!PageLinkPattern().IsMatch(page.CaptionSave ?? string.Empty))
             errors["captionSave"] = "Use up to 128 letters, digits, '_', '-' or '.'.";
@@ -31,8 +38,9 @@ public static partial class CatalogAdminValidation
             errors["pageLayout"] = "Unknown layout.";
         if (page.IconImage is < 0 or > 1_000_000)
             errors["iconImage"] = "Icon must be between 0 and 1000000.";
-        if (page.MinRank < 1 || page.MinRank > actorRank)
-            errors["minRank"] = $"Minimum rank must be between 1 and your rank ({actorRank}).";
+        if (page.RequiredPermission == null || page.RequiredPermission.Length > 128 || (page.RequiredPermission.Length > 0 &&
+            (!PermissionPattern().IsMatch(page.RequiredPermission) || !access.Can(page.RequiredPermission))))
+            errors["requiredPermission"] = "Choose a permission you have, or leave empty for everyone.";
         if (page.OrderNum < -1)
             errors["orderNum"] = "Order cannot be negative.";
         var type = CatalogAdminTypes.Parse(page.CatalogMode);
@@ -40,7 +48,7 @@ public static partial class CatalogAdminValidation
             errors["catalogMode"] = "Pages belong to the normal or the builders club catalog.";
         else if (existing != null && CatalogAdminTypes.FromMode(existing.CatalogMode) != type)
             errors["catalogMode"] = "A page cannot move to the other catalog.";
-        Parent(errors, page.PageId, page.ParentId, type, actorRank, findPage);
+        Parent(errors, page.PageId, page.ParentId, type, access, findPage);
         PageString(errors, "pageHeadline", page.PageHeadline, MaxImageLength);
         PageString(errors, "pageTeaser", page.PageTeaser, MaxImageLength);
         PageString(errors, "pageSpecial", page.PageSpecial, MaxImageLength);
@@ -57,17 +65,17 @@ public static partial class CatalogAdminValidation
         return errors;
     }
 
-    public static Dictionary<string, string> Offer(CatalogAdminOffer offer, CatalogOfferRow? existing, int actorRank,
+    public static Dictionary<string, string> Offer(CatalogAdminOffer offer, CatalogOfferRow? existing, UserAccess access,
         Func<int, CatalogPageRow?> findPage, Func<uint, bool> itemExists)
     {
         var errors = new Dictionary<string, string>();
         var page = findPage(offer.PageId);
         if (page == null)
             errors["pageId"] = "Page not found.";
-        else if (page.MinRank > actorRank)
-            errors["pageId"] = "You cannot edit a page above your rank.";
-        if (existing != null && findPage(existing.PageId) is { } current && current.MinRank > actorRank)
-            errors[Form] = "You cannot edit an offer on a page above your rank.";
+        else if (!Available(page.RequiredPermission, access))
+            errors["pageId"] = "You cannot edit a page requiring a permission you do not have.";
+        if (existing != null && findPage(existing.PageId) is { } current && !Available(current.RequiredPermission, access))
+            errors[Form] = "You cannot edit an offer on a page requiring a permission you do not have.";
         ItemIds(errors, offer, existing, itemExists);
         Text(errors, "catalogName", offer.CatalogName, 100, required: true);
         if (offer.CostCredits is < 0 or > MaxPrice)
@@ -96,10 +104,10 @@ public static partial class CatalogAdminValidation
     public static string? Summary(Dictionary<string, string> errors) =>
         errors.Count == 0 ? null : errors.TryGetValue(Form, out var form) ? form : $"{errors.First().Key}: {errors.First().Value}";
 
-    public static Dictionary<string, string> Move(int pageId, int parentId, string catalogType, int actorRank, Func<int, CatalogPageRow?> findPage)
+    public static Dictionary<string, string> Move(int pageId, int parentId, string catalogType, UserAccess access, Func<int, CatalogPageRow?> findPage)
     {
         var errors = new Dictionary<string, string>();
-        Parent(errors, pageId, parentId, catalogType, actorRank, findPage);
+        Parent(errors, pageId, parentId, catalogType, access, findPage);
         return errors;
     }
 
@@ -112,7 +120,7 @@ public static partial class CatalogAdminValidation
     }
 
     // Walks up from the new parent; reaching the page itself would make it its own ancestor.
-    private static void Parent(Dictionary<string, string> errors, int pageId, int parentId, string? type, int actorRank, Func<int, CatalogPageRow?> findPage)
+    private static void Parent(Dictionary<string, string> errors, int pageId, int parentId, string? type, UserAccess access, Func<int, CatalogPageRow?> findPage)
     {
         if (parentId == RootParentId)
             return;
@@ -122,9 +130,9 @@ public static partial class CatalogAdminValidation
             errors["parentId"] = "Parent page not found.";
             return;
         }
-        if (parent.MinRank > actorRank)
+        if (!Available(parent.RequiredPermission, access))
         {
-            errors["parentId"] = "You cannot use a page above your rank as parent.";
+            errors["parentId"] = "You cannot use a page requiring a permission you do not have as parent.";
             return;
         }
         if (type != null && CatalogAdminTypes.FromMode(parent.CatalogMode) != type)

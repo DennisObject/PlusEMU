@@ -8,7 +8,6 @@ internal class SummonCommand : ITargetChatCommand
 {
     private readonly IGameClientManager _gameClientManager;
     public string Key => "summon";
-    public string PermissionRequired => "command_summon";
 
     public string Parameters => "%username%";
 
@@ -23,6 +22,8 @@ internal class SummonCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
+        if (!session.GetHabbo().Access.Outranks(target.Access))
+            return Task.CompletedTask;
         if (target.Username == session.GetHabbo().Username)
         {
             session.SendWhisper("Get a life.");

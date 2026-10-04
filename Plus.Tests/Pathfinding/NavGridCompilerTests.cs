@@ -63,7 +63,7 @@ public class NavGridCompilerTests
         // Tie order, adjustable-seat height, guild access and raised open gates have explicit
         // v2 policies. This parity corpus uses stacks where legacy has an unambiguous result.
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var map = new Gamemap(room, new RoomModel("parity", 0, 0, 0, 0, "000\r000\r000", false, 0, false));
+        var map = new Gamemap(room, new RoomModel("parity", 0, 0, 0, 0, "000\r000\r000", 0, 0, false));
         Set(room, "_gamemap", map); Set(room, "_roomUserManager", new RoomUserManager(room));
         var handler = new RoomItemHandling(room); Set(room, "_roomItemHandling", handler);
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(handler)!;

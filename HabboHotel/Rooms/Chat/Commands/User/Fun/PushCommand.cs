@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Chat;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -7,7 +8,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User.Fun;
 internal class PushCommand : ITargetChatCommand
 {
     public string Key => "push";
-    public string PermissionRequired => "command_push";
 
     public string Parameters => "%target%";
 
@@ -16,7 +16,7 @@ internal class PushCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (!room.PushEnabled && !session.GetHabbo().Permissions.HasRight("room_override_custom_config"))
+        if (!room.PushEnabled && !session.GetHabbo().Access.Can(PermissionKeys.RoomOverrideCustomConfig))
         {
             session.SendWhisper("Oops, it appears that the room owner has disabled the ability to use the push command in here.");
             return Task.CompletedTask;

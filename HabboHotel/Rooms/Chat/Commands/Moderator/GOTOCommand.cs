@@ -5,7 +5,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 internal class GotoCommand : IChatCommand
 {
     public string Key => "goto";
-    public string PermissionRequired => "command_goto";
 
     public string Parameters => "%room_id%";
 

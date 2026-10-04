@@ -1,11 +1,11 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator.Fun;
 
 internal class MassEnableCommand : IChatCommand
 {
     public string Key => "massenable";
-    public string PermissionRequired => "command_massenable";
 
     public string Parameters => "%EffectId%";
 
@@ -25,7 +25,7 @@ internal class MassEnableCommand : IChatCommand
                 session.Disconnect();
                 return;
             }
-            if (!session.GetHabbo().Permissions.HasCommand("command_override_massenable") && room.OwnerId != session.GetHabbo().Id)
+            if (!session.GetHabbo().Access.Can(PermissionKeys.CommandOverrideMassenable) && room.OwnerId != session.GetHabbo().Id)
             {
                 session.SendWhisper("You can only use this command in your own room.");
                 return;
@@ -36,6 +36,9 @@ internal class MassEnableCommand : IChatCommand
                 foreach (var u in users.ToList())
                 {
                     if (u == null || u.RidingHorse)
+                        continue;
+                    if (u.GetClient()?.GetHabbo() is not { } target ||
+                        target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access))
                         continue;
                     u.ApplyEffect(enableId);
                 }

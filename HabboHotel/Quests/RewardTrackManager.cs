@@ -257,7 +257,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
         badge = code;
         if (!_badgeManager.Badges.TryGetValue(code.ToUpper(), out var definition))
             return false;
-        if (definition.RequiredRight.Length > 0 && !habbo.Permissions.HasRight(definition.RequiredRight))
+        if (definition.RequiredRight.Length > 0 && !habbo.Access.Can(definition.RequiredRight))
             return false;
         badge = definition.Code;
         return true;

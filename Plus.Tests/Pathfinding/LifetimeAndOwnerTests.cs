@@ -17,7 +17,7 @@ public partial class PlacedFurniRoomTests
         var replacement = new RoomUser(8, RoomId, old.VirtualId, _room) { X = 0, Y = 1, Z = 0 };
         var client = new TestClient();
         client.SetHabbo(new Plus.HabboHotel.Users.Habbo { Id = 8, CurrentRoom = _room,
-            Permissions = new Plus.HabboHotel.Users.Permissions.PermissionComponent(new(), new()) });
+            Access = Plus.HabboHotel.Permissions.UserAccess.Empty });
         typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(replacement, client);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;

@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS housekeeping_online_peaks (
 INSERT INTO permissions (permission, description)
 SELECT seed.permission, seed.description FROM (
  SELECT 'acc_housekeeping' AS permission, 'Can open the in-client housekeeping panel and its lookups.' AS description UNION ALL
- SELECT 'acc_soundboard_manage', 'Can manage the soundboard from the housekeeping panel.' UNION ALL
  SELECT 'housekeeping_sanction', 'Housekeeping: ban, unban, mute, kick, disconnect and trade lock lower ranks.' UNION ALL
  SELECT 'housekeeping_rank', 'Housekeeping: change lower ranks to a rank below your own.' UNION ALL
  SELECT 'housekeeping_password', 'Housekeeping: reset a lower rank''s password to a one-time password.' UNION ALL
@@ -43,6 +42,6 @@ INSERT INTO permissions_rights (group_id, permission_id)
 SELECT DISTINCT anchor_rights.group_id, granted.id
 FROM permissions_rights anchor_rights
 JOIN permissions anchor ON anchor.id = anchor_rights.permission_id AND anchor.permission = 'mod_ban_any'
-JOIN permissions granted ON granted.permission IN ('acc_housekeeping', 'acc_soundboard_manage', 'housekeeping_sanction', 'housekeeping_rank',
+JOIN permissions granted ON granted.permission IN ('acc_housekeeping', 'housekeeping_sanction', 'housekeeping_rank',
  'housekeeping_password', 'housekeeping_rooms', 'housekeeping_room_ownership', 'housekeeping_economy', 'housekeeping_alert', 'housekeeping_private_data')
 WHERE NOT EXISTS (SELECT 1 FROM permissions_rights existing WHERE existing.group_id = anchor_rights.group_id AND existing.permission_id = granted.id);

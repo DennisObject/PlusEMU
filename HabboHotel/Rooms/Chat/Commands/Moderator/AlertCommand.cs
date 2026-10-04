@@ -6,7 +6,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 internal class AlertCommand : ITargetChatCommand
 {
     public string Key => "alert";
-    public string PermissionRequired => "command_alert_user";
 
     public string Parameters => "%username% %Messages%";
 
@@ -16,6 +15,8 @@ internal class AlertCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo habbo, string[] parameters)
     {
+        if (!session.GetHabbo().Access.Outranks(habbo.Access))
+            return Task.CompletedTask;
         if (habbo.Username == session.GetHabbo().Username)
         {
             session.SendWhisper("Get a life.");

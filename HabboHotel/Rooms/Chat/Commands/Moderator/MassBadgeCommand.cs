@@ -8,7 +8,6 @@ internal class MassBadgeCommand : IChatCommand
     private readonly IGameClientManager _gameClientManager;
     private readonly IBadgeManager _badgeManager;
     public string Key => "massbadge";
-    public string PermissionRequired => "command_mass_badge";
 
     public string Parameters => "%badge%";
 
@@ -31,6 +30,8 @@ internal class MassBadgeCommand : IChatCommand
         foreach (var client in _gameClientManager.GetClients.ToList())
         {
             if (client == null || client.GetHabbo() == null || client.GetHabbo().Username == session.GetHabbo().Username)
+                continue;
+            if (!session.GetHabbo().Access.Outranks(client.GetHabbo().Access))
                 continue;
             if (!client.GetHabbo().Inventory.Badges.HasBadge(badgeCode))
             {

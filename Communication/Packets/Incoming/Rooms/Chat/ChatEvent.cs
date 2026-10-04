@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Moderation;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.Core.Settings;
 using Plus.HabboHotel.GameClients;
@@ -54,8 +55,8 @@ public class ChatEvent : IPacketEvent
         if (message.Length > 100)
             message = message.Substring(0, 100);
         var colour = packet.ReadInt();
-        if (!_chatStyleManager.TryGetStyle(colour, out var style) ||
-            style.RequiredRight.Length > 0 && !session.GetHabbo().Permissions.HasRight(style.RequiredRight))
+        if (session.GetHabbo().CustomBubbleId != 0) colour = session.GetHabbo().CustomBubbleId;
+        if (!_chatStyleManager.TryGetStyle(colour, out var style) || !style.CanUse(session.GetHabbo().Access))
             colour = 0;
         user.UnIdle();
         if (UnixTimestamp.GetNow() < session.GetHabbo().FloodTime && session.GetHabbo().FloodTime != 0)
@@ -65,15 +66,15 @@ public class ChatEvent : IPacketEvent
             session.Send(new MutedComposer(session.GetHabbo().TimeMuted));
             return;
         }
-        if (!session.GetHabbo().Permissions.HasRight("room_ignore_mute") && room.CheckMute(session))
+        if (!session.GetHabbo().Access.Can(PermissionKeys.RoomIgnoreMute) && room.CheckMute(session))
         {
             session.SendWhisper("Oops, you're currently muted.");
             return;
         }
 
-        user.LastBubble = session.GetHabbo().CustomBubbleId == 0 ? colour : session.GetHabbo().CustomBubbleId;
+        user.LastBubble = colour;
 
-        if (!session.GetHabbo().Permissions.HasRight("mod_tool"))
+        if (!session.GetHabbo().Access.Can(PermissionKeys.ModerationTool))
         {
             if (user.IncrementAndCheckFlood(out var muteTime))
             {
@@ -99,7 +100,7 @@ public class ChatEvent : IPacketEvent
             session.Send(new ChatComposer(user.VirtualId, message, 0, colour));
             return;
         }
-        if (!session.GetHabbo().Permissions.HasRight("word_filter_override"))
+        if (!session.GetHabbo().Access.Can(PermissionKeys.ChatFilterBypass))
             message = _wordFilterManager.CheckMessage(message);
         _questManager.ProgressUserQuest(session, QuestType.SocialChat);
         user.OnChat(user.LastBubble, message, false);

@@ -6,7 +6,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands;
 public interface ICommandBase
 {
     string Key { get; }
-    string PermissionRequired { get; }
     string Parameters { get; }
     string Description { get; }
 }

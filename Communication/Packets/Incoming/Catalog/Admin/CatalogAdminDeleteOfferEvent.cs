@@ -1,8 +1,11 @@
+using Plus.Communication.Attributes;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Catalog.Admin;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Catalog.Admin;
 
+[RequiresPermission(PermissionKeys.CatalogEdit)]
 public class CatalogAdminDeleteOfferEvent : IPacketEvent
 {
     private readonly ICatalogAdminService _catalogAdmin;

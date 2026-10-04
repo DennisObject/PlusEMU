@@ -1,8 +1,11 @@
-﻿using Plus.Database;
+﻿using Plus.Communication.Attributes;
+using Plus.HabboHotel.Permissions;
+using Plus.Database;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Moderation;
 
+[RequiresPermission(PermissionKeys.ModerationTradeLock)]
 internal class ModerationTradeLockEvent : IPacketEvent
 {
     public readonly IDatabase _database;
@@ -14,8 +17,6 @@ internal class ModerationTradeLockEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().Permissions.HasRight("mod_trade_lock"))
-            return Task.CompletedTask;
         var userId = packet.ReadInt();
         var message = packet.ReadString();
         var days = packet.ReadInt() / 1440.0;
@@ -28,7 +29,7 @@ internal class ModerationTradeLockEvent : IPacketEvent
             session.SendWhisper("An error occoured whilst finding that user in the database.");
             return Task.CompletedTask;
         }
-        if (habbo.Permissions.HasRight("mod_trade_lock") && !session.GetHabbo().Permissions.HasRight("mod_trade_lock_any"))
+        if (!session.GetHabbo().Access.Outranks(habbo.Access))
         {
             session.SendWhisper("Oops, you cannot trade lock another user ranked 5 or higher.");
             return Task.CompletedTask;

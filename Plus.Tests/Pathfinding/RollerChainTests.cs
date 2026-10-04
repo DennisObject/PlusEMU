@@ -139,7 +139,7 @@ public partial class PlacedFurniRoomTests
     private void PrepareRollerChain(int width, bool reverseIds)
     {
         var rows = string.Join('\r', Enumerable.Repeat(new string('0', width), 4));
-        Set("_gamemap", new Gamemap(_room, new RoomModel("roller-chain", 0, 0, 0, 0, rows, false, 0, false)));
+        Set("_gamemap", new Gamemap(_room, new RoomModel("roller-chain", 0, 0, 0, 0, rows, 0, 0, false)));
         _room.GetGameMap().GenerateMaps();
         for (var x = 0; x < width - 1; x++) ExecutorRoller((uint)(reverseIds ? 100 - x : 10 + x), x, 1);
     }
@@ -157,7 +157,7 @@ public partial class PlacedFurniRoomTests
     {
         var client = id == 1 ? _client : new TestClient();
         if (id != 1) client.SetHabbo(new Habbo { Id = id + 6, Username = $"roller-{id}", CurrentRoom = _room,
-            Permissions = new PermissionComponent(new(), new()) });
+            Access = Plus.HabboHotel.Permissions.UserAccess.Empty });
         var habbo = client.GetHabbo(); habbo.Effects = new EffectsComponent();
         habbo.HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
         var actor = new RoomUser(habbo.Id, RoomId, id, _room) { UserId = habbo.Id, InternalRoomId = id, X = x, Y = 1, Z = z };

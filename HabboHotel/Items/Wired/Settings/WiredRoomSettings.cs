@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Permissions;
 using System.Runtime.CompilerServices;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -46,7 +47,7 @@ public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, 
             EnsureLoaded();
             // Check the session again immediately before the authorized transaction.
             if (!CanManage(session)) return false;
-            store.Save(room.Id, session.GetHabbo().Id, session.GetHabbo().Permissions.HasRight("room_any_owner"), _saved, validated);
+            store.Save(room.Id, session.GetHabbo().Id, session.GetHabbo().Access.Can(PermissionKeys.RoomOwnerAny), _saved, validated);
             _saved = validated;
             error = "";
             return true;
@@ -77,7 +78,7 @@ public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, 
             var mask = (WiredRoomAccess)(modify ? _saved.ModifyMask : _saved.InspectMask);
             var habbo = session.GetHabbo();
             if (!modify && mask.HasFlag(WiredRoomAccess.Everyone)) return true;
-            if (room.Type == "private" && habbo.Permissions.HasRight("room_any_rights")) return true;
+            if (room.Type == "private" && habbo.Access.Can(PermissionKeys.RoomRightsAny)) return true;
             if (mask.HasFlag(WiredRoomAccess.Rights) && room.UsersWithRights.Contains(habbo.Id)) return true;
             if (mask.HasFlag(WiredRoomAccess.GroupMembers) && room.Group?.IsMember(habbo.Id) == true) return true;
             return mask.HasFlag(WiredRoomAccess.GroupAdmins) && room.Group?.IsAdmin(habbo.Id) == true;

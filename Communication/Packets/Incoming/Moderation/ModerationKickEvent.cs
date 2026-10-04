@@ -1,8 +1,11 @@
-﻿using Plus.Core.Language;
+﻿using Plus.Communication.Attributes;
+using Plus.HabboHotel.Permissions;
+using Plus.Core.Language;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Moderation;
 
+[RequiresPermission(PermissionKeys.ModerationKick)]
 internal class ModerationKickEvent : IPacketEvent
 {
     private readonly IGameClientManager _clientManager;
@@ -16,14 +19,12 @@ internal class ModerationKickEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().Permissions.HasRight("mod_kick"))
-            return Task.CompletedTask;
         var userId = packet.ReadInt();
         packet.ReadString(); //message
         var client = _clientManager.GetClientByUserId(userId);
         if (client == null || client.GetHabbo() == null || client.GetHabbo().CurrentRoom == null || client.GetHabbo().Id == session.GetHabbo().Id)
             return Task.CompletedTask;
-        if (client.GetHabbo().Rank >= session.GetHabbo().Rank)
+        if (!session.GetHabbo().Access.Outranks(client.GetHabbo().Access))
         {
             session.SendNotification(_languageManager.TryGetValue("moderation.kick.disallowed"));
             return Task.CompletedTask;

@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using Plus.HabboHotel.Permissions;
 
 namespace Plus.HabboHotel.Items.Editor;
 
@@ -83,13 +84,13 @@ internal sealed class FurniEditorRepository
     public int UsageCount(uint id) => _connection.QuerySingle<int>("SELECT COUNT(*) FROM items WHERE base_item = @id", new { id }, _transaction);
 
     // catalog_items.item_id is text; comparing with text keeps its index usable.
-    // Offers on pages above actorRank are left out, as the catalog hides those pages from the actor.
-    public List<FurniEditorCatalogRef> CatalogRefs(uint id, int actorRank) => _connection.Query<FurniEditorCatalogRef>("""
+    // Filter by the same resolved permissions as the catalog before limiting the results.
+    public List<FurniEditorCatalogRef> CatalogRefs(uint id, UserAccess access) => _connection.Query<FurniEditorCatalogRef>("""
         SELECT ci.id AS Id, ci.catalog_name AS CatalogName, ci.cost_credits AS CostCredits, ci.cost_pixels AS CostPixels,
         ci.cost_diamonds AS CostDiamonds, ci.page_id AS PageId, COALESCE(cp.caption, '') AS PageName
         FROM catalog_items ci LEFT JOIN catalog_pages cp ON cp.id = ci.page_id
-        WHERE ci.item_id = @itemId AND (cp.id IS NULL OR cp.min_rank <= @actorRank) ORDER BY ci.id LIMIT @limit
-        """, new { itemId = id.ToString(), actorRank, limit = MaxCatalogRefs }, _transaction).ToList();
+        WHERE ci.item_id = @itemId AND (cp.required_permission IS NULL OR cp.required_permission = '' OR cp.required_permission IN @keys) ORDER BY ci.id LIMIT @limit
+        """, new { itemId = id.ToString(), keys = access.Keys.ToArray(), limit = MaxCatalogRefs }, _transaction).ToList();
 
     // Everything that still needs this definition: placed or owned furni, catalog offers and deals ("id*amount;..."),
     // unopened gifts and open marketplace listings (a listed item only exists as its definition id).

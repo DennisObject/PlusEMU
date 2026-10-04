@@ -170,7 +170,7 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public async Task MagicPlacementOnVoidIsStandableButNeverChangesFloorRendering()
     {
-        var map = new Gamemap(_room, new RoomModel("void", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", false, 0, false));
+        var map = new Gamemap(_room, new RoomModel("void", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false));
         Set("_gamemap", map);
         map.GenerateMaps();
         var floor = map.Model.GetRelativeHeightmap();
@@ -476,7 +476,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(2.0)]
     public void WalkMagicFlanksProvideAnOpenSurfaceAtTheirOwnHeight(double flankHeight)
     {
-        var map = new Gamemap(_room, new RoomModel("flanks", 0, 0, 0, 0, "0000\r00x0\r0000\r0000", false, 0, false));
+        var map = new Gamemap(_room, new RoomModel("flanks", 0, 0, 0, 0, "0000\r00x0\r0000\r0000", 0, 0, false));
         Set("_gamemap", map); map.GenerateMaps();
         Add(10, 1, 2, height: 5, stackable: false);
         Add(11, 1, 2, z: 0.5, type: InteractionType.WalkMagicTile);
@@ -488,7 +488,7 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public void OrdinaryFurnitureKeepsLegacyRollerSupportOverModelVoid()
     {
-        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", false, 0, false));
+        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false));
         Set("_gamemap", map); map.GenerateMaps();
         Assert.False(map.CanRollItemHere(1, 1));
         var bridge = Add(10, 1, 1, z: 2, height: 0.5);
@@ -627,7 +627,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(true)]
     public async Task QueuedProjectionDeliveryAllowsBridgeConstructionAndMapRebuild(bool rebuild)
     {
-        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", false, 0, false));
+        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false));
         Set("_gamemap", map); map.GenerateMaps();
         var bridge = Add(10, 2, 1, z: 2, height: 0.5);
         var table = Add(11, 3, 2);
@@ -1015,7 +1015,7 @@ public partial class PlacedFurniRoomTests
         var nextRoom = (Room)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Room));
         nextRoom.Id = RoomId + 1;
         var nextUsers = new RoomUserManager(nextRoom);
-        var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", false, 0, false));
+        var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", 0, 0, false));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextUsers);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom));
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextMap);

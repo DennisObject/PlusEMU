@@ -58,7 +58,7 @@ public partial class PlacedFurniRoomTests
         { Add(10, 1, 1, height: 2); Add(11, 1, 1, z: .5, type: InteractionType.WalkMagicTile); }
         if (terrain != "void") return;
         Set("_gamemap", new Gamemap(_room, new RoomModel("override-void", 0, 0, 0, 0,
-            "0000\r0x00\r0000\r0000", false, 0, false)));
+            "0000\r0x00\r0000\r0000", 0, 0, false)));
         _room.GetGameMap().GenerateMaps();
     }
 

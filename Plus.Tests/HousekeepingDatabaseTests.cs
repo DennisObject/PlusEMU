@@ -8,6 +8,7 @@ using Plus.HabboHotel.Housekeeping;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.Chat.Styles;
 using Plus.HabboHotel.Subscriptions;
 using Plus.HabboHotel.Users;
 using Plus.Communication.Attributes;
@@ -44,11 +45,16 @@ public class HousekeepingDatabaseTests : IDisposable
         typeof(PlusEnvironment).GetField("_database", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
     private readonly object? _originalStaticDatabase = StaticDatabase.GetValue(null);
 
-    public void Dispose() => StaticDatabase.SetValue(null, _originalStaticDatabase);
+    public void Dispose()
+    {
+        _permissions.Dispose();
+        StaticDatabase.SetValue(null, _originalStaticDatabase);
+    }
 
     private const int Owner = 920001, Target = 920002, Peer = 920003;
     private readonly HabbiconDatabaseTests.TestDatabase _database;
     private readonly HousekeepingUserStore _users;
+    private readonly AccessControl _permissions;
     private readonly HousekeepingActionTests.FakeClients _clients = new();
 
     public HousekeepingDatabaseTests()
@@ -57,14 +63,17 @@ public class HousekeepingDatabaseTests : IDisposable
         if (!new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_housekeeping_tests_", StringComparison.Ordinal))
             throw new InvalidOperationException("Housekeeping database tests require a disposable task_housekeeping_tests_ schema.");
         _database = new(connectionString);
-        Execute("DELETE FROM users WHERE id BETWEEN 920000 AND 920099; DELETE FROM user_info WHERE user_id BETWEEN 920000 AND 920099; " +
+        Execute("DELETE FROM user_roles WHERE user_id BETWEEN 920000 AND 920099; DELETE FROM users WHERE id BETWEEN 920000 AND 920099; DELETE FROM user_info WHERE user_id BETWEEN 920000 AND 920099; " +
                 "DELETE FROM rooms WHERE id BETWEEN 920000 AND 920099; DELETE FROM bans; DELETE FROM housekeeping_log; " +
                 "DELETE FROM housekeeping_online_peaks; DELETE FROM user_club_memberships WHERE user_id BETWEEN 920000 AND 920099");
         Execute("INSERT INTO users (id, username, auth_ticket, `rank`, credits, activity_points, vip_points, mail, ip_last, online) VALUES " +
                 $"({Owner}, 'hk_owner', '', 9, 0, 0, 0, 'owner@hotel', '10.0.0.1', 0), ({Target}, 'hk_o''brien', 'old-ticket', 1, 100, 50, 5, 'target@hotel', '10.0.0.2', 0), " +
                 $"({Peer}, 'hk_peer', '', 9, 0, 0, 0, '', '', 1)");
         Execute($"INSERT INTO user_info (user_id, trading_locked) VALUES ({Target}, 0)");
+        Execute($"INSERT INTO user_roles (user_id, role_id) VALUES ({Owner}, 9), ({Target}, 1), ({Peer}, 9)");
         _users = new(_database);
+        _permissions = new(_database, _clients, NullLogger<AccessControl>.Instance, TimeProvider.System);
+        _permissions.Init();
     }
 
     private void Execute(string sql, object? parameters = null)
@@ -87,37 +96,48 @@ public class HousekeepingDatabaseTests : IDisposable
             new RememberTokenStore(_database, TimeProvider.System, AuthOptions), new CredentialGenerations(_database),
             new AccountStore(_database, TimeProvider.System, AuthOptions), new BanLookup(_database, TimeProvider.System));
 
-    private static Habbo Staff(int rank = 9) => new() { Id = Owner, Username = "hk_owner", Rank = rank, Permissions = new(new(), new()) };
+    private static Habbo Staff(int rank = 9) => new() { Id = Owner, Username = "hk_owner", Access = HousekeepingPolicyTests.Access(rank * 10, PermissionKeys.HousekeepingEconomy, PermissionKeys.HousekeepingRolesManage) };
 
     [HousekeepingDatabaseFact]
-    public void MigrationIsIdempotentAndOnlyGrantsRanksHoldingModBanAny()
+    public void MigratedHousekeepingRolesMatchTheirModerationBanGrant()
     {
-        var migration = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/20_Housekeeping.sql"));
-        Execute(migration);
-        Execute(migration);
-        Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM permissions WHERE permission = 'acc_housekeeping'"));
-        var groups = Scalar<string>("SELECT GROUP_CONCAT(DISTINCT r.group_id ORDER BY r.group_id) FROM permissions_rights r JOIN permissions p ON p.id = r.permission_id WHERE p.permission = 'housekeeping_economy'");
-        var anchors = Scalar<string>("SELECT GROUP_CONCAT(DISTINCT r.group_id ORDER BY r.group_id) FROM permissions_rights r JOIN permissions p ON p.id = r.permission_id WHERE p.permission = 'mod_ban_any'");
+        var groups = Scalar<string>("SELECT GROUP_CONCAT(role_id ORDER BY role_id) FROM role_permissions WHERE permission_key = 'housekeeping.economy'");
+        var anchors = Scalar<string>("SELECT GROUP_CONCAT(role_id ORDER BY role_id) FROM role_permissions WHERE permission_key = 'moderation.ban'");
         Assert.Equal(anchors, groups);
-        Assert.Equal(0, Scalar<int>("SELECT COUNT(*) FROM (SELECT group_id, permission_id FROM permissions_rights GROUP BY group_id, permission_id HAVING COUNT(*) > 1) duplicates"));
+        Assert.Equal(0, Scalar<int>("SELECT COUNT(*) FROM role_permissions rp LEFT JOIN roles r ON r.id = rp.role_id WHERE r.id IS NULL"));
     }
 
     [HousekeepingDatabaseFact]
     public void PermissionGroupsExposeTheirRealNameAndBadge()
     {
-        var permissions = new PermissionManager(_database, NullLogger<PermissionManager>.Instance);
-        permissions.Init();
-        Assert.True(permissions.TryGetGroup(9, out var owner));
-        Assert.Equal(("Owner", "OWNR"), (owner.Name, owner.Badge));
+        Assert.True(_permissions.TryGetRole(9, out var owner));
+        Assert.Equal(("Owner", "OWNR"), (owner.Name, owner.BadgeCode));
     }
 
     [HousekeepingDatabaseFact]
     public void UserLookupsReadAccountRowsByIdAndName()
     {
         var user = _users.Find("hk_o'brien")!;
-        Assert.Equal((Target, 1, 100, 50, 5, "target@hotel", "10.0.0.2"), (user.Id, user.Rank, user.Credits, user.Duckets, user.Diamonds, user.Mail, user.IpLast));
-        Assert.Equal(9, _users.Find(Owner)!.Rank);
+        Assert.Equal((Target, 100, 50, 5, "target@hotel", "10.0.0.2"), (user.Id, user.Credits, user.Duckets, user.Diamonds, user.Mail, user.IpLast));
+        Assert.Equal(9, _permissions.Resolve(Owner).PrimaryRole!.Id);
         Assert.Null(_users.Find(920099));
+    }
+
+    [HousekeepingDatabaseFact]
+    public void ChatStyleMetadataLoadsAllPickerRowsAndEnforcesItsPermission()
+    {
+        var styles = new ChatStyleManager(NullLogger<ChatStyleManager>.Instance, _database);
+        styles.Init();
+        for (var id = 0; id <= 53; id++) Assert.True(styles.TryGetStyle(id, out _));
+        Assert.True(styles.TryGetStyle(0, out var normal));
+        Assert.True(normal.CanUse(UserAccess.Empty));
+        Assert.True(styles.TryGetStyle(9, out var club));
+        Assert.True(club.RequiresHc);
+        Assert.True(club.CanUse(UserAccess.Empty));
+        Assert.True(styles.TryGetStyle(34, out var staff));
+        Assert.Equal(PermissionKeys.ChatStyleStaff, staff.RequiredPermission);
+        Assert.False(staff.CanUse(UserAccess.Empty));
+        Assert.True(staff.CanUse(UserAccess.Create([], [new(PermissionKeys.ChatStyleStaff, false)])));
     }
 
     [HousekeepingDatabaseFact]
@@ -136,7 +156,7 @@ public class HousekeepingDatabaseTests : IDisposable
     [HousekeepingDatabaseFact]
     public void OfflineGrantsUpdateTheRowAndRejectOverflow()
     {
-        var economy = new HousekeepingEconomyActions(_users, _clients, null!, null!, null!, _database, new AccountSessionGate());
+        var economy = new HousekeepingEconomyActions(_users, _clients, null!, null!, null!, _database, new AccountSessionGate(), _permissions);
         Assert.True(economy.Give(Staff(), Target, HousekeepingCurrency.Duckets, 25).Ok);
         Assert.Equal(75, Scalar<int>($"SELECT activity_points FROM users WHERE id = {Target}"));
         Execute($"UPDATE users SET vip_points = {int.MaxValue - 10} WHERE id = {Target}");
@@ -147,12 +167,12 @@ public class HousekeepingDatabaseTests : IDisposable
     [HousekeepingDatabaseFact]
     public void ClubGrantsExtendRunningMembershipsAndZeroEndsThem()
     {
-        var clubs = new ClubMembershipService(_database);
+        var clubs = new ClubMembershipService(_database, _permissions);
         var now = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         Execute("INSERT INTO user_club_memberships (user_id, expires_at) VALUES (@Target, @expires)", new { Target, expires = now + 86400 });
-        Assert.InRange(clubs.Grant(Target, 2), now + 86400 * 3, now + 86400 * 3 + 5);
-        Assert.InRange(clubs.Grant(Target, 0), now, now + 5);
-        Assert.InRange(clubs.Grant(Owner, 1), now + 86400, now + 86405);
+        Assert.InRange(clubs.Grant(Staff(), Target, 2)!.Value, now + 86400 * 3, now + 86400 * 3 + 5);
+        Assert.InRange(clubs.Grant(Staff(), Target, 0)!.Value, now, now + 5);
+        Assert.Null(clubs.Grant(Staff(), Owner, 1));
     }
 
     [HousekeepingDatabaseFact]
@@ -171,7 +191,7 @@ public class HousekeepingDatabaseTests : IDisposable
     public void PasswordResetStoresOnlyAHashAndRevokesTheSsoTicket()
     {
         var hasher = new Argon2idPasswordHasher();
-        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, Hasher, _database, new AccountSessionGate(), Sessions());
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, new AccountSessionGate(), Sessions());
         var outcome = actions.ResetPassword(Staff(), Target);
         Assert.True(outcome.Ok);
         var stored = Scalar<string>($"SELECT password FROM users WHERE id = {Target}");
@@ -185,7 +205,7 @@ public class HousekeepingDatabaseTests : IDisposable
     [HousekeepingDatabaseFact]
     public void OfflineSanctionsPersistMuteAndTradeLock()
     {
-        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, null!, _database, new AccountSessionGate(), null!);
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, null!, _database, new AccountSessionGate(), null!);
         Assert.True(actions.Mute(Staff(), Target, "", 15).Ok);
         Assert.Equal(900, Scalar<double>($"SELECT time_muted FROM users WHERE id = {Target}"));
         Assert.True(actions.TradeLock(Staff(), Target, 2, "").Ok);
@@ -226,7 +246,7 @@ public class HousekeepingDatabaseTests : IDisposable
     public async Task LoginInFlightKeepsOfflineGrantsOutOfTheStaleWallet()
     {
         var (login, release, session, gate) = StartLogin();
-        var economy = new HousekeepingEconomyActions(_users, _clients, null!, null!, null!, _database, gate);
+        var economy = new HousekeepingEconomyActions(_users, _clients, null!, null!, null!, _database, gate, _permissions);
         var grant = Task.Run(() => economy.Give(Staff(), Target, HousekeepingCurrency.Credits, 50));
         await Task.Delay(300);
         Assert.False(grant.IsCompleted);
@@ -244,7 +264,7 @@ public class HousekeepingDatabaseTests : IDisposable
         var (login, release, session, gate) = StartLogin();
         var disconnected = false;
         session.DisconnectRequested = () => disconnected = true;
-        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, Hasher, _database, gate, Sessions());
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, gate, Sessions());
         var reset = Task.Run(() => actions.ResetPassword(Staff(), Target));
         await Task.Delay(300);
         Assert.False(reset.IsCompleted);
@@ -258,7 +278,7 @@ public class HousekeepingDatabaseTests : IDisposable
     public async Task PasswordResetAfterTheTicketResolvedRejectsTheLogin()
     {
         var gate = new AccountSessionGate();
-        var actions = new HousekeepingUserActions(_users, _clients, null!, null!, null!, Hasher, _database, gate, Sessions());
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, gate, Sessions());
         HousekeepingOutcome? reset = null;
         // The staff reset lands right after the login has used up its ticket, before it reaches the gate.
         var authenticator = Authenticator(new SlowLogin(_users, Task.CompletedTask), gate, afterConsume: () => reset = actions.ResetPassword(Staff(), Target));
@@ -367,7 +387,7 @@ public class HousekeepingDatabaseTests : IDisposable
         public async Task<Habbo?> Create(int userId, CancellationToken cancellationToken = default)
         {
             var record = users.Find(userId)!;
-            var habbo = new Habbo { Id = record.Id, Username = record.Username, Rank = record.Rank, Credits = record.Credits, Permissions = new(new(), new()) };
+            var habbo = new Habbo { Id = record.Id, Username = record.Username, Credits = record.Credits, Access = UserAccess.Empty };
             Loaded.TrySetResult();
             await release;
             return habbo;

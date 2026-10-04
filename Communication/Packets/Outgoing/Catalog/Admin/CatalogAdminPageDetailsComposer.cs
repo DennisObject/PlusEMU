@@ -22,12 +22,11 @@ public sealed class CatalogAdminPageDetailsComposer : IServerPacket
         packet.WriteString(_page.PageLayout);
         packet.WriteInteger(_page.IconColor);
         packet.WriteInteger(_page.IconImage);
-        packet.WriteInteger(_page.MinRank);
+        packet.WriteString(_page.RequiredPermission);
         packet.WriteInteger(_page.OrderNum);
         packet.WriteBoolean(_page.Visible);
         packet.WriteBoolean(_page.Enabled);
         packet.WriteBoolean(_page.ClubOnly);
-        packet.WriteBoolean(_page.VipOnly);
         packet.WriteString(_page.PageHeadline);
         packet.WriteString(_page.PageTeaser);
         packet.WriteString(_page.PageSpecial);

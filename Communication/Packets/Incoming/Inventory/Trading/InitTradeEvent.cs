@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Inventory.Trading;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Inventory.Trading;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.Utilities;
@@ -42,7 +43,7 @@ internal class InitTradeEvent : IPacketEvent
             using var connection = _database.Connection();
             connection.Execute("UPDATE `user_info` SET `trading_locked` = '0' WHERE `id` = @userId LIMIT 1", new { userId = session.GetHabbo().Id });
         }
-        if (!session.GetHabbo().Permissions.HasRight("room_trade_override"))
+        if (!session.GetHabbo().Access.Can(PermissionKeys.RoomTradeOverride))
         {
             if (room.TradeSettings == 0)
             {

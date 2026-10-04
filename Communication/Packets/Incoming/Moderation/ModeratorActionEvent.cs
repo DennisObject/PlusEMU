@@ -1,14 +1,15 @@
-﻿using Plus.Communication.Packets.Outgoing.Moderation;
+﻿using Plus.Communication.Attributes;
+using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Moderation;
 
+[RequiresPermission(PermissionKeys.ModerationCaution)]
 internal class ModeratorActionEvent : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().Permissions.HasRight("mod_caution"))
-            return Task.CompletedTask;
         if (!session.GetHabbo().InRoom)
             return Task.CompletedTask;
         var currentRoom = session.GetHabbo().CurrentRoom;

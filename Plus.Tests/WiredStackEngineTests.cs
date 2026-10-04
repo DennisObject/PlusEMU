@@ -13,7 +13,7 @@ using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Effects;
-using Plus.HabboHotel.Users.Permissions;
+using Plus.HabboHotel.Permissions;
 using Xunit;
 
 namespace Plus.Tests;
@@ -708,7 +708,7 @@ public class WiredStackEngineTests
             SendCallback = args => { packets.Add(BinaryPrimitives.ReadUInt16BigEndian(args.MemoryBuffer.Span.Slice(4, 2))); return true; }
         };
         var player = new Habbo { Id = 1, Username = "actor", CurrentRoom = room, Client = client,
-            Permissions = new PermissionComponent(protectedActor ? ["mod_tool"] : [], []), Effects = new EffectsComponent() };
+            Access = EditorTestSupport.Access(protectedActor ? [PermissionKeys.ModerationTool] : []), Effects = new EffectsComponent() };
         client.SetHabbo(player);
         SetPrivate(player.Effects, "_habbo", player);
         var visit = new RoomUser(player.Id, 0, 0, room);

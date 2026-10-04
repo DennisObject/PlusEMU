@@ -5,7 +5,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator.Fun;
 internal class AllAroundMeCommand : IChatCommand
 {
     public string Key => "allaroundme";
-    public string PermissionRequired => "command_allaroundme";
 
     public string Parameters => "";
 
@@ -20,6 +19,9 @@ internal class AllAroundMeCommand : IChatCommand
         foreach (var u in users.ToList())
         {
             if (u == null || session.GetHabbo().Id == u.UserId)
+                continue;
+            if (u.GetClient()?.GetHabbo() is not { } target ||
+                !session.GetHabbo().Access.Outranks(target.Access))
                 continue;
             u.MoveTo(user.X, user.Y, true);
         }

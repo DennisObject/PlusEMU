@@ -1,4 +1,6 @@
-﻿using System.Data;
+﻿using Plus.Communication.Attributes;
+using Plus.HabboHotel.Permissions;
+using System.Data;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -6,6 +8,7 @@ using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Moderation;
 
+[RequiresPermission(PermissionKeys.ModerationTool)]
 internal class GetModeratorUserRoomVisitsEvent : IPacketEvent
 {
     private readonly IGameClientManager _clientManager;
@@ -19,8 +22,6 @@ internal class GetModeratorUserRoomVisitsEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().Permissions.HasRight("mod_tool"))
-            return Task.CompletedTask;
         var userId = packet.ReadInt();
         var target = _clientManager.GetClientByUserId(userId);
         if (target == null)

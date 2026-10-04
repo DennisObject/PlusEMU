@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.Games.Teams;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User.Fun;
@@ -6,7 +7,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User.Fun;
 internal class EnableCommand : IChatCommand
 {
     public string Key => "enable";
-    public string PermissionRequired => "command_enable";
 
     public string Parameters => "%EffectId%";
 
@@ -19,7 +19,7 @@ internal class EnableCommand : IChatCommand
             session.SendWhisper("You must enter an effect ID!");
             return;
         }
-        if (!room.EnablesEnabled && !session.GetHabbo().Permissions.HasRight("mod_tool"))
+        if (!room.EnablesEnabled && !session.GetHabbo().Access.Can(PermissionKeys.ModerationTool))
         {
             session.SendWhisper("Oops, it appears that the room owner has disabled the ability to use the enable command in here.");
             return;
@@ -41,12 +41,12 @@ internal class EnableCommand : IChatCommand
             return;
         if (effectId > int.MaxValue || effectId < int.MinValue)
             return;
-        if ((effectId == 102 || effectId == 187) && !session.GetHabbo().Permissions.HasRight("mod_tool"))
+        if ((effectId == 102 || effectId == 187) && !session.GetHabbo().Access.Can(PermissionKeys.ModerationTool))
         {
             session.SendWhisper("Sorry, only staff members can use this effects.");
             return;
         }
-        if (effectId == 178 && !session.GetHabbo().Permissions.HasRight("gold_vip") && !session.GetHabbo().Permissions.HasRight("events_staff"))
+        if (effectId == 178 && session.GetHabbo().Access.Limit("limit.staff_effect", 0) < 178)
         {
             session.SendWhisper("Sorry, only Gold VIP and Events Staff members can use this effect.");
             return;

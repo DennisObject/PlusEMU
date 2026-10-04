@@ -46,7 +46,7 @@ public class PetInformationComposer : IServerPacket
         {
             packet.WriteInteger(_habbo.Id);
             packet.WriteString(_habbo.Username);
-            packet.WriteInteger(_habbo.Rank);
+            packet.WriteInteger(_habbo.Access.SecurityLevel);
             packet.WriteInteger(10);
             packet.WriteInteger(0);
             packet.WriteInteger(0);

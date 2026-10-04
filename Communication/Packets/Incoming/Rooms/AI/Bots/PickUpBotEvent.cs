@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Inventory.Bots;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Inventory.Bots;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 
@@ -25,7 +26,7 @@ internal class PickUpBotEvent : IPacketEvent
             return Task.CompletedTask;
         if (!room.GetRoomUserManager().TryGetBot(botId, out var botUser) || botUser.BotData.IsTemporary)
             return Task.CompletedTask;
-        if (session.GetHabbo().Id != botUser.BotData.OwnerId && !session.GetHabbo().Permissions.HasRight("bot_place_any_override"))
+        if (session.GetHabbo().Id != botUser.BotData.OwnerId && !session.GetHabbo().Access.Can(PermissionKeys.BotPlaceAnyOverride))
         {
             session.SendWhisper("You can only pick up your own bots!");
             return Task.CompletedTask;

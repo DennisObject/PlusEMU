@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Permissions;
 using System.Collections.Immutable;
 using System.Globalization;
 using NLog;
@@ -157,7 +158,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 foreach (var user in Users(context, config, "users").Where(user => !user.IsBot))
                 {
                     var client = user.GetClient(); var player = client?.GetHabbo();
-                    if (player == null || client == null || player.Id == context.Room.OwnerId || player.Permissions.HasRight("mod_tool")) continue;
+                    if (player == null || client == null || player.Id == context.Room.OwnerId || player.Access.Can(PermissionKeys.ModerationTool)) continue;
                     if (config.Text.Length > 0) client.Send(new WiredChatComposer(user.VirtualId, FormatLegacyText(context, user, config.Text), 34, -1, true));
                     if (name == "wf_act_kick_user") context.Room.GetRoomUserManager().RemoveUserFromRoom(client, true, true);
                     else context.Room.MutedUsers[player.Id] = UnixTimestamp.GetNow() + Param(config, 0) * 60;

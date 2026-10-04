@@ -10,7 +10,6 @@ internal class FacelessCommand : IChatCommand
     private readonly IFigureDataManager _figureDataManager;
     private readonly IDatabase _database;
     public string Key => "faceless";
-    public string PermissionRequired => "command_faceless";
 
     public string Parameters => "";
 

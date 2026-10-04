@@ -7,7 +7,6 @@ internal class HalCommand : IChatCommand
 {
     private readonly IGameClientManager _clientManager;
     public string Key => "hal";
-    public string PermissionRequired => "command_hal";
 
     public string Parameters => "%message%";
 

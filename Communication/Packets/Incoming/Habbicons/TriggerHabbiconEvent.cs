@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Permissions;
 using Plus.Communication.Packets.Outgoing.Habbicons;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
@@ -18,8 +19,8 @@ public sealed class TriggerHabbiconEvent(IHabbiconService service) : IPacketEven
         if (room == null || user == null || id <= 0 || id > 1000000) return Task.CompletedTask;
         if (Environment.TickCount64 - habbo.LastHabbiconTrigger < 1000) return Task.CompletedTask;
         if (UnixTimestamp.GetNow() < habbo.FloodTime || habbo.TimeMuted > 0 ||
-            (!habbo.Permissions.HasRight("room_ignore_mute") && room.CheckMute(session))) return Task.CompletedTask;
-        if (!habbo.Permissions.HasRight("mod_tool") && user.IncrementAndCheckFlood(out var muteTime))
+            (!habbo.Access.Can(PermissionKeys.RoomIgnoreMute) && room.CheckMute(session))) return Task.CompletedTask;
+        if (!habbo.Access.Can(PermissionKeys.ModerationTool) && user.IncrementAndCheckFlood(out var muteTime))
         {
             session.Send(new FloodControlComposer(muteTime));
             return Task.CompletedTask;

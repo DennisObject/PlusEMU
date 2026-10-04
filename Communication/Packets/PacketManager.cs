@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Plus.Communication.Attributes;
 using Plus.Communication.Packets.Incoming;
 using Plus.Communication.Packets.Incoming.Camera;
@@ -14,6 +14,7 @@ public sealed class PacketManager : IPacketManager, IDisposable
 
     private readonly Dictionary<uint, IPacketEvent> _incomingPackets = new();
     private readonly HashSet<Type> _handshakePackets = new();
+    private readonly Dictionary<uint, IReadOnlyList<string>> _requiredPermissions = new();
     private readonly Dictionary<uint, string> _packetNames = new();
 
     /// <summary>
@@ -38,6 +39,8 @@ public sealed class PacketManager : IPacketManager, IDisposable
             var header = (uint) field.GetValue(null);
             _incomingPackets.Add(header, packet);
             _packetNames.Add(header, packet.GetType().Name);
+            if (packet.GetType().GetCustomAttribute<RequiresPermissionAttribute>() is { } requirement)
+                _requiredPermissions.Add(header, requirement.Permissions);
             if (packet.GetType().GetCustomAttribute<NoAuthenticationRequiredAttribute>() != null)
                 _handshakePackets.Add(packet.GetType());
         }
@@ -65,6 +68,10 @@ public sealed class PacketManager : IPacketManager, IDisposable
             _logger.LogDebug($"Session {session.Id} tried execute packet {messageId} but didn't handshake yet.");
             return;
         }
+
+        if (_requiredPermissions.TryGetValue(messageId, out var required) &&
+            (session.GetHabbo() is not { } habbo || required.Any(key => !habbo.Access.Can(key))))
+            return;
 
         await ExecutePacketAsync(session, packet, pak);
     }
@@ -97,5 +104,6 @@ public sealed class PacketManager : IPacketManager, IDisposable
         _incomingPackets.Clear();
         _handshakePackets.Clear();
         _packetNames.Clear();
+        _requiredPermissions.Clear();
     }
 }

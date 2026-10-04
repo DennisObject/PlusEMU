@@ -6,7 +6,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User.Fun;
 internal class PetCommand : IChatCommand
 {
     public string Key => "pet";
-    public string PermissionRequired => "command_pet";
 
     public string Parameters => "";
 

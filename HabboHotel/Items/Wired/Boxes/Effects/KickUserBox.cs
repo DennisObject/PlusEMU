@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using Plus.HabboHotel.Permissions;
+using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
@@ -50,7 +51,7 @@ internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay, IWiredF
         var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
         if (user == null)
             return false;
-        if (player.Permissions.HasRight("mod_tool") || Instance.OwnerId == player.Id)
+        if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id)
         {
             player.Client.Send(new WhisperComposer(user.VirtualId, "Wired Kick Exception: Unkickable Player", 0, 0));
             return false;
@@ -63,7 +64,7 @@ internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay, IWiredF
     {
         if (@params.Length != 1 || @params[0] is not Habbo player || player.CurrentRoom != Instance)
             return false;
-        if (player.Permissions.HasRight("mod_tool") || Instance.OwnerId == player.Id)
+        if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id)
             return false;
         Instance.GetRoomUserManager().RemoveUserFromRoom(player.Client, true);
         return true;

@@ -27,7 +27,7 @@ public sealed partial class CatalogAdminService
     public CatalogAdminOutcome CreateOffer(Habbo actor, CatalogAdminEnvelope envelope, CatalogAdminOffer offer) =>
         Mutate(actor, envelope, "createOffer", OfferEntity, 0, store =>
         {
-            Reject(CatalogAdminValidation.Offer(offer, null, actor.Rank, store.Page, store.FurnitureExists));
+            Reject(CatalogAdminValidation.Offer(offer, null, actor.Access, store.Page, store.FurnitureExists));
             var row = CatalogAdminMapping.Apply(offer, null);
             if (offer.OrderNumber < 0)
                 row.OrderNum = store.NextOfferOrder(row.PageId);
@@ -42,7 +42,7 @@ public sealed partial class CatalogAdminService
         Mutate(actor, envelope, "saveOffer", OfferEntity, offer.OfferId, store =>
         {
             var existing = store.Offer(BoundOffer(actor, offer.OfferId) ?? throw Unbound()) ?? throw NotFound("Offer");
-            Reject(CatalogAdminValidation.Offer(offer, existing, actor.Rank, store.Page, store.FurnitureExists));
+            Reject(CatalogAdminValidation.Offer(offer, existing, actor.Access, store.Page, store.FurnitureExists));
             var row = CatalogAdminMapping.Apply(offer, existing);
             store.UpdateOffer(row);
             var type = CatalogType(store.Page(row.PageId)!);

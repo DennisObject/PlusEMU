@@ -1,3 +1,5 @@
+using Plus.Communication.Attributes;
+using Plus.HabboHotel.Permissions;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Outgoing.FurniEditor;
 using Plus.HabboHotel.GameClients;
@@ -5,6 +7,7 @@ using Plus.HabboHotel.Items.Editor;
 
 namespace Plus.Communication.Packets.Incoming.FurniEditor;
 
+[RequiresPermission(PermissionKeys.CatalogEdit, PermissionKeys.FurniEdit)]
 public class FurniEditorRevertFurnidataEvent : IPacketEvent
 {
     private readonly IFurniEditorService _furniEditor;

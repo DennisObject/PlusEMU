@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User.Fun;
@@ -7,7 +8,6 @@ internal class FollowCommand : ITargetChatCommand
 {
     private readonly IGameClientManager _gameClientManager;
     public string Key => "follow";
-    public string PermissionRequired => "command_follow";
 
     public string Parameters => "%username%";
 
@@ -37,7 +37,7 @@ internal class FollowCommand : ITargetChatCommand
             session.SendWhisper("That user currently isn't in a room!");
             return Task.CompletedTask;
         }
-        if (target.CurrentRoom.Access != RoomAccess.Open && !session.GetHabbo().Permissions.HasRight("mod_tool"))
+        if (target.CurrentRoom.Access != RoomAccess.Open && !session.GetHabbo().Access.Can(PermissionKeys.ModerationTool))
         {
             session.SendWhisper("Oops, the room that user is either locked, passworded or invisible. You cannot follow!");
             return Task.CompletedTask;

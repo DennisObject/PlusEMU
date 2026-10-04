@@ -133,7 +133,7 @@ public sealed class WiredRewardStore(IDatabase database)
         if (reward.Type == 0)
         {
             var badge = connection.QuerySingleOrDefault<BadgeRow>("SELECT code AS Code,required_right AS RequiredRight FROM badge_definitions WHERE code=@code", new { code = reward.Code }, transaction);
-            if (badge == null || badge.RequiredRight.Length > 0 && (habbo.Permissions == null || !habbo.Permissions.HasRight(badge.RequiredRight))) return new(0);
+            if (badge == null || badge.RequiredRight.Length > 0 && (habbo.Access == null || !habbo.Access.Can(badge.RequiredRight))) return new(0);
             if (connection.Execute("INSERT IGNORE INTO user_badges(user_id,badge_id,badge_slot) VALUES (@user,@code,0)", new { user = habbo.Id, code = badge.Code }, transaction) != 1) return new(2);
             grant = new(4, badge.Code);
         }

@@ -99,7 +99,7 @@ internal class SaveRoomSettingsEvent : IPacketEvent
         if (maxUsers > 50)
             maxUsers = 50;
         _navigationManager.TryGetSearchResultList(categoryId, out var searchResultList);
-        categoryId = RoomCategoryChoice.Resolve(categoryId, searchResultList, session.GetHabbo().Rank, session.GetHabbo().Id, room.OwnerId, applyOwnerRule: true);
+        categoryId = RoomCategoryChoice.Resolve(categoryId, searchResultList, session.GetHabbo().Access, session.GetHabbo().Id, room.OwnerId, applyOwnerRule: true);
         if (tagCount > 2)
             return Task.CompletedTask;
         room.AllowPets = allowPets;

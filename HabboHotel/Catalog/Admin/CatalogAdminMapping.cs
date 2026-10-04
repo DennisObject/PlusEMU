@@ -13,8 +13,8 @@ public static class CatalogAdminMapping
         var images = Split(row.PageStrings1);
         var texts = Split(row.PageStrings2);
         var type = CatalogAdminTypes.FromMode(row.CatalogMode);
-        return new(type, row.Id, row.ParentId, row.PageLink, row.Caption, row.PageLayout, 1, row.IconImage, row.MinRank,
-            row.OrderNum, row.Visible, row.Enabled, false, type, row.MinVip > 0,
+        return new(type, row.Id, row.ParentId, row.PageLink, row.Caption, row.PageLayout, 1, row.IconImage, row.RequiredPermission ?? string.Empty,
+            row.OrderNum, row.Visible, row.Enabled, false, type,
             At(images, 0), At(images, 1), At(images, 2), At(texts, 0), At(texts, 1), At(texts, 2), At(texts, 3), 0, string.Empty);
     }
 
@@ -27,8 +27,7 @@ public static class CatalogAdminMapping
         row.IconImage = page.IconImage;
         row.Visible = page.Visible;
         row.Enabled = page.Enabled;
-        row.MinRank = page.MinRank;
-        row.MinVip = page.VipOnly ? Math.Max(row.MinVip, 1) : 0;
+        row.RequiredPermission = string.IsNullOrEmpty(page.RequiredPermission) ? null : page.RequiredPermission;
         row.PageLayout = page.PageLayout;
         row.CatalogMode = CatalogAdminTypes.ToMode(CatalogAdminTypes.Parse(page.CatalogMode) ?? CatalogAdminTypes.Normal);
         row.PageStrings1 = SetStrings(row.PageStrings1, page.PageHeadline, page.PageTeaser, page.PageSpecial);

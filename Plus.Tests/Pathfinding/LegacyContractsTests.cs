@@ -37,7 +37,7 @@ public class LegacyContractsTests
     public void LegacyCorpusCharacterizesOriginalVersusV2(string terrain, int sx, int sy, int gx, int gy, int legacySteps, int v2Steps)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var model = new RoomModel("fixed-legacy-parity", 0, 0, 0, 0, terrain.Replace('|', '\r'), false, 0, false);
+        var model = new RoomModel("fixed-legacy-parity", 0, 0, 0, 0, terrain.Replace('|', '\r'), 0, 0, false);
         var map = new Gamemap(room, model);
         Set("_gamemap", map); Set("_roomItemHandling", new RoomItemHandling(room)); Set("_roomUserManager", new RoomUserManager(room));
         map.GenerateMaps(); NavTest.Enable(map).Compiler.RebuildAll();

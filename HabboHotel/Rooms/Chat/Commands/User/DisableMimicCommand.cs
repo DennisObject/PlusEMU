@@ -8,7 +8,6 @@ internal class DisableMimicCommand : IChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "disablemimic";
-    public string PermissionRequired => "command_disable_mimic";
 
     public string Parameters => "";
 

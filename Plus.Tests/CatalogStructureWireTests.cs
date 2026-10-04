@@ -7,9 +7,9 @@ namespace Plus.Tests;
 
 public class CatalogStructureWireTests
 {
-    private static CatalogPage Page(int id, int parentId, string mode = CatalogModes.Normal, bool enabled = true, int minimumRank = 1, params int[] offerIds)
+    private static CatalogPage Page(int id, int parentId, string mode = CatalogModes.Normal, bool enabled = true, string? requiredPermission = null, params int[] offerIds)
     {
-        var page = new CatalogPage { Id = id, ParentId = parentId, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3", CatalogMode = mode, MinimumRank = minimumRank };
+        var page = new CatalogPage { Id = id, ParentId = parentId, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3", CatalogMode = mode, RequiredPermission = requiredPermission };
         foreach (var offerId in offerIds)
             page.Items[offerId * 10] = new CatalogItem { Id = offerId * 10, OfferId = offerId, PageId = id };
         new CatalogOfferIndex().Build([page]);
@@ -17,13 +17,13 @@ public class CatalogStructureWireTests
     }
 
     [Fact]
-    public void IndexWritesEveryLevelForTheRequestedModeAndHidesPagesAboveTheUsersRank()
+    public void IndexWritesEveryLevelForTheRequestedModeAndHidesPagesRequiringMissingPermissions()
     {
-        var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = 1, Rank = 1 });
+        var (client, _) = HabbiconTestSupport.Client(EditorTestSupport.Player());
         CatalogPage[] pages =
         [
             Page(1, -1), Page(2, 1, offerIds: 7), Page(3, 2), Page(4, 3, enabled: false), Page(5, 4),
-            Page(6, 1, minimumRank: 7), Page(8, -1, CatalogModes.BuildersClub)
+            Page(6, 1, requiredPermission: EditorTestSupport.RestrictedPagePermission), Page(8, -1, CatalogModes.BuildersClub)
         ];
         var packet = new HabbiconTestSupport.RecordingPacket();
 
@@ -44,7 +44,7 @@ public class CatalogStructureWireTests
     [Fact]
     public void BuildersClubIndexOnlyHoldsBuildersClubPages()
     {
-        var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = 1, Rank = 1 });
+        var (client, _) = HabbiconTestSupport.Client(EditorTestSupport.Player());
         var packet = new HabbiconTestSupport.RecordingPacket();
 
         new CatalogIndexComposer(client, [Page(1, -1), Page(8, -1, CatalogModes.BuildersClub)], CatalogModes.FromClient("BUILDERS_CLUB")).Compose(packet);
@@ -58,15 +58,26 @@ public class CatalogStructureWireTests
     }
 
     [Fact]
-    public void HiddenPagesStayOpenableWhileDisabledAndRankLockedPagesDoNot()
+    public void HiddenPagesStayOpenableWhileDisabledAndPermissionLockedPagesDoNot()
     {
-        var user = new Habbo { Id = 1, Rank = 1 };
+        var user = EditorTestSupport.Player();
         var hidden = Page(1, -1);
         hidden.Visible = false;
 
         Assert.True(hidden.CanOpen(user));
         Assert.False(Page(2, -1, enabled: false).CanOpen(user));
-        Assert.False(Page(3, -1, minimumRank: 2).CanOpen(user));
+        Assert.False(Page(3, -1, requiredPermission: EditorTestSupport.RestrictedPagePermission).CanOpen(user));
+    }
+
+    [Fact]
+    public void PageAccessFollowsPermissionGrantsRegardlessOfRoleWeight()
+    {
+        var page = Page(3, -1, requiredPermission: EditorTestSupport.RestrictedPagePermission);
+        var lowWeight = new Habbo { Access = EditorTestSupport.Access([EditorTestSupport.RestrictedPagePermission], weight: 1) };
+        var highWeight = new Habbo { Access = EditorTestSupport.Access([], weight: 1000) };
+
+        Assert.True(page.CanOpen(lowWeight));
+        Assert.False(page.CanOpen(highWeight));
     }
 
     [Fact]
@@ -98,7 +109,7 @@ public class CatalogStructureWireTests
         index.Build([page]);
 
         Assert.Equal(6, page.Offers.Count);
-        Assert.True(index.TryGet(590, new Habbo { Id = 1, Rank = 1 }, out _, out var shared));
+        Assert.True(index.TryGet(590, EditorTestSupport.Player(), out _, out var shared));
         Assert.Equal(827, shared.Id);
         Assert.Equal(4, page.Offers[5].Id);
         Assert.Equal(5, page.Offers[18].Id);
@@ -114,8 +125,8 @@ public class CatalogStructureWireTests
     [Fact]
     public void SharedOffersStayOnEveryPageAndLookupsSkipPagesTheUserCannotOpen()
     {
-        var user = new Habbo { Id = 1, Rank = 1 };
-        var staff = Page(1, -1, minimumRank: 7);
+        var user = EditorTestSupport.Player();
+        var staff = Page(1, -1, requiredPermission: EditorTestSupport.RestrictedPagePermission);
         var normal = Page(2, -1);
         var builders = Page(3, -1, CatalogModes.BuildersClub);
         staff.Items = new() { [10] = Item(10, 6, 1) };

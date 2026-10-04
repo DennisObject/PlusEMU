@@ -1,4 +1,6 @@
-﻿using Plus.HabboHotel.Achievements;
+using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Action;
@@ -28,7 +30,7 @@ internal class BanUserEvent : IPacketEvent
             return Task.CompletedTask;
         if (room.OwnerId == userId)
             return Task.CompletedTask;
-        if (user.GetClient().GetHabbo().Permissions.HasRight("mod_tool"))
+        if (!RoomModerationPolicy.CanTarget(session.GetHabbo().Access, user.GetClient().GetHabbo().Access))
             return Task.CompletedTask;
         long time = 0;
         if (r.ToLower().Contains("hour"))

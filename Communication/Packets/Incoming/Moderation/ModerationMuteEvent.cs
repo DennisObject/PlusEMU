@@ -1,8 +1,11 @@
-﻿using Plus.Database;
+﻿using Plus.Communication.Attributes;
+using Plus.HabboHotel.Permissions;
+using Plus.Database;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Moderation;
 
+[RequiresPermission(PermissionKeys.ModerationMute)]
 internal class ModerationMuteEvent : IPacketEvent
 {
     public readonly IDatabase _database;
@@ -14,8 +17,6 @@ internal class ModerationMuteEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().Permissions.HasRight("mod_mute"))
-            return Task.CompletedTask;
         var userId = packet.ReadInt();
         packet.ReadString(); //message
         double length = packet.ReadInt() * 60;
@@ -27,7 +28,7 @@ internal class ModerationMuteEvent : IPacketEvent
             session.SendWhisper("An error occoured whilst finding that user in the database.");
             return Task.CompletedTask;
         }
-        if (habbo.Permissions.HasRight("mod_mute") && !session.GetHabbo().Permissions.HasRight("mod_mute_any"))
+        if (!session.GetHabbo().Access.Outranks(habbo.Access))
         {
             session.SendWhisper("Oops, you cannot mute that user.");
             return Task.CompletedTask;

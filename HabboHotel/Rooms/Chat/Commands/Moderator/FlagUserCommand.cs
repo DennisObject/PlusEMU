@@ -7,7 +7,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 internal class FlagUserCommand : ITargetChatCommand
 {
     public string Key => "flaguser";
-    public string PermissionRequired => "command_flaguser";
 
     public string Parameters => "%username%";
 
@@ -17,7 +16,7 @@ internal class FlagUserCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (target.Permissions.HasRight("mod_tool"))
+        if (!session.GetHabbo().Access.Outranks(target.Access))
         {
             session.SendWhisper("You are not allowed to flag that user.");
             return Task.CompletedTask;

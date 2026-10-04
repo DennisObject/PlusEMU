@@ -7,7 +7,6 @@ internal class StaffAlertCommand : IChatCommand
 {
     private readonly IGameClientManager _gameClientManager;
     public string Key => "sa";
-    public string PermissionRequired => "command_staff_alert";
 
     public string Parameters => "%message%";
 

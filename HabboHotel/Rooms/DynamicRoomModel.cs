@@ -6,7 +6,6 @@ public class DynamicRoomModel
 {
     private readonly string _relativeHeightmap;
     private RoomModel _staticModel;
-    public bool ClubOnly;
     public int DoorOrientation;
     public int DoorX;
     public int DoorY;
@@ -30,7 +29,6 @@ public class DynamicRoomModel
         Heightmap = _staticModel.Heightmap;
         MapSizeX = _staticModel.MapSizeX;
         MapSizeY = _staticModel.MapSizeY;
-        ClubOnly = _staticModel.ClubOnly;
         _relativeHeightmap = string.Empty;
         SqState = new SquareState[MapSizeX, MapSizeY];
         SqFloorHeight = new short[MapSizeX, MapSizeY];

@@ -321,7 +321,7 @@ public partial class PlacedFurniRoomTests
 
     private void FallbackModel(string heightmap)
     {
-        Set("_gamemap", new Gamemap(_room, new RoomModel("fallback", 0, 0, 0, 0, heightmap, false, 0, false)));
+        Set("_gamemap", new Gamemap(_room, new RoomModel("fallback", 0, 0, 0, 0, heightmap, 0, 0, false)));
         _room.GetGameMap().GenerateMaps();
     }
 

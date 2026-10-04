@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Help;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Help;
 using Plus.HabboHotel.GameClients;
 using Plus.Utilities;
 
@@ -35,7 +36,7 @@ internal class SubmitBullyReportEvent : IPacketEvent
             session.SendNotification("Reports can only be sent per 5 minutes!");
             return Task.CompletedTask;
         }
-        if (client.GetHabbo().Permissions.HasRight("mod_tool")) //Reporting staff, nope!
+        if (client.GetHabbo().Access.Can(PermissionKeys.ModerationTool)) //Reporting staff, nope!
         {
             session.SendNotification("Sorry, you cannot report staff members via this tool.");
             return Task.CompletedTask;
@@ -49,12 +50,12 @@ internal class SubmitBullyReportEvent : IPacketEvent
         }
 
         //Already reported, nope.
-        if (client.GetHabbo().AdvertisingReported && session.GetHabbo().Rank < 2)
+        if (client.GetHabbo().AdvertisingReported && !session.GetHabbo().Access.Can(PermissionKeys.ChatReportUnlimited))
         {
             session.Send(new SubmitBullyReportComposer(3));
             return Task.CompletedTask;
         }
-        if (session.GetHabbo().Rank <= 1)
+        if (!session.GetHabbo().Access.Can(PermissionKeys.ChatReportUnlimited))
             session.GetHabbo().LastAdvertiseReport = UnixTimestamp.GetNow() + 300;
         else
             session.GetHabbo().LastAdvertiseReport = UnixTimestamp.GetNow();

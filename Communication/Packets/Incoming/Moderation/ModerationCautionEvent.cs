@@ -1,8 +1,11 @@
-﻿using Plus.Database;
+﻿using Plus.Communication.Attributes;
+using Plus.HabboHotel.Permissions;
+using Plus.Database;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Moderation;
 
+[RequiresPermission(PermissionKeys.ModerationCaution)]
 internal class ModerationCautionEvent : IPacketEvent
 {
     private readonly IGameClientManager _clientManager;
@@ -16,12 +19,12 @@ internal class ModerationCautionEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().Permissions.HasRight("mod_caution"))
-            return Task.CompletedTask;
         var userId = packet.ReadInt();
         var message = packet.ReadString();
         var client = _clientManager.GetClientByUserId(userId);
         if (client == null || client.GetHabbo() == null)
+            return Task.CompletedTask;
+        if (!session.GetHabbo().Access.Outranks(client.GetHabbo().Access))
             return Task.CompletedTask;
         using (var dbClient = _database.GetQueryReactor())
         {

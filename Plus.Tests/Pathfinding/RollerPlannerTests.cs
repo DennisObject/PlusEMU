@@ -220,7 +220,7 @@ public partial class PlacedFurniRoomTests
     {
         var client = id == 1 ? _client : new TestClient();
         if (id != 1) client.SetHabbo(new Habbo { Id = id + 6, Username = $"planner-{id}", CurrentRoom = _room,
-            Permissions = new PermissionComponent(new(), new()) });
+            Access = Plus.HabboHotel.Permissions.UserAccess.Empty });
         var habbo = client.GetHabbo(); habbo.Effects = new EffectsComponent();
         habbo.HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
         var actor = new RoomUser(habbo.Id, RoomId, id, _room) { UserId = habbo.Id, InternalRoomId = id, X = x, Y = y, Z = z };

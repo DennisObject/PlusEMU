@@ -11,5 +11,5 @@ public interface IClubMembershipService
     int? Purchase(Habbo habbo, ClubOffer offer);
 
     /// <summary>Extends the membership by free days (0 ends it now); returns the new expiry.</summary>
-    int Grant(int userId, int days);
+    int? Grant(Habbo actor, int userId, int days);
 }

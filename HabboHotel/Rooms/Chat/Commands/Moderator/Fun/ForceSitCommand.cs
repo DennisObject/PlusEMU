@@ -6,7 +6,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator.Fun;
 internal class ForceSitCommand : ITargetChatCommand
 {
     public string Key => "forcesit";
-    public string PermissionRequired => "command_forcesit";
 
     public string Parameters => "%username%";
 
@@ -16,6 +15,8 @@ internal class ForceSitCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
+        if (!session.GetHabbo().Access.Outranks(target.Access))
+            return Task.CompletedTask;
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(target.Id);
         if (user == null)
             return Task.CompletedTask;

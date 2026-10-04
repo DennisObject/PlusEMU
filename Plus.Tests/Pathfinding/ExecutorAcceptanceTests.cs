@@ -37,7 +37,7 @@ public partial class PlacedFurniRoomTests
     public void ExecutorHeadOnCorridorWaitsReplansAndStopsWithoutOverlapping()
     {
         Set("_gamemap", new Gamemap(_room, new RoomModel("corridor", 0, 0, 0, 0,
-            "xxxx\r0000\rxxxx\rxxxx", false, 0, false)));
+            "xxxx\r0000\rxxxx\rxxxx", 0, 0, false)));
         _room.GetGameMap().GenerateMaps();
         var first = ExecutorActor(0, 1); var second = AcceptanceBot(3, 1, 2); ExecutorTick();
         first.MoveTo(2, 1); second.MoveTo(1, 1); ExecutorTick();
@@ -209,7 +209,7 @@ public partial class PlacedFurniRoomTests
     {
         var client = new TestClient();
         client.SetHabbo(new Habbo { Id = id, Username = $"member{id}", CurrentRoom = _room, Client = client,
-            Effects = new EffectsComponent(), Permissions = new PermissionComponent(new(), new()),
+            Effects = new EffectsComponent(), Access = Plus.HabboHotel.Permissions.UserAccess.Empty,
             HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) });
         var actor = new RoomUser(id, RoomId, id, _room) { X = 3, Y = 3, Team = Team.Blue, InternalRoomId = id };
         typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(actor, client);

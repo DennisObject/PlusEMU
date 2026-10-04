@@ -7,7 +7,6 @@ internal class DisableGiftsCommand : IChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "disablegifts";
-    public string PermissionRequired => "command_disable_gifts";
 
     public string Parameters => "";
 

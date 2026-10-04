@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using Plus.HabboHotel.Permissions;
+using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
@@ -299,9 +300,9 @@ public class RoomUserManager
         else
             session.Send(new YouAreNotControllerComposer());
         user.UpdateNeeded = true;
-        if (session.GetHabbo().Permissions.HasRight("mod_tool") && !session.GetHabbo().DisableForcedEffects)
+        if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTool) && !session.GetHabbo().DisableForcedEffects)
             session.GetHabbo().Effects.ApplyEffect(102);
-        if (session.GetHabbo().IsAmbassador && !session.GetHabbo().DisableForcedEffects && !session.GetHabbo().Permissions.HasRight("mod_tool"))
+        if (session.GetHabbo().IsAmbassador && !session.GetHabbo().DisableForcedEffects && !session.GetHabbo().Access.Can(PermissionKeys.ModerationTool))
             session.GetHabbo().Effects.ApplyEffect(178);
         foreach (var bot in _bots.Values.ToList())
         {
@@ -533,14 +534,14 @@ public class RoomUserManager
         return users;
     }
 
-    public List<RoomUser> GetRoomUserByRank(int minRank)
+    public List<RoomUser> GetRoomUsersWithPermission(string permission)
     {
         var returnList = new List<RoomUser>();
         foreach (var user in GetUserList().ToList())
         {
             if (user == null)
                 continue;
-            if (!user.IsBot && user.GetClient() != null && user.GetClient().GetHabbo() != null && user.GetClient().GetHabbo().Rank >= minRank)
+            if (!user.IsBot && user.GetClient() != null && user.GetClient().GetHabbo() != null && user.GetClient().GetHabbo().Access.Can(permission))
                 returnList.Add(user);
         }
         return returnList;

@@ -1,4 +1,5 @@
-﻿using System.Data;
+using Plus.HabboHotel.Permissions;
+using System.Data;
 using System.Text;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -8,17 +9,18 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 internal class UserInfoCommand : IChatCommand
 {
     private readonly IDatabase _database;
+    private readonly IAccessControl _access;
     private readonly IGameClientManager _gameClientManager;
     public string Key => "userinfo";
-    public string PermissionRequired => "command_user_info";
 
     public string Parameters => "%username%";
 
     public string Description => "View another users profile information.";
 
-    public UserInfoCommand(IDatabase database, IGameClientManager gameClientManager)
+    public UserInfoCommand(IDatabase database, IGameClientManager gameClientManager, IAccessControl access)
     {
         _database = database;
+        _access = access;
         _gameClientManager = gameClientManager;
     }
 
@@ -35,7 +37,7 @@ internal class UserInfoCommand : IChatCommand
         using (var dbClient = _database.GetQueryReactor())
         {
             dbClient.SetQuery(
-                "SELECT `id`,`username`,`mail`,`rank`,`motto`,`credits`,`activity_points`,`vip_points`,`gotw_points`,`online`,`rank_vip` FROM users WHERE `username` = @Username LIMIT 1");
+                "SELECT `id`,`username`,`mail`,`rank`,`motto`,`credits`,`activity_points`,`vip_points`,`gotw_points`,`online` FROM users WHERE `username` = @Username LIMIT 1");
             dbClient.AddParameter("Username", username);
             userData = dbClient.GetRow();
         }
@@ -62,7 +64,7 @@ internal class UserInfoCommand : IChatCommand
         habboInfo.Append("Generic Info:\r");
         habboInfo.Append($"ID: {Convert.ToInt32(userData["id"])}\r");
         habboInfo.Append($"Rank: {Convert.ToInt32(userData["rank"])}\r");
-        habboInfo.Append($"VIP Rank: {Convert.ToInt32(userData["rank_vip"])}\r");
+        habboInfo.Append($"Roles: {string.Join(", ", _access.Resolve(Convert.ToInt32(userData["id"])).Roles.Select(role => role.Name))}\r");
         habboInfo.Append($"Email: {Convert.ToString(userData["mail"])}\r");
         habboInfo.Append($"Online Status: {(targetClient != null ? "True" : "False")}\r\r");
         habboInfo.Append("Currency Info:\r");

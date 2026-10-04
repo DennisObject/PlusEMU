@@ -8,7 +8,6 @@ internal class GiveBadgeCommand : ITargetChatCommand
 {
     private readonly IBadgeManager _badgeManager;
     public string Key => "givebadge";
-    public string PermissionRequired => "command_give_badge";
 
     public string Parameters => "%username% %badge%";
 
@@ -23,6 +22,8 @@ internal class GiveBadgeCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
+        if (target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access))
+            return Task.CompletedTask;
         var badgeCode = parameters.FirstOrDefault();
         if (string.IsNullOrWhiteSpace(badgeCode))
         {

@@ -10,7 +10,7 @@ using Plus.Communication.Revisions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Rooms;
-using Plus.HabboHotel.Users.Permissions;
+using Plus.HabboHotel.Permissions;
 using Xunit;
 
 namespace Plus.Tests.Performance;
@@ -160,7 +160,7 @@ public class RoomBroadcastTests
         fixture.Room.UsersWithRights = new();
         fixture.Clients[0].GetHabbo().Username = "owner";
         fixture.Clients[1].GetHabbo().Username = "visitor";
-        fixture.Clients[1].GetHabbo().Permissions = new PermissionComponent(new(), new());
+        fixture.Clients[1].GetHabbo().Access = UserAccess.Empty;
         var ownerPackets = 0;
         fixture.Clients[0].SendCallback = _ => { ownerPackets++; return false; };
         fixture.Clients[1].SendCallback = _ => throw new InvalidOperationException("Visitor received a rights-only packet");

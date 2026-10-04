@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using Plus.HabboHotel.Permissions;
+using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
@@ -46,7 +47,7 @@ internal class MuteTriggererBox : IWiredItem
         var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
         if (user == null)
             return false;
-        if (player.Permissions.HasRight("mod_tool") || Instance.OwnerId == player.Id)
+        if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id)
         {
             player.Client.Send(new WhisperComposer(user.VirtualId, "Wired Mute Exception: Unmutable Player", 0, 0));
             return false;

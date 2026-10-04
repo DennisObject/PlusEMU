@@ -18,10 +18,8 @@ using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rewards;
-using Plus.HabboHotel.Subscriptions;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Messenger.FriendBar;
-using Plus.HabboHotel.Users.Permissions;
 
 namespace Plus.Communication.Packets.Incoming.Handshake;
 
@@ -32,8 +30,6 @@ public class SsoTicketEvent : IPacketEvent
     private readonly IBadgeManager _badgeManager;
     private readonly IModerationManager _moderationManager;
     private readonly IAchievementManager _achievementManager;
-    private readonly IPermissionManager _permissionManager;
-    private readonly ISubscriptionManager _subscriptionManager;
     private readonly ICacheManager _cacheManager;
     private readonly IFigureDataManager _figureManager;
     private readonly ILanguageManager _languageManager;
@@ -44,8 +40,6 @@ public class SsoTicketEvent : IPacketEvent
         IBadgeManager badgeManager,
         IModerationManager moderationManager,
         IAchievementManager achievementManager,
-        IPermissionManager permissionManager,
-        ISubscriptionManager subscriptionManager,
         ICacheManager cacheManager,
         IFigureDataManager figureManager,
         ILanguageManager languageManager,
@@ -56,8 +50,6 @@ public class SsoTicketEvent : IPacketEvent
         _badgeManager = badgeManager;
         _moderationManager = moderationManager;
         _achievementManager = achievementManager;
-        _permissionManager = permissionManager;
-        _subscriptionManager = subscriptionManager;
         _cacheManager = cacheManager;
         _figureManager = figureManager;
         _languageManager = languageManager;
@@ -78,7 +70,7 @@ public class SsoTicketEvent : IPacketEvent
             session.Send(new NavigatorSettingsComposer(session.GetHabbo().HomeRoom));
             session.Send(new FavouritesComposer(session.GetHabbo().FavoriteRooms));
             session.Send(new FigureSetIdsComposer(session.GetHabbo().Clothing.GetClothingParts));
-            session.Send(ClientPermissions.Composer(session.GetHabbo(), _permissionManager, _settingsManager));
+            session.Send(new UserRightsComposer(session.GetHabbo().Access));
             session.Send(new AvailabilityStatusComposer());
             session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats.AchievementPoints));
             session.Send(new BuildersClubMembershipComposer());
@@ -90,27 +82,16 @@ public class SsoTicketEvent : IPacketEvent
             //SendMessage(new TalentTrackLevelComposer());
 
 
-            if (_permissionManager.TryGetGroup(session.GetHabbo().Rank, out var group))
+            foreach (var role in session.GetHabbo().Access.Roles)
             {
-                if (!string.IsNullOrEmpty(group.Badge))
-                {
-                    if (!session.GetHabbo().Inventory.Badges.HasBadge(group.Badge))
-                        await _badgeManager.GiveBadge(session.GetHabbo(), group.Badge);
-                }
-            }
-            if (_subscriptionManager.TryGetSubscriptionData(session.GetHabbo().VipRank, out var subData))
-            {
-                if (!string.IsNullOrEmpty(subData.Badge))
-                {
-                    if (!session.GetHabbo().Inventory.Badges.HasBadge(subData.Badge))
-                        await _badgeManager.GiveBadge(session.GetHabbo(), subData.Badge);
-                }
+                if (!string.IsNullOrEmpty(role.BadgeCode) && !session.GetHabbo().Inventory.Badges.HasBadge(role.BadgeCode))
+                    await _badgeManager.GiveBadge(session.GetHabbo(), role.BadgeCode);
             }
             if (!_cacheManager.ContainsUser(session.GetHabbo().Id))
                 _cacheManager.GenerateUser(session.GetHabbo().Id);
             session.GetHabbo().Look = _figureManager.ProcessFigure(session.GetHabbo().Look, session.GetHabbo().Gender, session.GetHabbo().Clothing.GetClothingParts, true);
             session.GetHabbo().InitProcess();
-            if (session.GetHabbo().Permissions.HasRight("mod_tickets"))
+            if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTickets))
             {
                 session.Send(new ModeratorInitComposer(
                     _moderationManager.UserMessagePresets,

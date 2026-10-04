@@ -6,7 +6,7 @@ using Plus.HabboHotel.Rooms.AI.Types;
 using Plus.HabboHotel.Rooms.Chat.Commands;
 using Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 using Plus.HabboHotel.Rooms.PathFinding;
-using Plus.HabboHotel.Users.Permissions;
+using Plus.HabboHotel.Permissions;
 using Xunit;
 
 namespace Plus.Tests;
@@ -44,8 +44,8 @@ public class StressBotTests
     [InlineData(true, true, true)]
     public void RequiresModeratorRightAndEstablishedStaffPermission(bool modTool, bool staffCommand, bool allowed)
     {
-        var permissions = new PermissionComponent(modTool ? new() { "mod_tool" } : new(),
-            staffCommand ? new() { "command_staff_alert" } : new());
+        var permissions = UserAccess.Create([], [.. (modTool ? new[] { new UserPermissionOverride(PermissionKeys.ModerationTool, false) } : []),
+            .. (staffCommand ? new[] { new UserPermissionOverride(PermissionKeys.CommandStress, false) } : [])]);
         Assert.Equal(allowed, StressCommand.CanExecute(permissions));
     }
 
@@ -182,7 +182,7 @@ public class StressBotTests
     private static (RoomUserManager Manager, Gamemap Map) CreateRoom()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var model = new RoomModel("test", 1, 1, 0, 0, "0000\r0000\r0000\r0000", false, 0, false);
+        var model = new RoomModel("test", 1, 1, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false);
         var map = new Gamemap(room, model);
         var gameMap = new byte[4, 4];
         for (var x = 0; x < 4; x++)

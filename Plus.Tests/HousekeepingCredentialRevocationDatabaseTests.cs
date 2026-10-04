@@ -22,7 +22,13 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         typeof(PlusEnvironment).GetField("_database", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
     private readonly object? _originalStaticDatabase = StaticDatabase.GetValue(null);
 
-    public void Dispose() => StaticDatabase.SetValue(null, _originalStaticDatabase);
+    public void Dispose()
+    {
+        foreach (var access in _accessControls) access.Dispose();
+        StaticDatabase.SetValue(null, _originalStaticDatabase);
+    }
+
+    private readonly List<AccessControl> _accessControls = new();
 
     private const int Staff = 940001, Target = 940002, Moderator = 940003, Neighbour = 940004, Locked = 940005, Unbanned = 940006;
     private const string OldPassword = "old-password-1234";
@@ -46,7 +52,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         _remember = new(_database, TimeProvider.System, _options);
         _sessions = Sessions();
         if (connectionString.Length == 0) return;
-        Execute("DELETE FROM users WHERE id BETWEEN 940000 AND 940099; DELETE FROM user_info WHERE user_id BETWEEN 940000 AND 940099; " +
+        Execute("DELETE FROM user_roles WHERE user_id BETWEEN 940000 AND 940099; DELETE FROM users WHERE id BETWEEN 940000 AND 940099; DELETE FROM user_info WHERE user_id BETWEEN 940000 AND 940099; " +
                 "DELETE FROM user_access_tokens WHERE user_id BETWEEN 940000 AND 940099; DELETE FROM user_remember_tokens WHERE user_id BETWEEN 940000 AND 940099; " +
                 "DELETE FROM bans WHERE value LIKE 'cr\\_%' OR value LIKE 'cr-%' OR value LIKE '10.94.%'");
         var hash = new Argon2idPasswordHasher().Hash(OldPassword);
@@ -54,6 +60,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
                 $"({Staff}, 'cr_staff', '', '', 9, '', 0), ({Target}, 'cr_target', @hash, '', 1, '10.94.0.2', 0), " +
                 $"({Moderator}, 'cr_moderator', @hash, '', 3, '', 0), ({Neighbour}, 'cr_neighbour', @hash, '', 1, '10.94.0.4', 0), " +
                 $"({Locked}, 'cr_locked', @hash, '', 1, '', 0), ({Unbanned}, 'cr_unbanned', @hash, '', 1, '', 0)", new { hash });
+        Execute($"INSERT INTO user_roles (user_id, role_id) VALUES ({Staff}, 9), ({Target}, 1), ({Moderator}, 3), ({Neighbour}, 1), ({Locked}, 1), ({Unbanned}, 1)");
         Execute($"INSERT INTO user_info (user_id) VALUES ({Target}), ({Moderator}), ({Neighbour}), ({Locked}), ({Unbanned})");
     }
 
@@ -116,17 +123,21 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     }
 
     [HousekeepingDatabaseFact]
-    public async Task HousekeepingBansAndDemotionsSignTheAccountOutEverywhere()
+    public async Task HousekeepingBansRevokeCredentialsAndSetRankReplacesRoles()
     {
         await Login().Login("cr_target", OldPassword, "10.0.0.1", remember: true);
         Assert.True((await Actions().Ban(StaffHabbo(), Target, "cheating", 1)).Ok);
         AssertSignedOut(Target);
 
         await Login().Login("cr_moderator", OldPassword, "10.0.0.1", remember: true);
+        Assert.True(Actions().SetRank(StaffHabbo(), Moderator, 5).Ok);
+        Assert.Equal(1, LiveAccessTokens(Moderator));
         Assert.True(Actions().SetRank(StaffHabbo(), Moderator, 4).Ok);
         Assert.Equal(1, LiveAccessTokens(Moderator));
-        Assert.True(Actions().SetRank(StaffHabbo(), Moderator, 2).Ok);
-        AssertSignedOut(Moderator);
+        Assert.Equal(1, Scalar<int>($"SELECT COUNT(*) FROM user_roles WHERE user_id = {Moderator}"));
+        Assert.Equal(4, Scalar<int>($"SELECT role_id FROM user_roles WHERE user_id = {Moderator}"));
+        Assert.True(Actions().SetRank(StaffHabbo(), Moderator, 1).Ok);
+        Assert.Equal(0, Scalar<int>($"SELECT COUNT(*) FROM user_roles WHERE user_id = {Moderator}"));
     }
 
     // :ban, :ipban, :mip, the mod tool, word-filter bans and housekeeping all go through ModerationManager.BanUser.
@@ -236,7 +247,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     [HousekeepingDatabaseFact]
     public async Task TheModToolBansTheRealAddressAndDevice()
     {
-        var (moderator, _) = HabbiconTestSupport.Client(new Habbo { Id = Staff, Username = "cr_staff", Rank = 9, Permissions = new(["mod_soft_ban", "mod_ban_any"], []) });
+        var (moderator, _) = HabbiconTestSupport.Client(new Habbo { Id = Staff, Username = "cr_staff", Access = HousekeepingPolicyTests.Access(90, PermissionKeys.ModerationBanSoft, PermissionKeys.ModerationBan, PermissionKeys.ModerationIpBan, PermissionKeys.ModerationMachineBan) });
         Online(Target, "cr_target", machineId: "cr-device-1");
         var handler = new Plus.Communication.Packets.Incoming.Moderation.ModerationBanEvent(_clients, Moderation());
         await handler.Parse(moderator, HabbiconTestSupport.Incoming(Target, "spam", 2, "", "", true, false));
@@ -335,7 +346,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     public async Task TheIpBanCommandReturnsWithinTheBudgetWhenItsCounterRowIsLocked()
     {
         var command = new Plus.HabboHotel.Rooms.Chat.Commands.Moderator.IpBanCommand(Moderation());
-        var target = new Habbo { Id = Target, Username = "cr_target", Rank = 1, Permissions = new([], []) };
+        var target = new Habbo { Id = Target, Username = "cr_target", Access = HousekeepingPolicyTests.Access(10) };
         await WithLockedRow($"SELECT user_id FROM user_info WHERE user_id = {Target} FOR UPDATE", async () =>
         {
             var started = DateTime.UtcNow;
@@ -418,11 +429,11 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     private Plus.Communication.Packets.Incoming.Moderation.ModerationBanEvent ModTool() => new(_clients, Moderation());
 
     private static Plus.HabboHotel.GameClients.GameClient ModeratorSession() =>
-        HabbiconTestSupport.Client(new Habbo { Id = Staff, Username = "cr_staff", Rank = 9, Permissions = new(["mod_soft_ban", "mod_ban_any"], []) }).Client;
+        HabbiconTestSupport.Client(new Habbo { Id = Staff, Username = "cr_staff", Access = HousekeepingPolicyTests.Access(90, PermissionKeys.ModerationBanSoft, PermissionKeys.ModerationBan, PermissionKeys.ModerationIpBan, PermissionKeys.ModerationMachineBan) }).Client;
 
     private Plus.HabboHotel.GameClients.GameClient Online(int userId, string username, string machineId = "")
     {
-        var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = userId, Username = username, Rank = 1, Permissions = new([], []) });
+        var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = userId, Username = username, Access = HousekeepingPolicyTests.Access(10) });
 #pragma warning disable CS0618 // The handshake's machine id only lives on the session.
         client.MachineId = machineId;
 #pragma warning restore CS0618
@@ -448,7 +459,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
 
         public async Task<Habbo?> Create(int userId, CancellationToken cancellationToken = default)
         {
-            var habbo = new Habbo { Id = userId, Username = "cr_target", Rank = 1, Permissions = new([], []) };
+            var habbo = new Habbo { Id = userId, Username = "cr_target", Access = HousekeepingPolicyTests.Access(10) };
             Loaded.TrySetResult();
             await release;
             return habbo;
@@ -500,12 +511,13 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
 
     private HousekeepingUserActions Actions(ISessionIssuer? sessions = null)
     {
-        var permissions = new PermissionManager(_database, NullLogger<PermissionManager>.Instance);
+        var permissions = new AccessControl(_database, _clients, NullLogger<AccessControl>.Instance, TimeProvider.System);
         permissions.Init();
-        return new(new HousekeepingUserStore(_database), _clients, Moderation(sessions), permissions, null!, _hasher, _database, _gate, sessions ?? _sessions);
+        _accessControls.Add(permissions);
+        return new(new HousekeepingUserStore(_database), _clients, Moderation(sessions), permissions, _hasher, _database, _gate, sessions ?? _sessions);
     }
 
-    private static Habbo StaffHabbo() => new() { Id = Staff, Username = "cr_staff", Rank = 9, Permissions = new(new(), new()) };
+    private static Habbo StaffHabbo() => new() { Id = Staff, Username = "cr_staff", Access = HousekeepingPolicyTests.Access(90, PermissionKeys.HousekeepingRolesManage) };
 
     private void Execute(string sql, object? parameters = null)
     {

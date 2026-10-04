@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Inventory.Furni;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Rooms.Notifications;
 using Plus.Core.Settings;
 using Plus.HabboHotel.Achievements;
@@ -45,7 +46,7 @@ internal class PlaceObjectEvent : RoomPacketEvent
             return Task.CompletedTask;
         var item = inventoryItem.ToRoomObject(session.GetHabbo());
 
-        if (item.Definition.InteractionType == InteractionType.Exchange && room.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Permissions.HasRight("room_item_place_exchange_anywhere"))
+        if (item.Definition.InteractionType == InteractionType.Exchange && room.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Access.Can(PermissionKeys.RoomItemPlaceExchangeAnywhere))
         {
             session.SendNotification("You cannot place exchange items in other people's rooms!");
             return Task.CompletedTask;

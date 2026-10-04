@@ -7,7 +7,6 @@ internal class HotelAlertCommand : IChatCommand
 {
     private readonly IGameClientManager _gameClientManager;
     public string Key => "ha";
-    public string PermissionRequired => "command_hotel_alert";
 
     public string Parameters => "%message%";
 

@@ -9,7 +9,6 @@ internal class KickPetsCommand : IChatCommand
     private readonly IGameClientManager _gameClientManager;
     private readonly IDatabase _database;
     public string Key => "kickpets";
-    public string PermissionRequired => "command_kickpets";
 
     public string Parameters => "";
 

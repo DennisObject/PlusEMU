@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Dapper;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
@@ -69,18 +70,28 @@ public class AccountStore : IAccountStore
         {
             var userId = await connection.ExecuteScalarAsync<int>(
                 "INSERT INTO `users` (`username`, `password`, `mail`, `auth_ticket`, `rank`, `look`, `gender`, `motto`, `credits`, `activity_points`, `vip`, " +
-                "`account_created`, `last_online`, `home_room`, `ip_reg`, `ip_last`, `is_ambassador`, `bubble_id`, `credential_generation`) " +
+                "`account_created`, `last_online`, `home_room`, `ip_reg`, `ip_last`, `bubble_id`, `credential_generation`) " +
                 "VALUES (@Username, @PasswordHash, @Email, '', @Rank, @Look, @Gender, @Motto, @Credits, @ActivityPoints, @Vip, " +
-                "@Now, @Now, @HomeRoom, @Address, @Address, 0, 0, @Generation); SELECT LAST_INSERT_ID();",
+                "@Now, @Now, @HomeRoom, @Address, @Address, 0, @Generation); SELECT LAST_INSERT_ID();",
                 new
                 {
                     account.Username, account.PasswordHash, account.Email, account.Look, account.Gender, account.Address,
-                    _defaults.Rank, _defaults.Motto, _defaults.Credits, _defaults.ActivityPoints, _defaults.HomeRoom,
+                    Rank = 1, _defaults.Motto, _defaults.Credits, _defaults.ActivityPoints, _defaults.HomeRoom,
                     Vip = _defaults.Vip ? "1" : "0",
                     Now = _time.GetUtcNow().ToUnixTimeSeconds(),
                     Generation = NewAccountGeneration
                 }, transaction);
             await connection.ExecuteAsync("INSERT INTO `user_statistics` (`id`) VALUES (@userId)", new { userId }, transaction);
+            foreach (var slug in _defaults.Roles.Distinct(StringComparer.Ordinal))
+            {
+                var roleId = await connection.ExecuteScalarAsync<int?>("SELECT id FROM roles WHERE slug = @slug", new { slug }, transaction)
+                    ?? throw new InvalidOperationException($"Registration role '{slug}' does not exist.");
+                await connection.ExecuteAsync("INSERT INTO user_roles (user_id, role_id) VALUES (@userId, @roleId)", new { userId, roleId }, transaction);
+                await connection.ExecuteAsync("INSERT INTO acl_audit_log (actor_id, action, target_type, target_id, payload) " +
+                    "VALUES (NULL, 'registration.role', 'user', @userId, @payload)", new { userId, payload = JsonSerializer.Serialize(new { roleId, slug }) }, transaction);
+            }
+            await connection.ExecuteAsync("UPDATE users SET `rank` = COALESCE((SELECT MAX(r.security_level) FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @userId), 1) " +
+                "WHERE id = @userId", new { userId }, transaction);
             transaction.Commit();
             return userId;
         }

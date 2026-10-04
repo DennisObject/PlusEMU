@@ -1,5 +1,6 @@
 using Dapper;
 using Plus.Database;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -12,7 +13,6 @@ public sealed class HousekeepingUserRecord
     public string Username { get; set; } = string.Empty;
     public string Motto { get; set; } = string.Empty;
     public string Look { get; set; } = string.Empty;
-    public int Rank { get; set; }
     public int LastOnline { get; set; }
     public int Credits { get; set; }
     public int Duckets { get; set; }
@@ -32,7 +32,7 @@ public interface IHousekeepingUserStore
 public sealed class HousekeepingUserStore : IHousekeepingUserStore
 {
     private const string Select =
-        "SELECT u.`id`, u.`username`, COALESCE(u.`motto`, '') AS Motto, COALESCE(u.`look`, '') AS Look, CAST(u.`rank` AS SIGNED) AS `Rank`, " +
+        "SELECT u.`id`, u.`username`, COALESCE(u.`motto`, '') AS Motto, COALESCE(u.`look`, '') AS Look, " +
         "COALESCE(u.`last_online`, 0) AS LastOnline, COALESCE(u.`credits`, 0) AS Credits, COALESCE(u.`activity_points`, 0) AS Duckets, " +
         "COALESCE(u.`vip_points`, 0) AS Diamonds, COALESCE(u.`mail`, '') AS Mail, COALESCE(u.`ip_last`, '') AS IpLast, " +
         "COALESCE(u.`time_muted`, 0) AS TimeMuted, COALESCE(i.`trading_locked`, 0) AS TradingLocked " +
@@ -60,15 +60,15 @@ public sealed class HousekeepingUserStore : IHousekeepingUserStore
 public static class HousekeepingUserTargets
 {
     /// <summary>Resolves a target account and applies the rank hierarchy; returns the refusal, or null with the user set.</summary>
-    public static HousekeepingOutcome? Target(this IHousekeepingUserStore users, Habbo actor, int userId, out HousekeepingUserRecord user)
+    public static HousekeepingOutcome? Target(this IHousekeepingUserStore users, Habbo actor, int userId, IAccessControl access, out HousekeepingUserRecord user)
     {
         user = null!;
         if (userId <= 0) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(0));
         var found = users.Find(userId);
         if (found == null) return HousekeepingOutcome.Fail(HousekeepingErrors.UserNotFound, HousekeepingTarget.User(userId));
         // Equal ranks are refused too, which also stops staff acting on themselves.
-        if (!HousekeepingRankPolicy.CanTarget(actor.Rank, found.Rank))
-            return HousekeepingOutcome.Fail(HousekeepingErrors.RankTooHigh, Label(found), $"targetRank={found.Rank}");
+        if (actor.Id == found.Id || !access.Outranks(actor.Id, found.Id))
+            return HousekeepingOutcome.Fail(HousekeepingErrors.RankTooHigh, Label(found), $"targetUserId={found.Id}");
         user = found;
         return null;
     }

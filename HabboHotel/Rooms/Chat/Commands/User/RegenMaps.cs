@@ -5,7 +5,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 internal class RegenMaps : IChatCommand
 {
     public string Key => "regenmaps";
-    public string PermissionRequired => "command_regen_maps";
 
     public string Parameters => "";
 

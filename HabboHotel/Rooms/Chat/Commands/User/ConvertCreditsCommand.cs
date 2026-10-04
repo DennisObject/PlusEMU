@@ -11,7 +11,6 @@ internal class ConvertCreditsCommand : IChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "convertcredits";
-    public string PermissionRequired => "command_convert_credits";
 
     public string Parameters => "";
 

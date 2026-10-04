@@ -1,4 +1,6 @@
-﻿using Plus.HabboHotel.Achievements;
+using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
 using Plus.Utilities;
 
@@ -29,7 +31,7 @@ internal class MuteUserEvent : IPacketEvent
         var target = room.GetRoomUserManager().GetRoomUserByHabbo(PlusEnvironment.GetUsernameById(userId));
         if (target == null)
             return Task.CompletedTask;
-        if (target.GetClient().GetHabbo().Permissions.HasRight("mod_tool"))
+        if (!RoomModerationPolicy.CanTarget(session.GetHabbo().Access, target.GetClient().GetHabbo().Access))
             return Task.CompletedTask;
         if (room.MutedUsers.ContainsKey(userId))
         {
