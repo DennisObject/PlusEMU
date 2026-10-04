@@ -69,6 +69,9 @@ public static class Program
         });
 
         var serviceProvider = services.BuildServiceProvider();
+        var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+        ExceptionLogger.Configure(loggerFactory);
+        ConsoleCommands.Configure(loggerFactory);
         foreach (var plugin in pluginDefinitions)
             plugin.OnServiceProviderBuild(serviceProvider);
 
