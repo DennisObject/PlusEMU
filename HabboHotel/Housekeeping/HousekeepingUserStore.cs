@@ -13,14 +13,14 @@ public sealed class HousekeepingUserRecord
     public string Username { get; set; } = string.Empty;
     public string Motto { get; set; } = string.Empty;
     public string Look { get; set; } = string.Empty;
-    public int LastOnline { get; set; }
+    public DateTimeOffset? LastOnlineAt { get; set; }
     public int Credits { get; set; }
     public int Duckets { get; set; }
     public int Diamonds { get; set; }
     public string Mail { get; set; } = string.Empty;
     public string IpLast { get; set; } = string.Empty;
     public double TimeMuted { get; set; }
-    public double TradingLocked { get; set; }
+    public DateTimeOffset? TradingLockExpiresAt { get; set; }
 }
 
 public interface IHousekeepingUserStore
@@ -33,9 +33,9 @@ public sealed class HousekeepingUserStore : IHousekeepingUserStore
 {
     private const string Select =
         "SELECT u.`id`, u.`username`, COALESCE(u.`motto`, '') AS Motto, COALESCE(u.`look`, '') AS Look, " +
-        "COALESCE(u.`last_online`, 0) AS LastOnline, COALESCE(u.`credits`, 0) AS Credits, COALESCE(u.`activity_points`, 0) AS Duckets, " +
+        "u.`last_online` AS LastOnlineAt, COALESCE(u.`credits`, 0) AS Credits, COALESCE(u.`activity_points`, 0) AS Duckets, " +
         "COALESCE(u.`vip_points`, 0) AS Diamonds, COALESCE(u.`mail`, '') AS Mail, COALESCE(u.`ip_last`, '') AS IpLast, " +
-        "COALESCE(u.`time_muted`, 0) AS TimeMuted, COALESCE(i.`trading_locked`, 0) AS TradingLocked " +
+        "COALESCE(u.`time_muted`, 0) AS TimeMuted, i.`trading_locked` AS TradingLockExpiresAt " +
         "FROM `users` u LEFT JOIN `user_info` i ON i.`user_id` = u.`id` ";
 
     private readonly IDatabase _database;

@@ -19,7 +19,7 @@ public sealed class ModeratorTargetHierarchyTests
     public static IEnumerable<object[]> Commands()
     {
         foreach (var command in new ITargetChatCommand[] {
-            new DisconnectCommand(), new FlagUserCommand(), new MakeSayCommand(),
+            new DisconnectCommand(), new FlagUserCommand(null!), new MakeSayCommand(),
             new ForceSitCommand(), new UnFreezeCommand(null!), new AlertCommand(),
             new GiveCommand(), new GiveBadgeCommand(null!), new FreezeCommand(null!),
             new KickCommand(), new SummonCommand(null!), new MuteCommand(null!),
@@ -36,7 +36,7 @@ public sealed class ModeratorTargetHierarchyTests
     public async Task StaffCommandsRejectEqualOrHigherTargetsBeforeAnySideEffect(ITargetChatCommand command, int targetWeight)
     {
         var actor = new Habbo { Id = 1, Username = "actor", Access = EditorTestSupport.Access(["*"], 50) };
-        var target = new Habbo { Id = 2, Username = "target", Access = EditorTestSupport.Access([], targetWeight), LastNameChange = 123 };
+        var target = new Habbo { Id = 2, Username = "target", Access = EditorTestSupport.Access([], targetWeight), LastNameChangedAt = DateTimeOffset.FromUnixTimeSeconds(123) };
         var (session, _) = HabbiconTestSupport.Client(actor);
         var (targetSession, sent) = HabbiconTestSupport.Client(target);
         target.Client = targetSession;
@@ -48,7 +48,7 @@ public sealed class ModeratorTargetHierarchyTests
 
         Assert.False(disconnected);
         Assert.False(target.ChangingName);
-        Assert.Equal(123, target.LastNameChange);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(123), target.LastNameChangedAt);
         Assert.Empty(sent);
     }
 
@@ -142,13 +142,21 @@ public sealed class ModeratorTargetHierarchyTests
     public async Task HigherWeightActorCanFlagStaffTarget()
     {
         var actor = new Habbo { Id = 1, Access = EditorTestSupport.Access([], 90) };
-        var target = new Habbo { Id = 2, Username = "target", Access = EditorTestSupport.Access([PermissionKeys.ModerationTool], 50), LastNameChange = 123, HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
+        var target = new Habbo { Id = 2, Username = "target", Access = EditorTestSupport.Access([PermissionKeys.ModerationTool], 50), LastNameChangedAt = DateTimeOffset.FromUnixTimeSeconds(123), HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
         var (session, _) = HabbiconTestSupport.Client(actor);
         var (targetSession, sent) = HabbiconTestSupport.Client(target);
         target.Client = targetSession;
-        await new FlagUserCommand().Execute(session, null!, target, []);
+        var persistence = new ProfilePersistence();
+        await new FlagUserCommand(persistence).Execute(session, null!, target, []);
         Assert.True(target.ChangingName);
-        Assert.Equal(0, target.LastNameChange);
+        Assert.Null(target.LastNameChangedAt);
+        Assert.Equal((target.Id, "last_change", null), persistence.Update);
         Assert.Equal(2, sent.Count);
+    }
+    private sealed class ProfilePersistence : IUserPersistenceService
+    {
+        public (int, string, object?)? Update;
+        public void Save(Habbo habbo, bool reopenModerationTickets = false) => throw new NotSupportedException();
+        public void SetProfileValue(int userId, string column, object? value) => Update = (userId, column, value);
     }
 }

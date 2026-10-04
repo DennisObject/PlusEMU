@@ -16,7 +16,7 @@ internal class FlagMeCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (!NameChangePolicy.CanChange(session.GetHabbo(), UnixTimestamp.GetNow()))
+        if (!NameChangePolicy.CanChange(session.GetHabbo(), DateTimeOffset.UtcNow))
         {
             session.SendWhisper("Sorry, it seems you currently do not have the option to change your username!");
             return;

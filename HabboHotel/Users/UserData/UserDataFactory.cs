@@ -68,10 +68,11 @@ public class UserDataFactory : IUserDataFactory
     {
         using var connection = _database.Connection();
         var habbo = await connection.QuerySingleOrDefaultAsync<Habbo>(
-            "SELECT u.`id`, u.`username`, u.`motto`, u.`look`, u.`gender`, u.`last_online` AS LastOnlineAt, u.`credits`, u.`activity_points` as Duckets, us.`home_room`, us.`block_newfriends` as AllowFriendRequests, us.`hide_online` as AppearOffline, us.`hide_inroom` as AllowPublicRoomStatus, u.`vip`, u.`account_created` AS AccountCreatedAt, u.`vip_points` as Diamonds, us.`chat_preference`, us.`focus_preference`, us.`pets_muted` as AllowPetSpeech, us.`bots_muted` as AllowBotSpeech, us.`advertising_report_blocked`, u.`last_change` as LastNameChangedAt, u.`gotw_points`, us.`ignore_invites` as AllowMessengerInvites, u.`time_muted`, us.`allow_gifts`, us.`friend_bar_state`, us.`disable_forced_effects`, us.`allow_mimic`, u.`bubble_id` as CustomBubbleId, s.`AchievementScore` as AchievementPoints, s.`groupid` as FavouriteGroupId " +
+            "SELECT u.`id`, u.`username`, u.`motto`, u.`look`, u.`gender`, u.`last_online` AS LastOnlineAt, u.`credits`, u.`activity_points` as Duckets, us.`home_room`, us.`block_newfriends` as AllowFriendRequests, us.`hide_online` as AppearOffline, us.`hide_inroom` as AllowPublicRoomStatus, u.`vip`, u.`account_created` AS AccountCreatedAt, u.`vip_points` as Diamonds, us.`chat_preference`, us.`focus_preference`, us.`pets_muted` as AllowPetSpeech, us.`bots_muted` as AllowBotSpeech, us.`advertising_report_blocked`, u.`last_change` as LastNameChangedAt, u.`gotw_points`, us.`ignore_invites` as AllowMessengerInvites, u.`time_muted`, us.`allow_gifts`, us.`friend_bar_state`, us.`disable_forced_effects`, us.`allow_mimic`, u.`bubble_id` as CustomBubbleId, s.`AchievementScore` as AchievementPoints, s.`groupid` as FavouriteGroupId, i.`trading_locked` AS TradingLockExpiresAt " +
             "FROM `users` u " +
             "INNER JOIN `users_settings` us ON us.user_id = u.id " +
             "LEFT JOIN `user_statistics` s ON u.id = s.id " +
+            "LEFT JOIN `user_info` i ON u.id = i.user_id " +
             "WHERE u.`id` = @userId LIMIT 1",
             new { userId });
         return habbo;

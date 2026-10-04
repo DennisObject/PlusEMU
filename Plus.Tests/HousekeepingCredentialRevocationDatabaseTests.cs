@@ -515,7 +515,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     }
 
     private HousekeepingUserActions Actions(ISessionIssuer? sessions = null) =>
-        new(new HousekeepingUserStore(_database), _clients, Moderation(sessions), Access(), _hasher, _database, _gate, sessions ?? _sessions);
+        new(new HousekeepingUserStore(_database), _clients, Moderation(sessions), Access(), _hasher, _database, _gate, sessions ?? _sessions, new TradingLockService(_database, _clients, _gate, TimeProvider.System));
 
     private static Habbo StaffHabbo() => new() { Id = Staff, Username = "cr_staff", Access = HousekeepingPolicyTests.Access(90, PermissionKeys.HousekeepingRolesManage) };
 
