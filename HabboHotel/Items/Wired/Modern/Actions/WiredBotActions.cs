@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Dapper;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Runtime;
@@ -97,9 +98,8 @@ public static class WiredBotActions
                 if (!FigureWellFormed(text)) return false;
                 foreach (var bot in bots)
                 {
-                    using var database = PlusEnvironment.DatabaseManager.GetQueryReactor();
-                    database.SetQuery("UPDATE `bots` SET `look`=@look WHERE `id`=@id LIMIT 1");
-                    database.AddParameter("look", text); database.AddParameter("id", bot.BotData.Id); database.RunQuery();
+                    using var database = PlusEnvironment.DatabaseManager.Connection();
+                    database.Execute("UPDATE bots SET look=@look WHERE id=@id LIMIT 1", new { look = text, bot.BotData.Id });
                     bot.BotData.Look = text; context.Room.SendPacket(new UserChangeComposer(bot.BotData));
                 }
                 return true;

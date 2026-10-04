@@ -1,4 +1,5 @@
-﻿using System.Data;
+using System.Data;
+using Dapper;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users.Inventory.Furniture;
@@ -11,18 +12,14 @@ public static class ItemLoader
     public static List<Item> GetItemsForRoom(uint roomId, Room room)
     {
         var items = new List<Item>();
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.SetQuery(
-            "SELECT `items`.*, COALESCE(`items_groups`.`group_id`, 0) AS `group_id`, `users`.`username` AS `username` FROM `items` LEFT OUTER JOIN `items_groups` ON `items`.`id` = `items_groups`.`id` LEFT OUTER JOIN `users` ON `users`.`id` = `items`.`user_id` WHERE `items`.`room_id` = @rid;");
-        dbClient.AddParameter("rid", roomId);
-        var table = dbClient.GetTable();
-        if (table != null)
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        var rows = connection.Query<ItemRow>(
+            "SELECT items.id,items.base_item AS BaseItem,items.user_id AS UserId,items.extra_data AS ExtraData,items.x,items.y,items.z,items.rot,items.limited_number AS LimitedNumber,items.limited_stack AS LimitedStack,items.wall_pos AS WallPos,COALESCE(items_groups.group_id,0) AS GroupId,COALESCE(users.username,'') AS Username FROM items LEFT JOIN items_groups ON items.id=items_groups.id LEFT JOIN users ON users.id=items.user_id WHERE items.room_id=@roomId",
+            new { roomId });
+        foreach (var row in rows)
         {
-            foreach (DataRow row in table.Rows)
-            {
-                if (PlusEnvironment.Game.ItemManager.Items.TryGetValue(Convert.ToUInt32(row["base_item"]), out var data))
-                    items.Add(ReadRoomItem(row, roomId, data));
-            }
+            if (PlusEnvironment.Game.ItemManager.Items.TryGetValue(row.BaseItem, out var data))
+                items.Add(ReadRoomItem(row, roomId, data));
         }
         return items;
     }
@@ -50,39 +47,75 @@ public static class ItemLoader
         return item;
     }
 
+    private static Item ReadRoomItem(ItemRow row, uint roomId, ItemDefinition definition)
+    {
+        var item = new Item
+        {
+            Id = row.Id,
+            OwnerId = row.UserId,
+            UserId = checked((int)row.UserId),
+            Username = row.Username,
+            Definition = definition,
+            ExtraData = FurniExtraData.Load(definition, row.ExtraData, keepLegacy: true),
+            GetX = row.X,
+            GetY = row.Y,
+            GetZ = row.Z,
+            Rotation = row.Rot,
+            UniqueNumber = row.LimitedNumber,
+            UniqueSeries = row.LimitedStack,
+            WallCoordinates = row.WallPos,
+            RoomId = roomId,
+            GroupId = row.GroupId
+        };
+        MagicTileHeight.Sync(item);
+        return item;
+    }
+
     public static List<InventoryItem> GetItemsForUser(uint userId)
     {
-        DataTable? items = null;
-        var I = new List<InventoryItem>();
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.SetQuery(
-            "SELECT `items`.*, COALESCE(`items_groups`.`group_id`, 0) AS `group_id` FROM `items` LEFT OUTER JOIN `items_groups` ON `items`.`id` = `items_groups`.`id` WHERE `items`.`room_id` = 0 AND `items`.`user_id` = @uid;");
-        dbClient.AddParameter("uid", userId);
-        items = dbClient.GetTable();
-        if (items != null)
+        var items = new List<InventoryItem>();
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        var rows = connection.Query<ItemRow>(
+            "SELECT items.id,items.base_item AS BaseItem,items.user_id AS UserId,items.extra_data AS ExtraData,items.limited_number AS LimitedNumber,items.limited_stack AS LimitedStack,COALESCE(items_groups.group_id,0) AS GroupId FROM items LEFT JOIN items_groups ON items.id=items_groups.id WHERE items.room_id=0 AND items.user_id=@userId",
+            new { userId });
+        foreach (var row in rows)
         {
-            foreach (DataRow row in items.Rows)
+            if (PlusEnvironment.Game.ItemManager.Items.TryGetValue(row.BaseItem, out var data))
             {
-                if (PlusEnvironment.Game.ItemManager.Items.TryGetValue(Convert.ToUInt32(row["base_item"]), out var data))
+                items.Add(new()
                 {
-                    I.Add(new()
-                    {
-                        Id = Convert.ToUInt32(row["id"]),
-                        OwnerId = userId,
-                        Definition = data,
-                        ExtraData = FurniExtraData.Load(data, Convert.ToString(row["extra_data"]) ?? "", keepLegacy: false),
-                        UniqueNumber = Convert.ToUInt32(row["limited_number"]),
-                        UniqueSeries = Convert.ToUInt32(row["limited_stack"])
-                    });
-                }
+                    Id = row.Id,
+                    OwnerId = userId,
+                    Definition = data,
+                    ExtraData = FurniExtraData.Load(data, row.ExtraData, keepLegacy: false),
+                    UniqueNumber = row.LimitedNumber,
+                    UniqueSeries = row.LimitedStack
+                });
             }
         }
-        return I;
+        return items;
     }
 
     public static void DeleteAllInventoryItemsForUser(int userId)
     {
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.RunQuery($"DELETE FROM items WHERE room_id='0' AND user_id = {userId}"); //Do join
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        connection.Execute("DELETE FROM items WHERE room_id=0 AND user_id=@userId", new { userId });
+    }
+
+    private sealed class ItemRow
+    {
+        public uint Id { get; init; }
+        public uint BaseItem { get; init; }
+        public uint UserId { get; init; }
+        public string ExtraData { get; init; } = "";
+        public int X { get; init; }
+        public int Y { get; init; }
+        public double Z { get; init; }
+        public int Rot { get; init; }
+        public uint LimitedNumber { get; init; }
+        public uint LimitedStack { get; init; }
+        public string WallPos { get; init; } = "";
+        public int GroupId { get; init; }
+        public string Username { get; init; } = "";
     }
 }
