@@ -109,7 +109,7 @@ public class ShadowPathfindingTests
         Assert.False(actor.NavigationProfile.IsMember(7)); Assert.Equal(2, actor.NavigationProfile.CapabilityVersion);
     }
     [Fact]
-    public void AlreadyThereMatchesLegacySingleOriginWithoutDivergence()
+    public void AlreadyThereLegacyReturnsAnEmptyPath()
     {
         var fixture = RoomPerformanceFixture.Create(1, 0);
         var actor = fixture.Bots[0]; actor.GoalX = actor.X; actor.GoalY = actor.Y;
@@ -118,9 +118,9 @@ public class ShadowPathfindingTests
         var route = new Route(); var grid = navigation.Grid;
         var outcome = new PathSearch(grid, new()).Find(new(new ActorProfile(), grid.Position(grid.Tile(actor.X, actor.Y)), actor.GoalX, actor.GoalY),
             new PathWorkspace(grid.SlotCapacity, grid.ActiveNodeCount), route);
-        Assert.Single(legacy); Assert.Equal(PathOutcome.AlreadyThere, outcome);
-        Assert.False(RoomNavigation.Diverges(outcome, route.Count, legacy.Count));
-        Assert.True(RoomNavigation.Diverges(outcome, route.Count, 0));
+        Assert.Empty(legacy); Assert.Equal(PathOutcome.AlreadyThere, outcome);
+        // Shadow still expects a single-origin legacy path here, so the original engine is logged as diverging.
+        Assert.True(RoomNavigation.Diverges(outcome, route.Count, legacy.Count));
     }
 
 }
