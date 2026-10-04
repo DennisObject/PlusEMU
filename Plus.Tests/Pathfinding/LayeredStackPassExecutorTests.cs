@@ -112,6 +112,40 @@ public partial class PlacedFurniRoomTests
         Assert.Null(Approaches.Peek(actor));
     }
 
+    [Fact]
+    public void LayeredCoveredRollerCarriesOnlyTheStackRestingOnIt()
+    {
+        // (0,1): a non-walkable box rests on the roller top (0.5) and hides it; an independent deck floats at 2.5.
+        var roller = ExecutorRoller(10, 0, 1);
+        var box = ExecutorFloor(13, 0, 1, z: 0.5, height: 0.5); box.Definition.Walkable = false;
+        var deck = ExecutorFloor(21, 0, 1, z: 2.5);
+        var upper = LayeredActor(0, 1);
+        upper.SetPos(0, 1, 2.5); ExecutorTick();
+        Assert.Equal(2.5, upper.Z);
+        EnableExecutorRollers(); ExecutorTick();
+        Assert.Equal((0, 1, 2.5), (upper.X, upper.Y, upper.Z));
+        Assert.Equal((0, 1), (deck.GetX, deck.GetY));
+        Assert.Equal((1, 1), (box.GetX, box.GetY));
+        Assert.Equal((0, 1), (roller.GetX, roller.GetY));
+    }
+
+    [Fact]
+    public void LayeredRollerClaimSurvivesItsOwnCargoReplacingTheLandingSurface()
+    {
+        // An actor and a zero-height rug ride roller (0,1) onto bare floor at (1,1): the rug replaces the floor surface.
+        ExecutorRoller(10, 0, 1);
+        ExecutorFloor(12, 0, 1, z: 0.5);
+        var actor = LayeredActor(0, 1);
+        actor.SetPos(0, 1, 0.5); ExecutorTick();
+        var claims = LayeredNavigation.Executor.Claims;
+        var observed = new List<TargetOccupancy>();
+        ExecutorObserveLanding((_, item) => { if (item.Id == 12) observed.Add(claims.OccupancyAt(LayeredNavigation.Grid.SlotOf(actor.Movement.CurrentRef!.Value), 0)); });
+        EnableExecutorRollers(); ExecutorTick();
+        Assert.Equal((1, 1, 0d), (actor.X, actor.Y, actor.Z));
+        Assert.Equal(new SurfaceRef(LayeredTile(1, 1), 12, SurfaceKind.Top), actor.Movement.CurrentRef);
+        Assert.Equal(new[] { TargetOccupancy.Stationary | TargetOccupancy.RollerClaim }, observed);
+    }
+
     // A vending machine at deck level (2) beside approach tile (1,0), which has a floor and a deck; decks lead from (3,0).
     private Item LayeredDeckApproach()
     {

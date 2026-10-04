@@ -49,6 +49,43 @@ public class LayeredStackPassTests
         Assert.True(occupancy.IsBlocked([new Point(1, 0)]));
     }
 
+    [Fact]
+    public void CargoReservationsAreTileWideAndSurviveSlotReuse()
+    {
+        // 4x4: a deck over tile 6 takes overflow slot 16; the deck later moves to tile 11 and reuses slot 16.
+        var (grid, inputs, compiler) = NavTest.Create(4, 4, new PathfindingSettings { LayeringEnabled = true });
+        inputs.Publish(NavTest.Record(21, 1, [6], z: 2)); compiler.ApplyNow();
+        Assert.Equal(16, grid.SlotOf(new SurfaceRef(6, 21, SurfaceKind.Top)));
+        var claims = new ClaimLedger(grid);
+        Assert.True(claims.TryReserveCargo(6, TargetOccupancy.None, null));
+        Assert.Equal(TargetOccupancy.RollerClaim, claims.OccupancyAt(16, 0));
+        inputs.Publish(NavTest.Record(21, 2, [11], z: 2)); compiler.ApplyNow();
+        claims.EnsureCapacity(grid.SlotCapacity);
+        Assert.Equal(16, grid.SlotOf(new SurfaceRef(11, 21, SurfaceKind.Top)));
+        Assert.Equal(TargetOccupancy.None, claims.OccupancyAt(16, 0));
+        Assert.Equal(TargetOccupancy.RollerClaim, claims.OccupancyAt(6, 0));
+        claims.ReleaseCargo(6);
+        Assert.Equal(TargetOccupancy.None, claims.OccupancyAt(6, 0));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void VacatedRollerRuleChecksTheTargetSurfaceNotTheTilesOwnSlot(bool deckOccupied)
+    {
+        // Tile 1: the roller's top in the tile's own slot and a deck at 2.5 in an overflow slot.
+        var (grid, inputs, compiler) = NavTest.Create(3, 1, new PathfindingSettings { LayeringEnabled = true });
+        inputs.Publish(NavTest.Record(10, 1, [1], h: 0.5, interaction: InteractionType.Roller));
+        inputs.Publish(NavTest.Record(21, 2, [1], z: 2.5));
+        compiler.ApplyNow();
+        var deck = grid.SlotOf(new SurfaceRef(1, 21, SurfaceKind.Top));
+        Assert.Equal((1, true), (grid.SurfaceAt(1, 0), deck >= grid.TileCount));
+        var occupancy = new PlanningOccupancy(grid.SlotCapacity);
+        occupancy.Targets[deckOccupied ? deck : 1] = TargetOccupancy.Stationary;
+        var result = new MovementRules(grid, new()).CanRollOntoVacatedRoller(new(), new(0, 0, 3), grid.Position(deck), occupancy);
+        Assert.Equal(deckOccupied ? StepReason.Occupied : StepReason.Ok, result.Reason);
+    }
+
     private static PrefixCandidate[] Find(NavGrid grid, PlanningOccupancy occupancy, RetainedStep[] steps)
     {
         var settings = new PathfindingSettings { LayeringEnabled = true };
