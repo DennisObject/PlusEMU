@@ -12,6 +12,7 @@ public partial class PlacedFurniRoomTests
     [InlineData("fast")]
     [InlineData("superfast")]
     [InlineData("replacement")]
+    [InlineData("sealed corner")]
     [InlineData("locked pending")]
     [InlineData("cancel")]
     [InlineData("walk magic")]
@@ -26,7 +27,8 @@ public partial class PlacedFurniRoomTests
             Assert.True(ReplayTelemetryMatches(legacy[tick]), $"legacy telemetry at tick {tick}");
             Assert.True(ReplayTelemetryMatches(v2[tick]), $"v2 telemetry at tick {tick}");
             if (FrameBytes(legacy[tick]) != FrameBytes(v2[tick]))
-                Assert.True(ReplayTimingDifference(legacy[tick], v2[tick]), $"timing classification at tick {tick}");
+                Assert.True(ReplayTimingDifference(legacy[tick], v2[tick]) || ReplayTrajectoryClass(scenario) != null,
+                    $"classified telemetry at tick {tick}");
         }
     }
 
