@@ -132,8 +132,10 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
     private void SaveSpeech(RoomBot bot, string raw)
     {
         var parts = raw.Split(";#;", StringSplitOptions.None);
+        if (parts.Length != 4 || !bool.TryParse(parts[1], out var automatic) ||
+            !int.TryParse(parts[2], out var interval) || !bool.TryParse(parts[3], out var mix)) return;
         var speech = parts[0].Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Select(text => Regex.Replace(text, "<(.|\\n)*?>", string.Empty)).ToArray();
-        var automatic = Convert.ToBoolean(parts[1]); var interval = Math.Max(7, Convert.ToInt32(parts[2])); var mix = Convert.ToBoolean(parts[3]);
+        interval = Math.Max(7, interval);
         var saved = store.SaveSpeech(bot.Id, bot.RoomId, speech, automatic, interval, mix);
         bot.AutomaticChat = automatic; bot.SpeakingInterval = interval; bot.MixSentences = mix; bot.RandomSpeech.Clear();
         foreach (var text in saved) bot.RandomSpeech.Add(new(text, bot.Id));
