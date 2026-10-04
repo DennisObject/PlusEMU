@@ -25449,8 +25449,8 @@ CREATE TABLE `room_promotions` (
   `room_id` int(11) NOT NULL,
   `title` varchar(35) NOT NULL DEFAULT '',
   `description` varchar(220) NOT NULL DEFAULT '',
-  `timestamp_start` double NOT NULL DEFAULT '0',
-  `timestamp_expire` double NOT NULL DEFAULT '0',
+  `timestamp_start` datetime(6) DEFAULT NULL,
+  `timestamp_expire` datetime(6) DEFAULT NULL,
   `category_id` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY (`room_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;

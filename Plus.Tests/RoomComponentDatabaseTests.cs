@@ -40,7 +40,7 @@ public sealed class RoomComponentDatabaseTests
                     hairdye INT NOT NULL, pethair INT NOT NULL, gnome_clothing VARCHAR(100) NOT NULL);
                 CREATE TABLE room_promotions (
                     room_id INT UNSIGNED NOT NULL, title VARCHAR(100) NOT NULL, description VARCHAR(255) NOT NULL,
-                    timestamp_start DOUBLE NOT NULL, timestamp_expire DOUBLE NOT NULL, category_id INT NOT NULL);
+                    timestamp_start DOUBLE NULL, timestamp_expire DOUBLE NULL, category_id INT NOT NULL);
                 CREATE TABLE items (id INT UNSIGNED PRIMARY KEY, user_id INT NOT NULL, room_id INT UNSIGNED NOT NULL DEFAULT 0,
                     x INT NOT NULL DEFAULT 0, y INT NOT NULL DEFAULT 0, z DOUBLE NOT NULL DEFAULT 0, rot INT NOT NULL DEFAULT 0,
                     extra_data TEXT, wall_pos VARCHAR(100), base_item INT UNSIGNED NOT NULL DEFAULT 0,
@@ -62,6 +62,9 @@ public sealed class RoomComponentDatabaseTests
                 INSERT INTO bots_petdata VALUES (14, 2, '3', 'ffffff', 0, 100, 0, 0, 0, 0, 0, 1, -1, '-1');
                 INSERT INTO bots_petdata VALUES (15, 2, '3', 'ffffff', 0, 100, 0, 0, NULL, 0, 0, 1, -1, '-1');
                 INSERT INTO room_promotions VALUES (42, 'Featured', 'Actual row', UNIX_TIMESTAMP() - 10, UNIX_TIMESTAMP() + 600, 3);
+                INSERT INTO room_promotions VALUES (43, 'Future', 'Beyond 2038', 2200000000, 2200003600, 4);
+                INSERT INTO room_promotions VALUES (44, 'Unknown', 'Legacy zero', 0, 0, 5);
+                INSERT INTO room_promotions VALUES (45, 'Missing', 'Legacy null', NULL, NULL, 6);
                 INSERT INTO items (id, user_id) VALUES (90, 1), (91, 1);
                 INSERT INTO users VALUES (7, 'owner');
                 INSERT INTO items (id, user_id, room_id, x, y, z, rot, extra_data, wall_pos, base_item, limited_number, limited_stack)
@@ -83,6 +86,23 @@ public sealed class RoomComponentDatabaseTests
             Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT createstamp FROM bots_petdata WHERE id = 14"));
             Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT createstamp FROM bots_petdata WHERE id = 15"));
 
+            var promotionMigration = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory,
+                "../../../../Database/Migrations/21_UseUtcRoomPromotionTimes.sql")));
+            connection.Execute(promotionMigration);
+            Assert.Equal(2, connection.QuerySingle<int>("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'room_promotions'
+                    AND column_name IN ('timestamp_start', 'timestamp_expire') AND DATA_TYPE = 'datetime' AND DATETIME_PRECISION = 6
+                """));
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).UtcDateTime,
+                DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT timestamp_start FROM room_promotions WHERE room_id = 43"), DateTimeKind.Utc));
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_003_600).UtcDateTime,
+                DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT timestamp_expire FROM room_promotions WHERE room_id = 43"), DateTimeKind.Utc));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT timestamp_start FROM room_promotions WHERE room_id = 44"));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT timestamp_expire FROM room_promotions WHERE room_id = 44"));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT timestamp_start FROM room_promotions WHERE room_id = 45"));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT timestamp_expire FROM room_promotions WHERE room_id = 45"));
+
             var bot = Assert.Single(RoomBotsComponent.Load(connection, 42));
             Assert.True(bot.AutomaticChat);
             Assert.True(bot.MixSentences);
@@ -92,9 +112,14 @@ public sealed class RoomComponentDatabaseTests
             Assert.Equal((11, 42u, 1.5), (pet.Id, pet.RoomId, pet.Z));
             Assert.Equal((2, "3", "hat"), (data.Type, data.Race, data.GnomeClothing));
             Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000), RoomPetsComponent.AsUtc(data.CreatedAt));
-            var databaseConnection = new MySqlConnectionStringBuilder(connection.ConnectionString) { Database = schema }.ConnectionString;
-            var promotion = Assert.IsType<RoomPromotion>(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 42));
+            var databaseConnection = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!) { Database = schema }.ConnectionString;
+            var promotion = Assert.IsType<RoomPromotion>(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 42, TimeProvider.System));
             Assert.Equal(("Featured", "Actual row", 3), (promotion.Name, promotion.Description, promotion.CategoryId));
+            var futurePromotion = Assert.IsType<RoomPromotion>(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 43, TimeProvider.System));
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000), futurePromotion.StartedAt);
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_003_600), futurePromotion.ExpiresAt);
+            Assert.Null(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 44, TimeProvider.System));
+            Assert.Null(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 45, TimeProvider.System));
             var tradeStore = (ITradeStore)new RoomTradingComponent(new ProbeDatabase(databaseConnection));
             tradeStore.TransferItem(90, 2);
             tradeStore.DeleteItem(91);

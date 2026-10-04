@@ -57,7 +57,7 @@ public static class RoomFactory
                         row.SpushEnabled, row.SpullEnabled, row.EnablesEnabled,
                         row.RespectNotificationsEnabled,
                         row.PetMorphsAllowed, row.GroupId, row.SalePrice, row.LayEnabled, model);
-        data.Promotion = RoomPromotionLoader.Load(PlusEnvironment.DatabaseManager, row.Id);
+        data.Promotion = RoomPromotionLoader.Load(PlusEnvironment.DatabaseManager, row.Id, TimeProvider.System);
         if (row.GroupId > 0 && PlusEnvironment.Game.GroupManager.TryGetGroup(row.GroupId, out var group)) data.Group = group;
         return data;
     }
