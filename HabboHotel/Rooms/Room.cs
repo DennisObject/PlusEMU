@@ -24,7 +24,7 @@ namespace Plus.HabboHotel.Rooms;
 public class Room
 {
     private readonly IReadOnlyList<IRoomComponent> _components;
-    private bool _initiated;
+    private int _initiated;
     private RoomData? _data;
     private BansComponent _bansComponent;
     private FilterComponent _filterComponent;
@@ -77,9 +77,8 @@ public class Room
 
     public void Initiate()
     {
-        if (_initiated)
+        if (Interlocked.Exchange(ref _initiated, 1) != 0)
             throw new InvalidOperationException($"Room {Data.Id} has already been initiated.");
-        _initiated = true;
         foreach (var component in _components)
             component.Initiate(this);
         foreach (var component in _components)

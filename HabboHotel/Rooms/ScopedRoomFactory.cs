@@ -23,7 +23,7 @@ public sealed class ScopedRoomFactory(IServiceScopeFactory scopeFactory) : IRoom
         catch
         {
             if (cached)
-                _scopes.TryRemove(data.Id, out _);
+                _scopes.TryRemove(new KeyValuePair<uint, IServiceScope>(data.Id, scope));
             scope.Dispose();
             throw;
         }

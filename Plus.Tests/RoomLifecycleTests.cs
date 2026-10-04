@@ -65,6 +65,40 @@ public sealed class RoomLifecycleTests
         Assert.True(probe.Disposed);
     }
 
+    [Fact]
+    public void FailedInitiationDoesNotEvictAReplacementScope()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<Probe>();
+        ScopedRoomFactory? factory = null;
+        Room? replacement = null;
+        var replacing = false;
+        services.AddScoped<IRoomComponent>(provider => new ReplacingComponent(provider.GetRequiredService<Probe>(), () =>
+        {
+            if (replacing) return;
+            replacing = true;
+            factory!.Dispose(1);
+            replacement = factory.Create(Data(1));
+            throw new InvalidOperationException("The original initialization failed.");
+        }));
+        using var provider = services.BuildServiceProvider();
+        using var ownedFactory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>());
+        factory = ownedFactory;
+
+        Assert.Throws<InvalidOperationException>(() => factory.Create(Data(1)));
+        var probe = Assert.IsType<ReplacingComponent>(replacement!.Components.Single()).Probe;
+        Assert.False(probe.Disposed);
+        factory.Dispose(1);
+        Assert.True(probe.Disposed);
+    }
+
+    private sealed class ReplacingComponent(Probe probe, Action initiate) : IRoomComponent
+    {
+        public Probe Probe { get; } = probe;
+        public void Initiate(Room room) => initiate();
+        public void Initiated() { }
+    }
+
     private static RoomData Data(uint id)
     {
         var data = (RoomData)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
