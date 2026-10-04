@@ -1,6 +1,5 @@
 ﻿using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IO;
 using Plus.Communication.Encryption.Crypto.Prng;
 using Plus.Communication.Flash;
@@ -60,8 +59,6 @@ public abstract class GameClient
         _logger = logger;
     }
 
-    protected GameClient(IGameServer server, IPacketFactory packetFactory)
-        : this(server, packetFactory, NullLogger<GameClient>.Instance) { }
 
     internal event Action? CameraContextEnded;
     internal void EndCameraContext() => CameraContextEnded?.Invoke();

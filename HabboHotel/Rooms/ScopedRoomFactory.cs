@@ -1,15 +1,12 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Rooms;
 
 public sealed class ScopedRoomFactory(IServiceScopeFactory scopeFactory, ILogger<RoomNavigation> navigationLogger, ILoggerFactory loggerFactory) : IRoomFactory, IDisposable
 {
-    public ScopedRoomFactory(IServiceScopeFactory scopeFactory)
-        : this(scopeFactory, NullLogger<RoomNavigation>.Instance, NullLoggerFactory.Instance) { }
     private readonly ConcurrentDictionary<uint, IServiceScope> _scopes = new();
 
     public Room Create(RoomData data)

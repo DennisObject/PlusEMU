@@ -1,6 +1,5 @@
 using System.Data.Common;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -11,7 +10,6 @@ namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
 
 public sealed class WiredRoomSettingsRequestEvent(IDatabase database, ILoggerFactory loggerFactory) : RoomPacketEvent
 {
-    public WiredRoomSettingsRequestEvent(IDatabase database) : this(database, NullLoggerFactory.Instance) { }
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         if (!packet.HasDataRemaining()) WiredRoomSettingsPackets.Reload(room, session, WiredRoomSettings.For(room, database), loggerFactory.CreateLogger(nameof(WiredRoomSettingsPackets)));
@@ -21,7 +19,6 @@ public sealed class WiredRoomSettingsRequestEvent(IDatabase database, ILoggerFac
 
 public sealed class WiredRoomSettingsSaveEvent(IDatabase database, ILoggerFactory loggerFactory) : RoomPacketEvent
 {
-    public WiredRoomSettingsSaveEvent(IDatabase database) : this(database, NullLoggerFactory.Instance) { }
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         int inspect, modify;
@@ -36,7 +33,6 @@ public sealed class WiredRoomSettingsSaveEvent(IDatabase database, ILoggerFactor
 
 public sealed class WiredMenuPermissionsSaveEvent(IDatabase database, ILoggerFactory loggerFactory) : RoomPacketEvent
 {
-    public WiredMenuPermissionsSaveEvent(IDatabase database) : this(database, NullLoggerFactory.Instance) { }
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         int modify, inspect; string timezone;

@@ -46,7 +46,7 @@ public sealed class ModernWiredDatabaseCollection;
 public class ModernWiredRuntimeTests
 {
     private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null) =>
-        new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new());
+        new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger);
 
     [Fact]
     public void AllImplementedEditorsHaveValidatedDefaults()
@@ -165,7 +165,7 @@ public class ModernWiredRuntimeTests
         monitor.End();
 
         // Without inspect rights neither request answers; with inspect only, a clear is refused.
-        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory()) { Revision = f.Habbo.Client.Revision };
+        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
         bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
         var bobReplies = Capture(bob);
         await new WiredRoomLogsPageEvent().Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
@@ -575,7 +575,7 @@ public class ModernWiredRuntimeTests
             var clients = new GameClientManager(null!, null!); var game = DispatchProxy.Create<IGame, RecordingProxy>();
             ((RecordingProxy)(object)game).InvokeMethod = (method, _) => method.Name == "get_ClientManager" ? clients : method.Name == "get_ItemManager" ? DefinitionManager : null;
             gameField.SetValue(null, game);
-            var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
+            var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
                 Revision = new Revision { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
                     .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id) },
@@ -586,7 +586,7 @@ public class ModernWiredRuntimeTests
             Habbo.Effects.CurrentEffect = 8; client.SetHabbo(Habbo); clients.RegisterClient(client, 1, "Alice");
             User = new(1, 0, 7, Room); RoomUsers(Room)[7] = User;
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
-            var wired = new WiredComponent(Room);
+            var wired = new WiredComponent(Room, TestLogging.Logger);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
@@ -594,7 +594,7 @@ public class ModernWiredRuntimeTests
             Target = MakeItem(1, "test"); Target.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); Items[1] = Target;
             Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room")); Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
             Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
-                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new());
+                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger);
             Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _); Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item; Items[100] = Action.Item; Engine.Add(Trigger); Engine.Add(Action);
         }
@@ -1276,7 +1276,7 @@ public class ModernWiredRuntimeTests
     private static (Room Room, Gamemap Map, ConcurrentDictionary<uint, Item> Items) World()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true));
+        var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
         var handler = new RoomItemHandling(room);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);

@@ -92,8 +92,8 @@ public class WiredAvatarPacketHookTests
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
             var items = new RoomItemHandling(Room); var users = new RoomUserManager(Room);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
-            _wired = new WiredComponent(Room); Set(Room, "_wiredComponent", _wired);
-            Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
+            _wired = new WiredComponent(Room, TestLogging.Logger); Set(Room, "_wiredComponent", _wired);
+            Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
                 Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
                 { [ServerPacketHeader.ActionComposer] = 1, [ServerPacketHeader.DanceComposer] = 2,

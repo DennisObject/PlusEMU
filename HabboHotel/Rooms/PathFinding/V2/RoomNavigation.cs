@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
@@ -19,9 +18,9 @@ public sealed partial class RoomNavigation
     public bool UsesExecutor => Settings.Engine == PathfindingEngine.V2;
     public bool Enabled => Settings.Engine == PathfindingEngine.Shadow;
 
-    public RoomNavigation(Room room, RoomModel model, PathfindingSettings settings, ILogger<RoomNavigation>? logger = null)
+    public RoomNavigation(Room room, RoomModel model, PathfindingSettings settings, ILogger<RoomNavigation> logger)
     {
-        _logger = logger ?? NullLogger<RoomNavigation>.Instance;
+        _logger = logger;
         _room = room; Settings = settings;
         if (UsesExecutor) room.EnableV2Movement();
         var width = model.MapSizeX; var height = model.MapSizeY;

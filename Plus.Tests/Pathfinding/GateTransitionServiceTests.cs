@@ -560,7 +560,7 @@ public partial class PlacedFurniRoomTests
         var box = Furni(40, InteractionType.WiredEffect, WiredBoxType.None);
         var action = new Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction(_room, box,
             Plus.HabboHotel.Items.Wired.Configuration.WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_toggle_state"),
-            new(), _ => { }, (_, _, _) => { }, new());
+            new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger);
         Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [gate.Id] }, out var config, out var error), error);
         action.ApplyConfiguration(config);
         var items = _room.GetRoomItemHandler().GetFloor.ToArray(); var users = _room.GetRoomUserManager().GetUserList().ToArray();
@@ -824,7 +824,7 @@ public partial class PlacedFurniRoomTests
         var box = Furni(41, InteractionType.WiredEffect, WiredBoxType.None);
         var action = new Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction(_room, box,
             Plus.HabboHotel.Items.Wired.Configuration.WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_match_to_sshot"),
-            new(), _ => { }, (_, _, _) => { }, new());
+            new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger);
         var proposed = new Plus.HabboHotel.Items.Wired.Configuration.WiredConfiguration
         {
             IntParams = [1, 0, 0, 0, 100], SelectedItems = [gate.Id],

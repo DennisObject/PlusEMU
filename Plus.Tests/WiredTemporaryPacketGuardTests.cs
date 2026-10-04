@@ -78,7 +78,7 @@ public class WiredTemporaryPacketGuardTests
     {
         var (room, client) = Room();
         var highId = uint.MaxValue - 1;
-        var map = new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false));
+        var map = new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false), TestLogging.Navigation);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         map.GenerateMaps();
         var item = new Item { Id = highId, Definition = new() { Type = ItemType.Floor, InteractionType = InteractionType.Stacktool }, GetZ = 1 };
@@ -169,7 +169,7 @@ public class WiredTemporaryPacketGuardTests
         room.Id = 1; room.OwnerId = 42; room.OwnerName = "owner"; room.Type = "private";
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
-        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory());
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
         client.SetHabbo(new Habbo { Id = 42, Username = "owner", CurrentRoom = room, Credits = 10,
             Access = EditorTestSupport.Access(["room.item_save_branding_items"]) });
         return (room, client);

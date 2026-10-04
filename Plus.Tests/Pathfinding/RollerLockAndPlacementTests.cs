@@ -81,7 +81,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(PathfindingEngine.V2)]
     public void EarlierHookRotatingAHelperOntoAHigherFloorRejectsItsStaleGroup(PathfindingEngine engine)
     {
-        Set("_gamemap", new Gamemap(_room, new RoomModel("roller-floor", 0, 0, 0, 0, "0000\r0002\r0000\r0000", 0, 0, false)));
+        Set("_gamemap", new Gamemap(_room, new RoomModel("roller-floor", 0, 0, 0, 0, "0000\r0002\r0000\r0000", 0, 0, false), TestLogging.Navigation));
         _room.GetGameMap().GenerateMaps();
         PlannerRoller(5, 0, 3, 2); ExecutorFloor(40, 1, 3);
         PlannerRoller(10, 1, 1, 2);

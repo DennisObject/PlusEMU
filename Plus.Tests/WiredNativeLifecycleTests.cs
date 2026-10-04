@@ -353,7 +353,7 @@ public sealed class WiredNativeLifecycleTests
         public World()
         {
             Room.Id = 1;
-            Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true));
+            Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
             var handler = new RoomItemHandling(Room);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);
             var users = new RoomUserManager(Room); Set(Room, "_roomUserManager", users);
@@ -361,7 +361,7 @@ public sealed class WiredNativeLifecycleTests
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(Map, new byte[3, 3]);
             _items = (ConcurrentDictionary<uint, Item>)Get(handler, "_floorItems");
             _users = (ConcurrentDictionary<int, RoomUser>)Get(users, "_users");
-            Wired = new(Room); Set(Room, "_wiredComponent", Wired);
+            Wired = new(Room, TestLogging.Logger); Set(Room, "_wiredComponent", Wired);
         }
         public void PrepareVariables()
         {
@@ -383,7 +383,7 @@ public sealed class WiredNativeLifecycleTests
         }
         public RoomUser Human()
         {
-            var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
+            var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
                 Revision = new() { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
                     .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id) },

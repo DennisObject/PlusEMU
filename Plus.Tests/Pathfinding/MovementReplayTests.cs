@@ -186,7 +186,7 @@ public partial class PlacedFurniRoomTests
     private void ReplayNavigation(PathfindingEngine engine, bool collision)
     {
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = engine, StacktoolLegacyCollision = collision });
+        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = engine, StacktoolLegacyCollision = collision }, TestLogging.Navigation);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
     }

@@ -90,7 +90,7 @@ public class WiredRoomSettingsTests
         store.Saved = new(1, 0, "Europe/Berlin");
         Assert.Throws<InvalidOperationException>(() => settings.TrySave(owner, 2, 2, "UTC", out _));
         Assert.Same(initial, settings.Snapshot);
-        await new WiredRoomSettingsRequestEvent(null!).Parse(room, owner, new FlashIncomingPacket { Buffer = Memory<byte>.Empty });
+        await new WiredRoomSettingsRequestEvent(null!, TestLogging.Factory).Parse(room, owner, new FlashIncomingPacket { Buffer = Memory<byte>.Empty });
         var response = Assert.Single(replies); Assert.Equal(5102u, response.Id);
         Assert.Equal((int)room.Id, response.Payload.ReadInt()); Assert.Equal(1, response.Payload.ReadInt()); Assert.Equal(0, response.Payload.ReadInt());
         Assert.Equal(2, store.Loads); Assert.Equal(store.Saved, settings.Snapshot);
@@ -105,11 +105,11 @@ public class WiredRoomSettingsTests
         var store = new MemoryStore { Saved = new(1, 0, "UTC") };
         var settings = Register(room, store); var replies = Capture(owner); var initial = settings.Snapshot;
         store.FailLoad = true;
-        await new WiredRoomSettingsRequestEvent(null!).Parse(room, owner, new FlashIncomingPacket { Buffer = Memory<byte>.Empty });
+        await new WiredRoomSettingsRequestEvent(null!, TestLogging.Factory).Parse(room, owner, new FlashIncomingPacket { Buffer = Memory<byte>.Empty });
         Assert.Equal(156u, Assert.Single(replies).Id); Assert.Same(initial, settings.Snapshot);
         Assert.False(settings.CanModify(decorator)); Assert.Equal("UTC", settings.ExplicitTimeZone!.Id);
         store.FailLoad = false; store.Saved = null; replies.Clear();
-        await new WiredRoomSettingsRequestEvent(null!).Parse(room, owner, new FlashIncomingPacket { Buffer = Memory<byte>.Empty });
+        await new WiredRoomSettingsRequestEvent(null!, TestLogging.Factory).Parse(room, owner, new FlashIncomingPacket { Buffer = Memory<byte>.Empty });
         Assert.Equal(5102u, Assert.Single(replies).Id); Assert.Equal(new(), settings.Snapshot);
         Assert.True(settings.CanModify(decorator)); Assert.Null(settings.ExplicitTimeZone);
         Assert.True(settings.TrySave(owner, 2, 2, "", out _)); // First-row CAS now expects absence.
@@ -133,7 +133,7 @@ public class WiredRoomSettingsTests
     [InlineData("example.json")]
     public void ActualRoomSettingsHandlersHaveUniqueActiveProfileMappings(string profile)
     {
-        IPacketEvent[] handlers = [new WiredRoomSettingsRequestEvent(null!), new WiredRoomSettingsSaveEvent(null!), new WiredMenuPermissionsSaveEvent(null!)];
+        IPacketEvent[] handlers = [new WiredRoomSettingsRequestEvent(null!, TestLogging.Factory), new WiredRoomSettingsSaveEvent(null!, TestLogging.Factory), new WiredMenuPermissionsSaveEvent(null!, TestLogging.Factory)];
         using var manager = new PacketManager(handlers, NullLogger<PacketManager>.Instance);
         var registered = (Dictionary<uint, IPacketEvent>)typeof(PacketManager).GetField("_incomingPackets", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!;
         var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
@@ -182,7 +182,7 @@ public class WiredRoomSettingsTests
     }
     private static FlashGameClient Client(Room room, int id, params string[] rights)
     {
-        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory());
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
         client.SetHabbo(new Habbo { Id = id, Username = id == room.OwnerId ? "owner" : "user" + id,
             CurrentRoom = room, Access = EditorTestSupport.Access([.. rights]) }); return client;
     }

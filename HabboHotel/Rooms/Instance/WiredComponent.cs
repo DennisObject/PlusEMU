@@ -2,7 +2,6 @@
 ﻿using System.Data;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Core;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Items;
@@ -25,10 +24,10 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly WiredTargetResolver _targets;
     private readonly ILogger _logger;
 
-    public WiredComponent(Room instance, ILogger? logger = null) //, RoomItem Items)
+    public WiredComponent(Room instance, ILogger logger) //, RoomItem Items)
     {
         _room = instance;
-        _logger = logger ?? NullLogger.Instance;
+        _logger = logger;
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
             box => ReferenceEquals(_room.GetRoomItemHandler().GetItem(box.Item.Id), box.Item),

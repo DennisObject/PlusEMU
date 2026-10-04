@@ -28,7 +28,7 @@ public sealed class ClientAccessListTests
 
     internal static RoomManager Models()
     {
-        var manager = new RoomManager(NullLogger<RoomManager>.Instance, null!, null!, TimeProvider.System);
+        var manager = new RoomManager(NullLogger<RoomManager>.Instance, null!, null!, TimeProvider.System, new TestRoomFactory());
         var models = (Dictionary<string, RoomModel>)typeof(RoomManager).GetField("_roomModels", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         foreach (var model in new[] {
             new RoomModel("model_a", 0, 0, 0, 0, "00\rx0", 0, 0, false),

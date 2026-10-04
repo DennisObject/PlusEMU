@@ -1,6 +1,5 @@
 ﻿using Plus.HabboHotel.Permissions;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using System.Data;
 using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
@@ -79,8 +78,6 @@ public class Room
         _wiredLogger = wiredLogger;
     }
 
-    public Room(RoomData data, IEnumerable<IRoomComponent>? components = null)
-        : this(data, components, NullLogger<RoomNavigation>.Instance, NullLogger.Instance) { }
 
     public RoomData Data => _data ??= new RoomData();
     public static implicit operator RoomData(Room room) => room.Data;

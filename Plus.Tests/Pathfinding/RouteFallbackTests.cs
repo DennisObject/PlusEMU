@@ -321,7 +321,7 @@ public partial class PlacedFurniRoomTests
 
     private void FallbackModel(string heightmap)
     {
-        Set("_gamemap", new Gamemap(_room, new RoomModel("fallback", 0, 0, 0, 0, heightmap, 0, 0, false)));
+        Set("_gamemap", new Gamemap(_room, new RoomModel("fallback", 0, 0, 0, 0, heightmap, 0, 0, false), TestLogging.Navigation));
         _room.GetGameMap().GenerateMaps();
     }
 
@@ -329,7 +329,7 @@ public partial class PlacedFurniRoomTests
     {
         var actor = Viewer(x, y); actor.InternalRoomId = actor.VirtualId; actor.UserId = 7;
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, settings ?? new() { Engine = PathfindingEngine.V2 });
+        var navigation = new RoomNavigation(_room, map.StaticModel, settings ?? new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
         foreach (var item in _room.GetRoomItemHandler().GetFloor) navigation.Inputs.Attach(item);

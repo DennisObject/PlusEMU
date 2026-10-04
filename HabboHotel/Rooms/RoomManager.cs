@@ -29,13 +29,13 @@ public class RoomManager : IRoomManager, IStartable
     private readonly ConcurrentDictionary<uint, Room> _fastWiredRooms = new();
 
 
-    public RoomManager(ILogger<RoomManager> logger, IDatabase database, ILanguageManager languageManager, TimeProvider clock, IRoomFactory? roomFactory = null)
+    public RoomManager(ILogger<RoomManager> logger, IDatabase database, ILanguageManager languageManager, TimeProvider clock, IRoomFactory roomFactory)
     {
         _logger = logger;
         _database = database;
         _languageManager = languageManager;
         _clock = clock;
-        _roomFactory = roomFactory ?? new LegacyRoomFactory();
+        _roomFactory = roomFactory;
         _roomModels = new();
         _rooms = new();
         _roomLoadingSync = new();

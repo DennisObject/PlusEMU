@@ -57,10 +57,10 @@ public partial class PlacedFurniRoomTests : IDisposable
         _room.OwnerId = 7;
         _room.OwnerName = "owner";
         _room.Type = "private";
-        Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false)));
+        Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false), TestLogging.Navigation));
         Set("_roomItemHandling", new RoomItemHandling(_room));
         Set("_roomUserManager", new RoomUserManager(_room));
-        var wired = new WiredComponent(_room);
+        var wired = new WiredComponent(_room, TestLogging.Logger);
         typeof(WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, new EmptyConfigurationStore());
         Set("_wiredComponent", wired);
         _room.GetGameMap().GenerateMaps();
@@ -327,7 +327,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         public Action<uint>? BeforeCapture { get; set; }
         public List<uint> Sent { get; } = new();
         public List<(uint Header, byte[] Body)> Packets { get; } = new();
-        public TestClient() : base(TestGameServer.Instance, new FlashPacketFactory())
+        public TestClient() : base(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
         {
             Revision = new Revision
             {

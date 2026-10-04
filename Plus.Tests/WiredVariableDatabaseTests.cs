@@ -140,7 +140,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             var fxItem = new Item { Id = fxItemId, OwnerId = owner, Definition = new() { InteractionName = "wf_xtra_var_fx_health" } }; floor[fxItem.Id] = fxItem;
             var fxBox = Assert.IsType<WiredVariableMetadataBox>(roomVariables.CreateBox(fxItem)); roomVariables.ConfigurationLoaded(fxBox);
             var sentFx = new List<uint>();
-            var fxClient = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
+            var fxClient = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
                 Revision = new Revision { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
                 {
@@ -180,12 +180,12 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             output.WriteLine("Actual room FX binding/composition: initial configs/status, unchanged flush zero SQL, enqueue-failure retry, and moved-off-variable removal passed.");
             // Exercise production readiness and cycle entry with the same actual SQL module, not FlushFx directly.
             roomVariables.Fx.RemoveViewer(fxPlayer.Id); // End the preceding module-only simulated viewer session.
-            var nativeWired = new WiredComponent(liveRoom);
+            var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, nativeWired);
             typeof(WiredComponent).GetField("_variables", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nativeWired, new Lazy<WiredRoomVariables>(() => roomVariables));
             Assert.Same(roomVariables, nativeWired.Variables);
             typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom,
-                new Gamemap(liveRoom, new RoomModel("wired-sql-probe", 0, 0, 0, 0, "000\r000\r000", 0, 0, true)));
+                new Gamemap(liveRoom, new RoomModel("wired-sql-probe", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation));
             fxPlayer.Username = "probe-viewer"; fxPlayer.Motto = ""; fxPlayer.Look = "test"; fxPlayer.Gender = "M";
             fxPlayer.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
             fxPlayer.Effects = new(); fxPlayer.Access = EditorTestSupport.Access([]);

@@ -30,7 +30,7 @@ public class MagicTileParityTests
             var fixture = RoomPerformanceFixture.Create(0, 0);
             var model = new RoomModel("magic-parity", 0, 0, 0, 0,
                 voidTile ? "0000\r0x00\r0000\r0000" : "0000\r0000\r0000\r0000", 0, 0, false);
-            var map = new Gamemap(fixture.Room, model);
+            var map = new Gamemap(fixture.Room, model, TestLogging.Navigation);
             typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(fixture.Room, map);
             var handler = fixture.Room.GetRoomItemHandler();
             var underlying = NavTest.Item(1); underlying.Definition.Height = walkMagic ? 6 : 1;
@@ -78,7 +78,7 @@ public class MagicTileParityTests
         {
             var fixture = RoomPerformanceFixture.Create(0, 0);
             var map = new Gamemap(fixture.Room, new RoomModel("magic-corner", 0, 0, 0, 0,
-                "0000\r00x0\r0000\r0000", 0, 0, false));
+                "0000\r00x0\r0000\r0000", 0, 0, false), TestLogging.Navigation);
             typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(fixture.Room, map);
             var item = Helper(1, InteractionType.WalkMagicTile);
             item.SetState(2, 1, 0.75, Gamemap.GetAffectedTiles(1, 1, 2, 1, 0));

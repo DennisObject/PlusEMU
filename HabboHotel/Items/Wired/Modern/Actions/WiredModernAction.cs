@@ -2,7 +2,6 @@ using Plus.HabboHotel.Permissions;
 using System.Collections.Immutable;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Runtime;
@@ -38,9 +37,6 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         _roomLog = roomLog;
         _logger = logger;
     }
-    public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
-        Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog)
-        : this(room, item, descriptor, clocks, publish, walkTransition, roomLog, NullLogger.Instance) { }
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         var name = Descriptor.CanonicalName;

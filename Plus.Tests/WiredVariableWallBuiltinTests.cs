@@ -84,7 +84,7 @@ public sealed class WiredVariableWallBuiltinTests
             Room.Id = 1; Room.OwnerId = 5;
             var handler = new RoomItemHandling(Room); typeof(Room).GetField("_roomItemHandling", Private)!.SetValue(Room, handler);
             typeof(Room).GetField("_roomUserManager", Private)!.SetValue(Room, new RoomUserManager(Room));
-            var wired = new WiredComponent(Room); typeof(Room).GetField("_wiredComponent", Private)!.SetValue(Room, wired);
+            var wired = new WiredComponent(Room, TestLogging.Logger); typeof(Room).GetField("_wiredComponent", Private)!.SetValue(Room, wired);
             Walls = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", Private)!.GetValue(handler)!;
             Floors = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", Private)!.GetValue(handler)!;
             Walls[Wall.Id] = Wall; typeof(Item).GetField("_room", Private)!.SetValue(Wall, Room);

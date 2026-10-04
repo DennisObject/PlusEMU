@@ -10,7 +10,7 @@ public sealed class RoomLifecycleTests
     public void InitiateRunsEveryFirstPhaseBeforeAnySecondPhase()
     {
         var calls = new List<string>();
-        var room = new Room(Data(1), [new RecordingComponent("a", calls), new RecordingComponent("b", calls)]);
+        var room = new Room(Data(1), [new RecordingComponent("a", calls), new RecordingComponent("b", calls)], TestLogging.Navigation, TestLogging.Logger);
 
         room.Initiate();
 
@@ -20,7 +20,7 @@ public sealed class RoomLifecycleTests
     [Fact]
     public void InitiateRejectsSecondCall()
     {
-        var room = new Room(Data(1), Array.Empty<IRoomComponent>());
+        var room = new Room(Data(1), Array.Empty<IRoomComponent>(), TestLogging.Navigation, TestLogging.Logger);
         room.Initiate();
 
         Assert.Throws<InvalidOperationException>(room.Initiate);
@@ -33,7 +33,7 @@ public sealed class RoomLifecycleTests
         services.AddScoped<Probe>();
         services.AddScoped<IRoomComponent, ScopedProbeComponent>();
         using var provider = services.BuildServiceProvider();
-        using var factory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>());
+        using var factory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>(), TestLogging.Navigation, TestLogging.Factory);
 
         var first = factory.Create(Data(1));
         var second = factory.Create(Data(2));
@@ -55,7 +55,7 @@ public sealed class RoomLifecycleTests
         services.AddScoped<Probe>();
         services.AddScoped<IRoomComponent, ScopedProbeComponent>();
         using var provider = services.BuildServiceProvider();
-        using var factory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>());
+        using var factory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>(), TestLogging.Navigation, TestLogging.Factory);
         var room = factory.Create(Data(1));
         var probe = Assert.IsType<ScopedProbeComponent>(room.Components.Single()).Probe;
 
