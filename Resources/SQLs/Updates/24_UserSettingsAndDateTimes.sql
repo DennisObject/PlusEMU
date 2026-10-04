@@ -1,4 +1,6 @@
 -- Backfill before removing the legacy columns so upgrades preserve every setting.
+SET @users_migration_time_zone = @@SESSION.time_zone;
+SET SESSION time_zone = '+00:00';
 CREATE TABLE `users_settings` (
   `user_id` INT(11) NOT NULL,
   `home_room` INT(10) UNSIGNED NOT NULL DEFAULT 0,
@@ -41,16 +43,18 @@ ON DUPLICATE KEY UPDATE
   `disable_forced_effects` = VALUES(`disable_forced_effects`), `allow_mimic` = VALUES(`allow_mimic`);
 
 ALTER TABLE `users`
-  MODIFY `online` BOOL NULL DEFAULT FALSE,
-  MODIFY `vip` BOOL NULL DEFAULT TRUE,
+  ADD COLUMN `online_bool` BOOL NULL DEFAULT FALSE,
+  ADD COLUMN `vip_bool` BOOL NULL DEFAULT TRUE,
   ADD COLUMN `account_created_at` DATETIME NULL,
   ADD COLUMN `last_online_at` DATETIME NULL,
   ADD COLUMN `last_change_at` DATETIME NULL;
 
 UPDATE `users` SET
-  `account_created_at` = FROM_UNIXTIME(NULLIF(CAST(`account_created` AS UNSIGNED), 0)),
-  `last_online_at` = FROM_UNIXTIME(NULLIF(CAST(`last_online` AS UNSIGNED), 0)),
-  `last_change_at` = FROM_UNIXTIME(NULLIF(CAST(`last_change` AS UNSIGNED), 0));
+  `online_bool` = COALESCE(`online`, '0') = '1',
+  `vip_bool` = COALESCE(`vip`, '1') = '1',
+  `account_created_at` = CASE WHEN CAST(`account_created` AS UNSIGNED) = 0 THEN NULL ELSE DATE_ADD('1970-01-01 00:00:00', INTERVAL CAST(`account_created` AS UNSIGNED) SECOND) END,
+  `last_online_at` = CASE WHEN CAST(`last_online` AS UNSIGNED) = 0 THEN NULL ELSE DATE_ADD('1970-01-01 00:00:00', INTERVAL CAST(`last_online` AS UNSIGNED) SECOND) END,
+  `last_change_at` = CASE WHEN CAST(`last_change` AS UNSIGNED) = 0 THEN NULL ELSE DATE_ADD('1970-01-01 00:00:00', INTERVAL CAST(`last_change` AS UNSIGNED) SECOND) END;
 
 ALTER TABLE `users`
   DROP COLUMN `home_room`, DROP COLUMN `is_muted`, DROP COLUMN `block_newfriends`, DROP COLUMN `hide_online`,
@@ -58,9 +62,13 @@ ALTER TABLE `users`
   DROP COLUMN `pets_muted`, DROP COLUMN `bots_muted`, DROP COLUMN `advertising_report_blocked`, DROP COLUMN `ignore_invites`,
   DROP COLUMN `allow_gifts`, DROP COLUMN `friend_bar_state`, DROP COLUMN `disable_forced_effects`, DROP COLUMN `allow_mimic`,
   DROP COLUMN `account_created`, DROP COLUMN `last_online`, DROP COLUMN `last_change`,
+  DROP COLUMN `online`, DROP COLUMN `vip`,
+  RENAME COLUMN `online_bool` TO `online`, RENAME COLUMN `vip_bool` TO `vip`,
   RENAME COLUMN `account_created_at` TO `account_created`, RENAME COLUMN `last_online_at` TO `last_online`,
   RENAME COLUMN `last_change_at` TO `last_change`, ADD INDEX `last_online` (`last_online`);
 
 ALTER TABLE `user_info` ADD COLUMN `trading_locked_at` DATETIME NULL;
-UPDATE `user_info` SET `trading_locked_at` = FROM_UNIXTIME(NULLIF(CAST(`trading_locked` AS UNSIGNED), 0));
+UPDATE `user_info` SET `trading_locked_at` = CASE WHEN CAST(`trading_locked` AS UNSIGNED) = 0 THEN NULL ELSE DATE_ADD('1970-01-01 00:00:00', INTERVAL CAST(`trading_locked` AS UNSIGNED) SECOND) END;
 ALTER TABLE `user_info` DROP COLUMN `trading_locked`, RENAME COLUMN `trading_locked_at` TO `trading_locked`;
+
+SET SESSION time_zone = @users_migration_time_zone;

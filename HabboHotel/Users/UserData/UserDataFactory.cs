@@ -10,18 +10,23 @@ public class UserDataFactory : IUserDataFactory
     private readonly BadgeManager _badgeManager;
     private readonly IDatabase _database;
     private readonly IEnumerable<IUserDataLoadingTask> _userDataLoadingTasks;
+    private readonly IUserPersistenceService _persistence;
 
-    public UserDataFactory(BadgeManager badgeManager, IDatabase database, IEnumerable<IUserDataLoadingTask> userDataLoadingTasks)
+    public UserDataFactory(BadgeManager badgeManager, IDatabase database, IEnumerable<IUserDataLoadingTask> userDataLoadingTasks, IUserPersistenceService persistence)
     {
         _badgeManager = badgeManager;
         _database = database;
         _userDataLoadingTasks = userDataLoadingTasks;
+        _persistence = persistence;
     }
 
     public async Task<Habbo?> Create(int userId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var habbo = await LoadHabboInfo(userId);
+        if (habbo == null) return null;
+        habbo.Persistence = _persistence;
+        habbo.SessionStartedAt = DateTimeOffset.UtcNow;
 
         foreach (var task in _userDataLoadingTasks)
         {
@@ -56,7 +61,7 @@ public class UserDataFactory : IUserDataFactory
     {
         using var connection = _database.Connection();
         var habbo = await connection.QuerySingleOrDefaultAsync<Habbo>(
-            "SELECT u.`id`, u.`username`, u.`motto`, u.`look`, u.`gender`, UNIX_TIMESTAMP(u.`last_online`) AS LastOnline, u.`credits`, u.`activity_points` as Duckets, us.`home_room`, us.`block_newfriends` as AllowFriendRequests, us.`hide_online` as AppearOffline, us.`hide_inroom` as AllowPublicRoomStatus, u.`vip`, UNIX_TIMESTAMP(u.`account_created`) AS AccountCreated, u.`vip_points` as Diamonds, us.`chat_preference`, us.`focus_preference`, us.`pets_muted` as AllowPetSpeech, us.`bots_muted` as AllowBotSpeech, us.`advertising_report_blocked`, UNIX_TIMESTAMP(u.`last_change`) as LastNameChange, u.`gotw_points`, us.`ignore_invites` as AllowMessengerInvites, u.`time_muted`, us.`allow_gifts`, us.`friend_bar_state`, us.`disable_forced_effects`, us.`allow_mimic`, u.`bubble_id` as CustomBubbleId, s.`AchievementScore` as AchievementPoints, s.`groupid` as FavouriteGroupId " +
+            "SELECT u.`id`, u.`username`, u.`motto`, u.`look`, u.`gender`, u.`last_online` AS LastOnlineAt, u.`credits`, u.`activity_points` as Duckets, us.`home_room`, us.`block_newfriends` as AllowFriendRequests, us.`hide_online` as AppearOffline, us.`hide_inroom` as AllowPublicRoomStatus, u.`vip`, u.`account_created` AS AccountCreatedAt, u.`vip_points` as Diamonds, us.`chat_preference`, us.`focus_preference`, us.`pets_muted` as AllowPetSpeech, us.`bots_muted` as AllowBotSpeech, us.`advertising_report_blocked`, u.`last_change` as LastNameChangedAt, u.`gotw_points`, us.`ignore_invites` as AllowMessengerInvites, u.`time_muted`, us.`allow_gifts`, us.`friend_bar_state`, us.`disable_forced_effects`, us.`allow_mimic`, u.`bubble_id` as CustomBubbleId, s.`AchievementScore` as AchievementPoints, s.`groupid` as FavouriteGroupId " +
             "FROM `users` u " +
             "INNER JOIN `users_settings` us ON us.user_id = u.id " +
             "LEFT JOIN `user_statistics` s ON u.id = s.id " +
