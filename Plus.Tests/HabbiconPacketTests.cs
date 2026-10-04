@@ -145,7 +145,7 @@ public class HabbiconPacketTests
         var item = new CatalogItem { Id = 10, OfferId = 12, CatalogName = "toast_toast", HabbiconId = 61,
             CostCredits = 5, Amount = 1, HaveOffer = haveOffer, Badge = "ignored", Definition = null! };
         var packet = new RecordingPacket();
-        new CatalogOfferComposer(item).Compose(packet);
+        new CatalogOfferComposer(CatalogSnapshotTestSupport.Snapshots().CaptureOffer(item)).Compose(packet);
         Assert.Equal(new object[] { 12, "toast_toast", false, 5, 0, 0, false, 1,
             "habbicon", 61, "61", 1, false, 0, false, false, "", "", haveOffer }, packet.Writes);
         Assert.False(ItemUtility.CanGiftItem(item));

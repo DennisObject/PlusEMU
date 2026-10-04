@@ -5,33 +5,25 @@ namespace Plus.Communication.Packets.Outgoing.Catalog;
 
 public class CatalogIndexComposer : IServerPacket
 {
-    // The client rejects deeper trees, so pages below this depth are left out.
-    public const int MaximumDepth = 20;
-
-    private readonly GameClient _session;
-    private readonly string _mode;
-    private readonly ILookup<int, CatalogPage> _children;
+    private readonly CatalogIndexSnapshot _index;
 
     public uint MessageId => ServerPacketHeader.CatalogIndexComposer;
 
-    public CatalogIndexComposer(GameClient session, ICollection<CatalogPage> pages, string mode = CatalogModes.Normal)
+    public CatalogIndexComposer(CatalogIndexSnapshot index)
     {
-        _session = session;
-        _mode = mode;
-        var habbo = session.GetHabbo();
-        _children = pages.Where(page => page.CatalogMode == mode && page.IsAvailableTo(habbo)).ToLookup(page => page.ParentId);
+        _index = index;
     }
 
     public void Compose(IOutgoingPacket packet)
     {
         WriteRootIndex(packet);
-        foreach (var page in _children[-1])
-            WriteNode(packet, page, 1);
+        foreach (var node in _index.Roots)
+            WriteNode(packet, node);
         packet.WriteBoolean(false);
-        packet.WriteString(_mode);
+        packet.WriteString(_index.Mode);
     }
 
-    public void WriteRootIndex(IOutgoingPacket packet)
+    private void WriteRootIndex(IOutgoingPacket packet)
     {
         packet.WriteBoolean(true);
         packet.WriteInteger(0);
@@ -40,24 +32,21 @@ public class CatalogIndexComposer : IServerPacket
         packet.WriteString("root");
         packet.WriteString(string.Empty);
         packet.WriteInteger(0);
-        packet.WriteInteger(_children[-1].Count());
+        packet.WriteInteger(_index.Roots.Count);
     }
 
-    private void WriteNode(IOutgoingPacket packet, CatalogPage page, int depth)
+    private static void WriteNode(IOutgoingPacket packet, CatalogIndexNode node)
     {
-        var children = depth < MaximumDepth ? _children[page.Id].ToList() : new List<CatalogPage>();
-        packet.WriteBoolean(page.Visible);
-        packet.WriteInteger(page.Icon);
-        // A disabled page stays in the tree as a heading the client cannot open.
-        packet.WriteInteger(page.Enabled ? page.Id : -1);
-        packet.WriteInteger(page.ParentId);
-        packet.WriteString(page.Link);
-        packet.WriteString(page.Caption);
-        var offerIds = page.Enabled ? CatalogOfferIndex.OfficialOfferIds(page).ToList() : new List<int>();
-        packet.WriteInteger(offerIds.Count);
-        foreach (var offerId in offerIds) packet.WriteInteger(offerId);
-        packet.WriteInteger(children.Count);
-        foreach (var child in children)
-            WriteNode(packet, child, depth + 1);
+        packet.WriteBoolean(node.Visible);
+        packet.WriteInteger(node.Icon);
+        packet.WriteInteger(node.WireId);
+        packet.WriteInteger(node.ParentId);
+        packet.WriteString(node.Link);
+        packet.WriteString(node.Caption);
+        packet.WriteInteger(node.OfferIds.Count);
+        foreach (var offerId in node.OfferIds) packet.WriteInteger(offerId);
+        packet.WriteInteger(node.Children.Count);
+        foreach (var child in node.Children)
+            WriteNode(packet, child);
     }
 }

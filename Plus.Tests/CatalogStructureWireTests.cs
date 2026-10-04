@@ -27,7 +27,7 @@ public class CatalogStructureWireTests
         ];
         var packet = new HabbiconTestSupport.RecordingPacket();
 
-        new CatalogIndexComposer(client, pages).Compose(packet);
+        new CatalogIndexComposer(CatalogSnapshotTestSupport.Snapshots().CaptureIndex(client.GetHabbo(), pages, CatalogModes.Normal)).Compose(packet);
 
         Assert.Equal(new List<object>
         {
@@ -47,7 +47,7 @@ public class CatalogStructureWireTests
         var (client, _) = HabbiconTestSupport.Client(EditorTestSupport.Player());
         var packet = new HabbiconTestSupport.RecordingPacket();
 
-        new CatalogIndexComposer(client, [Page(1, -1), Page(8, -1, CatalogModes.BuildersClub)], CatalogModes.FromClient("BUILDERS_CLUB")).Compose(packet);
+        new CatalogIndexComposer(CatalogSnapshotTestSupport.Snapshots().CaptureIndex(client.GetHabbo(), [Page(1, -1), Page(8, -1, CatalogModes.BuildersClub)], CatalogModes.FromClient("BUILDERS_CLUB"))).Compose(packet);
 
         Assert.Equal(new List<object>
         {
