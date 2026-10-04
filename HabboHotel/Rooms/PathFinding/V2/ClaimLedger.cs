@@ -18,8 +18,13 @@ public sealed class ClaimLedger
 {
     private readonly Dictionary<RoomUser, ClaimMember> _members = new(ReferenceEqualityComparer.Instance);
     private readonly List<Claim>?[] _claims;
+    // Roller cargo destinations: R claims owned by no actor, released with the other roller claims.
+    private readonly int[] _cargoReservations;
+    private readonly List<int> _cargoSlots = new();
     private readonly record struct Claim(ClaimMember Owner, ClaimKind Kind);
     private enum ReleaseMode { All, Batch, Roller }
+    // Lifetime ids are positive, so this group excludes nobody (roller cargo belongs to no actor).
+    public const long NoGroup = long.MinValue;
     public ClaimMember?[] Head { get; }
     public ClaimMember?[] OffGraphHead { get; }
     public int[] Count { get; }
@@ -31,6 +36,7 @@ public sealed class ClaimLedger
         Head = new ClaimMember?[slotCapacity]; OffGraphHead = new ClaimMember?[tileCount];
         Count = new int[slotCapacity]; StationaryCount = new int[slotCapacity];
         TileCount = new int[tileCount]; _claims = new List<Claim>?[slotCapacity];
+        _cargoReservations = new int[slotCapacity];
     }
 
     public ClaimMember Move(RoomUser actor, int? slot, int tile, bool walking, long groupId)
@@ -65,10 +71,12 @@ public sealed class ClaimLedger
         return snapshot;
     }
 
-    public bool TryClaim(RoomUser actor, int slot, ClaimKind kind, TargetOccupancy blockingMask)
+    // Roller groups pass their own confirmed departures from the slot; nothing else is ignored.
+    public bool TryClaim(RoomUser actor, int slot, ClaimKind kind, TargetOccupancy blockingMask,
+        IReadOnlySet<RoomUser>? departing = null)
     {
         if (!_members.TryGetValue(actor, out var member)) return false;
-        if ((OccupancyAt(slot, member.GroupId) & blockingMask) != 0) return false;
+        if ((OccupancyAt(slot, member.GroupId, departing) & blockingMask) != 0) return false;
         var claims = _claims[slot] ??= new(4);
         foreach (var existing in claims)
             if (ReferenceEquals(existing.Owner, member) && existing.Kind == kind) return true;
@@ -89,22 +97,47 @@ public sealed class ClaimLedger
     public void ReleaseRollers()
     {
         foreach (var member in _members.Values) ReleaseClaims(member, ReleaseMode.Roller);
+        foreach (var slot in _cargoSlots) _cargoReservations[slot] = 0;
+        _cargoSlots.Clear();
     }
 
-    public TargetOccupancy OccupancyAt(int slot, long excludingGroup)
+    public bool TryReserveCargo(int slot, TargetOccupancy blockingMask, IReadOnlySet<RoomUser>? departing)
+    {
+        if ((OccupancyAt(slot, NoGroup, departing) & blockingMask) != 0) return false;
+        if (_cargoReservations[slot]++ == 0) _cargoSlots.Add(slot);
+        return true;
+    }
+
+    public void ReleaseCargo(int slot)
+    {
+        if (_cargoReservations[slot] > 0 && --_cargoReservations[slot] == 0) _cargoSlots.Remove(slot);
+    }
+
+    public void ReleaseRollers(RoomUser actor)
+    {
+        if (_members.TryGetValue(actor, out var member)) ReleaseClaims(member, ReleaseMode.Roller);
+    }
+
+    public TargetOccupancy OccupancyAt(int slot, long excludingGroup) => OccupancyAt(slot, excludingGroup, null);
+
+    public TargetOccupancy OccupancyAt(int slot, long excludingGroup, IReadOnlySet<RoomUser>? departing)
     {
         var result = TargetOccupancy.None;
         for (var member = Head[slot]; member != null; member = member.Next)
-            if (member.GroupId != excludingGroup)
+            if (Counts(member, excludingGroup, departing))
                 result |= member.Walking ? TargetOccupancy.Walking : TargetOccupancy.Stationary;
         if (slot < OffGraphHead.Length)
             for (var member = OffGraphHead[slot]; member != null; member = member.Next)
-                if (member.GroupId != excludingGroup) result |= TargetOccupancy.OffGraph;
+                if (Counts(member, excludingGroup, departing)) result |= TargetOccupancy.OffGraph;
         if (_claims[slot] is { } claims)
             foreach (var claim in claims)
-                if (claim.Owner.GroupId != excludingGroup) result |= ClaimBit(claim.Kind);
+                if (Counts(claim.Owner, excludingGroup, departing)) result |= ClaimBit(claim.Kind);
+        if (_cargoReservations[slot] != 0) result |= TargetOccupancy.RollerClaim;
         return result;
     }
+
+    private static bool Counts(ClaimMember member, long excludingGroup, IReadOnlySet<RoomUser>? departing)
+        => member.GroupId != excludingGroup && (departing == null || !departing.Contains(member.Actor));
 
     private void Link(ClaimMember member)
     {

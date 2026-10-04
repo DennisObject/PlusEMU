@@ -59,6 +59,20 @@ public sealed partial class RoomNavigation
         Inputs.MarkDirty(t);
     }
 
+    // The legacy map rewrote this cell from furniture, which ends an explicit floor status there.
+    public void ReleaseFloorStatus(int x, int y)
+    {
+        if (!Grid.InBounds(x, y)) return;
+        var t = Grid.Tile(x, y);
+        if (Interlocked.Exchange(ref Grid.FloorStatusOverrides[t], -1) != -1) Inputs.MarkDirty(t);
+    }
+
+    public void ReleaseFloorStatuses()
+    {
+        for (var y = 0; y < Grid.Height; y++)
+            for (var x = 0; x < Grid.Width; x++) ReleaseFloorStatus(x, y);
+    }
+
     public void Compare(RoomUser actor, IReadOnlyList<Vector2D> legacyPath, long legacyTicks)
     {
         if (!Enabled) return;

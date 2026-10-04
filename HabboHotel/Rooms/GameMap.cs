@@ -441,6 +441,17 @@ public class Gamemap
         _roamTargets = null;
     }
 
+    // V2 only: the walkability ConstructMapForItem writes when an item is the top of its cell
+    // (1 walkable or an open floor gate, 3 seat/bed/small tent, otherwise 0). Mirrors that legacy rule.
+    internal byte ItemWalkState(Item item)
+    {
+        if (item.Definition.Walkable) return 1;
+        if (item.GetZ <= Model.SqFloorHeight[item.GetX, item.GetY] + 0.1 && item.Definition.InteractionType == InteractionType.Gate
+            && item.LegacyDataString == "1") return 1;
+        return item.Definition.IsSeat || item.Definition.InteractionType is InteractionType.Bed or InteractionType.TentSmall
+            ? (byte)3 : (byte)0;
+    }
+
     private byte StructuralTile(int x, int y)
     {
         var map = _structuralMap ?? GameMap;
@@ -486,6 +497,7 @@ public class Gamemap
 
     private void SetDefaultValue(int x, int y)
     {
+        Navigation?.ReleaseFloorStatus(x, y);
         GameMap[x, y] = 0;
         EffectMap[x, y] = 0;
         _itemHeightMap[x, y] = 0.0;
@@ -523,6 +535,7 @@ public class Gamemap
     private void GenerateMapsCore(bool checkLines)
     {
         Navigation?.Inputs.MarkAllDirty();
+        Navigation?.ReleaseFloorStatuses();
         var maxX = 0;
         var maxY = 0;
         _coordinatedItems = new();
@@ -657,6 +670,7 @@ public class Gamemap
             var walkMagic = WalkMagicAt(coord.X, coord.Y);
             if (walkMagic != null)
             {
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 GameMap[coord.X, coord.Y] = 1;
                 _itemHeightMap[coord.X, coord.Y] = walkMagic.GetZ - Model.SqFloorHeight[coord.X, coord.Y];
                 EffectMap[coord.X, coord.Y] = 0;
@@ -688,6 +702,7 @@ public class Gamemap
                 }
 
                 //SwimHalloween
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 if (item.Definition.Walkable) // If this item is walkable and on the floor, allow users to walk here.
                 {
                     if (GameMap[coord.X, coord.Y] != 3)
@@ -710,7 +725,10 @@ public class Gamemap
 
             // Set bad maps
             if (item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall)
+            {
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 GameMap[coord.X, coord.Y] = 3;
+            }
             WriteStructural(coord.X, coord.Y, GameMap[coord.X, coord.Y]);
         }
         catch (Exception e)
