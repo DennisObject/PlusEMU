@@ -66,4 +66,66 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((1, 0, vendingZ), (actor.X, actor.Y, actor.Z));
         Assert.Equal(7, vending.InteractingUser);
     }
+
+    [Fact]
+    public void LayeredRollerCarriesOnlyWhatRestsOnTheRollerSurface()
+    {
+        // (0,1): roller top 0.5 with a rug on it, and a zero-height deck at 2.5 above it.
+        var roller = ExecutorRoller(10, 0, 1);
+        var rug = ExecutorFloor(12, 0, 1, z: 0.5); var deck = ExecutorFloor(21, 0, 1, z: 2.5);
+        var upper = LayeredActor(0, 1);
+        upper.SetPos(0, 1, 2.5); ExecutorTick();
+        var rider = ExecutorAdditionalBot(3, 3, 5);
+        rider.SetPos(0, 1, 0.5); ExecutorTick();
+        Assert.Equal((2.5, 0.5), (upper.Z, rider.Z));
+        Assert.Equal(new[] { upper, rider }, _room.GetGameMap().GetRoomUsers(new(0, 1)).ToArray());
+        EnableExecutorRollers(); ExecutorTick();
+        Assert.Equal((0, 1, 2.5), (upper.X, upper.Y, upper.Z));
+        Assert.Equal((1, 1, 0d), (rider.X, rider.Y, rider.Z));
+        Assert.Equal((0, 1), (deck.GetX, deck.GetY));
+        Assert.Equal((1, 1), (rug.GetX, rug.GetY));
+        Assert.Equal((0, 1), (roller.GetX, roller.GetY));
+    }
+
+    [Fact]
+    public void LayeredApproachKeepsItsSurfaceWhenTheGoalIsReResolved()
+    {
+        var vending = LayeredDeckApproach();
+        var actor = LayeredDeckApproacher();
+        vending.Interactor.OnTrigger(_client, vending, 0, true); ExecutorTick();
+        ExecutorFloor(34, 1, 0);
+        for (var tick = 0; tick < 5; tick++) ExecutorTick();
+        Assert.Equal((1, 0, 2d), (actor.X, actor.Y, actor.Z));
+        Assert.Equal(7, vending.InteractingUser);
+    }
+
+    [Fact]
+    public void LayeredApproachIsDroppedWhenItsSurfaceIsRemoved()
+    {
+        var vending = LayeredDeckApproach();
+        var actor = LayeredDeckApproacher();
+        vending.Interactor.OnTrigger(_client, vending, 0, true); ExecutorTick();
+        Assert.NotNull(Approaches.Peek(actor));
+        _room.GetRoomItemHandler().RemoveFurniture(null!, 31);
+        for (var tick = 0; tick < 5; tick++) ExecutorTick();
+        Assert.Equal(0, vending.InteractingUser);
+        Assert.Null(Approaches.Peek(actor));
+        Assert.NotEqual((1, 0, 0d), (actor.X, actor.Y, actor.Z));
+    }
+
+    // A vending machine at deck level (2) beside approach tile (1,0), which has a floor and a deck; decks lead from (3,0).
+    private Item LayeredDeckApproach()
+    {
+        var vending = Add(10, 1, 1, z: 2, type: InteractionType.VendingMachine);
+        InitializeNativeState(vending); vending.Definition.VendingIds.Add(DrinkId);
+        ExecutorFloor(31, 1, 0, z: 2); ExecutorFloor(32, 2, 0, z: 2); ExecutorFloor(33, 3, 0, z: 2);
+        return vending;
+    }
+
+    private RoomUser LayeredDeckApproacher()
+    {
+        var actor = LayeredActor(3, 0);
+        actor.SetPos(3, 0, 2); ExecutorTick();
+        return actor;
+    }
 }
