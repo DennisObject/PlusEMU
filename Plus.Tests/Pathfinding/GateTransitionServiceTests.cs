@@ -1193,8 +1193,8 @@ public partial class PlacedFurniRoomTests
         var gate = ClosableGate(); ActorOn(new Point(0, 2));
         var (module, directory, holder, frame, notices) = RetargetWorld(gate, toState: true);
         module.ResolutionHook = attempt => { if (attempt == 1) directory.ToState = false; };
-        Assert.True(Task.Run(() => module.Mutate(AliasReference, holder, WiredVariableMutation.Set, 7, frame)).Result);
-        Assert.Equal(7, module.Read(PointsReference, holder, frame)!.Value);
+        Assert.True(Task.Run(() => module.Mutate(AliasReference, holder, WiredVariableMutation.Set, 1, frame)).Result);
+        Assert.Equal(1, module.Read(PointsReference, holder, frame)!.Value);
         Assert.Equal("1", gate.LegacyDataString); Assert.Empty(notices); Assert.Equal(0, Gates.PendingCount);
         Assert.Equal(GateTransition.Applied, RunOwner(() => Gates.TryClose(gate, GateCloseReason.Click, "0", persist: false)));
     }
@@ -1205,7 +1205,7 @@ public partial class PlacedFurniRoomTests
         var gate = ClosableGate(); ActorOn(new Point(0, 2));
         var (module, directory, holder, frame, notices) = RetargetWorld(gate, toState: true);
         module.ResolutionHook = _ => directory.ToState = !directory.ToState;
-        Assert.False(Task.Run(() => module.Mutate(AliasReference, holder, WiredVariableMutation.Set, 7, frame)).Result);
+        Assert.False(Task.Run(() => module.Mutate(AliasReference, holder, WiredVariableMutation.Set, 1, frame)).Result);
         Assert.Equal(5, module.Read(PointsReference, holder, frame)!.Value);
         Assert.Equal("1", gate.LegacyDataString); Assert.Empty(notices); Assert.Equal(0, Gates.PendingCount);
     }
