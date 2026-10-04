@@ -189,8 +189,14 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
         return Task.FromResult(Live.Remove(ticket, out var id) ? id : (int?)null);
     }
 
-    public async Task<CredentialOwner?> Exchange(string ticket) =>
-        await FindOwner(ticket) is { } owner && Exchanged.Add(ticket) ? owner : null;
+    public async Task<CredentialOwner?> Exchange(string ticket)
+    {
+        if (await FindOwner(ticket) is not { } owner || !Exchanged.Add(ticket))
+            return null;
+        // Like the database store, a ticket without a session gets one when it is exchanged.
+        var sessionId = _sessions[ticket] ??= "fake-" + Guid.NewGuid().ToString("N");
+        return owner with { SessionId = sessionId };
+    }
 
     public Task Revoke(int userId, CredentialScope? scope = null)
     {
@@ -361,7 +367,9 @@ internal sealed class FakeGenerations : ICredentialGenerations
 
     public Task<long> Current(int userId) => Task.FromResult(_generations.GetValueOrDefault(userId));
 
-    public async Task<bool> WriteIfCurrent(int userId, long generation, string? sessionId, Func<CredentialScope, Task> writes)
+    public Task<bool> WriteIfCurrent(int userId, long generation, Func<CredentialScope, Task> writes) => WriteInSession(userId, generation, null!, writes);
+
+    public async Task<bool> WriteInSession(int userId, long generation, string sessionId, Func<CredentialScope, Task> writes)
     {
         if (_generations.GetValueOrDefault(userId) != generation || sessionId != null && _revokedSessions.Contains(sessionId))
             return false;

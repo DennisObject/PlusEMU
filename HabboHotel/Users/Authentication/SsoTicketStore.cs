@@ -47,9 +47,34 @@ public class SsoTicketStore : ISsoTicketStore
 
     // The conditional clear is the atomic step: a concurrent login that read the same ticket
     // finds it gone and matches no row.
-    public async Task<int?> Consume(string ticket) => (await ClaimFor(ticket, Cleared, ""))?.UserId;
+    public async Task<int?> Consume(string ticket) => (await ClaimFor(ticket, Cleared))?.UserId;
 
-    public Task<CredentialOwner?> Exchange(string ticket) => ClaimFor(ticket, "`auth_ticket_exchanged` = 1", " AND `auth_ticket_exchanged` = 0");
+    public async Task<CredentialOwner?> Exchange(string ticket)
+    {
+        if (await FindOwner(ticket) is not { } owner)
+            return null;
+
+        using var connection = _database.Connection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        await CredentialGenerations.Lock(connection, transaction, owner.UserId);
+        var live = await connection.QuerySingleOrDefaultAsync<CredentialOwner>(
+            $"SELECT `id` AS UserId, `auth_ticket_session` AS SessionId FROM `users` WHERE `id` = @UserId AND {LiveTicket} AND `auth_ticket_expires_at` >= @now AND `auth_ticket_exchanged` = 0",
+            new { owner.UserId, ticket, now = Now() }, transaction);
+        if (live == null)
+            return null;
+
+        var sessionId = live.SessionId;
+        if (sessionId == null)
+        {
+            sessionId = CredentialGenerations.NewSessionId();
+            await CredentialGenerations.StartSession(connection, transaction, sessionId, live.UserId);
+        }
+        await connection.ExecuteAsync("UPDATE `users` SET `auth_ticket_exchanged` = 1, `auth_ticket_session` = @sessionId WHERE `id` = @UserId",
+            new { sessionId, live.UserId }, transaction);
+        transaction.Commit();
+        return live with { SessionId = sessionId };
+    }
 
     public async Task Revoke(int userId, CredentialScope? scope = null)
     {
@@ -63,7 +88,7 @@ public class SsoTicketStore : ISsoTicketStore
 
     /// <summary>Applies <paramref name="set"/> to the ticket's row only while it is still the same
     /// live ticket, so exactly one concurrent caller wins.</summary>
-    private async Task<CredentialOwner?> ClaimFor(string ticket, string set, string condition)
+    private async Task<CredentialOwner?> ClaimFor(string ticket, string set)
     {
         var owner = await FindOwner(ticket);
         if (owner == null)
@@ -71,7 +96,7 @@ public class SsoTicketStore : ISsoTicketStore
 
         using var connection = _database.Connection();
         var claimed = await connection.ExecuteAsync(
-            $"UPDATE `users` SET {set} WHERE `id` = @UserId AND {LiveTicket} AND `auth_ticket_expires_at` >= @now{condition}",
+            $"UPDATE `users` SET {set} WHERE `id` = @UserId AND {LiveTicket} AND `auth_ticket_expires_at` >= @now",
             new { owner.UserId, ticket, now = Now() });
         return claimed == 1 ? owner : null;
     }

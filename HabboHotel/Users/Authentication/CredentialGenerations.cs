@@ -22,11 +22,17 @@ public interface ICredentialGenerations
     Task<long> Current(int userId);
 
     /// <summary>
-    /// Runs <paramref name="writes"/> in one transaction holding the user's row lock. Returns false,
-    /// writing nothing, when the generation is no longer <paramref name="generation"/> or
-    /// <paramref name="sessionId"/> (if given) is unknown or revoked.
+    /// Runs <paramref name="writes"/>, which start a new session, in one transaction holding the
+    /// user's row lock. Returns false, writing nothing, when the generation is no longer
+    /// <paramref name="generation"/>.
     /// </summary>
-    Task<bool> WriteIfCurrent(int userId, long generation, string? sessionId, Func<CredentialScope, Task> writes);
+    Task<bool> WriteIfCurrent(int userId, long generation, Func<CredentialScope, Task> writes);
+
+    /// <summary>
+    /// Like <see cref="WriteIfCurrent"/> for credentials of an existing session: also returns false
+    /// when <paramref name="sessionId"/> is unknown or revoked (logged out).
+    /// </summary>
+    Task<bool> WriteInSession(int userId, long generation, string sessionId, Func<CredentialScope, Task> writes);
 
     /// <summary>Bumps the generation, revokes every session and runs <paramref name="revocations"/>
     /// in the same transaction.</summary>
@@ -43,7 +49,7 @@ public interface ICredentialGenerations
     Task StartSession(int userId, string sessionId, CredentialScope scope);
 
     /// <summary>Deletes up to <paramref name="batch"/> sessions created before <paramref name="cutoff"/>
-    /// that no access or remember token refers to any more.</summary>
+    /// that no access token, remember token or unexpired ticket refers to any more.</summary>
     Task<int> PruneSessions(long cutoff, int batch);
 }
 
@@ -61,7 +67,12 @@ public class CredentialGenerations : ICredentialGenerations
         return await connection.ExecuteScalarAsync<long>("SELECT `credential_generation` FROM `users` WHERE `id` = @userId", new { userId });
     }
 
-    public async Task<bool> WriteIfCurrent(int userId, long generation, string? sessionId, Func<CredentialScope, Task> writes)
+    public Task<bool> WriteIfCurrent(int userId, long generation, Func<CredentialScope, Task> writes) => Write(userId, generation, null, writes);
+
+    public Task<bool> WriteInSession(int userId, long generation, string sessionId, Func<CredentialScope, Task> writes) =>
+        Write(userId, generation, sessionId ?? throw new ArgumentNullException(nameof(sessionId)), writes);
+
+    private async Task<bool> Write(int userId, long generation, string? sessionId, Func<CredentialScope, Task> writes)
     {
         using var connection = _database.Connection();
         connection.Open();
@@ -117,7 +128,9 @@ public class CredentialGenerations : ICredentialGenerations
         return await connection.ExecuteAsync(
             "DELETE FROM `user_sessions` WHERE `created_at` < @cutoff " +
             "AND NOT EXISTS (SELECT 1 FROM `user_access_tokens` WHERE `session_id` = `user_sessions`.`id`) " +
-            "AND NOT EXISTS (SELECT 1 FROM `user_remember_tokens` WHERE `family_id` = `user_sessions`.`id`) LIMIT @batch",
+            "AND NOT EXISTS (SELECT 1 FROM `user_remember_tokens` WHERE `family_id` = `user_sessions`.`id`) " +
+            "AND NOT EXISTS (SELECT 1 FROM `users` WHERE `users`.`id` = `user_sessions`.`user_id` AND `auth_ticket_session` = `user_sessions`.`id` " +
+            "AND `auth_ticket_expires_at` >= UNIX_TIMESTAMP()) LIMIT @batch",
             new { cutoff, batch });
     }
 

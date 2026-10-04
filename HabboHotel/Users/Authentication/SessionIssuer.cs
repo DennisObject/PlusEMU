@@ -77,7 +77,7 @@ public class SessionIssuer : ISessionIssuer
     {
         var sessionId = CredentialGenerations.NewSessionId();
         AuthSession? session = null;
-        await _generations.WriteIfCurrent(userId, generation, null, async scope =>
+        await _generations.WriteIfCurrent(userId, generation, async scope =>
         {
             await _generations.StartSession(userId, sessionId, scope);
             await _accounts.RecordAddress(userId, address, scope);
@@ -109,7 +109,7 @@ public class SessionIssuer : ISessionIssuer
 
         var sessionId = rotation.FamilyId;
         AuthSession? session = null;
-        await _generations.WriteIfCurrent(userId, rotation.Generation, sessionId, async scope =>
+        await _generations.WriteInSession(userId, rotation.Generation, sessionId, async scope =>
         {
             await _accounts.RecordAddress(userId, address, scope);
             session = new(userId, username, withTicket ? await _ssoTickets.Issue(userId, sessionId, scope) : default,
@@ -123,11 +123,12 @@ public class SessionIssuer : ISessionIssuer
         if (string.IsNullOrEmpty(ticket) || await _ssoTickets.FindUser(ticket) is not { } userId)
             return null;
         var generation = await _generations.Current(userId);
-        if (await _ssoTickets.Exchange(ticket) is not { } owner || owner.UserId != userId)
+        // Exchange always hands back a session (it gives a CMS-written ticket one), so logout can end it.
+        if (await _ssoTickets.Exchange(ticket) is not { SessionId: { } sessionId } owner || owner.UserId != userId)
             return null;
 
         IssuedToken? token = null;
-        await _generations.WriteIfCurrent(userId, generation, owner.SessionId, async scope => token = await _accessTokens.Issue(userId, owner.SessionId, scope));
+        await _generations.WriteInSession(userId, generation, sessionId, async scope => token = await _accessTokens.Issue(userId, sessionId, scope));
         return token;
     }
 

@@ -149,6 +149,65 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     }
 
     [AuthDatabaseFact]
+    public async Task LogoutLandingMidExchangeOfASessionlessTicketVoidsTheExchange()
+    {
+        var userId = User();
+        var ticket = await SessionlessTicket(userId);
+        var paused = new PausedTickets(_tickets);
+        var racing = new SessionIssuer(paused, _access, _remember, _generations, _accounts, new BanLookup(_database, TimeProvider.System));
+
+        var pending = racing.ExchangeTicket(ticket);
+        await paused.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await Issuer().Logout(null, ticket, null);
+        paused.Release.SetResult();
+
+        Assert.Null(await pending);
+        await AssertNothingLive(userId);
+    }
+
+    [AuthDatabaseFact]
+    public async Task ExchangingASessionlessTicketGivesItASession()
+    {
+        var userId = User();
+        var ticket = await SessionlessTicket(userId);
+
+        var owner = await _tickets.Exchange(ticket);
+
+        Assert.NotNull(owner?.SessionId);
+        Assert.Equal(owner, await _tickets.FindOwner(ticket));
+        using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
+        Assert.Equal(1, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM user_sessions WHERE id = @SessionId AND user_id = @UserId AND revoked_at IS NULL", owner));
+    }
+
+    [AuthDatabaseFact]
+    public async Task SessionsHeldOnlyByALiveTicketSurvivePruning()
+    {
+        var userId = User();
+        var session = (await Issuer().Issue(userId, "x", await _generations.Current(userId), "203.0.113.8"))!;
+        using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
+        connection.Execute("DELETE FROM user_access_tokens WHERE user_id = @userId; UPDATE user_sessions SET created_at = 1 WHERE user_id = @userId", new { userId });
+        var cutoff = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        await _generations.PruneSessions(cutoff, 100);
+        Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_sessions WHERE user_id = @userId", new { userId }));
+        Assert.Equal(userId, (await _tickets.Exchange(session.SsoTicket.Value))?.UserId);
+
+        connection.Execute("UPDATE users SET auth_ticket_expires_at = 1 WHERE id = @userId", new { userId });
+        await _generations.PruneSessions(cutoff, 100);
+        Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_sessions WHERE user_id = @userId", new { userId }));
+    }
+
+    /// <summary>A ticket written the way a CMS does it: no login session behind it.</summary>
+    private static async Task<string> SessionlessTicket(int userId)
+    {
+        var ticket = SecureToken.Generate();
+        using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
+        await connection.ExecuteAsync("UPDATE users SET auth_ticket = @ticket, auth_ticket_expires_at = UNIX_TIMESTAMP() + 300, auth_ticket_exchanged = 0, auth_ticket_session = NULL WHERE id = @userId",
+            new { ticket, userId });
+        return ticket;
+    }
+
+    [AuthDatabaseFact]
     public async Task LogoutSignsOutOnlyThatDevice()
     {
         var userId = User();
@@ -288,7 +347,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     public void Dispose()
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        connection.Execute("DELETE FROM user_remember_tokens WHERE user_id IN @ids", new { ids = _users.ToArray() });
+        connection.Execute("DELETE FROM user_remember_tokens WHERE user_id IN @ids; DELETE FROM user_sessions WHERE user_id IN @ids", new { ids = _users.ToArray() });
         AuthTestDatabase.DeleteUsers(_users);
     }
 

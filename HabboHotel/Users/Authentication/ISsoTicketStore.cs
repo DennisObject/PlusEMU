@@ -22,7 +22,8 @@ public interface ISsoTicketStore
 
     /// <summary>
     /// Marks a live ticket as traded for an access token. Each ticket can be exchanged once; the
-    /// game login can still redeem it afterwards.
+    /// game login can still redeem it afterwards. A ticket written without a session (e.g. by a
+    /// CMS) is given one in the same users-row-locked transaction, so the owner always has one.
     /// </summary>
     Task<CredentialOwner?> Exchange(string ticket);
 
