@@ -70,7 +70,7 @@ public sealed class HorseCustomizationService(
             {
                 habbo.Inventory.Furniture.AddItem(item);
                 session.Send(new FurniListNotificationComposer(item.Id, 1));
-                session.Send(new PurchaseOkComposer());
+                session.Send(new PurchaseOKComposer());
                 session.Send(new FurniListAddComposer(item));
                 session.Send(new FurniListUpdateComposer());
             }
