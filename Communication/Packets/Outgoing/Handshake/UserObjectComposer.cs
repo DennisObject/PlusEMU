@@ -1,5 +1,6 @@
 ﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
+using System.Globalization;
 
 namespace Plus.Communication.Packets.Outgoing.Handshake;
 
@@ -26,7 +27,7 @@ public class UserObjectComposer : IServerPacket
         packet.WriteInteger(_habbo.HabboStats.DailyRespectPoints);
         packet.WriteInteger(_habbo.HabboStats.DailyPetRespectPoints);
         packet.WriteBoolean(false); // Friends stream active
-        packet.WriteString((_habbo.LastOnlineAt?.ToUnixTimeSeconds() ?? 0).ToString()); // last online?
+        packet.WriteString((_habbo.LastOnlineAt?.ToUnixTimeSeconds() ?? 0).ToString(CultureInfo.InvariantCulture)); // last online?
         packet.WriteBoolean(_habbo.ChangingName); // Can change name
         packet.WriteBoolean(false);
     }

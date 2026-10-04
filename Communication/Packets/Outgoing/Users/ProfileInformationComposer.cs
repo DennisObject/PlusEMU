@@ -1,7 +1,6 @@
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Users;
-using Plus.Utilities;
 
 namespace Plus.Communication.Packets.Outgoing.Users;
 
@@ -50,8 +49,9 @@ public class ProfileInformationComposer : IServerPacket
             packet.WriteInteger(0); //what the fuck
             packet.WriteBoolean(group?.ForumEnabled ?? true); //HabboTalk
         }
-        var lastOnline = _habbo.LastOnlineAt?.ToUnixTimeSeconds() ?? 0;
-        packet.WriteInteger(Convert.ToInt32(UnixTimestamp.GetNow() - lastOnline)); // Last online
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var lastOnline = _habbo.LastOnlineAt?.ToUnixTimeSeconds() ?? now;
+        packet.WriteInteger((int)Math.Clamp(now - lastOnline, 0, int.MaxValue)); // Last online
         packet.WriteBoolean(true); // Show the profile
     }
 }
