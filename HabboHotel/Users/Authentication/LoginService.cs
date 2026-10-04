@@ -28,20 +28,18 @@ public sealed record LoginResult(LoginStatus Status, AuthSession? Session = null
 public class LoginService : ILoginService
 {
     private readonly IAccountStore _accounts;
-    private readonly IPasswordHasher _hasher;
+    private readonly IBoundedPasswordHasher _hasher;
     private readonly ILoginThrottle _throttle;
     private readonly ISessionIssuer _sessions;
     private readonly IBanLookup _bans;
-    private readonly Lazy<string> _decoyHash;
 
-    public LoginService(IAccountStore accounts, IPasswordHasher hasher, ILoginThrottle throttle, ISessionIssuer sessions, IBanLookup bans)
+    public LoginService(IAccountStore accounts, IBoundedPasswordHasher hasher, ILoginThrottle throttle, ISessionIssuer sessions, IBanLookup bans)
     {
         _accounts = accounts;
         _hasher = hasher;
         _throttle = throttle;
         _sessions = sessions;
         _bans = bans;
-        _decoyHash = new(() => hasher.Hash(SecureToken.Generate()));
     }
 
     public async Task<LoginResult> Login(string username, string password, string address)
@@ -55,9 +53,9 @@ public class LoginService : ILoginService
         var stored = account?.Password ?? "";
         // Plaintext rows and missing accounts would answer faster than real hashes.
         if (!stored.StartsWith("$argon2id$", StringComparison.Ordinal))
-            _hasher.Verify(password, _decoyHash.Value);
+            await _hasher.Verify(password, await DecoyHash());
 
-        var verification = account == null ? PasswordVerificationResult.Failed : _hasher.Verify(password, stored);
+        var verification = account == null ? PasswordVerificationResult.Failed : await _hasher.Verify(password, stored);
         if (verification == PasswordVerificationResult.Failed)
         {
             _throttle.RecordFailure(throttleKey, address);
@@ -65,7 +63,7 @@ public class LoginService : ILoginService
         }
 
         if (verification == PasswordVerificationResult.SuccessRehashNeeded)
-            await _accounts.UpgradePassword(account!.Id, stored, _hasher.Hash(password));
+            await _accounts.UpgradePassword(account!.Id, stored, await _hasher.Hash(password));
 
         _throttle.RecordSuccess(throttleKey);
         if (await _bans.Find(account!.Username, address) is { } ban)
@@ -73,4 +71,9 @@ public class LoginService : ILoginService
 
         return new(LoginStatus.Success, await _sessions.Issue(account.Id, account.Username));
     }
+
+    private string? _decoyHash;
+
+    /// <summary>A real hash of a random secret, so failed lookups do the same Argon2id work.</summary>
+    private async Task<string> DecoyHash() => _decoyHash ??= await _hasher.Hash(SecureToken.Generate());
 }

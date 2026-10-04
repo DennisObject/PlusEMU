@@ -19,6 +19,12 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     private readonly FakeSsoTickets _tickets = new();
     private readonly FakeAccessTokens _tokens = new();
     private readonly FakeBans _bans = new();
+    private IPasswordHasher _innerHasher = Hasher;
+    private CountingHasher _hasher
+    {
+        get => (CountingHasher)_innerHasher;
+        set => _innerHasher = value;
+    }
     private HttpClient _http = new();
     private AuthHttpServer? _server;
 
@@ -40,8 +46,9 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
             configure?.Invoke(c);
         });
         var sessions = new SessionIssuer(_tickets, _tokens);
-        var login = new LoginService(_accounts, Hasher, new LoginThrottle(TimeProvider.System, options), sessions, _bans);
-        var registration = new RegistrationService(_accounts, Hasher, sessions, new FakeWordFilter(), options);
+        var hasher = new BoundedPasswordHasher(_innerHasher, options);
+        var login = new LoginService(_accounts, hasher, new LoginThrottle(TimeProvider.System, options), sessions, _bans);
+        var registration = new RegistrationService(_accounts, hasher, sessions, new FakeWordFilter(), options);
         _server = new AuthHttpServer(options, login, registration, _tickets, _tokens);
         await _server.Start();
         _http.Dispose();
@@ -226,45 +233,39 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.Null(await _tokens.FindUser(token.Value));
     }
 
-    [Fact]
-    public async Task PasswordHashingRoutesRunAFewAtATimeAndTheRestWait()
+    [Theory]
+    [InlineData("/api/auth/login")]
+    [InlineData("/api/auth/login/")]
+    [InlineData("/API/AUTH/LOGIN/")]
+    public async Task PasswordHashingRunsAtMostTheConfiguredNumberAtOnceWhateverTheRoute(string loginPath)
     {
-        var hold = new TaskCompletionSource();
-        _accounts.HoldLookups = hold.Task;
+        _hasher = new CountingHasher(Hasher, TimeSpan.FromMilliseconds(150));
         await Start(c => c.MaxConcurrentPasswordChecks = 1);
 
-        var login = Post("/api/auth/login", new { username = "Dennis", password = "x" });
-        await _accounts.LookupStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        var register = Post("/api/auth/register", new { username = "Waiting", email = "waiting@example.com", password = "long enough" });
-        Assert.Equal(HttpStatusCode.OK, (await _http.GetAsync("/api/health")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await Post("/api/auth/check-username", new { username = "Fresh" })).StatusCode);
-        await Task.Delay(200);
-        Assert.False(register.IsCompleted);
+        var logins = Enumerable.Range(0, 4).Select(i => Post(loginPath, new { username = "Nobody" + i, password = "x" }));
+        var registers = Enumerable.Range(0, 2).Select(i => Post("/api/auth/register/", new { username = "Racer" + i, email = $"r{i}@example.com", password = "long enough" }));
+        var responses = await Task.WhenAll(logins.Concat(registers));
 
-        hold.SetResult();
-
-        Assert.Equal(HttpStatusCode.Unauthorized, (await login).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await register).StatusCode);
+        Assert.All(responses.Take(4), r => Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode));
+        Assert.All(responses.Skip(4), r => Assert.Equal(HttpStatusCode.OK, r.StatusCode));
+        Assert.Equal(1, _hasher.MaxConcurrent);
     }
 
     [Fact]
-    public async Task OverLimitClientsAreTurnedAwayBeforeWaitingForAHashingSlot()
+    public async Task ASlowRequestBodyDoesNotHoldAPasswordHashingSlot()
     {
-        var hold = new TaskCompletionSource();
-        _accounts.HoldLookups = hold.Task;
-        await Start(c =>
-        {
-            c.MaxConcurrentPasswordChecks = 1;
-            c.RequestsPerMinute = 1;
-        });
+        await Start(c => c.MaxConcurrentPasswordChecks = 1);
+        var uri = new Uri(_server!.Urls.Single());
+        using var slow = new System.Net.Sockets.TcpClient();
+        await slow.ConnectAsync(uri.Host, uri.Port);
+        var stream = slow.GetStream();
+        var partial = Encoding.ASCII.GetBytes("POST /api/auth/login HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 60\r\n\r\n{\"username\":\"Slow");
+        await stream.WriteAsync(partial);
+        await Task.Delay(200);
 
-        var first = Post("/api/auth/login", new { username = "Dennis", password = "x" });
-        await _accounts.LookupStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        var flood = await Post("/api/auth/login", new { username = "Dennis", password = "x" }).WaitAsync(TimeSpan.FromSeconds(5));
+        var normal = await Post("/api/auth/login", new { username = "Nobody", password = "x" }).WaitAsync(TimeSpan.FromSeconds(3));
 
-        Assert.Equal(HttpStatusCode.TooManyRequests, flood.StatusCode);
-        hold.SetResult();
-        Assert.Equal(HttpStatusCode.Unauthorized, (await first).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, normal.StatusCode);
     }
 
     [Fact]

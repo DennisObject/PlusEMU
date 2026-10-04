@@ -211,3 +211,34 @@ internal sealed class FakeBans : IBanLookup
     public Task<LoginBan?> Find(string username, string address) =>
         Task.FromResult(ByUsernameOrAddress.TryGetValue(username, out var ban) || ByUsernameOrAddress.TryGetValue(address, out ban) ? ban : null);
 }
+
+/// <summary>Real hashing slowed down, recording how many hashes ran at the same time.</summary>
+internal sealed class CountingHasher(IPasswordHasher inner, TimeSpan delay) : IPasswordHasher
+{
+    private int _current;
+    public int MaxConcurrent;
+
+    public string Hash(string password) => Measure(() => inner.Hash(password));
+    public PasswordVerificationResult Verify(string password, string stored) => Measure(() => inner.Verify(password, stored));
+
+    private T Measure<T>(Func<T> work)
+    {
+        var now = Interlocked.Increment(ref _current);
+        InterlockedMax(ref MaxConcurrent, now);
+        try
+        {
+            Thread.Sleep(delay);
+            return work();
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _current);
+        }
+    }
+
+    private static void InterlockedMax(ref int target, int value)
+    {
+        int seen;
+        while ((seen = Volatile.Read(ref target)) < value && Interlocked.CompareExchange(ref target, value, seen) != seen) { }
+    }
+}

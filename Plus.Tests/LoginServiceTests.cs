@@ -14,7 +14,7 @@ public class LoginServiceTests
     private readonly FakeBans _bans = new();
     private readonly LoginThrottle _throttle = new(TimeProvider.System, AuthTestConfig.Options(c => c.MaxFailedLoginsPerAccount = 3));
 
-    private LoginService Service() => new(_accounts, Hasher, _throttle, new SessionIssuer(_tickets, _tokens), _bans);
+    private LoginService Service() => new(_accounts, new BoundedPasswordHasher(Hasher, AuthTestConfig.Options()), _throttle, new SessionIssuer(_tickets, _tokens), _bans);
 
     [Fact]
     public async Task CorrectPasswordIssuesASsoTicketAndASeparateAccessToken()

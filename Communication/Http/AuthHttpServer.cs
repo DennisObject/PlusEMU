@@ -96,6 +96,8 @@ public class AuthHttpServer : IAuthHttpServer
         kestrel.Limits.MaxRequestHeadersTotalSize = 16 * 1024;
         kestrel.Limits.MaxRequestLineSize = 4 * 1024;
         kestrel.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(10);
+        // Trickled bodies are dropped after 5 seconds below 240 bytes/s.
+        kestrel.Limits.MinRequestBodyDataRate = new(240, TimeSpan.FromSeconds(5));
         kestrel.Limits.KeepAliveTimeout = TimeSpan.FromSeconds(30);
 
         if (string.Equals(_configuration.Hostname, "localhost", StringComparison.OrdinalIgnoreCase))
@@ -125,33 +127,18 @@ public class AuthHttpServer : IAuthHttpServer
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         options.OnRejected = (context, _) =>
         {
-            // A full hashing queue carries no retry hint; a few seconds is enough for it to drain.
-            SetRetryAfter(context.HttpContext.Response, context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter) ? retryAfter : TimeSpan.FromSeconds(5));
+            SetRetryAfter(context.HttpContext.Response, context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter) ? retryAfter : TimeSpan.FromMinutes(1));
             return new(WriteError(context.HttpContext, StatusCodes.Status429TooManyRequests));
         };
-        // Chained in order: a client over its per-address budget is turned away before it can
-        // wait for one of the few password hashing slots (each Argon2id check uses ~19 MiB).
-        options.GlobalLimiter = PartitionedRateLimiter.CreateChained(
-            PartitionedRateLimiter.Create<HttpContext, string>(context => context.Request.Path.StartsWithSegments("/api/auth")
-                ? RateLimitPartition.GetFixedWindowLimiter(ClientAddress(context), _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = _configuration.RequestsPerMinute,
-                    Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0
-                })
-                : RateLimitPartition.GetNoLimiter("")),
-            PartitionedRateLimiter.Create<HttpContext, string>(context => HashesPasswords(context.Request.Path)
-                ? RateLimitPartition.GetConcurrencyLimiter("password", _ => new ConcurrencyLimiterOptions
-                {
-                    PermitLimit = _configuration.MaxConcurrentPasswordChecks,
-                    QueueLimit = 100,
-                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst
-                })
-                : RateLimitPartition.GetNoLimiter("")));
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context => context.Request.Path.StartsWithSegments("/api/auth")
+            ? RateLimitPartition.GetFixedWindowLimiter(ClientAddress(context), _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = _configuration.RequestsPerMinute,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            })
+            : RateLimitPartition.GetNoLimiter(""));
     }
-
-    private static bool HashesPasswords(PathString path) =>
-        path.Equals("/api/auth/login", StringComparison.OrdinalIgnoreCase) || path.Equals("/api/auth/register", StringComparison.OrdinalIgnoreCase);
 
     private static Task AddSecurityHeaders(HttpContext context, Func<Task> next)
     {

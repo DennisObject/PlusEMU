@@ -38,12 +38,12 @@ public class RegistrationService : IRegistrationService
     private readonly SemaphoreSlim _registrationLock = new(1, 1);
 
     private readonly IAccountStore _accounts;
-    private readonly IPasswordHasher _hasher;
+    private readonly IBoundedPasswordHasher _hasher;
     private readonly ISessionIssuer _sessions;
     private readonly IWordFilterManager _wordFilter;
     private readonly RegistrationDefaults _defaults;
 
-    public RegistrationService(IAccountStore accounts, IPasswordHasher hasher, ISessionIssuer sessions, IWordFilterManager wordFilter, IOptions<AuthApiConfiguration> options)
+    public RegistrationService(IAccountStore accounts, IBoundedPasswordHasher hasher, ISessionIssuer sessions, IWordFilterManager wordFilter, IOptions<AuthApiConfiguration> options)
     {
         _accounts = accounts;
         _hasher = hasher;
@@ -58,7 +58,7 @@ public class RegistrationService : IRegistrationService
         if (error != null)
             return new(RegistrationStatus.Invalid, error);
 
-        var passwordHash = _hasher.Hash(request.Password);
+        var passwordHash = await _hasher.Hash(request.Password);
         var account = new NewAccount(request.Username, passwordHash, request.Email, RegistrationValidator.FigureOrDefault(request.Figure, _defaults.Look),
             RegistrationValidator.Gender(request.Gender), request.Address);
 
