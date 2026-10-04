@@ -28,7 +28,11 @@ internal sealed class CommandIntake(MovementContext context, ForcePlacementServi
         var grid = context.Grid;
         if (command.Approach == null || !grid.InBounds(command.X, command.Y)) return null;
         var tile = grid.Tile(command.X, command.Y);
-        return grid.Active(tile) ? grid.Reference(tile) : null;
+        if (!grid.Layered) return grid.Active(tile) ? grid.Reference(tile) : null;
+        // Layered: the approach surface is the one the item stands level with, not the tile's own slot.
+        var itemZ = context.Navigation.Inputs.Read(command.Approach.ItemId)?.Z ?? grid.BaseZ[tile];
+        var slot = SurfaceSelection.Resting(grid, tile, itemZ);
+        return slot >= 0 ? grid.Reference(slot) : null;
     }
     private void ResolveGoal(RoomUser actor)
     {
@@ -38,7 +42,15 @@ internal sealed class CommandIntake(MovementContext context, ForcePlacementServi
             ? new AcceptedGoal(actor.GoalX, actor.GoalY, grid.TopSlot(grid.Tile(actor.GoalX, actor.GoalY)))
             : GoalResolver.ResolveClick(grid, profile, new(actor.X, actor.Y, state.SupportZ),
                 actor.GoalX, actor.GoalY, context.Occupancy(actor));
+        goal = ApproachGoal(actor, goal);
         state.AcceptedGoal = GoalIdentity.Capture(grid, goal);
         actor.GoalX = goal.X; actor.GoalY = goal.Y;
+    }
+    // A layered approach walks to its own surface when that surface is an accepted goal.
+    private AcceptedGoal ApproachGoal(RoomUser actor, AcceptedGoal goal)
+    {
+        if (!context.Grid.Layered || context.Approaches.Peek(actor) is not { } intent) return goal;
+        var slot = context.Grid.SlotOf(intent.Surface);
+        return goal.Contains(slot) ? new(goal.X, goal.Y, slot) : goal;
     }
 }
