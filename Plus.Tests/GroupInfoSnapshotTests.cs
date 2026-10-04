@@ -10,7 +10,6 @@ using Plus.HabboHotel.Cache;
 using Plus.HabboHotel.Cache.Type;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
-using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 using Xunit;
 
