@@ -301,16 +301,16 @@ public class HabbiconDatabaseTests
         var voucher = new Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem { Id = 910005,
             Definition = new Plus.HabboHotel.Items.ItemDefinition { InteractionType = Plus.HabboHotel.Items.InteractionType.Exchange,
                 BehaviourData = 10, Type = Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor } };
-        using var adapter = _database.GetQueryReactor();
+        var store = (Plus.HabboHotel.Rooms.ITradeStore)new Plus.HabboHotel.Rooms.RoomTradingComponent(_database);
         // Live wallet redeems exactly once and consumes the voucher.
-        Plus.HabboHotel.Rooms.Trading.Trade.ReceiveTradedItem(client, voucher, true, adapter);
+        Plus.HabboHotel.Rooms.Trading.Trade.ReceiveTradedItem(client, voucher, true, store);
         Assert.Equal(110, habbo.Credits);
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM items WHERE id = 910005"));
         Assert.Empty(habbo.Inventory.Furniture.AllItems);
         sent.Clear();
         SaveWallet(habbo);
         voucher.Id = 910006;
-        Plus.HabboHotel.Rooms.Trading.Trade.ReceiveTradedItem(client, voucher, true, adapter);
+        Plus.HabboHotel.Rooms.Trading.Trade.ReceiveTradedItem(client, voucher, true, store);
         Assert.Equal(110, habbo.Credits);
         Assert.Same(voucher, habbo.Inventory.Furniture.GetItem(910006));
         Assert.Equal(UserId, Scalar("SELECT user_id FROM items WHERE id = 910006"));

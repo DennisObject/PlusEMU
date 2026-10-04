@@ -41,6 +41,9 @@ public sealed class RoomComponentDatabaseTests
                 CREATE TABLE room_promotions (
                     room_id INT UNSIGNED NOT NULL, title VARCHAR(100) NOT NULL, description VARCHAR(255) NOT NULL,
                     timestamp_start DOUBLE NOT NULL, timestamp_expire DOUBLE NOT NULL, category_id INT NOT NULL);
+                CREATE TABLE items (id INT UNSIGNED PRIMARY KEY, user_id INT NOT NULL);
+                CREATE TABLE logs_client_trade (
+                    id INT AUTO_INCREMENT PRIMARY KEY, `1id` INT, `2id` INT, `1items` TEXT, `2items` TEXT, `timestamp` CHAR(20));
                 """);
             connection.Execute("""
                 INSERT INTO bots VALUES
@@ -50,6 +53,7 @@ public sealed class RoomComponentDatabaseTests
                 INSERT INTO bots_speech VALUES (10, 'first'), (10, 'second');
                 INSERT INTO bots_petdata VALUES (11, 2, '3', 'ffffff', 4, 5, 6, 7, 8.5, 1, 0, 9, 10, 'hat');
                 INSERT INTO room_promotions VALUES (42, 'Featured', 'Actual row', UNIX_TIMESTAMP() - 10, UNIX_TIMESTAMP() + 600, 3);
+                INSERT INTO items VALUES (90, 1), (91, 1);
                 """);
 
             var bot = Assert.Single(RoomBotsComponent.Load(connection, 42));
@@ -63,6 +67,14 @@ public sealed class RoomComponentDatabaseTests
             var databaseConnection = new MySqlConnectionStringBuilder(connection.ConnectionString) { Database = schema }.ConnectionString;
             var promotion = Assert.IsType<RoomPromotion>(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 42));
             Assert.Equal(("Featured", "Actual row", 3), (promotion.Name, promotion.Description, promotion.CategoryId));
+            var tradeStore = (ITradeStore)new RoomTradingComponent(new ProbeDatabase(databaseConnection));
+            tradeStore.TransferItem(90, 2);
+            tradeStore.DeleteItem(91);
+            tradeStore.Log(1, 2, "90;", "91;");
+            Assert.Equal(2, connection.QuerySingle<int>("SELECT user_id FROM items WHERE id = 90"));
+            Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM items WHERE id = 91"));
+            Assert.Equal((1, 2, "90;", "91;"), connection.QuerySingle<(int, int, string, string)>(
+                "SELECT `1id`, `2id`, `1items`, `2items` FROM logs_client_trade"));
         }
         finally
         {

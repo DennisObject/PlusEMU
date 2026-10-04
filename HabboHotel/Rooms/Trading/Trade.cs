@@ -4,7 +4,6 @@ using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.Communication.Packets.Outgoing.Inventory.Trading;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.HabboHotel.Items;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
@@ -14,11 +13,12 @@ public sealed class Trade
 {
     private readonly Room _instance;
 
-    public Trade(int id, RoomUser playerOne, RoomUser playerTwo, Room room)
+    internal Trade(int id, RoomUser playerOne, RoomUser playerTwo, Room room, ITradeStore store)
     {
         Id = id;
         CanChange = true;
         _instance = room;
+        _store = store;
         Users = new TradeUser[2];
         Users[0] = new(playerOne);
         Users[1] = new(playerTwo);
@@ -29,6 +29,7 @@ public sealed class Trade
         playerTwo.TradeId = Id;
         playerTwo.TradePartner = playerOne.UserId;
     }
+    private readonly ITradeStore _store;
 
     public int Id { get; set; }
     public TradeUser[] Users { get; set; }
@@ -134,14 +135,13 @@ public sealed class Trade
                 return;
             }
         }
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
         foreach (var item in userOne)
         {
             logUserOne += $"{item.Id};";
             roomUserOne.GetClient().GetHabbo().Inventory.Furniture.RemoveItem(item.Id);
             roomUserOne.GetClient().Send(new FurniListRemoveComposer(item.Id));
             ReceiveTradedItem(roomUserTwo.GetClient(), item,
-                item.Definition.InteractionType == InteractionType.Exchange && PlusEnvironment.SettingsManager.TryGetValue("trading.auto_exchange_redeemables") == "1", dbClient);
+                item.Definition.InteractionType == InteractionType.Exchange && PlusEnvironment.SettingsManager.TryGetValue("trading.auto_exchange_redeemables") == "1", _store);
         }
         foreach (var item in userTwo)
         {
@@ -149,17 +149,12 @@ public sealed class Trade
             roomUserTwo.GetClient().GetHabbo().Inventory.Furniture.RemoveItem(item.Id);
             roomUserTwo.GetClient().Send(new FurniListRemoveComposer(item.Id));
             ReceiveTradedItem(roomUserOne.GetClient(), item,
-                item.Definition.InteractionType == InteractionType.Exchange && PlusEnvironment.SettingsManager.TryGetValue("trading.auto_exchange_redeemables") == "1", dbClient);
+                item.Definition.InteractionType == InteractionType.Exchange && PlusEnvironment.SettingsManager.TryGetValue("trading.auto_exchange_redeemables") == "1", _store);
         }
-        dbClient.SetQuery("INSERT INTO `logs_client_trade` VALUES(null, @1id, @2id, @1items, @2items, UNIX_TIMESTAMP())");
-        dbClient.AddParameter("1id", roomUserOne.UserId);
-        dbClient.AddParameter("2id", roomUserTwo.UserId);
-        dbClient.AddParameter("1items", logUserOne);
-        dbClient.AddParameter("2items", logUserTwo);
-        dbClient.RunQuery();
+        _store.Log(roomUserOne.UserId, roomUserTwo.UserId, logUserOne, logUserTwo);
     }
 
-    internal static void ReceiveTradedItem(GameClient recipient, InventoryItem item, bool autoRedeem, IQueryAdapter dbClient)
+    internal static void ReceiveTradedItem(GameClient recipient, InventoryItem item, bool autoRedeem, ITradeStore store)
     {
         var habbo = recipient.GetHabbo();
         if (item.Definition.InteractionType == InteractionType.Exchange && autoRedeem)
@@ -170,9 +165,7 @@ public sealed class Trade
                 {
                     habbo.Credits += item.Definition.BehaviourData;
                     recipient.Send(new CreditBalanceComposer(habbo.Credits));
-                    dbClient.SetQuery("DELETE FROM `items` WHERE `id` = @id LIMIT 1");
-                    dbClient.AddParameter("id", item.Id);
-                    dbClient.RunQuery();
+                    store.DeleteItem(item.Id);
                     return;
                 }
             }
@@ -182,10 +175,7 @@ public sealed class Trade
         {
             recipient.Send(new FurniListAddComposer(item));
             recipient.Send(new FurniListNotificationComposer(item.Id, 1));
-            dbClient.SetQuery("UPDATE `items` SET `user_id` = @user WHERE id=@id LIMIT 1");
-            dbClient.AddParameter("user", habbo.Id);
-            dbClient.AddParameter("id", item.Id);
-            dbClient.RunQuery();
+            store.TransferItem(item.Id, habbo.Id);
         }
     }
 }

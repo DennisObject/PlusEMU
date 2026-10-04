@@ -91,7 +91,7 @@ public class Room
     }
 
     internal void SetRuntime(Gamemap gamemap, RoomItemHandling items, RoomUserManager users,
-        FilterComponent filter, WiredComponent wired, TradingComponent trading)
+        FilterComponent filter, WiredComponent wired)
     {
         IsLagging = 0;
         Unloaded = false;
@@ -104,11 +104,11 @@ public class Room
         _roomUserManager = users;
         _filterComponent = filter;
         _wiredComponent = wired;
-        _tradingComponent = trading;
         LastRegeneration = DateTime.Now;
     }
 
     internal void SetBans(BansComponent bans) => _bansComponent = bans;
+    internal void SetTrading(TradingComponent trading) => _tradingComponent = trading;
 
     internal ILogger<RoomNavigation> NavigationLogger => _navigationLogger;
     internal ILogger WiredLogger => _wiredLogger;
