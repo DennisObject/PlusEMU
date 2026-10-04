@@ -596,6 +596,7 @@ public class RoomItemHandling
 
     public bool SetFloorItem(Item item, int newX, int newY, double newZ)
     {
+        if (_room != null && UsesV2Movement) return SetV2FloorItem(item, newX, newY, newZ);
         if (_room == null || item.IsTemporary && (!OwnsTemporary(item)
             || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanMoveItem(_room, item, newX, newY, item.Rotation, newZ)))
             return false;
@@ -627,8 +628,25 @@ public class RoomItemHandling
         return true;
     }
 
-    // V2 roller groups split the in-place setter above into preflight, one positional commit and one
-    // settle step. These mirror its rules exactly; the legacy setter itself stays the original.
+    private bool UsesV2Movement => _room.GetGameMap().Navigation?.UsesExecutor == true;
+
+    // V2 in-place moves: validation, height resolution and the positional commit see one placement
+    // state, so a placement that lands while this move waits for the lock is always revalidated.
+    private bool SetV2FloorItem(Item item, int newX, int newY, double newZ)
+    {
+        FloorMove[] move;
+        lock (_room.GetGameMap().PlacementSync)
+        {
+            if (!CanMoveFloorItem(item, newX, newY, newZ)) return false;
+            move = [new(item, newX, newY, ResolveFloorZ(item, newX, newY, newZ))];
+            CommitFloorMoves(move);
+        }
+        SettleFloorMoves(move);
+        return true;
+    }
+
+    // V2 roller groups and v2 in-place moves split the setter above into preflight, one positional commit
+    // and one settle step. These mirror its rules exactly; the legacy setter body stays the original.
     internal bool CanMoveFloorItem(Item item, int newX, int newY, double newZ,
         Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? collision = null)
     {
