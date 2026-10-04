@@ -26,12 +26,48 @@ public sealed class UserProfileEventTests
     {
         var habbo = new Habbo { Id = 7, Motto = "original", TimeMuted = 10 };
         var (session, sent) = HabbiconTestSupport.Client(habbo);
-        var profiles = new UserProfileService(null!, null!, null!, null!, null!);
+        var profiles = new UserProfileService(null!, null!, null!, null!, null!, TimeProvider.System);
 
         profiles.ChangeMotto(session, "changed");
 
         Assert.Equal("original", habbo.Motto);
         Assert.Single(sent);
+    }
+
+    [Fact]
+    public void FailedPreferenceWriteKeepsThePreviousLiveSetting()
+    {
+        var habbo = new Habbo { Id = 7, FocusPreference = false };
+        var (session, _) = HabbiconTestSupport.Client(habbo);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System);
+        Assert.Throws<InvalidOperationException>(() => profiles.SetFocusPreference(session, true));
+        Assert.False(habbo.FocusPreference);
+    }
+
+    [Fact]
+    public void MottoThrottleUsesUtcAndIncludesTheTwoSecondBoundary()
+    {
+        var clock = new FixedClock();
+        var habbo = new Habbo { Id = 7, Motto = "original", MottoUpdateWarnings = 24,
+            LastMottoUpdatedAt = clock.GetUtcNow().AddSeconds(-2).ToOffset(TimeSpan.FromHours(2)) };
+        var (session, sent) = HabbiconTestSupport.Client(habbo);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), clock);
+        profiles.ChangeMotto(session, "changed");
+        Assert.Equal(25, habbo.MottoUpdateWarnings);
+        Assert.True(habbo.SessionMottoBlocked);
+        Assert.Equal("original", habbo.Motto);
+        Assert.Empty(sent);
+    }
+
+    private sealed class FixedClock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(2042, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    }
+    private sealed class FailingDatabase : Plus.Database.IDatabase
+    {
+        public bool IsConnected() => true;
+        public System.Data.IDbConnection Connection() => throw new InvalidOperationException("Persistence failed");
+        [Obsolete] public Plus.Database.Interfaces.IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
     }
 
     private sealed class RecordingProfiles : IUserProfileService

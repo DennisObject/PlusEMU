@@ -28,7 +28,7 @@ public sealed class UserProfileService(
     IAchievementManager achievementManager,
     IQuestManager questManager,
     IWordFilterManager wordFilterManager,
-    IDatabase database) : IUserProfileService
+    IDatabase database, TimeProvider clock) : IUserProfileService
 {
     public void UpdateFigure(GameClient session, FigureUpdateRequest request)
     {
@@ -37,14 +37,15 @@ public sealed class UserProfileService(
         var look = figureManager.ProcessFigure(request.Figure, gender, habbo.Clothing.GetClothingParts,
             ClubAccess.LevelFor(habbo.Access));
         if (look == habbo.Look) return;
-        if ((DateTime.Now - habbo.LastClothingUpdateTime).TotalSeconds <= 2.0)
+        var now = clock.GetUtcNow();
+        if (habbo.LastClothingUpdatedAt is { } lastUpdate && (now - lastUpdate).TotalSeconds <= 2.0)
         {
             habbo.ClothingUpdateWarnings++;
             if (habbo.ClothingUpdateWarnings >= 25) habbo.SessionClothingBlocked = true;
             return;
         }
         if (habbo.SessionClothingBlocked) return;
-        habbo.LastClothingUpdateTime = DateTime.Now;
+        habbo.LastClothingUpdatedAt = now;
         if (gender is not ("M" or "F"))
         {
             session.Send(new BroadcastMessageAlertComposer("Sorry, you chose an invalid gender."));
@@ -76,14 +77,15 @@ public sealed class UserProfileService(
             session.SendNotification("Oops, you're currently muted - you cannot change your motto.");
             return;
         }
-        if ((DateTime.Now - habbo.LastMottoUpdateTime).TotalSeconds <= 2.0)
+        var now = clock.GetUtcNow();
+        if (habbo.LastMottoUpdatedAt is { } lastUpdate && (now - lastUpdate).TotalSeconds <= 2.0)
         {
             habbo.MottoUpdateWarnings++;
             if (habbo.MottoUpdateWarnings >= 25) habbo.SessionMottoBlocked = true;
             return;
         }
         if (habbo.SessionMottoBlocked) return;
-        habbo.LastMottoUpdateTime = DateTime.Now;
+        habbo.LastMottoUpdatedAt = now;
         var newMotto = StringCharFilter.Escape(motto.Trim());
         if (newMotto.Length > 38) newMotto = newMotto[..38];
         if (newMotto == habbo.Motto) return;
@@ -105,9 +107,9 @@ public sealed class UserProfileService(
     public void SetFocusPreference(GameClient session, bool enabled)
     {
         var habbo = session.GetHabbo();
-        habbo.FocusPreference = enabled;
         using var connection = database.Connection();
         connection.Execute("UPDATE users_settings SET focus_preference=@enabled WHERE user_id=@userId LIMIT 1",
             new { enabled, userId = habbo.Id });
+        habbo.FocusPreference = enabled;
     }
 }

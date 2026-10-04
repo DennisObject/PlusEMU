@@ -185,9 +185,9 @@ public class Habbo
 
     public DateTime LastGiftPurchaseTime { get; set; }
 
-    public DateTime LastMottoUpdateTime { get; set; }
+    public DateTimeOffset? LastMottoUpdatedAt { get; set; }
 
-    public DateTime LastClothingUpdateTime { get; set; }
+    public DateTimeOffset? LastClothingUpdatedAt { get; set; }
 
     public int GiftPurchasingWarnings { get; set; }
 
