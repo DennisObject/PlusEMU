@@ -4,14 +4,14 @@ public static class PathFinder
 {
     public static Vector2D[] DiagMovePoints =
     {
+        new(-1, -1),
         new(0, -1),
         new(1, -1),
         new(1, 0),
         new(1, 1),
         new(0, 1),
         new(-1, 1),
-        new(-1, 0),
-        new(-1, -1)
+        new(-1, 0)
     };
 
     public static Vector2D[] NoDiagMovePoints =
@@ -48,47 +48,66 @@ public static class PathFinder
     private static PathFinderNode FindPathReversed(RoomUser user, bool diag, Gamemap map, Vector2D start,
         Vector2D end, PathFinderMetrics? metrics)
     {
-        if (!map.ValidTile(start.X, start.Y) || !map.ValidTile(end.X, end.Y))
-            return null;
-        var nodes = new PathFinderNode[map.Model.MapSizeX, map.Model.MapSizeY];
-        // Queue priorities are immutable snapshots; improved nodes are inserted again.
-        var open = new PriorityQueue<(PathFinderNode Node, int Cost), (int Score, int Distance, long Order)>();
-        long order = 0;
-        var first = new PathFinderNode(start) { Cost = 0 };
-        nodes[start.X, start.Y] = first;
-        Enqueue(first);
-        while (open.TryDequeue(out var entry, out _))
+        var openList = new MinHeap<PathFinderNode>(256);
+        var pfMap = new PathFinderNode[map.Model.MapSizeX, map.Model.MapSizeY];
+        PathFinderNode node;
+        Vector2D tmp;
+        int cost;
+        int diff;
+        var current = new PathFinderNode(start)
         {
-            if (metrics != null) metrics.HeapOperations++;
-            var current = entry.Node;
-            if (current.InClosed || entry.Cost != current.Cost)
-                continue;
-            if (metrics != null) metrics.Expansions++;
+            Cost = 0
+        };
+        var finish = new PathFinderNode(end);
+        pfMap[current.Position.X, current.Position.Y] = current;
+        if (metrics != null) metrics.HeapOperations++;
+        openList.Add(current);
+        while (openList.Count > 0)
+        {
+            if (metrics != null) { metrics.HeapOperations++; metrics.Expansions++; }
+            current = openList.ExtractFirst();
             current.InClosed = true;
-            if (current.Position.Equals(end))
-                return current;
-            foreach (var offset in diag ? DiagMovePoints : NoDiagMovePoints)
+            for (var i = 0; diag ? i < DiagMovePoints.Length : i < NoDiagMovePoints.Length; i++)
             {
-                var to = current.Position + offset;
+                tmp = current.Position + (diag ? DiagMovePoints[i] : NoDiagMovePoints[i]);
+                var isFinalMove = tmp.X == end.X && tmp.Y == end.Y;
+                var from = new Vector2D(current.Position.X, current.Position.Y);
                 if (metrics != null) metrics.CanStepCalls++;
-                if (!map.IsValidStep(current.Position, to, to.Equals(end), user.AllowOverride, false, user))
-                    continue;
-                var node = nodes[to.X, to.Y] ??= new PathFinderNode(to);
-                var cost = current.Cost + 1;
-                if (node.InClosed || cost >= node.Cost)
-                    continue;
-                node.Cost = cost;
-                node.Next = current;
-                Enqueue(node);
+                if (map.IsValidStep(from, tmp, isFinalMove, user.AllowOverride, false, user))
+                {
+                    if (pfMap[tmp.X, tmp.Y] == null)
+                    {
+                        node = new(tmp);
+                        pfMap[tmp.X, tmp.Y] = node;
+                    }
+                    else
+                        node = pfMap[tmp.X, tmp.Y];
+                    if (!node.InClosed)
+                    {
+                        diff = 0;
+                        if (current.Position.X != node.Position.X) diff += 1;
+                        if (current.Position.Y != node.Position.Y) diff += 1;
+                        cost = current.Cost + diff + node.Position.GetDistanceSquared(end);
+                        if (cost < node.Cost)
+                        {
+                            node.Cost = cost;
+                            node.Next = current;
+                        }
+                        if (!node.InOpen)
+                        {
+                            if (node.Equals(finish))
+                            {
+                                node.Next = current;
+                                return node;
+                            }
+                            node.InOpen = true;
+                            if (metrics != null) metrics.HeapOperations++;
+                            openList.Add(node);
+                        }
+                    }
+                }
             }
         }
         return null;
-
-        void Enqueue(PathFinderNode node)
-        {
-            var heuristic = Math.Max(Math.Abs(node.Position.X - end.X), Math.Abs(node.Position.Y - end.Y));
-            if (metrics != null) metrics.HeapOperations++;
-            open.Enqueue((node, node.Cost), (node.Cost + heuristic, node.Position.GetDistanceSquared(end), order++));
-        }
     }
 }

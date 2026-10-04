@@ -698,7 +698,7 @@ public class RoomUserManager
                 }
                 if (user.SetStep)
                 {
-                    if (ValidPendingWalk(user))
+                    if (_room.GetGameMap().IsValidStep2(user, new(user.X, user.Y), new(user.SetX, user.SetY), user.GoalX == user.SetX && user.GoalY == user.SetY, user.AllowOverride))
                     {
                         if (!user.RidingHorse)
                             _room.GetGameMap().UpdateUserMovement(new(user.Coordinate.X, user.Coordinate.Y), new(user.SetX, user.SetY), user);
@@ -740,9 +740,6 @@ public class RoomUserManager
                     else
                         invalidStep = true;
                     user.SetStep = false;
-                    user.PendingWalkSteps.Clear();
-                    user.PendingWalkOrigin = null;
-                    user.PendingWalkConsumesPath = false;
                 }
                 if (user.PathRecalcNeeded)
                 {
@@ -802,25 +799,25 @@ public class RoomUserManager
                     }
                     else
                     {
-                        var from = new Vector2D(user.X, user.Y);
-                        user.PendingWalkSteps.Clear();
-                        user.PendingWalkOrigin = from;
-                        user.PendingWalkConsumesPath = true;
-                        var steps = user.SuperFastWalking ? 3 : user.FastWalking ? 2 : 1;
-                        for (var i = 0; i < steps && user.PathStep < user.Path.Count; i++)
+                        var nextStep = user.Path[user.Path.Count - user.PathStep - 1];
+                        user.PathStep++;
+                        if (user.FastWalking && user.PathStep < user.Path.Count)
                         {
-                            var next = user.Path[user.Path.Count - user.PathStep - 1];
-                            if (!Gamemap.TilesTouching(from.X, from.Y, next.X, next.Y) ||
-                                !_room.GetGameMap().IsValidStep2(user, from, next, user.GoalX == next.X && user.GoalY == next.Y, user.AllowOverride))
-                                break;
-                            user.PendingWalkSteps.Add(next);
+                            var s2 = user.Path.Count - user.PathStep - 1;
+                            nextStep = user.Path[s2];
                             user.PathStep++;
-                            from = next;
                         }
-                        var nextX = from.X;
-                        var nextY = from.Y;
+                        if (user.SuperFastWalking && user.PathStep < user.Path.Count)
+                        {
+                            var s2 = user.Path.Count - user.PathStep - 1;
+                            nextStep = user.Path[s2];
+                            user.PathStep++;
+                            user.PathStep++;
+                        }
+                        var nextX = nextStep.X;
+                        var nextY = nextStep.Y;
                         user.RemoveStatus("mv");
-                        if (user.PendingWalkSteps.Count > 0)
+                        if (_room.GetGameMap().IsValidStep2(user, new(user.X, user.Y), new(nextX, nextY), user.GoalX == nextX && user.GoalY == nextY, user.AllowOverride))
                         {
                             var nextZ = _room.GetGameMap().SqAbsoluteHeight(nextX, nextY);
                             if (!user.IsBot)
@@ -834,7 +831,7 @@ public class RoomUserManager
                                 }
                                 else if (user.IsLying)
                                 {
-                                    user.Statusses.Remove("lay");
+                                    user.Statusses.Remove("sit");
                                     user.Z += 0.35;
                                     user.IsLying = false;
                                     user.UpdateNeeded = true;
@@ -862,13 +859,11 @@ public class RoomUserManager
                             {
                                 var horse = GetRoomUserByVirtualId(user.HorseId);
                                 if (horse != null)
-                                {
                                     horse.SetStatus("mv", $"{nextX},{nextY},{TextHandling.GetString(nextZ)}");
-                                    horse.UpdateNeeded = true;
-                                }
                                 var riderZ = _room.GetGameMap().WalkMagicAt(nextX, nextY) == null ? nextZ + 1 : nextZ;
                                 user.SetStatus("mv", $"{nextX},{nextY},{TextHandling.GetString(riderZ)}");
                                 user.UpdateNeeded = true;
+                                horse.UpdateNeeded = true;
                             }
                             else
                                 user.SetStatus("mv", $"{nextX},{nextY},{TextHandling.GetString(nextZ)}");
@@ -888,10 +883,6 @@ public class RoomUserManager
                                 {
                                     horse.RotBody = newRot;
                                     horse.RotHead = newRot;
-                                    horse.PendingWalkSteps.Clear();
-                                    horse.PendingWalkOrigin = new(horse.X, horse.Y);
-                                    horse.PendingWalkConsumesPath = false;
-                                    horse.PendingWalkSteps.AddRange(user.PendingWalkSteps);
                                     horse.SetStep = true;
                                     horse.SetX = nextX;
                                     horse.SetY = nextY;
@@ -957,30 +948,6 @@ public class RoomUserManager
         {
             ExceptionLogger.LogCriticalException(e);
         }
-    }
-
-    private bool ValidPendingWalk(RoomUser user)
-    {
-        var from = user.PendingWalkOrigin ?? new Vector2D(user.X, user.Y);
-        if (user.PendingWalkSteps.Count == 0)
-            return _room.GetGameMap().IsValidStep2(user, from, new(user.SetX, user.SetY), user.GoalX == user.SetX && user.GoalY == user.SetY, user.AllowOverride);
-        var accepted = 0;
-        foreach (var to in user.PendingWalkSteps)
-        {
-            if (!Gamemap.TilesTouching(from.X, from.Y, to.X, to.Y) ||
-                !_room.GetGameMap().IsValidStep2(user, from, to, user.GoalX == to.X && user.GoalY == to.Y, user.AllowOverride))
-                break;
-            accepted++;
-            from = to;
-        }
-        if (user.PendingWalkConsumesPath)
-            user.PathStep -= user.PendingWalkSteps.Count - accepted;
-        if (accepted == 0)
-            return false;
-        user.SetX = from.X;
-        user.SetY = from.Y;
-        user.SetZ = _room.GetGameMap().SqAbsoluteHeight(from.X, from.Y);
-        return true;
     }
 
     public void UpdateUserStatus(RoomUser user, bool cyclegameitems)
