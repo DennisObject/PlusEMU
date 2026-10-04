@@ -94,7 +94,7 @@ public partial class PlacedFurniRoomTests
         var actor = LayeredDeckApproacher();
         vending.Interactor.OnTrigger(_client, vending, 0, true); ExecutorTick();
         ExecutorFloor(34, 1, 0);
-        for (var tick = 0; tick < 5; tick++) ExecutorTick();
+        for (var tick = 0; tick < 2; tick++) ExecutorTick();
         Assert.Equal((1, 0, 2d), (actor.X, actor.Y, actor.Z));
         Assert.Equal(7, vending.InteractingUser);
     }
