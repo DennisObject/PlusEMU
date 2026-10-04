@@ -52,8 +52,11 @@ internal class PurchaseGroupEvent : IPacketEvent
                 "An error occured whilst trying to create this group.\n\nTry again. If you get this message more than once, report it at the link below.\r\rhttp://boonboards.com");
             return Task.CompletedTask;
         }
-        session.GetHabbo().Credits -= groupCost;
-        session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+        lock (session.GetHabbo().WalletSync)
+        {
+            session.GetHabbo().Credits -= groupCost;
+            session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+        }
         session.Send(new PurchaseOkComposer());
         room.Group = group;
         if (session.GetHabbo().CurrentRoom != room)

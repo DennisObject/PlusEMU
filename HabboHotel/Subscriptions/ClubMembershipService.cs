@@ -49,4 +49,17 @@ public class ClubMembershipService : IClubMembershipService
             return expiry;
         }
     }
+
+    public int Grant(int userId, int days)
+    {
+        using var connection = _database.Connection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        var now = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var current = connection.ExecuteScalar<int?>("SELECT `expires_at` FROM `user_club_memberships` WHERE `user_id` = @userId FOR UPDATE", new { userId }, transaction) ?? 0;
+        var expiry = days <= 0 ? now : (int)Math.Min(int.MaxValue, Math.Max(current, now) + (long)days * 86400);
+        connection.Execute("INSERT INTO `user_club_memberships` (`user_id`, `expires_at`) VALUES (@userId, @expiry) ON DUPLICATE KEY UPDATE `expires_at` = @expiry", new { userId, expiry }, transaction);
+        transaction.Commit();
+        return expiry;
+    }
 }

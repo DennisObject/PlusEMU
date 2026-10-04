@@ -59,7 +59,7 @@ public sealed class PermissionManager : IPermissionManager
             if (getPermissionGroups != null)
             {
                 foreach (DataRow row in getPermissionGroups.Rows)
-                    _permissionGroups.Add(Convert.ToInt32(row["id"]), new(Convert.ToString("name"), Convert.ToString("description"), Convert.ToString("badge")));
+                    _permissionGroups.Add(Convert.ToInt32(row["id"]), new(Convert.ToString(row["name"]), Convert.ToString(row["description"]), Convert.ToString(row["badge_code"])));
             }
         }
         using (var dbClient = _database.GetQueryReactor())

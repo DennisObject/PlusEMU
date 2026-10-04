@@ -21,7 +21,7 @@ public class ModerationBan
     {
         get
         {
-            if (UnixTimestamp.GetNow() >= Expire)
+            if (BanClock.Now() >= Expire)
                 return true;
             return false;
         }

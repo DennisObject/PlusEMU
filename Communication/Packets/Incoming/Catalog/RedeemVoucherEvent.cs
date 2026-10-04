@@ -54,13 +54,19 @@ public class RedeemVoucherEvent : IPacketEvent
         voucher.UpdateUses();
         if (voucher.Type == VoucherType.Credit)
         {
-            session.GetHabbo().Credits += voucher.Value;
-            session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+            lock (session.GetHabbo().WalletSync)
+            {
+                session.GetHabbo().Credits += voucher.Value;
+                session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+            }
         }
         else if (voucher.Type == VoucherType.Ducket)
         {
-            session.GetHabbo().Duckets += voucher.Value;
-            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, voucher.Value));
+            lock (session.GetHabbo().WalletSync)
+            {
+                session.GetHabbo().Duckets += voucher.Value;
+                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, voucher.Value));
+            }
         }
         session.Send(new VoucherRedeemOkComposer());
         return Task.CompletedTask;

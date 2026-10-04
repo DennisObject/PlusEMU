@@ -194,15 +194,18 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
             }
         }
         session.Send(new PurchaseOkComposer(item, presentData));
-        if (item.CostCredits > 0)
+        lock (session.GetHabbo().WalletSync)
         {
-            session.GetHabbo().Credits -= item.CostCredits;
-            session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
-        }
-        if (item.CostPixels > 0)
-        {
-            session.GetHabbo().Duckets -= item.CostPixels;
-            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, session.GetHabbo().Duckets));
+            if (item.CostCredits > 0)
+            {
+                session.GetHabbo().Credits -= item.CostCredits;
+                session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+            }
+            if (item.CostPixels > 0)
+            {
+                session.GetHabbo().Duckets -= item.CostPixels;
+                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, session.GetHabbo().Duckets));
+            }
         }
         session.GetHabbo().LastGiftPurchaseTime = DateTime.Now;
         return Task.CompletedTask;

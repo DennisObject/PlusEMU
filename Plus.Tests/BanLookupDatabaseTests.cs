@@ -19,7 +19,8 @@ public sealed class BanLookupDatabaseTests : IDisposable
             new { type, value, reason, expire });
     }
 
-    private static long In(TimeSpan span) => DateTimeOffset.UtcNow.Add(span).ToUnixTimeSeconds();
+    // Ban expiries are on the emulator's ban clock (local wall clock).
+    private static long In(TimeSpan span) => (long)(BanClock.Now() + span.TotalSeconds);
 
     [AuthDatabaseFact]
     public async Task FindsAnActiveIpBanForTheCallersAddress()

@@ -191,20 +191,23 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         }
         void ChargePurchase()
         {
-            if (item.CostCredits > 0)
+            lock (session.GetHabbo().WalletSync)
             {
-                session.GetHabbo().Credits -= totalCreditsCost;
-                session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
-            }
-            if (item.CostPixels > 0)
-            {
-                session.GetHabbo().Duckets -= totalPixelCost;
-                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, session.GetHabbo().Duckets)); //Love you, Tom.
-            }
-            if (item.CostDiamonds > 0)
-            {
-                session.GetHabbo().Diamonds -= totalDiamondCost;
-                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, 0, 5));
+                if (item.CostCredits > 0)
+                {
+                    session.GetHabbo().Credits -= totalCreditsCost;
+                    session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+                }
+                if (item.CostPixels > 0)
+                {
+                    session.GetHabbo().Duckets -= totalPixelCost;
+                    session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, session.GetHabbo().Duckets)); //Love you, Tom.
+                }
+                if (item.CostDiamonds > 0)
+                {
+                    session.GetHabbo().Diamonds -= totalDiamondCost;
+                    session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, 0, 5));
+                }
             }
         }
 

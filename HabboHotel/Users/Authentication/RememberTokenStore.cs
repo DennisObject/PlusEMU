@@ -107,8 +107,8 @@ public class RememberTokenStore : IRememberTokenStore
     public async Task RevokeAll(int userId, CredentialScope? scope = null)
     {
         using var owned = scope == null ? _database.Connection() : null;
-        await (scope?.Connection ?? owned!).ExecuteAsync("UPDATE `user_remember_tokens` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
-            new { now = Now(), userId }, scope?.Transaction);
+        await (scope?.Connection ?? owned!).ExecuteAsync(new CommandDefinition("UPDATE `user_remember_tokens` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
+            new { now = Now(), userId }, scope?.Transaction, cancellationToken: scope?.CancellationToken ?? default));
     }
 
     public async Task<int> Prune(long cutoff, int batch)
