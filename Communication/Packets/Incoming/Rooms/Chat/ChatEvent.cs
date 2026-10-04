@@ -91,7 +91,7 @@ public class ChatEvent : IPacketEvent
             session.GetHabbo().BannedPhraseCount++;
             if (session.GetHabbo().BannedPhraseCount >= Convert.ToInt32(_settingsManager.TryGetValue("room.chat.filter.banned_phrases.chances")))
             {
-                _moderationManager.BanUser("System", ModerationBanType.Username, session.GetHabbo().Username, $"Spamming banned phrases ({message})",
+                await _moderationManager.BanUser("System", ModerationBanType.Username, session.GetHabbo().Username, $"Spamming banned phrases ({message})",
                     UnixTimestamp.GetNow() + 78892200);
                 session.Disconnect();
                 return;

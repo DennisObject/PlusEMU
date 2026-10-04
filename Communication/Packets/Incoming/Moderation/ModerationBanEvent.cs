@@ -1,4 +1,5 @@
-﻿using Plus.Database;
+﻿using Dapper;
+using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.Utilities;
@@ -18,10 +19,10 @@ internal class ModerationBanEvent : IPacketEvent
         _database = database;
     }
 
-    public Task Parse(GameClient session, IIncomingPacket packet)
+    public async Task Parse(GameClient session, IIncomingPacket packet)
     {
         if (!session.GetHabbo().Permissions.HasRight("mod_soft_ban"))
-            return Task.CompletedTask;
+            return;
         var userId = packet.ReadInt();
         var message = packet.ReadString();
         var length = packet.ReadInt() * 3600 + UnixTimestamp.GetNow();
@@ -29,37 +30,41 @@ internal class ModerationBanEvent : IPacketEvent
         packet.ReadString(); //unk2
         var ipBan = packet.ReadBool();
         var machineBan = packet.ReadBool();
-        if (machineBan)
-            ipBan = false;
-        var habbo = PlusEnvironment.GetHabboById(userId);
+        var targetClient = _clientManager.GetClientByUserId(userId);
+        var habbo = targetClient?.GetHabbo();
         if (habbo == null)
         {
             session.SendWhisper("An error occoured whilst finding that user in the database.");
-            return Task.CompletedTask;
+            return;
         }
         if (habbo.Permissions.HasRight("mod_tool") && !session.GetHabbo().Permissions.HasRight("mod_ban_any"))
         {
             session.SendWhisper("Oops, you cannot ban that user.");
-            return Task.CompletedTask;
+            return;
         }
         message = message ?? "No reason specified.";
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.RunQuery($"UPDATE `user_info` SET `bans` = `bans` + '1' WHERE `user_id` = '{habbo.Id}' LIMIT 1");
-        }
-        if (ipBan == false && machineBan == false)
-            _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Username, habbo.Username, message, length);
-        else if (ipBan)
-            _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Ip, habbo.Username, message, length);
-        else
-        {
-            _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Ip, habbo.Username, message, length);
-            _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Username, habbo.Username, message, length);
-            _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Machine, habbo.Username, message, length);
-        }
-        var targetClient = _clientManager.GetClientByUsername(habbo.Username);
-        if (targetClient != null)
-            targetClient.Disconnect();
-        return Task.CompletedTask;
+        var moderator = session.GetHabbo().Username;
+#pragma warning disable CS0618 // The handshake's machine id only lives on the session.
+        var machineId = targetClient!.MachineId;
+#pragma warning restore CS0618
+        using (var connection = _database.Connection())
+            connection.Execute("UPDATE `user_info` SET `bans` = `bans` + 1 WHERE `user_id` = @userId LIMIT 1", new { userId = habbo.Id });
+
+        // IP and machine bans also ban the account, as :ipban and :mip do.
+        await _moderationManager.BanUser(moderator, ModerationBanType.Username, habbo.Username, message, length);
+        if ((ipBan || machineBan) && AccountAddress(habbo.Id) is { Length: > 0 } address)
+            await _moderationManager.BanUser(moderator, ModerationBanType.Ip, address, message, length);
+        if (machineBan && !string.IsNullOrEmpty(machineId))
+            await _moderationManager.BanUser(moderator, ModerationBanType.Machine, machineId, message, length);
+    }
+
+    /// <summary>
+    /// The address the server knows for the account: users.ip_last, recorded by the auth API through its trusted proxies.
+    /// The game socket's own address is the proxy's, so it is never used.
+    /// </summary>
+    private string AccountAddress(int userId)
+    {
+        using var connection = _database.Connection();
+        return connection.ExecuteScalar<string?>("SELECT `ip_last` FROM `users` WHERE `id` = @userId", new { userId }) ?? string.Empty;
     }
 }

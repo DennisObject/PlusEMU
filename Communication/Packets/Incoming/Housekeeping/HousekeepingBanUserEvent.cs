@@ -14,12 +14,11 @@ internal class HousekeepingBanUserEvent : IPacketEvent
         _users = users;
     }
 
-    public Task Parse(GameClient session, IIncomingPacket packet)
+    public async Task Parse(GameClient session, IIncomingPacket packet)
     {
         var userId = packet.ReadInt();
         var reason = packet.ReadString();
         var hours = packet.ReadInt();
-        _runner.Run(session, "user.ban", HousekeepingRights.Sanction, actor => _users.Ban(actor, userId, reason, hours));
-        return Task.CompletedTask;
+        await _runner.RunAsync(session, "user.ban", HousekeepingRights.Sanction, actor => _users.Ban(actor, userId, reason, hours));
     }
 }

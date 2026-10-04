@@ -14,6 +14,9 @@ public interface IHousekeepingActionRunner
     /// Authorizes, runs and audits one staff mutation, then acknowledges it with the exact action key.
     /// </summary>
     void Run(GameClient session, string actionKey, string right, Func<Habbo, HousekeepingOutcome> action);
+
+    /// <inheritdoc cref="Run"/>
+    Task RunAsync(GameClient session, string actionKey, string right, Func<Habbo, Task<HousekeepingOutcome>> action);
 }
 
 public sealed class HousekeepingActionRunner : IHousekeepingActionRunner
@@ -30,20 +33,24 @@ public sealed class HousekeepingActionRunner : IHousekeepingActionRunner
 
     public bool HasAccess(GameClient session) => session.GetHabbo()?.Permissions?.HasRight(HousekeepingRights.Access) == true;
 
-    public void Run(GameClient session, string actionKey, string right, Func<Habbo, HousekeepingOutcome> action)
+    // The synchronous action completes inline, so this never blocks on pending work.
+    public void Run(GameClient session, string actionKey, string right, Func<Habbo, HousekeepingOutcome> action) =>
+        RunAsync(session, actionKey, right, actor => Task.FromResult(action(actor))).GetAwaiter().GetResult();
+
+    public async Task RunAsync(GameClient session, string actionKey, string right, Func<Habbo, Task<HousekeepingOutcome>> action)
     {
         if (!HasAccess(session)) return;
         var actor = session.GetHabbo();
-        var outcome = actor.Permissions.HasRight(right) ? Execute(actor, actionKey, action) : HousekeepingOutcome.Fail(HousekeepingErrors.Forbidden, HousekeepingTarget.Hotel);
+        var outcome = actor.Permissions.HasRight(right) ? await Execute(actor, actionKey, action) : HousekeepingOutcome.Fail(HousekeepingErrors.Forbidden, HousekeepingTarget.Hotel);
         _auditLog.Write(actor.Id, actor.Username, actionKey, outcome);
         session.Send(new HousekeepingActionResultComposer(actionKey, outcome.Ok, outcome.Ok ? outcome.ActionId : 0, outcome.Message));
     }
 
-    private HousekeepingOutcome Execute(Habbo actor, string actionKey, Func<Habbo, HousekeepingOutcome> action)
+    private async Task<HousekeepingOutcome> Execute(Habbo actor, string actionKey, Func<Habbo, Task<HousekeepingOutcome>> action)
     {
         try
         {
-            return action(actor);
+            return await action(actor);
         }
         catch (Exception e)
         {

@@ -25,12 +25,12 @@ internal class MipCommand : ITargetChatCommand
         _moderationManager = moderationManager;
     }
 
-    public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
+    public async Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
         if (target.Permissions.HasRight("mod_tool") && !session.GetHabbo().Permissions.HasRight("mod_ban_any"))
         {
             session.SendWhisper("Oops, you cannot ban that user.");
-            return Task.CompletedTask;
+            return;
         }
         var ipAddress = string.Empty;
         var expire = UnixTimestamp.GetNow() + 78892200;
@@ -47,12 +47,11 @@ internal class MipCommand : ITargetChatCommand
         else
             reason = "No reason specified.";
         if (!string.IsNullOrEmpty(ipAddress))
-            _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Ip, ipAddress, reason, expire);
-        _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Username, target.Username, reason, expire);
+            await _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Ip, ipAddress, reason, expire);
+        await _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Username, target.Username, reason, expire);
         if (!string.IsNullOrEmpty(target.MachineId))
-            _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Machine, target.MachineId, reason, expire);
-        target.Client.Disconnect();
+            await _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Machine, target.MachineId, reason, expire);
+        target.Client?.Disconnect();
         session.SendWhisper($"Success, you have machine, IP and account banned the user '{username}' for '{reason}'!");
-        return Task.CompletedTask;
     }
 }

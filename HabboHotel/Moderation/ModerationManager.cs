@@ -15,6 +15,7 @@ public sealed class ModerationManager : IModerationManager
     private readonly ILogger<ModerationManager> _logger;
     private readonly ISessionIssuer _sessions;
     private readonly IGameClientManager _clients;
+    private readonly IAccountSessionGate _sessionGate;
     private readonly Dictionary<string, ModerationBan> _bans = new();
     private readonly Dictionary<int, List<ModerationPresetActions>> _moderationCfhTopicActions = new();
 
@@ -34,8 +35,9 @@ public sealed class ModerationManager : IModerationManager
 
     public ICollection<ModerationTicket> GetTickets => _modTickets.Values;
 
-    public ModerationManager(IDatabase database, ILogger<ModerationManager> logger, ISessionIssuer sessions, IGameClientManager clients)
+    public ModerationManager(IDatabase database, ILogger<ModerationManager> logger, ISessionIssuer sessions, IGameClientManager clients, IAccountSessionGate sessionGate)
     {
+        _sessionGate = sessionGate;
         _sessions = sessions;
         _clients = clients;
         _database = database;
@@ -224,7 +226,76 @@ public sealed class ModerationManager : IModerationManager
         _logger.LogInformation("Cached " + _bans.Count + " username and machine bans.");
     }
 
-    public void BanUser(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp)
+    // Kept under the packet manager's 5 s limit so a ban never times out the moderator's own packet.
+    private static readonly TimeSpan SignOutBudget = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan[] SignOutRetryDelays = { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(2) };
+
+    public Task BanUser(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp) =>
+        Ban(mod, type, banValue, reason, expireTimestamp, heldUserId: 0);
+
+    public Task BanUserHoldingGate(int heldUserId, string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp) =>
+        Ban(mod, type, banValue, reason, expireTimestamp, heldUserId);
+
+    private async Task Ban(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp, int heldUserId)
+    {
+        // The ban row comes first, so logins refuse the account even if signing it out below is slow.
+        WriteBan(mod, type, banValue, reason, expireTimestamp);
+        var accounts = BannedAccounts(type, banValue);
+
+        // Fail closed before anything is awaited: logins not yet past their gate check are stopped and live sessions close.
+        foreach (var userId in accounts)
+        {
+            _sessionGate.Revoke(userId);
+            _clients.GetClientByUserId(userId)?.Disconnect();
+        }
+
+        using var budget = new CancellationTokenSource(SignOutBudget);
+        foreach (var userId in accounts)
+        {
+            try
+            {
+                await SignOut(userId, userId == heldUserId, budget.Token);
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning(e, "Signing out banned user {UserId} did not finish in time; retrying in the background", userId);
+                _ = RetrySignOut(userId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Under the account's session gate, so a login that is loading the account attaches first: then its credentials are
+    /// revoked, the gate is stamped for logins already past their ticket, and any session that registered meanwhile closes.
+    /// </summary>
+    private async Task SignOut(int userId, bool gateHeld, CancellationToken cancellationToken)
+    {
+        using var gate = gateHeld ? null : await _sessionGate.EnterAsync(userId, cancellationToken);
+        await _sessions.RevokeAll(userId).WaitAsync(cancellationToken);
+        _sessionGate.Revoke(userId);
+        _clients.GetClientByUserId(userId)?.Disconnect();
+    }
+
+    private async Task RetrySignOut(int userId)
+    {
+        foreach (var delay in SignOutRetryDelays)
+        {
+            await Task.Delay(delay);
+            try
+            {
+                using var attempt = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await SignOut(userId, gateHeld: false, attempt.Token);
+                return;
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning(e, "Retrying sign-out of banned user {UserId} failed", userId);
+            }
+        }
+        _logger.LogError("Gave up signing out banned user {UserId}; the ban itself still refuses new logins", userId);
+    }
+
+    private void WriteBan(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp)
     {
         var banType = type == ModerationBanType.Ip ? "ip" : type == ModerationBanType.Machine ? "machine" : "user";
         using (var dbClient = _database.GetQueryReactor())
@@ -242,16 +313,14 @@ public sealed class ModerationManager : IModerationManager
         // REPLACE keeps one row per value, so a re-ban must also refresh the cached expiry.
         if (type == ModerationBanType.Machine || type == ModerationBanType.Username)
             _bans[banValue] = new(type, banValue, reason, expireTimestamp);
-
-        // Every ban path (mod tool, :ban, :ipban, :mip, word-filter bans, housekeeping) signs the banned accounts out
-        // everywhere. The ban row is written first, so a login that misses the revocation still sees the ban.
-        foreach (var userId in BannedAccounts(type, banValue))
-            _sessions.RevokeAll(userId).GetAwaiter().GetResult();
     }
 
     /// <summary>
-    /// Accounts a ban covers. Game sessions carry no client address, so an IP ban reaches the accounts last seen
-    /// at that address (users.ip_last); a machine ban reaches the sessions online with that machine id.
+    /// Accounts a ban covers. A machine ban reaches the sessions online with that handshake machine id. An IP ban reaches
+    /// the accounts whose users.ip_last is that address: the auth API records it (through its trusted proxies) at login,
+    /// resume and registration, and game sessions carry no client address of their own, so this is best effort and misses
+    /// accounts that have since used the address without an HTTP login. New logins from a banned address are refused by
+    /// BanLookup regardless.
     /// </summary>
     internal IReadOnlyList<int> BannedAccounts(ModerationBanType type, string banValue)
     {

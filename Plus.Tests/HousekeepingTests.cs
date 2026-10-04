@@ -166,7 +166,7 @@ public class HousekeepingActionTests
     [InlineData(0)]
     [InlineData(HousekeepingLimits.MaxBanHours + 1)]
     public void BanHoursAreBounded(int hours) =>
-        Assert.Equal(HousekeepingErrors.InvalidInput, Actions(User(2, 1)).Users.Ban(Staff(), 2, "spam", hours).Message);
+        Assert.Equal(HousekeepingErrors.InvalidInput, Actions(User(2, 1)).Users.Ban(Staff(), 2, "spam", hours).Result.Message);
 
     [Fact]
     public void LongReasonsAreRejected() =>
@@ -185,10 +185,10 @@ public class HousekeepingActionTests
         Assert.Equal(HousekeepingErrors.InvalidInput, Actions(User(2, 1)).Users.TradeLock(Staff(), 2, hours, "").Message);
 
     [Fact]
-    public void EqualAndHigherRanksCannotBeSanctioned()
+    public async Task EqualAndHigherRanksCannotBeSanctioned()
     {
         var (users, _, _) = Actions(User(2, 7), User(3, 9));
-        Assert.Equal(HousekeepingErrors.RankTooHigh, users.Ban(Staff(), 2, "", 1).Message);
+        Assert.Equal(HousekeepingErrors.RankTooHigh, (await users.Ban(Staff(), 2, "", 1)).Message);
         Assert.Equal(HousekeepingErrors.RankTooHigh, users.Kick(Staff(), 3, "").Message);
         Assert.Equal(HousekeepingErrors.RankTooHigh, users.ResetPassword(Staff(), 3).Message);
         Assert.Equal(HousekeepingErrors.UserNotFound, users.Unban(Staff(), 4).Message);
@@ -483,7 +483,7 @@ public class HousekeepingHandlerTests
             return HousekeepingOutcome.Success(HousekeepingTarget.User(7, "target"), "done", message);
         }
 
-        public HousekeepingOutcome Ban(Habbo actor, int userId, string reason, int hours) => Record($"Ban {userId} {reason} {hours}");
+        public Task<HousekeepingOutcome> Ban(Habbo actor, int userId, string reason, int hours) => Task.FromResult(Record($"Ban {userId} {reason} {hours}"));
         public HousekeepingOutcome Unban(Habbo actor, int userId) => Record($"Unban {userId}");
         public HousekeepingOutcome Mute(Habbo actor, int userId, string reason, int minutes) => Record($"Mute {userId} {reason} {minutes}");
         public HousekeepingOutcome Kick(Habbo actor, int userId, string reason) => Record($"Kick {userId} {reason}");

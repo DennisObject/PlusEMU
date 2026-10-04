@@ -145,10 +145,10 @@ public class HousekeepingDatabaseTests
     }
 
     [HousekeepingDatabaseFact]
-    public void BansUseParametersAndUnbanRemovesTheRow()
+    public async Task BansUseParametersAndUnbanRemovesTheRow()
     {
-        var moderation = new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients);
-        moderation.BanUser("hk_owner", ModerationBanType.Username, "hk_o'brien", "it's spam", UnixTimestamp.GetNow() + 3600);
+        var moderation = new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate());
+        await moderation.BanUser("hk_owner", ModerationBanType.Username, "hk_o'brien", "it's spam", UnixTimestamp.GetNow() + 3600);
         Assert.True(moderation.IsBanned("hk_o'brien", out _));
         Assert.Equal("it's spam", Scalar<string>("SELECT reason FROM bans WHERE value = 'hk_o''brien'"));
         Assert.True(moderation.UnbanUser("hk_o'brien"));
@@ -203,8 +203,8 @@ public class HousekeepingDatabaseTests
     {
         Execute("INSERT INTO housekeeping_online_peaks (day, peak) VALUES (UTC_DATE(), 12), (UTC_DATE() - INTERVAL 3 DAY, 40)");
         new HousekeepingAuditLog(_database).Write(Owner, "hk_owner", "user.mute", HousekeepingOutcome.Success(HousekeepingTarget.User(Target), "minutes=5"));
-        new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients).BanUser("hk_owner", ModerationBanType.Username, "hk_peer", "x", PlusEnvironment.GetUnixTimestamp() + 60);
-        var lookups = new HousekeepingLookups(_clients, null!, new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients), NoLoadedRooms(), _database);
+        new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate()).BanUser("hk_owner", ModerationBanType.Username, "hk_peer", "x", PlusEnvironment.GetUnixTimestamp() + 60).GetAwaiter().GetResult();
+        var lookups = new HousekeepingLookups(_clients, null!, new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate()), NoLoadedRooms(), _database);
         var dashboard = lookups.Dashboard();
         Assert.Equal((12, 40, 2), (dashboard.PeakOnlineToday, dashboard.PeakOnlineAllTime, dashboard.SanctionsLast24h));
         Assert.Equal(Scalar<int>("SELECT COUNT(*) FROM users"), dashboard.TotalUsers);

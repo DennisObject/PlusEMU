@@ -8,7 +8,14 @@ public interface IModerationManager
     Dictionary<string, List<ModerationPresetActions>> UserActionPresets { get; }
     void Init();
     void ReCacheBans();
-    void BanUser(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp);
+    /// <summary>
+    /// Writes the ban, then signs out every account it covers: the session closes at once, and under each account's
+    /// session gate its credentials are revoked, the gate is stamped and any session that registered meanwhile closes.
+    /// </summary>
+    Task BanUser(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp);
+
+    /// <summary>As <see cref="BanUser"/>, for a caller that already holds the session gate of <paramref name="heldUserId"/>.</summary>
+    Task BanUserHoldingGate(int heldUserId, string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp);
 
     /// <summary>
     /// Removes a username ban from the database and cache. Returns false when no ban row existed.

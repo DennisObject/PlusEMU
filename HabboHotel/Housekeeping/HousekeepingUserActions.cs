@@ -16,7 +16,7 @@ namespace Plus.HabboHotel.Housekeeping;
 
 public interface IHousekeepingUserActions
 {
-    HousekeepingOutcome Ban(Habbo actor, int userId, string reason, int hours);
+    Task<HousekeepingOutcome> Ban(Habbo actor, int userId, string reason, int hours);
     HousekeepingOutcome Unban(Habbo actor, int userId);
     HousekeepingOutcome Mute(Habbo actor, int userId, string reason, int minutes);
     HousekeepingOutcome Kick(Habbo actor, int userId, string reason);
@@ -58,19 +58,17 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         _sessions = sessions;
     }
 
-    public HousekeepingOutcome Ban(Habbo actor, int userId, string reason, int hours)
+    public async Task<HousekeepingOutcome> Ban(Habbo actor, int userId, string reason, int hours)
     {
         reason = HousekeepingLimits.Normalize(reason);
         if (!HousekeepingLimits.InRange(hours, 1, HousekeepingLimits.MaxBanHours) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
-        using var account = _sessionGate.Enter(userId);
+        using var account = await _sessionGate.EnterAsync(userId);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
         var expire = UnixTimestamp.GetNow() + hours * 3600.0;
-        _moderation.BanUser(actor.Username, ModerationBanType.Username, user.Username, reason.Length > 0 ? reason : "No reason specified.", expire);
         Execute("UPDATE `user_info` SET `bans` = `bans` + 1 WHERE `user_id` = @userId", new { userId });
-        // BanUser already signed the account out everywhere; the stamp also stops a game login already past its ticket.
-        _sessionGate.Revoke(userId);
-        _clients.GetClientByUserId(userId)?.Disconnect();
+        // The ban coordinator signs the account out, stamps the gate and closes its session; this action holds the gate.
+        await _moderation.BanUserHoldingGate(userId, actor.Username, ModerationBanType.Username, user.Username, reason.Length > 0 ? reason : "No reason specified.", expire);
         return HousekeepingOutcome.Success(Label(user), $"hours={hours} reason={HousekeepingLimits.AuditValue(reason)}");
     }
 

@@ -16,7 +16,7 @@ namespace Plus.Tests;
 [Collection("HousekeepingDatabase")]
 public class HousekeepingCredentialRevocationDatabaseTests
 {
-    private const int Staff = 940001, Target = 940002, Moderator = 940003, Neighbour = 940004;
+    private const int Staff = 940001, Target = 940002, Moderator = 940003, Neighbour = 940004, Locked = 940005;
     private const string OldPassword = "old-password-1234";
     private readonly HabbiconDatabaseTests.TestDatabase _database;
     private readonly IOptions<AuthApiConfiguration> _options = Options.Create(new AuthApiConfiguration());
@@ -40,12 +40,13 @@ public class HousekeepingCredentialRevocationDatabaseTests
         if (connectionString.Length == 0) return;
         Execute("DELETE FROM users WHERE id BETWEEN 940000 AND 940099; DELETE FROM user_info WHERE user_id BETWEEN 940000 AND 940099; " +
                 "DELETE FROM user_access_tokens WHERE user_id BETWEEN 940000 AND 940099; DELETE FROM user_remember_tokens WHERE user_id BETWEEN 940000 AND 940099; " +
-                "DELETE FROM bans WHERE value LIKE 'cr\\_%' OR value LIKE '10.94.%' OR value = 'cr-machine'");
+                "DELETE FROM bans WHERE value LIKE 'cr\\_%' OR value LIKE 'cr-%' OR value LIKE '10.94.%'");
         var hash = new Argon2idPasswordHasher().Hash(OldPassword);
         Execute("INSERT INTO users (id, username, password, auth_ticket, `rank`, ip_last, online) VALUES " +
                 $"({Staff}, 'cr_staff', '', '', 9, '', 0), ({Target}, 'cr_target', @hash, '', 1, '10.94.0.2', 0), " +
-                $"({Moderator}, 'cr_moderator', @hash, '', 3, '', 0), ({Neighbour}, 'cr_neighbour', @hash, '', 1, '10.94.0.4', 0)", new { hash });
-        Execute($"INSERT INTO user_info (user_id) VALUES ({Target}), ({Moderator}), ({Neighbour})");
+                $"({Moderator}, 'cr_moderator', @hash, '', 3, '', 0), ({Neighbour}, 'cr_neighbour', @hash, '', 1, '10.94.0.4', 0), " +
+                $"({Locked}, 'cr_locked', @hash, '', 1, '', 0)", new { hash });
+        Execute($"INSERT INTO user_info (user_id) VALUES ({Target}), ({Moderator}), ({Neighbour}), ({Locked})");
     }
 
     [HousekeepingDatabaseFact]
@@ -110,7 +111,7 @@ public class HousekeepingCredentialRevocationDatabaseTests
     public async Task HousekeepingBansAndDemotionsSignTheAccountOutEverywhere()
     {
         await Login().Login("cr_target", OldPassword, "10.0.0.1", remember: true);
-        Assert.True(Actions().Ban(StaffHabbo(), Target, "cheating", 1).Ok);
+        Assert.True((await Actions().Ban(StaffHabbo(), Target, "cheating", 1)).Ok);
         AssertSignedOut(Target);
 
         await Login().Login("cr_moderator", OldPassword, "10.0.0.1", remember: true);
@@ -120,31 +121,181 @@ public class HousekeepingCredentialRevocationDatabaseTests
         AssertSignedOut(Moderator);
     }
 
-    // :ban, :ipban, :mip, the mod tool and word-filter bans all go through ModerationManager.BanUser.
+    // :ban, :ipban, :mip, the mod tool, word-filter bans and housekeeping all go through ModerationManager.BanUser.
     [HousekeepingDatabaseFact]
-    public async Task EveryBanPathSignsTheBannedAccountsOut()
+    public async Task EveryBanPathSignsTheBannedAccountsOutAndClosesTheirSessions()
     {
-        await Login().Login("cr_target", OldPassword, "10.0.0.1", remember: true);
-        await Login().Login("cr_neighbour", OldPassword, "10.0.0.1", remember: true);
+        await Login().Login("cr_target", OldPassword, "10.94.0.2", remember: true);
+        // HTTP logins record the client address in users.ip_last, which IP bans select on.
+        await Login().Login("cr_neighbour", OldPassword, "10.94.0.4", remember: true);
+        var target = Online(Target, "cr_target");
+        var neighbour = Online(Neighbour, "cr_neighbour");
         var moderation = Moderation();
-        moderation.BanUser("cr_staff", ModerationBanType.Username, "cr_target", "spam", PlusEnvironment.GetUnixTimestamp() + 3600);
+        await moderation.BanUser("cr_staff", ModerationBanType.Username, "cr_target", "spam", PlusEnvironment.GetUnixTimestamp() + 3600);
         AssertSignedOut(Target);
+        Assert.True(target.Closed.IsCancellationRequested);
         Assert.Equal(1, LiveAccessTokens(Neighbour));
+        Assert.False(neighbour.Closed.IsCancellationRequested);
 
         // An IP ban reaches the accounts last seen at that address, and no others.
-        await Login().Login("cr_moderator", OldPassword, "10.0.0.1");
-        moderation.BanUser("cr_staff", ModerationBanType.Ip, "10.94.0.4", "spam", PlusEnvironment.GetUnixTimestamp() + 3600);
+        await Login().Login("cr_moderator", OldPassword, "10.94.0.3");
+        await moderation.BanUser("cr_staff", ModerationBanType.Ip, "10.94.0.4", "spam", PlusEnvironment.GetUnixTimestamp() + 3600);
         AssertSignedOut(Neighbour);
+        Assert.True(neighbour.Closed.IsCancellationRequested);
         Assert.Equal(1, LiveAccessTokens(Moderator));
 
         // A machine ban reaches the sessions online with that machine id.
-        var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = Moderator, Username = "cr_moderator" });
-#pragma warning disable CS0618
-        client.MachineId = "cr-machine";
-#pragma warning restore CS0618
-        _clients.Online[Moderator] = client;
-        moderation.BanUser("cr_staff", ModerationBanType.Machine, "cr-machine", "spam", PlusEnvironment.GetUnixTimestamp() + 3600);
+        var device = Online(Moderator, "cr_moderator", machineId: "cr-machine");
+        await moderation.BanUser("cr_staff", ModerationBanType.Machine, "cr-machine", "spam", PlusEnvironment.GetUnixTimestamp() + 3600);
         Assert.Equal(0, LiveAccessTokens(Moderator));
+        Assert.True(device.Closed.IsCancellationRequested);
+    }
+
+    [HousekeepingDatabaseFact]
+    public async Task AnIpBanClosesEverySessionItCovers()
+    {
+        Execute($"UPDATE users SET ip_last = '10.94.0.9' WHERE id IN ({Target}, {Neighbour})");
+        var first = Online(Target, "cr_target");
+        var second = Online(Neighbour, "cr_neighbour");
+        await Moderation().BanUser("cr_staff", ModerationBanType.Ip, "10.94.0.9", "spam", PlusEnvironment.GetUnixTimestamp() + 3600);
+        Assert.True(first.Closed.IsCancellationRequested);
+        Assert.True(second.Closed.IsCancellationRequested);
+    }
+
+    // A game login paused while loading holds the account gate; the ban waits for it, then closes what it attached.
+    [HousekeepingDatabaseFact]
+    public async Task ABanDuringAGameLoginClosesTheSessionItAttaches()
+    {
+        var release = new TaskCompletionSource();
+        var factory = new SlowLogin(release.Task);
+        var (session, _) = HabbiconTestSupport.Client(null!);
+        var login = Authenticator(factory).AuthenticateUsingSSO(session, await Ticket());
+        Assert.True(factory.Loaded.Task.Wait(TimeSpan.FromSeconds(10)));
+        var ban = Task.Run(() => Moderation().BanUser("cr_staff", ModerationBanType.Username, "cr_target", "spam", PlusEnvironment.GetUnixTimestamp() + 3600));
+        await Task.Delay(300);
+        release.SetResult();
+        Assert.Null(await login);
+        await ban.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(session.Closed.IsCancellationRequested);
+        AssertSignedOut(Target);
+    }
+
+    // A ban that lands after the login used up its ticket, before it reached the gate, stops the login.
+    [HousekeepingDatabaseFact]
+    public async Task ABanAfterTheTicketWasConsumedRejectsTheLogin()
+    {
+        var moderation = Moderation();
+        var tickets = new AfterConsume(_tickets, () => moderation.BanUser("cr_staff", ModerationBanType.Username, "cr_target", "spam",
+            PlusEnvironment.GetUnixTimestamp() + 3600).GetAwaiter().GetResult());
+        var (session, _) = HabbiconTestSupport.Client(null!);
+        var result = await Authenticator(new SlowLogin(Task.CompletedTask), tickets).AuthenticateUsingSSO(session, await Ticket());
+        Assert.Equal(AuthenticationError.LoginProhibited, result);
+        Assert.Null(session.GetHabbo());
+        Assert.Null(_clients.GetClientByUserId(Target));
+    }
+
+    // Hot callers (chat auto-bans, the mod tool) must not hang on a locked users row: the session closes at once,
+    // the call returns within its budget, and the revocation is retried once the row frees up.
+    [HousekeepingDatabaseFact]
+    public async Task ABanUnderALockedUsersRowFailsClosedAndRevokesLater()
+    {
+        // Its own account: the background retry may still run after this test ends.
+        await Login().Login("cr_locked", OldPassword, "10.0.0.1", remember: true);
+        var target = Online(Locked, "cr_locked");
+        using var locker = new MySqlConnection(Environment.GetEnvironmentVariable("PLUS_HOUSEKEEPING_TEST_CONNECTION_STRING"));
+        locker.Open();
+        var transaction = locker.BeginTransaction();
+        try
+        {
+            locker.Execute($"SELECT id FROM users WHERE id = {Locked} FOR UPDATE", transaction: transaction);
+            var ban = Task.Run(() => Moderation().BanUser("System", ModerationBanType.Username, "cr_locked", "auto-ban", PlusEnvironment.GetUnixTimestamp() + 3600));
+            await Task.Delay(500);
+            Assert.True(target.Closed.IsCancellationRequested);
+            await ban.WaitAsync(TimeSpan.FromSeconds(4.5));
+        }
+        finally
+        {
+            transaction.Rollback();
+        }
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        while (LiveAccessTokens(Locked) > 0 && DateTime.UtcNow < deadline)
+            await Task.Delay(250);
+        AssertSignedOut(Locked);
+    }
+
+    // The mod tool's IP and machine bans used the username as the address and the device; they now use the account's
+    // recorded address and the target session's handshake machine id.
+    [HousekeepingDatabaseFact]
+    public async Task TheModToolBansTheRealAddressAndDevice()
+    {
+        var (moderator, _) = HabbiconTestSupport.Client(new Habbo { Id = Staff, Username = "cr_staff", Rank = 9, Permissions = new(["mod_soft_ban", "mod_ban_any"], []) });
+        Online(Target, "cr_target", machineId: "cr-device-1");
+        var handler = new Plus.Communication.Packets.Incoming.Moderation.ModerationBanEvent(_clients, Moderation(), _database);
+        await handler.Parse(moderator, HabbiconTestSupport.Incoming(Target, "spam", 2, "", "", true, false));
+        Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM bans WHERE bantype = 'ip' AND value = '10.94.0.2'"));
+        Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM bans WHERE bantype = 'user' AND value = 'cr_target'"));
+        Assert.Equal(0, Scalar<int>("SELECT COUNT(*) FROM bans WHERE value = 'cr_target' AND bantype <> 'user'"));
+
+        Online(Target, "cr_target", machineId: "cr-device-1");
+        await handler.Parse(moderator, HabbiconTestSupport.Incoming(Target, "spam", 2, "", "", false, true));
+        Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM bans WHERE bantype = 'machine' AND value = 'cr-device-1'"));
+    }
+
+    private Plus.HabboHotel.GameClients.GameClient Online(int userId, string username, string machineId = "")
+    {
+        var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = userId, Username = username, Rank = 1, Permissions = new([], []) });
+#pragma warning disable CS0618 // The handshake's machine id only lives on the session.
+        client.MachineId = machineId;
+#pragma warning restore CS0618
+        _clients.Online[userId] = client;
+        return client;
+    }
+
+    private async Task<string> Ticket() => (await _tickets.Issue(Target)).Value;
+
+    private Authenticator Authenticator(Plus.HabboHotel.Users.UserData.IUserDataFactory factory, ISsoTicketStore? tickets = null)
+    {
+        // Habbo.Init loads effects and clothing through the static database.
+        typeof(PlusEnvironment).GetField("_database", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.SetValue(null, _database);
+        return new(Array.Empty<IAuthenticationTask>(), _clients, factory, tickets ?? _tickets, _gate);
+    }
+
+    /// <summary>Loads the target from the database, then holds the login until released.</summary>
+    private sealed class SlowLogin(Task release) : Plus.HabboHotel.Users.UserData.IUserDataFactory
+    {
+        public TaskCompletionSource Loaded { get; } = new();
+
+        public async Task<Habbo?> Create(int userId, CancellationToken cancellationToken = default)
+        {
+            var habbo = new Habbo { Id = userId, Username = "cr_target", Rank = 1, Permissions = new([], []) };
+            Loaded.TrySetResult();
+            await release;
+            return habbo;
+        }
+
+        public Task<string> GetUsernameForHabboById(int userId) => throw new NotSupportedException();
+        public Task<bool> HabboExists(int userId) => throw new NotSupportedException();
+        public Task<bool> HabboExists(string username) => throw new NotSupportedException();
+        public Task<Habbo?> GetUserDataByIdAsync(int userId) => throw new NotSupportedException();
+        public Task<List<Plus.HabboHotel.Users.Badges.Badge>> GetEquippedBadgesForUserAsync(int userId) => throw new NotSupportedException();
+    }
+
+    private sealed class AfterConsume(ISsoTicketStore inner, Action hook) : ISsoTicketStore
+    {
+        public async Task<int?> Consume(string ticket)
+        {
+            var userId = await inner.Consume(ticket);
+            hook();
+            return userId;
+        }
+
+        public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) => inner.Issue(userId, sessionId, scope);
+        public Task<int?> FindUser(string ticket) => inner.FindUser(ticket);
+        public Task<CredentialOwner?> FindOwner(string ticket) => inner.FindOwner(ticket);
+        public Task<CredentialOwner?> Exchange(string ticket) => inner.Exchange(ticket);
+        public Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope) => inner.Withdraw(userId, ticket, scope);
+        public Task Revoke(int userId, CredentialScope? scope = null) => inner.Revoke(userId, scope);
+        public Task RevokeSession(int userId, string sessionId, CredentialScope scope) => inner.RevokeSession(userId, sessionId, scope);
     }
 
     private void AssertSignedOut(int userId)
@@ -164,7 +315,7 @@ public class HousekeepingCredentialRevocationDatabaseTests
         new(new AccountStore(_database, TimeProvider.System, _options), hasher ?? _hasher, new LoginThrottle(TimeProvider.System, _options), _sessions,
             new BanLookup(_database, TimeProvider.System));
 
-    private ModerationManager Moderation(ISessionIssuer? sessions = null) => new(_database, NullLogger<ModerationManager>.Instance, sessions ?? _sessions, _clients);
+    private ModerationManager Moderation(ISessionIssuer? sessions = null) => new(_database, NullLogger<ModerationManager>.Instance, sessions ?? _sessions, _clients, _gate);
 
     private HousekeepingUserActions Actions(ISessionIssuer? sessions = null)
     {
