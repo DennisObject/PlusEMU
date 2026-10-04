@@ -66,7 +66,7 @@ public class PetWireTests
         };
         var packet = new RecordingPacket();
 
-        new PetInformationComposer(habbo).Compose(packet);
+        new PetInformationComposer(PetInformationService.Capture(habbo, DateTimeOffset.UtcNow)).Compose(packet);
 
         // PetInfoMessageParser reads the status tail after rarity, saddle, and rider.
         Assert.Equal(new object[] { 0, 0, false, true, false, 0, -1, -1, -1, false }, packet.Writes.Skip(17));

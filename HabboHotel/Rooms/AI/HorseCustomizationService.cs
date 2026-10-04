@@ -55,7 +55,8 @@ public sealed class HorseCustomizationService(
     IRoomManager roomManager,
     IItemDataManager itemDataManager,
     IItemFactory itemFactory,
-    IHorseCustomizationStore store) : IHorseCustomizationService
+    IHorseCustomizationStore store,
+    IPetInformationService petInformation) : IHorseCustomizationService
 {
     public void RemoveSaddle(GameClient session, int petId)
     {
@@ -87,7 +88,7 @@ public sealed class HorseCustomizationService(
         var anyoneCanRide = pet.PetData.AnyoneCanRide == 1 ? 0 : 1;
         store.UpdatePet(pet.PetData.PetId, "anyone_ride", anyoneCanRide);
         pet.PetData.AnyoneCanRide = anyoneCanRide;
-        room.SendPacket(new PetInformationComposer(pet.PetData));
+        room.SendPacket(new PetInformationComposer(petInformation.Capture(pet.PetData)));
     }
 
     public void ApplyEffect(Room room, GameClient session, uint itemId, int petId)

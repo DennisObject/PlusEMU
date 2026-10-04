@@ -17,7 +17,7 @@ public sealed class HorseCustomizationServiceTests
         var (room, pet) = Horse(ownerId: 7, anyoneCanRide: 0);
         var (session, _) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
         var store = new RecordingStore();
-        var service = new HorseCustomizationService(null!, null!, null!, store);
+        var service = new HorseCustomizationService(null!, null!, null!, store, new PetInformationService(TimeProvider.System));
 
         service.ToggleRiding(room, session, pet.PetId);
 
@@ -34,7 +34,7 @@ public sealed class HorseCustomizationServiceTests
         var (room, pet) = Horse(ownerId: 7, anyoneCanRide: 0);
         var (session, _) = HabbiconTestSupport.Client(new Habbo { Id = 8 });
         var store = new RecordingStore();
-        var service = new HorseCustomizationService(null!, null!, null!, store);
+        var service = new HorseCustomizationService(null!, null!, null!, store, new PetInformationService(TimeProvider.System));
 
         service.ToggleRiding(room, session, pet.PetId);
 
@@ -47,7 +47,7 @@ public sealed class HorseCustomizationServiceTests
     {
         var (room, pet) = Horse(ownerId: 7, anyoneCanRide: 0);
         var (session, _) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
-        var service = new HorseCustomizationService(null!, null!, null!, new RecordingStore { Fail = true });
+        var service = new HorseCustomizationService(null!, null!, null!, new RecordingStore { Fail = true }, new PetInformationService(TimeProvider.System));
 
         Assert.Throws<InvalidOperationException>(() => service.ToggleRiding(room, session, pet.PetId));
         Assert.Equal(0, pet.AnyoneCanRide);
@@ -61,6 +61,9 @@ public sealed class HorseCustomizationServiceTests
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
         var pet = (Pet)RuntimeHelpers.GetUninitializedObject(typeof(Pet));
         pet.PetId = 12;
+        pet.Name = "horse";
+        pet.OwnerName = "owner";
+        pet.ExperienceLevels = [100];
         pet.OwnerId = ownerId;
         pet.AnyoneCanRide = anyoneCanRide;
         var roomUser = new RoomUser(0, room.Id, 3, room) { PetData = pet };
