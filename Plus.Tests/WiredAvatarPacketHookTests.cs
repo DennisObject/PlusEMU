@@ -90,7 +90,7 @@ public class WiredAvatarPacketHookTests
         public World(int action, int code = -1)
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
-            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance); var users = new RoomUserManager(Room);
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance); var users = new RoomUserManager(Room, TestRoomUserStore.Instance);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
             _wired = new WiredComponent(Room, TestLogging.Logger); Set(Room, "_wiredComponent", _wired);
             Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)

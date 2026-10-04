@@ -46,6 +46,8 @@ public sealed class RoomComponentDatabaseTests
                     extra_data TEXT, wall_pos VARCHAR(100));
                 CREATE TABLE logs_client_trade (
                     id INT AUTO_INCREMENT PRIMARY KEY, `1id` INT, `2id` INT, `1items` TEXT, `2items` TEXT, `timestamp` CHAR(20));
+                CREATE TABLE rooms (id INT UNSIGNED PRIMARY KEY, users_now INT NOT NULL DEFAULT 0);
+                CREATE TABLE user_roomvisits (room_id INT UNSIGNED, user_id INT, exit_timestamp DOUBLE);
                 """);
             connection.Execute("""
                 INSERT INTO bots VALUES
@@ -56,6 +58,8 @@ public sealed class RoomComponentDatabaseTests
                 INSERT INTO bots_petdata VALUES (11, 2, '3', 'ffffff', 4, 5, 6, 7, 8.5, 1, 0, 9, 10, 'hat');
                 INSERT INTO room_promotions VALUES (42, 'Featured', 'Actual row', UNIX_TIMESTAMP() - 10, UNIX_TIMESTAMP() + 600, 3);
                 INSERT INTO items (id, user_id) VALUES (90, 1), (91, 1);
+                INSERT INTO rooms VALUES (42, 0);
+                INSERT INTO user_roomvisits VALUES (42, 7, 0);
                 """);
 
             var bot = Assert.Single(RoomBotsComponent.Load(connection, 42));
@@ -83,6 +87,21 @@ public sealed class RoomComponentDatabaseTests
             Assert.Equal((42u, 5, 6, 2.5, 4, "state"), connection.QuerySingle<(uint, int, int, double, int, string)>(
                 "SELECT room_id, x, y, z, rot, extra_data FROM items WHERE id = 90"));
             Assert.Throws<InvalidOperationException>(() => new RoomItemStore(new FailingDatabase()).PlaceFloor(90, 1, 0, 0, 0, 0));
+            var userStore = new RoomUserStore(new ProbeDatabase(databaseConnection));
+            userStore.UpdateUserCount(42, 7);
+            userStore.SaveBot(new(10, 8, 9, 1.5, "updated", "look", 4));
+            userStore.SavePet(new(11, 8, 42, "pet", 2, "3", "ffffff", 8.5, 6, 7, 2.25, 40, 50, 60, 70, false));
+            userStore.SavePet(new(13, 9, 42, "inserted", 4, "5", "000000", 9.5, 0, 0, 0, 0, 100, 0, 0, true));
+            userStore.RecordExit(42, 7, 1234, 6);
+            Assert.Equal(6, connection.QuerySingle<int>("SELECT users_now FROM rooms WHERE id = 42"));
+            Assert.Equal(1234, connection.QuerySingle<double>("SELECT exit_timestamp FROM user_roomvisits WHERE room_id = 42 AND user_id = 7"));
+            Assert.Equal((8, 9, 1.5, "updated", "look", 4), connection.QuerySingle<(int, int, double, string, string, int)>(
+                "SELECT x, y, z, name, look, rotation FROM bots WHERE id = 10"));
+            Assert.Equal((6, 7, 2.25), connection.QuerySingle<(int, int, double)>("SELECT x, y, z FROM bots WHERE id = 11"));
+            Assert.Equal((40, 50, 60, 70), connection.QuerySingle<(int, int, int, int)>(
+                "SELECT experience, energy, nutrition, respect FROM bots_petdata WHERE id = 11"));
+            Assert.Equal("pet", connection.QuerySingle<string>("SELECT ai_type FROM bots WHERE id = 13"));
+            Assert.Throws<InvalidOperationException>(() => new RoomUserStore(new FailingDatabase()).UpdateUserCount(42, 0));
         }
         finally
         {

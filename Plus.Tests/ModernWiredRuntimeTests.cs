@@ -1280,7 +1280,7 @@ public class ModernWiredRuntimeTests
         var handler = new RoomItemHandling(room, TestRoomItemStore.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
-        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance));
         typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
         typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);
         return (room, map, (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handler)!);

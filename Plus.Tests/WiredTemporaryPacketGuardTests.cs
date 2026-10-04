@@ -168,7 +168,7 @@ public class WiredTemporaryPacketGuardTests
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 1; room.OwnerId = 42; room.OwnerName = "owner"; room.Type = "private";
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
-        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance));
         var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
         client.SetHabbo(new Habbo { Id = 42, Username = "owner", CurrentRoom = room, Credits = 10,
             Access = EditorTestSupport.Access(["room.item_save_branding_items"]) });

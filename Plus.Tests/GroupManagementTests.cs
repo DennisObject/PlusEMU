@@ -309,7 +309,7 @@ public class GroupManagementTests : IDisposable
         var targetHabbo = new Habbo { Id = 8, Username = "Target", Access = Rights(), HabboStats = stats };
         var (_, targetSent) = Client(targetHabbo);
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var manager = new RoomUserManager(room);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
         var roomUser = new RoomUser(8, group.RoomId, 3, room);
         roomUser.SetStatus("flatctrl 1", "");

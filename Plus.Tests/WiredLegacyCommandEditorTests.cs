@@ -114,7 +114,7 @@ public class WiredLegacyCommandEditorTests
         {
             _previousGame = _gameField.GetValue(null);
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.OwnerId = 42;
-            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance); var users = new RoomUserManager(Room);
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance); var users = new RoomUserManager(Room, TestRoomUserStore.Instance);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
             Wired = new WiredComponent(Room, TestLogging.Logger); Set(Room, "_wiredComponent", Wired);
             _commands = new CommandManager([new Command("first"), new Command("second")], null!, null!);

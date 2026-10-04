@@ -129,7 +129,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             var roomVariables = new WiredRoomVariables(liveRoom, atomicDb, () => 5000);
             var itemHandler = new RoomItemHandling(liveRoom, TestRoomItemStore.Instance);
             typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, itemHandler);
-            var roomUsers = new RoomUserManager(liveRoom);
+            var roomUsers = new RoomUserManager(liveRoom, TestRoomUserStore.Instance);
             typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, roomUsers);
             var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(itemHandler)!;
             var userDefinitionItem = new Item { Id = items[0], OwnerId = owner, Definition = new() { InteractionName = "wf_var_user" } };
