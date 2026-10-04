@@ -49,11 +49,16 @@ public class Arc4
 
     public void Encrypt(ref byte[] src)
     {
-        for (var k = 0; k < src.Length; k++) src[k] ^= Next();
+        Transform(src);
     }
 
     public void Decrypt(ref byte[] src)
     {
-        Encrypt(ref src);
+        Transform(src);
+    }
+
+    public void Transform(Span<byte> source)
+    {
+        for (var k = 0; k < source.Length; k++) source[k] ^= Next();
     }
 }

@@ -9,4 +9,5 @@ public interface IGameServer
 
     Task PacketReceived(GameClient client, uint messageId, IIncomingPacket packet);
     void ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet);
+    bool HasOutgoingPacketInjectors(uint messageId);
 }

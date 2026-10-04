@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Buffers.Binary;
 using Microsoft.IO;
 using Plus.HabboHotel.GameClients;
 
@@ -25,41 +25,33 @@ public class FlashIncomingPacket : IIncomingPacket
     public byte ReadByte()
     {
         var span = Buffer.Span;
-        var result = MemoryMarshal.Read<byte>(span);
+        var result = span[0];
         Stream.Position += sizeof(byte);
         return result;
     }
 
     public short ReadShort()
     {
-        var span = Buffer.Span.Slice(0, sizeof(short));
-        span.Reverse();
-        var result = MemoryMarshal.Read<short>(span);
+        var result = BinaryPrimitives.ReadInt16BigEndian(Buffer.Span);
         Stream.Position += sizeof(short);
         return result;
     }
     public ushort ReadUShort()
     {
-        var span = Buffer.Span.Slice(0, sizeof(ushort));
-        span.Reverse();
-        var result = MemoryMarshal.Read<ushort>(span);
+        var result = BinaryPrimitives.ReadUInt16BigEndian(Buffer.Span);
         Stream.Position += sizeof(ushort);
         return result;
     }
 
     public int ReadInt()
     {
-        var span = Buffer.Span.Slice(0, sizeof(int));
-        span.Reverse();
-        var result = MemoryMarshal.Read<int>(span);
+        var result = BinaryPrimitives.ReadInt32BigEndian(Buffer.Span);
         Stream.Position += sizeof(int);
         return result;
     }
     public uint ReadUInt()
     {
-        var span = Buffer.Span.Slice(0, 4);
-        span.Reverse();
-        var result = MemoryMarshal.Read<uint>(span);
+        var result = BinaryPrimitives.ReadUInt32BigEndian(Buffer.Span);
         Stream.Position += sizeof(uint);
         return result;
     }

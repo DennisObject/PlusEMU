@@ -66,6 +66,8 @@ public abstract class WebsocketGameServer<TGameServerOptions> : WsServer, IGameS
     public void ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet) =>
         InvokeInjectors(_outgoingInjectors, (uint)packet.MessageId, injector => injector.ModifyOutgoingPacket(this, client, packet));
 
+    public bool HasOutgoingPacketInjectors(uint messageId) => _outgoingInjectors.ContainsKey(messageId);
+
     private static void InvokeInjectors<T>(IReadOnlyDictionary<uint, T[]> injectors, uint messageId, Action<T> invoke)
     {
         if (!injectors.TryGetValue(messageId, out var matches)) return;

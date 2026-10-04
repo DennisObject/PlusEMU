@@ -106,7 +106,8 @@ public abstract class GameClient
         await _receiveLock.WaitAsync();
         try
         {
-            if (SupportsLegacyCrypto && Rc4Client != null) Rc4Client.Decrypt(ref received);
+            var decrypted = SupportsLegacyCrypto && Rc4Client != null;
+            if (decrypted) Rc4Client!.Transform(received);
             await using var stream = PlusMemoryStream.GetStream(received);
             var memory = stream.GetBuffer().AsMemory().Slice(0, (int)stream.Length);
 
@@ -147,6 +148,11 @@ public abstract class GameClient
                     Log.Error(e, $"Error handling packet {messageId}");
                 }
                 memory = memory.Slice(headerLength + length);
+                if (!decrypted && SupportsLegacyCrypto && Rc4Client != null && !memory.IsEmpty)
+                {
+                    Rc4Client.Transform(memory.Span);
+                    decrypted = true;
+                }
             }
 
             if (memory.Length == 0)
@@ -189,12 +195,19 @@ public abstract class GameClient
     // Encoding belongs to this broadcast only: composers can reference mutable room state.
     internal static void SendBroadcast(IServerPacket composer, IEnumerable<GameClient> clients, Func<GameClient, bool>? canSend = null)
     {
+        var encodedPackets = new Dictionary<(Revision, IPacketFactory, Type, uint), byte[]>();
         foreach (var client in clients)
         {
             lock (client._sendLock)
             {
                 var outgoingMessageId = client.Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
-                var buffer = client.EncodePacket(composer, outgoingMessageId);
+                var key = (client.Revision, client._packetFactory, client.GetType(), outgoingMessageId);
+                byte[] buffer;
+                if (client._server.HasOutgoingPacketInjectors(composer.MessageId) || !encodedPackets.TryGetValue(key, out buffer!))
+                {
+                    buffer = client.EncodePacket(composer, outgoingMessageId);
+                    if (!client._server.HasOutgoingPacketInjectors(composer.MessageId)) encodedPackets.Add(key, buffer);
+                }
                 client.SendEncoded(buffer, canSend == null ? null : () => canSend(client));
                 client.LogPacket(composer, outgoingMessageId);
             }
@@ -211,16 +224,17 @@ public abstract class GameClient
         var memory = stream.GetBuffer().AsMemory(0, (int)stream.Length);
         CreateHeader(memory, outgoingMessageId);
         // Socket.SendAsync can outlive this stream; never hand its pooled buffer to a send.
-        var encoded = memory.ToArray();
-        if (SupportsLegacyCrypto && _outgoingRc4 != null) _outgoingRc4.Encrypt(ref encoded);
-        return encoded;
+        return memory.ToArray();
     }
 
     public void ActivateLegacyCrypto(byte[] key)
     {
         if (!SupportsLegacyCrypto) return;
-        Rc4Client = new Arc4(key);
-        _outgoingRc4 = new Arc4(key);
+        lock (_sendLock)
+        {
+            Rc4Client = new Arc4(key);
+            _outgoingRc4 = new Arc4(key);
+        }
     }
 
     private void SendEncoded(byte[] buffer, Func<bool>? canSend = null)
@@ -236,6 +250,12 @@ public abstract class GameClient
             {
                 args.Dispose();
                 return;
+            }
+            if (SupportsLegacyCrypto && _outgoingRc4 != null)
+            {
+                buffer = buffer.ToArray();
+                _outgoingRc4.Transform(buffer);
+                args.SetBuffer(buffer.AsMemory());
             }
             if (!SendCallback(args))
                 args.Dispose();
