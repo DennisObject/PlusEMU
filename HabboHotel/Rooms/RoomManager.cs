@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
-using System.Data;
+using Dapper;
 using Microsoft.Extensions.Logging;
 using Plus.Core;
 using Plus.Core.Language;
@@ -87,24 +87,16 @@ public class RoomManager : IRoomManager
         }
     }
 
+    private const string SelectModel = "SELECT id, door_x AS DoorX, door_y AS DoorY, door_z AS DoorZ, door_dir AS DoorDir, " +
+        "heightmap, required_club_level AS RequiredClubLevel, required_permission AS RequiredPermission, wall_height AS WallHeight FROM room_models ";
+
     public void LoadModels()
     {
-        if (_roomModels.Count > 0)
-            _roomModels.Clear();
-        using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("SELECT id,door_x,door_y,door_z,door_dir,heightmap,required_club_level,required_permission,poolmap,`wall_height` FROM `room_models` WHERE `custom` = '0'");
-        var data = dbClient.GetTable();
-        if (data == null)
-            return;
-        foreach (DataRow row in data.Rows)
-        {
-            var model = Convert.ToString(row["id"]);
-            _roomModels.Add(model, new(model, Convert.ToInt32(row["door_x"]), Convert.ToInt32(row["door_y"]), (double)row["door_z"], Convert.ToInt32(row["door_dir"]),
-                Convert.ToString(row["heightmap"]), Convert.ToInt32(row["required_club_level"]), Convert.ToInt32(row["wall_height"]), false)
-            {
-                RequiredPermission = row.IsNull("required_permission") ? null : Convert.ToString(row["required_permission"])
-            });
-        }
+        using var connection = _database.Connection();
+        var models = connection.Query<ModelRow>(SelectModel + "WHERE custom = FALSE");
+        _roomModels.Clear();
+        foreach (var row in models)
+            _roomModels.Add(row.Id, CreateModel(row, false));
     }
 
     public IReadOnlyList<RoomModel> GetCreatableModels(Plus.HabboHotel.Permissions.UserAccess access) =>
@@ -112,23 +104,28 @@ public class RoomManager : IRoomManager
 
     public bool LoadModel(string id)
     {
-        DataRow? row = null;
-        using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("SELECT id,door_x,door_y,door_z,door_dir,heightmap,required_club_level,required_permission,poolmap,`wall_height` FROM `room_models` WHERE `custom` = '1' AND `id` = @modelId LIMIT 1");
-        dbClient.AddParameter("modelId", id);
-        row = dbClient.GetRow();
+        using var connection = _database.Connection();
+        var row = connection.QuerySingleOrDefault<ModelRow>(SelectModel + "WHERE custom = TRUE AND id = @id LIMIT 1", new { id });
         if (row == null)
             return false;
-        var model = Convert.ToString(row["id"]);
-        if (!_roomModels.ContainsKey(model))
-        {
-            _roomModels.Add(model, new(model, Convert.ToInt32(row["door_x"]), Convert.ToInt32(row["door_y"]), Convert.ToDouble(row["door_z"]), Convert.ToInt32(row["door_dir"]),
-                Convert.ToString(row["heightmap"]), Convert.ToInt32(row["required_club_level"]), Convert.ToInt32(row["wall_height"]), true)
-            {
-                RequiredPermission = row.IsNull("required_permission") ? null : Convert.ToString(row["required_permission"])
-            });
-        }
+        _roomModels.TryAdd(row.Id, CreateModel(row, true));
         return true;
+    }
+
+    private static RoomModel CreateModel(ModelRow row, bool custom) => new(row.Id, row.DoorX, row.DoorY, row.DoorZ,
+        row.DoorDir, row.Heightmap, row.RequiredClubLevel, row.WallHeight, custom) { RequiredPermission = row.RequiredPermission };
+
+    private sealed class ModelRow
+    {
+        public string Id { get; set; } = string.Empty;
+        public int DoorX { get; set; }
+        public int DoorY { get; set; }
+        public double DoorZ { get; set; }
+        public int DoorDir { get; set; }
+        public string Heightmap { get; set; } = string.Empty;
+        public int RequiredClubLevel { get; set; }
+        public string? RequiredPermission { get; set; }
+        public int WallHeight { get; set; }
     }
 
     public void ReloadModel(string id)
@@ -292,20 +289,11 @@ public class RoomManager : IRoomManager
             session.SendNotification(_languageManager.TryGetValue("room.creation.name.too_short"));
             return null;
         }
-        var roomId = 0u;
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery(
-                "INSERT INTO `rooms` (`roomtype`,`caption`,`description`,`owner`,`model_name`,`category`,`users_max`,`trade_settings`) VALUES ('private',@caption,@description,@UserId,@model,@category,@usersmax,@tradesettings)");
-            dbClient.AddParameter("caption", name);
-            dbClient.AddParameter("description", description);
-            dbClient.AddParameter("UserId", session.GetHabbo().Id);
-            dbClient.AddParameter("model", model.Id);
-            dbClient.AddParameter("category", category);
-            dbClient.AddParameter("usersmax", maxVisitors);
-            dbClient.AddParameter("tradesettings", tradeSettings);
-            roomId = Convert.ToUInt32(dbClient.InsertQuery());
-        }
+        using var connection = _database.Connection();
+        var roomId = connection.QuerySingle<uint>(
+            "INSERT INTO `rooms` (`roomtype`,`caption`,`description`,`owner`,`model_name`,`category`,`users_max`,`trade_settings`) " +
+            "VALUES ('private',@name,@description,@ownerId,@modelId,@category,@maxVisitors,@tradeSettings); SELECT LAST_INSERT_ID()",
+            new { name, description, ownerId = session.GetHabbo().Id, modelId = model.Id, category, maxVisitors, tradeSettings });
         var data = new RoomData(roomId, name, model.Id, session.GetHabbo().Username, session.GetHabbo().Id, "", 0, "public", "open", 0, maxVisitors, category, description, string.Empty,
             floor, landscape, true, true, false, false, wallthick, floorthick, wallpaper, 1, 1, 1, 1, 1, 1, 1, 8, tradeSettings, true, true, true, true, true, true, true, 0, 0, true, model);
         return data;
