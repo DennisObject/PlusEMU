@@ -58,11 +58,12 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
         PlanningOccupancy occupancy, bool floorStatusReleased = false)
     {
         if (!Adjacent(from, to)) return new(StepReason.BoundsOrAdjacency);
-        var tile = grid.Tile(to.X, to.Y);
-        var locked = floorStatusReleased ? Volatile.Read(ref grid.FloorLocks[tile]) != 0
-            : (grid.Flags[tile] & NavFlags.FloorLocked) != 0;
+        // The target surface supplies flags and occupancy; the floor lock is tile-scoped.
+        var slot = to.Slot >= 0 ? to.Slot : grid.Tile(to.X, to.Y);
+        var locked = floorStatusReleased ? Volatile.Read(ref grid.FloorLocks[grid.TileOf(slot)]) != 0
+            : (grid.Flags[slot] & NavFlags.FloorLocked) != 0;
         var flags = (locked ? NavFlags.FloorLocked : NavFlags.None) | NavFlags.Transit | NavFlags.Roller;
-        return CanEnter(actor, from, to, tile, flags, StepPurpose.Roller, OccupancyView.Execution, occupancy);
+        return CanEnter(actor, from, to, slot, flags, StepPurpose.Roller, OccupancyView.Execution, occupancy);
     }
 
     private bool Adjacent(in NavPosition from, in NavPosition to)
