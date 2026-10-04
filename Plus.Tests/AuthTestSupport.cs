@@ -106,6 +106,8 @@ internal sealed class FakeAccounts : IAccountStore
         return Task.CompletedTask;
     }
 
+    public Task<string?> UsernameById(int userId) => Task.FromResult(Rows.FirstOrDefault(r => r.Id == userId)?.Username);
+
     public Task<bool> UsernameExists(string username) => Task.FromResult(Rows.Any(r => string.Equals(r.Username, username, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>When set, each email check waits (up to 100 ms) until this many checks are in
@@ -240,5 +242,58 @@ internal sealed class CountingHasher(IPasswordHasher inner, TimeSpan delay) : IP
     {
         int seen;
         while ((seen = Volatile.Read(ref target)) < value && Interlocked.CompareExchange(ref target, value, seen) != seen) { }
+    }
+}
+
+/// <summary>In-memory remember tokens with the same rotation and reuse rules as the database store.</summary>
+internal sealed class FakeRememberTokens : IRememberTokenStore
+{
+    private sealed record Row(int UserId, string Family, bool Used, bool Revoked);
+    private readonly Dictionary<string, Row> _rows = [];
+    private int _families;
+
+    public Task<IssuedToken> Issue(int userId) => Task.FromResult(Add(userId, "f" + ++_families));
+
+    public Task<RememberRotation> Rotate(string token)
+    {
+        if (!_rows.TryGetValue(token, out var row))
+            return Task.FromResult(new RememberRotation(RememberRotationStatus.Invalid));
+        if (row.Used)
+        {
+            RevokeWhere(r => r.Family == row.Family);
+            return Task.FromResult(new RememberRotation(RememberRotationStatus.Reused, row.UserId));
+        }
+        if (row.Revoked)
+            return Task.FromResult(new RememberRotation(RememberRotationStatus.Invalid));
+        _rows[token] = row with { Used = true };
+        return Task.FromResult(new RememberRotation(RememberRotationStatus.Rotated, row.UserId, Add(row.UserId, row.Family)));
+    }
+
+    public Task RevokeFamily(string token)
+    {
+        if (_rows.TryGetValue(token, out var row))
+            RevokeWhere(r => r.Family == row.Family);
+        return Task.CompletedTask;
+    }
+
+    public Task RevokeAll(int userId)
+    {
+        RevokeWhere(r => r.UserId == userId);
+        return Task.CompletedTask;
+    }
+
+    public bool IsLive(string token) => _rows.TryGetValue(token, out var row) && !row.Used && !row.Revoked;
+
+    private IssuedToken Add(int userId, string family)
+    {
+        var token = new IssuedToken(SecureToken.Generate(), 3000);
+        _rows[token.Value] = new(userId, family, false, false);
+        return token;
+    }
+
+    private void RevokeWhere(Func<Row, bool> match)
+    {
+        foreach (var (key, row) in _rows.Where(p => match(p.Value)).ToList())
+            _rows[key] = row with { Revoked = true };
     }
 }

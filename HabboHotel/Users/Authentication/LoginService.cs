@@ -4,7 +4,7 @@ namespace Plus.HabboHotel.Users.Authentication;
 
 public interface ILoginService
 {
-    Task<LoginResult> Login(string username, string password, string address);
+    Task<LoginResult> Login(string username, string password, string address, bool remember = false);
 }
 
 public enum LoginStatus
@@ -42,7 +42,7 @@ public class LoginService : ILoginService
         _bans = bans;
     }
 
-    public async Task<LoginResult> Login(string username, string password, string address)
+    public async Task<LoginResult> Login(string username, string password, string address, bool remember = false)
     {
         var account = await _accounts.FindByUsername(username);
         var throttleKey = account != null ? LoginThrottle.AccountKey(account.Id) : LoginThrottle.UnknownNameKey(username);
@@ -67,9 +67,12 @@ public class LoginService : ILoginService
 
         _throttle.RecordSuccess(throttleKey);
         if (await _bans.Find(account!.Username, address) is { } ban)
+        {
+            await _sessions.RevokeAll(account.Id);
             return new(LoginStatus.Banned, Ban: ban);
+        }
 
-        return new(LoginStatus.Success, await _sessions.Issue(account.Id, account.Username));
+        return new(LoginStatus.Success, await _sessions.Issue(account.Id, account.Username, remember));
     }
 
     private string? _decoyHash;

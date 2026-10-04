@@ -33,6 +33,12 @@ public class AccountStore : IAccountStore
             new { userId, current, replacement });
     }
 
+    public async Task<string?> UsernameById(int userId)
+    {
+        using var connection = _database.Connection();
+        return await connection.ExecuteScalarAsync<string?>("SELECT `username` FROM `users` WHERE `id` = @userId", new { userId });
+    }
+
     public async Task<bool> UsernameExists(string username)
     {
         using var connection = _database.Connection();

@@ -20,6 +20,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     private readonly FakeSsoTickets _tickets = new();
     private readonly FakeAccessTokens _tokens = new();
     private readonly FakeBans _bans = new();
+    private readonly FakeRememberTokens _remember = new();
     private IPasswordHasher _innerHasher = Hasher;
     private CountingHasher _hasher
     {
@@ -46,11 +47,11 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
             c.MaxFailedLoginsPerAccount = 3;
             configure?.Invoke(c);
         });
-        var sessions = new SessionIssuer(_tickets, _tokens);
+        var sessions = new SessionIssuer(_tickets, _tokens, _remember, _accounts, _bans);
         var hasher = new BoundedPasswordHasher(_innerHasher, options);
         var login = new LoginService(_accounts, hasher, new LoginThrottle(TimeProvider.System, options), sessions, _bans);
         var registration = new RegistrationService(_accounts, hasher, sessions, new FakeWordFilter(), options);
-        _server = new AuthHttpServer(options, login, registration, _tickets, _tokens);
+        _server = new AuthHttpServer(options, login, registration, sessions, _tickets, _tokens, _remember);
         await _server.Start();
         _http.Dispose();
         _http = new HttpClient { BaseAddress = new Uri(_server.Urls.Single()) };
@@ -105,7 +106,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         await Start();
 
-        var response = await Post("/api/auth/remember", new { rememberToken = "x" });
+        var response = await Post("/api/auth/change-password", new { password = "x" });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("Not found.", (await Json(response)).GetProperty("error").GetString());
@@ -325,6 +326,106 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Null(await _tickets.Consume(ticket.Value));
+    }
+
+    [Fact]
+    public async Task OnlyARememberedLoginReturnsARememberToken()
+    {
+        _accounts.Add("Dennis", Hasher.Hash("correct horse"));
+        await Start();
+
+        var remembered = await Json(await Post("/api/auth/login", new { username = "Dennis", password = "correct horse", remember = true }));
+        var plain = await Json(await Post("/api/auth/login", new { username = "Dennis", password = "correct horse", remember = false }));
+
+        Assert.True(_remember.IsLive(remembered.GetProperty("rememberToken").GetString()!));
+        Assert.Equal(3000, remembered.GetProperty("rememberExpiresAt").GetInt64());
+        Assert.False(plain.TryGetProperty("rememberToken", out _));
+        Assert.False(plain.TryGetProperty("rememberExpiresAt", out _));
+    }
+
+    [Fact]
+    public async Task RememberLogsInWithARotatedTokenAndAReplayEndsTheFamily()
+    {
+        var row = _accounts.Add("Dennis", Hasher.Hash("correct horse"));
+        await Start();
+        var first = (await Json(await Post("/api/auth/login", new { username = "Dennis", password = "correct horse", remember = true }))).GetProperty("rememberToken").GetString()!;
+
+        var resumed = await Post("/api/auth/remember", new { rememberToken = first });
+
+        Assert.Equal(HttpStatusCode.OK, resumed.StatusCode);
+        var session = await Json(resumed);
+        Assert.Equal("Dennis", session.GetProperty("username").GetString());
+        Assert.Equal(row.Id, _tickets.Live[session.GetProperty("ssoTicket").GetString()!]);
+        Assert.Equal(row.Id, _tokens.Live[session.GetProperty("accessToken").GetString()!]);
+        var second = session.GetProperty("rememberToken").GetString()!;
+        Assert.NotEqual(first, second);
+        Assert.Equal(3000, session.GetProperty("rememberExpiresAt").GetInt64());
+
+        var replay = await Post("/api/auth/remember", new { rememberToken = first });
+        Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
+        Assert.Equal(AuthErrorCode.InvalidRememberToken, (await Json(replay)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/remember", new { rememberToken = second })).StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshRotatesTheRememberTokenAndIssuesOnlyAnAccessToken()
+    {
+        var row = _accounts.Add("Dennis", "x");
+        await Start();
+        var token = await _remember.Issue(row.Id);
+
+        var refreshed = await Post("/api/auth/refresh", new { rememberToken = token.Value });
+
+        Assert.Equal(HttpStatusCode.OK, refreshed.StatusCode);
+        var body = await Json(refreshed);
+        Assert.False(body.TryGetProperty("ssoTicket", out _));
+        Assert.Equal(row.Id, _tokens.Live[body.GetProperty("accessToken").GetString()!]);
+        Assert.True(_remember.IsLive(body.GetProperty("rememberToken").GetString()!));
+        Assert.False(_remember.IsLive(token.Value));
+        Assert.Empty(_tickets.Live);
+    }
+
+    [Fact]
+    public async Task RememberAndRefreshRejectUnknownOrMissingTokens()
+    {
+        await Start();
+
+        var unknown = await Post("/api/auth/refresh", new { rememberToken = SecureToken.Generate() });
+        var missing = await Post("/api/auth/remember", new { });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, unknown.StatusCode);
+        Assert.Equal(AuthErrorCode.InvalidRememberToken, (await Json(unknown)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+    }
+
+    [Fact]
+    public async Task ABannedUsersRememberTokenIsRefusedAndRevoked()
+    {
+        var row = _accounts.Add("Dennis", "x");
+        _bans.ByUsernameOrAddress["Dennis"] = new LoginBan("Scamming", 2_000_000_000);
+        await Start();
+        var token = await _remember.Issue(row.Id);
+        var otherDevice = await _remember.Issue(row.Id);
+
+        var response = await Post("/api/auth/remember", new { rememberToken = token.Value });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(AuthErrorCode.Banned, (await Json(response)).GetProperty("code").GetString());
+        Assert.False(_remember.IsLive(otherDevice.Value));
+        Assert.Empty(_tickets.Live);
+        Assert.Empty(_tokens.Live);
+    }
+
+    [Fact]
+    public async Task LogoutRevokesTheRememberTokenFromTheBody()
+    {
+        var row = _accounts.Add("Dennis", "x");
+        await Start();
+        var token = await _remember.Issue(row.Id);
+
+        await Post("/api/auth/logout", new { ssoTicket = "", rememberToken = token.Value });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/remember", new { rememberToken = token.Value })).StatusCode);
     }
 
     [Fact]

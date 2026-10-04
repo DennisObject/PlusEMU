@@ -11,10 +11,11 @@ public class LoginServiceTests
     private readonly FakeAccounts _accounts = new();
     private readonly FakeSsoTickets _tickets = new();
     private readonly FakeAccessTokens _tokens = new();
+    private readonly FakeRememberTokens _remember = new();
     private readonly FakeBans _bans = new();
     private readonly LoginThrottle _throttle = new(TimeProvider.System, AuthTestConfig.Options(c => c.MaxFailedLoginsPerAccount = 3));
 
-    private LoginService Service() => new(_accounts, new BoundedPasswordHasher(Hasher, AuthTestConfig.Options()), _throttle, new SessionIssuer(_tickets, _tokens), _bans);
+    private LoginService Service() => new(_accounts, new BoundedPasswordHasher(Hasher, AuthTestConfig.Options()), _throttle, new SessionIssuer(_tickets, _tokens, _remember, _accounts, _bans), _bans);
 
     [Fact]
     public async Task CorrectPasswordIssuesASsoTicketAndASeparateAccessToken()
@@ -82,6 +83,7 @@ public class LoginServiceTests
     {
         _accounts.Add("Dennis", Hasher.Hash("correct horse"));
         _bans.ByUsernameOrAddress[banned] = new LoginBan("Scamming", 2_000_000_000);
+        var remembered = await _remember.Issue(_accounts.Rows.Single().Id);
 
         var wrong = await Service().Login("Dennis", "wrong horse", "10.0.0.1");
         var right = await Service().Login("Dennis", "correct horse", "10.0.0.1");
@@ -89,6 +91,7 @@ public class LoginServiceTests
         Assert.Equal(LoginStatus.InvalidCredentials, wrong.Status);
         Assert.Equal(LoginStatus.Banned, right.Status);
         Assert.Equal("Scamming", right.Ban!.Reason);
+        Assert.False(_remember.IsLive(remembered.Value));
         Assert.Empty(_tickets.Live);
         Assert.Empty(_tokens.Live);
     }

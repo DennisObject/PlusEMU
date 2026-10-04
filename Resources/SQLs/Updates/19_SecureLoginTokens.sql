@@ -23,3 +23,21 @@ CREATE TABLE IF NOT EXISTS `user_access_tokens` (
     KEY `user_id` (`user_id`),
     KEY `expires_at` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- "Remember me" tokens, also stored only as SHA-256 hex digests. Every use marks the row used
+-- and adds its successor in the same family; presenting a used token revokes the family.
+CREATE TABLE IF NOT EXISTS `user_remember_tokens` (
+    `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` int(11) NOT NULL,
+    `family_id` char(32) NOT NULL,
+    `token_hash` char(64) NOT NULL,
+    `created_at` int(11) unsigned NOT NULL,
+    `expires_at` int(11) unsigned NOT NULL,
+    `used_at` int(11) unsigned NULL DEFAULT NULL,
+    `revoked_at` int(11) unsigned NULL DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `token_hash` (`token_hash`),
+    KEY `user_id` (`user_id`),
+    KEY `family_id` (`family_id`),
+    KEY `expires_at` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;

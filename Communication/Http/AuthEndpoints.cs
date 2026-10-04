@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Registration;
 
@@ -17,15 +18,20 @@ public class AuthEndpoints
 
     private readonly ILoginService _login;
     private readonly IRegistrationService _registration;
+    private readonly ISessionIssuer _sessions;
     private readonly ISsoTicketStore _ssoTickets;
     private readonly IAccessTokenStore _accessTokens;
+    private readonly IRememberTokenStore _rememberTokens;
 
-    public AuthEndpoints(ILoginService login, IRegistrationService registration, ISsoTicketStore ssoTickets, IAccessTokenStore accessTokens)
+    public AuthEndpoints(ILoginService login, IRegistrationService registration, ISessionIssuer sessions, ISsoTicketStore ssoTickets,
+        IAccessTokenStore accessTokens, IRememberTokenStore rememberTokens)
     {
         _login = login;
         _registration = registration;
+        _sessions = sessions;
         _ssoTickets = ssoTickets;
         _accessTokens = accessTokens;
+        _rememberTokens = rememberTokens;
     }
 
     public void Map(IEndpointRouteBuilder routes)
@@ -40,6 +46,8 @@ public class AuthEndpoints
         auth.MapPost("/check-email", CheckEmail);
         auth.MapPost("/forgot-password", ForgotPassword);
         auth.MapPost("/sso-token", ExchangeSsoTicket);
+        auth.MapPost("/remember", Remember);
+        auth.MapPost("/refresh", Refresh);
         auth.MapPost("/logout", Logout);
         // Starter rooms are not implemented; an empty list lets the client skip that step.
         auth.MapGet("/room-templates", () => Results.Json(new { templates = Array.Empty<object>() }));
@@ -50,7 +58,7 @@ public class AuthEndpoints
         if (string.IsNullOrWhiteSpace(body.Username) || string.IsNullOrEmpty(body.Password))
             return Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, "Please enter both your Habbo name and password.");
 
-        var result = await _login.Login(body.Username.Trim(), body.Password, AuthHttpServer.ClientAddress(context));
+        var result = await _login.Login(body.Username.Trim(), body.Password, AuthHttpServer.ClientAddress(context), body.Remember);
         switch (result.Status)
         {
             case LoginStatus.Success:
@@ -59,13 +67,7 @@ public class AuthEndpoints
                 AuthHttpServer.SetRetryAfter(context.Response, result.RetryAfter);
                 return Error(StatusCodes.Status429TooManyRequests, AuthErrorCode.RateLimited, TooManyAttempts);
             case LoginStatus.Banned:
-                return Results.Json(new
-                {
-                    error = "This account is banned.",
-                    code = AuthErrorCode.Banned,
-                    banReason = result.Ban!.Reason,
-                    banExpiresAt = result.Ban.ExpiresAt
-                }, statusCode: StatusCodes.Status403Forbidden);
+                return Banned(result.Ban!);
             default:
                 return Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidCredentials, InvalidCredentials);
         }
@@ -83,6 +85,34 @@ public class AuthEndpoints
             RegistrationStatus.UsernameTaken or RegistrationStatus.EmailTaken =>
                 Results.Json(new { error = result.Error, code = TakenCode(result.Status), available = false }, statusCode: StatusCodes.Status409Conflict),
             _ => Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, result.Error)
+        };
+    }
+
+    /// <summary>Remember-me login: a full session (game ticket included) and the rotated token.</summary>
+    private Task<IResult> Remember(RememberRequest body, HttpContext context) => Resume(body, context, withTicket: true);
+
+    /// <summary>Keeps a remembered client's HTTP access alive: a new access token and the rotated
+    /// remember token, without a game ticket.</summary>
+    private Task<IResult> Refresh(RememberRequest body, HttpContext context) => Resume(body, context, withTicket: false);
+
+    private async Task<IResult> Resume(RememberRequest body, HttpContext context, bool withTicket)
+    {
+        if (string.IsNullOrEmpty(body.RememberToken))
+            return Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, "Missing remember token.");
+
+        var result = await _sessions.Resume(body.RememberToken, AuthHttpServer.ClientAddress(context), withTicket);
+        return result.Status switch
+        {
+            ResumeStatus.Resumed when withTicket => Session(result.Session!),
+            ResumeStatus.Resumed => Results.Json(new
+            {
+                accessToken = result.Session!.AccessToken.Value,
+                accessTokenExpiresAt = result.Session.AccessToken.ExpiresAt,
+                rememberToken = result.Session.RememberToken!.Value.Value,
+                rememberExpiresAt = result.Session.RememberToken.Value.ExpiresAt
+            }),
+            ResumeStatus.Banned => Banned(result.Ban!),
+            _ => Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidRememberToken, "Please log in again.")
         };
     }
 
@@ -123,6 +153,8 @@ public class AuthEndpoints
         }
         if (!string.IsNullOrEmpty(body.SsoTicket))
             await _ssoTickets.Consume(body.SsoTicket);
+        if (!string.IsNullOrEmpty(body.RememberToken))
+            await _rememberTokens.RevokeFamily(body.RememberToken);
         return Results.Json(new { ok = true });
     }
 
@@ -132,14 +164,33 @@ public class AuthEndpoints
         return header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) && header.Length > 7 ? header[7..].Trim() : null;
     }
 
-    /// <summary>Login and register both answer with the same session fields.</summary>
-    private static IResult Session(AuthSession session) => Results.Json(new
+    /// <summary>Login, register and remember answer with the same session fields; the remember
+    /// fields only appear when a remember token was issued.</summary>
+    private static IResult Session(AuthSession session) => session.RememberToken is { } remember
+        ? Results.Json(new
+        {
+            ssoTicket = session.SsoTicket.Value,
+            username = session.Username,
+            accessToken = session.AccessToken.Value,
+            accessTokenExpiresAt = session.AccessToken.ExpiresAt,
+            rememberToken = remember.Value,
+            rememberExpiresAt = remember.ExpiresAt
+        })
+        : Results.Json(new
+        {
+            ssoTicket = session.SsoTicket.Value,
+            username = session.Username,
+            accessToken = session.AccessToken.Value,
+            accessTokenExpiresAt = session.AccessToken.ExpiresAt
+        });
+
+    private static IResult Banned(LoginBan ban) => Results.Json(new
     {
-        ssoTicket = session.SsoTicket.Value,
-        username = session.Username,
-        accessToken = session.AccessToken.Value,
-        accessTokenExpiresAt = session.AccessToken.ExpiresAt
-    });
+        error = "This account is banned.",
+        code = AuthErrorCode.Banned,
+        banReason = ban.Reason,
+        banExpiresAt = ban.ExpiresAt
+    }, statusCode: StatusCodes.Status403Forbidden);
 
     private static IResult Availability(Availability result) => result.Available
         ? Results.Json(new { available = true })
@@ -149,10 +200,11 @@ public class AuthEndpoints
 
     private static IResult Error(int status, string code, string error) => Results.Json(new { error, code }, statusCode: status);
 
-    public sealed record LoginRequest(string? Username, string? Password);
+    public sealed record LoginRequest(string? Username, string? Password, bool Remember = false);
     public sealed record RegisterRequest(string? Username, string? Password, string? Email, string? Figure, string? Gender);
     public sealed record UsernameRequest(string? Username);
     public sealed record EmailRequest(string? Email);
     public sealed record SsoTokenRequest(string? SsoTicket);
-    public sealed record LogoutRequest(string? SsoTicket);
+    public sealed record LogoutRequest(string? SsoTicket, string? RememberToken);
+    public sealed record RememberRequest(string? RememberToken);
 }

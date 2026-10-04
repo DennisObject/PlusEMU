@@ -15,6 +15,9 @@ public class AuthApiConfiguration
     public int SsoTicketLifetimeSeconds { get; set; } = 300;
     public int AccessTokenLifetimeMinutes { get; set; } = 1440;
 
+    /// <summary>"Remember me" tokens; each use replaces the token and restarts this lifetime.</summary>
+    public int RememberTokenLifetimeDays { get; set; } = 30;
+
     /// <summary>Requests per minute per client IP across /api/auth.</summary>
     public int RequestsPerMinute { get; set; } = 60;
 

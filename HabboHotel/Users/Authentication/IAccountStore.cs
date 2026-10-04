@@ -8,6 +8,8 @@ public interface IAccountStore
     /// <summary>Replaces the stored password only if it still holds <paramref name="current"/>.</summary>
     Task UpgradePassword(int userId, string current, string replacement);
 
+    Task<string?> UsernameById(int userId);
+
     Task<bool> UsernameExists(string username);
 
     Task<bool> EmailExists(string email);
