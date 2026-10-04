@@ -8,6 +8,7 @@ namespace Plus.Tests;
 
 /// <summary>RevokeAll (password reset, ban, theft) must leave no live credential, even when it lands
 /// in the middle of a login that already passed its checks.</summary>
+[Collection(AuthDatabaseFactAttribute.Collection)]
 public sealed class CredentialRevocationDatabaseTests : IDisposable
 {
     private readonly List<int> _users = [];

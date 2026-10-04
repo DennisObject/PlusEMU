@@ -5,6 +5,7 @@ using Xunit;
 
 namespace Plus.Tests;
 
+[Collection(AuthDatabaseFactAttribute.Collection)]
 public sealed class RememberTokenDatabaseTests : IDisposable
 {
     private readonly List<int> _users = [];

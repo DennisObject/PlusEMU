@@ -7,9 +7,6 @@ namespace Plus.HabboHotel.Users.Authentication;
 
 public class AccessTokenStore : IAccessTokenStore
 {
-    // Expired rows are kept a day for auditing, then removed when new tokens are issued.
-    private const int RetentionSeconds = 24 * 60 * 60;
-
     private readonly IDatabase _database;
     private readonly TimeProvider _time;
     private readonly int _lifetimeSeconds;
@@ -27,7 +24,6 @@ public class AccessTokenStore : IAccessTokenStore
         var token = new IssuedToken(SecureToken.Generate(), now + _lifetimeSeconds);
         using var owned = scope == null ? _database.Connection() : null;
         var connection = scope?.Connection ?? owned!;
-        await connection.ExecuteAsync("DELETE FROM `user_access_tokens` WHERE `expires_at` < @cutoff", new { cutoff = now - RetentionSeconds }, scope?.Transaction);
         await connection.ExecuteAsync(
             "INSERT INTO `user_access_tokens` (`user_id`, `token_hash`, `created_at`, `expires_at`) VALUES (@userId, @hash, @now, @expiresAt)",
             new { userId, hash = SecureToken.Hash(token.Value), now, expiresAt = token.ExpiresAt }, scope?.Transaction);
@@ -58,6 +54,12 @@ public class AccessTokenStore : IAccessTokenStore
         using var owned = scope == null ? _database.Connection() : null;
         await (scope?.Connection ?? owned!).ExecuteAsync("UPDATE `user_access_tokens` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
             new { userId, now = Now() }, scope?.Transaction);
+    }
+
+    public async Task<int> Prune(long cutoff, int batch)
+    {
+        using var connection = _database.Connection();
+        return await connection.ExecuteAsync("DELETE FROM `user_access_tokens` WHERE `expires_at` < @cutoff LIMIT @batch", new { cutoff, batch });
     }
 
     private long Now() => _time.GetUtcNow().ToUnixTimeSeconds();

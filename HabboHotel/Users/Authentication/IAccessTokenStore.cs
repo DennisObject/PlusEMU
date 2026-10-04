@@ -16,4 +16,7 @@ public interface IAccessTokenStore
 
     /// <summary>Signs a user out of every HTTP session, e.g. after a password change.</summary>
     Task RevokeAll(int userId, CredentialScope? scope = null);
+
+    /// <summary>Deletes up to <paramref name="batch"/> tokens that expired before <paramref name="cutoff"/>.</summary>
+    Task<int> Prune(long cutoff, int batch);
 }

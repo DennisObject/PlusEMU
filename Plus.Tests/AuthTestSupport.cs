@@ -20,6 +20,10 @@ public sealed class AuthDatabaseFactAttribute : FactAttribute
 {
     public const string Variable = "PLUS_AUTH_TEST_DB";
 
+    /// <summary>The auth database tests share tables (and the cleanup test prunes them all), so
+    /// they run one class at a time.</summary>
+    public const string Collection = "Auth database";
+
     public AuthDatabaseFactAttribute()
     {
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable)))
@@ -200,6 +204,8 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
         Live.Remove(token);
         return Task.CompletedTask;
     }
+
+    public Task<int> Prune(long cutoff, int batch) => Task.FromResult(0);
 
     public Task RevokeAll(int userId, CredentialScope? scope = null)
     {

@@ -5,6 +5,7 @@ using Xunit;
 
 namespace Plus.Tests;
 
+[Collection(AuthDatabaseFactAttribute.Collection)]
 public sealed class BanLookupDatabaseTests : IDisposable
 {
     private readonly string _value = "ban" + Guid.NewGuid().ToString("N")[..12];
