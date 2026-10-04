@@ -545,9 +545,9 @@ public class Room
         }
         session.Send(new UserUpdateComposer(_roomUserManager.GetUserList().ToList()));
         var snapshotFurniture = GetRoomItemHandler().GetFloor.ToArray();
-        session.Send(new ObjectsComposer(snapshotFurniture, this));
+        session.Send(new ObjectsComposer(RoomFurnitureSnapshot.Capture(snapshotFurniture, OwnerId, OwnerName)));
         var snapshotWalls = GetRoomItemHandler().GetWall.ToArray();
-        session.Send(new ItemsComposer(snapshotWalls, this));
+        session.Send(new ItemsComposer(RoomFurnitureSnapshot.Capture(snapshotWalls, OwnerId, OwnerName)));
         _wiredComponent?.SnapshotEnqueued(session, snapshotFurniture.Concat(snapshotWalls), snapshotUsers);
     }
 
@@ -612,7 +612,7 @@ public class Room
 
     public void SendPacket(IServerPacket packet, bool withRightsOnly = false) => SendPacket(packet, withRightsOnly, null);
 
-    public void SendObject(Item item) => SendPacket(item.IsWallItem ? new ItemAddComposer(item) : new ObjectAddComposer(item), false,
+    public void SendObject(Item item) => SendPacket(item.IsWallItem ? new ItemAddComposer(RoomItemSnapshot.Capture(item)) : new ObjectAddComposer(RoomItemSnapshot.Capture(item)), false,
         viewer => _wiredComponent?.ObjectEnqueued(viewer, item, null));
 
     public void SendUser(RoomUser user) => SendPacket(new UsersComposer(user), false,

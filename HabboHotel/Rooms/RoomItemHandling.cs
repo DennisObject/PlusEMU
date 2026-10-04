@@ -570,7 +570,7 @@ public class RoomItemHandling
         if (sendMessage)
         {
             if (newItem) _room.SendObject(item);
-            else if (!onRoller) _room.SendPacket(new ObjectUpdateComposer(item));
+            else if (!onRoller) _room.SendPacket(new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)));
         }
         UpdateItem(item);
         map.FlushPlacementUpdates();

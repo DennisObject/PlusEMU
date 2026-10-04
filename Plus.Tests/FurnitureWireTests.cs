@@ -37,7 +37,7 @@ public class FurnitureWireTests
             Floor(InteractionType.None, 2, username: "ignored")
         };
 
-        RoomEngineSerializers.WriteOwnerMap(packet, items, roomOwnerId: 2, roomOwnerName: "owner");
+        RoomEngineSerializers.WriteOwnerMap(packet, RoomFurnitureSnapshot.Capture(items, roomOwnerId: 2, roomOwnerName: "owner"));
 
         Assert.Equal(new object[]
         {
@@ -78,7 +78,7 @@ public class FurnitureWireTests
         Assert.Equal("bob", gift.Username);
         Assert.Equal(5u, gift.OwnerId); Assert.Equal(5, gift.UserId);
         Assert.Equal(6u, missingUser.OwnerId); Assert.Equal(6, missingUser.UserId);
-        Assert.Equal(4004, RoomEngineSerializers.FloorExtra(gift));
+        Assert.Equal(4004, RoomItemSnapshot.Capture(gift).FloorExtra);
         Assert.Equal("", missingUser.Username);
         Assert.Equal(":w=1,1 l=1,1 r", gift.WallCoordinates);
     }
@@ -92,7 +92,7 @@ public class FurnitureWireTests
         item.WallCoordinates = ":w=1,1 l=1,1 r";
         var packet = new RecordingPacket();
 
-        new ItemUpdateComposer(item).Compose(packet);
+        new ItemUpdateComposer(RoomItemSnapshot.Capture(item)).Compose(packet);
 
         Assert.Equal(7, packet.Writes[^8]);
         Assert.Equal(new object[] { 0, 0, 0, 0, 0, 0, 0 }, packet.Writes.TakeLast(7));
@@ -102,7 +102,7 @@ public class FurnitureWireTests
     private static int Extra(Item item)
     {
         var packet = new RecordingPacket();
-        packet.Serialize(item);
+        packet.Serialize(RoomItemSnapshot.Capture(item));
         return (int)packet.Writes[7];
     }
 

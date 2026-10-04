@@ -30,7 +30,7 @@ internal class MoveObjectEvent : RoomPacketEvent
                 item = room.GetRoomItemHandler().GetItem(itemId);
                 if (item == null || item.IsTemporary)
                     return Task.CompletedTask;
-                session.Send(new ObjectUpdateComposer(item));
+                session.Send(new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)));
                 return Task.CompletedTask;
             }
         }
@@ -52,7 +52,7 @@ internal class MoveObjectEvent : RoomPacketEvent
             _questManager.ProgressUserQuest(session, QuestType.FurniRotate);
         if (!room.GetRoomItemHandler().SetFloorItem(session, item, x, y, rotation, false, false, true))
         {
-            room.SendPacket(new ObjectUpdateComposer(item));
+            room.SendPacket(new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)));
             return Task.CompletedTask;
         }
         if (moved)

@@ -63,7 +63,7 @@ public class IndustryPracticeTests
         };
         var packet = new RecordingPacket();
 
-        UsingCulture("de-DE", () => packet.Serialize(item));
+        UsingCulture("de-DE", () => packet.Serialize(RoomItemSnapshot.Capture(item)));
 
         Assert.Equal("1.5", packet.Writes[5]);
         Assert.Equal("0.25", packet.Writes[6]);

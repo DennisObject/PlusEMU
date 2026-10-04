@@ -107,7 +107,7 @@ public class WiredTemporaryPacketGuardTests
     public void AddAndUpdateComposersKeepNegativeTemporaryIdBits()
     {
         var item = new Item { Id = uint.MaxValue - 1, IsTemporary = true, Definition = new() { Type = ItemType.Floor } };
-        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(item), new ObjectUpdateComposer(item) })
+        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(RoomItemSnapshot.Capture(item)), new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)) })
         {
             using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
             composer.Compose(output);

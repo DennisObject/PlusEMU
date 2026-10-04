@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Items;
 ﻿using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
@@ -32,7 +33,7 @@ internal class MoveWallItemEvent : RoomPacketEvent
             return Task.CompletedTask;
         }
         room.GetRoomItemHandler().UpdateItem(item);
-        room.SendPacket(new ItemUpdateComposer(item));
+        room.SendPacket(new ItemUpdateComposer(RoomItemSnapshot.Capture(item)));
         return Task.CompletedTask;
     }
 }

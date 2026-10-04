@@ -1335,9 +1335,9 @@ public class Item
         if (inRoom)
         {
             if (IsFloorItem)
-                room.SendPacket(new ObjectUpdateComposer(this));
+                room.SendPacket(new ObjectUpdateComposer(RoomItemSnapshot.Capture(this)));
             else
-                room.SendPacket(new ItemUpdateComposer(this));
+                room.SendPacket(new ItemUpdateComposer(RoomItemSnapshot.Capture(this)));
         }
     }
 

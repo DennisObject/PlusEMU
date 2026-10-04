@@ -98,7 +98,7 @@ internal class OpenGiftEvent : IPacketEvent
             return Task.CompletedTask;
         }
         present.MagicRemove = true;
-        room.SendPacket(new ObjectUpdateComposer(present));
+        room.SendPacket(new ObjectUpdateComposer(RoomItemSnapshot.Capture(present)));
         var thread = new Thread(() => FinishOpenGift(session, baseItem, present, room, data));
         thread.Start();
         return Task.CompletedTask;

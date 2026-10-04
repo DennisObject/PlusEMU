@@ -227,8 +227,8 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("235;1", tile.LegacyDataString);
         await new UpdateMagicTileEvent().Parse(_client, ClientPacket(10, 300));
         Assert.Equal("300;1", tile.LegacyDataString);
-        Assert.Equal(1, RoomEngineSerializers.FloorExtra(tile));
-        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(tile), new ObjectUpdateComposer(tile) })
+        Assert.Equal(1, RoomItemSnapshot.Capture(tile).FloorExtra);
+        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(RoomItemSnapshot.Capture(tile)), new ObjectUpdateComposer(RoomItemSnapshot.Capture(tile)) })
         {
             var packet = Body(composer);
             packet.ReadUInt(); packet.ReadInt(); packet.ReadInt(); packet.ReadInt(); packet.ReadInt();
@@ -242,7 +242,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("300;1", loaded.LegacyDataString);
         await new UpdateMagicTileEvent().Parse(_client, ClientPacket(10, 325, false));
         Assert.Equal("325", tile.LegacyDataString);
-        Assert.Equal(0, RoomEngineSerializers.FloorExtra(tile));
+        Assert.Equal(0, RoomItemSnapshot.Capture(tile).FloorExtra);
     }
 
     [Theory]
