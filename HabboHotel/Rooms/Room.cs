@@ -348,6 +348,20 @@ public class Room : RoomData
         catch (Exception e) { ExceptionLogger.LogException(e); }
     }
 
+    // v2 fast pass: serialized with ProcessRoom (one process task at a time), so it owns the room just like a
+    // full tick. Legacy and shadow rooms keep the original pass, with no owner scope.
+    internal void RunFastPass(Action pass)
+    {
+        if (UsesV2Movement)
+        {
+            lock (NavigationSync) RunOwnedPass(pass);
+            return;
+        }
+        if (IsCrashed || MDisposed) return;
+        try { pass(); }
+        catch (Exception e) { ExceptionLogger.LogException(e); }
+    }
+
     public void ProcessRoom()
     {
         if (UsesV2Movement)
@@ -458,6 +472,7 @@ public class Room : RoomData
     {
         GetGameMap().Navigation?.ApplyDirty();
         GetGameMap().Navigation?.DrainCommands();
+        GetGameMap().Gates.Drain();
         GetRoomItemHandler().OnCycle();
     }
 
@@ -750,10 +765,14 @@ public class Room : RoomData
             _tradingComponent.Cleanup();
     }
 
-    private void ProcessWiredOwned()
+    private void ProcessWiredOwned() => RunOwnedPass(() => GetWired().OnFastCycle());
+
+    // The fast pass owns the room for the gate sequencer, so Wired closes run inline and in order.
+    private void RunOwnedPass(Action pass)
     {
         if (IsCrashed || MDisposed) return;
-        try { GetWired().OnFastCycle(); }
+        using var owner = Plus.HabboHotel.Rooms.PathFinding.RoomOwnerScope.Enter(this);
+        try { pass(); }
         catch (Exception e) { ExceptionLogger.LogException(e); }
     }
 

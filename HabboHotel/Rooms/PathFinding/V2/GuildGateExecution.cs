@@ -10,9 +10,11 @@ internal sealed class GuildGateExecution(Room room, NavGrid grid)
         var habbo = actor.GetClient()?.GetHabbo();
         var gate = room.GetRoomItemHandler().GetItem(grid.SupportItem[tile]);
         if (habbo == null || gate == null) return;
-        gate.InteractingUser = habbo.Id;
-        gate.LegacyDataString = "1";
-        gate.UpdateState(false, true);
-        gate.RequestUpdate(4, true);
+        // Sequenced like every gate write; the user and timer apply at the commit boundary.
+        GateTransitionService.Apply(gate, "1", GateCloseReason.Walk, persist: false, afterWrite: opened =>
+        {
+            opened.InteractingUser = habbo.Id;
+            opened.RequestUpdate(4, true);
+        });
     }
 }
