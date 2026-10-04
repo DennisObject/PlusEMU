@@ -103,7 +103,9 @@ public class AuthEndpoints
             ResumeStatus.Resumed when withTicket => Session(result.Session!),
             ResumeStatus.Resumed => Results.Json(new
             {
-                accessToken = result.Session!.AccessToken.Value,
+                userId = result.Session!.UserId,
+                username = result.Session.Username,
+                accessToken = result.Session.AccessToken.Value,
                 accessTokenExpiresAt = result.Session.AccessToken.ExpiresAt,
                 rememberToken = result.Session.RememberToken!.Value.Value,
                 rememberExpiresAt = result.Session.RememberToken.Value.ExpiresAt
@@ -157,6 +159,7 @@ public class AuthEndpoints
         ? Results.Json(new
         {
             ssoTicket = session.SsoTicket.Value,
+            userId = session.UserId,
             username = session.Username,
             accessToken = session.AccessToken.Value,
             accessTokenExpiresAt = session.AccessToken.ExpiresAt,
@@ -166,6 +169,7 @@ public class AuthEndpoints
         : Results.Json(new
         {
             ssoTicket = session.SsoTicket.Value,
+            userId = session.UserId,
             username = session.Username,
             accessToken = session.AccessToken.Value,
             accessTokenExpiresAt = session.AccessToken.ExpiresAt

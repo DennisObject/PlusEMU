@@ -13,7 +13,9 @@ public interface IRememberTokenStore
     /// <summary>
     /// Uses the token up. A Rotated result names the family whose successor the caller writes with
     /// <see cref="Continue"/>, and the user's credential generation at that moment. Revoked or
-    /// expired tokens are Invalid with no side effects. A used, still live token is reuse: its
+    /// expired tokens are Invalid with no side effects. A used, still live token presented again
+    /// within AuthApi:RememberReuseGraceSeconds (a few times at most) is Rotated again, so its
+    /// family gets another successor. Any other used, still live token is reuse: its
     /// family is revoked and <paramref name="onReuse"/> runs in the same transaction, which holds
     /// the user's row lock, so nothing commits unless it succeeds.
     /// </summary>

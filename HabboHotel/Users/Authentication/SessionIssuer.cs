@@ -40,7 +40,7 @@ public interface ISessionIssuer
 }
 
 /// <param name="SsoTicket">Default when the session was resumed without a ticket.</param>
-public sealed record AuthSession(string Username, IssuedToken SsoTicket, IssuedToken AccessToken, IssuedToken? RememberToken = null);
+public sealed record AuthSession(int UserId, string Username, IssuedToken SsoTicket, IssuedToken AccessToken, IssuedToken? RememberToken = null);
 
 public enum ResumeStatus
 {
@@ -81,7 +81,7 @@ public class SessionIssuer : ISessionIssuer
         {
             await _generations.StartSession(userId, sessionId, scope);
             await _accounts.RecordAddress(userId, address, scope);
-            session = new(username, await _ssoTickets.Issue(userId, sessionId, scope), await _accessTokens.Issue(userId, sessionId, scope),
+            session = new(userId, username, await _ssoTickets.Issue(userId, sessionId, scope), await _accessTokens.Issue(userId, sessionId, scope),
                 remember ? await _rememberTokens.Continue(userId, sessionId, scope) : null);
         });
         return session;
@@ -112,7 +112,7 @@ public class SessionIssuer : ISessionIssuer
         await _generations.WriteIfCurrent(userId, rotation.Generation, sessionId, async scope =>
         {
             await _accounts.RecordAddress(userId, address, scope);
-            session = new(username, withTicket ? await _ssoTickets.Issue(userId, sessionId, scope) : default,
+            session = new(userId, username, withTicket ? await _ssoTickets.Issue(userId, sessionId, scope) : default,
                 await _accessTokens.Issue(userId, sessionId, scope), await _rememberTokens.Continue(userId, sessionId, scope));
         });
         return session == null ? new(ResumeStatus.Invalid) : new(ResumeStatus.Resumed, session);

@@ -393,6 +393,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, resumed.StatusCode);
         var session = await Json(resumed);
         Assert.Equal("Dennis", session.GetProperty("username").GetString());
+        Assert.Equal(row.Id, session.GetProperty("userId").GetInt32());
         Assert.Equal(row.Id, _tickets.Live[session.GetProperty("ssoTicket").GetString()!]);
         Assert.Equal(row.Id, _tokens.Live[session.GetProperty("accessToken").GetString()!]);
         var second = session.GetProperty("rememberToken").GetString()!;
@@ -417,6 +418,8 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, refreshed.StatusCode);
         var body = await Json(refreshed);
         Assert.False(body.TryGetProperty("ssoTicket", out _));
+        Assert.Equal("Dennis", body.GetProperty("username").GetString());
+        Assert.Equal(row.Id, body.GetProperty("userId").GetInt32());
         Assert.Equal(row.Id, _tokens.Live[body.GetProperty("accessToken").GetString()!]);
         Assert.True(_remember.IsLive(body.GetProperty("rememberToken").GetString()!));
         Assert.False(_remember.IsLive(token.Value));

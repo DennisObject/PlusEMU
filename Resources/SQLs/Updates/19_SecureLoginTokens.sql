@@ -44,8 +44,9 @@ CREATE TABLE IF NOT EXISTS `user_access_tokens` (
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- "Remember me" tokens, also stored only as SHA-256 hex digests. family_id is the login's
--- user_sessions.id. Every use marks the row used and adds its successor in the same family;
--- presenting a used token signs the account out everywhere.
+-- user_sessions.id. Every use marks the row used and adds its successor in the same family.
+-- Presenting a used token again within AuthApi:RememberReuseGraceSeconds (at most 3 times) adds
+-- another successor; later, it signs the account out everywhere.
 CREATE TABLE IF NOT EXISTS `user_remember_tokens` (
     `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
     `user_id` int(11) NOT NULL,
@@ -54,6 +55,7 @@ CREATE TABLE IF NOT EXISTS `user_remember_tokens` (
     `created_at` int(11) unsigned NOT NULL,
     `expires_at` int(11) unsigned NOT NULL,
     `used_at` int(11) unsigned NULL DEFAULT NULL,
+    `grace_uses` tinyint(3) unsigned NOT NULL DEFAULT 0,
     `revoked_at` int(11) unsigned NULL DEFAULT NULL,
     PRIMARY KEY (`id`),
     UNIQUE KEY `token_hash` (`token_hash`),
@@ -61,3 +63,8 @@ CREATE TABLE IF NOT EXISTS `user_remember_tokens` (
     KEY `family_id` (`family_id`),
     KEY `expires_at` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- Columns added after the first draft of this update, for databases that applied it early.
+ALTER TABLE `user_access_tokens` ADD COLUMN IF NOT EXISTS `session_id` char(32) NULL DEFAULT NULL AFTER `user_id`,
+    ADD KEY IF NOT EXISTS `session_id` (`session_id`);
+ALTER TABLE `user_remember_tokens` ADD COLUMN IF NOT EXISTS `grace_uses` tinyint(3) unsigned NOT NULL DEFAULT 0 AFTER `used_at`;

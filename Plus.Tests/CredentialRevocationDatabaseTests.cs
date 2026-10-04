@@ -24,7 +24,8 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         var options = AuthTestConfig.Options();
         _tickets = new(_database, TimeProvider.System, options);
         _access = new(_database, TimeProvider.System, options);
-        _remember = new(_database, TimeProvider.System, options);
+        // Strict reuse detection here; RememberGraceDatabaseTests covers the retry window.
+        _remember = new(_database, TimeProvider.System, AuthTestConfig.Options(c => c.RememberReuseGraceSeconds = 0));
         _generations = new(_database);
         _accounts = new(_database, TimeProvider.System, options);
     }

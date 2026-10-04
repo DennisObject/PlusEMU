@@ -13,7 +13,11 @@ public sealed class RememberTokenDatabaseTests : IDisposable
     private readonly RememberTokenStore _store;
 
     public RememberTokenDatabaseTests() =>
-        _store = new RememberTokenStore(new AuthTestDatabase(), _time, AuthTestConfig.Options(c => c.RememberTokenLifetimeDays = 30));
+        _store = new RememberTokenStore(new AuthTestDatabase(), _time, AuthTestConfig.Options(c =>
+        {
+            c.RememberTokenLifetimeDays = 30;
+            c.RememberReuseGraceSeconds = 0;
+        }));
 
     [AuthDatabaseFact]
     public async Task IssuedTokensAreStoredOnlyAsHashesWithTheConfiguredLifetime()

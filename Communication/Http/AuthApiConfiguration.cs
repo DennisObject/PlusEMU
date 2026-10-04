@@ -18,6 +18,10 @@ public class AuthApiConfiguration
     /// <summary>"Remember me" tokens; each use replaces the token and restarts this lifetime.</summary>
     public int RememberTokenLifetimeDays { get; set; } = 30;
 
+    /// <summary>A remember token presented again within this many seconds of its use (a lost
+    /// response, a second tab) gets another successor instead of counting as theft. 0 = strict.</summary>
+    public int RememberReuseGraceSeconds { get; set; } = 30;
+
     /// <summary>Requests per minute per client IP across /api/auth.</summary>
     public int RequestsPerMinute { get; set; } = 60;
 
