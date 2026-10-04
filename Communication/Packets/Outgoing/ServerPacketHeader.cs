@@ -377,4 +377,8 @@ public static class ServerPacketHeader
     public const uint HabboClubExtendOfferComposer = 3964;
     public const uint ClubGiftReceivedComposer = 659;
     public const uint PickMonthlyClubGiftComposer = 2188;
+    public const uint HousekeepingRolesComposer = 9210;
+    public const uint HousekeepingRoleMembersComposer = 9211;
+    public const uint HousekeepingUserOverridesComposer = 9212;
+    public const uint HousekeepingRolesAuditComposer = 9213;
 }

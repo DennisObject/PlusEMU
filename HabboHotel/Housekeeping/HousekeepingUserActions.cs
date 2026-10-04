@@ -19,7 +19,6 @@ public interface IHousekeepingUserActions
     HousekeepingOutcome Mute(Habbo actor, int userId, string reason, int minutes);
     HousekeepingOutcome Kick(Habbo actor, int userId, string reason);
     HousekeepingOutcome Disconnect(Habbo actor, int userId, string reason);
-    HousekeepingOutcome SetRank(Habbo actor, int userId, int rankId);
     HousekeepingOutcome TradeLock(Habbo actor, int userId, int hours, string reason);
     HousekeepingOutcome ResetPassword(Habbo actor, int userId);
 }
@@ -121,16 +120,6 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         return HousekeepingOutcome.Success(Label(user), $"reason={HousekeepingLimits.AuditValue(reason)}");
     }
 
-    public HousekeepingOutcome SetRank(Habbo actor, int userId, int roleId)
-    {
-        if (roleId <= 0) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
-        if (!_permissions.TryGetRole(roleId, out _)) return HousekeepingOutcome.Fail(RankNotFound, HousekeepingTarget.User(userId), $"roleId={roleId}");
-        using var account = _sessionGate.Enter(userId);
-        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
-        return _permissions.ReplaceRoles(actor, userId, roleId)
-            ? HousekeepingOutcome.Success(Label(user), $"roleId={roleId}")
-            : HousekeepingOutcome.Fail(Forbidden, Label(user), $"roleId={roleId}");
-    }
 
     public HousekeepingOutcome TradeLock(Habbo actor, int userId, int hours, string reason)
     {

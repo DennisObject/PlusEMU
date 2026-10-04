@@ -10,7 +10,6 @@ public static class HousekeepingRights
 {
     public const string Access = PermissionKeys.HousekeepingAccess;
     public const string Sanction = PermissionKeys.HousekeepingSanction;
-    public const string Rank = PermissionKeys.HousekeepingRolesManage;
     public const string Password = PermissionKeys.HousekeepingPassword;
     public const string Rooms = PermissionKeys.HousekeepingRooms;
     public const string RoomOwnership = PermissionKeys.HousekeepingRoomOwnership;

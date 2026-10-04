@@ -11,7 +11,7 @@ using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.HabboHotel.Permissions;
 
-public sealed class AccessControl : IAccessControl, IDisposable
+public sealed partial class AccessControl : IAccessControl, IDisposable
 {
     private readonly IDatabase _database;
     private readonly IGameClientManager _clients;
@@ -49,11 +49,13 @@ public sealed class AccessControl : IAccessControl, IDisposable
                 connection.Execute("INSERT INTO acl_permissions (`key`, category, description, is_orphan) VALUES (@Key, @Category, @Description, 0) " +
                     "ON DUPLICATE KEY UPDATE category = @Category, description = @Description, is_orphan = 0", permission, transaction);
             transaction.Commit();
-            _registry = definitions.Select(permission => permission.Key).ToArray();
-            _roles = rows.ToFrozenDictionary(role => role.Id, role => new AccessRole(role.Id, role.Slug, role.Name, role.Weight,
+            var registry = definitions.Select(permission => permission.Key).ToArray();
+            var roles = rows.ToFrozenDictionary(role => role.Id, role => new AccessRole(role.Id, role.Slug, role.Name, role.Weight,
                 role.SecurityLevel, role.BadgeCode, role.IsStaff, permissions.Where(p => p.RoleId == role.Id).Select(p => p.PermissionKey).ToArray(),
                 limits.Where(limit => limit.RoleId == role.Id).ToFrozenDictionary(limit => limit.LimitKey, limit => limit.Value, StringComparer.Ordinal)));
-            if (!_roles.Values.Any(role => role.Slug == "default")) throw new InvalidOperationException("The default access role is missing. Apply the RBAC migration.");
+            if (!roles.Values.Any(role => role.Slug == "default")) throw new InvalidOperationException("The default access role is missing. Apply the RBAC migration.");
+            _registry = registry;
+            _roles = roles;
             foreach (var entry in _resolved.Values.ToArray())
                 if (!ReferenceEquals(GetOnlineHabbo(entry.Habbo.Id), entry.Habbo)) Evict(entry);
             Prune(connection);
@@ -124,6 +126,7 @@ public sealed class AccessControl : IAccessControl, IDisposable
         }
     }
 
+
     private Habbo? GetOnlineHabbo(int userId) => _clients.GetClientByUserId(userId)?.GetHabbo() is { AccessClosed: false } habbo ? habbo : null;
 
     private UserAccess GetAccess(int userId) => _resolved.TryGetValue(userId, out var entry) &&
@@ -156,7 +159,11 @@ public sealed class AccessControl : IAccessControl, IDisposable
     public bool Can(int userId, string key) => GetAccess(userId).Can(key);
     public int Limit(int userId, string key, int fallback = 0) => GetAccess(userId).Limit(key, fallback);
     public bool Outranks(int actorId, int targetId) => actorId != targetId && GetAccess(actorId).Outranks(GetAccess(targetId));
-    public bool TryGetRole(int roleId, out AccessRole role) => _roles.TryGetValue(roleId, out role!);
+    public bool TryGetRole(int roleId, out AccessRole role)
+    {
+        lock (_sync) return _roles.TryGetValue(roleId, out role!);
+    }
+
 
     public bool AssignRole(Habbo actor, int targetId, int roleId, DateTimeOffset? expiresAt = null) =>
         Mutate(actor, targetId, "role.assign", new { roleId, expiresAt }, (connection, transaction, actorAccess, targetAccess) =>
@@ -168,24 +175,6 @@ public sealed class AccessControl : IAccessControl, IDisposable
                 "ON DUPLICATE KEY UPDATE granted_by = @actorId, expires_at = @expiresAt", new { targetId, roleId, actorId = actor.Id, expiresAt = expiresAt?.UtcDateTime }, transaction);
             return true;
         });
-
-    public bool ReplaceRoles(Habbo actor, int targetId, int roleId)
-    {
-        var payload = new Dictionary<string, object> { ["roleId"] = roleId };
-        return Mutate(actor, targetId, "role.replace", payload, (connection, transaction, actorAccess, targetAccess) =>
-        {
-            if (!TryGetRole(roleId, out var role) || role.Weight >= actorAccess.Weight ||
-                role.Slug != "default" && !AccessMutationPolicy.CanAssign(actor.Id, targetId, actorAccess, targetAccess, role, _registry)) return false;
-            var previous = connection.Query<int>("SELECT role_id FROM user_roles WHERE user_id = @targetId", new { targetId }, transaction).ToArray();
-            if (previous.Any(id => !TryGetRole(id, out var assigned) || assigned.Weight >= actorAccess.Weight)) return false;
-            connection.Execute("DELETE FROM user_roles WHERE user_id = @targetId", new { targetId }, transaction);
-            if (role.Slug != "default")
-                connection.Execute("INSERT INTO user_roles (user_id, role_id, granted_by) VALUES (@targetId, @roleId, @actorId)",
-                    new { targetId, roleId, actorId = actor.Id }, transaction);
-            payload["revokedRoleIds"] = previous;
-            return true;
-        });
-    }
 
     public bool RevokeRole(Habbo actor, int targetId, int roleId) =>
         Mutate(actor, targetId, "role.revoke", new { roleId }, (connection, transaction, actorAccess, targetAccess) =>
@@ -243,10 +232,10 @@ public sealed class AccessControl : IAccessControl, IDisposable
     private UserAccess Read(IDbConnection connection, int userId, IDbTransaction? transaction = null)
     {
         var assignments = new List<RoleAssignment> { new(_roles.Values.Single(role => role.Slug == "default")) };
-        foreach (var row in connection.Query<AssignmentRow>("SELECT role_id AS RoleId, expires_at AS ExpiresAt FROM user_roles WHERE user_id = @userId", new { userId }, transaction))
+        foreach (var row in connection.Query<AssignmentRow>("SELECT role_id AS RoleId, UNIX_TIMESTAMP(expires_at) AS ExpiresAt FROM user_roles WHERE user_id = @userId", new { userId }, transaction))
             if (_roles.TryGetValue(row.RoleId, out var role) && role.Slug != "default")
                 assignments.Add(new(role, Utc(row.ExpiresAt)));
-        var overrides = connection.Query<OverrideRow>("SELECT permission_key AS PermissionKey, effect, expires_at AS ExpiresAt FROM user_permissions WHERE user_id = @userId", new { userId }, transaction)
+        var overrides = connection.Query<OverrideRow>("SELECT permission_key AS PermissionKey, effect, UNIX_TIMESTAMP(expires_at) AS ExpiresAt FROM user_permissions WHERE user_id = @userId", new { userId }, transaction)
             .Select(row => new UserPermissionOverride(row.PermissionKey, row.Effect == "deny", Utc(row.ExpiresAt)));
         var membership = connection.QuerySingleOrDefault<ClubMembership>("SELECT " + ClubMembership.Columns + " FROM user_club_memberships WHERE user_id = @userId", new { userId }, transaction);
         return UserAccess.Create(assignments, overrides, _registry, _clock, membership);
@@ -267,8 +256,9 @@ public sealed class AccessControl : IAccessControl, IDisposable
         connection.Execute("DELETE FROM user_roles WHERE expires_at <= @now" + filter, parameters, transaction);
         connection.Execute("DELETE FROM user_permissions WHERE expires_at <= @now" + filter, parameters, transaction);
         if (!userId.HasValue)
-            connection.Execute("UPDATE users u SET u.`rank` = COALESCE((SELECT MAX(r.security_level) FROM user_roles ur JOIN roles r ON r.id = ur.role_id " +
-                "WHERE ur.user_id = u.id AND (ur.expires_at IS NULL OR ur.expires_at > @now)), 1)", parameters, transaction);
+            connection.Execute("UPDATE users u SET u.`rank` = GREATEST(@defaultSecurity, COALESCE((SELECT MAX(r.security_level) FROM user_roles ur JOIN roles r ON r.id = ur.role_id " +
+                "WHERE ur.user_id = u.id AND (ur.expires_at IS NULL OR ur.expires_at > @now)), @defaultSecurity))",
+                new { parameters.now, defaultSecurity = _roles.Values.Single(role => role.Slug == "default").SecurityLevel }, transaction);
         transaction.Commit();
     }
 
@@ -283,7 +273,7 @@ public sealed class AccessControl : IAccessControl, IDisposable
         catch (Exception exception) { _logger.LogError(exception, "Refreshing expired access failed"); }
     }
 
-    private static DateTimeOffset? Utc(DateTime? value) => value.HasValue ? new DateTimeOffset(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)) : null;
+    private static DateTimeOffset? Utc(long? value) => value.HasValue ? DateTimeOffset.FromUnixTimeSeconds(value.Value) : null;
     public void Dispose()
     {
         _expiryTimer?.Dispose();
@@ -294,6 +284,6 @@ public sealed class AccessControl : IAccessControl, IDisposable
     private sealed class RoleRow { public int Id { get; set; } public string Slug { get; set; } = ""; public string Name { get; set; } = ""; public int Weight { get; set; } public int SecurityLevel { get; set; } public string BadgeCode { get; set; } = ""; public bool IsStaff { get; set; } }
     private sealed class RolePermissionRow { public int RoleId { get; set; } public string PermissionKey { get; set; } = ""; }
     private sealed class RoleLimitRow { public int RoleId { get; set; } public string LimitKey { get; set; } = ""; public int Value { get; set; } }
-    private sealed class AssignmentRow { public int RoleId { get; set; } public DateTime? ExpiresAt { get; set; } }
-    private sealed class OverrideRow { public string PermissionKey { get; set; } = ""; public string Effect { get; set; } = ""; public DateTime? ExpiresAt { get; set; } }
+    private sealed class AssignmentRow { public int RoleId { get; set; } public long? ExpiresAt { get; set; } }
+    private sealed class OverrideRow { public string PermissionKey { get; set; } = ""; public string Effect { get; set; } = ""; public long? ExpiresAt { get; set; } }
 }

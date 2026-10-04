@@ -484,4 +484,16 @@ public static class ClientPacketHeader
     public const uint HousekeepingSendHotelAlertEvent = 9121;
     public const uint HousekeepingGetDashboardEvent = 9122;
     public const uint HousekeepingListActionLogEvent = 9123;
+    public const uint HousekeepingGetRolesEvent = 9130;
+    public const uint HousekeepingGetRoleMembersEvent = 9131;
+    public const uint HousekeepingGetUserOverridesEvent = 9132;
+    public const uint HousekeepingGetRolesAuditEvent = 9133;
+    public const uint HousekeepingSaveRoleEvent = 9134;
+    public const uint HousekeepingDeleteRoleEvent = 9135;
+    public const uint HousekeepingSetRolePermissionEvent = 9136;
+    public const uint HousekeepingSetRoleLimitEvent = 9137;
+    public const uint HousekeepingAssignRoleEvent = 9138;
+    public const uint HousekeepingRevokeRoleEvent = 9139;
+    public const uint HousekeepingSetUserOverrideEvent = 9140;
+    public const uint HousekeepingRemoveUserOverrideEvent = 9141;
 }

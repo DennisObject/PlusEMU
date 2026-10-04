@@ -36,7 +36,6 @@ public static class HousekeepingErrors
     public const string InvalidInput = "housekeeping.error.invalid_input";
     public const string Forbidden = "housekeeping.error.forbidden";
     public const string RankTooHigh = "housekeeping.error.rank_too_high";
-    public const string RankNotFound = "housekeeping.error.rank_not_found";
     public const string UserNotFound = "housekeeping.error.user_not_found";
     public const string UserOffline = "housekeeping.error.user_offline";
     public const string UserNotInRoom = "housekeeping.error.user_not_in_room";

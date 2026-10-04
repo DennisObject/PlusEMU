@@ -253,7 +253,6 @@
     "ManageGroupEvent": 737,
     "PlacePetEvent": 1495,
     "EditRoomPromotionEvent": 816,
-    "GetClubOfferEvent": 362,
     "UpdateFloorPropertiesEvent": 1936,
     "MoveWallItemEvent": 1778,
     "VersionCheckEvent": 1220,
@@ -298,10 +297,23 @@
     "PurchasePhotoEvent": 9703,
     "RenderRoomEvent": 9704,
     "RenderRoomThumbnailEvent": 9705,
+    "HousekeepingGetRolesEvent": 9130,
+    "HousekeepingGetRoleMembersEvent": 9131,
+    "HousekeepingGetUserOverridesEvent": 9132,
+    "HousekeepingGetRolesAuditEvent": 9133,
+    "HousekeepingSaveRoleEvent": 9134,
+    "HousekeepingDeleteRoleEvent": 9135,
+    "HousekeepingSetRolePermissionEvent": 9136,
+    "HousekeepingSetRoleLimitEvent": 9137,
+    "HousekeepingAssignRoleEvent": 9138,
+    "HousekeepingRevokeRoleEvent": 9139,
+    "HousekeepingSetUserOverrideEvent": 9140,
+    "HousekeepingRemoveUserOverrideEvent": 9141,
     "GetHabboClubExtendOfferEvent": 2462,
     "PurchaseBasicMembershipExtensionEvent": 6001,
     "PurchaseVipMembershipExtensionEvent": 3407,
-    "SelectClubGiftEvent": 2276
+    "SelectClubGiftEvent": 2276,
+    "GetClubOffersEvent": 362
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 3531,
@@ -596,8 +608,14 @@
     "CameraPublishStatusComposer": 9703,
     "CompetitionStatusComposer": 9704,
     "ThumbnailStatusComposer": 9705,
+    "HousekeepingRolesComposer": 9210,
+    "HousekeepingRoleMembersComposer": 9211,
+    "HousekeepingUserOverridesComposer": 9212,
+    "HousekeepingRolesAuditComposer": 9213,
     "HabboClubExtendOfferComposer": 3964,
     "ClubGiftReceivedComposer": 659,
-    "PickMonthlyClubGiftComposer": 2188
+    "PickMonthlyClubGiftComposer": 2188,
+    "AllowedChatStylesComposer": 9340,
+    "CreatableRoomModelsComposer": 9341
   }
 }

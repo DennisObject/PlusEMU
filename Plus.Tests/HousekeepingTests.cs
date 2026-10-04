@@ -392,7 +392,6 @@ public class HousekeepingHandlerTests
         { typeof(HousekeepingMuteUserEvent), new object[] { 2, "flood", 15 }, HousekeepingRights.Sanction, "user.mute", "Mute 2 flood 15" },
         { typeof(HousekeepingKickUserEvent), new object[] { 2, "bye" }, HousekeepingRights.Sanction, "user.kick", "Kick 2 bye" },
         { typeof(HousekeepingForceDisconnectUserEvent), new object[] { 2, "bye" }, HousekeepingRights.Sanction, "user.disconnect", "Disconnect 2 bye" },
-        { typeof(HousekeepingSetUserRankEvent), new object[] { 2, 3 }, HousekeepingRights.Rank, "user.set_rank", "SetRank 2 3" },
         { typeof(HousekeepingTradeLockUserEvent), new object[] { 2, 48, "scam" }, HousekeepingRights.Sanction, "user.trade_lock", "TradeLock 2 48 scam" },
         { typeof(HousekeepingResetUserPasswordEvent), new object[] { 2 }, HousekeepingRights.Password, "user.reset_password", "ResetPassword 2" },
         { typeof(HousekeepingRoomStateEvent), new object[] { 5, true }, HousekeepingRights.Rooms, "room.open", "SetState 5 True" },
@@ -486,7 +485,6 @@ public class HousekeepingHandlerTests
         public HousekeepingOutcome Mute(Habbo actor, int userId, string reason, int minutes) => Record($"Mute {userId} {reason} {minutes}");
         public HousekeepingOutcome Kick(Habbo actor, int userId, string reason) => Record($"Kick {userId} {reason}");
         public HousekeepingOutcome Disconnect(Habbo actor, int userId, string reason) => Record($"Disconnect {userId} {reason}");
-        public HousekeepingOutcome SetRank(Habbo actor, int userId, int rankId) => Record($"SetRank {userId} {rankId}");
         public HousekeepingOutcome TradeLock(Habbo actor, int userId, int hours, string reason) => Record($"TradeLock {userId} {hours} {reason}");
         public HousekeepingOutcome ResetPassword(Habbo actor, int userId) => Record($"ResetPassword {userId}", Password);
         public HousekeepingOutcome SetState(Habbo actor, int roomId, bool open) => Record($"SetState {roomId} {open}");
@@ -559,18 +557,26 @@ public class HousekeepingWireTests
     {
         ["HousekeepingFindUserByNameEvent"] = 9100, ["HousekeepingFindUserByIdEvent"] = 9101, ["HousekeepingBanUserEvent"] = 9102,
         ["HousekeepingUnbanUserEvent"] = 9103, ["HousekeepingMuteUserEvent"] = 9104, ["HousekeepingKickUserEvent"] = 9105,
-        ["HousekeepingForceDisconnectUserEvent"] = 9106, ["HousekeepingSetUserRankEvent"] = 9107, ["HousekeepingTradeLockUserEvent"] = 9108,
+        ["HousekeepingForceDisconnectUserEvent"] = 9106, ["HousekeepingTradeLockUserEvent"] = 9108,
         ["HousekeepingResetUserPasswordEvent"] = 9109, ["HousekeepingFindRoomByIdEvent"] = 9110, ["HousekeepingSearchRoomsEvent"] = 9111,
         ["HousekeepingRoomStateEvent"] = 9112, ["HousekeepingMuteRoomEvent"] = 9113, ["HousekeepingKickAllFromRoomEvent"] = 9114,
         ["HousekeepingTransferRoomOwnershipEvent"] = 9115, ["HousekeepingDeleteRoomEvent"] = 9116, ["HousekeepingGiveCreditsEvent"] = 9117,
         ["HousekeepingGiveCurrencyEvent"] = 9118, ["HousekeepingGrantItemEvent"] = 9119, ["HousekeepingSetHcSubscriptionEvent"] = 9120,
-        ["HousekeepingSendHotelAlertEvent"] = 9121, ["HousekeepingGetDashboardEvent"] = 9122, ["HousekeepingListActionLogEvent"] = 9123
+        ["HousekeepingSendHotelAlertEvent"] = 9121, ["HousekeepingGetDashboardEvent"] = 9122, ["HousekeepingListActionLogEvent"] = 9123,
+        ["HousekeepingGetRolesEvent"] = 9130, ["HousekeepingGetRoleMembersEvent"] = 9131,
+        ["HousekeepingGetUserOverridesEvent"] = 9132, ["HousekeepingGetRolesAuditEvent"] = 9133,
+        ["HousekeepingSaveRoleEvent"] = 9134, ["HousekeepingDeleteRoleEvent"] = 9135,
+        ["HousekeepingSetRolePermissionEvent"] = 9136, ["HousekeepingSetRoleLimitEvent"] = 9137,
+        ["HousekeepingAssignRoleEvent"] = 9138, ["HousekeepingRevokeRoleEvent"] = 9139,
+        ["HousekeepingSetUserOverrideEvent"] = 9140, ["HousekeepingRemoveUserOverrideEvent"] = 9141
     };
 
     private static readonly Dictionary<string, uint> Outgoing = new()
     {
         ["HousekeepingUserDetailComposer"] = 9200, ["HousekeepingActionResultComposer"] = 9201, ["HousekeepingRoomDetailComposer"] = 9202,
-        ["HousekeepingRoomListComposer"] = 9203, ["HousekeepingDashboardComposer"] = 9204, ["HousekeepingActionLogComposer"] = 9205
+        ["HousekeepingRoomListComposer"] = 9203, ["HousekeepingDashboardComposer"] = 9204, ["HousekeepingActionLogComposer"] = 9205,
+        ["HousekeepingRolesComposer"] = 9210, ["HousekeepingRoleMembersComposer"] = 9211,
+        ["HousekeepingUserOverridesComposer"] = 9212, ["HousekeepingRolesAuditComposer"] = 9213
     };
 
     [Fact]

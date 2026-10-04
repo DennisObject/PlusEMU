@@ -36,7 +36,7 @@ public sealed class AccessControlDatabaseFactAttribute : FactAttribute
 public sealed class AccessControlDatabaseCollection;
 
 [Collection("AccessControlDatabase")]
-public sealed class AccessControlDatabaseTests : IDisposable
+public sealed partial class AccessControlDatabaseTests : IDisposable
 {
     private const int Actor = 940001, Target = 940002, Peer = 940003;
     private const int ActorRole = 940101, LimitedRole = 940102, PeerRole = 940103;
@@ -55,7 +55,8 @@ public sealed class AccessControlDatabaseTests : IDisposable
         var connectionString = Environment.GetEnvironmentVariable(AccessControlDatabaseFactAttribute.Variable)!;
         if (!new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_acl_tests_", StringComparison.Ordinal))
             throw new InvalidOperationException("Access-control tests require a disposable task_acl_tests_ database.");
-        _database = new(connectionString);
+        var builder = new MySqlConnectionStringBuilder(connectionString) { AllowZeroDateTime = true, ConvertZeroDateTime = true };
+        _database = new(builder.ConnectionString);
         using (var connection = _database.Connection())
         {
             connection.Execute("DELETE FROM user_roles WHERE user_id IN @ids; DELETE FROM user_permissions WHERE user_id IN @ids; DELETE FROM users WHERE id IN @ids; " +
@@ -366,41 +367,9 @@ public sealed class AccessControlDatabaseTests : IDisposable
         finally { field.SetValue(null, previous); }
     }
 
-    [AccessControlDatabaseFact]
-    public void ReplacingRolesDemotesAtomicallyAndDefaultRemovesAllStoredRoles()
-    {
-        using var connection = _database.Connection();
-        connection.Execute("INSERT INTO user_roles (user_id, role_id) VALUES (@Target, 8), (@Target, 11)", new { Target });
-        _access.Refresh(Target);
-        _sent.Clear();
-        Assert.True(_access.ReplaceRoles(_actor, Target, LimitedRole));
-        Assert.Equal(new[] { LimitedRole }, connection.Query<int>("SELECT role_id FROM user_roles WHERE user_id = @Target", new { Target }));
-        Assert.Equal(LimitedRole, _target.Access.PrimaryRole!.Id);
-        Assert.Single(_sent);
-        Assert.Equal("role.replace", connection.QuerySingle<string>("SELECT action FROM acl_audit_log WHERE actor_id = @Actor AND target_id = @Target", new { Actor, Target }));
-        Assert.True(_access.ReplaceRoles(_actor, Target, 1));
-        Assert.Empty(connection.Query<int>("SELECT role_id FROM user_roles WHERE user_id = @Target", new { Target }));
-        Assert.Equal("default", _target.Access.PrimaryRole!.Slug);
-        Assert.Equal(2, _sent.Count);
-        Assert.Equal(2, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log WHERE actor_id = @Actor AND target_id = @Target", new { Actor, Target }));
-    }
 
-    [AccessControlDatabaseFact]
-    public void ReplacingRolesRejectsSelfEscalationUnheldGrantsAndProtectedExpiredAssignmentsWithoutPartialWrites()
-    {
-        using var connection = _database.Connection();
-        connection.Execute("INSERT INTO user_roles (user_id, role_id) VALUES (@Target, @LimitedRole)", new { Target, LimitedRole });
-        Assert.False(_access.ReplaceRoles(_actor, Actor, 1));
-        Assert.False(_access.ReplaceRoles(_actor, Target, PeerRole));
-        connection.Execute("INSERT INTO user_permissions (user_id, permission_key, effect) VALUES (@Actor, 'camera.use', 'deny')", new { Actor });
-        Assert.False(_access.ReplaceRoles(_actor, Target, LimitedRole));
-        connection.Execute("INSERT INTO user_roles (user_id, role_id, expires_at) VALUES (@Target, @PeerRole, @expired)",
-            new { Target, PeerRole, expired = _clock.Now.AddSeconds(-1).UtcDateTime });
-        Assert.False(_access.ReplaceRoles(_actor, Target, 1));
-        Assert.Equal(new[] { LimitedRole, PeerRole }, connection.Query<int>("SELECT role_id FROM user_roles WHERE user_id = @Target ORDER BY role_id", new { Target }));
-        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log WHERE actor_id = @Actor AND target_id = @Target", new { Actor, Target }));
-        Assert.Empty(_sent);
-    }
+
+
 
     [AccessControlDatabaseFact]
     public async Task RegistrationStartsWithoutClubOrAnAutomaticVipRole()
@@ -439,6 +408,26 @@ public sealed class AccessControlDatabaseTests : IDisposable
         new UserInfoCommand(_database, _clients, _access).Execute(session, null!, ["", "acl_target"]);
         Assert.Single(messages);
         Assert.Contains("ACL limited", System.Text.Encoding.UTF8.GetString(messages[0].Payload));
+    }
+
+    [AccessControlDatabaseFact]
+    public void ReloadIncludesTheImplicitDefaultRoleInOfflineRankCaches()
+    {
+        using var connection = _database.Connection();
+        var original = connection.ExecuteScalar<int>("SELECT security_level FROM roles WHERE slug = 'default'");
+        try
+        {
+            connection.Execute("UPDATE roles SET security_level = 4 WHERE slug = 'default'");
+            _access.Reload();
+            Assert.Equal(4, connection.ExecuteScalar<int>("SELECT `rank` FROM users WHERE id = @Target", new { Target }));
+            Assert.Equal(4, _access.Resolve(Target).SecurityLevel);
+            Assert.Equal(7, connection.ExecuteScalar<int>("SELECT `rank` FROM users WHERE id = @Peer", new { Peer }));
+        }
+        finally
+        {
+            connection.Execute("UPDATE roles SET security_level = @original WHERE slug = 'default'", new { original });
+            _access.Reload();
+        }
     }
 
     public void Dispose()

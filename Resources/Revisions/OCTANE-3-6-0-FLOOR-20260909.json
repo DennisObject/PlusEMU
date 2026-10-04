@@ -339,7 +339,6 @@
     "HousekeepingMuteUserEvent": 9104,
     "HousekeepingKickUserEvent": 9105,
     "HousekeepingForceDisconnectUserEvent": 9106,
-    "HousekeepingSetUserRankEvent": 9107,
     "HousekeepingTradeLockUserEvent": 9108,
     "HousekeepingResetUserPasswordEvent": 9109,
     "HousekeepingFindRoomByIdEvent": 9110,
@@ -359,7 +358,19 @@
     "GetHabboClubExtendOfferEvent": 2462,
     "PurchaseBasicMembershipExtensionEvent": 6001,
     "PurchaseVipMembershipExtensionEvent": 3407,
-    "SelectClubGiftEvent": 2276
+    "SelectClubGiftEvent": 2276,
+    "HousekeepingGetRolesEvent": 9130,
+    "HousekeepingGetRoleMembersEvent": 9131,
+    "HousekeepingGetUserOverridesEvent": 9132,
+    "HousekeepingGetRolesAuditEvent": 9133,
+    "HousekeepingSaveRoleEvent": 9134,
+    "HousekeepingDeleteRoleEvent": 9135,
+    "HousekeepingSetRolePermissionEvent": 9136,
+    "HousekeepingSetRoleLimitEvent": 9137,
+    "HousekeepingAssignRoleEvent": 9138,
+    "HousekeepingRevokeRoleEvent": 9139,
+    "HousekeepingSetUserOverrideEvent": 9140,
+    "HousekeepingRemoveUserOverrideEvent": 9141
   },
   "OutgoingHeaders": {
     "AllowedChatStylesComposer": 9340,
@@ -685,6 +696,10 @@
     "HousekeepingActionLogComposer": 9205,
     "HabboClubExtendOfferComposer": 3964,
     "ClubGiftReceivedComposer": 659,
-    "PickMonthlyClubGiftComposer": 2188
+    "PickMonthlyClubGiftComposer": 2188,
+    "HousekeepingRolesComposer": 9210,
+    "HousekeepingRoleMembersComposer": 9211,
+    "HousekeepingUserOverridesComposer": 9212,
+    "HousekeepingRolesAuditComposer": 9213
   }
 }
