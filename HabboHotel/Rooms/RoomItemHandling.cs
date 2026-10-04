@@ -315,6 +315,7 @@ public class RoomItemHandling
 
     private List<IServerPacket> CycleRollers()
     {
+        if (_room.GetGameMap().Navigation?.UsesExecutor == true) return CycleV2Rollers();
         if (!GotRollers)
             return new();
         if (_mRollerCycle >= _mRollerSpeed || _mRollerSpeed == 0)
@@ -395,6 +396,23 @@ public class RoomItemHandling
         }
         _mRollerCycle++;
         return new();
+    }
+
+    private List<IServerPacket> CycleV2Rollers()
+    {
+        if (!GotRollers) return new();
+        if (_mRollerCycle < _mRollerSpeed && _mRollerSpeed != 0)
+        {
+            _mRollerCycle++;
+            return new();
+        }
+        _rollerItemsMoved.Clear();
+        _rollerUsersMoved.Clear();
+        _rollerMessages.Clear();
+        new RollerCycle(_room, this, _rollerItemsMoved, _rollerUsersMoved, _rollerMessages)
+            .Run(_rollers.Values.ToList());
+        _mRollerCycle = 0;
+        return _rollerMessages;
     }
 
     public IServerPacket UpdateItemOnRoller(Item pItem, Point nextCoord, uint pRolledId, double nextZ)
