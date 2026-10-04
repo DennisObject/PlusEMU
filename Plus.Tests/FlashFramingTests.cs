@@ -207,6 +207,20 @@ public class FlashFramingTests
         Assert.Equal(new byte[] { 7, 8 }, payloads);
     }
 
+    [Fact]
+    public void RejectedOutgoingInjectionDoesNotTransmitPartialPacket()
+    {
+        var server = new FakeServer { Modify = packet => packet.WriteByte(7), RejectModification = true };
+        var client = Client(server);
+        client.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        var sends = 0;
+        client.SendCallback = _ => { sends++; return false; };
+
+        client.Send(new TestComposer());
+
+        Assert.Equal(0, sends);
+    }
+
     private static FlashGameClient Client(FakeServer server, params uint[] messageIds)
     {
         var client = new FlashGameClient(server, new FlashPacketFactory())
@@ -227,6 +241,7 @@ public class FlashFramingTests
         public List<uint> MessageIds { get; } = new();
         public Action<IOutgoingPacket>? Modify { get; init; }
         public Action<uint, IIncomingPacket>? Receive { get; set; }
+        public bool RejectModification { get; init; }
 
         public bool Start() => true;
         public bool Stop() => true;
@@ -238,7 +253,11 @@ public class FlashFramingTests
             return Hold ?? Task.CompletedTask;
         }
 
-        public void ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet) => Modify?.Invoke(packet);
+        public bool ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet)
+        {
+            Modify?.Invoke(packet);
+            return !RejectModification;
+        }
         public bool HasOutgoingPacketInjectors(uint messageId) => Modify != null;
     }
 

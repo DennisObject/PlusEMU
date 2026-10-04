@@ -58,23 +58,29 @@ public abstract class WebsocketGameServer<TGameServerOptions> : WsServer, IGameS
     public Task PacketReceived(GameClient client, uint messageId, IIncomingPacket packet)
     {
         packet.MessageId = messageId;
-        InvokeInjectors(_incomingInjectors, messageId, injector => injector.ModifyIncomingPacket(this, client, packet));
+        if (!InvokeInjectors(_incomingInjectors, messageId, injector => injector.ModifyIncomingPacket(this, client, packet)))
+            return Task.CompletedTask;
         packet.Stream.Position = 0;
         return _packetManager.TryExecutePacket(client, messageId, packet);
     }
 
-    public void ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet) =>
+    public bool ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet) =>
         InvokeInjectors(_outgoingInjectors, (uint)packet.MessageId, injector => injector.ModifyOutgoingPacket(this, client, packet));
 
     public bool HasOutgoingPacketInjectors(uint messageId) => _outgoingInjectors.ContainsKey(messageId);
 
-    private static void InvokeInjectors<T>(IReadOnlyDictionary<uint, T[]> injectors, uint messageId, Action<T> invoke)
+    private static bool InvokeInjectors<T>(IReadOnlyDictionary<uint, T[]> injectors, uint messageId, Action<T> invoke)
     {
-        if (!injectors.TryGetValue(messageId, out var matches)) return;
+        if (!injectors.TryGetValue(messageId, out var matches)) return true;
         foreach (var injector in matches)
         {
             try { invoke(injector); }
-            catch (Exception exception) { Log.Error(exception, $"Packet injector {injector!.GetType().Name} failed for message {messageId}"); }
+            catch (Exception exception)
+            {
+                Log.Error(exception, $"Packet injector {injector!.GetType().Name} failed for message {messageId}; packet aborted");
+                return false;
+            }
         }
+        return true;
     }
 }

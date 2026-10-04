@@ -187,7 +187,9 @@ public abstract class GameClient
         lock (_sendLock)
         {
             var outgoingMessageId = Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
-            SendEncoded(EncodePacket(composer, outgoingMessageId));
+            var encoded = EncodePacket(composer, outgoingMessageId);
+            if (encoded == null) return;
+            SendEncoded(encoded);
             LogPacket(composer, outgoingMessageId);
         }
     }
@@ -205,7 +207,8 @@ public abstract class GameClient
                 byte[] buffer;
                 if (client._server.HasOutgoingPacketInjectors(composer.MessageId) || !encodedPackets.TryGetValue(key, out buffer!))
                 {
-                    buffer = client.EncodePacket(composer, outgoingMessageId);
+                    buffer = client.EncodePacket(composer, outgoingMessageId)!;
+                    if (buffer == null) continue;
                     if (!client._server.HasOutgoingPacketInjectors(composer.MessageId)) encodedPackets.Add(key, buffer);
                 }
                 client.SendEncoded(buffer, canSend == null ? null : () => canSend(client));
@@ -214,13 +217,13 @@ public abstract class GameClient
         }
     }
 
-    private byte[] EncodePacket(IServerPacket composer, uint outgoingMessageId)
+    private byte[]? EncodePacket(IServerPacket composer, uint outgoingMessageId)
     {
         using var stream = PlusMemoryStream.GetStream();
         var packet = _packetFactory.CreateOutgoingPacket(stream);
         packet.MessageId = checked((int)composer.MessageId);
         composer.Compose(packet);
-        _server.ModifyOutgoingPacket(this, packet);
+        if (!_server.ModifyOutgoingPacket(this, packet)) return null;
         var memory = stream.GetBuffer().AsMemory(0, (int)stream.Length);
         CreateHeader(memory, outgoingMessageId);
         // Socket.SendAsync can outlive this stream; never hand its pooled buffer to a send.
