@@ -33,17 +33,17 @@ public sealed class NavigatorSearchService(INavigatorManager navigator, INavigat
         IEnumerable<RoomData> selected = result.CategoryType switch
         {
             NavigatorCategoryType.Query => Query(query),
-            NavigatorCategoryType.Popular => rooms.GetPopularRooms(-1, limit),
-            NavigatorCategoryType.Recommended => rooms.GetRecommendedRooms(limit),
-            NavigatorCategoryType.Category => rooms.GetRoomsByCategory(result.Id, limit),
+            NavigatorCategoryType.Popular => rooms.GetPopularRooms(-1, limit).Select(room => room.Data),
+            NavigatorCategoryType.Recommended => rooms.GetRecommendedRooms(limit).Select(room => room.Data),
+            NavigatorCategoryType.Category => rooms.GetRoomsByCategory(result.Id, limit).Select(room => room.Data),
             NavigatorCategoryType.MyRooms => RoomFactory.GetRoomsDataByOwnerSortByName(session.GetHabbo().Id).OrderByDescending(room => room.UsersNow),
             NavigatorCategoryType.MyFavourites => Resolve(session.GetHabbo().FavoriteRooms.ToArray().Select(id => (uint)id)),
             NavigatorCategoryType.MyGroups => Resolve(groups.GetGroupsForUser(session.GetHabbo().Id).Select(group => group.RoomId)).Take(limit),
             NavigatorCategoryType.MyFriendsRooms => rooms.GetRoomsByIds(session.GetHabbo().Messenger.Friends.Values
-                .Where(friend => friend.InRoom && friend.Id != session.GetHabbo().Id).Select(friend => friend.CurrentRoom.Id).Distinct().ToList()),
+                .Where(friend => friend.InRoom && friend.Id != session.GetHabbo().Id).Select(friend => friend.CurrentRoom.Id).Distinct().ToList()).Select(room => room.Data),
             NavigatorCategoryType.MyRights => Resolve(store.FindWithRights(session.GetHabbo().Id, limit)),
-            NavigatorCategoryType.TopPromotions => rooms.GetOnGoingRoomPromotions(16, limit),
-            NavigatorCategoryType.PromotionCategory => rooms.GetPromotedRooms(result.OrderId, limit),
+            NavigatorCategoryType.TopPromotions => rooms.GetOnGoingRoomPromotions(16, limit).Select(room => room.Data),
+            NavigatorCategoryType.PromotionCategory => rooms.GetPromotedRooms(result.OrderId, limit).Select(room => room.Data),
             _ => []
         };
         var snapshots = selected.DistinctBy(room => room.Id).Select(room => RoomAppender.Capture(room, navigator)).ToImmutableArray();
@@ -55,8 +55,8 @@ public sealed class NavigatorSearchService(INavigatorManager navigator, INavigat
     private IEnumerable<RoomData> Query(string query)
     {
         if (query.StartsWith("owner:", StringComparison.OrdinalIgnoreCase)) return Resolve(store.FindByOwnerName(query[6..]));
-        if (query.StartsWith("tag:", StringComparison.OrdinalIgnoreCase)) return rooms.SearchTaggedRooms(query[4..]);
-        if (query.StartsWith("group:", StringComparison.OrdinalIgnoreCase)) return rooms.SearchGroupRooms(query[6..]);
+        if (query.StartsWith("tag:", StringComparison.OrdinalIgnoreCase)) return rooms.SearchTaggedRooms(query[4..]).Select(room => room.Data);
+        if (query.StartsWith("group:", StringComparison.OrdinalIgnoreCase)) return rooms.SearchGroupRooms(query[6..]).Select(room => room.Data);
         return query.Length == 0 ? [] : Resolve(store.FindByCaption(query).Where(room => room.Visible).Select(room => room.Id));
     }
 
