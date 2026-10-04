@@ -398,21 +398,19 @@ public class RoomItemHandling
         return new();
     }
 
+    // V2 runs whenever rollers are registered (it does not depend on the legacy GotRollers flag) and
+    // the §14.9 planner sends each group's slides itself, before that group's hooks.
     private List<IServerPacket> CycleV2Rollers()
     {
-        if (!GotRollers) return new();
+        if (_rollers.IsEmpty) return new();
         if (_mRollerCycle < _mRollerSpeed && _mRollerSpeed != 0)
         {
             _mRollerCycle++;
             return new();
         }
-        _rollerItemsMoved.Clear();
-        _rollerUsersMoved.Clear();
-        _rollerMessages.Clear();
-        new RollerCycle(_room, this, _rollerItemsMoved, _rollerUsersMoved, _rollerMessages)
-            .Run(_rollers.Values.ToList());
+        _room.GetGameMap().Navigation!.Executor.Rollers.Run(_rollers.Values.ToList());
         _mRollerCycle = 0;
-        return _rollerMessages;
+        return new();
     }
 
     public IServerPacket UpdateItemOnRoller(Item pItem, Point nextCoord, uint pRolledId, double nextZ)
@@ -629,6 +627,68 @@ public class RoomItemHandling
         return true;
     }
 
+    // V2 roller groups split the in-place setter above into preflight, one positional commit and one
+    // settle step. These mirror its rules exactly; the legacy setter itself stays the original.
+    internal bool CanMoveFloorItem(Item item, int newX, int newY, double newZ,
+        Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? collision = null)
+    {
+        if (item.IsTemporary && (!OwnsTemporary(item)
+            || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanMoveItem(_room, item, newX, newY, item.Rotation, newZ, collision: collision)))
+            return false;
+        if (!MagicTileHeight.IsMagicTile(item.Definition.InteractionType)) return true;
+        var map = _room.GetGameMap();
+        return !MoveFootprint(item, newX, newY).Any(tile => !map.ValidTile(tile.X, tile.Y)
+            || tile.X == map.Model.DoorX && tile.Y == map.Model.DoorY && (newX != item.GetX || newY != item.GetY));
+    }
+
+    // The in-place setter's height adjustment: helpers are clamped to their footprint's floor.
+    internal double ResolveFloorZ(Item item, int newX, int newY, double newZ)
+    {
+        if (!MagicTileHeight.IsMagicTile(item.Definition.InteractionType)) return newZ;
+        var map = _room.GetGameMap();
+        var footprint = MoveFootprint(item, newX, newY).Where(tile => map.ValidTile(tile.X, tile.Y)).ToArray();
+        return footprint.Length == 0 ? newZ
+            : MagicTileHeight.Clamp(newZ, footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]));
+    }
+
+    // Map and position writes only. Callers hold PlacementSync from their CanMoveFloorItem preflight on.
+    internal void CommitFloorMoves(IReadOnlyList<FloorMove> moves)
+    {
+        var map = _room.GetGameMap();
+        lock (map.PlacementSync)
+        {
+            foreach (var move in moves) map.RemoveFromMap(move.Item, false);
+            foreach (var move in moves)
+            {
+                var item = move.Item;
+                item.SetState(move.X, move.Y, move.Z, Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, move.X, move.Y, item.Rotation));
+                map.AddItemToMap(item, false);
+            }
+        }
+    }
+
+    // Deferred effects, persistence, placement flush and posture refresh, once for the whole set.
+    internal void SettleFloorMoves(IReadOnlyList<FloorMove> moves)
+    {
+        if (moves.Count == 0) return;
+        var map = _room.GetGameMap();
+        foreach (var item in moves.Select(move => move.Item))
+        {
+            map.RemoveItemEffects(item);
+            map.AddItemEffects(item);
+            if (item.Definition.InteractionType == InteractionType.Toner && _room.TonerData == null)
+                _room.TonerData = new(item.Id);
+            UpdateItem(item);
+        }
+        map.FlushPlacementUpdates();
+        if (moves.Any(move => move.Item.Definition.InteractionType == InteractionType.WalkMagicTile))
+            _room.GetRoomUserManager().UpdateUserStatusses();
+    }
+
+    private static IEnumerable<Point> MoveFootprint(Item item, int x, int y)
+        => Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, x, y, item.Rotation)
+            .Values.Select(tile => new Point(tile.X, tile.Y)).Append(new Point(x, y)).Distinct();
+
     public bool SetWallItem(GameClient session, Item item)
     {
         if (!item.IsWallItem || _wallItems.ContainsKey(item.Id))
@@ -681,7 +741,7 @@ public class RoomItemHandling
 
     public void OnCycle()
     {
-        if (GotRollers)
+        if (GotRollers || _room.GetGameMap().Navigation?.UsesExecutor == true && !_rollers.IsEmpty)
         {
             try
             {
@@ -860,3 +920,5 @@ public class RoomItemHandling
         _roomItemUpdateQueue = null;
     }
 }
+
+internal readonly record struct FloorMove(Item Item, int X, int Y, double Z);

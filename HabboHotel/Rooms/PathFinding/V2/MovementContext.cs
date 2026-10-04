@@ -47,9 +47,9 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
         if (state.HasIntent) Scheduler.Enqueue(actor, state.LifetimeId, state.GoalRevision);
     }
     internal PlanningOccupancy Occupancy(RoomUser actor) => Claims.Snapshot(Group(actor));
-    internal PlanningOccupancy OccupancyAt(RoomUser actor, int slot)
+    internal PlanningOccupancy OccupancyAt(RoomUser actor, int slot, IReadOnlySet<RoomUser>? departing = null)
     {
-        ExecutionOccupancy.Targets[slot] = Claims.OccupancyAt(slot, Group(actor));
+        ExecutionOccupancy.Targets[slot] = Claims.OccupancyAt(slot, Group(actor), departing);
         return ExecutionOccupancy;
     }
 }
