@@ -28,6 +28,7 @@ public sealed record PathfindingSettings
     public int? MaxExpansionsPerSearch { get; init; }
     public int MaxExpansionsPerRoomTick { get; init; } = 200000;
     public double ShadowLogSample { get; init; } = 0.05;
+    public bool ApproachAutoInteract { get; init; } = true;
 
     public static PathfindingSettings Load(ISettingsManager manager)
     {
@@ -49,6 +50,7 @@ public sealed record PathfindingSettings
             MaxWalkStallTicks = Integer("max_walk_stall_ticks", 10), FastwalkIntermediateHooks = Boolean("fastwalk_intermediate_hooks"),
             RidersIgnoreHeight = Boolean("riders_ignore_height", true),
             MaxExpansionsPerSearch = int.TryParse(Read("max_expansions_per_search"), out var cap) && cap > 0 ? cap : null,
+            ApproachAutoInteract = Boolean("approach_auto_interact", true),
             MaxExpansionsPerRoomTick = Integer("max_expansions_per_room_tick", 200000), ShadowLogSample = Math.Min(1, Number("shadow_log_sample") ?? 0.05)
         };
     }

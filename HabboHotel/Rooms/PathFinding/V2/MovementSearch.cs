@@ -1,7 +1,7 @@
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
 internal sealed class MovementSearch(Room room, RoomNavigation navigation, MovementContext context,
-    MovementCancellation cancellation, RouteFallbackService fallback)
+    MovementCancellation cancellation, RouteFallbackService fallback, ApproachCompletion approaches)
 {
     private SearchScheduler<RoomUser> _scheduler => context.Scheduler;
     private readonly PathSearch _search = new(navigation.Grid, navigation.Settings);
@@ -71,9 +71,15 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
     {
         var actor = job.Actor;
         if (result.Outcome == PathOutcome.Found) { Install(actor); return; }
-        if (result.Outcome != PathOutcome.AlreadyThere && fallback.OwnsSearch(actor)) { fallback.Truncate(actor); return; }
+        if (result.Outcome == PathOutcome.AlreadyThere) { Arrive(actor); return; }
+        if (fallback.OwnsSearch(actor)) { fallback.Truncate(actor); return; }
         cancellation.Cancel(actor);
-        if (result.Outcome == PathOutcome.AlreadyThere) PostureService.Apply(room, navigation.Grid, actor);
+    }
+    private void Arrive(RoomUser actor)
+    {
+        cancellation.Finish(actor);
+        PostureService.Apply(room, navigation.Grid, actor);
+        approaches.Complete(actor, actor.Movement.LocationRevision);
     }
     private void Install(RoomUser actor)
     {

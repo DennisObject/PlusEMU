@@ -39,6 +39,9 @@ public class Item
                 inputs.PublishCurrent(this);
     }
     internal int NavMutationDepth;
+    private long _stateGeneration;
+    // Bumped when the stored state value changes and by every UpdateState; lets queued approach intents notice state changes that never reach a nav record.
+    internal long StateGeneration => Volatile.Read(ref _stateGeneration);
 
     public uint Id { get; set; }
     public bool IsTemporary { get; internal init; }
@@ -51,10 +54,10 @@ public class Item
         get => _extraData;
         set
         {
-            if (!Volatile.Read(ref _navigationSynchronized)) { _extraData = value; return; }
+            if (!Volatile.Read(ref _navigationSynchronized)) { StoreExtraData(value); return; }
             lock (NavSync)
             {
-                _extraData = value;
+                StoreExtraData(value);
                 if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
             }
         }
@@ -75,7 +78,7 @@ public class Item
         {
             if (!Volatile.Read(ref _navigationSynchronized))
             {
-                if (_extraData is LegacyDataFormat data) data.Data = value;
+                if (_extraData is LegacyDataFormat data) { var changed = data.Data != value; data.Data = value; if (changed) MarkInteractionStateChanged(); }
                 return;
             }
             SetNavigationState(value);
@@ -91,7 +94,9 @@ public class Item
         {
             if (_extraData is LegacyDataFormat data)
             {
+                var different = data.Data != value;
                 data.StoreWithoutNotification(value);
+                if (different) MarkInteractionStateChanged();
                 changed = data;
             }
             if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
@@ -105,7 +110,9 @@ public class Item
         if (!Volatile.Read(ref _navigationSynchronized))
         {
             if (_extraData is not LegacyDataFormat plain) return null;
+            var different = plain.Data != value;
             plain.StoreWithoutNotification(value);
+            if (different) MarkInteractionStateChanged();
             return plain;
         }
         LegacyDataFormat? changed = null;
@@ -113,13 +120,25 @@ public class Item
         {
             if (_extraData is LegacyDataFormat data)
             {
+                var different = data.Data != value;
                 data.StoreWithoutNotification(value);
+                if (different) MarkInteractionStateChanged();
                 changed = data;
             }
             if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
         }
         return changed;
     }
+
+    private void StoreExtraData(IFurniObjectData value)
+    {
+        var replaced = !ReferenceEquals(_extraData, value);
+        _extraData = value;
+        if (replaced) MarkInteractionStateChanged();
+    }
+
+    // Store first, then bump: a click that captured the old generation can only be invalidated, never wrongly kept.
+    private void MarkInteractionStateChanged() => Interlocked.Increment(ref _stateGeneration);
 
     /// TODO @80O: Cleanup shit below
     private Room? _room;
@@ -1303,6 +1322,8 @@ public class Item
             return;
         MagicTileHeight.Sync(this);
         PublishIfAttached(true);
+        MarkInteractionStateChanged();
+        GetRoom().GetGameMap()?.Navigation?.ItemStateChanged(Id);
         if (inDb)
             GetRoom().GetRoomItemHandler().UpdateItem(this);
         if (IsFloorItem)

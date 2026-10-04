@@ -1,7 +1,7 @@
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
 internal sealed class CommitService(Room room, RoomNavigation navigation, MovementContext context,
-    MovementCancellation cancellation, RouteFallbackService fallback)
+    MovementCancellation cancellation, RouteFallbackService fallback, ApproachCompletion approaches)
 {
     private readonly MovementRules _rules = new(navigation.Grid, navigation.Settings);
     private readonly LandingService _landing = new(room, navigation, context, cancellation);
@@ -18,8 +18,9 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
         context.Claims.ReleaseBatch(actor);
         if (state.State != NavState.Active || state.LocationRevision != revision) return accepted > 0;
         if (accepted > 0) state.WaitTicks = state.BlockReplans = state.StallTicks = 0;
-        Advance(actor, accepted, count);
+        var arrived = Advance(actor, accepted, count);
         context.Geometry.FinishInvalidation(actor);
+        if (arrived) approaches.Complete(actor, revision);
         return accepted > 0;
     }
     private void LandPending(RoomUser actor, int accepted)
@@ -37,12 +38,15 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
             && command != null && command.Sequence > state.ConsumedSequence && !actor.Frozen
             && (actor.CanWalk || command.Origin != MoveOrigin.User);
     }
-    private void Advance(RoomUser actor, int accepted, int count)
+    // True when the committed prefix reached the end of the route.
+    private bool Advance(RoomUser actor, int accepted, int count)
     {
         var state = actor.Movement;
         state.Cursor += accepted;
-        if (accepted != count) { fallback.OnRouteBlocked(actor); return; }
-        if (state.Cursor >= state.Route.Count && fallback.RouteFinished(state)) cancellation.Cancel(actor);
+        if (accepted != count) { fallback.OnRouteBlocked(actor); return false; }
+        if (state.Cursor < state.Route.Count || !fallback.RouteFinished(state)) return false;
+        cancellation.Finish(actor);
+        return true;
     }
     private int ValidPrefix(RoomUser actor)
     {

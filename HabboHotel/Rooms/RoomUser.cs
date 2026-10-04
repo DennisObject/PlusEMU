@@ -460,6 +460,16 @@ public class RoomUser
         MoveTo(pX, pY, false);
     }
 
+    // Walks to the item's approach tile; under v2 with approach_auto_interact the arrival starts the interaction.
+    public void ApproachItem(Item item, int actionKind)
+    {
+        var front = item.SquareInFront;
+        if (!IsBot && !TeleportEnabled && GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true, Settings.ApproachAutoInteract: true } navigation
+            && navigation.DescribeApproach(item, actionKind) is { } approach)
+            navigation.Move(this, front.X, front.Y, MoveOrigin.User, MoveFlags.None, approach);
+        else MoveTo(front);
+    }
+
     public void MoveTo(int x, int y, MoveOrigin origin, MoveFlags flags = MoveFlags.None)
     {
         if (GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
