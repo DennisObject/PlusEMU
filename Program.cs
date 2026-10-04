@@ -121,7 +121,7 @@ public static class Program
             .AddClasses(classes => classes.Where(t => t.IsAssignableTo(type) && !t.IsAbstract && !t.IsInterface))
             .UsingRegistrationStrategy(RegistrationStrategy.Append)
             .AsSelfWithInterfaces()
-            .WithSingletonLifetime());
+            .WithLifetime(lifetime));
 
     private static IServiceCollection AddDefaultRules(this IServiceCollection services, Assembly assembly)
     {

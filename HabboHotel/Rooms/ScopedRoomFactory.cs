@@ -1,0 +1,43 @@
+using System.Collections.Concurrent;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Plus.HabboHotel.Rooms;
+
+public sealed class ScopedRoomFactory(IServiceScopeFactory scopeFactory) : IRoomFactory, IDisposable
+{
+    private readonly ConcurrentDictionary<uint, IServiceScope> _scopes = new();
+
+    public Room Create(RoomData data)
+    {
+        var scope = scopeFactory.CreateScope();
+        var cached = false;
+        try
+        {
+            var room = new Room(data, scope.ServiceProvider.GetServices<IRoomComponent>());
+            if (!_scopes.TryAdd(data.Id, scope))
+                throw new InvalidOperationException($"A dependency scope already exists for room {data.Id}.");
+            cached = true;
+            room.Initiate();
+            return room;
+        }
+        catch
+        {
+            if (cached)
+                _scopes.TryRemove(data.Id, out _);
+            scope.Dispose();
+            throw;
+        }
+    }
+
+    public void Dispose(uint roomId)
+    {
+        if (_scopes.TryRemove(roomId, out var scope))
+            scope.Dispose();
+    }
+
+    public void Dispose()
+    {
+        foreach (var roomId in _scopes.Keys)
+            Dispose(roomId);
+    }
+}

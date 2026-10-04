@@ -18,6 +18,7 @@ public class RoomManager : IRoomManager
 
     private readonly object _roomLoadingSync;
     private readonly TimeProvider _clock;
+    private readonly IRoomFactory _roomFactory;
 
     private readonly Dictionary<string, RoomModel> _roomModels;
 
@@ -28,12 +29,13 @@ public class RoomManager : IRoomManager
     private readonly ConcurrentDictionary<uint, Room> _fastWiredRooms = new();
 
 
-    public RoomManager(ILogger<RoomManager> logger, IDatabase database, ILanguageManager languageManager, TimeProvider clock)
+    public RoomManager(ILogger<RoomManager> logger, IDatabase database, ILanguageManager languageManager, TimeProvider clock, IRoomFactory? roomFactory = null)
     {
         _logger = logger;
         _database = database;
         _languageManager = languageManager;
         _clock = clock;
+        _roomFactory = roomFactory ?? new LegacyRoomFactory();
         _roomModels = new();
         _rooms = new();
         _roomLoadingSync = new();
@@ -168,6 +170,7 @@ public class RoomManager : IRoomManager
             room.GetWired().ObserveFastWork(null);
             _fastWiredRooms.TryRemove(roomId, out _);
             room.Dispose();
+            _roomFactory.Dispose(roomId);
         }
     }
 
@@ -201,7 +204,7 @@ public class RoomManager : IRoomManager
                 room = null;
                 return false;
             }
-            var myInstance = new Room(data);
+            var myInstance = _roomFactory.Create(data);
             if (_rooms.TryAdd(roomId, myInstance))
             {
                 myInstance.GetWired().ObserveFastWork(required =>
@@ -213,6 +216,8 @@ public class RoomManager : IRoomManager
                 room = myInstance;
                 return true;
             }
+            myInstance.Dispose();
+            _roomFactory.Dispose(roomId);
             room = null;
             return false;
         }

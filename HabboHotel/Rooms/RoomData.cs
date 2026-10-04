@@ -10,6 +10,11 @@ public class RoomData
 
     public List<string> Tags;
 
+    internal RoomData()
+    {
+        Tags = new();
+    }
+
     public RoomData(uint id, string caption, string modelName, string ownerName, int ownerId, string password, int score, string type, string access, int usersNow, int usersMax, int category,
         string description,
         string tags, string floor, string landscape, bool allowPets, bool allowPetsEating, bool roomBlockingEnabled, bool hidewall, int wallThickness, int floorThickness, string wallpaper,
