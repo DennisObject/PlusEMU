@@ -8,6 +8,9 @@ public static class ServerPacketHeader
     public const uint AuthenticationOkComposer = 1079; //1442
     public const uint UserObjectComposer = 845; //1823
     public const uint UserPerksComposer = 1790; //2807
+    public const uint HabboClubExtendOfferComposer = 3964;
+    public const uint ClubGiftReceivedComposer = 659;
+    public const uint PickMonthlyClubGiftComposer = 2188;
     public const uint KickbackInfoComposer = 4001; //3277
     public const uint UserRightsComposer = 3315; //1862
     public const uint GenericErrorComposer = 905; //169

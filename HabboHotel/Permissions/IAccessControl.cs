@@ -4,6 +4,7 @@ namespace Plus.HabboHotel.Permissions;
 
 public interface IAccessControl
 {
+    event Action<Habbo>? AccessChanged;
     void Init();
     bool Can(int userId, string key);
     int Limit(int userId, string key, int fallback = 0);

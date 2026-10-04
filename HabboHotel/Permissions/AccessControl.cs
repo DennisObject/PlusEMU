@@ -7,6 +7,7 @@ using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.HabboHotel.Permissions;
 
@@ -22,6 +23,7 @@ public sealed class AccessControl : IAccessControl, IDisposable
     private readonly System.Collections.Concurrent.ConcurrentDictionary<int, DateTimeOffset> _refreshAt = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<int, UserAccess> _resolved = new();
     private ITimer? _expiryTimer;
+    public event Action<Habbo>? AccessChanged;
 
     public AccessControl(IDatabase database, IGameClientManager clients, ILogger<AccessControl> logger, TimeProvider clock)
     {
@@ -98,6 +100,7 @@ public sealed class AccessControl : IAccessControl, IDisposable
             {
                 habbo.Access = access;
                 client.Send(new UserRightsComposer(access));
+                AccessChanged?.Invoke(habbo);
             }
             _refreshAt[userId] = access.NextExpiry ?? DateTimeOffset.MaxValue;
         }
@@ -180,7 +183,8 @@ public sealed class AccessControl : IAccessControl, IDisposable
                 assignments.Add(new(role, Utc(row.ExpiresAt)));
         var overrides = connection.Query<OverrideRow>("SELECT permission_key AS PermissionKey, effect, expires_at AS ExpiresAt FROM user_permissions WHERE user_id = @userId", new { userId }, transaction)
             .Select(row => new UserPermissionOverride(row.PermissionKey, row.Effect == "deny", Utc(row.ExpiresAt)));
-        return UserAccess.Create(assignments, overrides, _registry, _clock);
+        var membership = connection.QuerySingleOrDefault<ClubMembership>("SELECT " + ClubMembership.Columns + " FROM user_club_memberships WHERE user_id = @userId", new { userId }, transaction);
+        return UserAccess.Create(assignments, overrides, _registry, _clock, membership);
     }
 
     private void Prune(IDbConnection connection, int? userId = null)

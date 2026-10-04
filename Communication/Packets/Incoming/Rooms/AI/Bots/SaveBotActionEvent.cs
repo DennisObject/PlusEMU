@@ -12,9 +12,11 @@ namespace Plus.Communication.Packets.Incoming.Rooms.AI.Bots;
 internal class SaveBotActionEvent : IPacketEvent
 {
     private readonly IDatabase _database;
-    public SaveBotActionEvent(IDatabase database)
+    private readonly Plus.Core.FigureData.IFigureDataManager _figures;
+    public SaveBotActionEvent(IDatabase database, Plus.Core.FigureData.IFigureDataManager figures)
     {
         _database = database;
+        _figures = figures;
     }
 
     public Task Parse(GameClient session, IIncomingPacket packet)
@@ -47,7 +49,7 @@ internal class SaveBotActionEvent : IPacketEvent
             case 1:
             {
                 //Change the defaults
-                bot.BotData.Look = session.GetHabbo().Look;
+                bot.BotData.Look = _figures.ProcessFigure(session.GetHabbo().Look, session.GetHabbo().Gender, session.GetHabbo().Clothing.GetClothingParts, Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access));
                 bot.BotData.Gender = session.GetHabbo().Gender;
 
                 var userChangeComposer = new UserChangeComposer(bot.BotData);
@@ -55,7 +57,7 @@ internal class SaveBotActionEvent : IPacketEvent
 
                 using var dbClient = _database.GetQueryReactor();
                 dbClient.SetQuery($"UPDATE `bots` SET `look` = @look, `gender` = '{session.GetHabbo().Gender}' WHERE `id` = '{bot.BotData.Id}' LIMIT 1");
-                dbClient.AddParameter("look", session.GetHabbo().Look);
+                dbClient.AddParameter("look", bot.BotData.Look);
                 dbClient.RunQuery();
 
                 //Room.SendMessage(new UserChangeComposer(BotUser.GetClient(), true));

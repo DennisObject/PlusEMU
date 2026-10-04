@@ -14,7 +14,7 @@ public static class CatalogAdminMapping
         var texts = Split(row.PageStrings2);
         var type = CatalogAdminTypes.FromMode(row.CatalogMode);
         return new(type, row.Id, row.ParentId, row.PageLink, row.Caption, row.PageLayout, 1, row.IconImage, row.RequiredPermission ?? string.Empty,
-            row.OrderNum, row.Visible, row.Enabled, false, type,
+            row.OrderNum, row.Visible, row.Enabled, row.RequiredClubLevel > 0, type,
             At(images, 0), At(images, 1), At(images, 2), At(texts, 0), At(texts, 1), At(texts, 2), At(texts, 3), 0, string.Empty);
     }
 
@@ -27,6 +27,7 @@ public static class CatalogAdminMapping
         row.IconImage = page.IconImage;
         row.Visible = page.Visible;
         row.Enabled = page.Enabled;
+        row.RequiredClubLevel = page.ClubOnly ? 2 : 0;
         row.RequiredPermission = string.IsNullOrEmpty(page.RequiredPermission) ? null : page.RequiredPermission;
         row.PageLayout = page.PageLayout;
         row.CatalogMode = CatalogAdminTypes.ToMode(CatalogAdminTypes.Parse(page.CatalogMode) ?? CatalogAdminTypes.Normal);

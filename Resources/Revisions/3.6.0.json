@@ -358,7 +358,11 @@
     "CatalogStudioValidateEvent": 0,
     "CatalogStudioExportEvent": 0,
     "CatalogStudioDocumentDryRunEvent": 0,
-    "CatalogStudioDocumentApplyEvent": 0
+    "CatalogStudioDocumentApplyEvent": 0,
+    "GetHabboClubExtendOfferEvent": 2462,
+    "PurchaseBasicMembershipExtensionEvent": 2735,
+    "PurchaseVipMembershipExtensionEvent": 3407,
+    "SelectClubGiftEvent": 2276
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -680,6 +684,9 @@
     "CatalogStudioHistoryComposer": 0,
     "CatalogStudioOperationComposer": 0,
     "CatalogStudioValidationComposer": 0,
-    "CatalogStudioDocumentResultComposer": 0
+    "CatalogStudioDocumentResultComposer": 0,
+    "HabboClubExtendOfferComposer": 3964,
+    "ClubGiftReceivedComposer": 659,
+    "PickMonthlyClubGiftComposer": 2188
   }
 }

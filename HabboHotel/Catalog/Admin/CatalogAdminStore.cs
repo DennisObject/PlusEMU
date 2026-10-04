@@ -7,7 +7,7 @@ namespace Plus.HabboHotel.Catalog.Admin;
 internal sealed class CatalogAdminStore
 {
     private const string PageColumns = "id AS Id, parent_id AS ParentId, caption AS Caption, page_link AS PageLink, icon_image AS IconImage, " +
-        "visible = 1 AS Visible, enabled = 1 AS Enabled, required_permission AS RequiredPermission, order_num AS OrderNum, " +
+        "visible = 1 AS Visible, enabled = 1 AS Enabled, required_permission AS RequiredPermission, required_club_level AS RequiredClubLevel, order_num AS OrderNum, " +
         "page_layout AS PageLayout, page_strings_1 AS PageStrings1, page_strings_2 AS PageStrings2, catalog_mode AS CatalogMode";
 
     private const string OfferColumns = "id AS Id, page_id AS PageId, item_id AS ItemId, catalog_name AS CatalogName, cost_credits AS CostCredits, " +
@@ -63,14 +63,14 @@ internal sealed class CatalogAdminStore
             new { parentId, catalogMode }, _transaction);
 
     public int InsertPage(CatalogPageRow row) => _connection.QuerySingle<int>("""
-        INSERT INTO catalog_pages (parent_id, caption, page_link, icon_image, visible, enabled, required_permission, order_num, page_layout, page_strings_1, page_strings_2, catalog_mode)
-        VALUES (@ParentId, @Caption, @PageLink, @IconImage, @Visible, @Enabled, @RequiredPermission, @OrderNum, @PageLayout, @PageStrings1, @PageStrings2, @CatalogMode);
+        INSERT INTO catalog_pages (parent_id, caption, page_link, icon_image, visible, enabled, required_permission, required_club_level, order_num, page_layout, page_strings_1, page_strings_2, catalog_mode)
+        VALUES (@ParentId, @Caption, @PageLink, @IconImage, @Visible, @Enabled, @RequiredPermission, @RequiredClubLevel, @OrderNum, @PageLayout, @PageStrings1, @PageStrings2, @CatalogMode);
         SELECT CAST(LAST_INSERT_ID() AS SIGNED);
         """, row, _transaction);
 
     public void UpdatePage(CatalogPageRow row) => _connection.Execute("""
         UPDATE catalog_pages SET parent_id = @ParentId, caption = @Caption, page_link = @PageLink, icon_image = @IconImage, visible = @Visible,
-        enabled = @Enabled, required_permission = @RequiredPermission, order_num = @OrderNum, page_layout = @PageLayout,
+        enabled = @Enabled, required_permission = @RequiredPermission, required_club_level = @RequiredClubLevel, order_num = @OrderNum, page_layout = @PageLayout,
         page_strings_1 = @PageStrings1, page_strings_2 = @PageStrings2, catalog_mode = @CatalogMode WHERE id = @Id
         """, row, _transaction);
 

@@ -146,7 +146,7 @@ public sealed class AccessControlTests
         var access = Access(role, new UserPermissionOverride("moderation.*", true));
         var packet = new RecordingPacket();
         new UserRightsComposer(access).Compose(packet);
-        Assert.Equal(new object[] { 2, 7, true, 9, "Role 9", "B9", 3, "ambassador", 1, "camera.use", 1, "housekeeping.roles.manage", 1 }, packet.Writes);
+        Assert.Equal(new object[] { 0, 7, true, 9, "Role 9", "B9", 3, "ambassador", 1, "camera.use", 1, "housekeeping.roles.manage", 1 }, packet.Writes);
     }
 
     private sealed class TestClock : TimeProvider

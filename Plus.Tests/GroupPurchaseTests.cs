@@ -38,7 +38,7 @@ public class GroupPurchaseTests : IDisposable
         _room.Id = 42;
         _room.OwnerId = 7;
         _group.Id = 99;
-        _client.SetHabbo(new Habbo { Id = 7, Credits = 1000 });
+        _client.SetHabbo(new Habbo { Id = 7, Credits = 1000, Access = Plus.HabboHotel.Permissions.UserAccess.Create([], [new(Plus.HabboHotel.Permissions.PermissionKeys.ClubAccess, false)]) });
         var roomManager = Proxy<IRoomManager>((method, args) =>
         {
             Assert.Equal("TryGetRoom", method);

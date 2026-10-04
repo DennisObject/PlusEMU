@@ -10,11 +10,14 @@ internal class MessengerDataLoader : IMessengerDataLoader
 {
     private readonly IDatabase _database;
     private readonly IGameClientManager _gameClientManager;
+    private readonly Plus.HabboHotel.Permissions.IAccessControl _permissions;
+    private readonly Plus.Core.Settings.ISettingsManager _settings;
 
-    public MessengerDataLoader(IDatabase database, IGameClientManager gameClientManager)
+    public MessengerDataLoader(IDatabase database, IGameClientManager gameClientManager, Plus.HabboHotel.Permissions.IAccessControl permissions, Plus.Core.Settings.ISettingsManager settings)
     {
         _database = database;
         _gameClientManager = gameClientManager;
+        _permissions = permissions; _settings = settings;
     }
 
     public async Task<List<MessengerBuddy>> GetBuddiesForUser(int userId)
@@ -40,14 +43,22 @@ internal class MessengerDataLoader : IMessengerDataLoader
         return (await connection.QueryAsync<int>("SELECT to_id FROM messenger_requests WHERE from_id = @userId", new { userId })).ToList();
     }
 
-    public async Task<(MessengerBuddy from, MessengerBuddy to)> CreateRelationship(int fromUserId, int toUserId)
+    public async Task<(MessengerBuddy from, MessengerBuddy to)?> CreateRelationship(int fromUserId, int toUserId)
     {
         using var connection = _database.Connection();
-        await connection.ExecuteAsync("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (@fromUserId, @toUserId), (@toUserId, @fromUserId)", new
+        var access = new[] { fromUserId, toUserId }.Distinct().ToDictionary(id => id, id => _gameClientManager.GetClientByUserId(id)?.GetHabbo().Access ?? _permissions.Resolve(id));
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        var accounts = await connection.QueryAsync<int>("SELECT id FROM users WHERE id IN @ids ORDER BY id FOR UPDATE", new { ids = access.Keys.ToArray() }, transaction);
+        if (accounts.Count() != 2) return null;
+        foreach (var pair in access)
+            if (await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id = @id", new { id = pair.Key }, transaction) >= Plus.HabboHotel.Subscriptions.ClubLimits.For(pair.Value, "friends", _settings)) return null;
+        await connection.ExecuteAsync("INSERT IGNORE INTO messenger_friendships (user_one_id, user_two_id) VALUES (@fromUserId, @toUserId), (@toUserId, @fromUserId)", new
         {
             fromUserId,
             toUserId
-        });
+        }, transaction);
+        transaction.Commit();
         var from = await GetBuddy(toUserId, fromUserId);
         var to = await GetBuddy(fromUserId, toUserId);
 

@@ -7,15 +7,17 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 internal class SetMaxCommand : IChatCommand
 {
     private readonly IDatabase _database;
+    private readonly Plus.Core.Settings.ISettingsManager _settings;
     public string Key => "setmax";
 
     public string Parameters => "%value%";
 
     public string Description => "Set the visitor limit to the room.";
 
-    public SetMaxCommand(IDatabase database)
+    public SetMaxCommand(IDatabase database, Plus.Core.Settings.ISettingsManager settings)
     {
         _database = database;
+        _settings = settings;
     }
 
     public void Execute(GameClient session, Room room, string[] parameters)
@@ -29,15 +31,16 @@ internal class SetMaxCommand : IChatCommand
         }
         if (int.TryParse(parameters[0], out var maxAmount))
         {
-            if (maxAmount == 0)
+            var limit = Plus.HabboHotel.Subscriptions.ClubLimits.For(session.GetHabbo().Access, "visitors", _settings);
+            if (maxAmount <= 0)
             {
                 maxAmount = 10;
                 session.SendWhisper("visitor amount too low, visitor amount has been set to 10.");
             }
-            else if (maxAmount > 200 && !session.GetHabbo().Access.Can(PermissionKeys.RoomUserLimitOverride))
+            else if (maxAmount > limit && !session.GetHabbo().Access.Can(PermissionKeys.RoomUserLimitOverride))
             {
-                maxAmount = 200;
-                session.SendWhisper("visitor amount too high for your rank, visitor amount has been set to 200.");
+                maxAmount = limit;
+                session.SendWhisper("visitor amount exceeds your room visitor limit.");
             }
             else
                 session.SendWhisper($"visitor amount set to {maxAmount}.");

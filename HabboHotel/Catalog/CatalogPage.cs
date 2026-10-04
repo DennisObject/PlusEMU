@@ -18,6 +18,8 @@ public class CatalogPage
 
     public string? RequiredPermission { get; set; }
 
+    public int RequiredClubLevel { get; set; }
+
     public bool Visible { get; set; }
 
     public string Layout { get; set; }
@@ -38,7 +40,7 @@ public class CatalogPage
     public Dictionary<int, CatalogItem> Offers { get; set; } = new();
 
     // Permission gates. Hidden pages (Visible = false) stay reachable by link, as on the official hotel.
-    public bool IsAvailableTo(Habbo habbo) => string.IsNullOrEmpty(RequiredPermission) || habbo.Access.Can(RequiredPermission);
+    public bool IsAvailableTo(Habbo habbo) => (string.IsNullOrEmpty(RequiredPermission) || habbo.Access.Can(RequiredPermission)) && Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(habbo.Access) >= RequiredClubLevel;
 
     public bool CanOpen(Habbo habbo) => Enabled && IsAvailableTo(habbo);
 

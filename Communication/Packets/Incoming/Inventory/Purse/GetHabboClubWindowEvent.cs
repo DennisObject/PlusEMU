@@ -9,20 +9,21 @@ namespace Plus.Communication.Packets.Incoming.Inventory.Purse;
 internal class GetHabboClubWindowEvent : IPacketEvent
 {
     private readonly ICatalogManager _catalogManager;
-    private readonly IClubMembershipService _clubMemberships;
+    private readonly TimeProvider _clock;
 
-    public GetHabboClubWindowEvent(ICatalogManager catalogManager, IClubMembershipService clubMemberships)
+    public GetHabboClubWindowEvent(ICatalogManager catalogManager, TimeProvider clock)
     {
         _catalogManager = catalogManager;
-        _clubMemberships = clubMemberships;
+        _clock = clock;
     }
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var windowId = packet.ReadInt();
-        var expiry = DateTimeOffset.FromUnixTimeSeconds(_clubMemberships.GetExpiry(session.GetHabbo().Id)).UtcDateTime;
-        var membershipEnd = expiry > DateTime.UtcNow ? expiry : DateTime.UtcNow;
-        session.Send(new HabboClubOffersComposer(_catalogManager.ClubOffers, windowId, membershipEnd));
+        var now = _clock.GetUtcNow().UtcDateTime;
+        var expiry = DateTimeOffset.FromUnixTimeSeconds(session.GetHabbo().Access.Membership.ExpiresAt).UtcDateTime;
+        var membershipEnd = expiry > now ? expiry : now;
+        session.Send(new HabboClubOffersComposer(_catalogManager.ClubOffers, windowId, membershipEnd, now));
         return Task.CompletedTask;
     }
 }

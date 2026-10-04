@@ -10,6 +10,7 @@ using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Subscriptions;
 using Xunit;
 
 namespace Plus.Tests;
@@ -172,18 +173,19 @@ public sealed class AccessControlDatabaseTests : IDisposable
     }
 
     [AccessControlDatabaseFact]
-    public async Task RegistrationUsesRolesAndPreservesTheOldDefaultVipTier()
+    public async Task RegistrationStartsWithoutClubOrAnAutomaticVipRole()
     {
         var accounts = new AccountStore(_database, _clock, Options.Create(new AuthApiConfiguration()));
         _registeredUserId = await accounts.Create(new("acl_registered", "test-hash", "acl_registered@hotel", "hd-180-1", "M", "127.0.0.1"));
         Assert.NotNull(_registeredUserId);
         var access = _access.Resolve(_registeredUserId.Value);
-        Assert.Contains(access.Roles, role => role.Slug == "vip");
-        Assert.True(access.Can(PermissionKeys.CommandMimic));
-        Assert.Equal(15, access.Limit("limit.daily_respects"));
+        Assert.DoesNotContain(access.Roles, role => role.Slug == "vip");
+        Assert.False(access.Can(PermissionKeys.CommandMimic));
+        Assert.Equal(0, ClubAccess.LevelFor(access));
         using var connection = _database.Connection();
         Assert.Equal(1, connection.ExecuteScalar<int>("SELECT `rank` FROM users WHERE id = @userId", new { userId = _registeredUserId.Value }));
-        Assert.Equal("registration.role", connection.QuerySingle<string>("SELECT action FROM acl_audit_log WHERE target_id = @userId", new { userId = _registeredUserId.Value }));
+        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_club_memberships WHERE user_id = @userId", new { userId = _registeredUserId.Value }));
+        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_roles WHERE user_id = @userId", new { userId = _registeredUserId.Value }));
     }
 
     [AccessControlDatabaseFact]

@@ -18,14 +18,16 @@ internal class SaveRoomSettingsEvent : IPacketEvent
     private readonly INavigatorManager _navigationManager;
     private readonly IAchievementManager _achievementManager;
     private readonly IDatabase _database;
+    private readonly Plus.Core.Settings.ISettingsManager _settings;
 
-    public SaveRoomSettingsEvent(IRoomManager roomManager, IWordFilterManager wordFilterManager, INavigatorManager navigatorManager, IAchievementManager achievementManager, IDatabase database)
+    public SaveRoomSettingsEvent(IRoomManager roomManager, IWordFilterManager wordFilterManager, INavigatorManager navigatorManager, IAchievementManager achievementManager, IDatabase database, Plus.Core.Settings.ISettingsManager settings)
     {
         _roomManager = roomManager;
         _wordFilterManager = wordFilterManager;
         _navigationManager = navigatorManager;
         _achievementManager = achievementManager;
         _database = database;
+        _settings = settings;
     }
 
     public Task Parse(GameClient session, IIncomingPacket packet)
@@ -96,8 +98,9 @@ internal class SaveRoomSettingsEvent : IPacketEvent
             access = RoomAccess.Open;
         if (maxUsers < 0)
             maxUsers = 10;
-        if (maxUsers > 50)
-            maxUsers = 50;
+        maxUsers = Math.Min(maxUsers, Plus.HabboHotel.Subscriptions.ClubLimits.For(session.GetHabbo().Access, "visitors", _settings));
+        if (Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access) == 0)
+        { hidewall = false; wallThickness = 0; floorThickness = 0; }
         _navigationManager.TryGetSearchResultList(categoryId, out var searchResultList);
         categoryId = RoomCategoryChoice.Resolve(categoryId, searchResultList, session.GetHabbo().Access, session.GetHabbo().Id, room.OwnerId, applyOwnerRule: true);
         if (tagCount > 2)

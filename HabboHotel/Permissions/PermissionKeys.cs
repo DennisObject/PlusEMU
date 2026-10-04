@@ -7,6 +7,7 @@ public sealed record PermissionDefinition(string Key, string Category, string De
 // The registry is the universe used to expand wildcards and to flag stale database keys.
 public static class PermissionKeys
 {
+    public const string ClubAccess = "club.access";
     public const string Ambassador = "ambassador";
     public const string AvatarNameStaffPrefixRequired = "avatar.name.staff_prefix_required";
     public const string BotEditAnyOverride = "bot.edit_any_override";

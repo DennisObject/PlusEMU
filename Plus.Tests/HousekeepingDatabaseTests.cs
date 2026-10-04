@@ -167,7 +167,7 @@ public class HousekeepingDatabaseTests : IDisposable
     [HousekeepingDatabaseFact]
     public void ClubGrantsExtendRunningMembershipsAndZeroEndsThem()
     {
-        var clubs = new ClubMembershipService(_database, _permissions);
+        var clubs = new ClubMembershipService(_database, _permissions, TimeProvider.System);
         var now = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         Execute("INSERT INTO user_club_memberships (user_id, expires_at) VALUES (@Target, @expires)", new { Target, expires = now + 86400 });
         Assert.InRange(clubs.Grant(Staff(), Target, 2)!.Value, now + 86400 * 3, now + 86400 * 3 + 5);

@@ -12,8 +12,12 @@ public class LoadUserMessengerTask : IUserDataLoadingTask
         _messengerDataLoader = messengerDataLoader;
     }
 
-    public async Task Load(Habbo habbo) => habbo.Messenger = new(
+    public async Task Load(Habbo habbo)
+    {
+        habbo.Messenger = new(
             (await _messengerDataLoader.GetBuddiesForUser(habbo.Id)).ToDictionary(buddy => buddy.Id),
             (await _messengerDataLoader.GetRequestsForUser(habbo.Id)).ToDictionary(request => request.FromId),
             await _messengerDataLoader.GetOutstandingRequestsForUser(habbo.Id));
+        habbo.Messenger.FriendLimit = () => Plus.HabboHotel.Subscriptions.ClubLimits.For(habbo.Access, "friends", PlusEnvironment.SettingsManager);
+    }
 }

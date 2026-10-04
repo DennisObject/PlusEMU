@@ -4,6 +4,7 @@ namespace Plus.HabboHotel.Subscriptions;
 
 internal static class ClubAccess
 {
-    // This hotel's club access is free; purchased time only controls the displayed day counters.
-    public static int LevelFor(UserAccess access) => 2;
+    public static int LevelFor(UserAccess access) => LevelFor(access.Capture(), access.Now);
+    internal static int LevelFor(UserAccess.Snapshot snapshot, long now) =>
+        snapshot.Keys.Contains(PermissionKeys.ClubAccess) || snapshot.Membership.Active(now) ? 2 : 0;
 }

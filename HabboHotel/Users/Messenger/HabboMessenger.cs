@@ -51,8 +51,11 @@ public class HabboMessenger
         return null;
     }
 
+    public Func<int> FriendLimit { get; set; } = () => 300;
+
     public FriendRequestError? AcceptFriendRequest(int fromId)
     {
+        if (_friends.Count >= FriendLimit()) return FriendRequestError.FriendLimitReached;
         if (!_requests.TryRemove(fromId, out var request))
             return FriendRequestError.NoFriendRequest;
         FriendRequestUpdated?.Invoke(this, new(FriendRequestModificationType.Accepted, request));
