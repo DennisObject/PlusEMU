@@ -34,10 +34,6 @@ public class ShadowPathfindingTests
             var a = legacy.Bots[0]; var b = shadow.Bots[0];
             Assert.Equal((a.X, a.Y, a.Z, a.GoalX, a.GoalY, a.PathStep, a.PathRecalcNeeded, a.IsWalking, a.SetStep),
                 (b.X, b.Y, b.Z, b.GoalX, b.GoalY, b.PathStep, b.PathRecalcNeeded, b.IsWalking, b.SetStep));
-            Assert.Equal(a.PendingWalkSteps.Select(p => (p.X, p.Y)), b.PendingWalkSteps.Select(p => (p.X, p.Y)));
-            Assert.Equal(a.PendingWalkOrigin?.X, b.PendingWalkOrigin?.X);
-            Assert.Equal(a.PendingWalkOrigin?.Y, b.PendingWalkOrigin?.Y);
-            Assert.Equal(a.PendingWalkConsumesPath, b.PendingWalkConsumesPath);
             Assert.Equal(a.Statusses.OrderBy(p => p.Key), b.Statusses.OrderBy(p => p.Key));
             Assert.Equal(a.Path.Select(p => (p.X, p.Y)), b.Path.Select(p => (p.X, p.Y)));
         }

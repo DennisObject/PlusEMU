@@ -77,10 +77,6 @@ public class RoomUser
     public int RotBody; //byte
     public int RotHead; //byte
 
-    // Unused since the legacy walk loop was restored; ShadowPathfindingTests still compares them.
-    internal List<Vector2D> PendingWalkSteps = new();
-    internal Vector2D? PendingWalkOrigin;
-    internal bool PendingWalkConsumesPath;
     public bool SetStep;
     public int SetX; //byte
     public int SetY; //byte
