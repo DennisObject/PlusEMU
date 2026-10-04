@@ -27,3 +27,14 @@ internal sealed class TestRoomFactory : IRoomFactory
     public Room Create(RoomData data) => throw new NotSupportedException();
     public void Dispose(uint roomId) { }
 }
+
+internal sealed class TestRoomItemStore : IRoomItemStore
+{
+    internal static TestRoomItemStore Instance { get; } = new();
+    public void AssignOwner(uint itemId, int userId) { }
+    public void ClearRoom(uint itemId) { }
+    public void SaveWallPosition(uint itemId, string wallPosition) { }
+    public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
+    public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) { }
+    public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) { }
+}

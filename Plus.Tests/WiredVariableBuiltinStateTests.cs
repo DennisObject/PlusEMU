@@ -17,7 +17,7 @@ public sealed class WiredVariableBuiltinStateTests
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1;
-        var handling = new RoomItemHandling(room); typeof(Room).GetField("_roomItemHandling", flags)!.SetValue(room, handling);
+        var handling = new RoomItemHandling(room, TestRoomItemStore.Instance); typeof(Room).GetField("_roomItemHandling", flags)!.SetValue(room, handling);
         typeof(Room).GetField("_roomUserManager", flags)!.SetValue(room, new RoomUserManager(room));
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", flags)!.GetValue(handling)!;
         var item = new Item { Id = 20, OwnerId = 5, ExtraData = new LegacyDataFormat { Data = "0" }, Definition = new() { Modes = 3, Type = ItemType.Floor } };
@@ -46,7 +46,7 @@ public sealed class WiredVariableBuiltinStateTests
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1;
-        var handling = new RoomItemHandling(room); typeof(Room).GetField("_roomItemHandling", flags)!.SetValue(room, handling);
+        var handling = new RoomItemHandling(room, TestRoomItemStore.Instance); typeof(Room).GetField("_roomItemHandling", flags)!.SetValue(room, handling);
         typeof(Room).GetField("_roomUserManager", flags)!.SetValue(room, new RoomUserManager(room));
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", flags)!.GetValue(handling)!;
         var item = new Item { Id = 20, OwnerId = 5, ExtraData = new LegacyDataFormat { Data = "0" }, Definition = new() { Modes = 3, Type = ItemType.Floor } };

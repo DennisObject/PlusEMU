@@ -82,7 +82,7 @@ public sealed class WiredRuntimeFactoryTests
     public void CustomNameLoadsCanonicalSidecarThroughLegacyDescriptor(WiredBoxType type, string name, string text, int count)
     {
         var room = Room();
-        var handler = new RoomItemHandling(room);
+        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handler)!;
         var item = new Item { Id = 10, Definition = new() { ItemName = "legacy_custom_name", WiredType = type } };

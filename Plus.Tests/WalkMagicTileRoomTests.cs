@@ -395,12 +395,10 @@ public partial class PlacedFurniRoomTests
         var definition = Furni(10, InteractionType.WalkMagicTile, WiredBoxType.None).Definition;
         definition.Width = definition.Length = 1;
         definition.Height = 0;
-        var writes = new List<string>();
-        var parameters = new Dictionary<string, object?>();
+        var store = new RecordingRoomItemStore();
+        Set("_roomItemHandling", new RoomItemHandling(_room, store));
         var query = Proxy<Plus.Database.Interfaces.IQueryAdapter>((method, args) =>
         {
-            if (method == "SetQuery" || method == "RunQuery" && args.Length > 0) writes.Add((string)args[0]!);
-            if (method == "AddParameter") parameters[(string)args[0]!] = args[1];
             return method == "GetTable" ? row.Table : null;
         });
         _databaseField.SetValue(null, Proxy<Plus.Database.IDatabase>((method, _) => method switch
@@ -428,10 +426,11 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("200;1", tile.LegacyDataString);
         typeof(RoomItemHandling).GetMethod("SaveFurniture", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(_room.GetRoomItemHandler(), null);
-        Assert.Equal("200;1", parameters["edata10"]);
-        Assert.Contains(writes, sql => sql.Contains("`z` = '2'"));
+        var saved = Assert.Single(store.Saved);
+        Assert.Equal("200;1", saved.ExtraData);
+        Assert.Equal(2, saved.Z);
         // The persistent prefix and physical altitude survive another real room load.
-        row["extra_data"] = parameters["edata10"]!;
+        row["extra_data"] = saved.ExtraData!;
         _room.GetRoomItemHandler().LoadFurniture();
         Assert.Equal("200;1", _room.GetRoomItemHandler().GetItem(10).LegacyDataString);
     }
@@ -1034,7 +1033,7 @@ public partial class PlacedFurniRoomTests
         var nextUsers = new RoomUserManager(nextRoom);
         var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", 0, 0, false), TestLogging.Navigation);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextUsers);
-        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom));
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom, TestRoomItemStore.Instance));
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextMap);
         nextMap.GenerateMaps();
         _client.GetHabbo().CurrentRoom = nextRoom;

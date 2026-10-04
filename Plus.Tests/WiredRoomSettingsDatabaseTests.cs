@@ -82,7 +82,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             await new WiredRoomSettingsSaveEvent(database, TestLogging.Factory).Parse(room, owner.Client, Packet(0, 2));
             Assert.Equal(new(2, 2, "Europe/Berlin"), settings.Snapshot); // Two-int route retains timezone, modify implies inspect.
             // Inspect is allowed independently of ordinary decoration rights; explicit modify=0 denies a prior decorator.
-            var itemHandler = new RoomItemHandling(room); Set(room, "_roomItemHandling", itemHandler);
+            var itemHandler = new RoomItemHandling(room, TestRoomItemStore.Instance); Set(room, "_roomItemHandling", itemHandler);
             var wired = new WiredComponent(room, TestLogging.Logger); Set(room, "_wiredComponent", wired);
             itemId = Insert(connection, "items", new() { ["user_id"] = ownerId, ["room_id"] = roomId,
                 ["base_item"] = connection.QueryFirst<uint>("SELECT id FROM furniture LIMIT 1"), ["extra_data"] = "", ["wall_pos"] = "" });

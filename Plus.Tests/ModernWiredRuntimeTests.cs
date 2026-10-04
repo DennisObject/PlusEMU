@@ -1277,7 +1277,7 @@ public class ModernWiredRuntimeTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
-        var handler = new RoomItemHandling(room);
+        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));

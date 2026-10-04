@@ -58,7 +58,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         _room.OwnerName = "owner";
         _room.Type = "private";
         Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false), TestLogging.Navigation));
-        Set("_roomItemHandling", new RoomItemHandling(_room));
+        Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance));
         Set("_roomUserManager", new RoomUserManager(_room));
         var wired = new WiredComponent(_room, TestLogging.Logger);
         typeof(WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, new EmptyConfigurationStore());
@@ -331,6 +331,17 @@ public partial class PlacedFurniRoomTests : IDisposable
     {
         public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => null;
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) { }
+    }
+
+    private sealed class RecordingRoomItemStore : IRoomItemStore
+    {
+        public List<RoomItemSave> Saved { get; } = [];
+        public void AssignOwner(uint itemId, int userId) { }
+        public void ClearRoom(uint itemId) { }
+        public void SaveWallPosition(uint itemId, string wallPosition) { }
+        public void SaveMoved(IReadOnlyList<RoomItemSave> items) => Saved.AddRange(items);
+        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) { }
+        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) { }
     }
 
     private sealed class TestClient : GameClient

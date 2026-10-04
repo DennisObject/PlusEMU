@@ -177,7 +177,6 @@ public class Room
 
     public RoomItemHandling GetRoomItemHandler()
     {
-        if (_roomItemHandling == null) _roomItemHandling = new(this);
         return _roomItemHandling;
     }
 

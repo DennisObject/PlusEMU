@@ -354,7 +354,7 @@ public sealed class WiredNativeLifecycleTests
         {
             Room.Id = 1;
             Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
-            var handler = new RoomItemHandling(Room);
+            var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);
             var users = new RoomUserManager(Room); Set(Room, "_roomUserManager", users);
             typeof(Gamemap).GetProperty("GameMap")!.SetValue(Map, new byte[3, 3]);
