@@ -331,13 +331,6 @@ function buildRoom(scene: CameraScene): { floorItems: CameraSceneItem[], wallIte
     const planeParser = new RoomPlaneParser();
     const width = parser.width;
     const height = parser.height;
-    const door = scene.door;
-
-    if(!door) fail('Invalid door');
-
-    const entryX = Math.floor(finite(door.x, 'door'));
-    const entryY = Math.floor(finite(door.y, 'door'));
-
     planeParser.initializeTileMap(width, height);
 
     let doorX = -1;
@@ -350,9 +343,10 @@ function buildRoom(scene: CameraScene): { floorItems: CameraSceneItem[], wallIte
         for(let x = 0; x < width; x++)
         {
             const tileHeight = parser.getHeight(x, y);
-            const entryMatches = (x === entryX) && (y === entryY);
 
-            if(((((y > 0) && (y < (height - 1))) || ((x > 0) && (x < (width - 1)))) && (tileHeight !== RoomPlaneParser.TILE_BLOCKED)) && entryMatches)
+            // Clients only know the entry tile after opening the floor plan editor, so they take
+            // the last door-shaped tile, never the model door (RoomMessageHandler._rebuildFloorGeometry).
+            if((((y > 0) && (y < (height - 1))) || ((x > 0) && (x < (width - 1)))) && (tileHeight !== RoomPlaneParser.TILE_BLOCKED))
             {
                 if(((parser.getHeight(x, (y - 1)) === RoomPlaneParser.TILE_BLOCKED) && (parser.getHeight((x - 1), y) === RoomPlaneParser.TILE_BLOCKED)) && (parser.getHeight(x, (y + 1)) === RoomPlaneParser.TILE_BLOCKED))
                 {
@@ -372,30 +366,6 @@ function buildRoom(scene: CameraScene): { floorItems: CameraSceneItem[], wallIte
             }
 
             planeParser.setTileHeight(x, y, tileHeight);
-        }
-    }
-
-    if(doorX < 0)
-    {
-        const tileHeight = parser.getHeight(entryX, entryY);
-
-        if(tileHeight === RoomPlaneParser.TILE_BLOCKED) fail('Door is not on a room tile');
-
-        const rotation = finite(door.direction, 'door direction');
-
-        doorZ = tileHeight;
-
-        if((rotation === 4) || (rotation === 180))
-        {
-            doorDirection = 180;
-            doorX = entryX;
-            doorY = (entryY + 0.5);
-        }
-        else
-        {
-            doorDirection = 90;
-            doorX = (entryX + 0.5);
-            doorY = entryY;
         }
     }
 
