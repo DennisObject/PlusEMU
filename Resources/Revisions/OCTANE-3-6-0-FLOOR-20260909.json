@@ -331,11 +331,7 @@
     "CatalogAdminReorderOffersEvent": 10066,
     "CatalogStudioOpenSessionEvent": 10067,
     "CatalogStudioLoadHistoryEvent": 10071,
-    "CatalogStudioUndoEvent": 10072,
-    "CatalogStudioValidateEvent": 10073,
-    "CatalogStudioExportEvent": 10078,
-    "CatalogStudioDocumentDryRunEvent": 10079,
-    "CatalogStudioDocumentApplyEvent": 10080
+    "CatalogStudioUndoEvent": 10072
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -650,8 +646,6 @@
     "CatalogAdminPageDetailsComposer": 10063,
     "CatalogStudioSessionComposer": 10067,
     "CatalogStudioHistoryComposer": 10071,
-    "CatalogStudioOperationComposer": 10072,
-    "CatalogStudioValidationComposer": 10073,
-    "CatalogStudioDocumentResultComposer": 10078
+    "CatalogStudioOperationComposer": 10072
   }
 }
