@@ -1,4 +1,6 @@
 using System.Runtime.CompilerServices;
+using System.Reflection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming;
 using Plus.HabboHotel.GameClients;
@@ -76,6 +78,24 @@ public sealed class QuestProgressServiceTests
         Assert.Equal((completed.Category, completed.Number + 1), manager.NextRequest);
     }
 
+    [Fact]
+    public void ProgressPersistenceFailureLeavesMemoryAndPacketsUnchanged()
+    {
+        var quest = new Quest(3, "social", 1, QuestType.SocialChat, 5, "chat", 5, "", 3, 0, 0);
+        var store = new RecordingStore { Fail = true };
+        var manager = new QuestManager(null!, null!, NullLogger<QuestManager>.Instance, store);
+        var loaded = (Dictionary<int, Quest>)typeof(QuestManager).GetField("_quests", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
+        loaded.Add(quest.Id, quest);
+        var (client, sent) = Client(7, quest.Id);
+        client.GetHabbo().Quests[quest.Id] = 1;
+
+        Assert.Throws<InvalidOperationException>(() => manager.ProgressUserQuest(client, QuestType.SocialChat));
+
+        Assert.Equal(1, client.GetHabbo().Quests[quest.Id]);
+        Assert.Equal(quest.Id, client.GetHabbo().HabboStats.QuestId);
+        Assert.Empty(sent);
+    }
+
     private static (FlashGameClient Client, List<(uint Header, byte[] Payload)> Sent) Client(int userId, int questId = 0)
     {
         var stats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, questId, 0, 0, "", 0);
@@ -88,6 +108,7 @@ public sealed class QuestProgressServiceTests
     {
         public bool Fail { get; init; }
         public List<(int UserId, int QuestId)> Starts { get; } = [];
+        public List<(int UserId, int QuestId, int Progress, bool Completed)> Progress { get; } = [];
         public void Start(int userId, int questId)
         {
             beforeStart?.Invoke();
@@ -97,6 +118,11 @@ public sealed class QuestProgressServiceTests
         public void Cancel(int userId, int questId)
         {
             if (Fail) throw new InvalidOperationException("forced failure");
+        }
+        public void SaveProgress(int userId, int questId, int progress, bool completed)
+        {
+            if (Fail) throw new InvalidOperationException("forced failure");
+            Progress.Add((userId, questId, progress, completed));
         }
     }
 

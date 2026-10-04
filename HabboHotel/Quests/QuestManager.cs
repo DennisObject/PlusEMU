@@ -17,16 +17,18 @@ public class QuestManager : IQuestManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly IMessengerDataLoader _messengerDataLoader;
+    private readonly IQuestProgressStore _progressStore;
     private readonly ILogger<QuestManager> _logger;
     private readonly Dictionary<string, int> _questCount;
 
     private readonly Dictionary<int, Quest> _quests;
 
-    public QuestManager(IDatabase database, IMessengerDataLoader messengerDataLoader, ILogger<QuestManager> logger)
+    public QuestManager(IDatabase database, IMessengerDataLoader messengerDataLoader, ILogger<QuestManager> logger, IQuestProgressStore progressStore)
     {
         _database = database;
         _messengerDataLoader = messengerDataLoader;
         _logger = logger;
+        _progressStore = progressStore;
         _quests = new();
         _questCount = new();
     }
@@ -124,12 +126,7 @@ public class QuestManager : IQuestManager, IStartable
                 completeQuest = true;
                 break;
         }
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.RunQuery($"UPDATE `user_quests` SET `progress` = '{totalProgress}' WHERE `user_id` = '{session.GetHabbo().Id}' AND `quest_id` = '{quest.Id}' LIMIT 1");
-            if (completeQuest)
-                dbClient.RunQuery($"UPDATE `user_statistics` SET `quest_id` = '0' WHERE `id` = '{session.GetHabbo().Id}' LIMIT 1");
-        }
+        _progressStore.SaveProgress(session.GetHabbo().Id, quest.Id, totalProgress, completeQuest);
         session.GetHabbo().Quests[session.GetHabbo().HabboStats.QuestId] = totalProgress;
         session.Send(new QuestStartedComposer(QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(quest.Category))));
         if (completeQuest)

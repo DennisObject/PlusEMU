@@ -9,6 +9,7 @@ public interface IQuestProgressStore
 {
     void Start(int userId, int questId);
     void Cancel(int userId, int questId);
+    void SaveProgress(int userId, int questId, int progress, bool completed);
 }
 
 public sealed class QuestProgressStore(IDatabase database) : IQuestProgressStore
@@ -32,6 +33,19 @@ public sealed class QuestProgressStore(IDatabase database) : IQuestProgressStore
         connection.Execute("DELETE FROM user_quests WHERE user_id=@userId AND quest_id=@questId", new { userId, questId }, transaction);
         if (connection.Execute("UPDATE user_statistics SET quest_id=0 WHERE id=@userId LIMIT 1", new { userId }, transaction) != 1)
             throw new InvalidOperationException("Quest cancellation was not persisted.");
+        transaction.Commit();
+    }
+
+    public void SaveProgress(int userId, int questId, int progress, bool completed)
+    {
+        using var connection = database.Connection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        if (connection.Execute("UPDATE user_quests SET progress=@progress WHERE user_id=@userId AND quest_id=@questId LIMIT 1",
+                new { userId, questId, progress }, transaction) != 1)
+            throw new InvalidOperationException("Quest progress was not persisted.");
+        if (completed && connection.Execute("UPDATE user_statistics SET quest_id=0 WHERE id=@userId LIMIT 1", new { userId }, transaction) != 1)
+            throw new InvalidOperationException("Quest completion was not persisted.");
         transaction.Commit();
     }
 }
