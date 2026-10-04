@@ -14,7 +14,12 @@ internal class GetRoomRightsEvent : IPacketEvent
             return Task.CompletedTask;
         if (!instance.CheckRights(session))
             return Task.CompletedTask;
-        session.Send(new RoomRightsListComposer(instance));
+        session.Send(new RoomRightsListComposer(instance.Id, instance.UsersWithRights
+            .Select(id => PlusEnvironment.Game.CacheManager.GenerateUser(id))
+            .Select(user => user == null
+                ? new RoomRightHolder(0, "Unknown Error")
+                : new RoomRightHolder(user.Id, user.Username))
+            .ToArray()));
         return Task.CompletedTask;
     }
 }

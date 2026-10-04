@@ -1,35 +1,28 @@
 ﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Rooms;
-
 namespace Plus.Communication.Packets.Outgoing.Rooms.Settings;
 
 public class RoomRightsListComposer : IServerPacket
 {
-    private readonly Room _instance;
+    private readonly uint _roomId;
+    private readonly IReadOnlyCollection<RoomRightHolder> _users;
     public uint MessageId => ServerPacketHeader.RoomRightsListComposer;
 
-    public RoomRightsListComposer(Room instance)
+    public RoomRightsListComposer(uint roomId, IReadOnlyCollection<RoomRightHolder> users)
     {
-        _instance = instance;
+        _roomId = roomId;
+        _users = users;
     }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteUInteger(_instance.Id);
-        packet.WriteInteger(_instance.UsersWithRights.Count);
-        foreach (var id in _instance.UsersWithRights.ToList())
+        packet.WriteUInteger(_roomId);
+        packet.WriteInteger(_users.Count);
+        foreach (var user in _users)
         {
-            var data = PlusEnvironment.Game.CacheManager.GenerateUser(id);
-            if (data == null)
-            {
-                packet.WriteInteger(0);
-                packet.WriteString("Unknown Error");
-            }
-            else
-            {
-                packet.WriteInteger(data.Id);
-                packet.WriteString(data.Username);
-            }
+            packet.WriteInteger(user.Id);
+            packet.WriteString(user.Username);
         }
     }
 }
+
+public sealed record RoomRightHolder(int Id, string Username);
