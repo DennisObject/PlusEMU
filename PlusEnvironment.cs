@@ -216,12 +216,8 @@ public class PlusEnvironment : IPlusEnvironment
         var user = Game.CacheManager.GenerateUser(userId);
         if (user != null)
             return user.Username;
-        using (var dbClient = DatabaseManager.GetQueryReactor())
-        {
-            dbClient.SetQuery("SELECT `username` FROM `users` WHERE `id` = @id LIMIT 1");
-            dbClient.AddParameter("id", userId);
-            name = dbClient.GetString();
-        }
+        using (var connection = DatabaseManager.Connection())
+            name = connection.QuerySingleOrDefault<string>("SELECT username FROM users WHERE id=@userId LIMIT 1", new { userId });
         if (string.IsNullOrEmpty(name))
             name = "Unknown User";
         return name;
@@ -232,41 +228,13 @@ public class PlusEnvironment : IPlusEnvironment
     {
         try
         {
-            var client = Game.ClientManager.GetClientByUserId(userId);
-            if (client != null)
+            var user = Game.ClientManager.GetClientByUserId(userId)?.GetHabbo();
+            if (user is { Id: > 0 })
             {
-                var user = client.GetHabbo();
-                if (user != null && user.Id > 0)
-                {
-                    if (_usersCached.ContainsKey(userId))
-                        _usersCached.TryRemove(userId, out user);
-                    return user;
-                }
+                _usersCached.TryRemove(userId, out _);
+                return user;
             }
-            else
-            {
-                try
-                {
-                    if (_usersCached.ContainsKey(userId))
-                        return _usersCached[userId];
-                    //var data = UserDataFactory.GetUserData(userId);
-                    //if (data != null)
-                    //{
-                    //    var generated = data.User;
-                    //    if (generated != null)
-                    //    {
-                    //        generated.InitInformation(data);
-                    //        _usersCached.TryAdd(userId, generated);
-                    //        return generated;
-                    //    }
-                    //}
-                }
-                catch
-                {
-                    return null;
-                }
-            }
-            return null;
+            return _usersCached.TryGetValue(userId, out var cached) ? cached : null;
         }
         catch
         {
@@ -278,10 +246,8 @@ public class PlusEnvironment : IPlusEnvironment
     {
         try
         {
-            using var dbClient = DatabaseManager.GetQueryReactor();
-            dbClient.SetQuery("SELECT `id` FROM `users` WHERE `username` = @user LIMIT 1");
-            dbClient.AddParameter("user", userName);
-            var id = dbClient.GetInteger();
+            using var connection = DatabaseManager.Connection();
+            var id = connection.QuerySingleOrDefault<int>("SELECT id FROM users WHERE username=@userName LIMIT 1", new { userName });
             if (id > 0)
                 return GetHabboById(Convert.ToInt32(id));
             return null;
@@ -308,11 +274,14 @@ public class PlusEnvironment : IPlusEnvironment
         Game.RoomManager.Dispose(); //Stop the game loop.
         if (!Debugger.IsAttached)
         {
-            using var dbClient = _database.GetQueryReactor();
-            dbClient.RunQuery("TRUNCATE `catalog_marketplace_data`");
-            dbClient.RunQuery("UPDATE `users` SET `online` = false, `auth_ticket` = '', `auth_ticket_expires_at` = NULL");
-            dbClient.RunQuery("UPDATE `rooms` SET `users_now` = '0' WHERE `users_now` > '0'");
-            dbClient.RunQuery("UPDATE `server_status` SET `users_online` = '0', `loaded_rooms` = '0'");
+            using var connection = _database.Connection();
+            connection.Execute("TRUNCATE catalog_marketplace_data");
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
+            connection.Execute("UPDATE users SET online=false,auth_ticket='',auth_ticket_expires_at=NULL", transaction: transaction);
+            connection.Execute("UPDATE rooms SET users_now=0 WHERE users_now>0", transaction: transaction);
+            connection.Execute("UPDATE server_status SET users_online=0,loaded_rooms=0", transaction: transaction);
+            transaction.Commit();
         }
         Logger.LogInformation("Plus Emulator has successfully shutdown.");
         Thread.Sleep(1000);
@@ -337,5 +306,5 @@ public class PlusEnvironment : IPlusEnvironment
 
     public static ICollection<Habbo> CachedUsers => _usersCached.Values;
 
-    public static bool RemoveFromCache(int id, out Habbo data) => _usersCached.TryRemove(id, out data);
+    public static bool RemoveFromCache(int id, out Habbo? data) => _usersCached.TryRemove(id, out data);
 }
