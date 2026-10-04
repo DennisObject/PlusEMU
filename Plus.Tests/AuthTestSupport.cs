@@ -198,6 +198,14 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
         return owner with { SessionId = sessionId };
     }
 
+    public async Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope)
+    {
+        if (await FindOwner(ticket) is not { } owner || owner.UserId != userId)
+            return null;
+        Live.Remove(ticket);
+        return owner;
+    }
+
     public Task Revoke(int userId, CredentialScope? scope = null)
     {
         foreach (var ticket in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
@@ -389,10 +397,12 @@ internal sealed class FakeGenerations : ICredentialGenerations
         return Task.CompletedTask;
     }
 
-    public async Task RevokeSession(int userId, string sessionId, Func<CredentialScope, Task> revocations)
+    public Task Locked(int userId, Func<CredentialScope, Task> work) => work(null!);
+
+    public Task MarkSessionRevoked(int userId, string sessionId, CredentialScope scope)
     {
         _revokedSessions.Add(sessionId);
-        await revocations(null!);
+        return Task.CompletedTask;
     }
 
     public Task StartSession(int userId, string sessionId, CredentialScope scope) => Task.CompletedTask;

@@ -134,29 +134,26 @@ public class SessionIssuer : ISessionIssuer
 
     public async Task Logout(string? accessToken, string? ssoTicket, string? rememberToken)
     {
+        // A ticket's session can change under us (an exchange tags a CMS ticket with a new one), so
+        // the pre-lock read only names the user to lock; the ticket is withdrawn and whatever session
+        // it carries at that moment is ended in one transaction under the lock Exchange also takes.
+        if (!string.IsNullOrEmpty(ssoTicket) && await _ssoTickets.FindOwner(ssoTicket) is { } byTicket)
+            await _generations.Locked(byTicket.UserId, async scope =>
+            {
+                if (await _ssoTickets.Withdraw(byTicket.UserId, ssoTicket, scope) is { SessionId: { } sessionId })
+                    await EndSession(byTicket.UserId, sessionId, scope);
+            });
+
+        // Access tokens and remember families never change session, so their owners stay valid.
         var sessions = new HashSet<CredentialOwner>();
         if (!string.IsNullOrEmpty(accessToken) && await _accessTokens.FindOwner(accessToken) is { } byToken)
             sessions.Add(byToken);
-        if (!string.IsNullOrEmpty(ssoTicket) && await _ssoTickets.FindOwner(ssoTicket) is { } byTicket)
-        {
-            sessions.Add(byTicket);
-            // A ticket written outside a session (e.g. by a CMS) is simply used up.
-            if (byTicket.SessionId == null)
-                await _ssoTickets.Consume(ssoTicket);
-        }
         if (!string.IsNullOrEmpty(rememberToken) && await _rememberTokens.FindOwner(rememberToken) is { } byRemember)
             sessions.Add(byRemember);
-
         foreach (var (userId, sessionId) in sessions)
         {
-            if (sessionId == null)
-                continue;
-            await _generations.RevokeSession(userId, sessionId, async scope =>
-            {
-                await _ssoTickets.RevokeSession(userId, sessionId, scope);
-                await _accessTokens.RevokeSession(sessionId, scope);
-                await _rememberTokens.RevokeSession(sessionId, scope);
-            });
+            if (sessionId != null)
+                await _generations.Locked(userId, scope => EndSession(userId, sessionId, scope));
         }
         // Tokens without a session still end with their own logout.
         if (!string.IsNullOrEmpty(accessToken))
@@ -164,6 +161,14 @@ public class SessionIssuer : ISessionIssuer
     }
 
     public Task RevokeAll(int userId) => _generations.Revoke(userId, scope => RevokeCredentials(userId, scope));
+
+    private async Task EndSession(int userId, string sessionId, CredentialScope scope)
+    {
+        await _generations.MarkSessionRevoked(userId, sessionId, scope);
+        await _ssoTickets.RevokeSession(userId, sessionId, scope);
+        await _accessTokens.RevokeSession(sessionId, scope);
+        await _rememberTokens.RevokeSession(sessionId, scope);
+    }
 
     private async Task RevokeEverything(int userId, CredentialScope scope)
     {

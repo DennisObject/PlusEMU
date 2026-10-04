@@ -27,6 +27,12 @@ public interface ISsoTicketStore
     /// </summary>
     Task<CredentialOwner?> Exchange(string ticket);
 
+    /// <summary>
+    /// Clears a live ticket of <paramref name="userId"/> inside a caller's transaction that holds the
+    /// user's row lock, returning its owner with the session tagged on it at that moment (logout).
+    /// </summary>
+    Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope);
+
     /// <summary>Clears whatever ticket the user still holds.</summary>
     Task Revoke(int userId, CredentialScope? scope = null);
 

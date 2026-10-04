@@ -76,6 +76,16 @@ public class SsoTicketStore : ISsoTicketStore
         return live with { SessionId = sessionId };
     }
 
+    public async Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope)
+    {
+        var owner = await scope.Connection.QuerySingleOrDefaultAsync<CredentialOwner>(
+            $"SELECT `id` AS UserId, `auth_ticket_session` AS SessionId FROM `users` WHERE `id` = @userId AND {LiveTicket} AND `auth_ticket_expires_at` >= @now",
+            new { userId, ticket, now = Now() }, scope.Transaction);
+        if (owner != null)
+            await scope.Connection.ExecuteAsync($"UPDATE `users` SET {Cleared} WHERE `id` = @userId", new { userId }, scope.Transaction);
+        return owner;
+    }
+
     public async Task Revoke(int userId, CredentialScope? scope = null)
     {
         using var owned = scope == null ? _database.Connection() : null;

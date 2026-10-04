@@ -166,6 +166,23 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     }
 
     [AuthDatabaseFact]
+    public async Task LogoutRacingTheExchangeOfASessionlessTicketNeverLeavesALiveBearer()
+    {
+        var userId = User();
+        var issuer = Issuer();
+        for (var round = 0; round < 200; round++)
+        {
+            var ticket = await SessionlessTicket(userId);
+
+            var exchange = Task.Run(() => issuer.ExchangeTicket(ticket));
+            var logout = Task.Run(() => issuer.Logout(null, ticket, null));
+            await Task.WhenAll(exchange, logout);
+
+            await AssertNothingLive(userId);
+        }
+    }
+
+    [AuthDatabaseFact]
     public async Task ExchangingASessionlessTicketGivesItASession()
     {
         var userId = User();
@@ -391,6 +408,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         public Task<int?> Consume(string ticket) => inner.Consume(ticket);
         public Task Revoke(int userId, CredentialScope? scope = null) => inner.Revoke(userId, scope);
         public Task RevokeSession(int userId, string sessionId, CredentialScope scope) => inner.RevokeSession(userId, sessionId, scope);
+        public Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope) => inner.Withdraw(userId, ticket, scope);
     }
 
     private sealed class PausedBans : IBanLookup

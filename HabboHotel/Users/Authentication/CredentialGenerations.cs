@@ -42,8 +42,12 @@ public interface ICredentialGenerations
     /// already holds the user's row lock.</summary>
     Task Bump(int userId, CredentialScope scope);
 
-    /// <summary>Revokes one session and runs <paramref name="revocations"/> in the same transaction.</summary>
-    Task RevokeSession(int userId, string sessionId, Func<CredentialScope, Task> revocations);
+    /// <summary>Runs <paramref name="work"/> in one transaction holding the user's row lock, the same
+    /// lock every credential write and ticket exchange takes.</summary>
+    Task Locked(int userId, Func<CredentialScope, Task> work);
+
+    /// <summary>Marks one session revoked inside a caller's locked transaction.</summary>
+    Task MarkSessionRevoked(int userId, string sessionId, CredentialScope scope);
 
     /// <summary>Opens a session row inside the credential write that first uses it.</summary>
     Task StartSession(int userId, string sessionId, CredentialScope scope);
@@ -107,17 +111,19 @@ public class CredentialGenerations : ICredentialGenerations
             new { userId }, scope.Transaction);
     }
 
-    public async Task RevokeSession(int userId, string sessionId, Func<CredentialScope, Task> revocations)
+    public async Task Locked(int userId, Func<CredentialScope, Task> work)
     {
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
         await Lock(connection, transaction, userId);
-        await connection.ExecuteAsync("UPDATE `user_sessions` SET `revoked_at` = UNIX_TIMESTAMP() WHERE `id` = @sessionId AND `user_id` = @userId AND `revoked_at` IS NULL",
-            new { sessionId, userId }, transaction);
-        await revocations(new(connection, transaction));
+        await work(new(connection, transaction));
         transaction.Commit();
     }
+
+    public Task MarkSessionRevoked(int userId, string sessionId, CredentialScope scope) =>
+        scope.Connection.ExecuteAsync("UPDATE `user_sessions` SET `revoked_at` = UNIX_TIMESTAMP() WHERE `id` = @sessionId AND `user_id` = @userId AND `revoked_at` IS NULL",
+            new { sessionId, userId }, scope.Transaction);
 
     public Task StartSession(int userId, string sessionId, CredentialScope scope) =>
         StartSession(scope.Connection, scope.Transaction, sessionId, userId);
