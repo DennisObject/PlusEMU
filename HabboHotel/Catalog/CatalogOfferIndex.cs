@@ -46,7 +46,7 @@ public class CatalogOfferIndex
     {
         foreach (var candidate in _pagesByOffer.GetValueOrDefault(offerId) ?? [])
         {
-            if (candidate.CanOpen(habbo) && candidate.Offers.TryGetValue(offerId, out item!))
+            if (candidate.CanOpen(habbo) && candidate.Offers.TryGetValue(offerId, out item!) && item.CanPurchase(habbo))
             {
                 page = candidate;
                 return true;

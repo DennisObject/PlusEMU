@@ -120,7 +120,7 @@ public class CatalogManager : ICatalogManager, IStartable
             dealsById.Add(deal.Id, deal);
         }
 
-        var pages = await connection.QueryAsync<CatalogPage>("SELECT `id`,`parent_id`,`caption`,`page_link` as `link`,`visible`,`enabled`,`required_permission` AS `RequiredPermission`,`icon_image` as `icon`,`page_layout` as `layout`,`catalog_mode` AS `CatalogMode`,`page_strings_1`,`page_strings_2` FROM `catalog_pages` ORDER BY `order_num`, `id`");
+        var pages = await connection.QueryAsync<CatalogPage>("SELECT `id`,`parent_id`,`caption`,`page_link` as `link`,`visible`,`enabled`,`required_permission` AS `RequiredPermission`,`required_club_level` AS `RequiredClubLevel`,`icon_image` as `icon`,`page_layout` as `layout`,`catalog_mode` AS `CatalogMode`,`page_strings_1`,`page_strings_2` FROM `catalog_pages` ORDER BY `order_num`, `id`");
         foreach (CatalogPage page in pages)
         {
             if (itemsByPage.ContainsKey(page.Id))
@@ -148,7 +148,7 @@ public class CatalogManager : ICatalogManager, IStartable
             promotionsById.Add(promotion.Id, promotion);
         }
 
-        var clubOffers = await connection.QueryAsync<ClubOffer>("SELECT `id`,`name`,`days`,`credits`,`points`,`points_type` AS `PointsType`,`type` = 'VIP' AS `Vip`,`giftable` AS `Giftable` FROM `catalog_club_offers` WHERE `enabled` = 1 ORDER BY `id`");
+        var clubOffers = await connection.QueryAsync<ClubOffer>("SELECT `id`,`name`,`days`,`credits`,`points`,`points_type` AS `PointsType`,`giftable` AS `Giftable` FROM `catalog_club_offers` WHERE `enabled` = 1 ORDER BY `id`");
         foreach (var offer in clubOffers)
             clubOffersById.Add(offer.Id, offer);
 

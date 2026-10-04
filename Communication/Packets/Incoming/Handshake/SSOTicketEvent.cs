@@ -1,3 +1,4 @@
+﻿using Plus.HabboHotel.Subscriptions;
 ﻿using Plus.Communication.Attributes;
 using Plus.Communication.Packets.Outgoing.BuildersClub;
 using Plus.Communication.Packets.Outgoing.Handshake;
@@ -35,6 +36,7 @@ public class SsoTicketEvent : IPacketEvent
     private readonly ILanguageManager _languageManager;
     private readonly ISettingsManager _settingsManager;
     private readonly IRewardManager _rewardManager;
+    private readonly ClubLifecycle _clubLifecycle;
 
     public SsoTicketEvent(IAuthenticator authenticate,
         IBadgeManager badgeManager,
@@ -44,7 +46,7 @@ public class SsoTicketEvent : IPacketEvent
         IFigureDataManager figureManager,
         ILanguageManager languageManager,
         ISettingsManager settingsManager,
-        IRewardManager rewardManager)
+        IRewardManager rewardManager, ClubLifecycle clubLifecycle)
     {
         _authenticate = authenticate;
         _badgeManager = badgeManager;
@@ -55,6 +57,7 @@ public class SsoTicketEvent : IPacketEvent
         _languageManager = languageManager;
         _settingsManager = settingsManager;
         _rewardManager = rewardManager;
+        _clubLifecycle = clubLifecycle;
     }
 
     public async Task Parse(GameClient session, IIncomingPacket packet)
@@ -89,7 +92,7 @@ public class SsoTicketEvent : IPacketEvent
             }
             if (!_cacheManager.ContainsUser(session.GetHabbo().Id))
                 _cacheManager.GenerateUser(session.GetHabbo().Id);
-            session.GetHabbo().Look = _figureManager.ProcessFigure(session.GetHabbo().Look, session.GetHabbo().Gender, session.GetHabbo().Clothing.GetClothingParts, true);
+            _clubLifecycle.Normalize(session.GetHabbo());
             session.GetHabbo().InitProcess();
             if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTickets))
             {

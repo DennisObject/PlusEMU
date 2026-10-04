@@ -36,6 +36,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
     private readonly IBadgeManager _badgeManager;
     private readonly IItemFactory _itemFactory;
     private readonly IClubMembershipService _clubMemberships;
+    private readonly IClubRewards _clubRewards;
     // Window id the client's club purchase page requests offers for.
     private const int ClubWindow = 1;
 
@@ -47,7 +48,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         IBadgeManager badgeManager,
         IItemFactory itemFactory,
         IHabbiconService habbicons,
-        IClubMembershipService clubMemberships)
+        IClubMembershipService clubMemberships, IClubRewards clubRewards)
     {
         _catalogManager = catalogManager;
         _habbicons = habbicons;
@@ -58,6 +59,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         _badgeManager = badgeManager;
         _itemFactory = itemFactory;
         _clubMemberships = clubMemberships;
+        _clubRewards = clubRewards;
     }
     public async Task Parse(GameClient session, IIncomingPacket packet)
     {
@@ -74,13 +76,15 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             return;
         if (!page.CanOpen(session.GetHabbo()))
             return;
-        if (page.Layout is "club_buy" or "vip_buy")
+        if (page.Layout is "club_buy" or "vip_buy" or "loyalty_vip_buy")
         {
+            if (amount != 1) { session.Send(new PurchaseErrorComposer(0)); return; }
             PurchaseClubOffer(session, itemId);
             return;
         }
         if (!page.Offers.TryGetValue(itemId, out var item))
             return;
+        if (!item.CanPurchase(session.GetHabbo())) return;
         if (item.HabbiconId > 0)
         {
             try
@@ -172,45 +176,36 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                 extraData = "";
                 break;
         }
-        if (item.IsLimited)
+        bool ChargePurchase(Func<System.Data.IDbConnection, System.Data.IDbTransaction, bool>? deliver = null)
         {
-            using var connection = _database.Connection();
-            if (CatalogLimitedStock.Reserve(connection, item.Id) is not { } serial)
+            var soldOut = false;
+            if (!item.CanPurchase(session.GetHabbo()) || !_clubRewards.Charge(session.GetHabbo(), totalCreditsCost, totalPixelCost, totalDiamondCost, (connection, transaction) =>
             {
-                session.SendNotification("This item has sold out!\n\n" + "Please note, you have not recieved another item (You have also not been charged for it!)");
-                session.Send(new CatalogUpdatedComposer());
-                session.Send(new PurchaseOkComposer());
-                return;
-            }
-            item.LimitedEditionSells = (uint)serial;
-
-            limitedEditionSells = (uint)serial;
-            limitedEditionStack = item.LimitedEditionStack;
-        }
-        void ChargePurchase()
-        {
-            lock (session.GetHabbo().WalletSync)
+                if (!item.CanPurchase(session.GetHabbo())) return false;
+                if (item.IsLimited)
+                {
+                    if (CatalogLimitedStock.Reserve(connection, transaction, item.Id) is not { } serial)
+                    { soldOut = true; return false; }
+                    limitedEditionSells = (uint)serial; limitedEditionStack = item.LimitedEditionStack;
+                }
+                return deliver?.Invoke(connection, transaction) ?? true;
+            }, ClubRewards.EligibleCatalogPurchase(item.CatalogName)))
             {
-                if (item.CostCredits > 0)
+                if (soldOut)
                 {
-                    session.GetHabbo().Credits -= totalCreditsCost;
-                    session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+                    session.SendNotification("This item has sold out! You have not been charged.");
+                    session.Send(new CatalogUpdatedComposer()); session.Send(new PurchaseOkComposer());
                 }
-                if (item.CostPixels > 0)
-                {
-                    session.GetHabbo().Duckets -= totalPixelCost;
-                    session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, session.GetHabbo().Duckets)); //Love you, Tom.
-                }
-                if (item.CostDiamonds > 0)
-                {
-                    session.GetHabbo().Diamonds -= totalDiamondCost;
-                    session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, 0, 5));
-                }
+                return false;
             }
+            if (item.IsLimited) item.LimitedEditionSells = Math.Max(item.LimitedEditionSells, limitedEditionSells);
+            if (totalCreditsCost > 0) session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+            if (totalPixelCost > 0) session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, -totalPixelCost));
+            if (totalDiamondCost > 0) session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, -totalDiamondCost, 5));
+            return true;
         }
 
-        if (item.Definition.ProductType != "p")
-            ChargePurchase();
+        if (item.Definition.ProductType != "p" && !ChargePurchase()) return;
         switch (item.Definition.ProductType)
         {
             default:
@@ -354,14 +349,13 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                 if (!PetUtility.TryReadPurchase(extraData, out var petName, out var race, out var color))
                     return;
 
-                var pet = PetUtility.CreatePet(_database, session.GetHabbo().Id, petName, item.Definition.BehaviourData, race, color, inventory: session.GetHabbo().Inventory.Pets);
-                if (pet == null || pet.PetId <= 0)
+                Plus.HabboHotel.Rooms.AI.Pet? pet = null;
+                if (!ChargePurchase((connection, transaction) => (pet = PetUtility.CreatePet(connection, transaction, session.GetHabbo().Id, petName, item.Definition.BehaviourData, race, color)) != null))
                 {
                     session.SendNotification("Oops! There was an error whilst purchasing this pet.");
                     return;
                 }
-
-                ChargePurchase();
+                session.GetHabbo().Inventory.Pets.AddPet(pet!);
                 pet.RoomId = 0;
                 pet.PlacedInRoom = false;
                 session.Send(new FurniListNotificationComposer((uint)pet.PetId, 3));
@@ -391,7 +385,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
     private void PurchaseClubOffer(GameClient session, int offerId)
     {
         var habbo = session.GetHabbo();
-        int? expiry = null;
+        long? expiry = null;
         if (_catalogManager.TryGetClubOffer(offerId, out var offer))
             expiry = _clubMemberships.Purchase(habbo, offer);
         if (expiry == null)
@@ -409,6 +403,6 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         var membershipEnd = DateTimeOffset.FromUnixTimeSeconds(expiry.Value).UtcDateTime;
         // The client caches offers; resend them so the next confirmation shows the new end date.
         session.Send(new HabboClubOffersComposer(_catalogManager.ClubOffers, ClubWindow, membershipEnd));
-        session.Send(new ScrSendUserInfoComposer(habbo.Access, expiry.Value - (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds(), ScrSendUserInfoComposer.PurchaseResponse));
+        session.Send(new ScrSendUserInfoComposer(habbo.Access, ScrSendUserInfoComposer.PurchaseResponse));
     }
 }

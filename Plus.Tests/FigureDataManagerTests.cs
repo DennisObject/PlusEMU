@@ -27,7 +27,7 @@ public class FigureDataManagerTests
     [InlineData("hd-180-1..ch-215-66")]
     public void MalformedPartsAreDroppedOrNormalisedInsteadOfThrowing(string figure)
     {
-        var processed = Manager().ProcessFigure(figure, "M", null!, true);
+        var processed = Manager().ProcessFigure(figure, "M", null!, 2);
 
         Assert.Contains("hd-180-", processed);
         Assert.All(processed.TrimEnd('.').Split('.'), part => Assert.Matches(@"^[a-z]{2}-\d+-\d+(-\d+)?$", part));
@@ -36,7 +36,7 @@ public class FigureDataManagerTests
     [Fact]
     public void WellFormedFiguresKeepTheirParts()
     {
-        var processed = Manager().ProcessFigure("hd-180-1.ch-215-66.lg-270-82.sh-290-80", "M", null!, true);
+        var processed = Manager().ProcessFigure("hd-180-1.ch-215-66.lg-270-82.sh-290-80", "M", null!, 2);
 
         Assert.Contains("hd-180-1.", processed);
         Assert.Contains("ch-215-66.", processed);

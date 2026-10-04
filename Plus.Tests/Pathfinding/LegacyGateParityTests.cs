@@ -102,8 +102,8 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public void LegacyMannequinPacketsStillAcceptAnyItem()
     {
-        var gate = LegacyGate(); _client.GetHabbo().Gender = "M"; _client.GetHabbo().Look = "hd-180-1.ch-210-66";
-        new SetMannequinFigureEvent().Parse(_client, ClientPacket((int)gate.Id)).Wait();
+        var gate = LegacyGate(); _client.GetHabbo().Gender = "M"; _client.GetHabbo().Look = "hd-180-1.ch-210-66"; _client.GetHabbo().Clothing = new();
+        new SetMannequinFigureEvent(Proxy<Plus.Core.FigureData.IFigureDataManager>((_, args) => args[0])).Parse(_client, ClientPacket((int)gate.Id)).Wait();
         Assert.NotEqual("1", gate.LegacyDataString);
     }
 

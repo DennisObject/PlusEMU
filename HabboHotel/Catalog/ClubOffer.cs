@@ -8,7 +8,6 @@ public class ClubOffer
     public int Credits { get; set; }
     public int Points { get; set; }
     public int PointsType { get; set; }
-    public bool Vip { get; set; }
     public bool Giftable { get; set; }
 
     public int Months => Days / 31;

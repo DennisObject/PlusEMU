@@ -1,4 +1,4 @@
-﻿namespace Plus.Communication.Packets.Incoming;
+namespace Plus.Communication.Packets.Incoming;
 
 public static class ClientPacketHeader
 {
@@ -356,15 +356,15 @@ public static class ClientPacketHeader
     //public const uint GetDirectClubBuyAvailableEvent =;
     //public const uint GetHabboBasicMembershipExtendOfferEvent =;
     //public const uint GetLimitedOfferAppearingNextEvent =;
-    //public const uint GetHabboClubExtendOfferEvent =;
+    public const uint GetHabboClubExtendOfferEvent = 2462;
     //public const uint GetIsOfferGiftableEvent =;
     //public const uint GetNextTargetedOfferEvent =;
     //public const uint GetSeasonalCalendarDailyOfferEvent =;
     //public const uint MarkCatalogNewAdditionsPageOpenedEvent =;
-    //public const uint PurchaseBasicMembershipExtensionEvent =;
+    public const uint PurchaseBasicMembershipExtensionEvent = 6001;
     //public const uint PurchaseTargetedOfferEvent =;
-    //public const uint PurchaseVipMembershipExtensionEvent =;
-    //public const uint SelectClubGiftEvent =;
+    public const uint PurchaseVipMembershipExtensionEvent = 3407;
+    public const uint SelectClubGiftEvent = 2276;
     //public const uint SetTargetedOfferStateEvent =;
     //public const uint ShopTargetedOfferViewedEvent =;
 

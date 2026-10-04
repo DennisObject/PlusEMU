@@ -95,7 +95,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             guest.Packets.Clear(); await new OpenWiredEvent().Parse(room, guest.Client, ItemPacket(itemId, false));
             Assert.Equal(1428u, Assert.Single(guest.Packets).Id); Assert.Same(original, box.Configuration);
             room.UsersWithRights.Add((int)guestId); Assert.True(room.CheckRights(guest.Client, false, true));
-            guest.Packets.Clear(); await new SaveWiredEffectConfigEvent(database).Parse(guest.Client, ItemPacket(itemId, true));
+            guest.Packets.Clear(); await new SaveWiredEffectConfigEvent(database, null!).Parse(guest.Client, ItemPacket(itemId, true));
             Assert.Empty(guest.Packets); Assert.Same(original, box.Configuration);
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_item_configurations WHERE item_id=@Id", new { Id = itemId }));
             await new WiredRoomSettingsSaveEvent(database).Parse(room, owner.Client, Packet(0, 2));

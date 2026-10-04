@@ -2,6 +2,7 @@
 
 public enum FriendRequestError
 {
+    FriendLimitReached,
     NoFriendRequest,
     AlreadyOutstandingFriendRequest
 }

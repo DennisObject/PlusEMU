@@ -20,7 +20,7 @@ public class HabboClubOffersWireTests
         Assert.Equal(new List<object>
         {
             1,
-            2, "HABBO_CLUB_3_MONTHS", false, 250, 10, 5, false, 3, 2, false, daysLeft, endsAt.Year, endsAt.Month, endsAt.Day,
+            2, "HABBO_CLUB_3_MONTHS", false, 250, 10, 5, true, 3, 2, false, daysLeft, endsAt.Year, endsAt.Month, endsAt.Day,
             1
         }, packet.Writes);
     }

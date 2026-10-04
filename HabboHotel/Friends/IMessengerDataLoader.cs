@@ -8,7 +8,7 @@ public interface IMessengerDataLoader
     Task<List<MessengerBuddy>> GetBuddiesForUser(int userId);
     Task<List<MessengerRequest>> GetRequestsForUser(int userId);
     Task<List<int>> GetOutstandingRequestsForUser(int userId);
-    Task<(MessengerBuddy from, MessengerBuddy to)> CreateRelationship(int fromUserId, int toUserId);
+    Task<(MessengerBuddy from, MessengerBuddy to)?> CreateRelationship(int fromUserId, int toUserId);
     Task<MessengerBuddy> CreateBuddy(int userId);
     Task<MessengerBuddy?> GetBuddy(int userId, int friendId);
     void BroadcastStatusUpdate(Habbo habbo, MessengerEventTypes eventType, string value);

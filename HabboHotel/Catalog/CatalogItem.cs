@@ -25,6 +25,8 @@ public class CatalogItem
     public string PreviewImage { get; set; } = string.Empty;
     public int OrderNum { get; set; }
 
+    public bool CanPurchase(Plus.HabboHotel.Users.Habbo habbo) => ClubLevel is >= 0 and <= 2 && Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(habbo.Access) >= ClubLevel;
+
     private int? _wireOfferId;
 
     // The id the client sees and buys with on this item's page; CatalogOfferIndex assigns it.

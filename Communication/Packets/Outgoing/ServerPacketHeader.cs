@@ -1,4 +1,4 @@
-﻿namespace Plus.Communication.Packets.Outgoing;
+namespace Plus.Communication.Packets.Outgoing;
 
 public static class ServerPacketHeader
 {
@@ -372,4 +372,7 @@ public static class ServerPacketHeader
     public const uint HousekeepingRoomListComposer = 9203;
     public const uint HousekeepingDashboardComposer = 9204;
     public const uint HousekeepingActionLogComposer = 9205;
+    public const uint HabboClubExtendOfferComposer = 3964;
+    public const uint ClubGiftReceivedComposer = 659;
+    public const uint PickMonthlyClubGiftComposer = 2188;
 }

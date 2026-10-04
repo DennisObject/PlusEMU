@@ -29,7 +29,7 @@ public static partial class CatalogAdminValidation
     public static Dictionary<string, string> Page(CatalogAdminPage page, CatalogPageRow? existing, UserAccess access, Func<int, CatalogPageRow?> findPage)
     {
         var errors = new Dictionary<string, string>();
-        if (existing != null && !Available(existing.RequiredPermission, access))
+        if (existing != null && (!Available(existing.RequiredPermission, access) || Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(access) < existing.RequiredClubLevel))
             errors[Form] = "You cannot edit a page requiring a permission you do not have.";
         Text(errors, "caption", page.Caption, 128, required: true);
         if (!PageLinkPattern().IsMatch(page.CaptionSave ?? string.Empty))
@@ -56,8 +56,8 @@ public static partial class CatalogAdminValidation
         PageString(errors, "pageText2", page.PageText2, MaxTextLength);
         PageString(errors, "pageTextDetails", page.PageTextDetails, MaxTextLength);
         PageString(errors, "pageTextTeaser", page.PageTextTeaser, MaxTextLength);
-        if (page.ClubOnly)
-            errors["clubOnly"] = Unsupported;
+        if (page.ClubOnly && Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(access) == 0)
+            errors["clubOnly"] = "Habbo Club is required to create club pages.";
         if (page.RoomId != 0)
             errors["roomId"] = Unsupported;
         if (!string.IsNullOrEmpty(page.Includes))

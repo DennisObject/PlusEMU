@@ -354,7 +354,11 @@
     "HousekeepingSetHcSubscriptionEvent": 0,
     "HousekeepingSendHotelAlertEvent": 0,
     "HousekeepingGetDashboardEvent": 0,
-    "HousekeepingListActionLogEvent": 0
+    "HousekeepingListActionLogEvent": 0,
+    "GetHabboClubExtendOfferEvent": 2462,
+    "PurchaseBasicMembershipExtensionEvent": 2735,
+    "PurchaseVipMembershipExtensionEvent": 3407,
+    "SelectClubGiftEvent": 2276
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -674,6 +678,9 @@
     "HousekeepingRoomDetailComposer": 0,
     "HousekeepingRoomListComposer": 0,
     "HousekeepingDashboardComposer": 0,
-    "HousekeepingActionLogComposer": 0
+    "HousekeepingActionLogComposer": 0,
+    "HabboClubExtendOfferComposer": 3964,
+    "ClubGiftReceivedComposer": 659,
+    "PickMonthlyClubGiftComposer": 2188
   }
 }

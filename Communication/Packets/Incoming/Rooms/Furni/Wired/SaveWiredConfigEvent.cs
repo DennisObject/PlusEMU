@@ -1,4 +1,7 @@
 using Plus.HabboHotel.Permissions;
+using Plus.Core.FigureData;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
+using Plus.HabboHotel.Subscriptions;
 using System.Data.Common;
 using System.Text.Json;
 using NLog;
@@ -13,7 +16,7 @@ using Plus.HabboHotel.Items.Wired.Settings;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
 
-internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
+internal abstract class SaveWiredConfigEvent(IDatabase database, IFigureDataManager figures) : IPacketEvent
 {
     private static readonly ILogger Log = LogManager.GetLogger(nameof(SaveWiredConfigEvent));
     protected abstract WiredBoxCategory Envelope { get; }
@@ -60,6 +63,8 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
                     return Task.CompletedTask;
                 }
                 proposed = PreserveAdvancedConfiguration(configured, proposed);
+                if (configured.Descriptor.CanonicalName == "wf_act_bot_clothes")
+                    proposed = proposed with { Text = ValidateBotFigure(proposed.Text, session) };
                 var store = new WiredConfigurationStore(database);
                 if (!WiredConfigurationSave.TrySave(configured, proposed, store, out var error,
                     id => room.GetRoomItemHandler().GetItem(id) != null,
@@ -99,6 +104,8 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
                         session.Send(new WiredValidationErrorComposer("Invalid Wired settings."));
                         return Task.CompletedTask;
                     }
+                    if (descriptor.CanonicalName == "wf_act_bot_clothes")
+                        proposed = proposed with { Text = ValidateBotFigure(proposed.Text, session) };
                     var candidate = wired.CreateConfiguredBox(selectedItem, descriptor);
                     if (candidate == null)
                     {
@@ -116,7 +123,12 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
                     }
                 }
                 else if (!WiredLegacySave.TrySave(box, packet, Envelope, original => wired.GenerateNewBox(original.Item),
-                    (original, candidate) => wired.PublishLegacy(original, candidate, () => wired.SaveBox(candidate)),
+                    (original, candidate) =>
+                    {
+                        if (candidate.Type == WiredBoxType.EffectBotChangesClothesBox)
+                            candidate.StringData = ValidateBotFigure(candidate.StringData, session);
+                        return wired.PublishLegacy(original, candidate, () => wired.SaveBox(candidate));
+                    },
                     out var error, id => room.GetRoomItemHandler().GetItem(id) is { IsTemporary: false }))
                 {
                     session.Send(new WiredValidationErrorComposer(error));
@@ -133,6 +145,17 @@ internal abstract class SaveWiredConfigEvent(IDatabase database) : IPacketEvent
             session.Send(new WiredValidationErrorComposer("Unable to save these Wired settings."));
         }
         return Task.CompletedTask;
+    }
+
+    private string ValidateBotFigure(string data, GameClient session)
+    {
+        var fields = data.Split('\t', 2);
+        if (fields.Length == 2) fields[1] = fields[1].TrimEnd('.');
+        if (fields.Length != 2 || !WiredBotActions.FigureWellFormed(fields[1]))
+            throw new ArgumentException("Invalid bot figure.");
+        var habbo = session.GetHabbo();
+        var validated = figures.ProcessFigure(fields[1], habbo.Gender, habbo.Clothing.GetClothingParts, ClubAccess.LevelFor(habbo.Access));
+        return fields[0] + "\t" + validated.TrimEnd('.');
     }
 
     private static WiredConfiguration PreserveAdvancedConfiguration(IWiredConfiguredItem box, WiredConfiguration proposed)

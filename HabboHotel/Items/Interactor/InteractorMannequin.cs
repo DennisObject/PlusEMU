@@ -38,7 +38,7 @@ internal class InteractorMannequin : IFurniInteractor
             }
             var final = "";
             foreach (var str in newFig.Values) final += $"{str}.";
-            session.GetHabbo().Look = final.TrimEnd('.');
+            session.GetHabbo().Look = PlusEnvironment.FigureManager.ProcessFigure(final.TrimEnd('.'), session.GetHabbo().Gender, session.GetHabbo().Clothing.GetClothingParts, Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access));
             using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
             {
                 dbClient.SetQuery($"UPDATE users SET look = @look, gender = @gender WHERE id = '{session.GetHabbo().Id}' LIMIT 1");

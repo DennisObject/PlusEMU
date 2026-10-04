@@ -85,145 +85,38 @@ public class FigureDataManager : IFigureDataManager
         _logger.LogInformation("Loaded " + _setTypes.Count + " Set Types");
     }
 
-    public string ProcessFigure(string figure, string gender, ICollection<ClothingParts> clothingParts, bool hasHabboClub)
+    public string ProcessFigure(string figure, string gender, ICollection<ClothingParts> clothingParts, int clubLevel)
     {
-        figure = figure.ToLower();
-        gender = gender.ToUpper();
-        var rebuildFigure = string.Empty;
-        var figureParts = figure.Split('.');
-        foreach (var part in figureParts.ToList())
+        gender = gender.ToUpperInvariant();
+        var rebuilt = new Dictionary<string, string>();
+        var owned = clothingParts?.Select(part => part.PartId).ToHashSet();
+        var purchased = owned == null ? new HashSet<int>() : _catalogManager.ClothingManager.GetClothingAllParts
+            .SelectMany(part => part.PartIds).ToHashSet();
+        foreach (var part in figure.ToLowerInvariant().Split('.'))
         {
             var pieces = part.Split('-');
-            var type = pieces[0];
-            // A part without a numeric set id cannot be rebuilt, so it is dropped.
-            if (pieces.Length < 2 || !int.TryParse(pieces[1], out var partId))
-                continue;
-            if (_setTypes.TryGetValue(type, out var figureSet))
-            {
-                var colorId = 0;
-                var secondColorId = 0;
-                if (figureSet.Sets.TryGetValue(partId, out var set))
-                {
-                    if (set.Gender != gender && set.Gender != "U")
-                    {
-                        if (figureSet.Sets.Count(x => x.Value.Gender == gender || x.Value.Gender == "U") > 0)
-                        {
-                            partId = figureSet.Sets.FirstOrDefault(x => x.Value.Gender == gender || x.Value.Gender == "U").Value.Id;
-
-                            //Fetch the new set.
-                            figureSet.Sets.TryGetValue(partId, out set);
-                            colorId = GetRandomColor(figureSet.PalletId);
-                        }
-                    }
-                    if (set.Colorable)
-                    {
-                        //Couldn't think of a better way to split the colors, if I looped the parts I still have to remove Type-PartId, then loop color 1 & color 2. Meh
-                        var splitterCounter = part.Count(x => x == '-');
-                        if (splitterCounter == 2 || splitterCounter == 3)
-                        {
-                            if (!string.IsNullOrEmpty(part.Split('-')[2]))
-                            {
-                                if (int.TryParse(part.Split('-')[2], out colorId))
-                                {
-                                    colorId = Convert.ToInt32(part.Split('-')[2]);
-                                    var palette = GetPalette(colorId);
-                                    if (palette != null && colorId != 0)
-                                    {
-                                        if (figureSet.PalletId != palette.Id) colorId = GetRandomColor(figureSet.PalletId);
-                                    }
-                                    else if (palette == null && colorId != 0) colorId = GetRandomColor(figureSet.PalletId);
-                                }
-                                else
-                                    colorId = 0;
-                            }
-                            else
-                                colorId = 0;
-                        }
-                        if (splitterCounter == 3)
-                        {
-                            if (!string.IsNullOrEmpty(part.Split('-')[3]))
-                            {
-                                if (int.TryParse(part.Split('-')[3], out secondColorId))
-                                {
-                                    secondColorId = Convert.ToInt32(part.Split('-')[3]);
-                                    var palette = GetPalette(secondColorId);
-                                    if (palette != null && secondColorId != 0)
-                                    {
-                                        if (figureSet.PalletId != palette.Id) secondColorId = GetRandomColor(figureSet.PalletId);
-                                    }
-                                    else if (palette == null && secondColorId != 0) secondColorId = GetRandomColor(figureSet.PalletId);
-                                }
-                                else
-                                    secondColorId = 0;
-                            }
-                            else
-                                secondColorId = 0;
-                        }
-                    }
-                    else
-                    {
-                        var ignore = new[] { "ca", "wa" };
-                        if (ignore.Contains(type) && pieces.Length > 2 && int.TryParse(pieces[2], out var keptColorId))
-                            colorId = keptColorId;
-                    }
-                    if (set.ClubLevel > 0 && !hasHabboClub)
-                    {
-                        partId = figureSet.Sets.FirstOrDefault(x => x.Value.Gender == gender || x.Value.Gender == "U" && x.Value.ClubLevel == 0).Value.Id;
-                        figureSet.Sets.TryGetValue(partId, out set);
-                        colorId = GetRandomColor(figureSet.PalletId);
-                    }
-                    if (secondColorId == 0)
-                        rebuildFigure = $"{rebuildFigure}{type}-{partId}-{colorId}.";
-                    else
-                        rebuildFigure = $"{rebuildFigure}{type}-{partId}-{colorId}-{secondColorId}.";
-                }
-            }
+            if (pieces.Length < 2 || !int.TryParse(pieces[1], out var id) || !_setTypes.TryGetValue(pieces[0], out var type)) continue;
+            if (!type.Sets.TryGetValue(id, out var set)) continue;
+            bool Allowed(Set candidate) => (candidate.Gender == gender || candidate.Gender == "U") && candidate.ClubLevel <= clubLevel &&
+                (!purchased.Contains(candidate.Id) || owned!.Contains(candidate.Id));
+            if (!Allowed(set)) set = type.Sets.Values.FirstOrDefault(candidate => candidate.Selectable && Allowed(candidate));
+            if (set == null) continue;
+            var color = pieces.Length > 2 && int.TryParse(pieces[2], out var c) ? c : 0;
+            var second = pieces.Length > 3 && int.TryParse(pieces[3], out var c2) ? c2 : 0;
+            int ValidateColor(int value) => _palettes.TryGetValue(type.PalletId, out var palette) &&
+                palette.Colors.TryGetValue(value, out var entry) && entry.ClubLevel <= clubLevel ? value : GetRandomColor(type.PalletId, clubLevel);
+            if (set.Colorable) { color = ValidateColor(color); if (pieces.Length > 3) second = ValidateColor(second); }
+            else if (pieces[0] is not ("ca" or "wa")) color = 0;
+            rebuilt[pieces[0]] = $"{pieces[0]}-{set.Id}-{color}" + (second != 0 ? $"-{second}" : "");
         }
         foreach (var requirement in _requirements)
         {
-            if (!rebuildFigure.Contains(requirement))
-            {
-                if (requirement == "ch" && gender == "M")
-                    continue;
-                if (_setTypes.TryGetValue(requirement, out var figureSet))
-                {
-                    var set = figureSet.Sets.FirstOrDefault(x => x.Value.Gender == gender || x.Value.Gender == "U").Value;
-                    if (set != null)
-                    {
-                        var partId = figureSet.Sets.FirstOrDefault(x => x.Value.Gender == gender || x.Value.Gender == "U").Value.Id;
-                        var colorId = GetRandomColor(figureSet.PalletId);
-                        rebuildFigure = $"{rebuildFigure}{requirement}-{partId}-{colorId}.";
-                    }
-                }
-            }
+            if (rebuilt.ContainsKey(requirement) || requirement == "ch" && gender == "M" || !_setTypes.TryGetValue(requirement, out var type)) continue;
+            var set = type.Sets.Values.FirstOrDefault(candidate => candidate.Selectable && (candidate.Gender == gender || candidate.Gender == "U") &&
+                candidate.ClubLevel <= clubLevel && (!purchased.Contains(candidate.Id) || owned!.Contains(candidate.Id)));
+            if (set != null) rebuilt[requirement] = $"{requirement}-{set.Id}-{GetRandomColor(type.PalletId, clubLevel)}";
         }
-        if (clothingParts != null)
-        {
-            var purchasableParts = _catalogManager.ClothingManager.GetClothingAllParts;
-            figureParts = rebuildFigure.TrimEnd('.').Split('.');
-            foreach (var part in figureParts.ToList())
-            {
-                var partId = Convert.ToInt32(part.Split('-')[1]);
-                if (purchasableParts.Count(x => x.PartIds.Contains(partId)) > 0)
-                {
-                    if (clothingParts.Count(x => x.PartId == partId) == 0)
-                    {
-                        var type = part.Split('-')[0];
-                        if (_setTypes.TryGetValue(type, out var figureSet))
-                        {
-                            var set = figureSet.Sets.FirstOrDefault(x => x.Value.Gender == gender || x.Value.Gender == "U").Value;
-                            if (set != null)
-                            {
-                                partId = figureSet.Sets.FirstOrDefault(x => x.Value.Gender == gender || x.Value.Gender == "U").Value.Id;
-                                var colorId = GetRandomColor(figureSet.PalletId);
-                                rebuildFigure = $"{rebuildFigure}{type}-{partId}-{colorId}.";
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return rebuildFigure;
+        return string.Join('.', rebuilt.Values) + (rebuilt.Count > 0 ? "." : "");
     }
 
     public Palette GetPalette(int colorId)
@@ -233,7 +126,7 @@ public class FigureDataManager : IFigureDataManager
 
     public bool TryGetPalette(int palletId, out Palette palette) => _palettes.TryGetValue(palletId, out palette);
 
-    public int GetRandomColor(int palletId) => _palettes[palletId].Colors.FirstOrDefault().Value.Id;
+    public int GetRandomColor(int palletId, int clubLevel = 0) => _palettes[palletId].Colors.Values.FirstOrDefault(color => color.Selectable && color.ClubLevel <= clubLevel)?.Id ?? 0;
 
     public string FilterFigure(string figure)
     {

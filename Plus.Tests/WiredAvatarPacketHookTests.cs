@@ -50,6 +50,7 @@ public class WiredAvatarPacketHookTests
     public async Task DancePacketCarriesActualDanceCodeAndStopDoesNotFire(int dance)
     {
         var world = new World(10, dance);
+        world.Client.GetHabbo().Access = Plus.HabboHotel.Permissions.UserAccess.Create([], [new(Plus.HabboHotel.Permissions.PermissionKeys.ClubAccess, false)]);
         var handler = new DanceEvent(new NoQuests());
         await handler.Parse(world.Room, world.Client, Packet(dance));
         var observed = Assert.Single(world.Capture.Events);
