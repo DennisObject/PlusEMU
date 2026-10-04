@@ -115,8 +115,8 @@ public class ShadowPathfindingTests
         var outcome = new PathSearch(grid, new()).Find(new(new ActorProfile(), grid.Position(grid.Tile(actor.X, actor.Y)), actor.GoalX, actor.GoalY),
             new PathWorkspace(grid.SlotCapacity, grid.ActiveNodeCount), route);
         Assert.Empty(legacy); Assert.Equal(PathOutcome.AlreadyThere, outcome);
-        // Shadow still expects a single-origin legacy path here, so the original engine is logged as diverging.
-        Assert.True(RoomNavigation.Diverges(outcome, route.Count, legacy.Count));
+        // Original legacy represents AlreadyThere with an empty path.
+        Assert.False(RoomNavigation.Diverges(outcome, route.Count, legacy.Count));
     }
 
 }
