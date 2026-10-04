@@ -38,8 +38,9 @@ public static class ClaimMatrix
     }
 }
 
-public sealed class MovementRules(NavGrid grid, PathfindingSettings settings)
+public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, ActorAccessResolver? access = null)
 {
+    private readonly ActorAccessResolver _access = access ?? ActorAccessResolver.Cached;
     private readonly double _maxUp = settings.EffectiveMaxUp;
     private readonly double _maxDown = settings.EffectiveMaxDown ?? double.PositiveInfinity;
     private readonly CornerRule _cornerRule = settings.CornerRule;
@@ -106,7 +107,7 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings)
                 ? !openA || !CanFlankKnownTile(actor, from.Z, b)
                 : !openA && !CanFlankKnownTile(actor, from.Z, b)) return new(StepReason.CornerBlocked);
         }
-        if ((flags & NavFlags.GuildGate) != 0 && !actor.IsMember(grid.GroupId[tile])) return new(StepReason.GateDenied);
+        if ((flags & NavFlags.GuildGate) != 0 && !_access.CanEnterGuildGate(actor, grid.GroupId[tile])) return new(StepReason.GateDenied);
         if (occupancy != null && (occupancy.Targets[tile] & ClaimMatrix.BlockingMask(actor, flags, purpose, view)) != 0) return new(StepReason.Occupied);
         return new(StepReason.Ok);
     }
@@ -122,7 +123,7 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings)
     {
         var flags = grid.Flags[t];
         return (flags & NavFlags.Transit) != 0 && (flags & NavFlags.FloorLocked) == 0
-            && ((flags & NavFlags.GuildGate) == 0 || actor.IsMember(grid.GroupId[t]))
+            && ((flags & NavFlags.GuildGate) == 0 || _access.CanEnterGuildGate(actor, grid.GroupId[t]))
             && (actor.IgnoreStepHeight || HeightReason(grid.WalkZ[t] - fromZ) == StepReason.Ok);
     }
 

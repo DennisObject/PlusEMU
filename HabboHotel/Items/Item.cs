@@ -99,6 +99,28 @@ public class Item
         changed?.NotifyDataUpdated();
     }
 
+    // v2 gate sequencer: the same write, but the notification is left to the caller (after its locks are released).
+    internal LegacyDataFormat? StoreStateQuietly(string value)
+    {
+        if (!Volatile.Read(ref _navigationSynchronized))
+        {
+            if (_extraData is not LegacyDataFormat plain) return null;
+            plain.StoreWithoutNotification(value);
+            return plain;
+        }
+        LegacyDataFormat? changed = null;
+        lock (NavSync)
+        {
+            if (_extraData is LegacyDataFormat data)
+            {
+                data.StoreWithoutNotification(value);
+                changed = data;
+            }
+            if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
+        }
+        return changed;
+    }
+
     /// TODO @80O: Cleanup shit below
     private Room? _room;
     private bool _updateNeeded;
@@ -453,6 +475,13 @@ public class Item
         MagicTileHeight.Sync(this);
     }
 
+    // v2: a refused automatic close keeps its update request, so the gate never stays open for good.
+    private void CloseAutomatically(int retryCycles)
+    {
+        if (GateTransitionService.Apply(this, "0", GateCloseReason.Automatic, persist: false) == GateTransition.Refused)
+            RequestUpdate(retryCycles, false);
+    }
+
     public void ProcessUpdates()
     {
         try
@@ -470,7 +499,9 @@ public class Item
                     {
                         if (LegacyDataString == "1")
                         {
-                            if (GetRoom().GetRoomUserManager().GetUserForSquare(GetX, GetY) == null)
+                            if (GateTransitionService.For(this) != null)
+                                CloseAutomatically(2);
+                            else if (GetRoom().GetRoomUserManager().GetUserForSquare(GetX, GetY) == null)
                             {
                                 LegacyDataString = "0";
                                 UpdateState(false, true);
@@ -543,14 +574,27 @@ public class Item
                         else if (user != null && (user.Coordinate == SquareBehind || user.Coordinate == SquareInFront))
                         {
                             user.UnlockWalking();
-                            LegacyDataString = "0";
-                            InteractingUser = 0;
-                            UpdateState(false, true);
+                            if (GateTransitionService.For(this) != null)
+                            {
+                                InteractingUser = 0;
+                                CloseAutomatically(1);
+                            }
+                            else
+                            {
+                                LegacyDataString = "0";
+                                InteractingUser = 0;
+                                UpdateState(false, true);
+                            }
                         }
                         else if (LegacyDataString == "1")
                         {
-                            LegacyDataString = "0";
-                            UpdateState(false, true);
+                            if (GateTransitionService.For(this) != null)
+                                CloseAutomatically(1);
+                            else
+                            {
+                                LegacyDataString = "0";
+                                UpdateState(false, true);
+                            }
                         }
                         if (user == null) InteractingUser = 0;
                         break;

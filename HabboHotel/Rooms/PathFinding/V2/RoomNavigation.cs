@@ -106,11 +106,7 @@ public sealed partial class RoomNavigation
             _occupancy.Targets[t] |= !Grid.Active(t) || other.Z != Grid.WalkZ[t] ? TargetOccupancy.OffGraph
                 : other.IsWalking ? TargetOccupancy.Walking : TargetOccupancy.Stationary;
         }
-        var habbo = actor.GetClient()?.GetHabbo();
-        foreach (var groupId in Grid.GroupId.Distinct())
-            if (groupId != 0)
-                profile.SetMembership(groupId, habbo != null
-                    && PlusEnvironment.Game.GroupManager.TryGetGroup(groupId, out var group) && group.IsMember(habbo.Id));
+        ActorAccessResolver.Live.Refresh(profile, actor.GetClient()?.GetHabbo()?.Id, Grid.GroupId.Where(groupId => groupId != 0).Distinct());
         using var lease = PathWorkspacePool.Rent(Grid.SlotCapacity, profile.LegacyOverride ? Grid.SlotCapacity : Grid.ActiveNodeCount);
         var started = Stopwatch.GetTimestamp();
         var request = new SearchRequest(profile, new(actor.X, actor.Y, actor.Z), actor.GoalX, actor.GoalY, _occupancy);

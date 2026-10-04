@@ -1,8 +1,11 @@
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
 public sealed class MovementProfileService(Room room, NavGrid grid, PathfindingSettings settings,
-    Func<int, int, bool> isMember)
+    ActorAccessResolver access)
 {
+    public MovementProfileService(Room room, NavGrid grid, PathfindingSettings settings, Func<int, int, bool> isMember)
+        : this(room, grid, settings, new ActorAccessResolver(isMember)) { }
+
     private int _groupVersion = -1;
     private int[] _groups = [];
 
@@ -17,9 +20,7 @@ public sealed class MovementProfileService(Room room, NavGrid grid, PathfindingS
         profile.DiagonalEnabled = room.GetGameMap().DiagonalEnabled;
         if (_groupVersion != grid.Version) RefreshGroups();
         if (_groups.Length == 0) return profile;
-        var habbo = actor.GetClient()?.GetHabbo();
-        foreach (var group in _groups)
-            profile.SetMembership(group, habbo != null && isMember(group, habbo.Id));
+        access.Refresh(profile, actor.GetClient()?.GetHabbo()?.Id, _groups);
         return profile;
     }
 

@@ -54,6 +54,8 @@ public sealed partial class RoomNavigation
         if (RoomOwnerScope.IsOwner(_room)) Executor.Handle(command);
         else _commands.Enqueue(command);
     }
+    private IGateOccupancy? _gateOccupancy;
+    internal IGateOccupancy GateOccupancy => _gateOccupancy ??= new ExecutorGateOccupancy(Grid, Executor.Claims);
     internal V2MovementEngine Executor => _executor ??= new(_room, this, PlusEnvironment.DatabaseManager, PlusEnvironment.Game);
     public void DrainCommands() { if (UsesExecutor) _commands.Drain(Executor.Handle); }
     public void RefreshPostures()
