@@ -125,6 +125,31 @@ interface CameraCatalogueEntry
 
 const CANVAS_ID = 1;
 const READY_BUDGET_MS = 14000;
+
+// Clients receive the room's thickness setting and use 2^clamp(value, -2, 1) (RoomVisualizationSettingsParser).
+const planeThickness = (value: number): number => Math.pow(2, Math.min(Math.max(value, -2), 1));
+
+// Camera photos on walls load their image with new Image(); a crop must wait until each one has settled.
+const cameraImages = new Set<HTMLImageElement>();
+const NativeImage = window.Image;
+
+window.Image = class extends NativeImage
+{
+    constructor(width?: number, height?: number)
+    {
+        super(width, height);
+
+        cameraImages.add(this);
+
+        const settle = () => cameraImages.delete(this);
+
+        this.addEventListener('load', settle);
+        this.addEventListener('error', settle);
+    }
+} as typeof Image;
+
+const cameraImagesSettled = (): boolean => ![...cameraImages].some(image => image.src.includes('/camera/'));
+
 const MEDIA_SCHEME = /(?:https?:|data:|blob:|javascript:|file:|\/\/)/i;
 const WALL_POSITION = /^:w=(-?\d+),(-?\d+)\s+l=(-?\d+),(-?\d+)\s+([lr])$/i;
 const REQUIRED_CONFIGURATION = [
@@ -430,9 +455,6 @@ function buildRoom(scene: CameraScene): { floorItems: CameraSceneItem[], wallIte
 
         if(!furniture) fail(`Missing furniture data ${ spriteId }`);
 
-        // Camera photos are external-image wall items. Omit them until server-minted media is trusted.
-        if(furniture.isExternalImage || furniture.className.includes('external_image')) continue;
-
         const extra = extraText(item.extraData);
         const typeName = wall ? content.getFurnitureWallNameForTypeId(spriteId, extra) : content.getFurnitureFloorNameForTypeId(spriteId);
 
@@ -446,7 +468,7 @@ function buildRoom(scene: CameraScene): { floorItems: CameraSceneItem[], wallIte
 
     if(!engine.getRoomInstance(scene.roomId)) fail('Room instance was not created');
 
-    engine.updateRoomInstancePlaneThickness(scene.roomId, finite(scene.wallThickness, 'wall thickness'), finite(scene.floorThickness, 'floor thickness'));
+    engine.updateRoomInstancePlaneThickness(scene.roomId, planeThickness(finite(scene.wallThickness, 'wall thickness')), planeThickness(finite(scene.floorThickness, 'floor thickness')));
     engine.updateRoomInstancePlaneVisibility(scene.roomId, !scene.hideWalls, true);
     engine.updateObjectRoomColor(scene.roomId, finite(scene.backgroundColor, 'background'), 255, false);
 
@@ -648,10 +670,14 @@ async function waitUntilReady(roomId: number, users: CameraSceneUser[], floorCou
     const figures = users.filter(user => user.figure).map(user => avatars.createFigureContainer(user.figure));
     const engineTime = { value: 0 };
     const deadline = performance.now() + READY_BUDGET_MS;
+    let settledPumps = 0;
 
     while(performance.now() < deadline)
     {
         if(failed.length) fail(`Missing library ${ failed[0] }`);
+
+        // A loaded photo is applied by the next update and drawn by the one after it.
+        settledPumps = cameraImagesSettled() ? (settledPumps + 1) : 0;
 
         await pump(engineTime);
 
@@ -662,7 +688,7 @@ async function waitUntilReady(roomId: number, users: CameraSceneUser[], floorCou
         const figuresReady = figures.every(figure => avatars.isFigureContainerReady(figure));
         const countsMatch = (engine.getRoomObjects(roomId, RoomObjectCategory.FLOOR).length === floorCount) && (engine.getRoomObjects(roomId, RoomObjectCategory.WALL).length === wallCount);
 
-        if(!instance.hasUninitializedObjects() && figuresReady && countsMatch && effectsReady(users)) return;
+        if(!instance.hasUninitializedObjects() && figuresReady && countsMatch && effectsReady(users) && (settledPumps >= 2)) return;
     }
 
     if(failed.length) fail(`Missing library ${ failed[0] }`);
@@ -674,6 +700,8 @@ async function waitUntilReady(roomId: number, users: CameraSceneUser[], floorCou
     if(!figures.every(figure => avatars.isFigureContainerReady(figure))) fail('Avatar figure library was not ready');
 
     if(!effectsReady(users)) fail('Avatar effect library was not ready');
+
+    if(!cameraImagesSettled()) fail('Camera photo image was not ready');
 
     const floorNow = engine.getRoomObjects(roomId, RoomObjectCategory.FLOOR).length;
     const wallNow = engine.getRoomObjects(roomId, RoomObjectCategory.WALL).length;
