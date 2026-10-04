@@ -20,7 +20,7 @@ public class FurniEditorRevertFurnidataEvent : IPacketEvent
     {
         uint id = packet.ReadUInt();
         var habbo = session.GetHabbo();
-        FurniEditorResponder.InBackground(session, _logger, () => Task.FromResult<IServerPacket>(new FurniEditorResultComposer(_furniEditor.RevertFurnidata(habbo, id))));
+        FurniEditorResponder.InBackground(session, _logger, id, () => Task.FromResult<IServerPacket>(new FurniEditorResultComposer(_furniEditor.RevertFurnidata(habbo, id))));
         return Task.CompletedTask;
     }
 }

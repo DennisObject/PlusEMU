@@ -40,6 +40,11 @@ public sealed record CatalogAdminOffer(
     [JsonIgnore] public int LimitedSells { get; init; }
 }
 
+// A page move as audited: the moved page and the order of every sibling the move renumbered.
+public sealed record CatalogAdminMove(CatalogAdminPage Page, IReadOnlyList<CatalogAdminOrder> Siblings);
+
+public sealed record CatalogAdminOrder(int PageId, int OrderNum);
+
 public sealed class CatalogPageRow
 {
     public int Id { get; set; }

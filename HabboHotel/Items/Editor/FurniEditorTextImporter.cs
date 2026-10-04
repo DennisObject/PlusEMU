@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Sockets;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 
@@ -6,12 +7,16 @@ namespace Plus.HabboHotel.Items.Editor;
 
 public interface IFurniEditorTextImporter
 {
-    // Official name and description for a classname, from FurniEditor:ImportUrl; null when the import is off or fails.
+    bool IsConfigured { get; }
+
+    // Official name and description for a classname, from FurniEditor:ImportUrl; null when the fetch fails.
     Task<FurniEditorImportResult?> Find(string classname);
 }
 
 // Fetches the official furnidata over https from allowlisted hosts only. Redirects are followed by hand so every hop
-// is checked against the allowlist; the body is capped and the whole request has a short timeout.
+// is checked against the allowlist, and every connection goes to an address that was resolved and checked to be
+// public, so a hostname cannot be pointed at the hotel's own network. One deadline covers waiting for another
+// import, every hop and the whole body, and the body is capped.
 public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposable
 {
     private const int MaxRedirects = 3;
@@ -23,13 +28,15 @@ public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposa
     private (DateTime LoadedAt, Dictionary<string, (string Name, string Description)> Texts)? _cache;
 
     public FurniEditorTextImporter(IOptions<FurniEditorConfiguration> configuration)
-        : this(configuration, new HttpClientHandler { AllowAutoRedirect = false }) { }
+        : this(configuration, new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false, ConnectCallback = ConnectPublic }) { }
 
     internal FurniEditorTextImporter(IOptions<FurniEditorConfiguration> configuration, HttpMessageHandler handler)
     {
         _configuration = configuration.Value;
-        _http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(Math.Clamp(_configuration.ImportTimeoutSeconds, 1, 30)) };
+        _http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
     }
+
+    public bool IsConfigured => Uri.TryCreate(_configuration.ImportUrl, UriKind.Absolute, out _);
 
     public async Task<FurniEditorImportResult?> Find(string classname)
     {
@@ -49,23 +56,73 @@ public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposa
         return hosts.Any(allowed => host == allowed || host.EndsWith("." + allowed, StringComparison.Ordinal));
     }
 
+    // Public unicast only: no loopback, private, link-local, carrier-grade NAT, unique-local, multicast or unspecified.
+    internal static bool IsPublic(IPAddress address)
+    {
+        if (address.IsIPv4MappedToIPv6)
+            address = address.MapToIPv4();
+        if (IPAddress.IsLoopback(address) || address.Equals(IPAddress.Any) || address.Equals(IPAddress.IPv6Any) || address.Equals(IPAddress.Broadcast))
+            return false;
+        var bytes = address.GetAddressBytes();
+        if (address.AddressFamily == AddressFamily.InterNetwork)
+            return !(bytes[0] is 0 or 10 or 127 || bytes[0] >= 224
+                || (bytes[0] == 100 && bytes[1] is >= 64 and <= 127)
+                || (bytes[0] == 169 && bytes[1] == 254)
+                || (bytes[0] == 172 && bytes[1] is >= 16 and <= 31)
+                || (bytes[0] == 192 && bytes[1] == 168));
+        return !(address.IsIPv6LinkLocal || address.IsIPv6SiteLocal || address.IsIPv6Multicast || (bytes[0] & 0xFE) == 0xFC);
+    }
+
+    // The address actually connected to is the one checked here, so DNS cannot change between check and connect.
+    internal static async Task<IPAddress> ResolvePublic(string host, CancellationToken cancellation)
+    {
+        var addresses = IPAddress.TryParse(host, out var literal) ? [literal] : await Dns.GetHostAddressesAsync(host, cancellation);
+        return addresses.FirstOrDefault(IsPublic) is { } address && addresses.All(IsPublic)
+            ? address
+            : throw new HttpRequestException($"{host} does not resolve to public addresses only");
+    }
+
+    private static async ValueTask<Stream> ConnectPublic(SocketsHttpConnectionContext context, CancellationToken cancellation)
+    {
+        var address = await ResolvePublic(context.DnsEndPoint.Host, cancellation);
+        var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        try
+        {
+            await socket.ConnectAsync(new IPEndPoint(address, context.DnsEndPoint.Port), cancellation);
+            return new NetworkStream(socket, ownsSocket: true);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
+    }
+
     private async Task<Dictionary<string, (string Name, string Description)>?> Texts()
     {
         if (!Uri.TryCreate(_configuration.ImportUrl, UriKind.Absolute, out var url))
             return null;
-        await _fetch.WaitAsync();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(_configuration.ImportTimeoutSeconds, 1, 30)));
+        try
+        {
+            await _fetch.WaitAsync(deadline.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
         try
         {
             if (_cache is { } cached && DateTime.UtcNow - cached.LoadedAt < CacheLifetime)
                 return cached.Texts;
-            var body = await Download(url);
+            var body = await Download(url, deadline.Token);
             if (body == null)
                 return null;
             var texts = Parse(body);
             _cache = (DateTime.UtcNow, texts);
             return texts;
         }
-        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or JsonException)
+        catch (Exception e) when (e is HttpRequestException or OperationCanceledException or JsonException or IOException)
         {
             return null;
         }
@@ -75,13 +132,13 @@ public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposa
         }
     }
 
-    private async Task<byte[]?> Download(Uri url)
+    private async Task<byte[]?> Download(Uri url, CancellationToken cancellation)
     {
         for (int hop = 0; hop <= MaxRedirects; hop++)
         {
             if (!IsAllowed(url, _configuration.AllowedImportHosts))
                 return null;
-            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellation);
             if ((int)response.StatusCode is >= 300 and < 400)
             {
                 if (response.Headers.Location is not { } location)
@@ -91,11 +148,11 @@ public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposa
             }
             if (response.StatusCode != HttpStatusCode.OK || response.Content.Headers.ContentLength > _configuration.ImportMaxBytes)
                 return null;
-            await using var stream = await response.Content.ReadAsStreamAsync();
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellation);
             using var body = new MemoryStream();
             var buffer = new byte[81920];
             int read;
-            while ((read = await stream.ReadAsync(buffer)) > 0)
+            while ((read = await stream.ReadAsync(buffer, cancellation)) > 0)
             {
                 if (body.Length + read > _configuration.ImportMaxBytes)
                     return null;

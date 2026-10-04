@@ -91,4 +91,68 @@ public class FurniEditorImporterTests
         Assert.True(FurniEditorTextImporter.IsAllowed(new Uri("https://cdn.assets.example/x.json"), custom.AllowedImportHosts));
         Assert.False(FurniEditorTextImporter.IsAllowed(new Uri("https://www.habbo.com/x.json"), custom.AllowedImportHosts));
     }
+
+    // A body that never finishes: only cancellation ends a read.
+    private sealed class StalledStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => 0; set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public async Task OneDeadlineCoversTheBodySoAStalledImportCannotBlockTheNextOne()
+    {
+        var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new StalledStream()) });
+        var importer = new FurniEditorTextImporter(Options.Create(new FurniEditorConfiguration { ImportUrl = "https://www.habbo.com/f", ImportTimeoutSeconds = 1 }), handler);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        var results = await Task.WhenAll(importer.Find("a"), importer.Find("b"));
+
+        Assert.All(results, Assert.Null);
+        Assert.InRange(clock.Elapsed.TotalSeconds, 0.5, 4);
+    }
+
+    [Theory]
+    [InlineData("127.0.0.1", false)]
+    [InlineData("10.1.2.3", false)]
+    [InlineData("172.16.0.1", false)]
+    [InlineData("172.31.255.255", false)]
+    [InlineData("192.168.1.1", false)]
+    [InlineData("169.254.169.254", false)]
+    [InlineData("100.64.0.1", false)]
+    [InlineData("0.0.0.0", false)]
+    [InlineData("224.0.0.1", false)]
+    [InlineData("::1", false)]
+    [InlineData("fe80::1", false)]
+    [InlineData("fd12::1", false)]
+    [InlineData("::ffff:10.0.0.1", false)]
+    [InlineData("172.32.0.1", true)]
+    [InlineData("104.18.0.1", true)]
+    [InlineData("2606:4700::1", true)]
+    public void OnlyPublicAddressesAreConnectable(string address, bool allowed) =>
+        Assert.Equal(allowed, FurniEditorTextImporter.IsPublic(System.Net.IPAddress.Parse(address)));
+
+    [Theory]
+    [InlineData("localhost")]
+    [InlineData("127.0.0.1")]
+    [InlineData("10.0.0.5")]
+    public async Task NamesResolvingToPrivateAddressesAreRefusedBeforeConnecting(string host) =>
+        await Assert.ThrowsAsync<HttpRequestException>(() => FurniEditorTextImporter.ResolvePublic(host, CancellationToken.None));
+
+    [Fact]
+    public async Task PublicAddressLiteralsResolveWithoutDns() =>
+        Assert.Equal(System.Net.IPAddress.Parse("104.18.0.1"), await FurniEditorTextImporter.ResolvePublic("104.18.0.1", CancellationToken.None));
 }

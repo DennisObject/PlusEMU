@@ -12,7 +12,11 @@ using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Items.Editor;
 
-public sealed class FurniEditorRejected(string message) : Exception(message);
+// ItemId is the furniture the request named (0 when it named none), so the editor can match the refusal to it.
+public sealed class FurniEditorRejected(string message, uint itemId = 0) : Exception(message)
+{
+    public uint ItemId { get; } = itemId;
+}
 
 public interface IFurniEditorService
 {
@@ -63,11 +67,12 @@ public sealed class FurniEditorService : IFurniEditorService
 
     public FurniEditorDetail Detail(Habbo actor, uint id)
     {
-        RequireEditor(actor);
+        RequireEditor(actor, id);
         using var connection = _database.Connection();
         var repository = new FurniEditorRepository(connection);
-        var item = repository.Item(id) ?? throw new FurniEditorRejected($"Item not found: {id}");
-        return new(item, repository.UsageCount(id), repository.CatalogRefs(id), _furnidata.Lookup(item.ItemName, item.SpriteId));
+        var item = repository.Item(id) ?? throw new FurniEditorRejected($"Item not found: {id}", id);
+        // Only offers on pages the actor may open are shown; delete still checks every reference.
+        return new(item, repository.UsageCount(id), repository.CatalogRefs(id, actor.Rank), _furnidata.Lookup(item.ItemName, item.SpriteId));
     }
 
     public FurniEditorDetail DetailBySprite(Habbo actor, int spriteId)
@@ -90,7 +95,7 @@ public sealed class FurniEditorService : IFurniEditorService
     public FurniEditorResult Update(Habbo actor, uint id, string json)
     {
         if (!EditorPermissions.Allows(actor))
-            return Denied();
+            return Denied(id);
         lock (_sync)
         {
             using var connection = _database.Connection();
@@ -98,7 +103,7 @@ public sealed class FurniEditorService : IFurniEditorService
             using var transaction = connection.BeginTransaction();
             var repository = new FurniEditorRepository(connection, transaction);
             if (repository.Item(id) is not { } current)
-                return new(false, $"Item not found: {id}");
+                return NotFound(id);
             var (changes, error) = FurniEditorUpdatePayload.Validate(json, current, KnownInteraction);
             if (error != null)
                 return new(false, error, id);
@@ -117,15 +122,16 @@ public sealed class FurniEditorService : IFurniEditorService
     public FurniEditorResult Delete(Habbo actor, uint id)
     {
         if (!EditorPermissions.Allows(actor, EditorPermissions.FurniDelete))
-            return Denied();
+            return Denied(id);
         lock (_sync)
         {
             using var connection = _database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
             var repository = new FurniEditorRepository(connection, transaction);
-            if (repository.Item(id) is not { } current)
-                return new(false, $"Item not found: {id}");
+            // The row lock makes a concurrent catalog save that uses this furniture wait, then see it gone.
+            if (repository.Item(id, forUpdate: true) is not { } current)
+                return NotFound(id);
             if (repository.References(id) is { Count: > 0 } references)
                 return new(false, $"Cannot delete: still used by {string.Join(", ", references)}", id);
             repository.Delete(id);
@@ -140,36 +146,41 @@ public sealed class FurniEditorService : IFurniEditorService
     public FurniEditorResult UpdateFurnidata(Habbo actor, uint id, string json)
     {
         if (!EditorPermissions.Allows(actor, EditorPermissions.FurnidataEdit))
-            return Denied();
+            return Denied(id);
         if (!TakeFurnidataTurn(actor))
             return new(false, "Too many requests", id);
         var (payload, error) = FurnidataEditPayload.Parse(json);
         if (payload == null)
             return new(false, error!, id);
         return WriteFurnidata(actor, id, "furnidata_update", (repository, item) =>
-            (_furnidata.Edit(item.ItemName, entry => Apply(entry, payload)), null));
+            (_furnidata.Edit(new FurnidataTarget(item.ItemName, item.SpriteId, item.Type != "s"), entry => Apply(entry, payload)), null));
     }
 
     public FurniEditorResult RevertFurnidata(Habbo actor, uint id)
     {
         if (!EditorPermissions.Allows(actor, EditorPermissions.FurnidataEdit))
-            return Denied();
+            return Denied(id);
         if (!TakeFurnidataTurn(actor))
             return new(false, "Too many requests", id);
+        // Only while the entry still holds exactly what that edit wrote: anything later (another furniture sharing
+        // the entry, a manual edit) would otherwise be erased.
         return WriteFurnidata(actor, id, "furnidata_revert", (repository, _) =>
         {
             var last = repository.LastFurnidataEdit(id) ?? throw new FurnidataException("Nothing to revert");
-            return (_furnidata.Replace(last.Classname, last.BeforeJson), last.Id);
+            var target = new FurnidataTarget(last.Classname, last.EntryId, last.EntrySection == FurniEditorRepository.WallSection);
+            return (_furnidata.Restore(target, last.AfterJson, last.BeforeJson), last.Id);
         });
     }
 
     public async Task<FurniEditorImportResult> ImportText(Habbo actor, uint id)
     {
-        RequireEditor(actor);
+        RequireEditor(actor, id);
+        if (!_importer.IsConfigured)
+            throw new FurniEditorRejected("Import from Habbo is not configured", id);
         string classname;
         using (var connection = _database.Connection())
-            classname = new FurniEditorRepository(connection).Item(id)?.ItemName ?? throw new FurniEditorRejected($"Item not found: {id}");
-        return await _importer.Find(classname) ?? new FurniEditorImportResult(false, string.Empty, string.Empty, classname);
+            classname = new FurniEditorRepository(connection).Item(id)?.ItemName ?? throw new FurniEditorRejected($"Item not found: {id}", id);
+        return await _importer.Find(classname) ?? throw new FurniEditorRejected("Import from Habbo is unavailable right now", id);
     }
 
     // The audit row is written in the same transaction as the public name mirror; if that fails after the file
@@ -184,15 +195,21 @@ public sealed class FurniEditorService : IFurniEditorService
             using var transaction = connection.BeginTransaction();
             var repository = new FurniEditorRepository(connection, transaction);
             if (repository.Item(id) is not { } item)
-                return new(false, $"Item not found: {id}");
+                return NotFound(id);
             int? revertedLogId;
             try
             {
                 (edit, revertedLogId) = write(repository, item);
             }
-            catch (Exception e) when (e is FurnidataException or IOException or UnauthorizedAccessException or JsonException)
+            catch (FurnidataException e)
             {
                 return new(false, e.Message, id);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+            {
+                // IO messages carry server paths; the log keeps them, the editor gets a plain sentence.
+                _logger.LogError(e, "Furni editor: furnidata write for furniture #{Id} failed", id);
+                return new(false, "The furnidata file could not be written", id);
             }
             if (!edit.Changed && revertedLogId == null)
                 return new(true, "No changes", id);
@@ -200,7 +217,8 @@ public sealed class FurniEditorService : IFurniEditorService
             {
                 if (revertedLogId is { } logId)
                     repository.MarkReverted(logId);
-                repository.Log(actor.Id, actor.Username, action, id, edit.Classname, edit.Before, edit.After);
+                repository.Log(actor.Id, actor.Username, action, id, edit.Classname, edit.Before, edit.After,
+                    edit.Id, edit.IsWallItem ? FurniEditorRepository.WallSection : FurniEditorRepository.FloorSection);
                 var name = edit.Name.Length > 56 ? edit.Name[..56] : edit.Name;
                 if (name != item.PublicName && TextChanged(edit))
                     repository.SetPublicName(id, name);
@@ -209,12 +227,13 @@ public sealed class FurniEditorService : IFurniEditorService
             catch
             {
                 if (edit.Changed)
-                    _furnidata.Replace(edit.Classname, edit.Before);
+                    _furnidata.Restore(new FurnidataTarget(edit.Classname, edit.Id, edit.IsWallItem), edit.After, edit.Before);
                 throw;
             }
             _logger.LogInformation("Furni editor: {User} {Action} for {Classname} (furniture #{Id})", actor.Username, action, edit.Classname, id);
+            // Sent before the lock is released, so clients get furnidata changes in the order they were written.
+            Broadcast(edit);
         }
-        Broadcast(edit);
         _refresher.Schedule(reloadItems: true);
         return new(true, action == "furnidata_revert" ? "Furnidata reverted" : "Furnidata updated", id);
     }
@@ -276,13 +295,15 @@ public sealed class FurniEditorService : IFurniEditorService
 
     internal static bool KnownInteraction(string type) => type == "default" || InteractionTypes.GetTypeFromString(type) != InteractionType.None;
 
-    private static void RequireEditor(Habbo actor)
+    private static void RequireEditor(Habbo actor, uint itemId = 0)
     {
         if (!EditorPermissions.Allows(actor))
-            throw new FurniEditorRejected("No permission");
+            throw new FurniEditorRejected("No permission", itemId);
     }
 
-    private static FurniEditorResult Denied() => new(false, "No permission");
+    private static FurniEditorResult Denied(uint itemId) => new(false, "No permission", itemId);
+
+    private static FurniEditorResult NotFound(uint itemId) => new(false, $"Item not found: {itemId}", itemId);
 
     private static string Json(object value) => JsonSerializer.Serialize(value);
 }

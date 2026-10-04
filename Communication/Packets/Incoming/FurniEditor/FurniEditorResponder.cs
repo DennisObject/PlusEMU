@@ -15,12 +15,13 @@ internal static class FurniEditorResponder
         }
         catch (FurniEditorRejected rejected)
         {
-            session.Send(new FurniEditorResultComposer(new(false, rejected.Message)));
+            session.Send(new FurniEditorResultComposer(new(false, rejected.Message, rejected.ItemId)));
         }
     }
 
     // Furnidata writes and the Habbo import can outlast the packet deadline, so they answer when they are done.
-    public static void InBackground(GameClient session, ILogger logger, Func<Task<IServerPacket>> work) => _ = Task.Run(async () =>
+    // Failures carry the furniture id the request named, so the editor can match them to that request.
+    public static void InBackground(GameClient session, ILogger logger, uint itemId, Func<Task<IServerPacket>> work) => _ = Task.Run(async () =>
     {
         IServerPacket answer;
         try
@@ -29,12 +30,12 @@ internal static class FurniEditorResponder
         }
         catch (FurniEditorRejected rejected)
         {
-            answer = new FurniEditorResultComposer(new(false, rejected.Message));
+            answer = new FurniEditorResultComposer(new(false, rejected.Message, rejected.ItemId));
         }
         catch (Exception e)
         {
             logger.LogError(e, "Furni editor request failed");
-            answer = new FurniEditorResultComposer(new(false, "The server could not finish this request"));
+            answer = new FurniEditorResultComposer(new(false, "The server could not finish this request", itemId));
         }
         session.Send(answer);
     });

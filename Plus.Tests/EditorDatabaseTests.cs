@@ -33,7 +33,6 @@ public sealed class EditorDatabaseTests : IDisposable
     private const string Tag = "e3test";
     private readonly HabbiconDatabaseTests.TestDatabase _database;
     private readonly List<CatalogPage> _cache = new();
-    private readonly Dictionary<uint, ItemDefinition> _definitions = new();
     private readonly EditorPermissionTests.Recorder _refresher = (EditorPermissionTests.Recorder)(object)DispatchProxy.Create<ICatalogCacheRefresher, EditorPermissionTests.Recorder>();
     private readonly string _directory = Directory.CreateTempSubdirectory("editor-db-tests-").FullName;
     private readonly CatalogAdminService _catalog = null!;
@@ -50,9 +49,7 @@ public sealed class EditorDatabaseTests : IDisposable
         Cleanup();
         var catalogManager = DispatchProxy.Create<ICatalogManager, CatalogProxy>();
         ((CatalogProxy)(object)catalogManager).Pages = _cache;
-        var items = DispatchProxy.Create<IItemDataManager, CatalogProxy>();
-        ((CatalogProxy)(object)items).Items = _definitions;
-        _catalog = new CatalogAdminService(_database, catalogManager, items, (ICatalogCacheRefresher)(object)_refresher, NullLogger<CatalogAdminService>.Instance);
+        _catalog = new CatalogAdminService(_database, catalogManager, (ICatalogCacheRefresher)(object)_refresher, NullLogger<CatalogAdminService>.Instance);
     }
 
     public void Dispose()
@@ -174,7 +171,6 @@ public sealed class EditorDatabaseTests : IDisposable
         Assert.Equal((undone.Revision, "UPDATE", page.PageId), (latest.Id, latest.Operation, latest.EntityId));
 
         var furni = InsertFurniture($"{Tag}_undo_chair", 990006);
-        _definitions[furni] = new ItemDefinition { Id = furni };
         var offer = _catalog.CreateOffer(staff, Envelope(Revision()),
             new CatalogAdminOffer("NORMAL", 0, furni.ToString(), page.PageId, $"{Tag} undo offer", 3, 0, 0, 1, 0, -1, -1, 0, "", true, false));
         var offerId = offer.EntityId;
@@ -190,7 +186,6 @@ public sealed class EditorDatabaseTests : IDisposable
     {
         var staff = EditorTestSupport.Staff();
         var furni = InsertFurniture($"{Tag}_offer_chair", 990001);
-        _definitions[furni] = new ItemDefinition { Id = furni, ItemName = $"{Tag}_offer_chair" };
         var first = CreatePage(staff, "first", -1);
         var second = CreatePage(staff, "second", -1);
         var offer = new CatalogAdminOffer("NORMAL", 0, furni.ToString(), first.PageId, $"{Tag} offer", 3, 2, 5, 1, 0, -1, 900001, 0, "", true, false);
@@ -203,8 +198,8 @@ public sealed class EditorDatabaseTests : IDisposable
         Assert.True(_catalog.CreateOffer(staff, Envelope(Revision()), offer with { OfferIdClient = -1, CatalogName = $"{Tag} plain" }).Success);
         Reload();
 
-        // Both pages sell official offer 900001: without a page to look at, the editor's id is ambiguous.
-        Assert.False(_catalog.DeleteOffer(staff, Envelope(Revision()), 900001).Success);
+        // Both pages sell official offer 900001: a session that neither looks at a page nor loaded it cannot name one.
+        Assert.Equal(CatalogAdminCodes.Conflict, _catalog.DeleteOffer(EditorTestSupport.Staff(), Envelope(Revision()), 900001).Code);
         _catalog.RecordViewedPage(staff, second.PageId);
         var details = _catalog.LoadOffer(staff, 900001);
         Assert.Equal((second.PageId, 900001, 2, 5), (details.PageId, details.OfferId, details.CostPoints, details.PointsType));
@@ -290,6 +285,160 @@ public sealed class EditorDatabaseTests : IDisposable
         Assert.Equal(Scalar<int>("SELECT COUNT(*) FROM catalog_clothing", 0), clothing.GetClothingAllParts.Count);
     }
 
+    [EditorDatabaseFact]
+    public void PageMovesAndParentsRespectRanksAndMoveUndoRestoresEverySibling()
+    {
+        var owner = EditorTestSupport.Staff(9);
+        var staff = EditorTestSupport.Staff(7);
+        var parent = CreatePage(owner, "rank_parent", -1);
+        var hidden = CreatePage(owner, "rank_hidden", parent.PageId, rank: 9, order: 0);
+        var ordinary = CreatePage(owner, "rank_ordinary", -1);
+
+        var refused = _catalog.MovePage(staff, Envelope(Revision()), ordinary.PageId, parent.PageId, 0);
+        Assert.Equal((false, CatalogAdminCodes.Forbidden), (refused.Success, refused.Code));
+        Assert.Equal(0, Scalar<int>("SELECT order_num FROM catalog_pages WHERE id = @id", hidden.PageId));
+        var underHidden = _catalog.CreatePage(staff, Envelope(Revision()), ordinary with { PageId = 0, ParentId = hidden.PageId, CaptionSave = $"{Tag}_under" });
+        Assert.Equal("You cannot use a page above your rank as parent.", underHidden.FieldErrors["parentId"]);
+
+        var a = CreatePage(owner, "move_a", parent.PageId, order: 2);
+        var b = CreatePage(owner, "move_b", parent.PageId, order: 3);
+        var c = CreatePage(owner, "move_c", parent.PageId, order: 4);
+        var moved = _catalog.MovePage(owner, Envelope(Revision()), c.PageId, parent.PageId, 0);
+        Assert.True(moved.Success, moved.Message);
+        Assert.Equal(1, Scalar<int>("SELECT order_num FROM catalog_pages WHERE id = @id", hidden.PageId));
+        Assert.Equal(CatalogAdminCodes.Forbidden, _catalog.Undo(staff, Envelope(Revision()), moved.Revision).Code);
+
+        var undone = _catalog.Undo(owner, Envelope(Revision()), moved.Revision);
+        Assert.True(undone.Success, undone.Message);
+        Assert.Equal([(hidden.PageId, 0), (a.PageId, 2), (b.PageId, 3), (c.PageId, 4)], Query<(int, int)>(
+            $"SELECT id, order_num FROM catalog_pages WHERE parent_id = {parent.PageId} ORDER BY order_num, id"));
+
+        var again = _catalog.MovePage(owner, Envelope(Revision()), c.PageId, parent.PageId, 0);
+        Execute($"UPDATE catalog_pages SET order_num = 9 WHERE id = {hidden.PageId}");
+        Assert.Equal(CatalogAdminCodes.Conflict, _catalog.Undo(owner, Envelope(Revision()), again.Revision).Code);
+    }
+
+    [EditorDatabaseFact]
+    public void FurniDetailShowsOnlyOffersOnPagesTheActorCanOpen()
+    {
+        var owner = EditorTestSupport.Staff(9);
+        var staff = EditorTestSupport.Staff(7);
+        var hiddenPage = CreatePage(owner, "refs_hidden", -1, rank: 9);
+        var visiblePage = CreatePage(owner, "refs_visible", -1);
+        var furni = InsertFurniture($"{Tag}_refs", 990011);
+        foreach (var page in new[] { hiddenPage, visiblePage })
+            Assert.True(_catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, page.PageId, -1)).Success);
+        var editor = Furni(Path.Combine(_directory, "none.json"));
+
+        Assert.Equal([visiblePage.PageId], editor.Detail(staff, furni).CatalogRefs.Select(reference => reference.PageId));
+        Assert.Equal(2, editor.Detail(owner, furni).CatalogRefs.Count);
+        Assert.Equal("Cannot delete: still used by 2 catalog offers", editor.Delete(staff, furni).Message);
+    }
+
+    [EditorDatabaseFact]
+    public void OfferSavesGoToTheRowTheEditorLoadedAndCreatesAckThePageOfferId()
+    {
+        var owner = EditorTestSupport.Staff();
+        var furni = InsertFurniture($"{Tag}_bound", 990012);
+        var pageA = CreatePage(owner, "bound_a", -1);
+        var pageB = CreatePage(owner, "bound_b", -1);
+        var createdA = _catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, pageA.PageId, 900091));
+        Assert.Equal(900091, createdA.EntityId);
+        var createdB = _catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, pageB.PageId, 900091));
+        Assert.True(createdB.Success, createdB.Message);
+        var plain = _catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, pageA.PageId, -1));
+        var second = _catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, pageA.PageId, 900091));
+        Assert.NotEqual(900091, second.EntityId);
+        Assert.NotEqual(900091, plain.EntityId);
+        Reload();
+        Assert.Equal(second.EntityId, _cache.Single(page => page.Id == pageA.PageId).Offers.Values.Single(item => item.Id == RowOf(second)).WireOfferId);
+
+        _catalog.RecordViewedPage(owner, pageA.PageId);
+        var form = _catalog.LoadOffer(owner, 900091);
+        _catalog.RecordViewedPage(owner, pageB.PageId);
+        var saved = _catalog.SaveOffer(owner, Envelope(Revision()), form with { CostCredits = 77 });
+        Assert.True(saved.Success, saved.Message);
+        Assert.Equal((77, 3), (Scalar<int>("SELECT cost_credits FROM catalog_items WHERE id = @id", RowOf(createdA)),
+            Scalar<int>("SELECT cost_credits FROM catalog_items WHERE id = @id", RowOf(createdB))));
+
+        var otherSession = EditorTestSupport.Staff();
+        Assert.Equal(CatalogAdminCodes.Conflict, _catalog.SaveOffer(otherSession, Envelope(Revision()), form with { CostCredits = 1 }).Code);
+    }
+
+    [EditorDatabaseFact]
+    public void OffersCannotUseFurnitureDeletedSinceTheCacheWasLoaded()
+    {
+        var owner = EditorTestSupport.Staff();
+        var page = CreatePage(owner, "deleted_furni", -1);
+        var furni = InsertFurniture($"{Tag}_deleted", 990013);
+        Assert.True(Furni(Path.Combine(_directory, "none.json")).Delete(owner, furni).Success);
+
+        var created = _catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, page.PageId, -1));
+        Assert.Equal($"Furniture #{furni} does not exist.", created.FieldErrors["itemIds"]);
+    }
+
+    [EditorDatabaseFact]
+    public void FurnidataRevertIsRefusedWhenTheSharedEntryChangedSince()
+    {
+        var owner = EditorTestSupport.Staff();
+        var first = InsertFurniture($"{Tag}_duplicate", 990020);
+        var second = InsertFurniture($"{Tag}_duplicate", 990020);
+        var path = Path.Combine(_directory, "FurnitureData.json");
+        File.WriteAllText(path, """{"roomitemtypes":{"furnitype":[{"id":990020,"classname":"e3test_duplicate","name":"old name","description":"old description"}]},"wallitemtypes":{"furnitype":[]}}""");
+        var editor = Furni(path);
+
+        Assert.True(editor.UpdateFurnidata(owner, first, "{\"name\":\"new name\"}").Success);
+        Thread.Sleep(1100);
+        Assert.True(editor.UpdateFurnidata(owner, second, "{\"description\":\"new description\"}").Success);
+        Thread.Sleep(1100);
+
+        var revert = editor.RevertFurnidata(owner, first);
+        Assert.Equal((false, "The furnidata entry changed since that edit; revert refused", first), (revert.Success, revert.Message, revert.ItemId));
+        Assert.Contains("new description", File.ReadAllText(path));
+        Assert.Equal((990020, "roomitemtypes"), Scalar<(int, string)>("SELECT entry_id, entry_section FROM furni_editor_log WHERE item_id = @id ORDER BY id DESC LIMIT 1", (int)first));
+    }
+
+    [EditorDatabaseFact]
+    public void SessionRevisionAndPagesComeFromOneSnapshot()
+    {
+        var owner = EditorTestSupport.Staff();
+        int before = Revision();
+        _catalog.BetweenSessionReads = () => Execute("""
+            INSERT INTO catalog_pages (parent_id, caption, page_link, order_num, page_strings_1, page_strings_2) VALUES (-1, 'e3test snapshot', 'e3test_snapshot', 0, '', '');
+            INSERT INTO catalog_admin_log (user_id, username, action, entity_type, catalog_type, entity_id, operation) VALUES (1, 'other', 'createPage', 'PAGE', 'NORMAL', 0, 'CREATE');
+            """);
+
+        var session = _catalog.OpenSession(owner);
+
+        Assert.Equal(before, session.Revision);
+        Assert.DoesNotContain(session.Pages, page => page.CaptionSave == "e3test_snapshot");
+        _catalog.BetweenSessionReads = null;
+        Assert.Contains(_catalog.OpenSession(owner).Pages, page => page.CaptionSave == "e3test_snapshot");
+    }
+
+    [EditorDatabaseFact]
+    public void ConcurrentLimitedPurchasesGetDistinctSerialsUpToTheStack()
+    {
+        var page = CreatePage(EditorTestSupport.Staff(), "limited", -1);
+        int rowId = Scalar<int>($"INSERT INTO catalog_items (page_id, item_id, catalog_name, limited_stack, limited_sells) VALUES ({page.PageId}, '1', 'e3test ltd', 5, 0); SELECT CAST(LAST_INSERT_ID() AS SIGNED)", 0);
+        var serials = new System.Collections.Concurrent.ConcurrentBag<int?>();
+
+        Parallel.For(0, 20, new ParallelOptions { MaxDegreeOfParallelism = 20 }, _ =>
+        {
+            using var connection = _database.Connection();
+            serials.Add(CatalogLimitedStock.Reserve(connection, rowId));
+        });
+
+        Assert.Equal([1, 2, 3, 4, 5], serials.Where(serial => serial != null).Select(serial => serial!.Value).Order());
+        Assert.Equal(15, serials.Count(serial => serial == null));
+        Assert.Equal(5, Scalar<int>("SELECT limited_sells FROM catalog_items WHERE id = @id", rowId));
+    }
+
+    private static CatalogAdminOffer Offer(uint furni, int pageId, int offerId) =>
+        new("NORMAL", 0, furni.ToString(), pageId, $"{Tag} offer", 3, 0, 0, 1, 0, -1, offerId, 0, "", true, false);
+
+    private int RowOf(CatalogAdminOutcome created) => Scalar<int>("SELECT entity_id FROM catalog_admin_log WHERE id = @id", created.Revision);
+
     private FurniEditorService Furni(string furnidataPath)
     {
         var clients = DispatchProxy.Create<IGameClientManager, CatalogProxy>();
@@ -298,9 +447,9 @@ public sealed class EditorDatabaseTests : IDisposable
             NullLogger<FurniEditorService>.Instance);
     }
 
-    private CatalogAdminPage CreatePage(Habbo staff, string name, int parentId)
+    private CatalogAdminPage CreatePage(Habbo staff, string name, int parentId, int rank = 1, int order = -1)
     {
-        var page = new CatalogAdminPage("NORMAL", 0, parentId, $"{Tag}_{name}", $"{Tag} {name}", "default_3x3", 1, 1, 1, -1, true, true, false, "NORMAL",
+        var page = new CatalogAdminPage("NORMAL", 0, parentId, $"{Tag}_{name}", $"{Tag} {name}", "default_3x3", 1, 1, rank, order, true, true, false, "NORMAL",
             false, "", "", "", "", "", "", "", 0, "");
         var outcome = _catalog.CreatePage(staff, Envelope(Revision()), page);
         Assert.True(outcome.Success, outcome.Message);

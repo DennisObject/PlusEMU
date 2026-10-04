@@ -1,7 +1,7 @@
+using System.Data;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
-using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Users;
 
@@ -50,19 +50,16 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
 
     private readonly IDatabase _database;
     private readonly ICatalogManager _catalogManager;
-    private readonly IItemDataManager _itemDataManager;
     private readonly ICatalogCacheRefresher _refresher;
     private readonly ILogger<CatalogAdminService> _logger;
     private readonly ConcurrentDictionary<int, int> _viewedPages = new();
     // One emulator process owns the catalog, so serialising here keeps revision checks and writes atomic.
     private readonly object _sync = new();
 
-    public CatalogAdminService(IDatabase database, ICatalogManager catalogManager, IItemDataManager itemDataManager,
-        ICatalogCacheRefresher refresher, ILogger<CatalogAdminService> logger)
+    public CatalogAdminService(IDatabase database, ICatalogManager catalogManager, ICatalogCacheRefresher refresher, ILogger<CatalogAdminService> logger)
     {
         _database = database;
         _catalogManager = catalogManager;
-        _itemDataManager = itemDataManager;
         _refresher = refresher;
         _logger = logger;
     }
@@ -71,10 +68,20 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
     {
         RequireEditor(actor);
         using var connection = _database.Connection();
-        var store = new CatalogAdminStore(connection);
+        connection.Open();
+        // One snapshot: the revision the editor gets must describe exactly the pages it gets.
+        using var transaction = connection.BeginTransaction(IsolationLevel.RepeatableRead);
+        var store = new CatalogAdminStore(connection, transaction);
+        int revision = store.Revision();
+        var updatedAt = store.LastChangeAt();
+        BetweenSessionReads?.Invoke();
         var pages = store.Pages().Where(page => page.MinRank <= actor.Rank).Select(CatalogAdminMapping.ToPage).ToList();
-        return new(store.Revision(), store.LastChangeAt(), pages);
+        transaction.Commit();
+        return new(revision, updatedAt, pages);
     }
+
+    // Test seam: runs after the session's revision is read and before its pages are.
+    internal Action? BetweenSessionReads { get; set; }
 
     public CatalogAdminHistory History(Habbo actor, int offset, int limit)
     {
@@ -153,22 +160,22 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
         Mutate(actor, envelope, "movePage", PageEntity, pageId, store =>
         {
             var existing = RequirePage(store, pageId, actor);
-            Reject(CatalogAdminValidation.Move(pageId, parentId, CatalogAdminTypes.FromMode(existing.CatalogMode), store.Page));
+            Reject(CatalogAdminValidation.Move(pageId, parentId, CatalogAdminTypes.FromMode(existing.CatalogMode), actor.Rank, store.Page));
             var siblings = store.Children(parentId, existing.CatalogMode).Where(page => page.Id != pageId).ToList();
             var moved = existing.Copy();
             moved.ParentId = parentId;
             siblings.Insert(Math.Clamp(index, 0, siblings.Count), moved);
-            for (int order = 0; order < siblings.Count; order++)
-            {
-                if (siblings[order].Id == pageId)
-                {
-                    moved.OrderNum = order;
-                    store.UpdatePage(moved);
-                }
-                else if (siblings[order].OrderNum != order)
-                    store.SetPageOrder(siblings[order].Id, order);
-            }
-            return PageChange("MOVE", existing, moved, "Page moved");
+            moved.OrderNum = siblings.IndexOf(moved);
+            var renumbered = siblings.Select((page, order) => (Page: page, Order: order))
+                .Where(entry => entry.Page.Id != pageId && entry.Page.OrderNum != entry.Order).ToList();
+            if (renumbered.Any(entry => entry.Page.MinRank > actor.Rank))
+                throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "This move would reorder pages above your rank.");
+            store.UpdatePage(moved);
+            foreach (var (page, order) in renumbered)
+                store.SetPageOrder(page.Id, order);
+            var before = new CatalogAdminMove(CatalogAdminMapping.ToPage(existing), renumbered.Select(entry => new CatalogAdminOrder(entry.Page.Id, entry.Page.OrderNum)).ToList());
+            var after = new CatalogAdminMove(CatalogAdminMapping.ToPage(moved), renumbered.Select(entry => new CatalogAdminOrder(entry.Page.Id, entry.Order)).ToList());
+            return new(new(PageEntity, after.Page.CatalogType, pageId, "MOVE", before, after), after.Page, "Page moved");
         });
 
     public CatalogAdminOutcome SetPageEnabled(Habbo actor, CatalogAdminEnvelope envelope, int pageId, bool enabled) =>

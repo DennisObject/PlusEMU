@@ -6,6 +6,8 @@ namespace Plus.HabboHotel.Items.Editor;
 // SQL for the furni editor. Sort columns and updated columns come from fixed maps, values are always parameters.
 internal sealed class FurniEditorRepository
 {
+    public const string FloorSection = "roomitemtypes";
+    public const string WallSection = "wallitemtypes";
     public const int PageSize = 20;
     public const int MaxPage = 10_000;
     private const int MaxCatalogRefs = 100;
@@ -72,8 +74,8 @@ internal sealed class FurniEditorRepository
         return new(items, total, page);
     }
 
-    public FurniEditorItem? Item(uint id) =>
-        _connection.QuerySingleOrDefault<FurniEditorItem>($"SELECT {ItemColumns} FROM furniture WHERE id = @id", new { id }, _transaction);
+    public FurniEditorItem? Item(uint id, bool forUpdate = false) =>
+        _connection.QuerySingleOrDefault<FurniEditorItem>($"SELECT {ItemColumns} FROM furniture WHERE id = @id{(forUpdate ? " FOR UPDATE" : "")}", new { id }, _transaction);
 
     public uint? ItemBySprite(int spriteId) =>
         _connection.QueryFirstOrDefault<uint?>("SELECT id FROM furniture WHERE sprite_id = @spriteId ORDER BY id LIMIT 1", new { spriteId }, _transaction);
@@ -81,11 +83,13 @@ internal sealed class FurniEditorRepository
     public int UsageCount(uint id) => _connection.QuerySingle<int>("SELECT COUNT(*) FROM items WHERE base_item = @id", new { id }, _transaction);
 
     // catalog_items.item_id is text; comparing with text keeps its index usable.
-    public List<FurniEditorCatalogRef> CatalogRefs(uint id) => _connection.Query<FurniEditorCatalogRef>("""
+    // Offers on pages above actorRank are left out, as the catalog hides those pages from the actor.
+    public List<FurniEditorCatalogRef> CatalogRefs(uint id, int actorRank) => _connection.Query<FurniEditorCatalogRef>("""
         SELECT ci.id AS Id, ci.catalog_name AS CatalogName, ci.cost_credits AS CostCredits, ci.cost_pixels AS CostPixels,
         ci.cost_diamonds AS CostDiamonds, ci.page_id AS PageId, COALESCE(cp.caption, '') AS PageName
-        FROM catalog_items ci LEFT JOIN catalog_pages cp ON cp.id = ci.page_id WHERE ci.item_id = @itemId ORDER BY ci.id LIMIT @limit
-        """, new { itemId = id.ToString(), limit = MaxCatalogRefs }, _transaction).ToList();
+        FROM catalog_items ci LEFT JOIN catalog_pages cp ON cp.id = ci.page_id
+        WHERE ci.item_id = @itemId AND (cp.id IS NULL OR cp.min_rank <= @actorRank) ORDER BY ci.id LIMIT @limit
+        """, new { itemId = id.ToString(), actorRank, limit = MaxCatalogRefs }, _transaction).ToList();
 
     // Everything that still needs this definition: placed or owned furni, catalog offers and deals ("id*amount;..."),
     // unopened gifts and open marketplace listings (a listed item only exists as its definition id).
@@ -131,16 +135,18 @@ internal sealed class FurniEditorRepository
 
     public void Delete(uint id) => _connection.Execute("DELETE FROM furniture WHERE id = @id", new { id }, _transaction);
 
-    public void Log(int userId, string username, string action, uint itemId, string classname, string? before, string? after) =>
+    // Furnidata rows also name the entry (id and section), since several entries can share a classname.
+    public void Log(int userId, string username, string action, uint itemId, string classname, string? before, string? after,
+        int? entryId = null, string? entrySection = null) =>
         _connection.Execute("""
-            INSERT INTO furni_editor_log (user_id, username, action, item_id, classname, before_json, after_json)
-            VALUES (@userId, @username, @action, @itemId, @classname, @before, @after)
-            """, new { userId, username, action, itemId, classname, before, after }, _transaction);
+            INSERT INTO furni_editor_log (user_id, username, action, item_id, classname, entry_id, entry_section, before_json, after_json)
+            VALUES (@userId, @username, @action, @itemId, @classname, @entryId, @entrySection, @before, @after)
+            """, new { userId, username, action, itemId, classname, entryId, entrySection, before, after }, _transaction);
 
     // The newest furnidata edit of this item that has not been reverted yet.
     public FurnidataLogRow? LastFurnidataEdit(uint itemId) =>
         _connection.QueryFirstOrDefault<FurnidataLogRow>("""
-            SELECT id AS Id, classname AS Classname, before_json AS BeforeJson FROM furni_editor_log
+            SELECT id AS Id, classname AS Classname, entry_id AS EntryId, entry_section AS EntrySection, before_json AS BeforeJson, after_json AS AfterJson FROM furni_editor_log
             WHERE item_id = @itemId AND action = 'furnidata_update' AND reverted = 0 ORDER BY id DESC LIMIT 1
             """, new { itemId }, _transaction);
 
@@ -151,5 +157,8 @@ internal sealed class FurnidataLogRow
 {
     public int Id { get; set; }
     public string Classname { get; set; } = string.Empty;
+    public int EntryId { get; set; }
+    public string EntrySection { get; set; } = string.Empty;
     public string BeforeJson { get; set; } = string.Empty;
+    public string AfterJson { get; set; } = string.Empty;
 }

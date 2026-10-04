@@ -71,6 +71,18 @@ public sealed class FurnidataStoreTests : IDisposable
         Assert.Contains("not_found", missing.DiagnosticJson);
     }
 
+    private static FurnidataTarget Floor(string classname, int id) => new(classname, id, false);
+
+    private static FurnidataTarget Wall(string classname, int id) => new(classname, id, true);
+
+    [Fact]
+    public void DiagnosticsNameTheFileButNeverTheServerPath()
+    {
+        using var diagnostic = JsonDocument.Parse(Store().Lookup("shelves_norja", 0).DiagnosticJson);
+        Assert.Equal("FurnitureData.json", diagnostic.RootElement.GetProperty("sourcePath").GetString());
+        Assert.DoesNotContain(_directory, Store().Lookup("x", 0).DiagnosticJson);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("relative/FurnitureData.json")]
@@ -82,14 +94,15 @@ public sealed class FurnidataStoreTests : IDisposable
         var lookup = store.Lookup("shelves_norja", 13);
         Assert.Equal("{}", lookup.EntryJson);
         Assert.Contains("source_missing", lookup.DiagnosticJson);
-        Assert.Throws<FurnidataException>(() => store.Edit("shelves_norja", entry => entry["name"] = "x"));
+        Assert.DoesNotContain("/tmp/", lookup.DiagnosticJson);
+        Assert.Throws<FurnidataException>(() => store.Edit(Floor("shelves_norja", 13), entry => entry["name"] = "x"));
     }
 
     [Fact]
     public void EditWritesOnlyThatEntryKeepsFormattingAndABackup()
     {
         var store = Store();
-        var edit = store.Edit("shelves_norja", entry => entry["name"] = "Pine Bookcase");
+        var edit = store.Edit(Floor("shelves_norja", 13), entry => entry["name"] = "Pine Bookcase");
 
         Assert.True(edit.Changed);
         Assert.Equal((false, 13, "shelves_norja", "Pine Bookcase"), (edit.IsWallItem, edit.Id, edit.Classname, edit.Name));
@@ -101,28 +114,46 @@ public sealed class FurnidataStoreTests : IDisposable
     }
 
     [Fact]
-    public void ReplacePutsTheLoggedEntryBack()
+    public void RestorePutsTheLoggedEntryBackOnlyWhileItIsTheLoggedAfterImage()
     {
         var store = Store();
-        var edit = store.Edit("poster", entry => entry["description"] = "A poster");
-        Assert.True(edit.IsWallItem);
+        var first = store.Edit(Wall("poster", 4001), entry => entry["description"] = "A poster");
+        Assert.True(first.IsWallItem);
+        var second = store.Edit(Wall("poster", 4001), entry => entry["name"] = "Big poster");
 
-        var revert = store.Replace("poster", edit.Before);
+        var conflict = Assert.Throws<FurnidataException>(() => store.Restore(Wall("poster", 4001), first.After, first.Before));
+        Assert.Equal("The furnidata entry changed since that edit; revert refused", conflict.Message);
+        Assert.Contains("\"Big poster\"", File.ReadAllText(_path));
 
-        Assert.Equal(edit.After, revert.Before);
-        Assert.Equal(edit.Before, revert.After);
+        store.Restore(Wall("poster", 4001), second.After, second.Before);
+        var revert = store.Restore(Wall("poster", 4001), first.After, first.Before);
+        Assert.Equal(first.Before, revert.After);
         Assert.Equal(Furnidata, File.ReadAllText(_path));
+    }
+
+    [Fact]
+    public void EntriesSharingAClassnameAreToldApartBySpriteIdWithinTheItemsSection()
+    {
+        File.WriteAllText(_path, """{"roomitemtypes":{"furnitype":[{"id":50,"classname":"dup","name":"a"},{"id":51,"classname":"dup","name":"b"}]},"wallitemtypes":{"furnitype":[{"id":52,"classname":"dup","name":"c"}]}}""");
+        var store = Store();
+
+        Assert.Equal(51, store.Edit(Floor("dup", 51), entry => entry["name"] = "b2").Id);
+        Assert.Equal("Several furnidata entries share this classname and sprite id", Assert.Throws<FurnidataException>(() => store.Edit(Floor("dup", 99), entry => entry["name"] = "x")).Message);
+        Assert.Equal(52, store.Edit(Wall("dup", 99), entry => entry["name"] = "c2").Id);
+        Assert.Throws<FurnidataException>(() => store.Edit(Floor("poster", 4001), entry => entry["name"] = "x"));
+        Assert.Contains("\"name\":\"a\"", File.ReadAllText(_path));
     }
 
     [Fact]
     public void RefusesUnknownClassnamesRenamesAndNoOpWrites()
     {
         var store = Store();
-        Assert.Throws<FurnidataException>(() => store.Edit("missing", entry => entry["name"] = "x"));
-        Assert.Throws<FurnidataException>(() => store.Edit("", entry => entry["name"] = "x"));
-        Assert.Throws<FurnidataException>(() => store.Edit("poster", entry => entry["classname"] = "other"));
-        Assert.Throws<FurnidataException>(() => store.Replace("poster", "[1]"));
-        var noOp = store.Edit("poster", entry => entry["name"] = "Poster");
+        Assert.Throws<FurnidataException>(() => store.Edit(Floor("missing", 1), entry => entry["name"] = "x"));
+        Assert.Throws<FurnidataException>(() => store.Edit(Floor("", 1), entry => entry["name"] = "x"));
+        Assert.Throws<FurnidataException>(() => store.Edit(Wall("poster", 4001), entry => entry["classname"] = "other"));
+        Assert.Throws<FurnidataException>(() => store.Edit(Wall("poster", 4001), entry => entry["id"] = 9));
+        Assert.Throws<FurnidataException>(() => store.Restore(Wall("poster", 4001), store.Edit(Wall("poster", 4001), _ => { }).Before, "[1]"));
+        var noOp = store.Edit(Wall("poster", 4001), entry => entry["name"] = "Poster");
         Assert.False(noOp.Changed);
         Assert.False(File.Exists(_path + ".bak"));
     }
@@ -133,7 +164,7 @@ public sealed class FurnidataStoreTests : IDisposable
         var link = Path.Combine(_directory, "linked.json");
         File.CreateSymbolicLink(link, _path);
 
-        Store(link).Edit("shelves_norja", entry => entry["name"] = "Linked");
+        Store(link).Edit(Floor("shelves_norja", 13), entry => entry["name"] = "Linked");
 
         Assert.NotNull(new FileInfo(link).LinkTarget);
         Assert.Contains("\"Linked\"", File.ReadAllText(_path));
@@ -144,6 +175,6 @@ public sealed class FurnidataStoreTests : IDisposable
     {
         var store = new FurnidataStore(Options.Create(new FurniEditorConfiguration { FurnidataPath = _path, FurnidataMaxBytes = 100 }));
         Assert.Contains("error", store.Lookup("poster", 0).DiagnosticJson);
-        Assert.Throws<FurnidataException>(() => store.Edit("poster", entry => entry["name"] = "x"));
+        Assert.Throws<FurnidataException>(() => store.Edit(Wall("poster", 4001), entry => entry["name"] = "x"));
     }
 }

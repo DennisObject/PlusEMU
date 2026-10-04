@@ -40,7 +40,7 @@ public static partial class CatalogAdminValidation
             errors["catalogMode"] = "Pages belong to the normal or the builders club catalog.";
         else if (existing != null && CatalogAdminTypes.FromMode(existing.CatalogMode) != type)
             errors["catalogMode"] = "A page cannot move to the other catalog.";
-        Parent(errors, page.PageId, page.ParentId, type, findPage);
+        Parent(errors, page.PageId, page.ParentId, type, actorRank, findPage);
         PageString(errors, "pageHeadline", page.PageHeadline, MaxImageLength);
         PageString(errors, "pageTeaser", page.PageTeaser, MaxImageLength);
         PageString(errors, "pageSpecial", page.PageSpecial, MaxImageLength);
@@ -96,10 +96,10 @@ public static partial class CatalogAdminValidation
     public static string? Summary(Dictionary<string, string> errors) =>
         errors.Count == 0 ? null : errors.TryGetValue(Form, out var form) ? form : $"{errors.First().Key}: {errors.First().Value}";
 
-    public static Dictionary<string, string> Move(int pageId, int parentId, string catalogType, Func<int, CatalogPageRow?> findPage)
+    public static Dictionary<string, string> Move(int pageId, int parentId, string catalogType, int actorRank, Func<int, CatalogPageRow?> findPage)
     {
         var errors = new Dictionary<string, string>();
-        Parent(errors, pageId, parentId, catalogType, findPage);
+        Parent(errors, pageId, parentId, catalogType, actorRank, findPage);
         return errors;
     }
 
@@ -112,7 +112,7 @@ public static partial class CatalogAdminValidation
     }
 
     // Walks up from the new parent; reaching the page itself would make it its own ancestor.
-    private static void Parent(Dictionary<string, string> errors, int pageId, int parentId, string? type, Func<int, CatalogPageRow?> findPage)
+    private static void Parent(Dictionary<string, string> errors, int pageId, int parentId, string? type, int actorRank, Func<int, CatalogPageRow?> findPage)
     {
         if (parentId == RootParentId)
             return;
@@ -120,6 +120,11 @@ public static partial class CatalogAdminValidation
         if (parent == null)
         {
             errors["parentId"] = "Parent page not found.";
+            return;
+        }
+        if (parent.MinRank > actorRank)
+        {
+            errors["parentId"] = "You cannot use a page above your rank as parent.";
             return;
         }
         if (type != null && CatalogAdminTypes.FromMode(parent.CatalogMode) != type)

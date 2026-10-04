@@ -25,7 +25,7 @@ public class EditorPermissionTests
     {
         var refresher = DispatchProxy.Create<ICatalogCacheRefresher, Recorder>();
         return (new CatalogAdminService(EditorTestSupport.UntouchableDatabase(), DispatchProxy.Create<ICatalogManager, Recorder>(),
-            DispatchProxy.Create<IItemDataManager, Recorder>(), refresher, NullLogger<CatalogAdminService>.Instance), (Recorder)(object)refresher);
+            refresher, NullLogger<CatalogAdminService>.Instance), (Recorder)(object)refresher);
     }
 
     private static (FurniEditorService Service, Recorder Refresher) Furni()
@@ -66,14 +66,25 @@ public class EditorPermissionTests
     public async Task FurniEditorIsRefusedBeforeTouchingTheDatabase(Habbo actor)
     {
         var (service, refresher) = Furni();
-        Assert.All(new[] { service.Update(actor, 1, "{}"), service.Delete(actor, 1), service.UpdateFurnidata(actor, 1, "{\"name\":\"x\"}"), service.RevertFurnidata(actor, 1) },
-            result => Assert.Equal((false, "No permission"), (result.Success, result.Message)));
-        Assert.Throws<FurniEditorRejected>(() => service.Search(actor, "", "", 1, "id", "asc"));
-        Assert.Throws<FurniEditorRejected>(() => service.Detail(actor, 1));
-        Assert.Throws<FurniEditorRejected>(() => service.DetailBySprite(actor, 1));
+        // Refusals name the furniture the request was about, so the editor can match them to it.
+        Assert.All(new[] { service.Update(actor, 41, "{}"), service.Delete(actor, 41), service.UpdateFurnidata(actor, 41, "{\"name\":\"x\"}"), service.RevertFurnidata(actor, 41) },
+            result => Assert.Equal((false, "No permission", 41u), (result.Success, result.Message, result.ItemId)));
+        Assert.Equal(0u, Assert.Throws<FurniEditorRejected>(() => service.Search(actor, "", "", 1, "id", "asc")).ItemId);
+        Assert.Equal(41u, Assert.Throws<FurniEditorRejected>(() => service.Detail(actor, 41)).ItemId);
+        Assert.Equal(0u, Assert.Throws<FurniEditorRejected>(() => service.DetailBySprite(actor, 1)).ItemId);
         Assert.Throws<FurniEditorRejected>(() => service.Interactions(actor));
-        await Assert.ThrowsAsync<FurniEditorRejected>(() => service.ImportText(actor, 1));
+        Assert.Equal(41u, (await Assert.ThrowsAsync<FurniEditorRejected>(() => service.ImportText(actor, 41))).ItemId);
         Assert.Empty(refresher.Calls);
+    }
+
+    [Fact]
+    public async Task ImportWithoutAnImportUrlSaysItIsNotConfigured()
+    {
+        var service = new FurniEditorService(EditorTestSupport.UntouchableDatabase(), new FurnidataStore(Options.Create(new FurniEditorConfiguration())),
+            new FurniEditorTextImporter(Options.Create(new FurniEditorConfiguration())), DispatchProxy.Create<ICatalogCacheRefresher, Recorder>(),
+            DispatchProxy.Create<IGameClientManager, Recorder>(), NullLogger<FurniEditorService>.Instance);
+        var refused = await Assert.ThrowsAsync<FurniEditorRejected>(() => service.ImportText(EditorTestSupport.Staff(), 41));
+        Assert.Equal(("Import from Habbo is not configured", 41u), (refused.Message, refused.ItemId));
     }
 
     [Fact]
@@ -81,6 +92,7 @@ public class EditorPermissionTests
     {
         var (service, _) = Furni();
         var editorOnly = EditorTestSupport.Staff(9, EditorPermissions.CatalogFurni);
+        Assert.Equal(1u, service.Delete(editorOnly, 1).ItemId);
         Assert.False(service.Delete(editorOnly, 1).Success);
         Assert.False(service.UpdateFurnidata(editorOnly, 1, "{\"name\":\"x\"}").Success);
         Assert.False(service.RevertFurnidata(editorOnly, 1).Success);

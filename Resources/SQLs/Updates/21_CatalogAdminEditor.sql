@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS catalog_admin_log (
  KEY idx_catalog_admin_log_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- furnidata_update rows hold the whole furnidata entry before and after; revert restores the newest
--- unreverted one for the item and marks it reverted.
+-- furnidata_update rows hold the whole furnidata entry before and after, and which entry it was (several can share a
+-- classname); revert restores the newest unreverted one for the item, only if the entry is still the after image.
 CREATE TABLE IF NOT EXISTS furni_editor_log (
  id INT NOT NULL AUTO_INCREMENT,
  user_id INT NOT NULL,
@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS furni_editor_log (
  action ENUM('update','delete','furnidata_update','furnidata_revert') NOT NULL,
  item_id INT UNSIGNED NOT NULL,
  classname VARCHAR(70) NOT NULL DEFAULT '',
+ entry_id INT NULL,
+ entry_section ENUM('roomitemtypes','wallitemtypes') NULL,
  before_json MEDIUMTEXT NULL,
  after_json MEDIUMTEXT NULL,
  reverted TINYINT(1) NOT NULL DEFAULT 0,

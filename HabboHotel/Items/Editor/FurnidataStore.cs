@@ -16,15 +16,19 @@ public sealed record FurnidataEdit(string Before, string After, bool IsWallItem,
 
 public sealed class FurnidataException(string message) : Exception(message);
 
+// Which furnidata entry a furniture row edits: its classname in its own section, told apart by sprite id when
+// several entries share the classname.
+public sealed record FurnidataTarget(string Classname, int Id, bool IsWallItem);
+
 public interface IFurnidataStore
 {
     FurnidataLookup Lookup(string classname, int spriteId);
 
-    // Applies edit to the entry whose classname matches exactly and writes the file atomically.
-    FurnidataEdit Edit(string classname, Action<JsonObject> edit);
+    // Applies edit to the target entry and writes the file atomically.
+    FurnidataEdit Edit(FurnidataTarget target, Action<JsonObject> edit);
 
-    // Puts a previously logged entry back.
-    FurnidataEdit Replace(string classname, string entryJson);
+    // Puts entryJson back, but only while the entry is still exactly expectedCurrent.
+    FurnidataEdit Restore(FurnidataTarget target, string expectedCurrent, string entryJson);
 }
 
 // FurnitureData.json at the configured path (FurniEditor:FurnidataPath). The path never comes from a client and
@@ -63,34 +67,40 @@ public sealed class FurnidataStore : IFurnidataStore
         }
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException or FurnidataException)
         {
-            return new("{}", Diagnostic("error", spriteId, classname, path, "ERROR", e.Message));
+            // IO messages carry server paths; staff only learn that the file could not be read.
+            return new("{}", Diagnostic("error", spriteId, classname, path, "ERROR", e is FurnidataException ? e.Message : "The furnidata file could not be read"));
         }
     }
 
-    public FurnidataEdit Edit(string classname, Action<JsonObject> edit) => Write(classname, entry =>
+    public FurnidataEdit Edit(FurnidataTarget target, Action<JsonObject> edit) => Write(target, entry =>
     {
         edit(entry);
         return entry;
     });
 
-    public FurnidataEdit Replace(string classname, string entryJson) => Write(classname, _ =>
-        JsonNode.Parse(entryJson) as JsonObject ?? throw new FurnidataException("The logged entry is not a JSON object"));
-
-    private FurnidataEdit Write(string classname, Func<JsonObject, JsonObject> change)
+    public FurnidataEdit Restore(FurnidataTarget target, string expectedCurrent, string entryJson) => Write(target, current =>
     {
-        if (string.IsNullOrWhiteSpace(classname))
+        if (current.ToJsonString(Compact) != expectedCurrent)
+            throw new FurnidataException("The furnidata entry changed since that edit; revert refused");
+        return JsonNode.Parse(entryJson) as JsonObject ?? throw new FurnidataException("The logged entry is not a JSON object");
+    });
+
+    private FurnidataEdit Write(FurnidataTarget target, Func<JsonObject, JsonObject> change)
+    {
+        if (string.IsNullOrWhiteSpace(target.Classname))
             throw new FurnidataException("The furniture has no classname");
         lock (_writeSync)
         {
             var source = Resolve() ?? throw new FurnidataException("Furnidata source not configured");
             var text = File.ReadAllText(source.FullName, Encoding.UTF8);
             var root = JsonNode.Parse(text) as JsonObject ?? throw new FurnidataException("Furnidata is not a JSON object");
-            var (array, position, isWall) = Find(root, classname) ?? throw new FurnidataException("No furnidata entry for this classname");
+            var (array, position) = Find(root, target);
+            bool isWall = target.IsWallItem;
             var current = (JsonObject)array[position]!;
             var before = current.ToJsonString(Compact);
             var updated = change((JsonObject)JsonNode.Parse(before)!);
-            if (!string.Equals(Text(updated["classname"]), Text(current["classname"]), StringComparison.OrdinalIgnoreCase))
-                throw new FurnidataException("An edit cannot change the classname");
+            if (!string.Equals(Text(updated["classname"]), Text(current["classname"]), StringComparison.OrdinalIgnoreCase) || Number(updated["id"]) != Number(current["id"]))
+                throw new FurnidataException("An edit cannot change the classname or id");
             var after = updated.ToJsonString(Compact);
             var result = new FurnidataEdit(before, after, isWall, Number(updated["id"]), Text(updated["classname"]), Text(updated["name"]), Text(updated["description"]));
             if (!result.Changed)
@@ -109,19 +119,19 @@ public sealed class FurnidataStore : IFurnidataStore
 
     private static int Number(JsonNode? node) => node is JsonValue value && value.TryGetValue<int>(out var number) ? number : 0;
 
-    private static (JsonArray Array, int Position, bool IsWall)? Find(JsonObject root, string classname)
+    private static (JsonArray Array, int Position) Find(JsonObject root, FurnidataTarget target)
     {
-        foreach (var section in Sections)
+        if (root[target.IsWallItem ? "wallitemtypes" : "roomitemtypes"]?["furnitype"] is not JsonArray types)
+            throw new FurnidataException("No furnidata entry for this classname");
+        var matches = Enumerable.Range(0, types.Count)
+            .Where(i => types[i] is JsonObject entry && string.Equals(Text(entry["classname"]), target.Classname, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (matches.Count > 1)
         {
-            if (root[section]?["furnitype"] is not JsonArray types)
-                continue;
-            for (int i = 0; i < types.Count; i++)
-            {
-                if (types[i] is JsonObject entry && string.Equals(Text(entry["classname"]), classname, StringComparison.OrdinalIgnoreCase))
-                    return (types, i, section == "wallitemtypes");
-            }
+            matches = matches.Where(i => Number(types[i]!["id"]) == target.Id).ToList();
+            if (matches.Count != 1)
+                throw new FurnidataException("Several furnidata entries share this classname and sprite id");
         }
-        return null;
+        return matches is [var position] ? (types, position) : throw new FurnidataException("No furnidata entry for this classname");
     }
 
     private void Replace(FileInfo target, string content)
@@ -193,7 +203,7 @@ public sealed class FurnidataStore : IFurnidataStore
     }
 
     private static string Diagnostic(string reason, int itemId, string classname, string sourcePath, string status, string message) =>
-        JsonSerializer.Serialize(new { reason, itemId, classname, sourcePath, sourceDirectory = false, sourceStatus = status, message }, Compact);
+        JsonSerializer.Serialize(new { reason, itemId, classname, sourcePath = Path.GetFileName(sourcePath), sourceDirectory = false, sourceStatus = status, message }, Compact);
 
     private sealed record Index((string, DateTime, long) Stamp, Dictionary<string, string> ByClassname, Dictionary<int, string> ById, bool Empty);
 }
