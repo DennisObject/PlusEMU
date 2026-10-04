@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using NLog;
 using Plus.Communication.Encryption;
 using Plus.Communication.Flash;
+using Plus.Communication.Http;
 using Plus.Communication.Nitro;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Communication.RCON;
@@ -41,6 +42,7 @@ public class PlusEnvironment : IPlusEnvironment
     private static IRconSocket _rcon;
     private static IFlashServer _flashServer;
     private readonly INitroServer _nitroServer;
+    private static IAuthHttpServer _authHttpServer;
     private static IFigureDataManager _figureManager;
     private static IItemDataManager _itemDataManager;
 
@@ -63,7 +65,8 @@ public class PlusEnvironment : IPlusEnvironment
         IOptions<RconConfiguration> rconConfiguration,
         IItemDataManager itemDataManager,
         IFlashServer flashServer,
-        INitroServer nitroServer)
+        INitroServer nitroServer,
+        IAuthHttpServer authHttpServer)
     {
         _database = database;
         _languageManager = languageManager;
@@ -74,6 +77,7 @@ public class PlusEnvironment : IPlusEnvironment
         _rcon = rconSocket;
         _flashServer = flashServer;
         _nitroServer = nitroServer;
+        _authHttpServer = authHttpServer;
         _rconConfiguration = rconConfiguration.Value;
         _itemDataManager = itemDataManager;
     }
@@ -128,6 +132,8 @@ public class PlusEnvironment : IPlusEnvironment
             await _game.Init();
             _flashServer.Start();
             _nitroServer.Start();
+            await _authHttpServer.Start();
+            Log.Info($"Auth API listening on {string.Join(", ", _authHttpServer.Urls)}");
             _game.StartGameLoop();
             var timeUsed = DateTime.Now - ServerStarted;
             Console.WriteLine();
@@ -294,6 +300,8 @@ public class PlusEnvironment : IPlusEnvironment
         Console.Clear();
         Log.Info("Server shutting down...");
         Console.Title = "PLUS EMULATOR: SHUTTING DOWN!";
+        // No new logins while the hotel goes down.
+        _authHttpServer.Stop().Wait(TimeSpan.FromSeconds(5));
         Game.ClientManager.SendPacket(new BroadcastMessageAlertComposer(LanguageManager.TryGetValue("server.shutdown.message")));
         Game.StopGameLoop();
         Thread.Sleep(2500);
@@ -304,7 +312,7 @@ public class PlusEnvironment : IPlusEnvironment
         {
             using var dbClient = _database.GetQueryReactor();
             dbClient.RunQuery("TRUNCATE `catalog_marketplace_data`");
-            dbClient.RunQuery("UPDATE `users` SET `online` = false, `auth_ticket` = NULL");
+            dbClient.RunQuery("UPDATE `users` SET `online` = false, `auth_ticket` = '', `auth_ticket_expires_at` = NULL");
             dbClient.RunQuery("UPDATE `rooms` SET `users_now` = '0' WHERE `users_now` > '0'");
             dbClient.RunQuery("UPDATE `server_status` SET `users_online` = '0', `loaded_rooms` = '0'");
         }
