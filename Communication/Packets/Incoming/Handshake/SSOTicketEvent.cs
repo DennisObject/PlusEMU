@@ -27,6 +27,7 @@ namespace Plus.Communication.Packets.Incoming.Handshake;
 [NoAuthenticationRequired]
 public class SsoTicketEvent : IPacketEvent
 {
+    private readonly ClientAccessLists _clientAccessLists;
     private readonly IAuthenticator _authenticate;
     private readonly IBadgeManager _badgeManager;
     private readonly IModerationManager _moderationManager;
@@ -46,7 +47,7 @@ public class SsoTicketEvent : IPacketEvent
         IFigureDataManager figureManager,
         ILanguageManager languageManager,
         ISettingsManager settingsManager,
-        IRewardManager rewardManager, ClubLifecycle clubLifecycle)
+        IRewardManager rewardManager, ClubLifecycle clubLifecycle, ClientAccessLists clientAccessLists)
     {
         _authenticate = authenticate;
         _badgeManager = badgeManager;
@@ -58,6 +59,7 @@ public class SsoTicketEvent : IPacketEvent
         _settingsManager = settingsManager;
         _rewardManager = rewardManager;
         _clubLifecycle = clubLifecycle;
+        _clientAccessLists = clientAccessLists;
     }
 
     public async Task Parse(GameClient session, IIncomingPacket packet)
@@ -74,6 +76,7 @@ public class SsoTicketEvent : IPacketEvent
             session.Send(new FavouritesComposer(session.GetHabbo().FavoriteRooms));
             session.Send(new FigureSetIdsComposer(session.GetHabbo().Clothing.GetClothingParts));
             session.Send(new UserRightsComposer(session.GetHabbo().Access));
+            _clientAccessLists.Send(session.GetHabbo());
             session.Send(new AvailabilityStatusComposer());
             session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats.AchievementPoints));
             session.Send(new BuildersClubMembershipComposer());

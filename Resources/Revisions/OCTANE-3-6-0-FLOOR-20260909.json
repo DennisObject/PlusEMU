@@ -366,6 +366,8 @@
     "SelectClubGiftEvent": 2276
   },
   "OutgoingHeaders": {
+    "AllowedChatStylesComposer": 9340,
+    "CreatableRoomModelsComposer": 9341,
     "InitCryptoComposer": 1347,
     "SecretKeyComposer": 3885,
     "AuthenticationOkComposer": 2491,
