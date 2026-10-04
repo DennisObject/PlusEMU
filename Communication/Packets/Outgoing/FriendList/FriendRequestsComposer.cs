@@ -1,14 +1,13 @@
 ﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Users.Messenger;
 
 namespace Plus.Communication.Packets.Outgoing.FriendList;
 
 public class FriendRequestsComposer : IServerPacket
 {
-    private readonly ICollection<MessengerRequest> _requests;
+    private readonly IReadOnlyList<FriendRequestData> _requests;
     public uint MessageId => ServerPacketHeader.FriendRequestsComposer;
 
-    public FriendRequestsComposer(ICollection<MessengerRequest> requests)
+    public FriendRequestsComposer(IReadOnlyList<FriendRequestData> requests)
     {
         _requests = requests;
     }
@@ -19,10 +18,11 @@ public class FriendRequestsComposer : IServerPacket
         packet.WriteInteger(_requests.Count);
         foreach (var request in _requests)
         {
-            packet.WriteInteger(request.FromId);
+            packet.WriteInteger(request.UserId);
             packet.WriteString(request.Username);
-            var user = PlusEnvironment.Game.CacheManager.GenerateUser(request.FromId);
-            packet.WriteString(user != null ? user.Look : "");
+            packet.WriteString(request.Look);
         }
     }
 }
+
+public sealed record FriendRequestData(int UserId, string Username, string Look);
