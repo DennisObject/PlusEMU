@@ -7,10 +7,12 @@ namespace Plus.Communication.Packets.Incoming.Navigator;
 internal class NavigatorSearchEvent : IPacketEvent
 {
     private readonly INavigatorManager _navigatorManager;
+    private readonly INavigatorSearchStore _searchStore;
 
-    public NavigatorSearchEvent(INavigatorManager navigatorManager)
+    public NavigatorSearchEvent(INavigatorManager navigatorManager, INavigatorSearchStore searchStore)
     {
         _navigatorManager = navigatorManager;
+        _searchStore = searchStore;
     }
 
     public Task Parse(GameClient session, IIncomingPacket packet)
@@ -31,12 +33,12 @@ internal class NavigatorSearchEvent : IPacketEvent
                 categories = _navigatorManager.GetResultByIdentifier(category).ToList();
                 if (categories.Count > 0)
                 {
-                    session.Send(new NavigatorSearchResultSetComposer(category, search, categories, session, 2, 100));
+                    session.Send(new NavigatorSearchResultSetComposer(category, search, categories, session, _searchStore, 2, 100));
                     return Task.CompletedTask;
                 }
             }
         }
-        session.Send(new NavigatorSearchResultSetComposer(category, search, categories, session));
+        session.Send(new NavigatorSearchResultSetComposer(category, search, categories, session, _searchStore));
         return Task.CompletedTask;
     }
 }

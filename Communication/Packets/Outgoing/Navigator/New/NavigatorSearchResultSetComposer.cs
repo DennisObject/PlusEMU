@@ -11,15 +11,17 @@ public class NavigatorSearchResultSetComposer : IServerPacket
     private readonly GameClient _session;
     private readonly int _goBack;
     private readonly int _fetchLimit;
+    private readonly INavigatorSearchStore _searchStore;
     public uint MessageId => ServerPacketHeader.NavigatorSearchResultSetComposer;
 
     public NavigatorSearchResultSetComposer(string category, string data,
-        ICollection<SearchResultList> searchResultLists, GameClient session, int goBack = 1, int fetchLimit = 12)
+        ICollection<SearchResultList> searchResultLists, GameClient session, INavigatorSearchStore searchStore, int goBack = 1, int fetchLimit = 12)
     {
         _category = category;
         _data = data;
         _searchResultLists = searchResultLists;
         _session = session;
+        _searchStore = searchStore;
         _goBack = goBack;
         _fetchLimit = fetchLimit;
     }
@@ -41,7 +43,7 @@ public class NavigatorSearchResultSetComposer : IServerPacket
             packet.WriteInteger(searchResult.ViewMode == NavigatorViewMode.Regular ? 0 :
                 searchResult.ViewMode == NavigatorViewMode.Thumbnail ? 1 :
                 0); //View mode, 0 = tiny/regular, 1 = thumbnail
-            NavigatorHandler.Search(packet, searchResult, _data, _session, _fetchLimit);
+            NavigatorHandler.Search(packet, searchResult, _data, _session, _searchStore, _fetchLimit);
         }
     }
 }

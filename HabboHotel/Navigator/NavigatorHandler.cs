@@ -1,5 +1,4 @@
-﻿using System.Data;
-using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Navigator;
@@ -7,7 +6,7 @@ namespace Plus.HabboHotel.Navigator;
 internal static class NavigatorHandler
 {
     // Fuck me
-    public static void Search(IOutgoingPacket packet, SearchResultList result, string query, GameClient session, int limit)
+    public static void Search(IOutgoingPacket packet, SearchResultList result, string query, GameClient session, INavigatorSearchStore searchStore, int limit)
     {
         if (session == null)
             return;
@@ -24,31 +23,11 @@ internal static class NavigatorHandler
                 {
                     if (query.Length > 0)
                     {
-                        var userId = 0;
-                        DataTable? getRooms = null;
-                        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-                        {
-                            if (query.ToLower().StartsWith("owner:"))
-                            {
-                                dbClient.SetQuery("SELECT `id` FROM `users` WHERE `username` = @username LIMIT 1");
-                                dbClient.AddParameter("username", query.Remove(0, 6));
-                                userId = dbClient.GetInteger();
-                                dbClient.SetQuery($"SELECT * FROM `rooms` WHERE `owner` = '{userId}' and `state` != 'invisible' ORDER BY `users_now` DESC LIMIT 50");
-                                getRooms = dbClient.GetTable();
-                            }
-                        }
                         var results = new List<RoomData>();
-                        if (getRooms != null)
+                        foreach (var roomId in searchStore.FindByOwnerName(query.Remove(0, 6)))
                         {
-                            foreach (DataRow row in getRooms.Rows)
-                            {
-                                RoomData? data = null;
-                                if (!RoomFactory.TryGetData(Convert.ToUInt32(row["id"]), out data))
-                                    continue;
-                                if (!results.Contains(data))
-                                    results.Add(data);
-                            }
-                            getRooms = null;
+                            if (!RoomFactory.TryGetData(roomId, out var data)) continue;
+                            if (!results.Contains(data)) results.Add(data);
                         }
                         packet.WriteInteger(results.Count);
                         foreach (var data in results.ToList()) RoomAppender.WriteRoom(packet, data, data.Promotion);
@@ -75,28 +54,11 @@ internal static class NavigatorHandler
                 {
                     if (query.Length > 0)
                     {
-                        DataTable? table = null;
-                        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-                        {
-                            dbClient.SetQuery(
-                                "SELECT `id`,`caption`,`description`,`roomtype`,`owner`,`state`,`category`,`users_now`,`users_max`,`model_name`,`score`,`allow_pets`,`allow_pets_eat`,`room_blocking_disabled`,`allow_hidewall`,`password`,`wallpaper`,`floor`,`landscape`,`floorthick`,`wallthick`,`mute_settings`,`kick_settings`,`ban_settings`,`chat_mode`,`chat_speed`,`chat_size`,`trade_settings`,`group_id`,`tags`,`push_enabled`,`pull_enabled`,`enables_enabled`,`respect_notifications_enabled`,`pet_morphs_allowed`,`spush_enabled`,`spull_enabled`,`sale_price` FROM rooms WHERE `caption` LIKE @query ORDER BY `users_now` DESC LIMIT 50");
-                            dbClient.AddParameter("query", $"{query}%");
-                            table = dbClient.GetTable();
-                        }
                         var results = new List<RoomData>();
-                        if (table != null)
+                        foreach (var roomId in searchStore.FindByCaption(query))
                         {
-                            foreach (DataRow row in table.Rows)
-                            {
-                                if (Convert.ToString(row["state"]) == "invisible")
-                                    continue;
-                                RoomData? data = null;
-                                if (!RoomFactory.TryGetData(Convert.ToUInt32(row["id"]), out data))
-                                    continue;
-                                if (!results.Contains(data))
-                                    results.Add(data);
-                            }
-                            table = null;
+                            if (!RoomFactory.TryGetData(roomId, out var data)) continue;
+                            if (!results.Contains(data)) results.Add(data);
                         }
                         packet.WriteInteger(results.Count);
                         foreach (var data in results.ToList()) RoomAppender.WriteRoom(packet, data, data.Promotion);
@@ -141,7 +103,7 @@ internal static class NavigatorHandler
                 var favourites = new List<RoomData>();
                 foreach (var id in session.GetHabbo().FavoriteRooms.ToArray())
                 {
-                    RoomData? data = null;
+                    RoomData data = null;
                     if (!RoomFactory.TryGetData((uint)id, out data))
                         continue;
                     if (!favourites.Contains(data))
@@ -193,14 +155,9 @@ internal static class NavigatorHandler
                 var myRights = new List<RoomData>();
                 if (session != null)
                 {
-                    using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-                    dbClient.SetQuery("SELECT `room_id` FROM `room_rights` WHERE `user_id` = @UserId LIMIT @FetchLimit");
-                    dbClient.AddParameter("UserId", session.GetHabbo().Id);
-                    dbClient.AddParameter("FetchLimit", limit);
-                    var getRights = dbClient.GetTable();
-                    foreach (DataRow row in getRights.Rows)
+                    foreach (var roomId in searchStore.FindWithRights(session.GetHabbo().Id, limit))
                     {
-                        if (!RoomFactory.TryGetData(Convert.ToUInt32(row["room_id"]), out var data))
+                        if (!RoomFactory.TryGetData(roomId, out var data))
                             continue;
                         if (!myRights.Contains(data))
                             myRights.Add(data);
