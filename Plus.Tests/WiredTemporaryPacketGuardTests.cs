@@ -15,6 +15,7 @@ using Plus.HabboHotel.Items.Data.Moodlight;
 using Plus.HabboHotel.Items.Data.Toner;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 using Xunit;
@@ -58,7 +59,11 @@ public class WiredTemporaryPacketGuardTests
         var type = typeof(MoveObjectEvent).Assembly.GetType("Plus.Communication.Packets.Incoming." + name)!;
         var constructor = type.GetConstructors().Single();
         var arguments = constructor.GetParameters().Select(parameter => parameter.ParameterType == typeof(ISettingsManager)
-            ? (object)new EnabledExchangeSettings() : null).ToArray();
+            ? (object)new EnabledExchangeSettings()
+            : parameter.ParameterType == typeof(IHorseCustomizationService)
+                ? new HorseCustomizationService(null!, null!, null!, new HorseCustomizationStore(EditorTestSupport.UntouchableDatabase()),
+                    new PetInformationService(TimeProvider.System))
+                : null).ToArray();
         var handler = (IPacketEvent)constructor.Invoke(arguments);
         var packet = Packet(name);
         if (handler is RoomPacketEvent roomHandler) await roomHandler.Parse(room, client, packet);
