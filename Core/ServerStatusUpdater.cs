@@ -56,5 +56,9 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater
         dbClient.AddParameter("users", usersOnline);
         dbClient.AddParameter("loadedRooms", roomCount);
         dbClient.RunQuery();
+        // Daily online peaks feed the housekeeping dashboard.
+        dbClient.SetQuery("INSERT INTO `housekeeping_online_peaks` (`day`, `peak`) VALUES (UTC_DATE(), @users) ON DUPLICATE KEY UPDATE `peak` = GREATEST(`peak`, @users);");
+        dbClient.AddParameter("users", usersOnline);
+        dbClient.RunQuery();
     }
 }

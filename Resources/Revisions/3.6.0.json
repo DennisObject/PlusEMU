@@ -330,7 +330,31 @@
     "CatalogAdminReorderOffersEvent": 0,
     "CatalogStudioOpenSessionEvent": 0,
     "CatalogStudioLoadHistoryEvent": 0,
-    "CatalogStudioUndoEvent": 0
+    "CatalogStudioUndoEvent": 0,
+    "HousekeepingFindUserByNameEvent": 0,
+    "HousekeepingFindUserByIdEvent": 0,
+    "HousekeepingBanUserEvent": 0,
+    "HousekeepingUnbanUserEvent": 0,
+    "HousekeepingMuteUserEvent": 0,
+    "HousekeepingKickUserEvent": 0,
+    "HousekeepingForceDisconnectUserEvent": 0,
+    "HousekeepingSetUserRankEvent": 0,
+    "HousekeepingTradeLockUserEvent": 0,
+    "HousekeepingResetUserPasswordEvent": 0,
+    "HousekeepingFindRoomByIdEvent": 0,
+    "HousekeepingSearchRoomsEvent": 0,
+    "HousekeepingRoomStateEvent": 0,
+    "HousekeepingMuteRoomEvent": 0,
+    "HousekeepingKickAllFromRoomEvent": 0,
+    "HousekeepingTransferRoomOwnershipEvent": 0,
+    "HousekeepingDeleteRoomEvent": 0,
+    "HousekeepingGiveCreditsEvent": 0,
+    "HousekeepingGiveCurrencyEvent": 0,
+    "HousekeepingGrantItemEvent": 0,
+    "HousekeepingSetHcSubscriptionEvent": 0,
+    "HousekeepingSendHotelAlertEvent": 0,
+    "HousekeepingGetDashboardEvent": 0,
+    "HousekeepingListActionLogEvent": 0
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -644,6 +668,12 @@
     "CatalogAdminPageDetailsComposer": 0,
     "CatalogStudioSessionComposer": 0,
     "CatalogStudioHistoryComposer": 0,
-    "CatalogStudioOperationComposer": 0
+    "CatalogStudioOperationComposer": 0,
+    "HousekeepingUserDetailComposer": 0,
+    "HousekeepingActionResultComposer": 0,
+    "HousekeepingRoomDetailComposer": 0,
+    "HousekeepingRoomListComposer": 0,
+    "HousekeepingDashboardComposer": 0,
+    "HousekeepingActionLogComposer": 0
   }
 }

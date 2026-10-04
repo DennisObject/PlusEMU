@@ -16,6 +16,8 @@ public abstract class GameClient
     private readonly SemaphoreSlim _receiveLock = new(1, 1);
     private static readonly ILogger Log = LogManager.GetLogger("Plus.HabboHotel.GameClients.GameClient");
     private Habbo? _habbo;
+    private readonly object _lifecycle = new();
+    private readonly CancellationTokenSource _closed = new();
 
     public RecyclableMemoryStream? _incompleteStream;
     public Arc4? Rc4Client { get; set; }
@@ -38,7 +40,14 @@ public abstract class GameClient
     public Guid Id { get; set; }
 
 
-    public void Disconnect() => DisconnectRequested?.Invoke();
+    public void Disconnect()
+    {
+        Close();
+        DisconnectRequested?.Invoke();
+    }
+
+    /// <summary>Cancelled once the connection is closing, including after a packet timeout; session work should stop.</summary>
+    internal CancellationToken Closed => _closed.Token;
 
     protected GameClient(IGameServer server, IPacketFactory packetFactory)
     {
@@ -51,9 +60,38 @@ public abstract class GameClient
 
     internal void OnDisconnected()
     {
+        Habbo? habbo;
+        lock (_lifecycle)
+        {
+            Close();
+            habbo = _habbo;
+        }
         IsAuthenticated = false;
         EndCameraContext();
-        _habbo?.OnDisconnect();
+        habbo?.OnDisconnect();
+    }
+
+    /// <summary>
+    /// Attaches a logged-in Habbo and registers the session as one step, unless the connection already closed.
+    /// A close after this point finds the Habbo and logs it out.
+    /// </summary>
+    internal bool TryAttach(Habbo habbo, Action register)
+    {
+        lock (_lifecycle)
+        {
+            if (_closed.IsCancellationRequested) return false;
+            SetHabbo(habbo);
+            register();
+            return true;
+        }
+    }
+
+    private void Close()
+    {
+        lock (_lifecycle)
+        {
+            if (!_closed.IsCancellationRequested) _closed.Cancel();
+        }
     }
 
     internal abstract (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer);

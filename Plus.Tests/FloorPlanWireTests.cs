@@ -87,13 +87,14 @@ public class FloorPlanWireTests
         static bool OctaneEditor(string name) => name.StartsWith("CatalogAdmin") || name.StartsWith("CatalogStudio") || name.StartsWith("FurniEditor") || name == "FurnitureDataReloadComposer";
         foreach (var (name, wire) in legacy.IncomingHeaders)
         {
-            if (!changedIncoming.Contains(name) && !OctaneEditor(name))
+            // Housekeeping is Octane-only and disabled (0) in the other revisions.
+            if (!changedIncoming.Contains(name) && !OctaneEditor(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal))
                 Assert.Equal(wire, hybrid.IncomingHeaders[name]);
         }
 
         foreach (var (name, wire) in legacy.OutgoingHeaders)
         {
-            if (!changedOutgoing.Contains(name) && !OctaneEditor(name))
+            if (!changedOutgoing.Contains(name) && !OctaneEditor(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal))
                 Assert.Equal(wire, hybrid.OutgoingHeaders[name]);
         }
     }
