@@ -8,7 +8,8 @@ public class MarketPlaceOwnOffersComposer : IServerPacket
     private readonly MarketplaceOwnOffers _data;
     public uint MessageId => ServerPacketHeader.MarketPlaceOwnOffersComposer;
 
-    public MarketPlaceOwnOffersComposer(MarketplaceOwnOffers data) => _data = data;
+    public MarketPlaceOwnOffersComposer(MarketplaceOwnOffers data) =>
+        _data = data with { Offers = data.Offers.ToArray() };
 
     public void Compose(IOutgoingPacket packet)
     {
