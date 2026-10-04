@@ -4,8 +4,10 @@ using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
-public class InteractorVendor : IFurniInteractor
+public class InteractorVendor : IFurniInteractor, IApproachInteractor
 {
+    public int ActionKind => ApproachActionKind.VendingMachine;
+
     public void OnPlace(GameClient session, Item item)
     {
         item.LegacyDataString = "0";
@@ -29,24 +31,37 @@ public class InteractorVendor : IFurniInteractor
 
     public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
     {
-        if (item.LegacyDataString != "1" && item.Definition.VendingIds.Count >= 1 && item.InteractingUser == 0 &&
-            session != null)
+        if (!CanDispense(item) || session == null) return;
+        var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
+        if (user == null) return;
+        if (!Gamemap.TilesTouching(user.X, user.Y, item.GetX, item.GetY))
         {
-            var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
-            if (user == null) return;
-            if (!Gamemap.TilesTouching(user.X, user.Y, item.GetX, item.GetY))
-            {
-                user.MoveTo(item.SquareInFront);
-                return;
-            }
-            item.InteractingUser = session.GetHabbo().Id;
-            user.CanWalk = false;
-            user.ClearMovement(true);
-            user.SetRot(Rotation.Calculate(user.X, user.Y, item.GetX, item.GetY), false);
-            item.RequestUpdate(2, true);
-            item.LegacyDataString = "1";
-            item.UpdateState(false, true);
+            user.ApproachItem(item, ActionKind);
+            return;
         }
+        StartDispensing(item, user, session.GetHabbo().Id);
+    }
+
+    public bool StartFromApproach(Item item, RoomUser user)
+    {
+        if (!CanDispense(item) || user.GetClient()?.GetHabbo() is not { } habbo) return false;
+        if (!Gamemap.TilesTouching(user.X, user.Y, item.GetX, item.GetY)) return false;
+        StartDispensing(item, user, habbo.Id);
+        return true;
+    }
+
+    private static bool CanDispense(Item item)
+        => item.LegacyDataString != "1" && item.Definition.VendingIds.Count >= 1 && item.InteractingUser == 0;
+
+    private static void StartDispensing(Item item, RoomUser user, int habboId)
+    {
+        item.InteractingUser = habboId;
+        user.CanWalk = false;
+        user.ClearMovement(true);
+        user.SetRot(Rotation.Calculate(user.X, user.Y, item.GetX, item.GetY), false);
+        item.RequestUpdate(2, true);
+        item.LegacyDataString = "1";
+        item.UpdateState(false, true);
     }
 
     public void OnWiredTrigger(Item item) { }

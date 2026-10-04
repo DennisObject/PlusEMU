@@ -1,3 +1,5 @@
+using Plus.HabboHotel.Items;
+
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
 public sealed partial class RoomNavigation
@@ -6,12 +8,21 @@ public sealed partial class RoomNavigation
     private V2MovementEngine? _executor;
     private HorseMountService? _mounts;
     internal HorseMountService Mounts => _mounts ??= new(_room, this, Executor.Context);
-    public void Move(RoomUser actor, int x, int y, MoveOrigin origin, MoveFlags flags = MoveFlags.None)
+    public void Move(RoomUser actor, int x, int y, MoveOrigin origin, MoveFlags flags = MoveFlags.None,
+        ApproachDescriptor? approach = null)
     {
         if (!UsesExecutor || actor.Movement.State == NavState.Removing) return;
         var state = actor.Movement;
-        state.Commands.Publish(new(state.NextSequence(), x, y, origin, flags));
+        state.Commands.Publish(new(state.NextSequence(), x, y, origin, flags, approach));
     }
+
+    // Safe off the room task: only the item's published record and state generation are read; the
+    // approach surface is bound by the owner at intake.
+    internal ApproachDescriptor? DescribeApproach(Item item, int actionKind)
+        => Inputs.Read(item.Id) is { Removed: false } record
+            ? new(item.Id, record.Version, ApproachDescriptor.Unresolved, actionKind, item.StateGeneration) : null;
+
+    internal void ItemStateChanged(uint itemId) => _executor?.Context.Approaches.CancelItem(itemId);
 
     public void InteractionStep(RoomUser actor, int x, int y)
     {
@@ -35,6 +46,7 @@ public sealed partial class RoomNavigation
             using var owner = RoomOwnerScope.Enter(_room);
             foreach (var actor in manager.GetUserList()) Remove(actor);
             DrainCommands();
+            Executor.Context.Approaches.Clear();
         }
     }
     public void Admit(RoomUser actor) => Post(new(RoomCommandKind.Admit, actor, actor.Movement.LifetimeId));

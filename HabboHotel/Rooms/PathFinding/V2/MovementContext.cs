@@ -14,6 +14,7 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
     internal GeometryPublicationService Geometry { get; set; } = null!;
     internal ClaimLedger Claims { get; } = new(navigation.Grid.SlotCapacity, navigation.Grid.SlotCapacity);
     internal SearchScheduler<RoomUser> Scheduler { get; } = new();
+    internal ApproachIntentRegistry Approaches { get; } = new();
     private PlanningOccupancy ExecutionOccupancy { get; } = new(navigation.Grid.SlotCapacity);
     internal void RefreshMembership(RoomUser actor)
     {

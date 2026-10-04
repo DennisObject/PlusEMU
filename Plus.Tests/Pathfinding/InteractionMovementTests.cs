@@ -109,7 +109,7 @@ public partial class PlacedFurniRoomTests
     public void InteractorFarClickApproachesWithoutAutomaticallyStartingInteraction(InteractionType kind)
     {
         var item = InteractionItem(10, 1, 1, kind);
-        var actor = ExecutorActor(2, 0);
+        var actor = ApproachActor(2, 0, autoInteract: false);
         item.Interactor.OnTrigger(_client, item, 0, true);
         ExecutorTick();
         Assert.Equal(MoveOrigin.User, actor.Movement.Origin);

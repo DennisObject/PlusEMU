@@ -1,9 +1,13 @@
 ﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
-public class InteractorHopper : IFurniInteractor
+public class InteractorHopper : IFurniInteractor, IApproachInteractor
 {
+    public int ActionKind => ApproachActionKind.Hopper;
+
     public void OnPlace(GameClient session, Item item)
     {
         item.GetRoom().GetRoomItemHandler().HopperCount++;
@@ -52,14 +56,23 @@ public class InteractorHopper : IFurniInteractor
         if (user == null) return;
 
         // Alright. But is this user in the right position?
-        if (user.Coordinate == item.Coordinate || user.Coordinate == item.SquareInFront)
-        {
-            // Fine. But is this tele even free?
-            if (item.InteractingUser != 0) return;
-            user.TeleDelay = 2;
-            item.InteractingUser = user.GetClient().GetHabbo().Id;
-        }
-        else if (user.CanWalk) user.MoveTo(item.SquareInFront);
+        if (AtEntry(user, item)) TryEnter(item, user);
+        else if (user.CanWalk) user.ApproachItem(item, ActionKind);
+    }
+
+    public bool StartFromApproach(Item item, RoomUser user)
+        => user.GetClient()?.GetHabbo() != null && AtEntry(user, item) && TryEnter(item, user);
+
+    private static bool AtEntry(RoomUser user, Item item)
+        => user.Coordinate == item.Coordinate || user.Coordinate == item.SquareInFront;
+
+    // Fine. But is this tele even free?
+    private static bool TryEnter(Item item, RoomUser user)
+    {
+        if (item.InteractingUser != 0) return false;
+        user.TeleDelay = 2;
+        item.InteractingUser = user.GetClient().GetHabbo().Id;
+        return true;
     }
 
     public void OnWiredTrigger(Item item) { }

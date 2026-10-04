@@ -1,10 +1,14 @@
 ﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.Utilities;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
-public class InteractorTeleport : IFurniInteractor
+public class InteractorTeleport : IFurniInteractor, IApproachInteractor
 {
+    public int ActionKind => ApproachActionKind.Teleporter;
+
     public void OnPlace(GameClient session, Item item)
     {
         item.LegacyDataString = "0";
@@ -59,17 +63,30 @@ public class InteractorTeleport : IFurniInteractor
         user.LastInteraction = UnixTimestamp.GetNow();
 
         // Alright. But is this user in the right position?
-        if (user.Coordinate == item.Coordinate || user.Coordinate == item.SquareInFront)
-        {
-            // Fine. But is this tele even free?
-            if (item.InteractingUser != 0) return;
-            if (!user.CanWalk || session.GetHabbo().IsTeleporting || session.GetHabbo().TeleporterId != 0 ||
-                user.LastInteraction + 2 - UnixTimestamp.GetNow() < 0)
-                return;
-            user.TeleDelay = 2;
-            item.InteractingUser = user.GetClient().GetHabbo().Id;
-        }
-        else if (user.CanWalk) user.MoveTo(item.SquareInFront);
+        if (AtEntry(user, item)) TryEnter(item, user, session.GetHabbo());
+        else if (user.CanWalk) user.ApproachItem(item, ActionKind);
+    }
+
+    public bool StartFromApproach(Item item, RoomUser user)
+    {
+        if (user.GetClient()?.GetHabbo() is not { } habbo) return false;
+        user.LastInteraction = UnixTimestamp.GetNow();
+        return AtEntry(user, item) && TryEnter(item, user, habbo);
+    }
+
+    private static bool AtEntry(RoomUser user, Item item)
+        => user.Coordinate == item.Coordinate || user.Coordinate == item.SquareInFront;
+
+    // Fine. But is this tele even free?
+    private static bool TryEnter(Item item, RoomUser user, Plus.HabboHotel.Users.Habbo habbo)
+    {
+        if (item.InteractingUser != 0) return false;
+        if (!user.CanWalk || habbo.IsTeleporting || habbo.TeleporterId != 0 ||
+            user.LastInteraction + 2 - UnixTimestamp.GetNow() < 0)
+            return false;
+        user.TeleDelay = 2;
+        item.InteractingUser = user.GetClient().GetHabbo().Id;
+        return true;
     }
 
     public void OnWiredTrigger(Item item) { }

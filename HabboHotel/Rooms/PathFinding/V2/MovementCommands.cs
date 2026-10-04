@@ -7,8 +7,13 @@ public enum MoveOrigin : byte { User, Bot, Wired, StaffCommand, Interaction }
 [Flags]
 public enum MoveFlags : byte { None = 0, IgnoreUsers = 1, Teleport = 2 }
 
-// Payload only; completion and automatic approach behavior belong to the next stack layer.
-public sealed record ApproachDescriptor(uint ItemId, long ItemRecordVersion, SurfaceRef ApproachSurfaceRef, int ActionKind);
+// ApproachSurfaceRef may be Unresolved when built off the room task; the owner binds the real surface at intake.
+// StateGeneration is the item's interaction-state generation when the click was made.
+public sealed record ApproachDescriptor(uint ItemId, long ItemRecordVersion, SurfaceRef ApproachSurfaceRef, int ActionKind,
+    long StateGeneration = 0)
+{
+    public static readonly SurfaceRef Unresolved = new(-1, 0, SurfaceKind.Floor);
+}
 
 public sealed record MoveCommand(long Sequence, int X, int Y, MoveOrigin Origin,
     MoveFlags Flags = MoveFlags.None, ApproachDescriptor? Approach = null);
