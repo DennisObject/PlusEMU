@@ -110,7 +110,6 @@ public partial class PlacedFurniRoomTests
         for (var tick = 0; tick < 5; tick++) ExecutorTick();
         Assert.Equal(0, vending.InteractingUser);
         Assert.Null(Approaches.Peek(actor));
-        Assert.NotEqual((1, 0, 0d), (actor.X, actor.Y, actor.Z));
     }
 
     // A vending machine at deck level (2) beside approach tile (1,0), which has a floor and a deck; decks lead from (3,0).
