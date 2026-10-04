@@ -42,7 +42,7 @@ public sealed class ModeratorHistoryService(
 
     public ModeratorUserChatlog? GetUserChatlog(int userId)
     {
-        var user = GetOnlineUser(userId);
+        var user = GetUser(userId);
         if (user == null) return null;
         chatlogManager.FlushAndSave();
         using var connection = database.Connection();
@@ -55,6 +55,7 @@ public sealed class ModeratorHistoryService(
                 WHERE user_id=@userId ORDER BY entry_timestamp DESC LIMIT 7
             ) AS visits
             LEFT JOIN rooms ON rooms.id=visits.room_id
+            ORDER BY visits.entry_timestamp DESC
             """, new { userId });
         var rooms = new List<ModeratorRoomChatlog>();
         var now = timeProvider.GetUtcNow();
@@ -75,7 +76,7 @@ public sealed class ModeratorHistoryService(
 
     public ModeratorUserRoomVisits? GetUserRoomVisits(int userId)
     {
-        var user = GetOnlineUser(userId);
+        var user = GetUser(userId);
         if (user == null) return null;
         using var connection = database.Connection();
         var rows = connection.Query<RoomVisitSummaryRow>(
@@ -86,6 +87,7 @@ public sealed class ModeratorHistoryService(
                 WHERE user_id=@userId ORDER BY entry_timestamp DESC LIMIT 50
             ) AS visits
             LEFT JOIN rooms ON rooms.id=visits.room_id
+            ORDER BY visits.entry_timestamp DESC
             """, new { userId });
         var timestamps = new HashSet<double>();
         var visits = new List<ModeratorRoomVisit>();
@@ -100,13 +102,13 @@ public sealed class ModeratorHistoryService(
         var entries = new List<ModeratorChatEntry>();
         foreach (var row in rows)
         {
-            var user = GetOnlineUser(row.UserId);
+            var user = GetUser(row.UserId);
             if (user != null) entries.Add(new(row.UserId, user.Username, row.Message, FromUnixTime(row.Timestamp)));
         }
         return entries.ToImmutableArray();
     }
 
-    private Users.Habbo? GetOnlineUser(int userId) => userLookup.GetById(userId);
+    private Users.Habbo? GetUser(int userId) => userLookup.GetById(userId);
     private static DateTimeOffset FromUnixTime(double value) => DateTimeOffset.UnixEpoch.AddMilliseconds(value * 1000d);
     private static double ToUnixTime(DateTimeOffset value) => value.ToUnixTimeMilliseconds() / 1000d;
 
