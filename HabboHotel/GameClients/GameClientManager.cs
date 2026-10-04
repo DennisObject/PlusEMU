@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.Permissions;
+﻿using System.Diagnostics.CodeAnalysis;
+using Plus.HabboHotel.Permissions;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Data;
@@ -53,7 +54,7 @@ public class GameClientManager : IGameClientManager
 
     public GameClient? GetClientByUsername(string username) => _usernameRegister.ContainsKey(username.ToLower()) ? _usernameRegister[username.ToLower()] : null;
 
-    public bool TryGetClient(Guid clientId, out GameClient client) => _clients.TryGetValue(clientId, out client);
+    public bool TryGetClient(Guid clientId, [NotNullWhen(true)] out GameClient? client) => _clients.TryGetValue(clientId, out client);
 
     public bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername)
     {
@@ -294,7 +295,7 @@ public class GameClientManager : IGameClientManager
             {
                 while (_timedOutConnections.Count > 0)
                 {
-                    GameClient client = null;
+                    GameClient? client = null;
                     if (_timedOutConnections.Count > 0)
                         client = (GameClient)_timedOutConnections.Dequeue();
                     if (client != null)

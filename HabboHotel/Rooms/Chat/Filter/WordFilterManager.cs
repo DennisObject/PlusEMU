@@ -20,7 +20,7 @@ public sealed class WordFilterManager : IWordFilterManager
     {
         if (_filteredWords.Count > 0)
             _filteredWords.Clear();
-        DataTable data = null;
+        DataTable? data = null;
         using var dbClient = _database.GetQueryReactor();
         dbClient.SetQuery("SELECT * FROM `wordfilter`");
         data = dbClient.GetTable();

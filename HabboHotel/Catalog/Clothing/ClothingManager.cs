@@ -1,4 +1,5 @@
-﻿using Dapper;
+﻿using System.Diagnostics.CodeAnalysis;
+using Dapper;
 using Plus.Database;
 
 namespace Plus.HabboHotel.Catalog.Clothing;
@@ -27,5 +28,5 @@ public class ClothingManager : IClothingManager
         _clothing = clothing;
     }
 
-    public bool TryGetClothing(int itemId, out ClothingItem clothing) => _clothing.TryGetValue(itemId, out clothing);
+    public bool TryGetClothing(int itemId, [NotNullWhen(true)] out ClothingItem? clothing) => _clothing.TryGetValue(itemId, out clothing);
 }

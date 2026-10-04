@@ -65,7 +65,7 @@ public sealed class EffectsComponent
     /// <param name="activatedOnly"></param>
     /// <param name="unactivatedOnly"></param>
     /// <returns></returns>
-    public AvatarEffect GetEffectNullable(int spriteId, bool activatedOnly = false, bool unactivatedOnly = false)
+    public AvatarEffect? GetEffectNullable(int spriteId, bool activatedOnly = false, bool unactivatedOnly = false)
     {
         foreach (var effect in _effects.Values.ToList())
             if (!effect.HasExpired && effect.SpriteId == spriteId && (!activatedOnly || effect.Activated) && (!unactivatedOnly || !effect.Activated))

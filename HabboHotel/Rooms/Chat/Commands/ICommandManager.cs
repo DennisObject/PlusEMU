@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using System.Diagnostics.CodeAnalysis;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands;
 
@@ -20,5 +21,5 @@ public interface ICommandManager
     void Register(string commandText, ICommandBase command);
 
     void LogCommand(int userId, string data, string machineId);
-    bool TryGetCommand(string command, out ICommandBase chatCommand);
+    bool TryGetCommand(string command, [NotNullWhen(true)] out ICommandBase? chatCommand);
 }

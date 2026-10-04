@@ -14,7 +14,7 @@ public class MoodlightData
     public MoodlightData(uint itemId)
     {
         ItemId = itemId;
-        DataRow row = null;
+        DataRow? row = null;
         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
         {
             dbClient.SetQuery($"SELECT enabled,current_preset,preset_one,preset_two,preset_three FROM room_items_moodlight WHERE item_id = '{itemId}' LIMIT 1");

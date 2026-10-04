@@ -35,9 +35,9 @@ internal class ToggleFurniBox : IWiredItem, IWiredCycle
     public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.EffectToggleFurniState;
     public ConcurrentDictionary<uint, Item> SetItems { get; set; }
-    public string StringData { get; set; }
+    public string StringData { get; set; } = string.Empty;
     public bool BoolData { get; set; }
-    public string ItemsData { get; set; }
+    public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
     {
@@ -65,7 +65,7 @@ internal class ToggleFurniBox : IWiredItem, IWiredCycle
                 continue;
             if (!Instance.GetRoomItemHandler().GetFloor.Contains(item))
             {
-                Item n = null;
+                Item? n = null;
                 SetItems.TryRemove(item.Id, out n);
                 continue;
             }

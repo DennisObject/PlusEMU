@@ -31,8 +31,8 @@ internal class UserInfoCommand : IChatCommand
             session.SendWhisper("Please enter the username of the user you wish to view.");
             return;
         }
-        DataRow userData = null;
-        DataRow userInfo = null;
+        DataRow? userData = null;
+        DataRow? userInfo = null;
         var username = parameters[1];
         using (var dbClient = _database.GetQueryReactor())
         {

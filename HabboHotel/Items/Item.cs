@@ -510,8 +510,8 @@ public class Item
             {
                 UpdateNeeded = false;
                 UpdateCounter = 0;
-                RoomUser user = null;
-                RoomUser user2 = null;
+                RoomUser? user = null;
+                RoomUser? user2 = null;
                 switch (Definition.InteractionType)
                 {
                     case InteractionType.GuildGate:
@@ -1344,7 +1344,7 @@ public class Item
     }
 
     [Obsolete]
-    public Room GetRoom()
+    public Room? GetRoom()
     {
         if (_room != null)
             return _room;

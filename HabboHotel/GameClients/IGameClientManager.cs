@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.Permissions;
+﻿using System.Diagnostics.CodeAnalysis;
+using Plus.HabboHotel.Permissions;
 using Plus.Communication.Packets;
 using Plus.HabboHotel.Users.Messenger;
 
@@ -11,7 +12,7 @@ public interface IGameClientManager
     void OnCycle();
     GameClient? GetClientByUserId(int userId);
     GameClient? GetClientByUsername(string username);
-    bool TryGetClient(Guid clientId, out GameClient client);
+    bool TryGetClient(Guid clientId, [NotNullWhen(true)] out GameClient? client);
     bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername);
     Task<string> GetNameById(int id);
     IEnumerable<GameClient> GetClientsById(Dictionary<int, MessengerBuddy>.KeyCollection users);

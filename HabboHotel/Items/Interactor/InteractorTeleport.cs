@@ -9,12 +9,15 @@ public class InteractorTeleport : IFurniInteractor, IApproachInteractor
 {
     public int ActionKind => ApproachActionKind.Teleporter;
 
-    public void OnPlace(GameClient session, Item item)
+    public void OnPlace(GameClient? session, Item item)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         item.LegacyDataString = "0";
         if (item.InteractingUser != 0)
         {
-            var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
+            var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
             if (user != null)
             {
                 user.ClearMovement(true);
@@ -25,7 +28,7 @@ public class InteractorTeleport : IFurniInteractor, IApproachInteractor
         }
         if (item.InteractingUser2 != 0)
         {
-            var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser2);
+            var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser2);
             if (user != null)
             {
                 user.ClearMovement(true);
@@ -36,28 +39,34 @@ public class InteractorTeleport : IFurniInteractor, IApproachInteractor
         }
     }
 
-    public void OnRemove(GameClient session, Item item)
+    public void OnRemove(GameClient? session, Item item)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         item.LegacyDataString = "0";
         if (item.InteractingUser != 0)
         {
-            var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
+            var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
             if (user != null) user.UnlockWalking();
             item.InteractingUser = 0;
         }
         if (item.InteractingUser2 != 0)
         {
-            var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser2);
+            var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser2);
             if (user != null) user.UnlockWalking();
             item.InteractingUser2 = 0;
         }
     }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (item == null || item.GetRoom() == null || session == null || session.GetHabbo() == null)
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
+        if (item == null || itemRoom == null || session == null || session.GetHabbo() == null)
             return;
-        var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
+        var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         if (user == null)
             return;
         user.LastInteraction = UnixTimestamp.GetNow();

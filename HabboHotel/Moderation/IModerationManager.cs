@@ -1,4 +1,5 @@
-﻿namespace Plus.HabboHotel.Moderation;
+﻿using System.Diagnostics.CodeAnalysis;
+namespace Plus.HabboHotel.Moderation;
 
 public interface IModerationManager
 {
@@ -28,7 +29,7 @@ public interface IModerationManager
     /// </summary>
     bool UnbanUser(string username);
     bool TryAddTicket(ModerationTicket ticket);
-    bool TryGetTicket(int ticketId, out ModerationTicket ticket);
+    bool TryGetTicket(int ticketId, [NotNullWhen(true)] out ModerationTicket? ticket);
     bool UserHasTickets(int userId);
     ModerationTicket GetTicketBySenderId(int userId);
 

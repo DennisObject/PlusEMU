@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Data;
 using Plus.Database;
 
 namespace Plus.HabboHotel.Catalog.Vouchers;
@@ -18,7 +19,7 @@ public class VoucherManager : IVoucherManager
     {
         if (_vouchers.Count > 0)
             _vouchers.Clear();
-        DataTable data = null;
+        DataTable? data = null;
         using (var dbClient = _database.GetQueryReactor())
         {
             dbClient.SetQuery("SELECT `voucher`,`type`,`value`,`current_uses`,`max_uses` FROM `catalog_vouchers` WHERE `enabled` = '1'");
@@ -35,5 +36,5 @@ public class VoucherManager : IVoucherManager
         }
     }
 
-    public bool TryGetVoucher(string code, out Voucher voucher) => _vouchers.TryGetValue(code, out voucher);
+    public bool TryGetVoucher(string code, [NotNullWhen(true)] out Voucher? voucher) => _vouchers.TryGetValue(code, out voucher);
 }

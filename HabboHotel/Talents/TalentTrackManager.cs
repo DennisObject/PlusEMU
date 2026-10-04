@@ -20,7 +20,7 @@ public class TalentTrackManager : ITalentTrackManager
 
     public void Init()
     {
-        DataTable data = null;
+        DataTable? data = null;
         using (var dbClient = _database.GetQueryReactor())
         {
             dbClient.SetQuery("SELECT `type`,`level`,`data_actions`,`data_gifts` FROM `talents`");

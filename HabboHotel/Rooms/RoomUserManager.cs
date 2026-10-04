@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.Permissions;
+﻿using System.Diagnostics.CodeAnalysis;
+using Plus.HabboHotel.Permissions;
 using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
@@ -195,7 +196,7 @@ public class RoomUserManager
         OnRemove(user);
     }
 
-    public RoomUser GetUserForSquare(int x, int y) => _room.GetGameMap().GetRoomUsers(new(x, y)).FirstOrDefault();
+    public RoomUser? GetUserForSquare(int x, int y) => _room.GetGameMap().GetRoomUsers(new(x, y)).FirstOrDefault();
 
     public bool AddAvatarToRoom(GameClient session)
     {
@@ -238,7 +239,7 @@ public class RoomUserManager
         }
         else if (!user.IsBot && (user.GetClient().GetHabbo().IsTeleporting || user.GetClient().GetHabbo().IsHopping))
         {
-            Item item = null;
+            Item? item = null;
             if (session.GetHabbo().IsTeleporting)
                 item = _room.GetRoomItemHandler().GetItem(session.GetHabbo().TeleporterId);
             else if (session.GetHabbo().IsHopping)
@@ -372,7 +373,7 @@ public class RoomUserManager
                 }
                 if (user.IsTrading)
                 {
-                    Trade trade = null;
+                    Trade? trade = null;
                     if (_room.GetTrading().TryGetTrade(user.TradeId, out trade))
                         trade.EndTrade(user.TradeId);
                 }
@@ -474,7 +475,7 @@ public class RoomUserManager
         }
         _room.GetGameMap().RemoveUserFromMap(user, new(user.X, user.Y));
         _room.SendPacket(new UserRemoveComposer(user.VirtualId));
-        RoomUser toRemove = null;
+        RoomUser? toRemove = null;
         if (_users.TryRemove(user.InternalRoomId, out toRemove))
         {
             if (ReferenceEquals(toRemove, user))
@@ -484,11 +485,11 @@ public class RoomUserManager
         OnRemove(user);
     }
 
-    public bool TryGetPet(int petId, out RoomUser pet) => _pets.TryGetValue(petId, out pet);
+    public bool TryGetPet(int petId, [NotNullWhen(true)] out RoomUser? pet) => _pets.TryGetValue(petId, out pet);
 
-    public bool TryGetBot(int botId, out RoomUser bot) => _bots.TryGetValue(botId, out bot);
+    public bool TryGetBot(int botId, [NotNullWhen(true)] out RoomUser? bot) => _bots.TryGetValue(botId, out bot);
 
-    public RoomUser GetBotByName(string name)
+    public RoomUser? GetBotByName(string name)
     {
         var foundBot = _bots.Count(x => x.Value.BotData != null && x.Value.BotData.Name.ToLower() == name.ToLower()) > 0;
         if (foundBot)
@@ -507,15 +508,15 @@ public class RoomUserManager
         dbClient.RunQuery($"UPDATE `rooms` SET `users_now` = '{count}' WHERE `id` = '{_room.RoomId}' LIMIT 1");
     }
 
-    public RoomUser GetRoomUserByVirtualId(int virtualId)
+    public RoomUser? GetRoomUserByVirtualId(int virtualId)
     {
-        RoomUser user = null;
+        RoomUser? user = null;
         if (!_users.TryGetValue(virtualId, out user))
             return null;
         return user;
     }
 
-    public RoomUser GetRoomUserByHabbo(int id)
+    public RoomUser? GetRoomUserByHabbo(int id)
     {
         var user = GetUserList().Where(x => x != null && x.GetClient() != null && x.GetClient().GetHabbo() != null && x.GetClient().GetHabbo().Id == id).FirstOrDefault();
         if (user != null)
@@ -547,7 +548,7 @@ public class RoomUserManager
         return returnList;
     }
 
-    public RoomUser GetRoomUserByHabbo(string pName)
+    public RoomUser? GetRoomUserByHabbo(string pName)
     {
         var user = GetUserList().FirstOrDefault(x =>
             x != null && x.GetClient() != null && x.GetClient().GetHabbo() != null && x.GetClient().GetHabbo().Username.Equals(pName, StringComparison.OrdinalIgnoreCase));

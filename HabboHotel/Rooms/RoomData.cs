@@ -170,7 +170,7 @@ public class RoomData
 
     public void LoadPromotions()
     {
-        DataRow getPromotion = null;
+        DataRow? getPromotion = null;
         using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
         dbClient.SetQuery($"SELECT * FROM `room_promotions` WHERE `room_id` = {Id} LIMIT 1;");
         getPromotion = dbClient.GetRow();

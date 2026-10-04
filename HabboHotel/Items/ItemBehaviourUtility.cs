@@ -85,7 +85,7 @@ internal static class ItemBehaviourUtility
             case InteractionType.GuildItem:
             case InteractionType.GuildGate:
             case InteractionType.GuildForum:
-                Group group = null;
+                Group? group = null;
                 if (!PlusEnvironment.Game.GroupManager.TryGetGroup(item.GroupId, out group))
                 {
                     packet.WriteInteger(1);

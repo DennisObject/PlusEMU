@@ -305,7 +305,7 @@ public class RoomUser
             {
                 var client = user?.GetClient();
                 var habbo = client?.GetHabbo();
-                if (habbo == null)
+                if (client == null || habbo == null)
                     yield break;
                 if (!(IsPet ? habbo.AllowPetSpeech : habbo.AllowBotSpeech))
                     yield return client;
@@ -346,7 +346,7 @@ public class RoomUser
             return;
         GetClient().GetHabbo().HasSpoken = true;
         if (_mRoom.WordFilterList.Count > 0 && !GetClient().GetHabbo().Access.Can(PermissionKeys.ChatFilterBypass)) message = _mRoom.GetFilter().CheckMessage(message);
-        IServerPacket packet = null;
+        IServerPacket? packet = null;
         if (shout)
             packet = new ShoutComposer(VirtualId, message, PlusEnvironment.Game.ChatManager.GetEmotions().GetEmotionsForText(message), colour);
         else
@@ -570,7 +570,7 @@ public class RoomUser
     }
 
 
-    public GameClient GetClient()
+    public GameClient? GetClient()
     {
         if (IsBot) return null;
         if (_mClient == null)

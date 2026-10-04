@@ -25,7 +25,7 @@ internal static class NavigatorHandler
                     if (query.Length > 0)
                     {
                         var userId = 0;
-                        DataTable getRooms = null;
+                        DataTable? getRooms = null;
                         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
                         {
                             if (query.ToLower().StartsWith("owner:"))
@@ -42,7 +42,7 @@ internal static class NavigatorHandler
                         {
                             foreach (DataRow row in getRooms.Rows)
                             {
-                                RoomData data = null;
+                                RoomData? data = null;
                                 if (!RoomFactory.TryGetData(Convert.ToUInt32(row["id"]), out data))
                                     continue;
                                 if (!results.Contains(data))
@@ -75,7 +75,7 @@ internal static class NavigatorHandler
                 {
                     if (query.Length > 0)
                     {
-                        DataTable table = null;
+                        DataTable? table = null;
                         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
                         {
                             dbClient.SetQuery(
@@ -90,7 +90,7 @@ internal static class NavigatorHandler
                             {
                                 if (Convert.ToString(row["state"]) == "invisible")
                                     continue;
-                                RoomData data = null;
+                                RoomData? data = null;
                                 if (!RoomFactory.TryGetData(Convert.ToUInt32(row["id"]), out data))
                                     continue;
                                 if (!results.Contains(data))
@@ -141,7 +141,7 @@ internal static class NavigatorHandler
                 var favourites = new List<RoomData>();
                 foreach (var id in session.GetHabbo().FavoriteRooms.ToArray())
                 {
-                    RoomData data = null;
+                    RoomData? data = null;
                     if (!RoomFactory.TryGetData((uint)id, out data))
                         continue;
                     if (!favourites.Contains(data))

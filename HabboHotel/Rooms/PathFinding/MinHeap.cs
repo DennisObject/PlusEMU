@@ -4,9 +4,6 @@ internal sealed class MinHeap<T> where T : IComparable<T>
 {
     private T[] _array;
     private int _capacity;
-    private T _mheap;
-    private T _temp;
-    private T[] _tempArray;
 
     public MinHeap() : this(16) { }
 
@@ -34,9 +31,9 @@ internal sealed class MinHeap<T> where T : IComparable<T>
         var parentPosition = (position - 1) >> 1;
         while (position > 0 && _array[parentPosition].CompareTo(_array[position]) > 0)
         {
-            _temp = _array[position];
+            var temp = _array[position];
             _array[position] = _array[parentPosition];
-            _array[parentPosition] = _temp;
+            _array[parentPosition] = temp;
             position = parentPosition;
             parentPosition = (position - 1) >> 1;
         }
@@ -45,9 +42,9 @@ internal sealed class MinHeap<T> where T : IComparable<T>
     private void DoubleArray()
     {
         _capacity <<= 1;
-        _tempArray = new T[_capacity];
-        CopyArray(_array, _tempArray);
-        _array = _tempArray;
+        var tempArray = new T[_capacity];
+        CopyArray(_array, tempArray);
+        _array = tempArray;
     }
 
     private static void CopyArray(T[] source, T[] destination)
@@ -59,11 +56,11 @@ internal sealed class MinHeap<T> where T : IComparable<T>
     public T ExtractFirst()
     {
         if (Count == 0) throw new InvalidOperationException("Heap is empty");
-        _temp = _array[0];
+        var first = _array[0];
         _array[0] = _array[Count - 1];
         Count--;
         MinHeapify(0);
-        return _temp;
+        return first;
     }
 
     private void MinHeapify(int position)
@@ -80,9 +77,9 @@ internal sealed class MinHeap<T> where T : IComparable<T>
             if (right < Count && _array[right].CompareTo(_array[minPosition]) < 0) minPosition = right;
             if (minPosition != position)
             {
-                _mheap = _array[position];
+                var displaced = _array[position];
                 _array[position] = _array[minPosition];
-                _array[minPosition] = _mheap;
+                _array[minPosition] = displaced;
                 position = minPosition;
             }
             else

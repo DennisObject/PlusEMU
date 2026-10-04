@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 using Dapper;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
@@ -56,9 +57,9 @@ public class CacheManager : ICacheManager
         return cachedUser;
     }
 
-    public bool TryRemoveUser(int id, out CachedUser cachedUser) => _usersCached.TryRemove(id, out cachedUser);
+    public bool TryRemoveUser(int id, [NotNullWhen(true)] out CachedUser? cachedUser) => _usersCached.TryRemove(id, out cachedUser);
 
-    public bool TryGetUser(int id, out CachedUser cachedUser) => _usersCached.TryGetValue(id, out cachedUser);
+    public bool TryGetUser(int id, [NotNullWhen(true)] out CachedUser? cachedUser) => _usersCached.TryGetValue(id, out cachedUser);
 
     public ICollection<CachedUser> GetUserCache() => _usersCached.Values;
 }

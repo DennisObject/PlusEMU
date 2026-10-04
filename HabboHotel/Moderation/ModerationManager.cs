@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 using System.Data;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
@@ -73,7 +74,7 @@ public sealed class ModerationManager : IModerationManager
             _bans.Clear();
         using (var dbClient = _database.GetQueryReactor())
         {
-            DataTable presetsTable = null;
+            DataTable? presetsTable = null;
             dbClient.SetQuery("SELECT * FROM `moderation_presets`;");
             presetsTable = dbClient.GetTable();
             if (presetsTable != null)
@@ -95,7 +96,7 @@ public sealed class ModerationManager : IModerationManager
         }
         using (var dbClient = _database.GetQueryReactor())
         {
-            DataTable moderationTopics = null;
+            DataTable? moderationTopics = null;
             dbClient.SetQuery("SELECT * FROM `moderation_topics`;");
             moderationTopics = dbClient.GetTable();
             if (moderationTopics != null)
@@ -109,7 +110,7 @@ public sealed class ModerationManager : IModerationManager
         }
         using (var dbClient = _database.GetQueryReactor())
         {
-            DataTable moderationTopicsActions = null;
+            DataTable? moderationTopicsActions = null;
             dbClient.SetQuery("SELECT * FROM `moderation_topic_actions`;");
             moderationTopicsActions = dbClient.GetTable();
             if (moderationTopicsActions != null)
@@ -127,7 +128,7 @@ public sealed class ModerationManager : IModerationManager
         }
         using (var dbClient = _database.GetQueryReactor())
         {
-            DataTable presetsActionCats = null;
+            DataTable? presetsActionCats = null;
             dbClient.SetQuery("SELECT * FROM `moderation_preset_action_categories`;");
             presetsActionCats = dbClient.GetTable();
             if (presetsActionCats != null)
@@ -136,7 +137,7 @@ public sealed class ModerationManager : IModerationManager
         }
         using (var dbClient = _database.GetQueryReactor())
         {
-            DataTable presetsActionMessages = null;
+            DataTable? presetsActionMessages = null;
             dbClient.SetQuery("SELECT * FROM `moderation_preset_action_messages`;");
             presetsActionMessages = dbClient.GetTable();
             if (presetsActionMessages != null)
@@ -154,7 +155,7 @@ public sealed class ModerationManager : IModerationManager
         }
         using (var dbClient = _database.GetQueryReactor())
         {
-            DataTable getBans = null;
+            DataTable? getBans = null;
             dbClient.SetQuery("SELECT `bantype`,`value`,`reason`,`expire` FROM `bans` WHERE `bantype` = 'machine' OR `bantype` = 'user'");
             getBans = dbClient.GetTable();
             if (getBans != null)
@@ -195,7 +196,7 @@ public sealed class ModerationManager : IModerationManager
             _bans.Clear();
         using (var dbClient = _database.GetQueryReactor())
         {
-            DataTable getBans = null;
+            DataTable? getBans = null;
             dbClient.SetQuery("SELECT `bantype`,`value`,`reason`,`expire` FROM `bans` WHERE `bantype` = 'machine' OR `bantype` = 'user'");
             getBans = dbClient.GetTable();
             if (getBans != null)
@@ -522,7 +523,7 @@ public sealed class ModerationManager : IModerationManager
         return _modTickets.TryAdd(ticket.Id, ticket);
     }
 
-    public bool TryGetTicket(int ticketId, out ModerationTicket ticket) => _modTickets.TryGetValue(ticketId, out ticket);
+    public bool TryGetTicket(int ticketId, [NotNullWhen(true)] out ModerationTicket? ticket) => _modTickets.TryGetValue(ticketId, out ticket);
 
     public bool UserHasTickets(int userId) => _modTickets.Any(x => x.Value.Sender.Id == userId && x.Value.Answered == false);
 
@@ -563,10 +564,10 @@ public sealed class ModerationManager : IModerationManager
     /// <returns></returns>
     public bool HasMachineBanCheck(string machineId)
     {
-        ModerationBan machineBanRecord = null;
+        ModerationBan? machineBanRecord = null;
         if (IsBanned(machineId, out machineBanRecord))
         {
-            DataRow banRow = null;
+            DataRow? banRow = null;
             using var dbClient = _database.GetQueryReactor();
             dbClient.SetQuery("SELECT * FROM `bans` WHERE `bantype` = 'machine' AND `value` = @value LIMIT 1");
             dbClient.AddParameter("value", machineId);
@@ -590,10 +591,10 @@ public sealed class ModerationManager : IModerationManager
     /// <returns></returns>
     public bool UsernameBanCheck(string username)
     {
-        ModerationBan usernameBanRecord = null;
+        ModerationBan? usernameBanRecord = null;
         if (IsBanned(username, out usernameBanRecord))
         {
-            DataRow banRow = null;
+            DataRow? banRow = null;
             using var dbClient = _database.GetQueryReactor();
             dbClient.SetQuery("SELECT * FROM `bans` WHERE `bantype` = 'user' AND `value` = @value LIMIT 1");
             dbClient.AddParameter("value", username);

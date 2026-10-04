@@ -7,9 +7,9 @@ namespace Plus.HabboHotel.Catalog.Utilities;
 
 public static class BotUtility
 {
-    public static Bot CreateBot(ItemDefinition itemDefinition, int ownerId)
+    public static Bot? CreateBot(ItemDefinition itemDefinition, int ownerId)
     {
-        DataRow bot = null;
+        DataRow? bot = null;
         if (!PlusEnvironment.Game.Catalog.TryGetBot(itemDefinition.Id, out var cataBot))
             return null;
         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())

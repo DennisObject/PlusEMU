@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Data;
 using Dapper;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
@@ -90,11 +91,11 @@ public sealed class NavigatorManager : INavigatorManager
 
     public IReadOnlyCollection<SearchResultList> SearchResultLists => _searchResultLists.Values;
 
-    public bool TryGetTopLevelItem(int id, out TopLevelItem topLevelItem) => _topLevelItems.TryGetValue(id, out topLevelItem);
+    public bool TryGetTopLevelItem(int id, [NotNullWhen(true)] out TopLevelItem? topLevelItem) => _topLevelItems.TryGetValue(id, out topLevelItem);
 
-    public bool TryGetSearchResultList(int id, out SearchResultList searchResultList) => _searchResultLists.TryGetValue(id, out searchResultList);
+    public bool TryGetSearchResultList(int id, [NotNullWhen(true)] out SearchResultList? searchResultList) => _searchResultLists.TryGetValue(id, out searchResultList);
 
-    public bool TryGetFeaturedRoom(uint roomId, out FeaturedRoom publicRoom) => _featuredRooms.TryGetValue(roomId, out publicRoom);
+    public bool TryGetFeaturedRoom(uint roomId, [NotNullWhen(true)] out FeaturedRoom? publicRoom) => _featuredRooms.TryGetValue(roomId, out publicRoom);
 
     public IReadOnlyCollection<FeaturedRoom> FeaturedRooms => _featuredRooms.Values;
 

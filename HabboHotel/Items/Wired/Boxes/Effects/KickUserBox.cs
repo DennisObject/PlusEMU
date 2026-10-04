@@ -31,9 +31,9 @@ internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay, IWiredF
     public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.EffectKickUser;
     public ConcurrentDictionary<uint, Item> SetItems { get; set; }
-    public string StringData { get; set; }
+    public string StringData { get; set; } = string.Empty;
     public bool BoolData { get; set; }
-    public string ItemsData { get; set; }
+    public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
     {

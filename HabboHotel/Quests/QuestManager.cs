@@ -68,7 +68,7 @@ public class QuestManager : IQuestManager
             _questCount.Add(category, 1);
     }
 
-    public Quest GetQuest(int id)
+    public Quest? GetQuest(int id)
     {
         _quests.TryGetValue(id, out var quest);
         return quest;
@@ -144,7 +144,7 @@ public class QuestManager : IQuestManager
         }
     }
 
-    public Quest GetNextQuestInSeries(string category, int number)
+    public Quest? GetNextQuestInSeries(string category, int number)
     {
         foreach (var quest in _quests.Values)
             if (quest.Category == category && quest.Number == number)

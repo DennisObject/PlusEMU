@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.Permissions;
+﻿using System.Diagnostics.CodeAnalysis;
+using Plus.HabboHotel.Permissions;
 using System.Collections.Concurrent;
 using System.Text;
 using Plus.Communication.Packets.Outgoing.Notifications;
@@ -139,5 +140,5 @@ public class CommandManager : ICommandManager
         dbClient.RunQuery();
     }
 
-    public bool TryGetCommand(string command, out ICommandBase chatCommand) => _commands.TryGetValue(command, out chatCommand);
+    public bool TryGetCommand(string command, [NotNullWhen(true)] out ICommandBase? chatCommand) => _commands.TryGetValue(command, out chatCommand);
 }

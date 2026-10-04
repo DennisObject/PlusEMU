@@ -23,7 +23,7 @@ public class PetCommandManager : IPetCommandManager
         _petCommands.Clear();
         _commandRegister.Clear();
         _commandDatabase.Clear();
-        DataTable table = null;
+        DataTable? table = null;
         using (var dbClient = _database.GetQueryReactor())
         {
             dbClient.SetQuery("SELECT * FROM `bots_pet_commands`");

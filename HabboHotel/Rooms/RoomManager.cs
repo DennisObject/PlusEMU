@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 using System.Data;
 using Microsoft.Extensions.Logging;
 using Plus.Core;
@@ -109,7 +110,7 @@ public class RoomManager : IRoomManager
 
     public bool LoadModel(string id)
     {
-        DataRow row = null;
+        DataRow? row = null;
         using var dbClient = _database.GetQueryReactor();
         dbClient.SetQuery("SELECT id,door_x,door_y,door_z,door_dir,heightmap,required_club_level,required_permission,poolmap,`wall_height` FROM `room_models` WHERE `custom` = '1' AND `id` = @modelId LIMIT 1");
         dbClient.AddParameter("modelId", id);
@@ -139,7 +140,7 @@ public class RoomManager : IRoomManager
         LoadModel(id);
     }
 
-    public bool TryGetModel(string id, out RoomModel model)
+    public bool TryGetModel(string id, [NotNullWhen(true)] out RoomModel? model)
     {
         if (_roomModels.ContainsKey(id))
         {
@@ -170,9 +171,9 @@ public class RoomManager : IRoomManager
         }
     }
 
-    public bool TryLoadRoom(uint roomId, out Room room)
+    public bool TryLoadRoom(uint roomId, [NotNullWhen(true)] out Room? room)
     {
-        Room inst = null;
+        Room? inst = null;
         if (_rooms.TryGetValue(roomId, out inst))
         {
             if (!inst.Unloaded)
@@ -270,15 +271,15 @@ public class RoomManager : IRoomManager
         return _rooms.Values.Where(x => ids.Contains(x.Id) && x.Access != RoomAccess.Invisible).OrderByDescending(x => x.UsersNow).Take(amount).ToList();
     }
 
-    public Room TryGetRandomLoadedRoom()
+    public Room? TryGetRandomLoadedRoom()
     {
         return _rooms.Values.Where(x => x.UsersNow > 0 && x.Access != RoomAccess.Invisible && x.UsersNow < x.UsersMax).OrderByDescending(x => x.UsersNow).FirstOrDefault();
     }
 
 
-    public bool TryGetRoom(uint roomId, out Room room) => _rooms.TryGetValue(roomId, out room);
+    public bool TryGetRoom(uint roomId, [NotNullWhen(true)] out Room? room) => _rooms.TryGetValue(roomId, out room);
 
-    public RoomData CreateRoom(GameClient session, string name, string description, int category, int maxVisitors, int tradeSettings, RoomModel model, string wallpaper = "0.0", string floor = "0.0",
+    public RoomData? CreateRoom(GameClient session, string name, string description, int category, int maxVisitors, int tradeSettings, RoomModel model, string wallpaper = "0.0", string floor = "0.0",
         string landscape = "0.0", int wallthick = 0, int floorthick = 0)
     {
         if (name.Length < 3)

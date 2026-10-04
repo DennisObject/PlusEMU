@@ -5,7 +5,7 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 public class InteractorDice : IFurniInteractor
 {
-    public void OnPlace(GameClient session, Item item)
+    public void OnPlace(GameClient? session, Item item)
     {
         if (item.LegacyDataString == "-1")
         {
@@ -14,16 +14,19 @@ public class InteractorDice : IFurniInteractor
         }
     }
 
-    public void OnRemove(GameClient session, Item item)
+    public void OnRemove(GameClient? session, Item item)
     {
         if (item.LegacyDataString == "-1") item.LegacyDataString = "0";
     }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        RoomUser user = null;
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
+        RoomUser? user = null;
         if (session != null)
-            user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
+            user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         if (user == null)
             return;
         if (Gamemap.TilesTouching(item.GetX, item.GetY, user.X, user.Y))

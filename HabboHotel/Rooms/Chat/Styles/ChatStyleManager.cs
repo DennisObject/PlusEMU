@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Data;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
 
@@ -22,7 +23,7 @@ public sealed class ChatStyleManager : IChatStyleManager
     {
         if (_styles.Count > 0)
             _styles.Clear();
-        DataTable table = null;
+        DataTable? table = null;
         using (var dbClient = _database.GetQueryReactor())
         {
             dbClient.SetQuery("SELECT * FROM `room_chat_styles`;");
@@ -49,5 +50,5 @@ public sealed class ChatStyleManager : IChatStyleManager
     public IReadOnlyList<int> GetAllowedStyleIds(Plus.HabboHotel.Permissions.UserAccess access) =>
         _styles.Values.Where(style => style.CanUse(access)).Select(style => style.Id).Order().ToArray();
 
-    public bool TryGetStyle(int id, out ChatStyle style) => _styles.TryGetValue(id, out style);
+    public bool TryGetStyle(int id, [NotNullWhen(true)] out ChatStyle? style) => _styles.TryGetValue(id, out style);
 }

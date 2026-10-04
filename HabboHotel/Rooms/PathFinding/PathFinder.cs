@@ -42,10 +42,10 @@ public static class PathFinder
         return path;
     }
 
-    public static PathFinderNode FindPathReversed(RoomUser user, bool diag, Gamemap map, Vector2D start,
+    public static PathFinderNode? FindPathReversed(RoomUser user, bool diag, Gamemap map, Vector2D start,
         Vector2D end) => FindPathReversed(user, diag, map, start, end, null);
 
-    private static PathFinderNode FindPathReversed(RoomUser user, bool diag, Gamemap map, Vector2D start,
+    private static PathFinderNode? FindPathReversed(RoomUser user, bool diag, Gamemap map, Vector2D start,
         Vector2D end, PathFinderMetrics? metrics)
     {
         var openList = new MinHeap<PathFinderNode>(256);

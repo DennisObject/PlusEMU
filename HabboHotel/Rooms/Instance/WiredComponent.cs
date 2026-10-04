@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Data;
 using System.Diagnostics;
 using Plus.Core;
 using Plus.HabboHotel.Users;
@@ -150,7 +151,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
                 item.Definition.WiredType, item.Id, _room.Id);
             return null;
         }
-        DataRow row = null;
+        DataRow? row = null;
         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
         {
             dbClient.SetQuery("SELECT * FROM wired_items WHERE id=@id LIMIT 1");
@@ -392,7 +393,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public ICollection<IWiredItem> GetEffects(IWiredItem item) => _engine.GetBoxes(item, InteractionType.WiredEffect);
 
-    public IWiredItem GetRandomEffect(ICollection<IWiredItem> effects)
+    public IWiredItem? GetRandomEffect(ICollection<IWiredItem> effects)
     {
         return effects.OrderBy(x => Guid.NewGuid()).FirstOrDefault();
     }
@@ -438,7 +439,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
     public void SaveBox(IWiredItem item)
     {
         var items = "";
-        IWiredCycle cycle = null;
+        IWiredCycle? cycle = null;
         if (item is IWiredCycle) cycle = (IWiredCycle)item;
         foreach (var I in item.SetItems.Values)
         {
@@ -467,7 +468,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public bool TryRemove(uint itemId) => _engine.Remove(itemId);
 
-    public bool TryGet(uint id, out IWiredItem item) => _engine.TryGet(id, out item);
+    public bool TryGet(uint id, [NotNullWhen(true)] out IWiredItem? item) => _engine.TryGet(id, out item);
 
     public void Cleanup()
     {

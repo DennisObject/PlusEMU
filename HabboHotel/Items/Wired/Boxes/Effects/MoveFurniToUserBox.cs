@@ -38,9 +38,9 @@ internal class MoveFurniToUserBox : IWiredItem, IWiredCycle
     public WiredBoxType Type => WiredBoxType.EffectMoveFurniToNearestUser;
 
     public ConcurrentDictionary<uint, Item> SetItems { get; set; }
-    public string StringData { get; set; }
+    public string StringData { get; set; } = string.Empty;
     public bool BoolData { get; set; }
-    public string ItemsData { get; set; }
+    public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
     {
@@ -69,7 +69,7 @@ internal class MoveFurniToUserBox : IWiredItem, IWiredCycle
                 continue;
             if (!Instance.GetRoomItemHandler().GetFloor.Contains(item))
                 continue;
-            Item toRemove = null;
+            Item? toRemove = null;
             if (Instance.GetWired().OtherBoxHasItem(this, item.Id))
                 SetItems.TryRemove(item.Id, out toRemove);
             var point = Instance.GetGameMap().GetChaseMovement(item);

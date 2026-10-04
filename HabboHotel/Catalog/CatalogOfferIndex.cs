@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Catalog;
@@ -42,7 +43,7 @@ public class CatalogOfferIndex
         page.Offers.Values.Where(item => item.OfferId > 0 && item.WireOfferId == item.OfferId).Select(item => item.OfferId);
 
     // First page the user can open that sells this official offer id.
-    public bool TryGet(int offerId, Habbo habbo, out CatalogPage page, out CatalogItem item)
+    public bool TryGet(int offerId, Habbo habbo, [NotNullWhen(true)] out CatalogPage? page, [NotNullWhen(true)] out CatalogItem? item)
     {
         foreach (var candidate in _pagesByOffer.GetValueOrDefault(offerId) ?? [])
         {

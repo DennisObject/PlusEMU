@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Data;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
 
@@ -26,7 +27,7 @@ public class GameDataManager : IGameDataManager
             _games.Clear();
         using (var dbClient = _database.GetQueryReactor())
         {
-            DataTable data = null;
+            DataTable? data = null;
             dbClient.SetQuery(
                 "SELECT `id`,`name`,`colour_one`,`colour_two`,`resource_path`,`string_three`,`game_swf`,`game_assets`,`game_server_host`,`game_server_port`,`socket_policy_port`,`game_enabled` FROM `games_config`");
             data = dbClient.GetTable();
@@ -45,7 +46,7 @@ public class GameDataManager : IGameDataManager
         _logger.LogInformation("Game Data Manager -> LOADED");
     }
 
-    public bool TryGetGame(int gameId, out GameData data) => _games.TryGetValue(gameId, out data);
+    public bool TryGetGame(int gameId, [NotNullWhen(true)] out GameData? data) => _games.TryGetValue(gameId, out data);
 
     public int GetCount()
     {

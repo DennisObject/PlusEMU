@@ -15,7 +15,7 @@ internal class PetLoader : IPetLoader
     public List<Pet> GetPetsForUser(int userId)
     {
         var pets = new List<Pet>();
-        DataTable data = null;
+        DataTable? data = null;
         using var dbClient = _database.GetQueryReactor();
         dbClient.SetQuery($"SELECT `id`,`user_id`,`room_id`,`name`,`x`,`y`,`z` FROM `bots` WHERE `user_id` = '{userId}' AND `room_id` = '0' AND `ai_type` = 'pet'");
         data = dbClient.GetTable();

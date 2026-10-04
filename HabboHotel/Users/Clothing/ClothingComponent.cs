@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 using System.Data;
 using Plus.HabboHotel.Users.Clothing.Parts;
 
@@ -22,7 +23,7 @@ public sealed class ClothingComponent
     {
         if (_allClothing.Count > 0)
             return false;
-        DataTable getClothing = null;
+        DataTable? getClothing = null;
         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
         {
             dbClient.SetQuery("SELECT `id`,`part_id`,`part` FROM `user_clothing` WHERE `user_id` = @id;");
@@ -63,7 +64,7 @@ public sealed class ClothingComponent
         }
     }
 
-    public bool TryGet(int partId, out ClothingParts clothingPart) => _allClothing.TryGetValue(partId, out clothingPart);
+    public bool TryGet(int partId, [NotNullWhen(true)] out ClothingParts? clothingPart) => _allClothing.TryGetValue(partId, out clothingPart);
 
     /// <summary>
     /// Disposes the ClothingComponent.

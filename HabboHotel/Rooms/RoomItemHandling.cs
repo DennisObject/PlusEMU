@@ -247,17 +247,17 @@ public class RoomItemHandling
         }
     }
 
-    public Item GetItem(uint pId)
+    public Item? GetItem(uint pId)
     {
         if (_floorItems != null && _floorItems.ContainsKey(pId))
         {
-            Item item = null;
+            Item? item = null;
             if (_floorItems.TryGetValue(pId, out item))
                 return item;
         }
         else if (_wallItems != null && _wallItems.ContainsKey(pId))
         {
-            Item item = null;
+            Item? item = null;
             if (_wallItems.TryGetValue(pId, out item))
                 return item;
         }

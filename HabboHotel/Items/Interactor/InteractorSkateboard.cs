@@ -10,7 +10,7 @@ internal sealed class InteractorSkateboard : IFurniInteractor
     {
         var session = user?.GetClient();
         var habbo = session?.GetHabbo();
-        if (habbo?.Effects == null)
+        if (user == null || session == null || habbo?.Effects == null)
             return;
         if (habbo.Effects.CurrentEffect != SkateboardEffect)
             habbo.Effects.ApplyEffect(SkateboardEffect);
@@ -24,7 +24,7 @@ internal sealed class InteractorSkateboard : IFurniInteractor
         user.UpdateNeeded = true;
     }
 
-    internal static bool TryTrick(Item previous, out int body, out int head, out double lift, out string achievement)
+    internal static bool TryTrick(Item? previous, out int body, out int head, out double lift, out string achievement)
     {
         body = 0;
         head = 0;

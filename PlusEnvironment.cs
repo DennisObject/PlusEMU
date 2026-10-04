@@ -230,7 +230,7 @@ public class PlusEnvironment : IPlusEnvironment
     }
 
     [Obsolete("Use GameClientManager instead")]
-    public static Habbo GetHabboById(int userId)
+    public static Habbo? GetHabboById(int userId)
     {
         try
         {
@@ -276,7 +276,7 @@ public class PlusEnvironment : IPlusEnvironment
         }
     }
 
-    public static Habbo GetHabboByUsername(string userName)
+    public static Habbo? GetHabboByUsername(string userName)
     {
         try
         {

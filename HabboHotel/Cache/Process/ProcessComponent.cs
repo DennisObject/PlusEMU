@@ -96,7 +96,7 @@ public sealed class ProcessComponent : IProcessComponent
                     {
                         if (data == null)
                             continue;
-                        Habbo temp = null;
+                        Habbo? temp = null;
                         if (data.CacheExpired())
                             PlusEnvironment.RemoveFromCache(data.Id, out temp);
                         if (temp != null)

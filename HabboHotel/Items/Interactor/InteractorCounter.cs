@@ -5,25 +5,31 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 internal class InteractorCounter : IFurniInteractor
 {
-    public void OnPlace(GameClient session, Item item)
+    public void OnPlace(GameClient? session, Item item)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         if (WiredCounterController.Recognizes(item))
         {
-            item.GetRoom().GetWired().AttachRoomItem(item);
+            itemRoom.GetWired().AttachRoomItem(item);
             return;
         }
         item.LegacyDataString = "30";
         item.UpdateState();
     }
 
-    public void OnRemove(GameClient session, Item item) { }
+    public void OnRemove(GameClient? session, Item item) { }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         if (!hasRights) return;
         if (WiredCounterController.Recognizes(item))
         {
-            item.GetRoom().GetWired().TryUseCounter(item, request);
+            itemRoom.GetWired().TryUseCounter(item, request);
             return;
         }
         var oldValue = 0;
@@ -36,7 +42,7 @@ internal class InteractorCounter : IFurniInteractor
             oldValue = 30;
         else if (request == 2)
         {
-            if (item.GetRoom().GetSoccer().GameIsStarted && item.PendingReset && oldValue > 0)
+            if (itemRoom.GetSoccer().GameIsStarted && item.PendingReset && oldValue > 0)
             {
                 oldValue = 0;
                 item.PendingReset = false;
@@ -67,16 +73,16 @@ internal class InteractorCounter : IFurniInteractor
                 item.LegacyDataString = "30";
                 oldValue = 30;
             }
-            if (!item.GetRoom().GetSoccer().GameIsStarted)
+            if (!itemRoom.GetSoccer().GameIsStarted)
             {
                 item.UpdateNeeded = !item.UpdateNeeded;
-                if (item.UpdateNeeded) item.GetRoom().GetSoccer().StartGame();
+                if (item.UpdateNeeded) itemRoom.GetSoccer().StartGame();
                 item.PendingReset = true;
             }
             else
             {
                 item.UpdateNeeded = !item.UpdateNeeded;
-                if (item.UpdateNeeded) item.GetRoom().GetSoccer().StopGame(true);
+                if (item.UpdateNeeded) itemRoom.GetSoccer().StopGame(true);
                 item.PendingReset = true;
             }
         }
@@ -86,12 +92,15 @@ internal class InteractorCounter : IFurniInteractor
 
     public void OnWiredTrigger(Item item)
     {
-        if (item.GetRoom().GetSoccer().GameIsStarted)
-            item.GetRoom().GetSoccer().StopGame(true);
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
+        if (itemRoom.GetSoccer().GameIsStarted)
+            itemRoom.GetSoccer().StopGame(true);
         item.PendingReset = true;
         item.UpdateNeeded = true;
         item.LegacyDataString = "30";
         item.UpdateState();
-        item.GetRoom().GetSoccer().StartGame();
+        itemRoom.GetSoccer().StartGame();
     }
 }

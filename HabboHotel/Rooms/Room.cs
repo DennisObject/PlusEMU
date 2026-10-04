@@ -239,7 +239,7 @@ public class Room : RoomData
         UsersWithRights = new();
         if (Group != null)
             return;
-        DataTable data = null;
+        DataTable? data = null;
         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
         {
             dbClient.SetQuery("SELECT room_rights.user_id FROM room_rights WHERE room_id = @roomid");
@@ -254,7 +254,7 @@ public class Room : RoomData
     private void LoadFilter()
     {
         WordFilterList = new();
-        DataTable data = null;
+        DataTable? data = null;
         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
         {
             dbClient.SetQuery("SELECT * FROM `room_filter` WHERE `room_id` = @roomid;");
@@ -307,8 +307,8 @@ public class Room : RoomData
 
     public void OnUserShoot(RoomUser user, Item ball)
     {
-        Func<Item, bool> predicate = null;
-        string key = null;
+        Func<Item, bool>? predicate = null;
+        string? key = null;
         foreach (var item in GetRoomItemHandler().GetFurniObjects(ball.GetX, ball.GetY).ToList())
         {
             if (item.Definition.ItemName.StartsWith("fball_goal_"))

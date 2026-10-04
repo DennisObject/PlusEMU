@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Data;
 
 namespace Plus.HabboHotel.Rooms;
 
@@ -41,7 +42,7 @@ public static class RoomFactory
         return data;
     }
 
-    public static bool TryGetData(uint roomId, out RoomData data)
+    public static bool TryGetData(uint roomId, [NotNullWhen(true)] out RoomData? data)
     {
         if (PlusEnvironment.Game.RoomManager.TryGetRoom(roomId, out var room))
         {
@@ -55,7 +56,7 @@ public static class RoomFactory
             var row = dbClient.GetRow();
             if (row != null)
             {
-                RoomModel model = null;
+                RoomModel? model = null;
                 if (!PlusEnvironment.Game.RoomManager.TryGetModel(Convert.ToString(row["model_name"]), out model))
                 {
                     data = null;

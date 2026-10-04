@@ -199,6 +199,7 @@ public class Habbo
 
     public bool SessionClothingBlocked { get; set; }
 
+    [System.Diagnostics.CodeAnalysis.MemberNotNullWhen(true, nameof(CurrentRoom))]
     public bool InRoom => CurrentRoom != null;
 
     public Room? CurrentRoom { get; set; }
@@ -343,7 +344,7 @@ public class Habbo
         return progress;
     }
 
-    public UserAchievement GetAchievementData(string p)
+    public UserAchievement? GetAchievementData(string p)
     {
         Achievements.TryGetValue(p, out var achievement);
         return achievement;
