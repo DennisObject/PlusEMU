@@ -39,6 +39,9 @@ public class Item
                 inputs.PublishCurrent(this);
     }
     internal int NavMutationDepth;
+    private long _stateGeneration;
+    // Bumped when the stored state value changes and by every UpdateState; lets queued approach intents notice state changes that never reach a nav record.
+    internal long StateGeneration => Volatile.Read(ref _stateGeneration);
 
     public uint Id { get; set; }
     public bool IsTemporary { get; internal init; }
@@ -51,10 +54,10 @@ public class Item
         get => _extraData;
         set
         {
-            if (!Volatile.Read(ref _navigationSynchronized)) { _extraData = value; return; }
+            if (!Volatile.Read(ref _navigationSynchronized)) { StoreExtraData(value); return; }
             lock (NavSync)
             {
-                _extraData = value;
+                StoreExtraData(value);
                 if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
             }
         }
@@ -75,7 +78,7 @@ public class Item
         {
             if (!Volatile.Read(ref _navigationSynchronized))
             {
-                if (_extraData is LegacyDataFormat data) data.Data = value;
+                if (_extraData is LegacyDataFormat data) { var changed = data.Data != value; data.Data = value; if (changed) MarkInteractionStateChanged(); }
                 return;
             }
             SetNavigationState(value);
@@ -91,13 +94,51 @@ public class Item
         {
             if (_extraData is LegacyDataFormat data)
             {
+                var different = data.Data != value;
                 data.StoreWithoutNotification(value);
+                if (different) MarkInteractionStateChanged();
                 changed = data;
             }
             if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
         }
         changed?.NotifyDataUpdated();
     }
+
+    // v2 gate sequencer: the same write, but the notification is left to the caller (after its locks are released).
+    internal LegacyDataFormat? StoreStateQuietly(string value)
+    {
+        if (!Volatile.Read(ref _navigationSynchronized))
+        {
+            if (_extraData is not LegacyDataFormat plain) return null;
+            var different = plain.Data != value;
+            plain.StoreWithoutNotification(value);
+            if (different) MarkInteractionStateChanged();
+            return plain;
+        }
+        LegacyDataFormat? changed = null;
+        lock (NavSync)
+        {
+            if (_extraData is LegacyDataFormat data)
+            {
+                var different = data.Data != value;
+                data.StoreWithoutNotification(value);
+                if (different) MarkInteractionStateChanged();
+                changed = data;
+            }
+            if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
+        }
+        return changed;
+    }
+
+    private void StoreExtraData(IFurniObjectData value)
+    {
+        var replaced = !ReferenceEquals(_extraData, value);
+        _extraData = value;
+        if (replaced) MarkInteractionStateChanged();
+    }
+
+    // Store first, then bump: a click that captured the old generation can only be invalidated, never wrongly kept.
+    private void MarkInteractionStateChanged() => Interlocked.Increment(ref _stateGeneration);
 
     /// TODO @80O: Cleanup shit below
     private Room? _room;
@@ -453,6 +494,13 @@ public class Item
         MagicTileHeight.Sync(this);
     }
 
+    // v2: a refused automatic close keeps its update request, so the gate never stays open for good.
+    private void CloseAutomatically(int retryCycles)
+    {
+        if (GateTransitionService.Apply(this, "0", GateCloseReason.Automatic, persist: false) == GateTransition.Refused)
+            RequestUpdate(retryCycles, false);
+    }
+
     public void ProcessUpdates()
     {
         try
@@ -470,7 +518,9 @@ public class Item
                     {
                         if (LegacyDataString == "1")
                         {
-                            if (GetRoom().GetRoomUserManager().GetUserForSquare(GetX, GetY) == null)
+                            if (GateTransitionService.For(this) != null)
+                                CloseAutomatically(2);
+                            else if (GetRoom().GetRoomUserManager().GetUserForSquare(GetX, GetY) == null)
                             {
                                 LegacyDataString = "0";
                                 UpdateState(false, true);
@@ -500,7 +550,8 @@ public class Item
                         if (user != null && user.X == GetX && user.Y == GetY)
                         {
                             LegacyDataString = "1";
-                            user.MoveTo(SquareBehind);
+                            if (GetRoom().UsesV2Movement) user.RequestInteractionStep(GetRoom(), SquareBehind);
+                            else user.MoveTo(SquareBehind);
                             user.InteractingGate = false;
                             user.GateId = 0;
                             RequestUpdate(1, false);
@@ -542,14 +593,27 @@ public class Item
                         else if (user != null && (user.Coordinate == SquareBehind || user.Coordinate == SquareInFront))
                         {
                             user.UnlockWalking();
-                            LegacyDataString = "0";
-                            InteractingUser = 0;
-                            UpdateState(false, true);
+                            if (GateTransitionService.For(this) != null)
+                            {
+                                InteractingUser = 0;
+                                CloseAutomatically(1);
+                            }
+                            else
+                            {
+                                LegacyDataString = "0";
+                                InteractingUser = 0;
+                                UpdateState(false, true);
+                            }
                         }
                         else if (LegacyDataString == "1")
                         {
-                            LegacyDataString = "0";
-                            UpdateState(false, true);
+                            if (GateTransitionService.For(this) != null)
+                                CloseAutomatically(1);
+                            else
+                            {
+                                LegacyDataString = "0";
+                                UpdateState(false, true);
+                            }
                         }
                         if (user == null) InteractingUser = 0;
                         break;
@@ -583,6 +647,7 @@ public class Item
                                         {
                                             user.GetClient().GetHabbo().IsHopping = true;
                                             user.GetClient().GetHabbo().HopperId = nextHopperId;
+                                            if (GetRoom().UsesV2Movement) GetRoom().GetGameMap().Navigation!.Remove(user);
                                             user.GetClient().GetHabbo().PrepareRoom(roomHopId, "");
                                             //User.GetClient().SendMessage(new RoomForwardComposer(RoomHopId));
                                             InteractingUser = 0;
@@ -597,16 +662,19 @@ public class Item
                                 // Is he in front of the tele?
                                 else if (user.Coordinate == SquareInFront)
                                 {
-                                    user.AllowOverride = true;
+                                    if (GetRoom().UsesV2Movement) user.AllowOverride = false;
+                                    else user.AllowOverride = true;
                                     keepDoorOpen = true;
 
                                     // Lock his walking. We're taking control over him. Allow overriding so he can get in the tele.
                                     if (user.IsWalking && (user.GoalX != GetX || user.GoalY != GetY)) user.ClearMovement(true);
                                     user.CanWalk = false;
-                                    user.AllowOverride = true;
+                                    if (GetRoom().UsesV2Movement) user.AllowOverride = false;
+                                    else user.AllowOverride = true;
 
                                     // Move into the tele
-                                    user.MoveTo(Coordinate.X, Coordinate.Y, true);
+                                    if (GetRoom().UsesV2Movement) user.RequestInteractionStep(GetRoom(), Coordinate, true);
+                                    else user.MoveTo(Coordinate.X, Coordinate.Y, true);
                                 }
                                 // Not even near, do nothing and move on for the next user.
                                 else
@@ -628,7 +696,8 @@ public class Item
                                 // If so, open the door, unlock the user's walking, and try to push him out in the right direction. We're done with him!
                                 keepDoorOpen = true;
                                 user2.UnlockWalking();
-                                user2.MoveTo(SquareInFront);
+                                if (GetRoom().UsesV2Movement) user2.RequestInteractionStep(GetRoom(), SquareInFront);
+                                else user2.MoveTo(SquareInFront);
                             }
 
                             // This is a one time thing, whether the user's valid or not.
@@ -735,6 +804,7 @@ public class Item
                                                         user.GetClient().GetHabbo().IsTeleporting = true;
                                                         user.GetClient().GetHabbo().TeleportingRoomId = roomId;
                                                         user.GetClient().GetHabbo().TeleporterId = teleId;
+                                                        if (GetRoom().UsesV2Movement) GetRoom().GetGameMap().Navigation!.Remove(user);
                                                         user.GetClient().GetHabbo().PrepareRoom(roomId, "");
                                                         //User.GetClient().SendMessage(new RoomForwardComposer(RoomId));
                                                         InteractingUser = 0;
@@ -761,17 +831,20 @@ public class Item
                                 // Is he in front of the tele?
                                 else if (user.Coordinate == SquareInFront)
                                 {
-                                    user.AllowOverride = true;
+                                    if (GetRoom().UsesV2Movement) user.AllowOverride = false;
+                                    else user.AllowOverride = true;
                                     // Open the door
                                     keepDoorOpen = true;
 
                                     // Lock his walking. We're taking control over him. Allow overriding so he can get in the tele.
                                     if (user.IsWalking && (user.GoalX != GetX || user.GoalY != GetY)) user.ClearMovement(true);
                                     user.CanWalk = false;
-                                    user.AllowOverride = true;
+                                    if (GetRoom().UsesV2Movement) user.AllowOverride = false;
+                                    else user.AllowOverride = true;
 
                                     // Move into the tele
-                                    user.MoveTo(Coordinate.X, Coordinate.Y, true);
+                                    if (GetRoom().UsesV2Movement) user.RequestInteractionStep(GetRoom(), Coordinate, true);
+                                    else user.MoveTo(Coordinate.X, Coordinate.Y, true);
                                 }
                                 // Not even near, do nothing and move on for the next user.
                                 else
@@ -795,7 +868,8 @@ public class Item
                                 // If so, open the door, unlock the user's walking, and try to push him out in the right direction. We're done with him!
                                 keepDoorOpen = true;
                                 user2.UnlockWalking();
-                                user2.MoveTo(SquareInFront);
+                                if (GetRoom().UsesV2Movement) user2.RequestInteractionStep(GetRoom(), SquareInFront);
+                                else user2.MoveTo(SquareInFront);
                             }
 
                             // This is a one time thing, whether the user's valid or not.
@@ -1248,6 +1322,8 @@ public class Item
             return;
         MagicTileHeight.Sync(this);
         PublishIfAttached(true);
+        MarkInteractionStateChanged();
+        GetRoom().GetGameMap()?.Navigation?.ItemStateChanged(Id);
         if (inDb)
             GetRoom().GetRoomItemHandler().UpdateItem(this);
         if (IsFloorItem)

@@ -50,6 +50,11 @@ public class Room : RoomData
     public Dictionary<int, double> MutedUsers;
 
     public Task ProcessTask;
+    private bool _usesV2Movement;
+    internal bool UsesV2Movement => _usesV2Movement;
+    internal void EnableV2Movement() => _usesV2Movement = true;
+    private object? _navigationSync;
+    internal object NavigationSync => LazyInitializer.EnsureInitialized(ref _navigationSync);
     public bool RoomMuted;
 
     public TeamManager Teambanzai;
@@ -334,13 +339,37 @@ public class Room : RoomData
 
     internal void ProcessWiredOnly()
     {
+        if (UsesV2Movement)
+        {
+            lock (NavigationSync) ProcessWiredOwned();
+            return;
+        }
         if (IsCrashed || MDisposed) return;
         try { GetWired().OnFastCycle(); }
         catch (Exception e) { ExceptionLogger.LogException(e); }
     }
 
+    // v2 fast pass: serialized with ProcessRoom (one process task at a time), so it owns the room just like a
+    // full tick. Legacy and shadow rooms keep the original pass, with no owner scope.
+    internal void RunFastPass(Action pass)
+    {
+        if (UsesV2Movement)
+        {
+            lock (NavigationSync) RunOwnedPass(pass);
+            return;
+        }
+        if (IsCrashed || MDisposed) return;
+        try { pass(); }
+        catch (Exception e) { ExceptionLogger.LogException(e); }
+    }
+
     public void ProcessRoom()
     {
+        if (UsesV2Movement)
+        {
+            lock (NavigationSync) ProcessRoomOwned();
+            return;
+        }
         if (IsCrashed || MDisposed)
             return;
         try
@@ -405,6 +434,60 @@ public class Room : RoomData
             ExceptionLogger.LogException(e);
             OnRoomCrash(e);
         }
+    }
+
+    private void ProcessRoomOwned()
+    {
+        if (IsCrashed || MDisposed) return;
+        using var owner = Plus.HabboHotel.Rooms.PathFinding.RoomOwnerScope.Enter(this);
+        try
+        {
+            if (!KeepRoomActive()) return;
+            RunRoomPhase(CycleFurniture);
+            RunRoomPhase(CycleActors);
+            RunRoomPhase(() => GetRoomUserManager().SerializeStatusUpdates());
+            RunRoomPhase(() => _gameItemHandler?.OnCycle());
+            RunRoomPhase(CycleWired);
+        }
+        catch (Exception error) { ExceptionLogger.LogException(error); OnRoomCrash(error); }
+    }
+
+    private bool KeepRoomActive()
+    {
+        if (GetRoomUserManager().GetRoomUsers().Count == 0) IdleTime++;
+        else if (IdleTime > 0) IdleTime = 0;
+        if (HasActivePromotion && Promotion.HasExpired) EndPromotion();
+        if (IdleTime < 60 || HasActivePromotion) return true;
+        PlusEnvironment.Game.RoomManager.UnloadRoom(Id);
+        return false;
+    }
+
+    private void RunRoomPhase(Action phase)
+    {
+        if (MDisposed) return;
+        try { phase(); }
+        catch (Exception error) { ExceptionLogger.LogException(error); }
+    }
+
+    private void CycleFurniture()
+    {
+        GetGameMap().Navigation?.ApplyDirty();
+        GetGameMap().Navigation?.DrainCommands();
+        if (UsesV2Movement) GetGameMap().Gates.Drain();
+        GetRoomItemHandler().OnCycle();
+    }
+
+    private void CycleActors()
+    {
+        GetGameMap().Navigation?.ApplyDirty();
+        GetGameMap().Navigation?.DrainCommands();
+        GetRoomUserManager().OnCycle();
+    }
+
+    private void CycleWired()
+    {
+        GetWired().OnCycle();
+        GetGameMap().FlushPlacementUpdates();
     }
 
     private void OnRoomCrash(Exception e)
@@ -582,6 +665,11 @@ public class Room : RoomData
 
     public void Dispose()
     {
+        if (UsesV2Movement)
+        {
+            DisposeExecutorRoom();
+            return;
+        }
         if (MDisposed)
             return;
         IsCrashed = false;
@@ -676,5 +764,87 @@ public class Room : RoomData
             _bansComponent.Cleanup();
         if (_tradingComponent != null)
             _tradingComponent.Cleanup();
+    }
+
+    private void ProcessWiredOwned() => RunOwnedPass(() => GetWired().OnFastCycle());
+
+    // The fast pass owns the room for the gate sequencer, so Wired closes run inline and in order.
+    private void RunOwnedPass(Action pass)
+    {
+        if (IsCrashed || MDisposed) return;
+        using var owner = Plus.HabboHotel.Rooms.PathFinding.RoomOwnerScope.Enter(this);
+        try { pass(); }
+        catch (Exception e) { ExceptionLogger.LogException(e); }
+    }
+
+    private void DisposeExecutorRoom()
+    {
+        lock (NavigationSync)
+        {
+            if (MDisposed) return;
+            IsCrashed = false; MDisposed = true;
+            _gamemap?.Navigation?.Shutdown();
+            _gamemap?.ClosePlacementUpdates();
+            RemoveRemainingUsers();
+            DisposeCompletedTask();
+            ClearRoomCollections();
+            DisposeGames();
+            DisposeMapAndTeams();
+            DisposeRoomManagers();
+            ClearRoomComponents();
+        }
+    }
+
+    private void RemoveRemainingUsers()
+    {
+        if (_roomUserManager == null) return;
+        foreach (var user in _roomUserManager.GetRoomUsers().ToList())
+        {
+            var client = user?.GetClient();
+            if (client != null) _roomUserManager.RemoveUserFromRoom(client, true);
+        }
+    }
+
+    private void DisposeCompletedTask()
+    {
+        try { if (ProcessTask is { IsCompleted: true }) ProcessTask.Dispose(); }
+        catch { }
+    }
+
+    private void ClearRoomCollections()
+    {
+        TonerData = null; MoodlightData = null;
+        if (MutedUsers.Count > 0) MutedUsers.Clear();
+        if (_tents.Count > 0) _tents.Clear();
+        if (UsersWithRights.Count > 0) UsersWithRights.Clear();
+    }
+
+    private void DisposeGames()
+    {
+        if (_gameManager != null) { _gameManager.Dispose(); _gameManager = null; }
+        if (_freeze != null) { _freeze.Dispose(); _freeze = null; }
+        if (_soccer != null) { _soccer.Dispose(); _soccer = null; }
+        if (_banzai != null) { _banzai.Dispose(); _banzai = null; }
+    }
+
+    private void DisposeMapAndTeams()
+    {
+        if (_gamemap != null) { _gamemap.Dispose(); _gamemap = null; }
+        if (_gameItemHandler != null) { _gameItemHandler.Dispose(); _gameItemHandler = null; }
+        if (Teambanzai != null) { Teambanzai.Dispose(); Teambanzai = null; }
+        if (Teamfreeze != null) { Teamfreeze.Dispose(); Teamfreeze = null; }
+    }
+
+    private void DisposeRoomManagers()
+    {
+        if (_roomUserManager != null) { _roomUserManager.Dispose(); _roomUserManager = null; }
+        if (_roomItemHandling != null) { _roomItemHandling.Dispose(); _roomItemHandling = null; }
+    }
+
+    private void ClearRoomComponents()
+    {
+        if (WordFilterList.Count > 0) WordFilterList.Clear();
+        _filterComponent?.Cleanup(); _wiredComponent?.Cleanup();
+        _bansComponent?.Cleanup(); _tradingComponent?.Cleanup();
     }
 }

@@ -165,18 +165,10 @@ public class CatalogAdminWireTests
     }
 
     [Fact]
-    public void StudioRequestsWithoutAnImplementationAnswerInTheShapeTheClientWaitsFor()
+    public void UndoAnswersInTheOperationShapeTheClientWaitsFor()
     {
         var operation = new HabbiconTestSupport.RecordingPacket();
         new CatalogStudioOperationComposer("undo-1", true, "SAVED", "Change undone", 9, [("PAGE", 42)]).Compose(operation);
         Assert.Equal(new object[] { "undo-1", true, "SAVED", "Change undone", 9, 1, "PAGE", 42 }, operation.Writes);
-
-        var validation = new HabbiconTestSupport.RecordingPacket();
-        new CatalogStudioValidationComposer("validate-1", "UNSUPPORTED", "Catalog validation is not supported by this hotel.", 9).Compose(validation);
-        Assert.Equal(new object[] { "validate-1", false, "UNSUPPORTED", "Catalog validation is not supported by this hotel.", 9, true, 0 }, validation.Writes);
-
-        var document = new HabbiconTestSupport.RecordingPacket();
-        new CatalogStudioDocumentResultComposer("export-1", "UNSUPPORTED", "Catalog export is not supported by this hotel.", 9, "SQL").Compose(document);
-        Assert.Equal(new object[] { "export-1", false, "UNSUPPORTED", "Catalog export is not supported by this hotel.", 9, "SQL", "", "", 0 }, document.Writes);
     }
 }

@@ -352,13 +352,6 @@ public static class ServerPacketHeader
     public const uint RewardTrackClaimResultComposer = 48004;
     public const uint RewardTrackProgressComposer = 48005;
     public const uint RewardTrackPremiumPurchaseResultComposer = 48006;
-    // Housekeeping (in-client admin panel); internal IDs match Octane's wire IDs.
-    public const uint HousekeepingUserDetailComposer = 9200;
-    public const uint HousekeepingActionResultComposer = 9201;
-    public const uint HousekeepingRoomDetailComposer = 9202;
-    public const uint HousekeepingRoomListComposer = 9203;
-    public const uint HousekeepingDashboardComposer = 9204;
-    public const uint HousekeepingActionLogComposer = 9205;
     // Octane catalog editor and furni editor; the same ids on the wire.
     public const uint FurniEditorSearchResultComposer = 10040;
     public const uint FurniEditorDetailResultComposer = 10041;
@@ -372,6 +365,11 @@ public static class ServerPacketHeader
     public const uint CatalogStudioSessionComposer = 10067;
     public const uint CatalogStudioHistoryComposer = 10071;
     public const uint CatalogStudioOperationComposer = 10072;
-    public const uint CatalogStudioValidationComposer = 10073;
-    public const uint CatalogStudioDocumentResultComposer = 10078;
+    // Housekeeping (in-client admin panel); internal IDs match Octane's wire IDs.
+    public const uint HousekeepingUserDetailComposer = 9200;
+    public const uint HousekeepingActionResultComposer = 9201;
+    public const uint HousekeepingRoomDetailComposer = 9202;
+    public const uint HousekeepingRoomListComposer = 9203;
+    public const uint HousekeepingDashboardComposer = 9204;
+    public const uint HousekeepingActionLogComposer = 9205;
 }

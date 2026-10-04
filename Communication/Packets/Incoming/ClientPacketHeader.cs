@@ -430,31 +430,6 @@ public static class ClientPacketHeader
     public const uint GetRewardTracksEvent = 48000;
     public const uint ClaimRewardTrackPrizeEvent = 48001;
     public const uint PurchaseRewardTrackPremiumEvent = 48002;
-    // Housekeeping (in-client admin panel); internal IDs match Octane's wire IDs.
-    public const uint HousekeepingFindUserByNameEvent = 9100;
-    public const uint HousekeepingFindUserByIdEvent = 9101;
-    public const uint HousekeepingBanUserEvent = 9102;
-    public const uint HousekeepingUnbanUserEvent = 9103;
-    public const uint HousekeepingMuteUserEvent = 9104;
-    public const uint HousekeepingKickUserEvent = 9105;
-    public const uint HousekeepingForceDisconnectUserEvent = 9106;
-    public const uint HousekeepingSetUserRankEvent = 9107;
-    public const uint HousekeepingTradeLockUserEvent = 9108;
-    public const uint HousekeepingResetUserPasswordEvent = 9109;
-    public const uint HousekeepingFindRoomByIdEvent = 9110;
-    public const uint HousekeepingSearchRoomsEvent = 9111;
-    public const uint HousekeepingRoomStateEvent = 9112;
-    public const uint HousekeepingMuteRoomEvent = 9113;
-    public const uint HousekeepingKickAllFromRoomEvent = 9114;
-    public const uint HousekeepingTransferRoomOwnershipEvent = 9115;
-    public const uint HousekeepingDeleteRoomEvent = 9116;
-    public const uint HousekeepingGiveCreditsEvent = 9117;
-    public const uint HousekeepingGiveCurrencyEvent = 9118;
-    public const uint HousekeepingGrantItemEvent = 9119;
-    public const uint HousekeepingSetHcSubscriptionEvent = 9120;
-    public const uint HousekeepingSendHotelAlertEvent = 9121;
-    public const uint HousekeepingGetDashboardEvent = 9122;
-    public const uint HousekeepingListActionLogEvent = 9123;
     // Octane catalog editor and furni editor; the same ids on the wire.
     public const uint FurniEditorSearchEvent = 10040;
     public const uint FurniEditorDetailEvent = 10041;
@@ -484,8 +459,29 @@ public static class ClientPacketHeader
     public const uint CatalogStudioOpenSessionEvent = 10067;
     public const uint CatalogStudioLoadHistoryEvent = 10071;
     public const uint CatalogStudioUndoEvent = 10072;
-    public const uint CatalogStudioValidateEvent = 10073;
-    public const uint CatalogStudioExportEvent = 10078;
-    public const uint CatalogStudioDocumentDryRunEvent = 10079;
-    public const uint CatalogStudioDocumentApplyEvent = 10080;
+    // Housekeeping (in-client admin panel); internal IDs match Octane's wire IDs.
+    public const uint HousekeepingFindUserByNameEvent = 9100;
+    public const uint HousekeepingFindUserByIdEvent = 9101;
+    public const uint HousekeepingBanUserEvent = 9102;
+    public const uint HousekeepingUnbanUserEvent = 9103;
+    public const uint HousekeepingMuteUserEvent = 9104;
+    public const uint HousekeepingKickUserEvent = 9105;
+    public const uint HousekeepingForceDisconnectUserEvent = 9106;
+    public const uint HousekeepingSetUserRankEvent = 9107;
+    public const uint HousekeepingTradeLockUserEvent = 9108;
+    public const uint HousekeepingResetUserPasswordEvent = 9109;
+    public const uint HousekeepingFindRoomByIdEvent = 9110;
+    public const uint HousekeepingSearchRoomsEvent = 9111;
+    public const uint HousekeepingRoomStateEvent = 9112;
+    public const uint HousekeepingMuteRoomEvent = 9113;
+    public const uint HousekeepingKickAllFromRoomEvent = 9114;
+    public const uint HousekeepingTransferRoomOwnershipEvent = 9115;
+    public const uint HousekeepingDeleteRoomEvent = 9116;
+    public const uint HousekeepingGiveCreditsEvent = 9117;
+    public const uint HousekeepingGiveCurrencyEvent = 9118;
+    public const uint HousekeepingGrantItemEvent = 9119;
+    public const uint HousekeepingSetHcSubscriptionEvent = 9120;
+    public const uint HousekeepingSendHotelAlertEvent = 9121;
+    public const uint HousekeepingGetDashboardEvent = 9122;
+    public const uint HousekeepingListActionLogEvent = 9123;
 }

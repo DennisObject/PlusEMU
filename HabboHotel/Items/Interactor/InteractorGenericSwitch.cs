@@ -1,5 +1,6 @@
 ﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Quests;
+using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
@@ -14,6 +15,7 @@ public class InteractorGenericSwitch : IFurniInteractor
         var modes = item.Definition.Modes - 1;
         if (session == null || !hasRights || modes <= 0) return;
         PlusEnvironment.Game.QuestManager.ProgressUserQuest(session, QuestType.FurniSwitch);
+        if (GateTransitionService.For(item) != null) { ToggleSequenced(session, item, modes); return; }
         var before = item.LegacyDataString;
         var currentMode = 0;
         var newMode = 0;
@@ -34,6 +36,12 @@ public class InteractorGenericSwitch : IFurniInteractor
     {
         var modes = item.Definition.Modes - 1;
         if (modes == 0) return;
+        if (GateTransitionService.For(item) != null)
+        {
+            GateTransitionService.ToggleState(item, current => string.IsNullOrEmpty(current) ? NextMode("0", modes).ToString()
+                : int.TryParse(current, out _) ? NextMode(current, modes).ToString() : null, GateCloseReason.Wired);
+            return;
+        }
         var currentMode = 0;
         var newMode = 0;
         if (string.IsNullOrEmpty(item.LegacyDataString))
@@ -47,5 +55,26 @@ public class InteractorGenericSwitch : IFurniInteractor
             newMode = currentMode + 1;
         item.LegacyDataString = newMode.ToString();
         item.UpdateState();
+    }
+
+    // v2 only: gate states are written through the per-gate sequencer.
+    private static void ToggleSequenced(GameClient session, Item item, int modes)
+    {
+        var before = item.LegacyDataString;
+        GateTransitionService.ToggleState(item, current => NextMode(current, modes).ToString(), GateCloseReason.Click, afterWrite: changed =>
+        {
+            if (!string.Equals(before, changed.LegacyDataString, StringComparison.Ordinal))
+                RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
+        });
+    }
+
+    private static int NextMode(string current, int modes)
+    {
+        if (!int.TryParse(current, out var currentMode)) { }
+        if (currentMode <= 0)
+            return 1;
+        if (currentMode >= modes)
+            return 0;
+        return currentMode + 1;
     }
 }

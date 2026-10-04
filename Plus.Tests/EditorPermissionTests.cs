@@ -63,7 +63,6 @@ public class EditorPermissionTests
         Assert.Throws<CatalogAdminRejected>(() => service.History(actor, 0, 50));
         Assert.Throws<CatalogAdminRejected>(() => service.LoadPage(actor, 1));
         Assert.Throws<CatalogAdminRejected>(() => service.LoadOffer(actor, 1));
-        Assert.Throws<CatalogAdminRejected>(() => service.Revision(actor));
         Assert.Empty(refresher.Calls);
     }
 
@@ -114,7 +113,7 @@ public class EditorPermissionTests
             .Where(type => type.Namespace is "Plus.Communication.Packets.Incoming.Catalog.Admin" or "Plus.Communication.Packets.Incoming.FurniEditor"
                 && type.IsAssignableTo(typeof(Plus.Communication.Packets.IPacketEvent)))
             .ToList();
-        Assert.Equal(32, handlers.Count);
+        Assert.Equal(28, handlers.Count);
         var revision = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/OCTANE-3-6-0-FLOOR-20260909.json"))).RootElement;
         foreach (var handler in handlers)
         {
@@ -133,11 +132,34 @@ public class EditorPermissionTests
         }
         foreach (var composer in new[] { "CatalogAdminResultComposer", "CatalogAdminOfferDetailsComposer", "CatalogAdminPageDetailsComposer",
                      "CatalogStudioSessionComposer", "CatalogStudioHistoryComposer",
-                     "CatalogStudioOperationComposer", "CatalogStudioValidationComposer", "CatalogStudioDocumentResultComposer", "FurniEditorSearchResultComposer", "FurniEditorDetailResultComposer",
+                     "CatalogStudioOperationComposer", "FurniEditorSearchResultComposer", "FurniEditorDetailResultComposer",
                      "FurniEditorInteractionsResultComposer", "FurniEditorResultComposer", "FurnitureDataReloadComposer", "FurniEditorImportTextResultComposer" })
         {
             var header = typeof(Plus.Communication.Packets.Outgoing.ServerPacketHeader).GetField(composer);
             Assert.Equal((uint)header!.GetValue(null)!, revision.GetProperty("OutgoingHeaders").GetProperty(composer).GetUInt32());
+        }
+    }
+
+    // Clients must never be able to send catalog SQL (import/export) or have the server validate documents for them:
+    // those packets are unknown to the server and dropped.
+    [Fact]
+    public void CatalogSqlDocumentAndValidationPacketsAreNotRegistered()
+    {
+        string[] incoming = ["CatalogStudioValidateEvent", "CatalogStudioExportEvent", "CatalogStudioDocumentDryRunEvent", "CatalogStudioDocumentApplyEvent"];
+        string[] outgoing = ["CatalogStudioValidationComposer", "CatalogStudioDocumentResultComposer"];
+        uint[] wireIds = [10073, 10078, 10079, 10080];
+        var assembly = typeof(CatalogAdminSavePageEvent).Assembly;
+
+        Assert.DoesNotContain(assembly.GetTypes(), type => incoming.Contains(type.Name) || outgoing.Contains(type.Name));
+        Assert.DoesNotContain(typeof(Plus.Communication.Packets.Incoming.ClientPacketHeader).GetFields(),
+            field => incoming.Contains(field.Name) || (field.GetRawConstantValue() is uint id && wireIds.Contains(id)));
+        Assert.DoesNotContain(typeof(Plus.Communication.Packets.Outgoing.ServerPacketHeader).GetFields(), field => outgoing.Contains(field.Name));
+        foreach (var file in new[] { "OCTANE-3-6-0-FLOOR-20260909.json", "1.6.6.json", "3.6.0.json" })
+        {
+            var revision = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo($"Resources/Revisions/{file}"))).RootElement;
+            var incomingHeaders = revision.GetProperty("IncomingHeaders").EnumerateObject().ToList();
+            Assert.DoesNotContain(incomingHeaders, header => incoming.Contains(header.Name) || wireIds.Contains(header.Value.GetUInt32()));
+            Assert.DoesNotContain(revision.GetProperty("OutgoingHeaders").EnumerateObject(), header => outgoing.Contains(header.Name));
         }
     }
 

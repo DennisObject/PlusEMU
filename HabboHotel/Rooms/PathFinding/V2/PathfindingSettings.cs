@@ -28,6 +28,7 @@ public sealed record PathfindingSettings
     public int? MaxExpansionsPerSearch { get; init; }
     public int MaxExpansionsPerRoomTick { get; init; } = 200000;
     public double ShadowLogSample { get; init; } = 0.05;
+    public bool ApproachAutoInteract { get; init; } = true;
 
     public static PathfindingSettings Load(ISettingsManager manager)
     {
@@ -43,12 +44,13 @@ public sealed record PathfindingSettings
             MaxStepUp = Number("max_step_up"), MaxStepDown = Number("max_step_down"), UnlimitedDown = Read("max_step_down") == "none",
             CornerRule = Read("corner_rule") switch { "none" => CornerRule.None, "strict" => CornerRule.Strict, _ => CornerRule.Official },
             LayeringEnabled = Boolean("layering_enabled"), StacktoolLegacyCollision = Boolean("stacktool_legacy_collision", true),
-            AvatarClearance = Number("avatar_clearance") ?? 1.5, MaxSurfacesPerTile = Integer("max_surfaces_per_tile", 2),
+            AvatarClearance = Number("avatar_clearance") ?? 1.5, MaxSurfacesPerTile = Math.Clamp(Integer("max_surfaces_per_tile", 2), 1, NavGrid.MaxSurfacesPerTile),
             UnreachablePolicy = Read("unreachable_policy") == "nearest" ? "nearest" : "stay",
             BlockWaitTicks = Integer("block_wait_ticks", 1), MaxBlockReplans = Integer("max_block_replans", 3),
             MaxWalkStallTicks = Integer("max_walk_stall_ticks", 10), FastwalkIntermediateHooks = Boolean("fastwalk_intermediate_hooks"),
             RidersIgnoreHeight = Boolean("riders_ignore_height", true),
             MaxExpansionsPerSearch = int.TryParse(Read("max_expansions_per_search"), out var cap) && cap > 0 ? cap : null,
+            ApproachAutoInteract = Boolean("approach_auto_interact", true),
             MaxExpansionsPerRoomTick = Integer("max_expansions_per_room_tick", 200000), ShadowLogSample = Math.Min(1, Number("shadow_log_sample") ?? 0.05)
         };
     }
