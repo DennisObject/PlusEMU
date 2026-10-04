@@ -121,11 +121,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
                 || !int.TryParse(item.LegacyDataString, out var previous) || previous == value) return false;
             if (GateTransitionService.For(item) != null)
             {
-                var next = value.ToString(CultureInfo.InvariantCulture);
-                // Closing writes from other threads were sequenced whole by Admit; nothing is notified early.
-                if (GateTransitionService.IsClosing(item, next) && !RoomOwnerScope.IsOwner(room)) return false;
-                if (GateTransitionService.WriteNow(item, next, GateCloseReason.Wired) == GateTransition.Refused)
-                    return false;
+                if (!WriteGateState(item, value)) return false;
             }
             else
             {
@@ -136,6 +132,15 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             return true;
         }
         return engineWrite?.Invoke(reference with { Token = $"internal:{key}" }, holder, value, frame) == true;
+    }
+
+    // v2 only: a gate's state goes through its transition service.
+    private bool WriteGateState(Item item, int value)
+    {
+        var next = value.ToString(CultureInfo.InvariantCulture);
+        // Closing writes from other threads were sequenced whole by Admit; nothing is notified early.
+        if (GateTransitionService.IsClosing(item, next) && !RoomOwnerScope.IsOwner(room)) return false;
+        return GateTransitionService.WriteNow(item, next, GateCloseReason.Wired) != GateTransition.Refused;
     }
 
     private Item? FindItem(WiredVariableHolder holder)

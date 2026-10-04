@@ -86,12 +86,7 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
         if (actor.LegacyOverride) return new(StepReason.Ok);
         if (purpose == StepPurpose.Interaction)
             return new(actor.Interaction?.Allows(from, to) == true ? StepReason.Ok : StepReason.InteractionDenied);
-        var required = purpose == StepPurpose.Transit ? NavFlags.Transit
-            : NavFlags.Transit | NavFlags.GoalOnlySeat | NavFlags.GoalOnlyBed | NavFlags.Door;
-        var standable = purpose == StepPurpose.Roller
-            ? (flags & NavFlags.Transit) != 0 || grid.LegacyFloorStatus[grid.TileOf(slot)] != 0
-            : (flags & required) != 0;
-        if (!standable) return new(StepReason.NotStandable);
+        if (!IsStandable(flags, slot, purpose)) return new(StepReason.NotStandable);
         if ((flags & NavFlags.FloorLocked) != 0) return new(StepReason.FloorLocked);
         if (!actor.IgnoreStepHeight && purpose != StepPurpose.Roller)
         {
@@ -100,17 +95,35 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
         }
         if (from.X != to.X && from.Y != to.Y && _cornerRule != CornerRule.None)
         {
-            var a = grid.Tile(to.X, from.Y); var b = grid.Tile(from.X, to.Y);
-            // Official requires both flanks to exist even when the first is open.
-            if (_cornerRule == CornerRule.Official && (grid.TileVoid[a] || grid.TileVoid[b])) return new(StepReason.CornerVoid);
-            var openA = CanFlankKnownTile(actor, from.Z, a);
-            if (_cornerRule == CornerRule.Strict
-                ? !openA || !CanFlankKnownTile(actor, from.Z, b)
-                : !openA && !CanFlankKnownTile(actor, from.Z, b)) return new(StepReason.CornerBlocked);
+            var corner = CornerReason(actor, from, to);
+            if (corner != StepReason.Ok) return new(corner);
         }
         if ((flags & NavFlags.GuildGate) != 0 && !_access.CanEnterGuildGate(actor, grid.GroupId[slot])) return new(StepReason.GateDenied);
         if (occupancy != null && (occupancy.Targets[slot] & ClaimMatrix.BlockingMask(actor, flags, purpose, view)) != 0) return new(StepReason.Occupied);
         return new(StepReason.Ok);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool IsStandable(NavFlags flags, int slot, StepPurpose purpose)
+    {
+        var required = purpose == StepPurpose.Transit ? NavFlags.Transit
+            : NavFlags.Transit | NavFlags.GoalOnlySeat | NavFlags.GoalOnlyBed | NavFlags.Door;
+        return purpose == StepPurpose.Roller
+            ? (flags & NavFlags.Transit) != 0 || grid.LegacyFloorStatus[grid.TileOf(slot)] != 0
+            : (flags & required) != 0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private StepReason CornerReason(ActorProfile actor, in NavPosition from, in NavPosition to)
+    {
+        var a = grid.Tile(to.X, from.Y); var b = grid.Tile(from.X, to.Y);
+        // Official requires both flanks to exist even when the first is open.
+        if (_cornerRule == CornerRule.Official && (grid.TileVoid[a] || grid.TileVoid[b])) return StepReason.CornerVoid;
+        var openA = CanFlankKnownTile(actor, from.Z, a);
+        if (_cornerRule == CornerRule.Strict
+            ? !openA || !CanFlankKnownTile(actor, from.Z, b)
+            : !openA && !CanFlankKnownTile(actor, from.Z, b)) return StepReason.CornerBlocked;
+        return StepReason.Ok;
     }
 
     public bool CanFlank(ActorProfile actor, in NavPosition from, int x, int y)
