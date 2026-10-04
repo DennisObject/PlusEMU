@@ -32,6 +32,8 @@ public sealed class ClientAccessListTests
         var models = (Dictionary<string, RoomModel>)typeof(RoomManager).GetField("_roomModels", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         foreach (var model in new[] {
             new RoomModel("model_a", 0, 0, 0, 0, "00\rx0", 0, 0, false),
+            new RoomModel("model_s", 0, 0, 0, 0, "00\r00", 0, 0, false),
+            new RoomModel("model_wl", 0, 0, 0, 0, "00\r00", 0, 0, false),
             new RoomModel("model_hc", 0, 0, 0, 0, "00\r00", 1, 0, false),
             new RoomModel("model_vip", 0, 0, 0, 0, "00\r00", 2, 0, false),
             new RoomModel("model_staff", 0, 0, 0, 0, "00\r00", -1, 0, false),
@@ -77,6 +79,20 @@ public sealed class ClientAccessListTests
         clock.Now = clock.Now.AddSeconds(60);
         Assert.Equal(new[] { 0 }, Styles().GetAllowedStyleIds(access));
         Assert.Equal(new[] { "model_a" }, Models().GetCreatableModels(access).Select(model => model.Id));
+    }
+
+    [Fact]
+    public void LegacyModelsRemainLoadableButCannotBeOfferedOrCreated()
+    {
+        var manager = Models();
+        var staff = UserAccess.Create([], [new("*", false)]);
+        foreach (var id in new[] { "model_s", "model_wl" })
+        {
+            Assert.True(manager.TryGetModel(id, out var model));
+            Assert.False(model.CanCreate(UserAccess.Empty));
+            Assert.False(model.CanCreate(staff));
+        }
+        Assert.DoesNotContain(manager.GetCreatableModels(staff), model => model.Id is "model_s" or "model_wl");
     }
 
     [Fact]
