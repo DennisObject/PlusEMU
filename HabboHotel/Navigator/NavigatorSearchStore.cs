@@ -31,4 +31,8 @@ public sealed class NavigatorSearchStore(IDatabase database) : INavigatorSearchS
     }
 }
 
-public sealed record NavigatorRoomReference(uint Id, bool Visible);
+public sealed class NavigatorRoomReference
+{
+    public int Id { get; init; }
+    public bool Visible { get; init; }
+}

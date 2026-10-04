@@ -57,7 +57,7 @@ public sealed class NavigatorSearchService(INavigatorManager navigator, INavigat
         if (query.StartsWith("owner:", StringComparison.OrdinalIgnoreCase)) return Resolve(store.FindByOwnerName(query[6..]));
         if (query.StartsWith("tag:", StringComparison.OrdinalIgnoreCase)) return rooms.SearchTaggedRooms(query[4..]).Select(room => room.Data);
         if (query.StartsWith("group:", StringComparison.OrdinalIgnoreCase)) return rooms.SearchGroupRooms(query[6..]).Select(room => room.Data);
-        return query.Length == 0 ? [] : Resolve(store.FindByCaption(query).Where(room => room.Visible).Select(room => room.Id));
+        return query.Length == 0 ? [] : Resolve(store.FindByCaption(query).Where(room => room.Visible).Select(room => checked((uint)room.Id)));
     }
 
     private static IEnumerable<RoomData> Resolve(IEnumerable<uint> ids)
