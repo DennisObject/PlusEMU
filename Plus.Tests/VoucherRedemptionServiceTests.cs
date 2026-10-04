@@ -10,7 +10,7 @@ public sealed class VoucherRedemptionServiceTests
     [Fact]
     public void SuccessfulClaimPersistsBeforeRewardingWallet()
     {
-        var voucher = new Voucher("CREDIT", "credits", 25, 0, 2);
+        var voucher = new Voucher("CREDIT", "credit", 25, 0, 2);
         var habbo = new Habbo { Id = 7, Credits = 10 };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         var store = new RecordingStore(() => Assert.Equal(10, habbo.Credits));
@@ -26,7 +26,7 @@ public sealed class VoucherRedemptionServiceTests
     [Fact]
     public void PersistenceFailureDoesNotRewardOrPublishUsage()
     {
-        var voucher = new Voucher("CREDIT", "credits", 25, 0, 2);
+        var voucher = new Voucher("CREDIT", "credit", 25, 0, 2);
         var habbo = new Habbo { Id = 7, Credits = 10 };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         var store = new RecordingStore { Fail = true };
@@ -40,7 +40,7 @@ public sealed class VoucherRedemptionServiceTests
     [Fact]
     public void DuplicateClaimDoesNotRewardTwice()
     {
-        var voucher = new Voucher("DUCKET", "duckets", 5, 0, 2);
+        var voucher = new Voucher("DUCKET", "ducket", 5, 0, 2);
         var habbo = new Habbo { Id = 7, Duckets = 3 };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         var store = new RecordingStore { DuplicateAfterFirst = true };
@@ -57,7 +57,7 @@ public sealed class VoucherRedemptionServiceTests
     [Fact]
     public void ClosedWalletDoesNotClaimVoucher()
     {
-        var voucher = new Voucher("CREDIT", "credits", 25, 0, 2);
+        var voucher = new Voucher("CREDIT", "credit", 25, 0, 2);
         var habbo = new Habbo { Id = 7, Credits = 10 };
         typeof(Habbo).GetField("_habboSaved", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(habbo, true);
         var (client, sent) = HabbiconTestSupport.Client(habbo);
