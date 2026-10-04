@@ -67,6 +67,39 @@ public class ClubMembershipDatabaseTests : IDisposable
     private ClubOffer Month => new() { Id = Offer, Days = 31, Credits = 100 };
 
     [ClubDatabaseFact]
+    public void KickbackCarriesFirstPurchaseDateAndStreakDaysAcrossReloadAndRenewal()
+    {
+        var first = _clock.Now.ToUnixTimeSeconds();
+        Assert.NotNull(_memberships.Purchase(_habbo, Month));
+        Assert.Equal(first, Scalar("SELECT first_started_at FROM user_club_memberships WHERE user_id = 957001"));
+        var initial = _rewards.Kickback(_habbo);
+        Assert.Equal("04-10-2026", initial.FirstDate);
+        Assert.Equal(0, initial.Streak);
+
+        _clock.Now = _clock.Now.AddDays(12).AddHours(23);
+        _habbo.Access = _access.Resolve(User);
+        var continued = _rewards.Kickback(_habbo);
+        Assert.Equal("04-10-2026", continued.FirstDate);
+        Assert.Equal(12, continued.Streak);
+        var packet = new HabbiconTestSupport.RecordingPacket();
+        new Plus.Communication.Packets.Outgoing.Users.KickbackInfoComposer(continued).Compose(packet);
+        Assert.Equal(12, packet.Writes[0]);
+        Assert.Equal("04-10-2026", packet.Writes[1]);
+
+        Assert.NotNull(_memberships.Purchase(_habbo, Month));
+        Assert.Equal(12, _rewards.Kickback(_habbo).Streak);
+        _clock.Now = DateTimeOffset.FromUnixTimeSeconds(_memberships.GetExpiry(User));
+        Assert.Equal(0, _rewards.Kickback(_habbo).Streak);
+        Assert.Equal("04-10-2026", _rewards.Kickback(_habbo).FirstDate);
+        _clock.Now = _clock.Now.AddDays(7);
+        Assert.NotNull(_memberships.Purchase(_habbo, Month));
+        _clock.Now = _clock.Now.AddDays(3);
+        Assert.Equal(3, _rewards.Kickback(_habbo).Streak);
+        Assert.Equal("04-10-2026", _rewards.Kickback(_habbo).FirstDate);
+        Assert.Equal(first, _habbo.Access.Membership.FirstStartedAt);
+    }
+
+    [ClubDatabaseFact]
     public void ComplimentaryAccessHasNoPurchasedTenureGiftsOrPayday()
     {
         Sql("INSERT INTO user_permissions (user_id, permission_key, effect) VALUES (957001, 'club.access', 'grant')");
