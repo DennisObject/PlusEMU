@@ -12,9 +12,5 @@ public sealed class RoomDataComponent : IRoomComponent
         room.GetRoomItemHandler().LoadFurniture();
         room.GetGameMap().GenerateMaps();
         room.LoadPromotions();
-        room.LoadRights();
-        room.LoadFilter();
-        room.InitBots();
-        room.InitPets();
     }
 }

@@ -82,7 +82,7 @@ public sealed class RoomLifecycleTests
             throw new InvalidOperationException("The original initialization failed.");
         }));
         using var provider = services.BuildServiceProvider();
-        using var ownedFactory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>());
+        using var ownedFactory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>(), TestLogging.Navigation, TestLogging.Factory);
         factory = ownedFactory;
 
         Assert.Throws<InvalidOperationException>(() => factory.Create(Data(1)));
