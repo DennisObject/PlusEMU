@@ -4,7 +4,7 @@ using NetCoreServer;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets;
 using Plus.HabboHotel.GameClients;
-using NLog;
+using Microsoft.Extensions.Logging;
 
 namespace Plus.Communication.Abstractions;
 
@@ -15,18 +15,19 @@ public abstract class WebsocketGameServer<TGameServerOptions> : WsServer, IGameS
     private readonly IPacketManager _packetManager;
     private readonly IReadOnlyDictionary<uint, IIncomingPacketInjector[]> _incomingInjectors;
     private readonly IReadOnlyDictionary<uint, IOutgoingPacketInjector[]> _outgoingInjectors;
-    private static readonly ILogger Log = LogManager.GetCurrentClassLogger();
+    private readonly ILogger _logger;
     private readonly ConcurrentDictionary<Guid, WsSessionProxy> _connectedClients = new();
 
     protected WebsocketGameServer(IOptions<TGameServerOptions> options,
         IGameClientFactory<WsSessionProxy, WsServer> clientFactory,
         IPacketManager packetManager,
         IEnumerable<IIncomingPacketInjector> incomingInjectors,
-        IEnumerable<IOutgoingPacketInjector> outgoingInjectors) : base(options.Value.Hostname,
+        IEnumerable<IOutgoingPacketInjector> outgoingInjectors, ILogger logger) : base(options.Value.Hostname,
         options.Value.Port)
     {
         _clientFactory = clientFactory;
         _packetManager = packetManager;
+        _logger = logger;
         _incomingInjectors = incomingInjectors.GroupBy(x => x.MessageId).ToDictionary(x => x.Key, x => x.ToArray());
         _outgoingInjectors = outgoingInjectors.GroupBy(x => x.MessageId).ToDictionary(x => x.Key, x => x.ToArray());
     }
@@ -69,7 +70,7 @@ public abstract class WebsocketGameServer<TGameServerOptions> : WsServer, IGameS
 
     public bool HasOutgoingPacketInjectors(uint messageId) => _outgoingInjectors.ContainsKey(messageId);
 
-    private static bool InvokeInjectors<T>(IReadOnlyDictionary<uint, T[]> injectors, uint messageId, Action<T> invoke)
+    private bool InvokeInjectors<T>(IReadOnlyDictionary<uint, T[]> injectors, uint messageId, Action<T> invoke)
     {
         if (!injectors.TryGetValue(messageId, out var matches)) return true;
         foreach (var injector in matches)
@@ -77,7 +78,7 @@ public abstract class WebsocketGameServer<TGameServerOptions> : WsServer, IGameS
             try { invoke(injector); }
             catch (Exception exception)
             {
-                Log.Error(exception, $"Packet injector {injector!.GetType().Name} failed for message {messageId}; packet aborted");
+                _logger.LogError(exception, "Packet injector {InjectorType} failed for message {MessageId}; packet aborted", injector!.GetType().Name, messageId);
                 return false;
             }
         }
