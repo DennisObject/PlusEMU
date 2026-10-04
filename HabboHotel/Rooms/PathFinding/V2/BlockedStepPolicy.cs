@@ -16,9 +16,10 @@ internal sealed class BlockedStepPolicy(PathfindingSettings settings, MovementCa
         var state = actor.Movement;
         actor.RemoveStatus("mv"); actor.UpdateNeeded = true;
         state.WaitTicks++;
-        if (state.BlockReplans >= settings.MaxBlockReplans)
-        { cancellation.Cancel(actor); return; }
         if (temporaryBlock && state.WaitTicks <= settings.BlockWaitTicks) return;
+        // A truncated route never searches again, so the replan limit cannot end its prefix.
+        if (state.Fallback.State != RouteState.Truncated && state.BlockReplans >= settings.MaxBlockReplans)
+        { cancellation.Cancel(actor); return; }
         fallback.OnRouteBlocked(actor);
     }
 }
