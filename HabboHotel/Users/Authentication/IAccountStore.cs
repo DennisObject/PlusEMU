@@ -16,6 +16,9 @@ public interface IAccountStore
 
     /// <summary>Creates the user and its statistics row. Null when the username is already taken.</summary>
     Task<int?> Create(NewAccount account);
+
+    /// <summary>Stores users.ip_last, so IP bans can find accounts using that address.</summary>
+    Task RecordAddress(int userId, string address, CredentialScope? scope = null);
 }
 
 /// <param name="Generation">users.credential_generation, read in the same row snapshot as the password.</param>

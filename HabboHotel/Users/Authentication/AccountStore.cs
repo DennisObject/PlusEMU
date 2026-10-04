@@ -54,6 +54,12 @@ public class AccountStore : IAccountStore
         return await connection.ExecuteScalarAsync<int>("SELECT COUNT(0) FROM `users` WHERE `mail` = @email", new { email }) != 0;
     }
 
+    public async Task RecordAddress(int userId, string address, CredentialScope? scope = null)
+    {
+        using var owned = scope == null ? _database.Connection() : null;
+        await (scope?.Connection ?? owned!).ExecuteAsync("UPDATE `users` SET `ip_last` = @address WHERE `id` = @userId", new { userId, address }, scope?.Transaction);
+    }
+
     public async Task<int?> Create(NewAccount account)
     {
         using var connection = _database.Connection();

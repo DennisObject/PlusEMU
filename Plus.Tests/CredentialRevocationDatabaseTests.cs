@@ -211,6 +211,25 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     }
 
     [AuthDatabaseFact]
+    public async Task LoginsAndResumesRecordTheClientAddress()
+    {
+        var userId = User();
+        var issuer = Issuer();
+        var device = (await issuer.Issue(userId, "x", await _generations.Current(userId), "203.0.113.8", remember: true))!;
+        Assert.Equal("203.0.113.8", await LastAddress(userId));
+
+        await issuer.Resume(device.RememberToken!.Value.Value, "198.51.100.4", withTicket: false);
+
+        Assert.Equal("198.51.100.4", await LastAddress(userId));
+    }
+
+    private static async Task<string> LastAddress(int userId)
+    {
+        using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
+        return await connection.QuerySingleAsync<string>("SELECT ip_last FROM users WHERE id = @userId", new { userId });
+    }
+
+    [AuthDatabaseFact]
     public async Task ReplayingARotatedRememberTokenSignsTheUserOutEverywhere()
     {
         var userId = User();
@@ -289,6 +308,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         public Task<bool> UsernameExists(string username) => inner.UsernameExists(username);
         public Task<bool> EmailExists(string email) => inner.EmailExists(email);
         public Task<int?> Create(NewAccount account) => inner.Create(account);
+        public Task RecordAddress(int userId, string address, CredentialScope? scope = null) => inner.RecordAddress(userId, address, scope);
     }
 
     /// <summary>Pauses after the ticket was exchanged (the authority read), before the access token is written.</summary>

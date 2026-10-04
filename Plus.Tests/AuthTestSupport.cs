@@ -110,6 +110,14 @@ internal sealed class FakeAccounts : IAccountStore
         return Task.CompletedTask;
     }
 
+    public readonly Dictionary<int, string> LastAddress = [];
+
+    public Task RecordAddress(int userId, string address, CredentialScope? scope = null)
+    {
+        LastAddress[userId] = address;
+        return Task.CompletedTask;
+    }
+
     public Task<string?> UsernameById(int userId) => Task.FromResult(Rows.FirstOrDefault(r => r.Id == userId)?.Username);
 
     public Task<bool> UsernameExists(string username) => Task.FromResult(Rows.Any(r => string.Equals(r.Username, username, StringComparison.OrdinalIgnoreCase)));

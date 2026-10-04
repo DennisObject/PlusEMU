@@ -529,5 +529,6 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         await Post("/api/auth/register", new { username = "ViaProxy", email = "proxy@example.com", password = "long enough" }, forwardedFor: "203.0.113.7");
 
         Assert.Equal(expectedAddress, Assert.Single(_accounts.Created).Address);
+        Assert.Equal(expectedAddress, _accounts.LastAddress[_accounts.Rows.Single(r => r.Username == "ViaProxy").Id]);
     }
 }

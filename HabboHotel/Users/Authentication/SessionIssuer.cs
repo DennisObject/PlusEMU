@@ -80,6 +80,7 @@ public class SessionIssuer : ISessionIssuer
         await _generations.WriteIfCurrent(userId, generation, null, async scope =>
         {
             await _generations.StartSession(userId, sessionId, scope);
+            await _accounts.RecordAddress(userId, address, scope);
             session = new(username, await _ssoTickets.Issue(userId, sessionId, scope), await _accessTokens.Issue(userId, sessionId, scope),
                 remember ? await _rememberTokens.Continue(userId, sessionId, scope) : null);
         });
@@ -110,6 +111,7 @@ public class SessionIssuer : ISessionIssuer
         AuthSession? session = null;
         await _generations.WriteIfCurrent(userId, rotation.Generation, sessionId, async scope =>
         {
+            await _accounts.RecordAddress(userId, address, scope);
             session = new(username, withTicket ? await _ssoTickets.Issue(userId, sessionId, scope) : default,
                 await _accessTokens.Issue(userId, sessionId, scope), await _rememberTokens.Continue(userId, sessionId, scope));
         });
