@@ -334,6 +334,8 @@ public static class ServerPacketHeader
     public const uint PollContentsComposer = 3826;
     public const uint PollOfferComposer = 1074;
     public const uint RoomUseHabbiconComposer = 9410;
+    public const uint AllowedChatStylesComposer = 9340;
+    public const uint CreatableRoomModelsComposer = 9341;
     public const uint UserHabbiconsComposer = 9465;
     public const uint UserHabbiconStatusChangedComposer = 9466;
     public const uint HabbiconShopDataComposer = 9467;

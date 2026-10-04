@@ -46,5 +46,8 @@ public sealed class ChatStyleManager : IChatStyleManager
         _logger.LogInformation("Loaded " + _styles.Count + " chat styles.");
     }
 
+    public IReadOnlyList<int> GetAllowedStyleIds(Plus.HabboHotel.Permissions.UserAccess access) =>
+        _styles.Values.Where(style => style.CanUse(access)).Select(style => style.Id).Order().ToArray();
+
     public bool TryGetStyle(int id, out ChatStyle style) => _styles.TryGetValue(id, out style);
 }

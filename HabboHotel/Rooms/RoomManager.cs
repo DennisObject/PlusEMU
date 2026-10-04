@@ -104,6 +104,9 @@ public class RoomManager : IRoomManager
         }
     }
 
+    public IReadOnlyList<RoomModel> GetCreatableModels(Plus.HabboHotel.Permissions.UserAccess access) =>
+        _roomModels.Values.Where(model => !model.IsCustom && model.CanCreate(access)).OrderBy(model => model.Id, StringComparer.Ordinal).ToArray();
+
     public bool LoadModel(string id)
     {
         DataRow row = null;

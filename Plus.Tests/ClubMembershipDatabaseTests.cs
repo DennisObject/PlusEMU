@@ -37,6 +37,7 @@ public class ClubMembershipDatabaseTests : IDisposable
     private readonly ClubRewards _rewards;
     private readonly ClubMembershipTests.Clock _clock = new();
     private readonly Habbo _habbo;
+    private readonly List<(uint Header, byte[] Body)> _sent;
     private readonly CatalogItem _gift;
     private readonly Clients _clients;
 
@@ -50,7 +51,8 @@ public class ClubMembershipDatabaseTests : IDisposable
             "INSERT INTO catalog_club_offers (id, enabled, name, days, credits) VALUES (957101, 1, 'TEST_HC_MONTH', 31, 100)");
         _habbo = new Habbo { Id = User, Username = "club_test_member", Credits = 1000, Duckets = 10, Diamonds = 10,
             Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([], []) } };
-        var (client, _) = HabbiconTestSupport.Client(_habbo);
+        var (client, sent) = HabbiconTestSupport.Client(_habbo);
+        _sent = sent;
         _habbo.Client = client;
         var clients = DispatchProxy.Create<IGameClientManager, Clients>();
         _clients = (Clients)clients; _clients.Client = client;
@@ -128,6 +130,30 @@ public class ClubMembershipDatabaseTests : IDisposable
         Assert.Equal(now + 31 * ClubMembership.Day, Scalar("SELECT expires_at FROM user_club_memberships WHERE user_id = 957001"));
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM acl_audit_log WHERE action = 'club.purchase' AND target_id = 957001"));
     }
+    [ClubDatabaseFact]
+    public async Task PurchasingAndExpiringMembershipResendBothLists()
+    {
+        using var lists = new ClientAccessLists(_access, ClientAccessListTests.Styles(), ClientAccessListTests.Models());
+        await lists.Start();
+        Assert.NotNull(_memberships.Purchase(_habbo, Month));
+        AssertLists(2, 3);
+        _clock.Now = DateTimeOffset.FromUnixTimeSeconds(_habbo.Access.Membership.ExpiresAt);
+        _clock.Tick();
+        AssertLists(1, 1);
+
+        void AssertLists(int styleCount, int modelCount)
+        {
+            Assert.Equal(new[] {
+                Plus.Communication.Packets.Outgoing.ServerPacketHeader.UserRightsComposer,
+                Plus.Communication.Packets.Outgoing.ServerPacketHeader.AllowedChatStylesComposer,
+                Plus.Communication.Packets.Outgoing.ServerPacketHeader.CreatableRoomModelsComposer
+            }, _sent.Select(packet => packet.Header));
+            Assert.Equal(styleCount, System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(_sent[1].Body));
+            Assert.Equal(modelCount, System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(_sent[2].Body));
+            _sent.Clear();
+        }
+    }
+
     [ClubDatabaseFact]
     public async Task ConcurrentPurchasesSerializeWalletAndExtendWithoutLostTime()
     {

@@ -101,6 +101,48 @@ public sealed class AccessControlDatabaseTests : IDisposable
     }
 
     [AccessControlDatabaseFact]
+    public async Task AccessChangesAndTheirScheduledExpiryResendBothLists()
+    {
+        using var lists = new ClientAccessLists(_access, ClientAccessListTests.Styles(), ClientAccessListTests.Models());
+        await lists.Start();
+        // The same sender is used after successful login.
+        lists.Send(_target);
+        AssertLists([0], ["model_a"]);
+        using (var connection = _database.Connection())
+            connection.Execute("INSERT INTO role_permissions (role_id, permission_key) VALUES (@LimitedRole, @key)",
+                new { LimitedRole, key = PermissionKeys.ChatStyleStaff });
+        _access.Reload();
+        Assert.True(_access.AssignRole(_actor, Target, LimitedRole));
+        AssertLists([0, 2], ["model_a", "model_gated"]);
+        Assert.True(_access.SetOverride(_actor, Target, PermissionKeys.ClubAccess, false, "complimentary", _clock.Now.AddSeconds(30)));
+        AssertLists([0, 1, 2], ["model_a", "model_gated", "model_hc", "model_vip"]);
+        Assert.True(_access.SetOverride(_actor, Target, PermissionKeys.ChatStyleStaff, true, "deny"));
+        AssertLists([0, 1], ["model_a", "model_hc", "model_vip"]);
+        _clock.Now = _clock.Now.AddSeconds(30);
+        _clock.Tick();
+        AssertLists([0], ["model_a"]);
+        Assert.True(_access.RemoveOverride(_actor, Target, PermissionKeys.ChatStyleStaff));
+        AssertLists([0, 2], ["model_a", "model_gated"]);
+        Assert.True(_access.RevokeRole(_actor, Target, LimitedRole));
+        AssertLists([0], ["model_a"]);
+
+        void AssertLists(int[] styleIds, string[] modelIds)
+        {
+            var styles = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = _sent.Last(packet => packet.Header == ServerPacketHeader.AllowedChatStylesComposer).Body };
+            Assert.Equal(styleIds.Length, styles.ReadInt());
+            Assert.Equal(styleIds, Enumerable.Range(0, styleIds.Length).Select(_ => styles.ReadInt()));
+            var models = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = _sent.Last(packet => packet.Header == ServerPacketHeader.CreatableRoomModelsComposer).Body };
+            Assert.Equal(modelIds.Length, models.ReadInt());
+            foreach (var id in modelIds)
+            {
+                Assert.Equal(id, models.ReadString());
+                for (var i = 0; i < 4; i++) models.ReadInt();
+            }
+            _sent.Clear();
+        }
+    }
+
+    [AccessControlDatabaseFact]
     public void MutationChecksStoredActorGrantsAndCannotUseAStaleInMemoryPrivilege()
     {
         Assert.False(_access.AssignRole(_actor, Actor, LimitedRole));
