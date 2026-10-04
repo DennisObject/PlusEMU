@@ -24,7 +24,7 @@ namespace Plus.HabboHotel;
 // Game services need to be implemented behind an interface.
 // Dependency inject the required services in the IPacketEvent
 // This class will be obsolete. Do not reference to Game().<Service> but inject it instead.
-public class Game : IGame
+public class Game : IGame, IStartable
 {
     private readonly IGameClientManager _clientManager;
     private readonly IModerationManager _moderationManager;
@@ -113,6 +113,9 @@ public class Game : IGame
         _cacheManager.Init();
         return Task.CompletedTask;
     }
+
+    public int StartOrder => 100;
+    public Task Start() => Init();
 
     public void StartGameLoop()
     {

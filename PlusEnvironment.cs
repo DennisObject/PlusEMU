@@ -5,7 +5,7 @@ using System.Globalization;
 using System.Text;
 using Dapper;
 using Microsoft.Extensions.Options;
-using NLog;
+using Microsoft.Extensions.Logging;
 using Plus.Communication.Encryption;
 using Plus.Communication.Flash;
 using Plus.Communication.Http;
@@ -30,7 +30,7 @@ public class PlusEnvironment : IPlusEnvironment
 {
     public const string PrettyVersion = "Plus Emulator";
     public const string PrettyBuild = "3.4.3.0";
-    private static readonly ILogger Log = LogManager.GetLogger("Plus.PlusEnvironment");
+    private static ILogger<PlusEnvironment> _logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<PlusEnvironment>.Instance;
 
     private static Encoding _defaultEncoding;
     public static CultureInfo CultureInfo;
@@ -66,7 +66,8 @@ public class PlusEnvironment : IPlusEnvironment
         IItemDataManager itemDataManager,
         IFlashServer flashServer,
         INitroServer nitroServer,
-        IAuthHttpServer authHttpServer)
+        IAuthHttpServer authHttpServer,
+        ILogger<PlusEnvironment> logger)
     {
         _database = database;
         _languageManager = languageManager;
@@ -80,6 +81,7 @@ public class PlusEnvironment : IPlusEnvironment
         _authHttpServer = authHttpServer;
         _rconConfiguration = rconConfiguration.Value;
         _itemDataManager = itemDataManager;
+        _logger = logger;
     }
 
     public async Task<bool> Start()
@@ -105,11 +107,11 @@ public class PlusEnvironment : IPlusEnvironment
         {
             if (!_database.IsConnected())
             {
-                Log.Error("Failed to Connect to the specified MySQL server.");
+                _logger.LogError("Failed to Connect to the specified MySQL server.");
                 Console.ReadKey(true);
                 return false;
             }
-            Log.Info("Connected to Database!");
+            _logger.LogInformation("Connected to Database!");
 
             //Reset our statistics first.
             await ResetStatistics();
@@ -126,39 +128,37 @@ public class PlusEnvironment : IPlusEnvironment
             _rcon.Init(_rconConfiguration.Hostname, _rconConfiguration.Port, _rconConfiguration.AllowedAddresses);
 
             _itemDataManager.Init();
-            foreach (var task in _startableTasks)
+            foreach (var task in _startableTasks.OrderBy(task => task.StartOrder))
                 await task.Start();
-
-            await _game.Init();
             _flashServer.Start();
             _nitroServer.Start();
             await _authHttpServer.Start();
-            Log.Info($"Auth API listening on {string.Join(", ", _authHttpServer.Urls)}");
+            _logger.LogInformation("Auth API listening on {Urls}", string.Join(", ", _authHttpServer.Urls));
             _game.StartGameLoop();
             var timeUsed = DateTime.Now - ServerStarted;
             Console.WriteLine();
-            Log.Info($"EMULATOR -> READY! ({timeUsed.Seconds} s, {timeUsed.Milliseconds} ms)");
+            _logger.LogInformation("EMULATOR -> READY! ({Seconds} s, {Milliseconds} ms)", timeUsed.Seconds, timeUsed.Milliseconds);
         }
 #pragma warning disable CS0168 // The variable 'e' is declared but never used
         catch (KeyNotFoundException e)
 #pragma warning restore CS0168 // The variable 'e' is declared but never used
         {
-            Log.Error("Please check your configuration file - some values appear to be missing.");
-            Log.Error("Press any key to shut down ...");
+            _logger.LogError("Please check your configuration file - some values appear to be missing.");
+            _logger.LogError("Press any key to shut down ...");
             Console.ReadKey(true);
             return false;
         }
         catch (InvalidOperationException e)
         {
-            Log.Error($"Failed to initialize PlusEmulator: {e.Message}");
-            Log.Error("Press any key to shut down ...");
+            _logger.LogError(e, "Failed to initialize PlusEmulator");
+            _logger.LogError("Press any key to shut down ...");
             Console.ReadKey(true);
             return false;
         }
         catch (Exception e)
         {
-            Log.Error($"Fatal error during startup: {e}");
-            Log.Error("Press a key to exit");
+            _logger.LogError(e, "Fatal error during startup");
+            _logger.LogError("Press a key to exit");
             Console.ReadKey();
             return false;
         }
@@ -298,7 +298,7 @@ public class PlusEnvironment : IPlusEnvironment
     public static void PerformShutDown()
     {
         Console.Clear();
-        Log.Info("Server shutting down...");
+        _logger.LogInformation("Server shutting down...");
         Console.Title = "PLUS EMULATOR: SHUTTING DOWN!";
         // No new logins while the hotel goes down.
         _authHttpServer.Stop().Wait(TimeSpan.FromSeconds(5));
@@ -316,7 +316,7 @@ public class PlusEnvironment : IPlusEnvironment
             dbClient.RunQuery("UPDATE `rooms` SET `users_now` = '0' WHERE `users_now` > '0'");
             dbClient.RunQuery("UPDATE `server_status` SET `users_online` = '0', `loaded_rooms` = '0'");
         }
-        Log.Info("Plus Emulator has successfully shutdown.");
+        _logger.LogInformation("Plus Emulator has successfully shutdown.");
         Thread.Sleep(1000);
         Environment.Exit(0);
     }

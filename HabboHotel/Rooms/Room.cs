@@ -68,7 +68,7 @@ public class Room
     public Room(RoomData data, IEnumerable<IRoomComponent>? components = null)
     {
         _data = data;
-        _components = (components ?? [new CoreRoomComponent()]).ToArray();
+        _components = (components ?? [new RoomRuntimeComponent(), new RoomDataComponent()]).ToArray();
     }
 
     public RoomData Data => _data ??= new RoomData();
@@ -86,7 +86,7 @@ public class Room
             component.Initiated();
     }
 
-    internal void InitializeCore()
+    internal void InitializeRuntime()
     {
         IsLagging = 0;
         Unloaded = false;
@@ -102,17 +102,6 @@ public class Room
         _bansComponent = new(this);
         _tradingComponent = new(this);
         LastRegeneration = DateTime.Now;
-    }
-
-    internal void LoadCoreData()
-    {
-        GetRoomItemHandler().LoadFurniture();
-        GetGameMap().GenerateMaps();
-        LoadPromotions();
-        LoadRights();
-        LoadFilter();
-        InitBots();
-        InitPets();
     }
 
     public uint Id { get => Data.Id; set => Data.Id = value; }
@@ -325,7 +314,7 @@ public class Room
                 UsersWithRights.Add(Convert.ToInt32(row["user_id"]));
     }
 
-    private void LoadFilter()
+    internal void LoadFilter()
     {
         WordFilterList = new();
         DataTable? data = null;
