@@ -584,6 +584,7 @@ public class GroupManagementTests : IDisposable
     {
         public List<string> Statements { get; } = new();
         public int Scalar { get; set; }
+        public string? Username { get; set; }
         public bool IsConnected() => true;
         public IQueryAdapter GetQueryReactor() => new EmptyAdapter();
         public IDbConnection Connection() => new RecordingConnection(this);
@@ -655,6 +656,10 @@ public class GroupManagementTests : IDisposable
                 return EmptyReader(("UserId", typeof(int)), ("Rank", typeof(int)));
             if (CommandText.Contains("FROM group_requests", StringComparison.OrdinalIgnoreCase))
                 return EmptyReader(("user_id", typeof(int)));
+            if (CommandText.Contains("SELECT username FROM users", StringComparison.OrdinalIgnoreCase))
+                return database.Username is { } name ? SingleValueReader("username", name) : EmptyReader(("username", typeof(string)));
+            if (CommandText.Contains("INNER JOIN `rooms`", StringComparison.OrdinalIgnoreCase))
+                return EmptyReader();
             return new ScalarReader(database.Scalar);
         }
         public object? ExecuteScalar()
@@ -663,6 +668,14 @@ public class GroupManagementTests : IDisposable
             return database.Scalar;
         }
         public void Prepare() { }
+
+        private static IDataReader SingleValueReader(string column, string value)
+        {
+            var table = new DataTable();
+            table.Columns.Add(column, typeof(string));
+            table.Rows.Add(value);
+            return table.CreateDataReader();
+        }
 
         private static IDataReader EmptyReader(params (string Name, Type Type)[] columns)
         {

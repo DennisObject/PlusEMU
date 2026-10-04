@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Plus.Communication.Packets.Outgoing.Groups;
 using Plus.Database;
+using Plus.HabboHotel;
+using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Cache;
 using Plus.HabboHotel.Cache.Type;
 using Plus.HabboHotel.GameClients;
@@ -21,19 +23,27 @@ public class GroupInfoSnapshotTests : IDisposable
     private const string BaselineSha256 = "b50ca1fc5454747df4f934099fbf05d22151c9b004328873e8f0c0c17797426c";
 
     private static readonly FieldInfo DatabaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
+    private static readonly FieldInfo GameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
+    private readonly object? _previousGame;
     private readonly object? _previousDatabase;
     private readonly GroupManagementTests.RecordingDatabase _database = new();
     private readonly Dictionary<int, GameClient> _clients = new();
 
     public GroupInfoSnapshotTests()
     {
+        _previousGame = GameField.GetValue(null);
         _previousDatabase = DatabaseField.GetValue(null);
         DatabaseField.SetValue(null, _database);
+        GameField.SetValue(null, Proxy<IGame>((method, _) => method == "get_RoomManager" ? UnloadedRooms() : throw new InvalidOperationException(method)));
         foreach (var (id, name) in new[] { (7, "Owner"), (4, "Admin"), (5, "Requester"), (3, "Member"), (9, "Outsider") })
             _clients[id] = HabbiconTestSupport.Client(new Habbo { Id = id, Username = name }).Client;
     }
 
-    public void Dispose() => DatabaseField.SetValue(null, _previousDatabase);
+    public void Dispose()
+    {
+        GameField.SetValue(null, _previousGame);
+        DatabaseField.SetValue(null, _previousDatabase);
+    }
 
     [Fact]
     public void ComposedBytesMatchPreMigrationBaseline()
@@ -74,8 +84,11 @@ public class GroupInfoSnapshotTests : IDisposable
     [Theory]
     [InlineData("session", "Owner")]
     [InlineData("cache", "Cached")]
-    public void CreatorNameUsesSessionThenCache(string source, string expected)
+    [InlineData("database", "Stored")]
+    [InlineData("none", "Unknown User")]
+    public void CreatorNameFallsBackSessionThenCacheThenDatabase(string source, string expected)
     {
+        _database.Username = source == "database" ? expected : null;
         var clients = source == "session" ? _clients : new Dictionary<int, GameClient>();
         var snapshot = Service(clients, id => source == "cache" ? new CachedUser { Id = id, Username = "Cached", Look = "hr-1" } : null)
             .Capture(NewGroup(type: 0, forum: true, adminOnly: 0), 9);
@@ -83,13 +96,13 @@ public class GroupInfoSnapshotTests : IDisposable
         Assert.Equal(expected, snapshot.CreatorName);
     }
 
-    private static GroupInfoSnapshotService Service(IReadOnlyDictionary<int, GameClient> clients, Func<int, CachedUser?> users)
+    private GroupInfoSnapshotService Service(IReadOnlyDictionary<int, GameClient> clients, Func<int, CachedUser?> users)
     {
         var clientManager = Proxy<IGameClientManager>((method, args) =>
             method == "GetClientByUserId" ? clients.GetValueOrDefault((int)args[0]!) : throw new InvalidOperationException(method));
         var cache = Proxy<ICacheManager>((method, args) =>
             method == "GenerateUser" ? users((int)args[0]!) : throw new InvalidOperationException(method));
-        return new GroupInfoSnapshotService(clientManager, cache, new GroupManagementTests.RecordingDatabase());
+        return new GroupInfoSnapshotService(clientManager, cache, _database);
     }
 
     private static string Writes(GroupInfoSnapshot snapshot, bool newWindow)
@@ -99,13 +112,31 @@ public class GroupInfoSnapshotTests : IDisposable
         return string.Join("|", packet.Writes.Select(write => $"{write.GetType().Name}:{write}"));
     }
 
-    private static Group NewGroup(int type, bool forum, int adminOnly)
+    [Fact]
+    public void MissingRoomIsNamedNoRoomFound()
+    {
+        var snapshot = Service(_clients, _ => null).Capture(NewGroup(type: 0, forum: true, adminOnly: 0, withRoom: false), 9);
+
+        Assert.Equal("No room found..", snapshot.RoomName);
+    }
+
+    private static IRoomManager UnloadedRooms() => Proxy<IRoomManager>((method, args) =>
+    {
+        Assert.Equal("TryGetRoom", method);
+        args[1] = null;
+        return false;
+    });
+
+    private static Group NewGroup(int type, bool forum, int adminOnly, bool withRoom = true)
     {
         var group = new Group(9, "Crew", "desc", "b01014s02024", 42, 7, 1_700_000_000, type, 3, 4, adminOnly, forum);
-        var room = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
-        room.Id = 42;
-        room.Name = "HQ";
-        typeof(Group).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(group, room);
+        if (withRoom)
+        {
+            var room = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
+            room.Id = 42;
+            room.Name = "HQ";
+            typeof(Group).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(group, room);
+        }
         group.AddMember(4);
         group.MakeAdmin(4);
         group.AddMember(3);
