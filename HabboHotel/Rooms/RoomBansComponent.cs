@@ -18,8 +18,12 @@ public sealed class RoomBansComponent(IDatabase database) : IRoomComponent, IRoo
 {
     private Room _room = null!;
     public int Order => 220;
-    public void Initiate(Room room) => _room = room;
-    public void Initiated() => _room.SetBans(new BansComponent(_room, this, ((IRoomBanStore)this).Load(_room.Id)));
+    public void Initiate(Room room)
+    {
+        _room = room;
+        room.SetBans(new BansComponent(room, this, []));
+    }
+    public void Initiated() => _room.GetBans().Load(((IRoomBanStore)this).Load(_room.Id));
 
     IEnumerable<RoomBan> IRoomBanStore.Load(uint roomId)
     {

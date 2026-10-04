@@ -13,8 +13,10 @@ public class BansComponent
     {
         _instance = instance;
         _store = store;
-        _bans = new(bans.Select(ban => new KeyValuePair<int, double>(ban.UserId, ban.ExpiresAt)));
+        Load(bans);
     }
+
+    internal void Load(IEnumerable<RoomBan> bans) => _bans = new(bans.Select(ban => new KeyValuePair<int, double>(ban.UserId, ban.ExpiresAt)));
 
     public int Count => _bans.Count;
 

@@ -7,6 +7,16 @@ namespace Plus.Tests;
 public sealed class RoomLifecycleTests
 {
     [Fact]
+    public void BansAreAvailableAfterTheFirstPhaseWithoutLoadingTheDatabase()
+    {
+        var component = new RoomBansComponent(null!);
+        var room = new Room(Data(1), [component], TestLogging.Navigation, TestLogging.Logger);
+        component.Initiate(room);
+        Assert.NotNull(room.GetBans());
+        Assert.Equal(0, room.GetBans().Count);
+    }
+
+    [Fact]
     public void InitiateRunsEveryFirstPhaseBeforeAnySecondPhase()
     {
         var calls = new List<string>();
