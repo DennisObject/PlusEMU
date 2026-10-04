@@ -25838,7 +25838,7 @@ CREATE TABLE `user_info` (
   `login_timestamp` double NOT NULL DEFAULT '0',
   `cfhs` int(11) NOT NULL DEFAULT '0',
   `cfhs_abusive` int(11) NOT NULL DEFAULT '0',
-  `trading_locked` double NOT NULL DEFAULT '0',
+  `trading_locked` datetime DEFAULT NULL,
   `trading_locks_count` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `user_id` (`user_id`)
@@ -26053,7 +26053,7 @@ CREATE TABLE `wordfilter` (
 -- 2_AddMissingRoomColumns
 ALTER TABLE `rooms` 
 	ADD `sale_price` INT(5) NOT NULL DEFAULT '0' AFTER `spush_enabled`, 
-	ADD `lay_enabled` ENUM('0','1') NOT NULL DEFAULT '0' AFTER `sale_price`;
+	ADD `lay_enabled` BOOL NOT NULL DEFAULT FALSE AFTER `sale_price`;
 
 -- 3_RefactorMessenger
 ALTER TABLE `messenger_friendships` DROP `id`;
@@ -26085,62 +26085,13 @@ CREATE TABLE `ambassador_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- 8_AddBubbleIDToUsersTable
-ALTER TABLE `users` ADD COLUMN `bubble_id` TINYINT NOT NULL DEFAULT '0' AFTER `allow_mimic`;
-
--- 9_ChangeRoomDataToBooleans
-ALTER TABLE `rooms` CHANGE `allow_pets` `allow_pets` BOOLEAN NOT NULL DEFAULT FALSE, 
-CHANGE `allow_pets_eat` `allow_pets_eat` BOOLEAN NOT NULL DEFAULT FALSE, 
-CHANGE `room_blocking_disabled` `room_blocking_disabled` BOOLEAN NOT NULL DEFAULT FALSE, 
-CHANGE `allow_hidewall` `allow_hidewall` BOOLEAN NOT NULL DEFAULT FALSE; 
-
--- 10_UserDataToBooleans
-ALTER TABLE `users` CHANGE `online` `online` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `is_muted` `is_muted` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `block_newfriends` `block_newfriends` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `hide_online` `hide_online` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `hide_inroom` `hide_inroom` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `vip` `vip` BOOLEAN NULL DEFAULT TRUE,
-CHANGE `focus_preference` `focus_preference` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `chat_preference` `chat_preference` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `pets_muted` `pets_muted` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `bots_muted` `bots_muted` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `advertising_report_blocked` `advertising_report_blocked` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `ignore_invites` `ignore_invites` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `allow_gifts` `allow_gifts` BOOLEAN NULL DEFAULT TRUE,
-CHANGE `disable_forced_effects` `disable_forced_effects` BOOLEAN NOT NULL DEFAULT FALSE,
-CHANGE `allow_mimic` `allow_mimic` BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE `users` ADD COLUMN `bubble_id` TINYINT NOT NULL DEFAULT '0' AFTER `time_muted`;
 
 -- 11_ChangeCatalogPagesEnumToBit
 ALTER TABLE `catalog_pages` DROP `visible`;
 ALTER TABLE `catalog_pages` ADD `visible` bit(1) NOT NULL DEFAULT b'1';
 ALTER TABLE `catalog_pages` DROP `enabled`;
 ALTER TABLE `catalog_pages` ADD `enabled` bit(1) NOT NULL DEFAULT b'1';
-
--- 12_ChangeIntToBoolRoomData
-ALTER TABLE `rooms` 
-    CHANGE `allow_pets` `allow_pets_old` ENUM('0','1') NOT NULL DEFAULT '0',
-    CHANGE `allow_pets_eat` `allow_pets_eat_old` ENUM('0','1') NOT NULL DEFAULT '0',
-    CHANGE `room_blocking_disabled` `room_blocking_disabled_old` ENUM('0','1') NOT NULL DEFAULT '0',
-    CHANGE `allow_hidewall` `allow_hidewall_old` ENUM('0','1') NOT NULL DEFAULT '0';
-
-ALTER TABLE `rooms`
-    ADD `allow_pets` BOOLEAN NOT NULL DEFAULT 0,
-    ADD `allow_pets_eat` BOOLEAN NOT NULL DEFAULT 0,
-    ADD `room_blocking_disabled` BOOLEAN NOT NULL DEFAULT 0,
-    ADD `allow_hidewall` BOOLEAN NOT NULL DEFAULT 0;
-
-UPDATE `rooms`
-SET
-    `allow_pets` = `allow_pets_old` = '1',
-    `allow_pets_eat` = `allow_pets_eat_old` = '1',
-    `room_blocking_disabled` = `room_blocking_disabled_old` = '1',
-    `allow_hidewall` = `allow_hidewall_old` = '1';
-
-ALTER TABLE `rooms`
-    DROP `allow_pets_old`,
-    DROP `allow_pets_eat_old`,
-    DROP `room_blocking_disabled_old`,
-    DROP `allow_hidewall_old`;
 
 -- 13_DeletePrimaryKeyAuthTicket
 ALTER TABLE `users`

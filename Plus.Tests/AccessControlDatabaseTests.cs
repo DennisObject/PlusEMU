@@ -405,7 +405,7 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
     {
         Assert.True(_access.AssignRole(_actor, Target, LimitedRole));
         var (session, messages) = HabbiconTestSupport.Client(_actor);
-        new UserInfoCommand(_database, _clients, _access).Execute(session, null!, ["", "acl_target"]);
+        new UserInfoCommand(new Plus.HabboHotel.Moderation.ModerationUserStore(_database), _clients, _access).Execute(session, null!, ["", "acl_target"]);
         Assert.Single(messages);
         Assert.Contains("ACL limited", System.Text.Encoding.UTF8.GetString(messages[0].Payload));
     }

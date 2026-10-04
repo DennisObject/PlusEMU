@@ -93,7 +93,7 @@ public class HousekeepingActionTests
         ((AccessProxy)(object)permissions).Users = users.ToDictionary(user => user.User.Id, user => user.Access);
         ((AccessProxy)(object)permissions).Users.TryAdd(1, Staff().Access);
         var clients = new FakeClients();
-        return (new(store, clients, null!, permissions, null!, null!, gate, null!), new(store, clients, items, itemFactory, null!, null!, gate, permissions), clients);
+        return (new(store, clients, null!, permissions, null!, null!, gate, null!, null!), new(store, clients, items, itemFactory, null!, null!, gate, permissions), clients);
     }
 
     [Fact]

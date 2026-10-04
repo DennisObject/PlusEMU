@@ -98,8 +98,6 @@ public class Habbo
     public List<int> ClientVolume { get; set; } = new() { 0, 0, 0 };
 
     public DateTimeOffset? LastNameChangedAt { get; set; }
-    [Obsolete("Use LastNameChangedAt")]
-    public double LastNameChange { get => LastNameChangedAt?.ToUnixTimeSeconds() ?? 0; set => LastNameChangedAt = value <= 0 ? null : DateTimeOffset.FromUnixTimeSeconds((long)value); }
 
     public string MachineId { get; set; }
 
@@ -149,7 +147,7 @@ public class Habbo
 
     public double TimeMuted { get; set; }
 
-    public double TradingLockExpiry { get; set; }
+    public DateTimeOffset? TradingLockExpiresAt { get; set; }
 
     public DateTimeOffset SessionStartedAt { get; internal set; }
     internal IUserPersistenceService Persistence { get; set; }

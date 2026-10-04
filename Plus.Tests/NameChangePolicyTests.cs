@@ -19,7 +19,7 @@ public class NameChangePolicyTests
     {
         var role = new AccessRole(1, "member", "Member", 0, 1, "", false, [],
             new Dictionary<string, int> { ["limit.name_change_frequency"] = frequency });
-        var habbo = new Habbo { LastNameChange = lastChange, Access = UserAccess.Create([new(role)]) };
-        Assert.Equal(allowed, NameChangePolicy.CanChange(habbo, now));
+        var habbo = new Habbo { LastNameChangedAt = lastChange == 0 ? null : DateTimeOffset.FromUnixTimeSeconds(lastChange), Access = UserAccess.Create([new(role)]) };
+        Assert.Equal(allowed, NameChangePolicy.CanChange(habbo, DateTimeOffset.FromUnixTimeSeconds(now)));
     }
 }

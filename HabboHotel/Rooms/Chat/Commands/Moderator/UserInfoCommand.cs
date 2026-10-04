@@ -1,14 +1,13 @@
 using Plus.HabboHotel.Permissions;
-using System.Data;
+using Plus.HabboHotel.Moderation;
 using System.Text;
-using Plus.Database;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 
 internal class UserInfoCommand : IChatCommand
 {
-    private readonly IDatabase _database;
+    private readonly IModerationUserStore _users;
     private readonly IAccessControl _access;
     private readonly IGameClientManager _gameClientManager;
     public string Key => "userinfo";
@@ -17,77 +16,57 @@ internal class UserInfoCommand : IChatCommand
 
     public string Description => "View another users profile information.";
 
-    public UserInfoCommand(IDatabase database, IGameClientManager gameClientManager, IAccessControl access)
+    public UserInfoCommand(IModerationUserStore users, IGameClientManager gameClientManager, IAccessControl access)
     {
-        _database = database;
+        _users = users;
         _access = access;
         _gameClientManager = gameClientManager;
     }
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (parameters.Length == 1)
+        if (parameters.Length < 2)
         {
             session.SendWhisper("Please enter the username of the user you wish to view.");
             return;
         }
-        DataRow? userData = null;
-        DataRow? userInfo = null;
         var username = parameters[1];
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery(
-                "SELECT `id`,`username`,`mail`,`rank`,`motto`,`credits`,`activity_points`,`vip_points`,`gotw_points`,`online` FROM users WHERE `username` = @Username LIMIT 1");
-            dbClient.AddParameter("Username", username);
-            userData = dbClient.GetRow();
-        }
+        var userData = _users.Find(username);
         if (userData == null)
         {
             session.SendNotification($"Oops, there is no user in the database with that username ({username})!");
             return;
         }
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery($"SELECT * FROM `user_info` WHERE `user_id` = '{Convert.ToInt32(userData["id"])}' LIMIT 1");
-            userInfo = dbClient.GetRow();
-            if (userInfo == null)
-            {
-                dbClient.RunQuery($"INSERT INTO `user_info` (`user_id`) VALUES ('{Convert.ToInt32(userData["id"])}')");
-                dbClient.SetQuery($"SELECT * FROM `user_info` WHERE `user_id` = '{Convert.ToInt32(userData["id"])}' LIMIT 1");
-                userInfo = dbClient.GetRow();
-            }
-        }
         var targetClient = _gameClientManager.GetClientByUsername(username);
-        var origin = new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(Convert.ToDouble(userInfo["trading_locked"]));
         var habboInfo = new StringBuilder();
-        habboInfo.Append($"{Convert.ToString(userData["username"])}'s account:\r\r");
+        habboInfo.Append($"{userData.Username}'s account:\r\r");
         habboInfo.Append("Generic Info:\r");
-        habboInfo.Append($"ID: {Convert.ToInt32(userData["id"])}\r");
-        habboInfo.Append($"Rank: {Convert.ToInt32(userData["rank"])}\r");
-        habboInfo.Append($"Roles: {string.Join(", ", _access.Resolve(Convert.ToInt32(userData["id"])).Roles.Select(role => role.Name))}\r");
-        habboInfo.Append($"Email: {Convert.ToString(userData["mail"])}\r");
+        habboInfo.Append($"ID: {userData.Id}\r");
+        habboInfo.Append($"Rank: {userData.Rank}\r");
+        habboInfo.Append($"Roles: {string.Join(", ", _access.Resolve(userData.Id).Roles.Select(role => role.Name))}\r");
+        habboInfo.Append($"Email: {userData.Mail}\r");
         habboInfo.Append($"Online Status: {(targetClient != null ? "True" : "False")}\r\r");
         habboInfo.Append("Currency Info:\r");
-        habboInfo.Append($"Credits: {Convert.ToInt32(userData["credits"])}\r");
-        habboInfo.Append($"Duckets: {Convert.ToInt32(userData["activity_points"])}\r");
-        habboInfo.Append($"Diamonds: {Convert.ToInt32(userData["vip_points"])}\r");
-        habboInfo.Append($"GOTW Points: {Convert.ToInt32(userData["gotw_points"])}\r\r");
+        habboInfo.Append($"Credits: {userData.Credits}\r");
+        habboInfo.Append($"Duckets: {userData.Duckets}\r");
+        habboInfo.Append($"Diamonds: {userData.Diamonds}\r");
+        habboInfo.Append($"GOTW Points: {userData.GotwPoints}\r\r");
         habboInfo.Append("Moderation Info:\r");
-        habboInfo.Append($"Bans: {Convert.ToInt32(userInfo["bans"])}\r");
-        habboInfo.Append($"CFHs Sent: {Convert.ToInt32(userInfo["cfhs"])}\r");
-        habboInfo.Append($"Abusive CFHs: {Convert.ToInt32(userInfo["cfhs_abusive"])}\r");
-        habboInfo.Append($"Trading Locked: {(Convert.ToInt32(userInfo["trading_locked"]) == 0 ? "No outstanding lock" : $"Expiry: {origin:dd/MM/yyyy}")}\r");
-        habboInfo.Append($"Amount of trading locks: {Convert.ToInt32(userInfo["trading_locks_count"])}\r\r");
+        habboInfo.Append($"Bans: {userData.Bans}\r");
+        habboInfo.Append($"CFHs Sent: {userData.HelpRequests}\r");
+        habboInfo.Append($"Abusive CFHs: {userData.AbusiveHelpRequests}\r");
+        habboInfo.Append($"Trading Locked: {(userData.TradingLockExpiresAt == null ? "No outstanding lock" : $"Expiry: {userData.TradingLockExpiresAt:dd/MM/yyyy}")}\r");
+        habboInfo.Append($"Amount of trading locks: {userData.TradingLockCount}\r\r");
         if (targetClient != null)
         {
             habboInfo.Append("Current Session:\r");
-            if (!targetClient.GetHabbo().InRoom)
+            if (targetClient.GetHabbo().CurrentRoom is not { } currentRoom)
                 habboInfo.Append("Currently not in a room.\r");
             else
             {
-                habboInfo.Append($"Room: {targetClient.GetHabbo().CurrentRoom.Name} ({targetClient.GetHabbo().CurrentRoom.RoomId})\r");
-                habboInfo.Append($"Room Owner: {targetClient.GetHabbo().CurrentRoom.OwnerName}\r");
-                habboInfo.Append($"Current Visitors: {targetClient.GetHabbo().CurrentRoom.UserCount}/{targetClient.GetHabbo().CurrentRoom.UsersMax}");
+                habboInfo.Append($"Room: {currentRoom.Name} ({currentRoom.RoomId})\r");
+                habboInfo.Append($"Room Owner: {currentRoom.OwnerName}\r");
+                habboInfo.Append($"Current Visitors: {currentRoom.UserCount}/{currentRoom.UsersMax}");
             }
         }
         session.SendNotification(habboInfo.ToString());
