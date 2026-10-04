@@ -7,7 +7,8 @@ namespace Plus.HabboHotel.Users.Authentication;
 public interface ISsoTicketStore
 {
     /// <summary>Replaces the user's ticket with a fresh one.</summary>
-    Task<IssuedToken> Issue(int userId);
+    /// <param name="scope">Joins a credential transaction instead of using a connection of its own.</param>
+    Task<IssuedToken> Issue(int userId, CredentialScope? scope = null);
 
     /// <summary>The owner of a live ticket, without using it up.</summary>
     Task<int?> FindUser(string ticket);
@@ -22,5 +23,5 @@ public interface ISsoTicketStore
     Task<int?> Exchange(string ticket);
 
     /// <summary>Clears whatever ticket the user still holds.</summary>
-    Task Revoke(int userId);
+    Task Revoke(int userId, CredentialScope? scope = null);
 }

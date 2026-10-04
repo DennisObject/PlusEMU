@@ -21,15 +21,16 @@ public class AccessTokenStore : IAccessTokenStore
         _lifetimeSeconds = options.Value.AccessTokenLifetimeMinutes * 60;
     }
 
-    public async Task<IssuedToken> Issue(int userId)
+    public async Task<IssuedToken> Issue(int userId, CredentialScope? scope = null)
     {
         var now = Now();
         var token = new IssuedToken(SecureToken.Generate(), now + _lifetimeSeconds);
-        using var connection = _database.Connection();
-        await connection.ExecuteAsync("DELETE FROM `user_access_tokens` WHERE `expires_at` < @cutoff", new { cutoff = now - RetentionSeconds });
+        using var owned = scope == null ? _database.Connection() : null;
+        var connection = scope?.Connection ?? owned!;
+        await connection.ExecuteAsync("DELETE FROM `user_access_tokens` WHERE `expires_at` < @cutoff", new { cutoff = now - RetentionSeconds }, scope?.Transaction);
         await connection.ExecuteAsync(
             "INSERT INTO `user_access_tokens` (`user_id`, `token_hash`, `created_at`, `expires_at`) VALUES (@userId, @hash, @now, @expiresAt)",
-            new { userId, hash = SecureToken.Hash(token.Value), now, expiresAt = token.ExpiresAt });
+            new { userId, hash = SecureToken.Hash(token.Value), now, expiresAt = token.ExpiresAt }, scope?.Transaction);
         return token;
     }
 
@@ -52,11 +53,11 @@ public class AccessTokenStore : IAccessTokenStore
             new { hash = SecureToken.Hash(token), now = Now() });
     }
 
-    public async Task RevokeAll(int userId)
+    public async Task RevokeAll(int userId, CredentialScope? scope = null)
     {
-        using var connection = _database.Connection();
-        await connection.ExecuteAsync("UPDATE `user_access_tokens` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
-            new { userId, now = Now() });
+        using var owned = scope == null ? _database.Connection() : null;
+        await (scope?.Connection ?? owned!).ExecuteAsync("UPDATE `user_access_tokens` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
+            new { userId, now = Now() }, scope?.Transaction);
     }
 
     private long Now() => _time.GetUtcNow().ToUnixTimeSeconds();

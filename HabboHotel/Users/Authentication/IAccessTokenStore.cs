@@ -6,7 +6,8 @@ namespace Plus.HabboHotel.Users.Authentication;
 /// </summary>
 public interface IAccessTokenStore
 {
-    Task<IssuedToken> Issue(int userId);
+    /// <param name="scope">Joins a credential transaction instead of using a connection of its own.</param>
+    Task<IssuedToken> Issue(int userId, CredentialScope? scope = null);
 
     /// <summary>The owner of a live (unexpired, unrevoked) token.</summary>
     Task<int?> FindUser(string token);
@@ -14,5 +15,5 @@ public interface IAccessTokenStore
     Task Revoke(string token);
 
     /// <summary>Signs a user out of every HTTP session, e.g. after a password change.</summary>
-    Task RevokeAll(int userId);
+    Task RevokeAll(int userId, CredentialScope? scope = null);
 }

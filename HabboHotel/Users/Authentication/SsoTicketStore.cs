@@ -22,13 +22,13 @@ public class SsoTicketStore : ISsoTicketStore
         _lifetimeSeconds = options.Value.SsoTicketLifetimeSeconds;
     }
 
-    public async Task<IssuedToken> Issue(int userId)
+    public async Task<IssuedToken> Issue(int userId, CredentialScope? scope = null)
     {
         var ticket = new IssuedToken(SecureToken.Generate(), Now() + _lifetimeSeconds);
-        using var connection = _database.Connection();
-        await connection.ExecuteAsync(
+        using var owned = scope == null ? _database.Connection() : null;
+        await (scope?.Connection ?? owned!).ExecuteAsync(
             "UPDATE `users` SET `auth_ticket` = @ticket, `auth_ticket_expires_at` = @expiresAt, `auth_ticket_exchanged` = 0 WHERE `id` = @userId",
-            new { ticket = ticket.Value, expiresAt = ticket.ExpiresAt, userId });
+            new { ticket = ticket.Value, expiresAt = ticket.ExpiresAt, userId }, scope?.Transaction);
         return ticket;
     }
 
@@ -50,11 +50,11 @@ public class SsoTicketStore : ISsoTicketStore
 
     public async Task<int?> Exchange(string ticket) => await ClaimFor(ticket, "`auth_ticket_exchanged` = 1", " AND `auth_ticket_exchanged` = 0");
 
-    public async Task Revoke(int userId)
+    public async Task Revoke(int userId, CredentialScope? scope = null)
     {
-        using var connection = _database.Connection();
-        await connection.ExecuteAsync(
-            "UPDATE `users` SET `auth_ticket` = '', `auth_ticket_expires_at` = NULL, `auth_ticket_exchanged` = 0 WHERE `id` = @userId", new { userId });
+        using var owned = scope == null ? _database.Connection() : null;
+        await (scope?.Connection ?? owned!).ExecuteAsync(
+            "UPDATE `users` SET `auth_ticket` = '', `auth_ticket_expires_at` = NULL, `auth_ticket_exchanged` = 0 WHERE `id` = @userId", new { userId }, scope?.Transaction);
     }
 
     /// <summary>Applies <paramref name="set"/> to the ticket's row only while it is still the same

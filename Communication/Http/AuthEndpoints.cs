@@ -81,7 +81,10 @@ public class AuthEndpoints
         var result = await _registration.Register(new(body.Username.Trim(), body.Password, body.Email.Trim(), body.Figure, body.Gender, AuthHttpServer.ClientAddress(context)));
         return result.Status switch
         {
-            RegistrationStatus.Created => Session(result.Session!),
+            // Revoked within the same instant (e.g. banned): the account exists, the session does not.
+            RegistrationStatus.Created => result.Session is { } session
+                ? Session(session)
+                : Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidCredentials, "Your account was created. Please log in."),
             RegistrationStatus.UsernameTaken or RegistrationStatus.EmailTaken =>
                 Results.Json(new { error = result.Error, code = TakenCode(result.Status), available = false }, statusCode: StatusCodes.Status409Conflict),
             _ => Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, result.Error)
@@ -134,10 +137,9 @@ public class AuthEndpoints
     /// </summary>
     private async Task<IResult> ExchangeSsoTicket(SsoTokenRequest body)
     {
-        if (string.IsNullOrEmpty(body.SsoTicket) || await _ssoTickets.Exchange(body.SsoTicket) is not { } userId)
+        if (string.IsNullOrEmpty(body.SsoTicket) || await _sessions.ExchangeTicket(body.SsoTicket) is not { } token)
             return Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidTicket, "This login ticket is invalid or has expired.");
 
-        var token = await _accessTokens.Issue(userId);
         return Results.Json(new { accessToken = token.Value, accessTokenExpiresAt = token.ExpiresAt });
     }
 

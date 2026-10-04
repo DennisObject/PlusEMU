@@ -9,9 +9,6 @@ namespace Plus.HabboHotel.Users.Authentication;
 
 public class RememberTokenStore : IRememberTokenStore
 {
-    // Expired rows are kept a day, then removed when new families are issued.
-    private const int RetentionSeconds = 24 * 60 * 60;
-
     private readonly IDatabase _database;
     private readonly TimeProvider _time;
     private readonly int _lifetimeSeconds;
@@ -23,12 +20,8 @@ public class RememberTokenStore : IRememberTokenStore
         _lifetimeSeconds = options.Value.RememberTokenLifetimeDays * 24 * 60 * 60;
     }
 
-    public async Task<IssuedToken> Issue(int userId)
-    {
-        using var connection = _database.Connection();
-        await connection.ExecuteAsync("DELETE FROM `user_remember_tokens` WHERE `expires_at` < @cutoff", new { cutoff = Now() - RetentionSeconds });
-        return await Insert(connection, null, userId, Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16)));
-    }
+    public Task<IssuedToken> Issue(int userId, CredentialScope? scope = null) =>
+        Continue(userId, Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16)), scope);
 
     public async Task<RememberRotation> Rotate(string token)
     {
@@ -43,7 +36,9 @@ public class RememberTokenStore : IRememberTokenStore
 
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        await LockUser(connection, transaction, userId.Value);
+        // Locking the user row orders this against revoke-all; the generation read under the lock is
+        // what the caller's credential writes must still match.
+        var generation = await CredentialGenerations.Lock(connection, transaction, userId.Value);
         var row = await connection.QuerySingleAsync<RememberRow>(
             "SELECT `family_id` AS FamilyId, `expires_at` AS ExpiresAt, `used_at` AS UsedAt, `revoked_at` AS RevokedAt " +
             "FROM `user_remember_tokens` WHERE `token_hash` = @hash FOR UPDATE", new { hash }, transaction);
@@ -54,15 +49,25 @@ public class RememberTokenStore : IRememberTokenStore
             await connection.ExecuteAsync("UPDATE `user_remember_tokens` SET `revoked_at` = @now WHERE `family_id` = @FamilyId AND `revoked_at` IS NULL",
                 new { now = Now(), row.FamilyId }, transaction);
             transaction.Commit();
-            return new(RememberRotationStatus.Reused, userId.Value);
+            return new(RememberRotationStatus.Reused, userId.Value, row.FamilyId);
         }
-        if (row.RevokedAt != null || row.ExpiresAt <= Now())
+        if (row.RevokedAt != null || row.ExpiresAt <= Now() || generation < 0)
             return new(RememberRotationStatus.Invalid);
 
         await connection.ExecuteAsync("UPDATE `user_remember_tokens` SET `used_at` = @now WHERE `token_hash` = @hash", new { now = Now(), hash }, transaction);
-        var successor = await Insert(connection, transaction, userId.Value, row.FamilyId);
         transaction.Commit();
-        return new(RememberRotationStatus.Rotated, userId.Value, successor);
+        return new(RememberRotationStatus.Rotated, userId.Value, row.FamilyId, generation);
+    }
+
+    public async Task<IssuedToken> Continue(int userId, string familyId, CredentialScope? scope = null)
+    {
+        var now = Now();
+        var token = new IssuedToken(SecureToken.Generate(), now + _lifetimeSeconds);
+        using var owned = scope == null ? _database.Connection() : null;
+        await (scope?.Connection ?? owned!).ExecuteAsync(
+            "INSERT INTO `user_remember_tokens` (`user_id`, `family_id`, `token_hash`, `created_at`, `expires_at`) VALUES (@userId, @familyId, @hash, @now, @expiresAt)",
+            new { userId, familyId, hash = SecureToken.Hash(token.Value), now, expiresAt = token.ExpiresAt }, scope?.Transaction);
+        return token;
     }
 
     public async Task RevokeFamily(string token)
@@ -76,30 +81,17 @@ public class RememberTokenStore : IRememberTokenStore
             new { now = Now(), hash = SecureToken.Hash(token) });
     }
 
-    public async Task RevokeAll(int userId)
+    public async Task RevokeAll(int userId, CredentialScope? scope = null)
     {
-        using var connection = _database.Connection();
-        connection.Open();
-        using var transaction = connection.BeginTransaction();
-        await LockUser(connection, transaction, userId);
-        await connection.ExecuteAsync("UPDATE `user_remember_tokens` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
-            new { now = Now(), userId }, transaction);
-        transaction.Commit();
+        using var owned = scope == null ? _database.Connection() : null;
+        await (scope?.Connection ?? owned!).ExecuteAsync("UPDATE `user_remember_tokens` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
+            new { now = Now(), userId }, scope?.Transaction);
     }
 
-    /// <summary>Rotation and revoke-all lock the user's row first, so they run one after the other
-    /// per user (a revoke sees any successor a rotation inserted) and cannot deadlock each other.</summary>
-    private static Task LockUser(IDbConnection connection, IDbTransaction transaction, int userId) =>
-        connection.ExecuteAsync("SELECT `id` FROM `users` WHERE `id` = @userId FOR UPDATE", new { userId }, transaction);
-
-    private async Task<IssuedToken> Insert(IDbConnection connection, IDbTransaction? transaction, int userId, string familyId)
+    public async Task<int> Prune(long cutoff, int batch)
     {
-        var now = Now();
-        var token = new IssuedToken(SecureToken.Generate(), now + _lifetimeSeconds);
-        await connection.ExecuteAsync(
-            "INSERT INTO `user_remember_tokens` (`user_id`, `family_id`, `token_hash`, `created_at`, `expires_at`) VALUES (@userId, @familyId, @hash, @now, @expiresAt)",
-            new { userId, familyId, hash = SecureToken.Hash(token.Value), now, expiresAt = token.ExpiresAt }, transaction);
-        return token;
+        using var connection = _database.Connection();
+        return await connection.ExecuteAsync("DELETE FROM `user_remember_tokens` WHERE `expires_at` < @cutoff LIMIT @batch", new { cutoff, batch });
     }
 
     private long Now() => _time.GetUtcNow().ToUnixTimeSeconds();

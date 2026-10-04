@@ -50,6 +50,8 @@ public class LoginService : ILoginService
         if (blockedFor > TimeSpan.Zero)
             return new(LoginStatus.Throttled, RetryAfter: blockedFor);
 
+        // The generation comes from the same row read as the password, before it is checked: a
+        // revoke after this point (reset, ban) voids the session issued below.
         var stored = account?.Password ?? "";
         // Plaintext rows and missing accounts would answer faster than real hashes.
         if (!stored.StartsWith("$argon2id$", StringComparison.Ordinal))
@@ -72,7 +74,8 @@ public class LoginService : ILoginService
             return new(LoginStatus.Banned, Ban: ban);
         }
 
-        return new(LoginStatus.Success, await _sessions.Issue(account.Id, account.Username, remember));
+        var session = await _sessions.Issue(account.Id, account.Username, account.Generation, remember);
+        return session == null ? new(LoginStatus.InvalidCredentials) : new(LoginStatus.Success, session);
     }
 
     private string? _decoyHash;

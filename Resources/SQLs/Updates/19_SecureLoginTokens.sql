@@ -3,6 +3,9 @@
 -- SSO tickets are single-use and short-lived. A consumed ticket is cleared to ''
 -- (the stock dump declares auth_ticket NOT NULL).
 ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_expires_at` int(11) unsigned NULL DEFAULT NULL AFTER `auth_ticket`;
+-- Bumped whenever all of a user's credentials are revoked; logins that started before it
+-- changed write nothing.
+ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `credential_generation` int(11) unsigned NOT NULL DEFAULT 0;
 -- Set once the ticket has been traded for an HTTP access token (allowed once per ticket).
 ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_exchanged` tinyint(1) NOT NULL DEFAULT 0 AFTER `auth_ticket_expires_at`;
 

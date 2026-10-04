@@ -22,7 +22,8 @@ public enum RegistrationStatus
     EmailTaken
 }
 
-/// <param name="Session">Set when created: the new user is logged in straight away.</param>
+/// <param name="Session">Set when created: the new user is logged in straight away (null only if
+/// the account's credentials were revoked within that instant).</param>
 public sealed record RegistrationResult(RegistrationStatus Status, string Error = "", AuthSession? Session = null);
 
 /// <param name="Reason">Why the value is unavailable: Invalid, UsernameTaken or EmailTaken.</param>
@@ -80,7 +81,9 @@ public class RegistrationService : IRegistrationService
 
         if (userId is not { } id)
             return new(RegistrationStatus.UsernameTaken, UsernameTaken);
-        return new(RegistrationStatus.Created, Session: await _sessions.Issue(id, request.Username));
+        // A new account starts at generation 0, so a revoke any time after the insert voids this session.
+        var session = await _sessions.Issue(id, request.Username, AccountStore.NewAccountGeneration);
+        return new(RegistrationStatus.Created, Session: session);
     }
 
     public async Task<Availability> CheckUsername(string username)

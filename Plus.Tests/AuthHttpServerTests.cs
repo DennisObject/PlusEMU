@@ -21,6 +21,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     private readonly FakeAccessTokens _tokens = new();
     private readonly FakeBans _bans = new();
     private readonly FakeRememberTokens _remember = new();
+    private SessionIssuer? _sessions;
     private IPasswordHasher _innerHasher = Hasher;
     private CountingHasher _hasher
     {
@@ -47,7 +48,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
             c.MaxFailedLoginsPerAccount = 3;
             configure?.Invoke(c);
         });
-        var sessions = new SessionIssuer(_tickets, _tokens, _remember, _accounts, _bans);
+        var sessions = _sessions = new SessionIssuer(_tickets, _tokens, _remember, new FakeGenerations(), _accounts, _bans);
         var hasher = new BoundedPasswordHasher(_innerHasher, options);
         var login = new LoginService(_accounts, hasher, new LoginThrottle(TimeProvider.System, options), sessions, _bans);
         var registration = new RegistrationService(_accounts, hasher, sessions, new FakeWordFilter(), options);
@@ -326,6 +327,21 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Null(await _tickets.Consume(ticket.Value));
+    }
+
+    [Fact]
+    public async Task RegistrationRevokedWhileItRanAsksTheUserToLogIn()
+    {
+        _accounts.RevokeOnCreate = userId => _sessions!.RevokeAll(userId);
+        await Start();
+
+        var response = await Post("/api/auth/register", new { username = "NewHabbo", email = "new@example.com", password = "long enough" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var body = await Json(response);
+        Assert.Equal(AuthErrorCode.InvalidCredentials, body.GetProperty("code").GetString());
+        Assert.Equal("Your account was created. Please log in.", body.GetProperty("error").GetString());
+        Assert.Empty(_tickets.Live);
     }
 
     [Fact]

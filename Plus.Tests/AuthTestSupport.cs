@@ -125,7 +125,18 @@ internal sealed class FakeAccounts : IAccountStore
             return Emails.Contains(email);
     }
 
+    /// <summary>Runs right after an account is created, before its session is issued.</summary>
+    public Func<int, Task>? RevokeOnCreate;
+
     public async Task<int?> Create(NewAccount account)
+    {
+        var id = await CreateRow(account);
+        if (id != null && RevokeOnCreate != null)
+            await RevokeOnCreate(id.Value);
+        return id;
+    }
+
+    private async Task<int?> CreateRow(NewAccount account)
     {
         await Task.Yield();
         if (await UsernameExists(account.Username))
@@ -143,7 +154,7 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
 {
     public readonly Dictionary<string, int> Live = [];
 
-    public Task<IssuedToken> Issue(int userId)
+    public Task<IssuedToken> Issue(int userId, CredentialScope? scope = null)
     {
         var token = new IssuedToken(SecureToken.Generate(), 1000);
         Live[token.Value] = userId;
@@ -163,7 +174,7 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
     public Task<int?> Exchange(string ticket) =>
         Task.FromResult(Live.TryGetValue(ticket, out var id) && Exchanged.Add(ticket) ? id : (int?)null);
 
-    public Task Revoke(int userId)
+    public Task Revoke(int userId, CredentialScope? scope = null)
     {
         foreach (var ticket in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
             Live.Remove(ticket);
@@ -175,7 +186,7 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
 {
     public readonly Dictionary<string, int> Live = [];
 
-    public Task<IssuedToken> Issue(int userId)
+    public Task<IssuedToken> Issue(int userId, CredentialScope? scope = null)
     {
         var token = new IssuedToken(SecureToken.Generate(), 2000);
         Live[token.Value] = userId;
@@ -190,7 +201,7 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
         return Task.CompletedTask;
     }
 
-    public Task RevokeAll(int userId)
+    public Task RevokeAll(int userId, CredentialScope? scope = null)
     {
         foreach (var key in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
             Live.Remove(key);
@@ -252,7 +263,11 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
     private readonly Dictionary<string, Row> _rows = [];
     private int _families;
 
-    public Task<IssuedToken> Issue(int userId) => Task.FromResult(Add(userId, "f" + ++_families));
+    public Task<IssuedToken> Issue(int userId, CredentialScope? scope = null) => Task.FromResult(Add(userId, "f" + ++_families));
+
+    public Task<IssuedToken> Continue(int userId, string familyId, CredentialScope? scope = null) => Task.FromResult(Add(userId, familyId));
+
+    public Task<int> Prune(long cutoff, int batch) => Task.FromResult(0);
 
     public Task<RememberRotation> Rotate(string token)
     {
@@ -261,12 +276,12 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
         if (row.Used)
         {
             RevokeWhere(r => r.Family == row.Family);
-            return Task.FromResult(new RememberRotation(RememberRotationStatus.Reused, row.UserId));
+            return Task.FromResult(new RememberRotation(RememberRotationStatus.Reused, row.UserId, row.Family));
         }
         if (row.Revoked)
             return Task.FromResult(new RememberRotation(RememberRotationStatus.Invalid));
         _rows[token] = row with { Used = true };
-        return Task.FromResult(new RememberRotation(RememberRotationStatus.Rotated, row.UserId, Add(row.UserId, row.Family)));
+        return Task.FromResult(new RememberRotation(RememberRotationStatus.Rotated, row.UserId, row.Family));
     }
 
     public Task RevokeFamily(string token)
@@ -276,7 +291,7 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
         return Task.CompletedTask;
     }
 
-    public Task RevokeAll(int userId)
+    public Task RevokeAll(int userId, CredentialScope? scope = null)
     {
         RevokeWhere(r => r.UserId == userId);
         return Task.CompletedTask;
@@ -295,5 +310,27 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
     {
         foreach (var (key, row) in _rows.Where(p => match(p.Value)).ToList())
             _rows[key] = row with { Revoked = true };
+    }
+}
+
+/// <summary>In-memory credential generations; writes run without a database scope.</summary>
+internal sealed class FakeGenerations : ICredentialGenerations
+{
+    private readonly Dictionary<int, long> _generations = [];
+
+    public Task<long> Current(int userId) => Task.FromResult(_generations.GetValueOrDefault(userId));
+
+    public async Task<bool> WriteIfCurrent(int userId, long generation, Func<CredentialScope, Task> writes)
+    {
+        if (_generations.GetValueOrDefault(userId) != generation)
+            return false;
+        await writes(null!);
+        return true;
+    }
+
+    public async Task Revoke(int userId, Func<CredentialScope, Task> revocations)
+    {
+        _generations[userId] = _generations.GetValueOrDefault(userId) + 1;
+        await revocations(null!);
     }
 }

@@ -8,6 +8,9 @@ namespace Plus.HabboHotel.Users.Authentication;
 
 public class AccountStore : IAccountStore
 {
+    /// <summary>users.credential_generation of a freshly created account.</summary>
+    public const long NewAccountGeneration = 0;
+
     private readonly IDatabase _database;
     private readonly TimeProvider _time;
     private readonly RegistrationDefaults _defaults;
@@ -23,7 +26,7 @@ public class AccountStore : IAccountStore
     {
         using var connection = _database.Connection();
         return await connection.QuerySingleOrDefaultAsync<AccountCredentials>(
-            "SELECT `id` AS Id, `username` AS Username, `password` AS Password FROM `users` WHERE `username` = @username LIMIT 1", new { username });
+            "SELECT `id` AS Id, `username` AS Username, `password` AS Password, CAST(`credential_generation` AS SIGNED) AS Generation FROM `users` WHERE `username` = @username LIMIT 1", new { username });
     }
 
     public async Task UpgradePassword(int userId, string current, string replacement)
@@ -60,15 +63,16 @@ public class AccountStore : IAccountStore
         {
             var userId = await connection.ExecuteScalarAsync<int>(
                 "INSERT INTO `users` (`username`, `password`, `mail`, `auth_ticket`, `rank`, `look`, `gender`, `motto`, `credits`, `activity_points`, `vip`, " +
-                "`account_created`, `last_online`, `home_room`, `ip_reg`, `ip_last`, `is_ambassador`, `bubble_id`) " +
+                "`account_created`, `last_online`, `home_room`, `ip_reg`, `ip_last`, `is_ambassador`, `bubble_id`, `credential_generation`) " +
                 "VALUES (@Username, @PasswordHash, @Email, '', @Rank, @Look, @Gender, @Motto, @Credits, @ActivityPoints, @Vip, " +
-                "@Now, @Now, @HomeRoom, @Address, @Address, 0, 0); SELECT LAST_INSERT_ID();",
+                "@Now, @Now, @HomeRoom, @Address, @Address, 0, 0, @Generation); SELECT LAST_INSERT_ID();",
                 new
                 {
                     account.Username, account.PasswordHash, account.Email, account.Look, account.Gender, account.Address,
                     _defaults.Rank, _defaults.Motto, _defaults.Credits, _defaults.ActivityPoints, _defaults.HomeRoom,
                     Vip = _defaults.Vip ? "1" : "0",
-                    Now = _time.GetUtcNow().ToUnixTimeSeconds()
+                    Now = _time.GetUtcNow().ToUnixTimeSeconds(),
+                    Generation = NewAccountGeneration
                 }, transaction);
             await connection.ExecuteAsync("INSERT INTO `user_statistics` (`id`) VALUES (@userId)", new { userId }, transaction);
             transaction.Commit();

@@ -33,13 +33,15 @@ public sealed class RememberTokenDatabaseTests : IDisposable
         var first = await _store.Issue(userId);
         _time.Advance(TimeSpan.FromDays(10));
 
-        var rotated = await _store.Rotate(first.Value);
-        var again = await _store.Rotate(rotated.Token.Value);
+        var rotation = await _store.Rotate(first.Value);
+        var successor = await _store.Continue(userId, rotation.FamilyId);
+        var again = await _store.Rotate(successor.Value);
 
-        Assert.Equal(new RememberRotation(RememberRotationStatus.Rotated, userId, rotated.Token), rotated);
-        Assert.NotEqual(first.Value, rotated.Token.Value);
-        Assert.Equal(_time.Now.ToUnixTimeSeconds() + 30 * 86400, rotated.Token.ExpiresAt);
-        Assert.Equal(RememberRotationStatus.Rotated, again.Status);
+        Assert.Equal(RememberRotationStatus.Rotated, rotation.Status);
+        Assert.Equal(userId, rotation.UserId);
+        Assert.NotEqual(first.Value, successor.Value);
+        Assert.Equal(_time.Now.ToUnixTimeSeconds() + 30 * 86400, successor.ExpiresAt);
+        Assert.Equal(rotation.FamilyId, again.FamilyId);
     }
 
     [AuthDatabaseFact]
@@ -48,7 +50,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
         var userId = User();
         var stolen = await _store.Issue(userId);
         var otherDevice = await _store.Issue(userId);
-        var current = (await _store.Rotate(stolen.Value)).Token;
+        var current = await Use(stolen.Value);
 
         var replay = await _store.Rotate(stolen.Value);
 
@@ -67,7 +69,6 @@ public sealed class RememberTokenDatabaseTests : IDisposable
 
         var winner = Assert.Single(results, r => r.Status == RememberRotationStatus.Rotated);
         Assert.All(results.Where(r => r != winner), r => Assert.Equal(RememberRotationStatus.Reused, r.Status));
-        Assert.Equal(RememberRotationStatus.Invalid, (await _store.Rotate(winner.Token.Value)).Status);
     }
 
     [AuthDatabaseFact]
@@ -92,7 +93,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
         var userId = User();
         var phone = await _store.Issue(userId);
         var laptop = await _store.Issue(userId);
-        var phoneNow = (await _store.Rotate(phone.Value)).Token;
+        var phoneNow = await Use(phone.Value);
 
         await _store.RevokeFamily(phone.Value);
 
@@ -117,21 +118,21 @@ public sealed class RememberTokenDatabaseTests : IDisposable
     }
 
     [AuthDatabaseFact]
-    public async Task RevokeAllRacingARotationLeavesNoLiveToken()
+    public async Task RotationReportsTheGenerationReadUnderTheUserLock()
     {
-        for (var round = 0; round < 10; round++)
-        {
-            var userId = User();
-            var token = await _store.Issue(userId);
+        var userId = User();
+        var token = await _store.Issue(userId);
+        using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString))
+            connection.Execute("UPDATE users SET credential_generation = 7 WHERE id = @userId", new { userId });
 
-            var rotate = Task.Run(() => _store.Rotate(token.Value));
-            var revoke = Task.Run(() => _store.RevokeAll(userId));
-            await Task.WhenAll(rotate, revoke);
+        Assert.Equal(7, (await _store.Rotate(token.Value)).Generation);
+    }
 
-            var rotation = await rotate;
-            if (rotation.Status == RememberRotationStatus.Rotated)
-                Assert.Equal(RememberRotationStatus.Invalid, (await _store.Rotate(rotation.Token.Value)).Status);
-        }
+    private async Task<IssuedToken> Use(string token)
+    {
+        var rotation = await _store.Rotate(token);
+        Assert.Equal(RememberRotationStatus.Rotated, rotation.Status);
+        return await _store.Continue(rotation.UserId, rotation.FamilyId);
     }
 
     private int User()

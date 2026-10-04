@@ -18,6 +18,7 @@ public interface IAccountStore
     Task<int?> Create(NewAccount account);
 }
 
-public sealed record AccountCredentials(int Id, string Username, string? Password);
+/// <param name="Generation">users.credential_generation, read in the same row snapshot as the password.</param>
+public sealed record AccountCredentials(int Id, string Username, string? Password, long Generation = 0);
 
 public sealed record NewAccount(string Username, string PasswordHash, string Email, string Look, string Gender, string Address);
