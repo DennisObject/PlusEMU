@@ -13,6 +13,7 @@ using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Quests;
 using Plus.Utilities;
 using Dapper;
+using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.Communication.Packets.Incoming.Catalog;
 
@@ -25,7 +26,8 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
     private readonly IAchievementManager _achievementManager;
     private readonly IGameClientManager _gameClientManager;
     private readonly IQuestManager _questManager;
-    private readonly IItemFactory _itemFactory;
+    private readonly IClubMembershipService _clubMemberships;
+    private readonly IClubRewards _clubRewards;
 
     public PurchaseFromCatalogAsGiftEvent(ICatalogManager catalogManager,
         ISettingsManager settingsManager,
@@ -34,7 +36,7 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
         IAchievementManager achievementManager,
         IGameClientManager gameClientManager,
         IQuestManager questManager,
-        IItemFactory itemFactory)
+        IClubMembershipService clubMemberships, IClubRewards clubRewards)
     {
         _catalogManager = catalogManager;
         _settingsManager = settingsManager;
@@ -43,7 +45,8 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
         _achievementManager = achievementManager;
         _gameClientManager = gameClientManager;
         _questManager = questManager;
-        _itemFactory = itemFactory;
+        _clubMemberships = clubMemberships;
+        _clubRewards = clubRewards;
     }
 
     public Task Parse(GameClient session, IIncomingPacket packet)
@@ -66,8 +69,20 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
             return Task.CompletedTask;
         if (!page.CanOpen(session.GetHabbo()))
             return Task.CompletedTask;
+        if (page.Layout is "club_buy" or "vip_buy" or "loyalty_vip_buy")
+        {
+            var receiver = _gameClientManager.GetClientByUsername(giftUser)?.GetHabbo();
+            if (receiver == null || !receiver.AllowGifts || !_catalogManager.TryGetClubOffer(itemId, out var offer) || !offer.Giftable || _clubMemberships.Purchase(session.GetHabbo(), offer, receiver.Id) == null)
+            { session.Send(new PurchaseErrorComposer(0)); return Task.CompletedTask; }
+            session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, -offer.Points, 0));
+            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, -offer.Points, 5));
+            session.Send(new PurchaseOkComposer());
+            return Task.CompletedTask;
+        }
         if (!page.Offers.TryGetValue(itemId, out var item))
             return Task.CompletedTask;
+        if (!item.CanPurchase(session.GetHabbo())) return Task.CompletedTask;
         if (!ItemUtility.CanGiftItem(item))
             return Task.CompletedTask;
         if (!_itemManager.Gifts.TryGetValue(spriteId, out var presentId) || !_itemManager.Items.TryGetValue(presentId, out var presentData) || presentData.InteractionType != InteractionType.Gift)
@@ -157,22 +172,18 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
                     break;
             }
 
-        int newItemId;
-        using (var connection = _database.Connection())
+        Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem? giveItem = null;
+        if (!_clubRewards.Charge(session.GetHabbo(), item.CostCredits, item.CostPixels, item.CostDiamonds, (connection, transaction) =>
         {
-            connection.Open();
-            connection.Execute("INSERT INTO `items` (`base_item`,`user_id`,`extra_data`) VALUES (@baseId, @habboId, @extra_data)",
-                new { baseId = presentData.Id, habboId = habbo.Id, extra_data = extra_data });
-            newItemId = Convert.ToInt32(connection.ExecuteScalar("SELECT LAST_INSERT_ID()"));
-
-            //Insert the present, forever.
-            connection.Execute("INSERT INTO `user_presents` (`item_id`,`base_id`,`extra_data`) VALUES (@itemId, @baseId, @extra_data)",
-                new {itemId = newItemId, baseId = item.Definition.Id, extra_data = string.IsNullOrEmpty(itemExtraData) ? "" : itemExtraData });
-
-            //Here we're clearing up a record, this is dumb, but okay.
-            connection.Execute("DELETE FROM `items` WHERE `id` = @deleteId LIMIT 1", new { deleteId = newItemId});
-        }
-        var giveItem = _itemFactory.CreateGiftItem(presentData, habbo, extra_data, extra_data, newItemId).ToInventoryItem();
+            if (!item.CanPurchase(session.GetHabbo())) return false;
+            var newItemId = connection.ExecuteScalar<uint>("INSERT INTO items (base_item, user_id, extra_data) VALUES (@baseId, @habboId, @extra_data); SELECT LAST_INSERT_ID()",
+                new { baseId = presentData.Id, habboId = habbo.Id, extra_data }, transaction);
+            connection.Execute("INSERT INTO user_presents (item_id, base_id, extra_data) VALUES (@itemId, @baseId, @extra_data)",
+                new { itemId = newItemId, baseId = item.Definition.Id, extra_data = itemExtraData ?? "" }, transaction);
+            giveItem = new Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem { Id = newItemId, OwnerId = (uint)habbo.Id,
+                Definition = presentData, ExtraData = FurniExtraData.Load(presentData, extra_data, keepLegacy: true) };
+            return true;
+        }, ClubRewards.EligibleCatalogPurchase(item.CatalogName))) { session.Send(new PurchaseErrorComposer(0)); return Task.CompletedTask; }
         if (giveItem != null)
         {
             var receiver = _gameClientManager.GetClientByUserId(habbo.Id);
@@ -194,19 +205,9 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
             }
         }
         session.Send(new PurchaseOkComposer(item, presentData));
-        lock (session.GetHabbo().WalletSync)
-        {
-            if (item.CostCredits > 0)
-            {
-                session.GetHabbo().Credits -= item.CostCredits;
-                session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
-            }
-            if (item.CostPixels > 0)
-            {
-                session.GetHabbo().Duckets -= item.CostPixels;
-                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, session.GetHabbo().Duckets));
-            }
-        }
+        if (item.CostCredits > 0) session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+        if (item.CostPixels > 0) session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, -item.CostPixels));
+        if (item.CostDiamonds > 0) session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, -item.CostDiamonds, 5));
         session.GetHabbo().LastGiftPurchaseTime = DateTime.Now;
         return Task.CompletedTask;
     }

@@ -2,6 +2,7 @@ using System.Data;
 using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.HabboHotel.Habbicons;
 
@@ -57,11 +58,11 @@ public sealed class HabbiconService(IDatabase database) : IHabbiconService
     }
 
     public HabbiconChange Change(Habbo habbo, HabbiconAction action, int id) => WithWallet(habbo,
-        balances => Change(habbo.Id, action, id, balances));
+        balances => Change(habbo.Id, action, id, balances, habbo.Access.Membership));
 
     // The row lock also serializes ownership changes from other connections and catalog purchases.
-    internal HabbiconChange Change(int userId, HabbiconAction action, int id, HabbiconBalances? balances = null) =>
-        Transact(userId, (connection, transaction, stored) => Change(connection, transaction, userId, action, id, balances ?? stored));
+    internal HabbiconChange Change(int userId, HabbiconAction action, int id, HabbiconBalances? balances = null, ClubMembership? membership = null) =>
+        Transact(userId, (connection, transaction, stored) => Change(connection, transaction, userId, action, id, balances ?? stored, membership));
 
     private static HabbiconChange WithWallet(Habbo habbo, Func<HabbiconBalances, HabbiconChange> work)
     {
@@ -81,22 +82,22 @@ public sealed class HabbiconService(IDatabase database) : IHabbiconService
     }
 
     public HabbiconChange BuyCatalog(Habbo habbo, int id, int credits, int duckets, int diamonds) => WithWallet(habbo,
-        balances => BuyCatalog(habbo.Id, id, credits, duckets, diamonds, balances));
+        balances => BuyCatalog(habbo.Id, id, credits, duckets, diamonds, balances, habbo.Access.Membership));
 
-    internal HabbiconChange BuyCatalog(int userId, int id, int credits, int duckets, int diamonds, HabbiconBalances? balances = null) =>
+    internal HabbiconChange BuyCatalog(int userId, int id, int credits, int duckets, int diamonds, HabbiconBalances? balances = null, ClubMembership? membership = null) =>
         Transact(userId, (connection, transaction, stored) =>
         {
             var before = Load(connection, userId, transaction);
             var item = before.RequireItem(id);
             if (item.Collected) throw new HabbiconRejected(4);
             if (item.State != HabbiconState.NotOwned) throw new HabbiconRejected(1);
-            var afterBalances = Charge(connection, transaction, userId, balances ?? stored, credits, duckets, diamonds);
+            var afterBalances = Charge(connection, transaction, userId, balances ?? stored, credits, duckets, diamonds, membership);
             Save(connection, transaction, userId, id, HabbiconState.Owned, true);
             return Changed(connection, transaction, userId, before, afterBalances);
         });
 
     private static HabbiconChange Change(IDbConnection connection, IDbTransaction transaction, int userId,
-        HabbiconAction action, int id, HabbiconBalances balances)
+        HabbiconAction action, int id, HabbiconBalances balances, ClubMembership? membership)
     {
         var before = Load(connection, userId, transaction);
         HabbiconBalances? afterBalances = null;
@@ -107,7 +108,7 @@ public sealed class HabbiconService(IDatabase database) : IHabbiconService
             if (missing.Length == 0) throw new HabbiconRejected(4);
             if ((collection.Credits <= 0 && collection.Points <= 0) || missing.Any(item => item.State != HabbiconState.NotOwned))
                 throw new HabbiconRejected(1);
-            afterBalances = ChargePoints(connection, transaction, userId, balances, collection.Credits, collection.Points, collection.PointsType);
+            afterBalances = ChargePoints(connection, transaction, userId, balances, collection.Credits, collection.Points, collection.PointsType, membership);
             foreach (var item in missing) Save(connection, transaction, userId, item.Id, HabbiconState.Owned, true);
         }
         else
@@ -119,7 +120,7 @@ public sealed class HabbiconService(IDatabase database) : IHabbiconService
                 case HabbiconAction.Buy:
                     if (item.Collected) throw new HabbiconRejected(4);
                     if (!item.Purchasable) throw new HabbiconRejected(1);
-                    afterBalances = ChargePoints(connection, transaction, userId, balances, item.Credits, item.Points, item.PointsType);
+                    afterBalances = ChargePoints(connection, transaction, userId, balances, item.Credits, item.Points, item.PointsType, membership);
                     state = HabbiconState.Owned;
                     break;
                 case HabbiconAction.Claim:
@@ -171,14 +172,14 @@ public sealed class HabbiconService(IDatabase database) : IHabbiconService
     }
 
     private static HabbiconBalances ChargePoints(IDbConnection connection, IDbTransaction transaction, int userId,
-        HabbiconBalances balances, int credits, int points, int pointsType)
+        HabbiconBalances balances, int credits, int points, int pointsType, ClubMembership? membership)
     {
         if (pointsType is not (0 or 5)) throw new HabbiconRejected(1);
-        return Charge(connection, transaction, userId, balances, credits, pointsType == 0 ? points : 0, pointsType == 5 ? points : 0);
+        return Charge(connection, transaction, userId, balances, credits, pointsType == 0 ? points : 0, pointsType == 5 ? points : 0, membership);
     }
 
     private static HabbiconBalances Charge(IDbConnection connection, IDbTransaction transaction, int userId,
-        HabbiconBalances balances, int credits, int duckets, int diamonds)
+        HabbiconBalances balances, int credits, int duckets, int diamonds, ClubMembership? membership)
     {
         if (credits < 0 || duckets < 0 || diamonds < 0) throw new HabbiconRejected(1);
         if (balances.Credits < credits) throw new HabbiconRejected(2);
@@ -186,6 +187,8 @@ public sealed class HabbiconService(IDatabase database) : IHabbiconService
         var after = new HabbiconBalances(balances.Credits - credits, balances.Duckets - duckets, balances.Diamonds - diamonds);
         connection.Execute("UPDATE users SET credits = @Credits, activity_points = @Duckets, vip_points = @Diamonds WHERE id = @userId",
             new { after.Credits, after.Duckets, after.Diamonds, userId }, transaction);
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        ClubRewards.RecordSpending(connection, transaction, userId, credits, now, membership?.Active(now) == true);
         return after;
     }
 

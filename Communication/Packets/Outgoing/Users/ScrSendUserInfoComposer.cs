@@ -4,39 +4,36 @@ using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.Communication.Packets.Outgoing.Users;
 
-// Club status stays free for everyone; the day counters show time bought on the club page.
 public class ScrSendUserInfoComposer : IServerPacket
 {
-    public const int InfoResponse = 1;
-    public const int PurchaseResponse = 2;
-
-    private readonly UserAccess _access;
-    private readonly int _secondsLeft;
+    public const int InfoResponse = 1, PurchaseResponse = 2, ExpiringResponse = 3;
+    private readonly UserAccess.Snapshot _snapshot;
+    private readonly long _now;
     private readonly int _responseType;
     public uint MessageId => ServerPacketHeader.ScrSendUserInfoComposer;
-
-    public ScrSendUserInfoComposer(UserAccess access, int secondsLeft = 0, int responseType = InfoResponse)
+    public ScrSendUserInfoComposer(UserAccess access, int responseType = InfoResponse)
     {
-        _access = access;
-        _secondsLeft = Math.Max(0, secondsLeft);
+        _snapshot = access.Capture();
+        _now = access.Now;
         _responseType = responseType;
     }
-
     public void Compose(IOutgoingPacket packet)
     {
-        var daysLeft = (int)Math.Ceiling(_secondsLeft / 86400.0);
-        // The current period holds 1-31 days, so a fresh month reads as 31 days rather than 0.
-        var periodsAhead = Math.Max(0, daysLeft - 1) / 31;
+        var membership = _snapshot.Membership;
+        var seconds = membership.SecondsLeft(_now);
+        var days = (int)Math.Min(int.MaxValue, (seconds + ClubMembership.Day - 1) / ClubMembership.Day);
+        var ahead = Math.Max(0, days - 1) / 31;
         packet.WriteString("habbo_club");
-        packet.WriteInteger(daysLeft - periodsAhead * 31); //display days
-        var level = ClubAccess.LevelFor(_access);
-        packet.WriteInteger(level);
-        packet.WriteInteger(periodsAhead); //display months
+        packet.WriteInteger(days - ahead * 31);
+        packet.WriteInteger((int)Math.Min(int.MaxValue, membership.Elapsed(_now) / ClubMembership.Period));
+        packet.WriteInteger(ahead);
         packet.WriteInteger(_responseType);
-        packet.WriteBoolean(level > 0); // hc
-        packet.WriteBoolean(level > 1); // vip
+        packet.WriteBoolean(membership.FirstStartedAt > 0);
+        // HC branding in the purse is level 1; rights still carry level 2 for all merged benefits.
+        packet.WriteBoolean(false);
+        packet.WriteInteger((int)Math.Min(int.MaxValue, membership.Elapsed(_now) / ClubMembership.Day));
         packet.WriteInteger(0);
-        packet.WriteInteger(0);
-        packet.WriteInteger(_secondsLeft > 0 ? _secondsLeft / 60 : 495);
+        packet.WriteInteger((int)Math.Min(int.MaxValue, seconds / 60));
+        packet.WriteInteger((int)Math.Min(int.MaxValue, membership.ModifiedAt > 0 ? Math.Max(0, _now - membership.ModifiedAt) / 60 : 0));
     }
 }

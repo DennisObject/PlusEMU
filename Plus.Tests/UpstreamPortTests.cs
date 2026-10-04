@@ -91,7 +91,7 @@ public class UpstreamPortTests
     public void KickbackPayloadMatchesTheNitroParserAndHeaders()
     {
         var packet = new RecordingPacket();
-        new KickbackInfoComposer().Compose(packet);
+        new KickbackInfoComposer(new Plus.HabboHotel.Subscriptions.ClubKickback(0, "", 0d, 0, 0, 0, 0, 0, 0)).Compose(packet);
         Assert.Equal(new object[] { 0, "", 0d, 0, 0, 0, 0, 0, 0 }, packet.Writes);
         Assert.Equal(4001u, ServerPacketHeader.KickbackInfoComposer);
         Assert.Equal(4001u, ClientPacketHeader.GetKickbackInfoEvent);

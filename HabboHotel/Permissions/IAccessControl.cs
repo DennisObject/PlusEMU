@@ -9,6 +9,7 @@ public interface IAccessControl
     AccessMemberPage Members(Habbo actor, int roleId, int offset);
     AccessOverridePage Overrides(Habbo actor, string username);
     AccessAuditPage Audit(Habbo actor, int offset);
+    event Action<Habbo>? AccessChanged;
     void Init();
     bool Can(int userId, string key);
     int Limit(int userId, string key, int fallback = 0);

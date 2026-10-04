@@ -1,47 +1,32 @@
 ﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog;
 
-// TODO @80O: Implement
-public class ClubGiftsComposer : IServerPacket
+public class ClubGiftsComposer(ClubGiftInfo info) : IServerPacket
 {
     public uint MessageId => ServerPacketHeader.ClubGiftsComposer;
-
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(0); //Days until next gift.
-        packet.WriteInteger(10); //Gifts available
-        packet.WriteInteger(1); //Count?
+        packet.WriteInteger(info.DaysUntilNextGift);
+        packet.WriteInteger(info.Available);
+        packet.WriteInteger(info.Gifts.Count);
+        foreach (var gift in info.Gifts)
         {
-            packet.WriteInteger(14689);
-            packet.WriteString("hc_arab_chair");
-            packet.WriteBoolean(false);
-            packet.WriteInteger(5);
-            packet.WriteInteger(0);
-            packet.WriteInteger(0);
-            packet.WriteBoolean(true);
-            packet.WriteInteger(1); //Count for some reason
-            {
-                packet.WriteString("s");
-                packet.WriteInteger(6341);
-                packet.WriteString("");
-                packet.WriteInteger(1);
-                packet.WriteBoolean(false);
-            }
-            packet.WriteInteger(0);
-            packet.WriteBoolean(false);
-            packet.WriteBoolean(false); // TODO: Figure out
-            packet.WriteString(""); //previewImage -> e.g; catalogue/pet_lion.png
-            packet.WriteString("");
-            packet.WriteBoolean(true);
+            var item = gift.Item;
+            // Gifts are free, regardless of the ordinary catalog price of the same chair.
+            CatalogOfferWriter.Write(packet, new Plus.HabboHotel.Catalog.CatalogItem {
+                Definition = item.Definition, Amount = item.Amount, CatalogName = item.CatalogName,
+                ExtraData = "", ClubLevel = item.ClubLevel, PreviewImage = item.PreviewImage
+            }, item.WireOfferId, item.CatalogName);
         }
-        packet.WriteInteger(1); //Count
+        packet.WriteInteger(info.Gifts.Count);
+        foreach (var gift in info.Gifts)
         {
-            //int, bool, int, bool
-            packet.WriteInteger(14689); //Maybe the item id?
-            packet.WriteBoolean(true); //Can we get?
-            packet.WriteInteger(-1); //idk
-            packet.WriteBoolean(true); //idk
+            packet.WriteInteger(gift.Item.WireOfferId);
+            packet.WriteBoolean(false); // one HC membership
+            packet.WriteInteger(gift.DaysRequired);
+            packet.WriteBoolean(info.Available > 0 && info.PastDays >= gift.DaysRequired);
         }
     }
 }

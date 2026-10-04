@@ -12,12 +12,14 @@ internal class CreateFlatEvent : IPacketEvent
     private readonly IWordFilterManager _wordFilterManager;
     private readonly IRoomManager _roomManager;
     private readonly INavigatorManager _navigatorManager;
+    private readonly Plus.Core.Settings.ISettingsManager _settings;
 
-    public CreateFlatEvent(IWordFilterManager wordFilterManager, IRoomManager roomManager, INavigatorManager navigatorManager)
+    public CreateFlatEvent(IWordFilterManager wordFilterManager, IRoomManager roomManager, INavigatorManager navigatorManager, Plus.Core.Settings.ISettingsManager settings)
     {
         _wordFilterManager = wordFilterManager;
         _roomManager = roomManager;
         _navigatorManager = navigatorManager;
+        _settings = settings;
     }
 
     public Task Parse(GameClient session, IIncomingPacket packet)
@@ -37,16 +39,17 @@ internal class CreateFlatEvent : IPacketEvent
         if (!model.CanCreate(session.GetHabbo().Access))
             return Task.CompletedTask;
         var rooms = RoomFactory.GetRoomsDataByOwnerSortByName(session.GetHabbo().Id);
-        if (rooms.Count >= 500)
+        var limit = Plus.HabboHotel.Subscriptions.ClubLimits.For(session.GetHabbo().Access, "rooms", _settings);
+        if (rooms.Count >= limit)
         {
-            session.Send(new CanCreateRoomComposer(true, 500));
+            session.Send(new CanCreateRoomComposer(true, limit));
             return Task.CompletedTask;
         }
         if (!_navigatorManager.TryGetSearchResultList(category, out var searchResultList) ||
             searchResultList.CategoryType != NavigatorCategoryType.Category ||
             searchResultList.RequiredPermission.Length > 0 && !session.GetHabbo().Access.Can(searchResultList.RequiredPermission))
             category = 36;
-        if (maxVisitors < 10 || maxVisitors > 25)
+        if (maxVisitors < 10 || maxVisitors > Plus.HabboHotel.Subscriptions.ClubLimits.For(session.GetHabbo().Access, "visitors", _settings))
             maxVisitors = 10;
         if (tradeSettings < 0 || tradeSettings > 2)
             tradeSettings = 0;

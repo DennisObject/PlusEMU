@@ -39,6 +39,8 @@ internal class UpdateFloorPropertiesEvent : RoomPacketEvent
             room.FloorThickness,
             room.GetGameMap().StaticModel.WallHeight);
         var layout = FloorPlanSave.Resolve(body.DoorFieldsPresent, body.WallHeightPresent, body.Requested, existing);
+        if (Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access) == 0 && (layout.WallThickness != 0 || layout.FloorThickness != 0))
+            return Task.CompletedTask;
 
         var decision = FloorPlanSave.Evaluate(body.Map, layout.DoorX, layout.DoorY, layout.DoorDirection, layout.WallThickness, layout.FloorThickness, layout.WallHeight, FloorItems(room), CurrentTiles(model));
         if (decision.Error != null)

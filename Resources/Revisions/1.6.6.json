@@ -369,7 +369,12 @@
     "HousekeepingAssignRoleEvent": 0,
     "HousekeepingRevokeRoleEvent": 0,
     "HousekeepingSetUserOverrideEvent": 0,
-    "HousekeepingRemoveUserOverrideEvent": 0
+    "HousekeepingRemoveUserOverrideEvent": 0,
+    "HousekeepingSetUserRankEvent": 0,
+    "GetHabboClubExtendOfferEvent": 2462,
+    "PurchaseBasicMembershipExtensionEvent": 2735,
+    "PurchaseVipMembershipExtensionEvent": 3407,
+    "SelectClubGiftEvent": 2276
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -695,6 +700,11 @@
     "HousekeepingRolesComposer": 0,
     "HousekeepingRoleMembersComposer": 0,
     "HousekeepingUserOverridesComposer": 0,
-    "HousekeepingRolesAuditComposer": 0
+    "HousekeepingRolesAuditComposer": 0,
+    "AllowedChatStylesComposer": 9340,
+    "CreatableRoomModelsComposer": 9341,
+    "HabboClubExtendOfferComposer": 3964,
+    "ClubGiftReceivedComposer": 659,
+    "PickMonthlyClubGiftComposer": 2188
   }
 }

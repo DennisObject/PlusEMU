@@ -1,3 +1,4 @@
+﻿using Plus.HabboHotel.Subscriptions;
 ﻿using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Core.FigureData;
 using Plus.Database;
@@ -41,7 +42,7 @@ internal class FacelessCommand : IChatCommand
                 break;
             }
         }
-        session.GetHabbo().Look = _figureDataManager.ProcessFigure(session.GetHabbo().Look, session.GetHabbo().Gender, session.GetHabbo().Clothing.GetClothingParts, true);
+        session.GetHabbo().Look = _figureDataManager.ProcessFigure(session.GetHabbo().Look, session.GetHabbo().Gender, session.GetHabbo().Clothing.GetClothingParts, ClubAccess.LevelFor(session.GetHabbo().Access));
         using (var dbClient = _database.GetQueryReactor())
         {
             dbClient.RunQuery($"UPDATE `users` SET `look` = '{session.GetHabbo().Look}' WHERE `id` = '{session.GetHabbo().Id}' LIMIT 1");

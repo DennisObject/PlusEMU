@@ -7,6 +7,7 @@ public interface IRoomManager
     int Count { get; }
     void OnCycle();
     void LoadModels();
+    IReadOnlyList<RoomModel> GetCreatableModels(Plus.HabboHotel.Permissions.UserAccess access);
     bool LoadModel(string id);
     void ReloadModel(string id);
     bool TryGetModel(string id, out RoomModel model);

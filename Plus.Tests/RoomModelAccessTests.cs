@@ -52,7 +52,7 @@ public sealed class RoomModelAccessTests
 
     private static UserAccess Access(bool staffModels = false, IEnumerable<UserPermissionOverride>? overrides = null, DateTimeOffset? expiresAt = null) =>
         UserAccess.Create([new RoleAssignment(new AccessRole(1, "test", "Test", 1000, 7, "", true,
-            staffModels ? [PermissionKeys.NavigatorRoomModelsStaff] : [], new Dictionary<string, int>()), expiresAt)], overrides);
+            staffModels ? [PermissionKeys.NavigatorRoomModelsStaff, PermissionKeys.ClubAccess] : [PermissionKeys.ClubAccess], new Dictionary<string, int>()), expiresAt)], overrides);
 
     [Theory]
     [MemberData(nameof(Cases))]
@@ -62,10 +62,10 @@ public sealed class RoomModelAccessTests
     }
 
     [Fact]
-    public void ClubModelsRemainAvailableWithoutMembershipUnderTheHotelsFreeClubPolicy()
+    public void ClubModelsAreDeniedWithoutMembershipOrAfterComplimentaryRoleExpiry()
     {
-        Assert.True(Model(2).CanCreate(UserAccess.Empty));
-        Assert.True(Model(2).CanCreate(Access(expiresAt: DateTimeOffset.UtcNow.AddMinutes(-1))));
+        Assert.False(Model(2).CanCreate(UserAccess.Empty));
+        Assert.False(Model(2).CanCreate(Access(expiresAt: DateTimeOffset.UtcNow.AddMinutes(-1))));
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class RoomModelAccessTests
         try
         {
             var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7001, Access = Access(staffModels) });
-            await new CreateFlatEvent(Filter(), rooms, navigator).Parse(client, Request());
+            await new CreateFlatEvent(Filter(), rooms, navigator, Proxy<Plus.Core.Settings.ISettingsManager>((_, _) => null)).Parse(client, Request());
 
             Assert.Equal(1, modelReads);
             Assert.Empty(sent);
@@ -155,7 +155,7 @@ public sealed class RoomModelAccessTests
         try
         {
             var (client, _) = HabbiconTestSupport.Client(habbo);
-            await new CreateFlatEvent(Filter(), rooms, navigator).Parse(client, Request());
+            await new CreateFlatEvent(Filter(), rooms, navigator, Proxy<Plus.Core.Settings.ISettingsManager>((_, _) => null)).Parse(client, Request());
 
             Assert.Equal(1, creationCalls);
             Assert.Equal(1, databaseReads);

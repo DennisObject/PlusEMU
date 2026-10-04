@@ -22,7 +22,7 @@ internal class DanceEvent : RoomPacketEvent
             return Task.CompletedTask;
         user.UnIdle();
         var danceId = packet.ReadInt();
-        if (danceId < 0 || danceId > 4)
+        if (danceId < 0 || danceId > 4 || danceId > 1 && Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access) == 0)
             danceId = 0;
         if (danceId > 0 && user.CarryItemId > 0)
             user.CarryItem(0);

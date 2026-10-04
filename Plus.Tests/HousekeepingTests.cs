@@ -629,6 +629,6 @@ public class ClientPermissionWireTests
             [PermissionKeys.Ambassador, PermissionKeys.CameraUse, PermissionKeys.HousekeepingAccess], new Dictionary<string, int>()))]);
         var packet = new RecordingPacket();
         new UserRightsComposer(access).Compose(packet);
-        Assert.Equal(new object[] { 2, 7, true, 9, "Developer", "DEV", 3, "ambassador", 1, "camera.use", 1, "housekeeping.access", 1 }, packet.Writes);
+        Assert.Equal(new object[] { 0, 7, true, 9, "Developer", "DEV", 3, "ambassador", 1, "camera.use", 1, "housekeeping.access", 1 }, packet.Writes);
     }
 }

@@ -51,8 +51,8 @@ public class RegistrationDefaults
     public string Motto { get; set; } = "Octane";
     public int Credits { get; set; } = 50000;
     public int ActivityPoints { get; set; } = 5000;
-    public string[] Roles { get; set; } = ["vip"];
-    public bool Vip { get; set; } = true;
+    public string[] Roles { get; set; } = [];
+    public bool Vip { get; set; } = false;
     public int HomeRoom { get; set; } = 1;
 
     /// <summary>Extra name fragments refused at registration, on top of the in-game staff fragments.</summary>

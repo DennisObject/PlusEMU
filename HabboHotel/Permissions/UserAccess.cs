@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.HabboHotel.Permissions;
 
@@ -11,24 +12,29 @@ public sealed class UserAccess
     private readonly TimeProvider _clock;
     private readonly object _sync = new();
     private Snapshot _snapshot;
+    private ClubMembership _membership;
+    internal long Now => _clock.GetUtcNow().ToUnixTimeSeconds();
+    public ClubMembership Membership => Current.Membership;
+
 
     internal sealed record Snapshot(FrozenSet<string> Keys, FrozenDictionary<string, int> Limits,
-        AccessRole[] Roles, AccessRole? PrimaryRole, int SecurityLevel, int Weight, DateTimeOffset? NextExpiry);
+        AccessRole[] Roles, AccessRole? PrimaryRole, int SecurityLevel, int Weight, DateTimeOffset? NextExpiry, ClubMembership Membership);
 
     private UserAccess(IEnumerable<RoleAssignment> roles, IEnumerable<UserPermissionOverride> overrides,
-        IEnumerable<string> registry, TimeProvider clock)
+        IEnumerable<string> registry, TimeProvider clock, ClubMembership membership)
     {
         _assignments = roles.ToArray();
         _overrides = overrides.ToArray();
         _registry = registry.Distinct(StringComparer.Ordinal).ToArray();
         _clock = clock;
+        _membership = membership;
         _snapshot = Compile(clock.GetUtcNow());
     }
 
     public static UserAccess Empty => Create(Array.Empty<RoleAssignment>());
     public static UserAccess Create(IEnumerable<RoleAssignment> roles, IEnumerable<UserPermissionOverride>? overrides = null,
-        IEnumerable<string>? registry = null, TimeProvider? clock = null) =>
-        new(roles, overrides ?? Array.Empty<UserPermissionOverride>(), registry ?? PermissionKeys.All.Select(p => p.Key), clock ?? TimeProvider.System);
+        IEnumerable<string>? registry = null, TimeProvider? clock = null, ClubMembership? membership = null) =>
+        new(roles, overrides ?? Array.Empty<UserPermissionOverride>(), registry ?? PermissionKeys.All.Select(p => p.Key), clock ?? TimeProvider.System, membership ?? ClubMembership.None);
 
     // Keep the online session holder stable across refreshes and reloads.
     internal void ReplaceWith(UserAccess replacement)
@@ -38,6 +44,7 @@ public sealed class UserAccess
             _assignments = replacement._assignments;
             _overrides = replacement._overrides;
             _registry = replacement._registry;
+            _membership = replacement._membership;
             Volatile.Write(ref _snapshot, replacement.Capture());
         }
     }
@@ -87,8 +94,9 @@ public sealed class UserAccess
             .ToFrozenDictionary(group => group.Key, group => group.Max(limit => limit.Value), StringComparer.Ordinal);
         var primary = roles.OrderByDescending(role => role.Weight).ThenBy(role => role.Id).FirstOrDefault();
         var expiries = _assignments.Select(role => role.ExpiresAt).Concat(_overrides.Select(permission => permission.ExpiresAt))
+            .Append(_membership.ExpiresAt > now.ToUnixTimeSeconds() ? DateTimeOffset.FromUnixTimeSeconds(_membership.ExpiresAt) : null)
             .Where(expiry => expiry > now).ToArray();
         return new(keys, limits, roles, primary, roles.Select(role => role.SecurityLevel).DefaultIfEmpty(1).Max(),
-            roles.Select(role => role.Weight).DefaultIfEmpty(0).Max(), expiries.Length == 0 ? null : expiries.Min());
+            roles.Select(role => role.Weight).DefaultIfEmpty(0).Max(), expiries.Length == 0 ? null : expiries.Min(), _membership);
     }
 }

@@ -9,6 +9,7 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User.Fun;
 internal class MimicCommand : ITargetChatCommand
 {
     private readonly IDatabase _database;
+    private readonly Plus.Core.FigureData.IFigureDataManager _figures;
     public string Key => "mimic";
 
     public string Parameters => "%username%";
@@ -16,9 +17,10 @@ internal class MimicCommand : ITargetChatCommand
     public string Description => "Liking someone elses swag? Copy it!";
     public bool MustBeInSameRoom => true;
 
-    public MimicCommand(IDatabase database)
+    public MimicCommand(IDatabase database, Plus.Core.FigureData.IFigureDataManager figures)
     {
         _database = database;
+        _figures = figures;
     }
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
@@ -35,7 +37,7 @@ internal class MimicCommand : ITargetChatCommand
             return Task.CompletedTask;
         }
         session.GetHabbo().Gender = targetUser.GetClient().GetHabbo().Gender;
-        session.GetHabbo().Look = targetUser.GetClient().GetHabbo().Look;
+        session.GetHabbo().Look = _figures.ProcessFigure(target.Look, session.GetHabbo().Gender, session.GetHabbo().Clothing.GetClothingParts, Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access));
         using (var dbClient = _database.GetQueryReactor())
         {
             dbClient.SetQuery("UPDATE `users` SET `gender` = @gender, `look` = @look WHERE `id` = @id LIMIT 1");

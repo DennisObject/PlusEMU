@@ -55,6 +55,7 @@ public sealed class CatalogPageRow
     public bool Visible { get; set; }
     public bool Enabled { get; set; }
     public string? RequiredPermission { get; set; }
+    public int RequiredClubLevel { get; set; }
     public int OrderNum { get; set; }
     public string PageLayout { get; set; } = string.Empty;
     public string PageStrings1 { get; set; } = string.Empty;

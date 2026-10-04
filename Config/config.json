@@ -49,7 +49,7 @@
             "Motto": "Octane",
             "Credits": 50000,
             "ActivityPoints": 5000,
-            "Vip": true,
+            "Vip": false,
             "HomeRoom": 1,
             "ReservedNames": [
                 "staff"

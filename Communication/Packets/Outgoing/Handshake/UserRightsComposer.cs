@@ -15,7 +15,7 @@ public sealed class UserRightsComposer(UserAccess access) : IServerPacket
         var roles = resolved.Roles;
         var primary = roles.OrderByDescending(role => role.Weight).ThenBy(role => role.Id).FirstOrDefault();
         var keys = resolved.Keys.Order(StringComparer.Ordinal).ToArray();
-        packet.WriteInteger(ClubAccess.LevelFor(access));
+        packet.WriteInteger(ClubAccess.LevelFor(resolved, access.Now));
         packet.WriteInteger(resolved.SecurityLevel);
         packet.WriteBoolean(keys.Contains(PermissionKeys.Ambassador, StringComparer.Ordinal));
         packet.WriteInteger(primary?.Id ?? 0);

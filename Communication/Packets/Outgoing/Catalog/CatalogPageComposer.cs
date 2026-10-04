@@ -30,7 +30,7 @@ public class CatalogPageComposer : IServerPacket
         foreach (var s in _page.PageStringsList1) packet.WriteString(s);
         packet.WriteInteger(_page.PageStringsList2.Count);
         foreach (var s in _page.PageStringsList2) packet.WriteString(s);
-        if (!_page.Layout.Equals("frontpage") && !_page.Layout.Equals("club_buy"))
+        if (_page.Layout is not ("frontpage" or "club_buy" or "vip_buy" or "loyalty_vip_buy"))
         {
             packet.WriteInteger(_page.Offers.Count);
             foreach (var item in _page.Offers.Values)

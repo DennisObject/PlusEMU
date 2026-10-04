@@ -8,6 +8,9 @@ public static class ServerPacketHeader
     public const uint AuthenticationOkComposer = 1079; //1442
     public const uint UserObjectComposer = 845; //1823
     public const uint UserPerksComposer = 1790; //2807
+    public const uint HabboClubExtendOfferComposer = 3964;
+    public const uint ClubGiftReceivedComposer = 659;
+    public const uint PickMonthlyClubGiftComposer = 2188;
     public const uint KickbackInfoComposer = 4001; //3277
     public const uint UserRightsComposer = 3315; //1862
     public const uint GenericErrorComposer = 905; //169
@@ -334,6 +337,8 @@ public static class ServerPacketHeader
     public const uint PollContentsComposer = 3826;
     public const uint PollOfferComposer = 1074;
     public const uint RoomUseHabbiconComposer = 9410;
+    public const uint AllowedChatStylesComposer = 9340;
+    public const uint CreatableRoomModelsComposer = 9341;
     public const uint UserHabbiconsComposer = 9465;
     public const uint UserHabbiconStatusChangedComposer = 9466;
     public const uint HabbiconShopDataComposer = 9467;

@@ -67,7 +67,8 @@ public class FloorPlanWireTests
             // Reward tracks exist on the Octane client only; RewardTrackTests pins their ids.
             "GetRewardTracksEvent",
             "ClaimRewardTrackPrizeEvent",
-            "PurchaseRewardTrackPremiumEvent"
+            "PurchaseRewardTrackPremiumEvent",
+            "PurchaseBasicMembershipExtensionEvent"
         };
         var changedOutgoing = new HashSet<string>
         {
@@ -130,6 +131,7 @@ public class FloorPlanWireTests
             "GetRewardTracksEvent",
             "ClaimRewardTrackPrizeEvent",
             "PurchaseRewardTrackPremiumEvent",
+            "PurchaseBasicMembershipExtensionEvent",
             "RewardTracksComposer",
             "RewardTrackClaimResultComposer",
             "RewardTrackProgressComposer",

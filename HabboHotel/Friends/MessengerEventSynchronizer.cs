@@ -110,8 +110,10 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
     {
         if (args.FriendRequestModificationType == FriendRequestModificationType.Accepted)
         {
+            var relationship = await _messengerDataLoader.CreateRelationship(args.Request.FromId, habbo.Id);
+            if (relationship == null) { habbo.Messenger.AddFriendRequest(args.Request); return; }
             await _messengerDataLoader.DeleteFriendRequest(args.Request.FromId, habbo.Id);
-            var (friend, me) = await _messengerDataLoader.CreateRelationship(args.Request.FromId, habbo.Id);
+            var (friend, me) = relationship.Value;
             me.Habbo = habbo;
             var from = _gameClientManager.GetClientByUserId(args.Request.FromId);
             if (from != null)
