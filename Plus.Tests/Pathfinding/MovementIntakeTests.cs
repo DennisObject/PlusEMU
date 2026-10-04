@@ -10,6 +10,7 @@ namespace Plus.Tests.Pathfinding;
 public class MovementIntakeTests
 {
     [Theory]
+    [InlineData(PathfindingEngine.Legacy)]
     [InlineData(PathfindingEngine.Shadow)]
     [InlineData(PathfindingEngine.V2)]
     public void MoveToDefersGoalWritesOnlyForTheV2Executor(PathfindingEngine engine)
@@ -22,6 +23,7 @@ public class MovementIntakeTests
     }
 
     [Theory]
+    [InlineData(PathfindingEngine.Legacy)]
     [InlineData(PathfindingEngine.Shadow)]
     [InlineData(PathfindingEngine.V2)]
     public void SetPosDefersPhysicalWritesOnlyForTheV2Executor(PathfindingEngine engine)
@@ -34,6 +36,7 @@ public class MovementIntakeTests
     }
 
     [Theory]
+    [InlineData(PathfindingEngine.Legacy)]
     [InlineData(PathfindingEngine.Shadow)]
     [InlineData(PathfindingEngine.V2)]
     public void ClearMovementDefersCancellationOnlyForTheV2Executor(PathfindingEngine engine)
