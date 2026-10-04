@@ -1,0 +1,67 @@
+using System.Collections.Immutable;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Groups;
+using Plus.HabboHotel.Rooms;
+
+namespace Plus.HabboHotel.Navigator;
+
+public sealed record NavigatorResultBlock(string CategoryIdentifier, string PublicName, int Action, int ViewMode, ImmutableArray<RoomWireData> Rooms);
+public sealed record NavigatorSearchSnapshot(string Category, string Query, ImmutableArray<NavigatorResultBlock> Results);
+
+public interface INavigatorSearchService
+{
+    NavigatorSearchSnapshot Search(GameClient session, string category, string query);
+}
+
+public sealed class NavigatorSearchService(INavigatorManager navigator, INavigatorSearchStore store, IRoomManager rooms, IGroupManager groups) : INavigatorSearchService
+{
+    public NavigatorSearchSnapshot Search(GameClient session, string category, string query)
+    {
+        IReadOnlyCollection<SearchResultList> categories;
+        var goBack = 1; var limit = 12;
+        if (!string.IsNullOrEmpty(query)) categories = navigator.TryGetSearchResultList(0, out var result) ? [result] : [];
+        else
+        {
+            categories = navigator.GetCategoriessForSearch(category);
+            if (categories.Count == 0) { categories = navigator.GetResultByIdentifier(category); if (categories.Count > 0) { goBack = 2; limit = 100; } }
+        }
+        return new(category, query, categories.Select(item => PrepareBlock(session, item, query, goBack, limit)).ToImmutableArray());
+    }
+
+    private NavigatorResultBlock PrepareBlock(GameClient session, SearchResultList result, string query, int goBack, int limit)
+    {
+        IEnumerable<RoomData> selected = result.CategoryType switch
+        {
+            NavigatorCategoryType.Query => Query(query),
+            NavigatorCategoryType.Popular => rooms.GetPopularRooms(-1, limit),
+            NavigatorCategoryType.Recommended => rooms.GetRecommendedRooms(limit),
+            NavigatorCategoryType.Category => rooms.GetRoomsByCategory(result.Id, limit),
+            NavigatorCategoryType.MyRooms => RoomFactory.GetRoomsDataByOwnerSortByName(session.GetHabbo().Id).OrderByDescending(room => room.UsersNow),
+            NavigatorCategoryType.MyFavourites => Resolve(session.GetHabbo().FavoriteRooms.ToArray().Select(id => (uint)id)),
+            NavigatorCategoryType.MyGroups => Resolve(groups.GetGroupsForUser(session.GetHabbo().Id).Select(group => group.RoomId)).Take(limit),
+            NavigatorCategoryType.MyFriendsRooms => rooms.GetRoomsByIds(session.GetHabbo().Messenger.Friends.Values
+                .Where(friend => friend.InRoom && friend.Id != session.GetHabbo().Id).Select(friend => friend.CurrentRoom.Id).Distinct().ToList()),
+            NavigatorCategoryType.MyRights => Resolve(store.FindWithRights(session.GetHabbo().Id, limit)),
+            NavigatorCategoryType.TopPromotions => rooms.GetOnGoingRoomPromotions(16, limit),
+            NavigatorCategoryType.PromotionCategory => rooms.GetPromotedRooms(result.OrderId, limit),
+            _ => []
+        };
+        var snapshots = selected.DistinctBy(room => room.Id).Select(room => RoomAppender.Capture(room, navigator)).ToImmutableArray();
+        var action = NavigatorSearchAllowanceUtility.GetIntegerValue(result.SearchAllowance);
+        return new(result.CategoryIdentifier, result.PublicName, action != 0 ? goBack : action,
+            result.ViewMode == NavigatorViewMode.Thumbnail ? 1 : 0, snapshots);
+    }
+
+    private IEnumerable<RoomData> Query(string query)
+    {
+        if (query.StartsWith("owner:", StringComparison.OrdinalIgnoreCase)) return Resolve(store.FindByOwnerName(query[6..]));
+        if (query.StartsWith("tag:", StringComparison.OrdinalIgnoreCase)) return rooms.SearchTaggedRooms(query[4..]);
+        if (query.StartsWith("group:", StringComparison.OrdinalIgnoreCase)) return rooms.SearchGroupRooms(query[6..]);
+        return query.Length == 0 ? [] : Resolve(store.FindByCaption(query).Where(room => room.Visible).Select(room => room.Id));
+    }
+
+    private static IEnumerable<RoomData> Resolve(IEnumerable<uint> ids)
+    {
+        foreach (var id in ids) if (RoomFactory.TryGetData(id, out var room)) yield return room;
+    }
+}
