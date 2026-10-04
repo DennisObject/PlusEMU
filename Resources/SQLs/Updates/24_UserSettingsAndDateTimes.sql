@@ -43,15 +43,17 @@ ON DUPLICATE KEY UPDATE
   `disable_forced_effects` = VALUES(`disable_forced_effects`), `allow_mimic` = VALUES(`allow_mimic`);
 
 ALTER TABLE `users`
-  ADD COLUMN `online_bool` BOOL NULL DEFAULT FALSE,
-  ADD COLUMN `vip_bool` BOOL NULL DEFAULT TRUE,
+  MODIFY COLUMN `online` VARCHAR(1) NULL DEFAULT '0',
+  MODIFY COLUMN `vip` VARCHAR(1) NULL DEFAULT '1';
+
+ALTER TABLE `users`
+  MODIFY COLUMN `online` BOOL NULL DEFAULT FALSE,
+  MODIFY COLUMN `vip` BOOL NULL DEFAULT TRUE,
   ADD COLUMN `account_created_at` DATETIME NULL,
   ADD COLUMN `last_online_at` DATETIME NULL,
   ADD COLUMN `last_change_at` DATETIME NULL;
 
 UPDATE `users` SET
-  `online_bool` = COALESCE(`online`, '0') = '1',
-  `vip_bool` = COALESCE(`vip`, '1') = '1',
   `account_created_at` = CASE WHEN CAST(`account_created` AS UNSIGNED) = 0 THEN NULL ELSE DATE_ADD('1970-01-01 00:00:00', INTERVAL CAST(`account_created` AS UNSIGNED) SECOND) END,
   `last_online_at` = CASE WHEN CAST(`last_online` AS UNSIGNED) = 0 THEN NULL ELSE DATE_ADD('1970-01-01 00:00:00', INTERVAL CAST(`last_online` AS UNSIGNED) SECOND) END,
   `last_change_at` = CASE WHEN CAST(`last_change` AS UNSIGNED) = 0 THEN NULL ELSE DATE_ADD('1970-01-01 00:00:00', INTERVAL CAST(`last_change` AS UNSIGNED) SECOND) END;
@@ -62,8 +64,6 @@ ALTER TABLE `users`
   DROP COLUMN `pets_muted`, DROP COLUMN `bots_muted`, DROP COLUMN `advertising_report_blocked`, DROP COLUMN `ignore_invites`,
   DROP COLUMN `allow_gifts`, DROP COLUMN `friend_bar_state`, DROP COLUMN `disable_forced_effects`, DROP COLUMN `allow_mimic`,
   DROP COLUMN `account_created`, DROP COLUMN `last_online`, DROP COLUMN `last_change`,
-  DROP COLUMN `online`, DROP COLUMN `vip`,
-  RENAME COLUMN `online_bool` TO `online`, RENAME COLUMN `vip_bool` TO `vip`,
   RENAME COLUMN `account_created_at` TO `account_created`, RENAME COLUMN `last_online_at` TO `last_online`,
   RENAME COLUMN `last_change_at` TO `last_change`, ADD INDEX `last_online` (`last_online`);
 
