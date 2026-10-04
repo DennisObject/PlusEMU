@@ -5,7 +5,7 @@ using Plus.Utilities.DependencyInjection;
 namespace Plus.HabboHotel.Rooms;
 
 public readonly record struct RoomPetSave(int Id, int OwnerId, uint RoomId, string Name, int Type, string Race, string Color,
-    double CreationStamp, int X, int Y, double Z, int Experience, int Energy, int Nutrition, int Respect, bool Insert);
+    DateTimeOffset? CreatedAt, int X, int Y, double Z, int Experience, int Energy, int Nutrition, int Respect, bool Insert);
 public readonly record struct RoomBotSave(int Id, int X, int Y, double Z, string Name, string Look, int Rotation);
 
 [Scoped]
@@ -40,8 +40,12 @@ public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
             connection.Execute("""
                 INSERT INTO bots_petdata (id, type, race, color, experience, energy, createstamp, nutrition, respect,
                                           have_saddle, anyone_ride, hairdye, pethair, gnome_clothing)
-                VALUES (@Id, @Type, @Race, @Color, 0, 100, @CreationStamp, 0, 0, 0, 0, 1, -1, '-1')
-                """, pet, transaction);
+                VALUES (@Id, @Type, @Race, @Color, 0, 100, @CreatedAt, 0, 0, 0, 0, 1, -1, '-1')
+                """, new
+                {
+                    pet.Id, pet.Type, pet.Race, pet.Color,
+                    CreatedAt = pet.CreatedAt?.UtcDateTime
+                }, transaction);
             transaction.Commit();
             return;
         }

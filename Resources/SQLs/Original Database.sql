@@ -5901,7 +5901,7 @@ CREATE TABLE `bots_petdata` (
   `experience` int(11) DEFAULT '0',
   `nutrition` int(11) DEFAULT '0',
   `respect` int(11) DEFAULT '0',
-  `createstamp` int(11) DEFAULT NULL,
+  `createstamp` datetime(6) DEFAULT NULL,
   `have_saddle` int(11) DEFAULT '0',
   `hairdye` int(11) DEFAULT '1',
   `pethair` int(11) DEFAULT '-1',

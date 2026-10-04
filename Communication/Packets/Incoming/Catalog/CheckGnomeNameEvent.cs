@@ -15,12 +15,14 @@ internal class CheckGnomeNameEvent : RoomPacketEvent
     private readonly IDatabase _database;
     private readonly IItemDataManager _itemDataManager;
     private readonly IItemFactory _itemFactory;
+    private readonly TimeProvider _clock;
 
-    public CheckGnomeNameEvent(IDatabase database, IItemDataManager itemDataManager, IItemFactory itemFactory)
+    public CheckGnomeNameEvent(IDatabase database, IItemDataManager itemDataManager, IItemFactory itemFactory, TimeProvider clock)
     {
         _database = database;
         _itemDataManager = itemDataManager;
         _itemFactory = itemFactory;
+        _clock = clock;
     }
 
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
@@ -46,7 +48,7 @@ internal class CheckGnomeNameEvent : RoomPacketEvent
         item.RoomId = room.RoomId;
 
         //Create the pet here.
-        var pet = PetUtility.CreatePet(_database, session.GetHabbo().Id, petName, 26, "30", "ffffff", item, RandomClothing());
+        var pet = PetUtility.CreatePet(_database, _clock, session.GetHabbo().Id, petName, 26, "30", "ffffff", item, RandomClothing());
         if (pet == null)
         {
             session.SendNotification("Oops, an error occoured. Please report this!");

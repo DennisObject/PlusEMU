@@ -13,7 +13,7 @@ public class Pet
 {
     public int AnyoneCanRide;
     public string Color;
-    public double CreationStamp;
+    public DateTimeOffset? CreatedAt;
     public PetDatabaseUpdateState DbState;
 
     public int Energy;
@@ -40,7 +40,7 @@ public class Pet
     public int Y;
     public double Z;
 
-    public Pet(int petId, int ownerId, uint roomId, string name, int type, string race, string color, int experience, int energy, int nutrition, int respect, double creationStamp, int x, int y,
+    public Pet(int petId, int ownerId, uint roomId, string name, int type, string race, string color, int experience, int energy, int nutrition, int respect, DateTimeOffset? createdAt, int x, int y,
         double z, int saddle, int anyonecanride, int dye, int petHer, string gnomeClothing)
     {
         PetId = petId;
@@ -54,7 +54,7 @@ public class Pet
         Energy = energy;
         Nutrition = nutrition;
         Respect = respect;
-        CreationStamp = creationStamp;
+        CreatedAt = createdAt?.ToUniversalTime();
         X = x;
         Y = y;
         Z = z;
@@ -106,8 +106,6 @@ public class Pet
     public static int MaxEnergy => 100;
 
     public static int MaxNutrition => 150;
-
-    public int Age => Convert.ToInt32(Math.Floor((UnixTimestamp.GetNow() - CreationStamp) / 86400));
 
     public string CustomParts => !string.IsNullOrEmpty(GnomeClothing) && GnomeClothing != "-1"
         ? GnomeClothing

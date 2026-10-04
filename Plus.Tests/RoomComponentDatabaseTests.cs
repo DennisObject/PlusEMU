@@ -36,7 +36,7 @@ public sealed class RoomComponentDatabaseTests
                 CREATE TABLE bots_petdata (
                     id INT PRIMARY KEY, type INT NOT NULL, race VARCHAR(20) NOT NULL, color VARCHAR(20) NOT NULL,
                     experience INT NOT NULL CHECK (experience >= 0), energy INT NOT NULL, nutrition INT NOT NULL, respect INT NOT NULL,
-                    createstamp DOUBLE NOT NULL, have_saddle INT NOT NULL, anyone_ride INT NOT NULL,
+                    createstamp BIGINT NULL, have_saddle INT NOT NULL, anyone_ride INT NOT NULL,
                     hairdye INT NOT NULL, pethair INT NOT NULL, gnome_clothing VARCHAR(100) NOT NULL);
                 CREATE TABLE room_promotions (
                     room_id INT UNSIGNED NOT NULL, title VARCHAR(100) NOT NULL, description VARCHAR(255) NOT NULL,
@@ -58,8 +58,9 @@ public sealed class RoomComponentDatabaseTests
                     (11, 8, 42, 'pet', '', '', 4, 5, 1.5, 0, 'pet', 'freeroam', FALSE, 0, FALSE, 0),
                     (12, 9, 99, 'other', '', '', 0, 0, 0, 0, 'generic', 'freeroam', FALSE, 1, FALSE, 0);
                 INSERT INTO bots_speech VALUES (10, 'first'), (10, 'second');
-                INSERT INTO bots_petdata VALUES (11, 2, '3', 'ffffff', 4, 5, 6, 7, 8.5, 1, 0, 9, 10, 'hat');
+                INSERT INTO bots_petdata VALUES (11, 2, '3', 'ffffff', 4, 5, 6, 7, 2200000000, 1, 0, 9, 10, 'hat');
                 INSERT INTO bots_petdata VALUES (14, 2, '3', 'ffffff', 0, 100, 0, 0, 0, 0, 0, 1, -1, '-1');
+                INSERT INTO bots_petdata VALUES (15, 2, '3', 'ffffff', 0, 100, 0, 0, NULL, 0, 0, 1, -1, '-1');
                 INSERT INTO room_promotions VALUES (42, 'Featured', 'Actual row', UNIX_TIMESTAMP() - 10, UNIX_TIMESTAMP() + 600, 3);
                 INSERT INTO items (id, user_id) VALUES (90, 1), (91, 1);
                 INSERT INTO users VALUES (7, 'owner');
@@ -70,6 +71,18 @@ public sealed class RoomComponentDatabaseTests
                 INSERT INTO user_roomvisits VALUES (42, 7, 0);
                 """);
 
+            var migration = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory,
+                "../../../../Database/Migrations/20_UseUtcPetCreationTime.sql")));
+            connection.Execute(migration);
+            Assert.Equal("datetime", connection.QuerySingle<string>("""
+                SELECT DATA_TYPE FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'bots_petdata' AND column_name = 'createstamp'
+                """));
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).UtcDateTime,
+                DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT createstamp FROM bots_petdata WHERE id = 11"), DateTimeKind.Utc));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT createstamp FROM bots_petdata WHERE id = 14"));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT createstamp FROM bots_petdata WHERE id = 15"));
+
             var bot = Assert.Single(RoomBotsComponent.Load(connection, 42));
             Assert.True(bot.AutomaticChat);
             Assert.True(bot.MixSentences);
@@ -78,6 +91,7 @@ public sealed class RoomComponentDatabaseTests
             var data = Assert.IsType<RoomPetsComponent.PetData>(RoomPetsComponent.LoadData(connection, pet.Id));
             Assert.Equal((11, 42u, 1.5), (pet.Id, pet.RoomId, pet.Z));
             Assert.Equal((2, "3", "hat"), (data.Type, data.Race, data.GnomeClothing));
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000), RoomPetsComponent.AsUtc(data.CreatedAt));
             var databaseConnection = new MySqlConnectionStringBuilder(connection.ConnectionString) { Database = schema }.ConnectionString;
             var promotion = Assert.IsType<RoomPromotion>(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 42));
             Assert.Equal(("Featured", "Actual row", 3), (promotion.Name, promotion.Description, promotion.CategoryId));
@@ -98,13 +112,13 @@ public sealed class RoomComponentDatabaseTests
             var userStore = new RoomUserStore(new ProbeDatabase(databaseConnection));
             userStore.UpdateUserCount(42, 7);
             userStore.SaveBot(new(10, 8, 9, 1.5, "updated", "look", 4));
-            userStore.SavePet(new(11, 8, 42, "pet", 2, "3", "ffffff", 8.5, 6, 7, 2.25, 40, 50, 60, 70, false));
-            userStore.SavePet(new(13, 9, 42, "inserted", 4, "5", "000000", 9.5, 0, 0, 0, 0, 100, 0, 0, true));
+            userStore.SavePet(new(11, 8, 42, "pet", 2, "3", "ffffff", DateTimeOffset.FromUnixTimeSeconds(2_200_000_000), 6, 7, 2.25, 40, 50, 60, 70, false));
+            userStore.SavePet(new(13, 9, 42, "inserted", 4, "5", "000000", null, 0, 0, 0, 0, 100, 0, 0, true));
             Assert.Throws<MySqlException>(() =>
-                userStore.SavePet(new(14, 9, 42, "rollback", 4, "5", "000000", 9.5, 0, 0, 0, 0, 100, 0, 0, true)));
+                userStore.SavePet(new(14, 9, 42, "rollback", 4, "5", "000000", null, 0, 0, 0, 0, 100, 0, 0, true)));
             Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM bots WHERE id = 14"));
             Assert.Throws<MySqlException>(() =>
-                userStore.SavePet(new(11, 8, 99, "pet", 2, "3", "ffffff", 8.5, 60, 70, 20.25, -1, 50, 60, 70, false)));
+                userStore.SavePet(new(11, 8, 99, "pet", 2, "3", "ffffff", DateTimeOffset.FromUnixTimeSeconds(2_200_000_000), 60, 70, 20.25, -1, 50, 60, 70, false)));
             Assert.Equal((42u, 6, 7, 2.25),
                 connection.QuerySingle<(uint, int, int, double)>("SELECT room_id, x, y, z FROM bots WHERE id = 11"));
             userStore.RecordExit(42, 7, 1234, 6);

@@ -550,14 +550,14 @@ public class RoomUserManager
             if (pet.DbState == PetDatabaseUpdateState.NeedsInsert)
             {
                 _store.SavePet(new(pet.PetId, pet.OwnerId, pet.RoomId, pet.Name, pet.Type, pet.Race, pet.Color,
-                    pet.CreationStamp, 0, 0, 0, 0, 100, 0, 0, true));
+                    pet.CreatedAt, 0, 0, 0, 0, 100, 0, 0, true));
             }
             else if (pet.DbState == PetDatabaseUpdateState.NeedsUpdate)
             {
                 //Surely this can be *99 better? // TODO
                 var user = GetRoomUserByVirtualId(pet.VirtualId);
                 _store.SavePet(new(pet.PetId, pet.OwnerId, pet.RoomId, pet.Name, pet.Type, pet.Race, pet.Color,
-                    pet.CreationStamp, user?.X ?? 0, user?.Y ?? 0, user?.Z ?? 0, pet.Experience, pet.Energy, pet.Nutrition, pet.Respect, false));
+                    pet.CreatedAt, user?.X ?? 0, user?.Y ?? 0, user?.Z ?? 0, pet.Experience, pet.Energy, pet.Nutrition, pet.Respect, false));
             }
             pet.DbState = PetDatabaseUpdateState.Updated;
         }

@@ -18,7 +18,7 @@ public sealed class RoomPetsComponent(IDatabase database) : IRoomComponent
             var data = LoadData(connection, row.Id);
             if (data == null) continue;
             var pet = new Pet(row.Id, row.UserId, row.RoomId, row.Name, data.Type, data.Race, data.Color,
-                data.Experience, data.Energy, data.Nutrition, data.Respect, data.Createstamp, row.X, row.Y, row.Z,
+                data.Experience, data.Energy, data.Nutrition, data.Respect, AsUtc(data.CreatedAt), row.X, row.Y, row.Z,
                 data.HaveSaddle, data.AnyoneRide, data.Hairdye, data.Pethair, data.GnomeClothing);
             var speeches = new List<RandomSpeech>();
             _room.GetRoomUserManager().DeployBot(new(pet.PetId, _room.Id, "pet", "freeroam", pet.Name, "", pet.Look,
@@ -30,7 +30,7 @@ public sealed class RoomPetsComponent(IDatabase database) : IRoomComponent
         "SELECT id, user_id AS UserId, room_id AS RoomId, name, x, y, z FROM bots WHERE room_id = @roomId AND ai_type = 'pet'", new { roomId });
 
     internal static PetData? LoadData(System.Data.IDbConnection connection, int petId) => connection.QuerySingleOrDefault<PetData>("""
-        SELECT type, race, color, experience, energy, nutrition, respect, createstamp,
+        SELECT type, race, color, experience, energy, nutrition, respect, createstamp AS CreatedAt,
                have_saddle AS HaveSaddle, anyone_ride AS AnyoneRide, hairdye, pethair,
                gnome_clothing AS GnomeClothing
         FROM bots_petdata WHERE id = @petId LIMIT 1
@@ -38,5 +38,9 @@ public sealed class RoomPetsComponent(IDatabase database) : IRoomComponent
 
     internal sealed record PetLocation(int Id, int UserId, uint RoomId, string Name, int X, int Y, double Z);
     internal sealed record PetData(int Type, string Race, string Color, int Experience, int Energy, int Nutrition,
-        int Respect, double Createstamp, int HaveSaddle, int AnyoneRide, int Hairdye, int Pethair, string GnomeClothing);
+        int Respect, DateTime? CreatedAt, int HaveSaddle, int AnyoneRide, int Hairdye, int Pethair, string GnomeClothing);
+
+    internal static DateTimeOffset? AsUtc(DateTime? value) => value is null
+        ? null
+        : new(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc));
 }

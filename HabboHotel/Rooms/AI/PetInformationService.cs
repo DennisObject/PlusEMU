@@ -33,8 +33,9 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
 
     public PetInformationSnapshot Capture(Pet pet)
     {
-        var age = Math.Floor((clock.GetUtcNow().ToUnixTimeSeconds() - pet.CreationStamp) / 86400);
-        var days = double.IsNaN(age) ? 0 : (int)Math.Clamp(age, 0, int.MaxValue);
+        var now = clock.GetUtcNow();
+        var age = pet.CreatedAt is { } createdAt ? Math.Floor((now - createdAt).TotalDays) : 0;
+        var days = (int)Math.Clamp(age, 0, int.MaxValue);
         return new(pet.PetId, pet.Name, pet.Level, Pet.MaxLevel, pet.Experience, pet.ExperienceGoal,
             pet.Energy, Pet.MaxEnergy, pet.Nutrition, Pet.MaxNutrition, pet.Respect, pet.OwnerId,
             days, pet.OwnerName, pet.Saddle > 0, pet.AnyoneCanRide);

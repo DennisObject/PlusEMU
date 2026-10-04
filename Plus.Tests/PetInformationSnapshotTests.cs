@@ -18,7 +18,7 @@ public sealed class PetInformationSnapshotTests
         pet.PetId = 42; pet.Name = "Horse"; pet.OwnerId = 7; pet.OwnerName = "Owner";
         pet.Experience = 300; pet.ExperienceLevels = [100, 200, 400];
         pet.Energy = 55; pet.Nutrition = 60; pet.Respect = 8; pet.Saddle = 9; pet.AnyoneCanRide = 1;
-        pet.CreationStamp = now.ToUnixTimeSeconds() - 2 * 86400;
+        pet.CreatedAt = now.AddDays(-2);
         var composer = new PetInformationComposer(new PetInformationService(new FixedClock(now)).Capture(pet));
         var expected = new object[] { 42, "Horse", 3, 20, 300, 400, 55, 100, 60, 150, 8, 7, 2, "Owner", 1,
             true, false, 0, 1, false, true, false, 0, -1, -1, -1, false };
@@ -27,6 +27,19 @@ public sealed class PetInformationSnapshotTests
         pet.OwnerName = "changed"; pet.Saddle = 0; pet.AnyoneCanRide = 0;
         Assert.Equal(expected, Writes(composer));
         Assert.Equal(expected, Writes(composer));
+    }
+
+    [Theory]
+    [InlineData(null, 0)]
+    [InlineData(2_200_086_400L, 0)]
+    [InlineData(2_199_827_200L, 2)]
+    public void PetAgeHandlesNullAndFutureDates(long? created, int expectedAge)
+    {
+        var pet = (Pet)RuntimeHelpers.GetUninitializedObject(typeof(Pet));
+        pet.ExperienceLevels = [100];
+        pet.CreatedAt = created.HasValue ? DateTimeOffset.FromUnixTimeSeconds(created.Value) : null;
+        var snapshot = new PetInformationService(new FixedClock(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000))).Capture(pet);
+        Assert.Equal(expectedAge, snapshot.AgeInDays);
     }
 
     [Theory]

@@ -52,7 +52,8 @@ public static class PetUtility
     /// Inserts the bot and its pet row together. <c>bots.name</c>, <c>motto</c> and <c>look</c> are required;
     /// a failed insert returns no pet instead of id 0.
     /// </summary>
-    public static Pet? CreatePet(IDatabase database, int userId, string name, int type, string race, string colour, Item? gnomeBox = null, string gnomeClothing = "-1", PetsInventoryComponent? inventory = null)
+    public static Pet? CreatePet(IDatabase database, TimeProvider clock, int userId, string name, int type, string race,
+        string colour, Item? gnomeBox = null, string gnomeClothing = "-1", PetsInventoryComponent? inventory = null)
     {
         Pet? pet = null;
         var addedToInventory = false;
@@ -61,7 +62,7 @@ public static class PetUtility
             using var connection = database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
-            pet = CreatePet(connection, transaction, userId, name, type, race, colour, gnomeBox, gnomeClothing);
+            pet = CreatePet(connection, transaction, clock.GetUtcNow(), userId, name, type, race, colour, gnomeBox, gnomeClothing);
             if (pet == null) return null;
             if (inventory != null)
             {
@@ -80,10 +81,11 @@ public static class PetUtility
             return null;
         }
     }
-    internal static Pet? CreatePet(IDbConnection connection, IDbTransaction transaction, int userId, string name,
+    internal static Pet? CreatePet(IDbConnection connection, IDbTransaction transaction, DateTimeOffset createdAt,
+        int userId, string name,
         int type, string race, string colour, Item? gnomeBox = null, string gnomeClothing = "-1")
     {
-        var created = Convert.ToInt32(UnixTimestamp.GetNow());
+        createdAt = createdAt.ToUniversalTime();
         var roomId = gnomeBox?.RoomId ?? 0;
         var x = gnomeBox?.GetX ?? 0;
         var y = gnomeBox?.GetY ?? 0;
@@ -101,13 +103,13 @@ public static class PetUtility
         var id = (int)petId;
         connection.Execute(
             "INSERT INTO `bots_petdata` (`id`,`type`,`race`,`color`,`experience`,`energy`,`nutrition`,`respect`,`createstamp`,`have_saddle`,`anyone_ride`,`hairdye`,`pethair`,`gnome_clothing`) VALUES (@Id,@Type,@Race,@Color,0,100,100,0,@Created,0,0,0,-1,@GnomeClothing)",
-            new { Id = id, Type = type, Race = race, Color = colour, Created = created, GnomeClothing = gnomeClothing },
+            new { Id = id, Type = type, Race = race, Color = colour, Created = createdAt.UtcDateTime, GnomeClothing = gnomeClothing },
             transaction);
         if (gnomeBox != null && connection.Execute(
             "DELETE FROM `items` WHERE `id`=@Id AND `user_id`=@OwnerId AND `room_id`=@RoomId LIMIT 1",
             new { gnomeBox.Id, OwnerId = userId, RoomId = roomId }, transaction) != 1)
             return null;
-        return new Pet(id, userId, roomId, name, type, race, colour, 0, 100, 100, 0, created, x, y, z, 0, 0, 0, -1, gnomeClothing);
+        return new Pet(id, userId, roomId, name, type, race, colour, 0, 100, 100, 0, createdAt, x, y, z, 0, 0, 0, -1, gnomeClothing);
     }
 
 }

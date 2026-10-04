@@ -38,6 +38,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
     private readonly IClubMembershipService _clubMemberships;
     private readonly IClubRewards _clubRewards;
     private readonly IAvatarEffectStore _avatarEffects;
+    private readonly TimeProvider _clock;
     // Window id the client's club purchase page requests offers for.
     private const int ClubWindow = 1;
 
@@ -49,7 +50,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         IBadgeManager badgeManager,
         IItemFactory itemFactory,
         IHabbiconService habbicons,
-        IClubMembershipService clubMemberships, IClubRewards clubRewards, IAvatarEffectStore avatarEffects)
+        IClubMembershipService clubMemberships, IClubRewards clubRewards, IAvatarEffectStore avatarEffects, TimeProvider clock)
     {
         _catalogManager = catalogManager;
         _habbicons = habbicons;
@@ -62,6 +63,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         _clubMemberships = clubMemberships;
         _clubRewards = clubRewards;
         _avatarEffects = avatarEffects;
+        _clock = clock;
     }
     public async Task Parse(GameClient session, IIncomingPacket packet)
     {
@@ -356,7 +358,8 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                     return;
 
                 Plus.HabboHotel.Rooms.AI.Pet? pet = null;
-                if (!ChargePurchase((connection, transaction) => (pet = PetUtility.CreatePet(connection, transaction, session.GetHabbo().Id, petName, item.Definition.BehaviourData, race, color)) != null))
+                if (!ChargePurchase((connection, transaction) => (pet = PetUtility.CreatePet(connection, transaction,
+                        _clock.GetUtcNow(), session.GetHabbo().Id, petName, item.Definition.BehaviourData, race, color)) != null))
                 {
                     session.SendNotification("Oops! There was an error whilst purchasing this pet.");
                     return;
