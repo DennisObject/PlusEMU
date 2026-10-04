@@ -27,7 +27,7 @@ public class MessengerBuddy
     public bool AppearOffline => _habbo == null;
 
     public bool HideInRoom => _habbo?.AllowUserFollowing ?? true;
-    public int LastOnline { get; set; }
+    public DateTimeOffset? LastOnlineAt { get; set; }
     public string Look { get; set; } = string.Empty;
     public string Motto { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;

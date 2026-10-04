@@ -1,5 +1,4 @@
 ﻿namespace Plus.HabboHotel.Users.Effects;
-using Dapper;
 
 internal static class AvatarEffectFactory
 {
