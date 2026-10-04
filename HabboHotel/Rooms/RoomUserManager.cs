@@ -105,13 +105,7 @@ public class RoomUserManager
         }
     }
 
-    private bool UsesV2Movement => _room.GetGameMap().Navigation?.UsesExecutor == true;
-
-    private void SetSpawnPosition(RoomUser actor, int x, int y, double z)
-    {
-        if (UsesV2Movement) actor.InitializePosition(x, y, z);
-        else actor.SetPos(x, y, z);
-    }
+    private bool UsesV2Movement => _room.UsesV2Movement;
 
     private void PublishSpawn(RoomUser actor)
     {
@@ -135,14 +129,16 @@ public class RoomUserManager
         var model = _room.GetGameMap().Model;
         if (bot.X > 0 && bot.Y > 0 && bot.X < model.MapSizeX && bot.Y < model.MapSizeY)
         {
-            SetSpawnPosition(user, bot.X, bot.Y, bot.Z);
+            if (UsesV2Movement) user.InitializePosition(bot.X, bot.Y, bot.Z);
+            else user.SetPos(bot.X, bot.Y, bot.Z);
             user.SetRot(bot.Rot, false);
         }
         else
         {
             bot.X = model.DoorX;
             bot.Y = model.DoorY;
-            SetSpawnPosition(user, model.DoorX, model.DoorY, model.DoorZ);
+            if (UsesV2Movement) user.InitializePosition(model.DoorX, model.DoorY, model.DoorZ);
+            else user.SetPos(model.DoorX, model.DoorY, model.DoorZ);
             user.SetRot(model.DoorOrientation, false);
         }
         user.BotData = bot;
@@ -156,7 +152,7 @@ public class RoomUserManager
         else
             user.BotAi.Init(bot.BotId, user.VirtualId, _room.RoomId, user, _room);
         user.UpdateNeeded = true;
-        PublishSpawn(user);
+        if (UsesV2Movement) PublishSpawn(user);
         _room.SendUser(user);
         if (user.IsPet)
         {
@@ -235,7 +231,8 @@ public class RoomUserManager
                 model.DoorY = square.Y;
                 model.DoorZ = (int)_room.GetGameMap().GetHeightForSquareFromData(square);
             }
-            SetSpawnPosition(user, model.DoorX, model.DoorY, model.DoorZ);
+            if (UsesV2Movement) user.InitializePosition(model.DoorX, model.DoorY, model.DoorZ);
+            else user.SetPos(model.DoorX, model.DoorY, model.DoorZ);
             user.SetRot(model.DoorOrientation, false);
         }
         else if (!user.IsBot && (user.GetClient().GetHabbo().IsTeleporting || user.GetClient().GetHabbo().IsHopping))
@@ -251,7 +248,8 @@ public class RoomUserManager
                 {
                     item.LegacyDataString = "2";
                     item.UpdateState(false, true);
-                    SetSpawnPosition(user, item.GetX, item.GetY, item.GetZ);
+                    if (UsesV2Movement) user.InitializePosition(item.GetX, item.GetY, item.GetZ);
+                    else user.SetPos(item.GetX, item.GetY, item.GetZ);
                     user.SetRot(item.Rotation, false);
                     if (session.GetHabbo().TeleporterId != 0)
                         RewardTrackManager.Current?.Progress(session, RewardTrackActions.Teleport);
@@ -263,7 +261,8 @@ public class RoomUserManager
                 {
                     item.LegacyDataString = "1";
                     item.UpdateState(false, true);
-                    SetSpawnPosition(user, item.GetX, item.GetY, item.GetZ);
+                    if (UsesV2Movement) user.InitializePosition(item.GetX, item.GetY, item.GetZ);
+                    else user.SetPos(item.GetX, item.GetY, item.GetZ);
                     user.SetRot(item.Rotation, false);
                     user.AllowOverride = false;
                     item.InteractingUser2 = session.GetHabbo().Id;
@@ -273,12 +272,13 @@ public class RoomUserManager
             }
             else
             {
-                SetSpawnPosition(user, model.DoorX, model.DoorY, model.DoorZ - 1);
+                if (UsesV2Movement) user.InitializePosition(model.DoorX, model.DoorY, model.DoorZ - 1);
+                else user.SetPos(model.DoorX, model.DoorY, model.DoorZ - 1);
                 user.SetRot(model.DoorOrientation, false);
             }
         }
         if (UsesV2Movement && !_users.TryAdd(personalId, user)) return false;
-        AdmitSpawn(user);
+        if (UsesV2Movement) AdmitSpawn(user);
         _room.SendUser(user);
         if (_room.CheckRights(session, true))
         {
@@ -676,11 +676,6 @@ public class RoomUserManager
         return false;
     }
 
-    private IMovementEngine? _movementEngine;
-    private IMovementEngine MovementEngine => _movementEngine ??=
-        _room.GetGameMap().Navigation is { UsesExecutor: true } navigation
-            ? navigation.Executor : new LegacyMovementEngine(CycleUsers);
-
     public void OnCycle()
     {
         lock (_stressSync)
@@ -688,7 +683,8 @@ public class RoomUserManager
             if (_disposed)
                 return;
             ProcessStressBots();
-            MovementEngine.Tick();
+            if (UsesV2Movement) _room.GetGameMap().Navigation!.Executor.Tick();
+            else CycleUsers();
         }
     }
 
@@ -1344,6 +1340,23 @@ public class RoomUserManager
 
     public void Dispose()
     {
+        if (_room?.UsesV2Movement == true)
+        {
+            DisposeExecutorUsers();
+            return;
+        }
+        lock (_stressSync)
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            _stressRequests.Clear();
+            DisposeUsers();
+        }
+    }
+
+    private void DisposeExecutorUsers()
+    {
         var room = _room;
         if (room == null) return;
         // Match the tick's room-owner -> stress-request lock order.
@@ -1359,7 +1372,7 @@ public class RoomUserManager
 
     private void DisposeUsers()
     {
-        _room.GetGameMap()?.Navigation?.Shutdown();
+        if (UsesV2Movement) _room.GetGameMap()?.Navigation?.Shutdown();
         foreach (var user in _users.Values.ToArray()) _room.GetWired()?.BeforeActorLeaves(user);
         UpdatePets();
         UpdateBots();

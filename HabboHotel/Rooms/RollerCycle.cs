@@ -16,7 +16,7 @@ internal sealed class RollerCycle
     private readonly List<IServerPacket> _messages;
     private readonly HashSet<uint> _visited = new();
     private readonly Dictionary<RoomUser, double> _initialZ;
-    private readonly RollerTransport? _transport;
+    private readonly RollerTransport _transport;
 
     internal RollerCycle(Room room, RoomItemHandling handler, List<uint> itemsMoved,
         List<int> usersMoved, List<IServerPacket> messages)
@@ -24,8 +24,7 @@ internal sealed class RollerCycle
         _room = room; _handler = handler; _itemsMoved = itemsMoved;
         _usersMoved = usersMoved; _messages = messages;
         _initialZ = room.GetRoomUserManager().GetUserList().ToDictionary(actor => actor, actor => actor.Z);
-        if (room.GetGameMap().Navigation is { UsesExecutor: true } navigation)
-            _transport = new(room, navigation);
+        _transport = new(room, room.GetGameMap().Navigation!);
     }
 
     internal void Run(IEnumerable<Item> rollers)
@@ -59,7 +58,7 @@ internal sealed class RollerCycle
             var message = _handler.UpdateItemOnRoller(item, destination, roller.Id, z);
             if (item.GetX != destination.X || item.GetY != destination.Y) continue;
             _itemsMoved.Add(item.Id); _messages.Add(message);
-            if (_transport != null) map.Navigation!.ApplyDirty();
+            map.Navigation!.ApplyDirty();
         }
     }
 
@@ -69,19 +68,10 @@ internal sealed class RollerCycle
         if (actor == null || actor.IsWalking || _usersMoved.Contains(actor.HabboId)) return;
         var sourceZ = _initialZ.GetValueOrDefault(actor, actor.Z);
         var z = nextIsRoller ? sourceZ : sourceZ - roller.Definition.Height;
-        var message = _transport != null
-            ? _transport.TryTransport(actor, roller, destination, sourceZ, z)
-            : MoveLegacyUser(actor, roller, destination, z);
+        var message = _transport.TryTransport(actor, roller, destination, sourceZ, z);
         if (message == null) return;
         _usersMoved.Add(actor.HabboId); _messages.Add(message);
     }
 
-    private IServerPacket? MoveLegacyUser(RoomUser actor, Item roller, Point destination, double z)
-    {
-        var map = _room.GetGameMap();
-        if (!map.IsValidStep(new(roller.GetX, roller.GetY), new(destination.X, destination.Y), true, false, true)
-            || !map.CanRollItemHere(destination.X, destination.Y) || map.GetFloorStatus(destination) == 0) return null;
-        actor.IsRolling = true; actor.RollerDelay = 1;
-        return _handler.UpdateUserOnRoller(actor, destination, roller.Id, z);
-    }
+
 }

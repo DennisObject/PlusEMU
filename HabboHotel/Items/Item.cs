@@ -500,7 +500,8 @@ public class Item
                         if (user != null && user.X == GetX && user.Y == GetY)
                         {
                             LegacyDataString = "1";
-                            user.RequestInteractionStep(GetRoom(), SquareBehind);
+                            if (GetRoom().UsesV2Movement) user.RequestInteractionStep(GetRoom(), SquareBehind);
+                            else user.MoveTo(SquareBehind);
                             user.InteractingGate = false;
                             user.GateId = 0;
                             RequestUpdate(1, false);
@@ -583,7 +584,7 @@ public class Item
                                         {
                                             user.GetClient().GetHabbo().IsHopping = true;
                                             user.GetClient().GetHabbo().HopperId = nextHopperId;
-                                            GetRoom().GetGameMap().Navigation?.Remove(user);
+                                            if (GetRoom().UsesV2Movement) GetRoom().GetGameMap().Navigation!.Remove(user);
                                             user.GetClient().GetHabbo().PrepareRoom(roomHopId, "");
                                             //User.GetClient().SendMessage(new RoomForwardComposer(RoomHopId));
                                             InteractingUser = 0;
@@ -598,16 +599,19 @@ public class Item
                                 // Is he in front of the tele?
                                 else if (user.Coordinate == SquareInFront)
                                 {
-                                    user.EnableLegacyOverride(GetRoom());
+                                    if (GetRoom().UsesV2Movement) user.AllowOverride = false;
+                                    else user.AllowOverride = true;
                                     keepDoorOpen = true;
 
                                     // Lock his walking. We're taking control over him. Allow overriding so he can get in the tele.
                                     if (user.IsWalking && (user.GoalX != GetX || user.GoalY != GetY)) user.ClearMovement(true);
                                     user.CanWalk = false;
-                                    user.EnableLegacyOverride(GetRoom());
+                                    if (GetRoom().UsesV2Movement) user.AllowOverride = false;
+                                    else user.AllowOverride = true;
 
                                     // Move into the tele
-                                    user.RequestInteractionStep(GetRoom(), Coordinate, true);
+                                    if (GetRoom().UsesV2Movement) user.RequestInteractionStep(GetRoom(), Coordinate, true);
+                                    else user.MoveTo(Coordinate.X, Coordinate.Y, true);
                                 }
                                 // Not even near, do nothing and move on for the next user.
                                 else
@@ -629,7 +633,8 @@ public class Item
                                 // If so, open the door, unlock the user's walking, and try to push him out in the right direction. We're done with him!
                                 keepDoorOpen = true;
                                 user2.UnlockWalking();
-                                user2.RequestInteractionStep(GetRoom(), SquareInFront);
+                                if (GetRoom().UsesV2Movement) user2.RequestInteractionStep(GetRoom(), SquareInFront);
+                                else user2.MoveTo(SquareInFront);
                             }
 
                             // This is a one time thing, whether the user's valid or not.
@@ -736,7 +741,7 @@ public class Item
                                                         user.GetClient().GetHabbo().IsTeleporting = true;
                                                         user.GetClient().GetHabbo().TeleportingRoomId = roomId;
                                                         user.GetClient().GetHabbo().TeleporterId = teleId;
-                                                        GetRoom().GetGameMap().Navigation?.Remove(user);
+                                                        if (GetRoom().UsesV2Movement) GetRoom().GetGameMap().Navigation!.Remove(user);
                                                         user.GetClient().GetHabbo().PrepareRoom(roomId, "");
                                                         //User.GetClient().SendMessage(new RoomForwardComposer(RoomId));
                                                         InteractingUser = 0;
@@ -763,17 +768,20 @@ public class Item
                                 // Is he in front of the tele?
                                 else if (user.Coordinate == SquareInFront)
                                 {
-                                    user.EnableLegacyOverride(GetRoom());
+                                    if (GetRoom().UsesV2Movement) user.AllowOverride = false;
+                                    else user.AllowOverride = true;
                                     // Open the door
                                     keepDoorOpen = true;
 
                                     // Lock his walking. We're taking control over him. Allow overriding so he can get in the tele.
                                     if (user.IsWalking && (user.GoalX != GetX || user.GoalY != GetY)) user.ClearMovement(true);
                                     user.CanWalk = false;
-                                    user.EnableLegacyOverride(GetRoom());
+                                    if (GetRoom().UsesV2Movement) user.AllowOverride = false;
+                                    else user.AllowOverride = true;
 
                                     // Move into the tele
-                                    user.RequestInteractionStep(GetRoom(), Coordinate, true);
+                                    if (GetRoom().UsesV2Movement) user.RequestInteractionStep(GetRoom(), Coordinate, true);
+                                    else user.MoveTo(Coordinate.X, Coordinate.Y, true);
                                 }
                                 // Not even near, do nothing and move on for the next user.
                                 else
@@ -797,7 +805,8 @@ public class Item
                                 // If so, open the door, unlock the user's walking, and try to push him out in the right direction. We're done with him!
                                 keepDoorOpen = true;
                                 user2.UnlockWalking();
-                                user2.RequestInteractionStep(GetRoom(), SquareInFront);
+                                if (GetRoom().UsesV2Movement) user2.RequestInteractionStep(GetRoom(), SquareInFront);
+                                else user2.MoveTo(SquareInFront);
                             }
 
                             // This is a one time thing, whether the user's valid or not.

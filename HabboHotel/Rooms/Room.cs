@@ -49,6 +49,9 @@ public class Room : RoomData
     public Dictionary<int, double> MutedUsers;
 
     public Task ProcessTask;
+    private bool _usesV2Movement;
+    internal bool UsesV2Movement => _usesV2Movement;
+    internal void EnableV2Movement() => _usesV2Movement = true;
     private object? _navigationSync;
     internal object NavigationSync => LazyInitializer.EnsureInitialized(ref _navigationSync);
     public bool RoomMuted;
@@ -335,17 +338,87 @@ public class Room : RoomData
 
     internal void ProcessWiredOnly()
     {
-        lock (NavigationSync)
+        if (UsesV2Movement)
         {
-            if (IsCrashed || MDisposed) return;
-            try { GetWired().OnFastCycle(); }
-            catch (Exception e) { ExceptionLogger.LogException(e); }
+            lock (NavigationSync) ProcessWiredOwned();
+            return;
         }
+        if (IsCrashed || MDisposed) return;
+        try { GetWired().OnFastCycle(); }
+        catch (Exception e) { ExceptionLogger.LogException(e); }
     }
 
     public void ProcessRoom()
     {
-        lock (NavigationSync) ProcessRoomOwned();
+        if (UsesV2Movement)
+        {
+            lock (NavigationSync) ProcessRoomOwned();
+            return;
+        }
+        if (IsCrashed || MDisposed)
+            return;
+        try
+        {
+            if (GetRoomUserManager().GetRoomUsers().Count == 0)
+                IdleTime++;
+            else if (IdleTime > 0)
+                IdleTime = 0;
+            if (HasActivePromotion && Promotion.HasExpired) EndPromotion();
+            if (IdleTime >= 60 && !HasActivePromotion)
+            {
+                PlusEnvironment.Game.RoomManager.UnloadRoom(Id);
+                return;
+            }
+            try
+            {
+                GetGameMap().Navigation?.ApplyDirty();
+                GetRoomItemHandler().OnCycle();
+            }
+            catch (Exception e)
+            {
+                ExceptionLogger.LogException(e);
+            }
+            try
+            {
+                GetGameMap().Navigation?.ApplyDirty();
+                GetRoomUserManager().OnCycle();
+            }
+            catch (Exception e)
+            {
+                ExceptionLogger.LogException(e);
+            }
+            try
+            {
+                GetRoomUserManager().SerializeStatusUpdates();
+            }
+            catch (Exception e)
+            {
+                ExceptionLogger.LogException(e);
+            }
+            try
+            {
+                if (_gameItemHandler != null)
+                    _gameItemHandler.OnCycle();
+            }
+            catch (Exception e)
+            {
+                ExceptionLogger.LogException(e);
+            }
+            try
+            {
+                GetWired().OnCycle();
+                GetGameMap().FlushPlacementUpdates();
+            }
+            catch (Exception e)
+            {
+                ExceptionLogger.LogException(e);
+            }
+        }
+        catch (Exception e)
+        {
+            ExceptionLogger.LogException(e);
+            OnRoomCrash(e);
+        }
     }
 
     private void ProcessRoomOwned()
@@ -575,6 +648,116 @@ public class Room : RoomData
     }
 
     public void Dispose()
+    {
+        if (UsesV2Movement)
+        {
+            DisposeExecutorRoom();
+            return;
+        }
+        if (MDisposed)
+            return;
+        IsCrashed = false;
+        MDisposed = true;
+        _gamemap?.ClosePlacementUpdates();
+        // Drop every user before the managers are destroyed. A habbo left
+        // pointing at this room makes the next enter throw and disconnect.
+        if (_roomUserManager != null)
+        {
+            foreach (var user in _roomUserManager.GetRoomUsers().ToList())
+            {
+                var client = user?.GetClient();
+                if (client == null)
+                    continue;
+                _roomUserManager.RemoveUserFromRoom(client, true);
+            }
+        }
+        /* TODO: Needs reviewing */
+        try
+        {
+            if (ProcessTask != null && ProcessTask.IsCompleted)
+                ProcessTask.Dispose();
+        }
+        catch { }
+        TonerData = null;
+        MoodlightData = null;
+        if (MutedUsers.Count > 0)
+            MutedUsers.Clear();
+        if (_tents.Count > 0)
+            _tents.Clear();
+        if (UsersWithRights.Count > 0)
+            UsersWithRights.Clear();
+        if (_gameManager != null)
+        {
+            _gameManager.Dispose();
+            _gameManager = null;
+        }
+        if (_freeze != null)
+        {
+            _freeze.Dispose();
+            _freeze = null;
+        }
+        if (_soccer != null)
+        {
+            _soccer.Dispose();
+            _soccer = null;
+        }
+        if (_banzai != null)
+        {
+            _banzai.Dispose();
+            _banzai = null;
+        }
+        if (_gamemap != null)
+        {
+            _gamemap.Dispose();
+            _gamemap = null;
+        }
+        if (_gameItemHandler != null)
+        {
+            _gameItemHandler.Dispose();
+            _gameItemHandler = null;
+        }
+
+        // Room Data?
+        if (Teambanzai != null)
+        {
+            Teambanzai.Dispose();
+            Teambanzai = null;
+        }
+        if (Teamfreeze != null)
+        {
+            Teamfreeze.Dispose();
+            Teamfreeze = null;
+        }
+        if (_roomUserManager != null)
+        {
+            _roomUserManager.Dispose();
+            _roomUserManager = null;
+        }
+        if (_roomItemHandling != null)
+        {
+            _roomItemHandling.Dispose();
+            _roomItemHandling = null;
+        }
+        if (WordFilterList.Count > 0)
+            WordFilterList.Clear();
+        if (_filterComponent != null)
+            _filterComponent.Cleanup();
+        if (_wiredComponent != null)
+            _wiredComponent.Cleanup();
+        if (_bansComponent != null)
+            _bansComponent.Cleanup();
+        if (_tradingComponent != null)
+            _tradingComponent.Cleanup();
+    }
+
+    private void ProcessWiredOwned()
+    {
+        if (IsCrashed || MDisposed) return;
+        try { GetWired().OnFastCycle(); }
+        catch (Exception e) { ExceptionLogger.LogException(e); }
+    }
+
+    private void DisposeExecutorRoom()
     {
         lock (NavigationSync)
         {

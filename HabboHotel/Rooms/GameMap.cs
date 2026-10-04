@@ -320,8 +320,8 @@ public class Gamemap
                 registered.RemoveAll(other => ReferenceEquals(other, user));
             return;
         }
-        if (_userMap.TryGetValue(coord, out var users))
-            users.RemoveAll(other => other != null && other.VirtualId == user.VirtualId);
+        if (_userMap.ContainsKey(coord))
+            _userMap[coord].RemoveAll(x => x != null && x.VirtualId == user.VirtualId);
     }
 
     public bool MapGotUser(Point coord) => GetRoomUsers(coord).Count > 0;

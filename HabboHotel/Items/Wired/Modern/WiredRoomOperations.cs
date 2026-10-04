@@ -119,10 +119,35 @@ public static class WiredRoomOperations
     public static bool RelocateAvatar(Room room, RoomUser avatar, int x, int y,
         bool slide, bool throughUsers = false)
     {
-        if (!CanRelocateAvatar(room, avatar, x, y, throughUsers)) return false;
-        if (room.GetGameMap().Navigation is { UsesExecutor: true } navigation)
-            navigation.RunOwner(avatar, (actor, sequence) => RelocateOwned(room, navigation, actor, x, y, slide, throughUsers, sequence));
-        else RelocateLegacy(room, avatar, x, y, slide);
+        if (room.UsesV2Movement)
+            return RelocateExecutorAvatar(room, avatar, x, y, slide, throughUsers);
+        var map = room.GetGameMap();
+        if (room.GetRoomUserManager().GetRoomUserByVirtualId(avatar.VirtualId) != avatar
+            || !map.ValidTile(x, y) || map.Model.SqState[x, y] != SquareState.Open)
+            return false;
+        if (avatar.X == x && avatar.Y == y)
+            return false;
+        if (!throughUsers && (!map.CanWalk(x, y, false)
+                             || map.GetRoomUsers(new(x, y)).Any(other => other != avatar)))
+            return false;
+
+        avatar.ClearMovement(true);
+        var source = avatar.Coordinate;
+        var oldZ = avatar.Z;
+        var z = map.SqAbsoluteHeight(x, y);
+        // Relocation changes both occupancy indexes before statuses are rebuilt.
+        map.UpdateUserMovement(source, new(x, y), avatar);
+        map.GameMap[source.X, source.Y] = avatar.SqState;
+        avatar.SqState = map.GameMap[x, y];
+        avatar.SetPos(x, y, z);
+        map.GameMap[x, y] = 1;
+        avatar.GoalX = x;
+        avatar.GoalY = y;
+        avatar.UpdateNeeded = true;
+        room.GetRoomUserManager().UpdateUserStatus(avatar, true);
+        if (slide)
+            room.SendPacket(new SlideObjectBundleComposer(source.X, source.Y, oldZ, x, y,
+                avatar.Z, 0, avatar.VirtualId, 0));
         return true;
     }
 
@@ -148,23 +173,13 @@ public static class WiredRoomOperations
                 actor.X, actor.Y, actor.Z, 0, actor.VirtualId, 0));
     }
 
-    private static void RelocateLegacy(Room room, RoomUser avatar, int x, int y, bool slide)
+    private static bool RelocateExecutorAvatar(Room room, RoomUser avatar, int x, int y,
+        bool slide, bool throughUsers = false)
     {
-        var map = room.GetGameMap();
-        avatar.ClearMovement(true);
-        var source = avatar.Coordinate;
-        var oldZ = avatar.Z;
-        var z = map.SqAbsoluteHeight(x, y);
-        map.UpdateUserMovement(source, new(x, y), avatar);
-        map.GameMap[source.X, source.Y] = avatar.SqState;
-        avatar.SqState = map.GameMap[x, y];
-        avatar.SetPos(x, y, z);
-        map.GameMap[x, y] = 1;
-        avatar.GoalX = x; avatar.GoalY = y; avatar.UpdateNeeded = true;
-        room.GetRoomUserManager().UpdateUserStatus(avatar, true);
-        if (slide)
-            room.SendPacket(new SlideObjectBundleComposer(source.X, source.Y, oldZ, x, y,
-                avatar.Z, 0, avatar.VirtualId, 0));
+        if (!CanRelocateAvatar(room, avatar, x, y, throughUsers)) return false;
+        var navigation = room.GetGameMap().Navigation!;
+        navigation.RunOwner(avatar, (actor, sequence) => RelocateOwned(room, navigation, actor, x, y, slide, throughUsers, sequence));
+        return true;
     }
 
     public static WiredFurniSnapshot Capture(Item item) => new(item.Id, item.Definition.Id,

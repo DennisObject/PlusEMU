@@ -1,5 +1,5 @@
-using Plus.HabboHotel.Rooms.PathFinding;
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Rooms.PathFinding;
+using Plus.HabboHotel.GameClients;
 using Plus.Utilities;
 
 namespace Plus.HabboHotel.Items.Interactor;
@@ -69,8 +69,10 @@ public class InteractorOneWayGate : IFurniInteractor
                 item.InteractingUser = user.HabboId;
                 user.CanWalk = false;
                 if (user.IsWalking && (user.GoalX != item.SquareInFront.X || user.GoalY != item.SquareInFront.Y)) user.ClearMovement(true);
-                user.EnableLegacyOverride(item.GetRoom());
-                user.RequestInteractionStep(item.GetRoom(), item.Coordinate);
+                if (item.GetRoom().UsesV2Movement) user.AllowOverride = false;
+                else user.AllowOverride = true;
+                if (item.GetRoom().UsesV2Movement) user.RequestInteractionStep(item.GetRoom(), item.Coordinate);
+                else user.MoveTo(item.Coordinate);
                 item.RequestUpdate(4, true);
             }
         }

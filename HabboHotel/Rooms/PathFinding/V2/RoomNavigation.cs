@@ -21,6 +21,7 @@ public sealed partial class RoomNavigation
     public RoomNavigation(Room room, RoomModel model, PathfindingSettings settings)
     {
         _room = room; Settings = settings;
+        if (UsesExecutor) room.EnableV2Movement();
         var width = model.MapSizeX; var height = model.MapSizeY;
         var z = new double[width * height]; var states = new SquareState[z.Length];
         for (var y = 0; y < height; y++) for (var x = 0; x < width; x++)
@@ -68,7 +69,7 @@ public sealed partial class RoomNavigation
     internal static bool Diverges(PathOutcome outcome, int steps, int legacyCount) => outcome switch
     {
         PathOutcome.Found => legacyCount != steps + 1,
-        PathOutcome.AlreadyThere => legacyCount != 1,
+        PathOutcome.AlreadyThere => legacyCount != 0,
         _ => legacyCount > 0
     };
 

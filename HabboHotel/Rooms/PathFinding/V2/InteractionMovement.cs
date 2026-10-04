@@ -15,6 +15,4 @@ public static class InteractionMovement
         actor.MoveTo(target.X, target.Y, allowOccupied);
     }
 
-    public static void EnableLegacyOverride(this RoomUser actor, Room room)
-        => actor.AllowOverride = room.GetGameMap().Navigation?.UsesExecutor != true;
 }
