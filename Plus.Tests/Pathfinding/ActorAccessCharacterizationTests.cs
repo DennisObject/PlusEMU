@@ -112,3 +112,25 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(7, gate.InteractingUser); Assert.Equal(4, gate.UpdateCounter);
     }
 }
+
+// Cross-layer: the legacy prefix view (blocked-route fallback) and the v2 rules share one access resolver.
+public partial class PlacedFurniRoomTests
+{
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AccessLegacyPrefixViewAndV2RulesAgreeOnGuildGateMembership(bool member)
+    {
+        AccessGate(InteractionType.GuildGate);
+        var group = GuildGroup(member ? [7] : []); UseGroups(id => id == 7 ? group : null);
+        var actor = ExecutorActor(0, 1);
+        var prefix = _room.GetGameMap().IsValidStepPure(actor, new(0, 1), new(1, 1), true, false, LegacyStepView.Prefix);
+        var navigation = _room.GetGameMap().Navigation!;
+        var profile = navigation.Executor.Context.Profiles.Refresh(actor);
+        var v2 = new MovementRules(navigation.Grid, navigation.Settings).CanStep(profile, new(0, 1, 0), navigation.Grid.Position(navigation.Grid.Tile(1, 1)),
+            StepPurpose.Goal, OccupancyView.Planning);
+        Assert.Equal(member, prefix.Ok); Assert.Equal(member, v2.Ok);
+        Assert.Equal(member ? StepReason.Ok : StepReason.GateDenied, v2.Reason);
+        Assert.Equal(member ? LegacyStepRejection.None : LegacyStepRejection.GuildGateDenied, prefix.Rejection);
+    }
+}
