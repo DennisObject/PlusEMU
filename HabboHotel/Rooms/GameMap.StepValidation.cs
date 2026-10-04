@@ -35,22 +35,24 @@ public partial class Gamemap
         user.PathRecalcNeeded = check.Rejection == LegacyStepRejection.BlockedState;
     }
 
+    // The same standing the executor refreshes onto its profile; the legacy prefix view uses it too.
     private static LegacyStepCheck GuildGateAccess(RoomUser user, Item gate)
-    {
-        if (!PlusEnvironment.Game.GroupManager.TryGetGroup(gate.GroupId, out var group))
-            return new(LegacyStepRejection.GuildGateUnavailable);
-        if (user.GetClient() == null || user.GetClient().GetHabbo() == null)
-            return new(LegacyStepRejection.GuildGateUnavailable);
-        return group.IsMember(user.GetClient().GetHabbo().Id) ? new(LegacyStepRejection.None, gate)
-            : new(LegacyStepRejection.GuildGateDenied);
-    }
+        => ActorAccessResolver.Live.StandingOf(user, gate.GroupId) switch
+        {
+            GroupStanding.Unresolved => new(LegacyStepRejection.GuildGateUnavailable),
+            GroupStanding.Member => new(LegacyStepRejection.None, gate),
+            _ => new(LegacyStepRejection.GuildGateDenied)
+        };
 
+    // Sequenced like every gate write; the user and timer apply at the commit boundary.
     private static void OpenGuildGate(RoomUser user, Item gate)
     {
-        gate.InteractingUser = user.GetClient().GetHabbo().Id;
-        gate.LegacyDataString = "1";
-        gate.UpdateState(false, true);
-        gate.RequestUpdate(4, true);
+        var habboId = user.GetClient().GetHabbo().Id;
+        GateTransitionService.Apply(gate, "1", GateCloseReason.Walk, persist: false, afterWrite: opened =>
+        {
+            opened.InteractingUser = habboId;
+            opened.RequestUpdate(4, true);
+        });
     }
 
     /*
