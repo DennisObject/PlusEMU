@@ -70,17 +70,19 @@ public class AccountStore : IAccountStore
         {
             var userId = await connection.ExecuteScalarAsync<int>(
                 "INSERT INTO `users` (`username`, `password`, `mail`, `auth_ticket`, `rank`, `look`, `gender`, `motto`, `credits`, `activity_points`, `vip`, " +
-                "`account_created`, `last_online`, `home_room`, `ip_reg`, `ip_last`, `bubble_id`, `credential_generation`) " +
+                "`account_created`, `last_online`, `ip_reg`, `ip_last`, `bubble_id`, `credential_generation`) " +
                 "VALUES (@Username, @PasswordHash, @Email, '', @Rank, @Look, @Gender, @Motto, @Credits, @ActivityPoints, @Vip, " +
-                "@Now, @Now, @HomeRoom, @Address, @Address, 0, @Generation); SELECT LAST_INSERT_ID();",
+                "@Now, @Now, @Address, @Address, 0, @Generation); SELECT LAST_INSERT_ID();",
                 new
                 {
                     account.Username, account.PasswordHash, account.Email, account.Look, account.Gender, account.Address,
                     Rank = 1, _defaults.Motto, _defaults.Credits, _defaults.ActivityPoints, _defaults.HomeRoom,
                     Vip = _defaults.Vip ? "1" : "0",
-                    Now = _time.GetUtcNow().ToUnixTimeSeconds(),
+                    Now = _time.GetUtcNow().UtcDateTime,
                     Generation = NewAccountGeneration
                 }, transaction);
+            await connection.ExecuteAsync("INSERT INTO `users_settings` (`user_id`, `home_room`) VALUES (@userId, @homeRoom)",
+                new { userId, homeRoom = _defaults.HomeRoom }, transaction);
             await connection.ExecuteAsync("INSERT INTO `user_statistics` (`id`) VALUES (@userId)", new { userId }, transaction);
             foreach (var slug in _defaults.Roles.Distinct(StringComparer.Ordinal))
             {
