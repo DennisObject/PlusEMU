@@ -79,10 +79,11 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
         context.Scheduler.Enqueue(actor, state.LifetimeId, state.GoalRevision);
     }
 
-    private static PrefixCandidate Start(RoomUser actor)
+    private PrefixCandidate Start(RoomUser actor)
     {
         var current = actor.Movement.CurrentRef;
-        return new(actor.X, actor.Y, actor.Movement.SupportZ, current?.SupportItemId ?? 0, current?.Tile ?? -1);
+        var slot = current is not { } surface ? -1 : Grid.Layered ? Grid.SlotOf(surface) : surface.Tile;
+        return new(actor.X, actor.Y, actor.Movement.SupportZ, current?.SupportItemId ?? 0, slot);
     }
 
     private NavPrefixGraph Graph(RoomUser actor)
