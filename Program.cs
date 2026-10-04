@@ -12,6 +12,7 @@ using Plus.Communication.Nitro;
 using Plus.Communication.RCON;
 using Plus.Database;
 using Plus.HabboHotel.Camera;
+using Plus.HabboHotel.Items.Editor;
 using Plus.Plugins;
 using Plus.Utilities.DependencyInjection;
 using Scrutor;
@@ -47,6 +48,7 @@ public static class Program
         services.AddConfiguration<DatabaseConfiguration>(configuration.GetSection("Database"));
         services.AddConfiguration<RconConfiguration>(configuration.GetSection("Rcon"));
         services.AddConfiguration<CameraConfiguration>(configuration.GetSection("Camera"));
+        services.AddConfiguration<FurniEditorConfiguration>(configuration.GetSection("FurniEditor"));
         services.AddConfiguration<AuthApiConfiguration>(configuration.GetSection("AuthApi"));
 
         // Dependency Injection

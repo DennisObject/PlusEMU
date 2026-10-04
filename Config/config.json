@@ -225,5 +225,13 @@
                 "MinLevel": 10
             }
         ]
+    },
+    "FurniEditor": {
+        "FurnidataPath": "",
+        "FurnidataMaxBytes": 67108864,
+        "ImportUrl": "",
+        "ImportAllowedHosts": [],
+        "ImportTimeoutSeconds": 10,
+        "ImportMaxBytes": 50331648
     }
 }
