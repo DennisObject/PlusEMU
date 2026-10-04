@@ -93,7 +93,16 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
     public bool Change(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
         Func<int, int> transform, WiredVariableFrame frame, int origin = 0)
-        => ChangeAdmitted(reference, holder, mutation, transform, frame, origin, admittedTarget: null);
+    {
+        // v2 gate writes are admitted to the per-gate sequencer; everything else runs the original path.
+        if (builtins?.SequencesGateWrites == true)
+            return ChangeAdmitted(reference, holder, mutation, transform, frame, origin, admittedTarget: null);
+        Action? completed;
+        bool changed;
+        lock (_gate) changed = ChangeLocked(reference, holder, mutation, transform, frame, origin, out completed);
+        if (changed) completed?.Invoke();
+        return changed;
+    }
 
     // Aliases are resolved before admission so the gate lane sees the real target, without holding the module lock
     // across it. The admitted target is then compared with the fresh authorized resolution under the lock: a fresh

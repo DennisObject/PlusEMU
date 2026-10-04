@@ -1,5 +1,6 @@
 ﻿using Plus.Database;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Items;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni;
@@ -21,7 +22,7 @@ internal class SetMannequinNameEvent : IPacketEvent
         var itemId = packet.ReadUInt();
         var name = packet.ReadString();
         var item = session.GetHabbo().CurrentRoom.GetRoomItemHandler().GetItem(itemId);
-        if (item == null || item.IsTemporary || item.Definition.InteractionType != InteractionType.Mannequin)
+        if (item == null || item.IsTemporary || GateTransitionService.For(item) != null && item.Definition.InteractionType != InteractionType.Mannequin)
             return Task.CompletedTask;
         if (item.LegacyDataString.Contains(Convert.ToChar(5)))
         {

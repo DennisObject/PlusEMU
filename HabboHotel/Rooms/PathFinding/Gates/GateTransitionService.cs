@@ -60,6 +60,12 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
 
     public int PendingCount { get { lock (_sync) return _order.Count + _retained.Count; } }
 
+    // The sequencer exists for v2 only: legacy and shadow rooms keep every original gate code path.
+    public static GateTransitionService? For(Room? room)
+        => room is { UsesV2Movement: true } ? room.GetGameMap()?.Gates : null;
+
+    public static GateTransitionService? For(Item item) => For(item.GetRoom());
+
     public static bool IsGate(Item item)
         => item.Definition.InteractionType is InteractionType.Gate or InteractionType.GuildGate or InteractionType.GateVip;
 
@@ -76,7 +82,7 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
     public static GateTransition ToggleState(Item item, Func<string, string?> nextState, GateCloseReason reason,
         bool persist = true, Action<Item>? afterWrite = null)
     {
-        if (IsGate(item) && item.GetRoom()?.GetGameMap()?.Gates is { } gates)
+        if (IsGate(item) && For(item) is { } gates)
             return gates.Toggle(item, nextState, reason, persist, afterWrite);
         if (nextState(item.LegacyDataString) is not { } state) return GateTransition.Unchanged;
         item.LegacyDataString = state;
@@ -90,7 +96,7 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
     {
         var operation = _current;
         if (operation is { Committed: false } && ReferenceEquals(operation.Item, item)
-            && item.GetRoom()?.GetGameMap()?.Gates is { } gates && gates.IsActive(operation))
+            && For(item) is { } gates && gates.IsActive(operation))
         {
             operation.Committed = true;
             return gates.CommitWith(operation, state, persist);

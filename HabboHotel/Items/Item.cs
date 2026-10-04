@@ -84,19 +84,30 @@ public class Item
 
 
 
-    private void SetNavigationState(string value) => StoreNavigationState(value)?.NotifyDataUpdated();
-
-    // For callers that must notify only after releasing their own locks.
-    internal LegacyDataFormat? StoreStateQuietly(string value)
+    private void SetNavigationState(string value)
     {
-        if (Volatile.Read(ref _navigationSynchronized)) return StoreNavigationState(value);
-        if (_extraData is not LegacyDataFormat data) return null;
-        data.StoreWithoutNotification(value);
-        return data;
+        LegacyDataFormat? changed = null;
+        lock (NavSync)
+        {
+            if (_extraData is LegacyDataFormat data)
+            {
+                data.StoreWithoutNotification(value);
+                changed = data;
+            }
+            if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
+        }
+        changed?.NotifyDataUpdated();
     }
 
-    private LegacyDataFormat? StoreNavigationState(string value)
+    // v2 gate sequencer: the same write, but the notification is left to the caller (after its locks are released).
+    internal LegacyDataFormat? StoreStateQuietly(string value)
     {
+        if (!Volatile.Read(ref _navigationSynchronized))
+        {
+            if (_extraData is not LegacyDataFormat plain) return null;
+            plain.StoreWithoutNotification(value);
+            return plain;
+        }
         LegacyDataFormat? changed = null;
         lock (NavSync)
         {
@@ -464,7 +475,7 @@ public class Item
         MagicTileHeight.Sync(this);
     }
 
-    // A refused automatic close keeps its update request, so the gate never stays open for good.
+    // v2: a refused automatic close keeps its update request, so the gate never stays open for good.
     private void CloseAutomatically(int retryCycles)
     {
         if (GateTransitionService.Apply(this, "0", GateCloseReason.Automatic, persist: false) == GateTransition.Refused)
@@ -487,7 +498,17 @@ public class Item
                     case InteractionType.GuildGate:
                     {
                         if (LegacyDataString == "1")
-                            CloseAutomatically(2);
+                        {
+                            if (GateTransitionService.For(this) != null)
+                                CloseAutomatically(2);
+                            else if (GetRoom().GetRoomUserManager().GetUserForSquare(GetX, GetY) == null)
+                            {
+                                LegacyDataString = "0";
+                                UpdateState(false, true);
+                            }
+                            else
+                                RequestUpdate(2, false);
+                        }
                         break;
                     }
                     case InteractionType.Effect:
@@ -553,11 +574,28 @@ public class Item
                         else if (user != null && (user.Coordinate == SquareBehind || user.Coordinate == SquareInFront))
                         {
                             user.UnlockWalking();
-                            InteractingUser = 0;
-                            CloseAutomatically(1);
+                            if (GateTransitionService.For(this) != null)
+                            {
+                                InteractingUser = 0;
+                                CloseAutomatically(1);
+                            }
+                            else
+                            {
+                                LegacyDataString = "0";
+                                InteractingUser = 0;
+                                UpdateState(false, true);
+                            }
                         }
                         else if (LegacyDataString == "1")
-                            CloseAutomatically(1);
+                        {
+                            if (GateTransitionService.For(this) != null)
+                                CloseAutomatically(1);
+                            else
+                            {
+                                LegacyDataString = "0";
+                                UpdateState(false, true);
+                            }
+                        }
                         if (user == null) InteractingUser = 0;
                         break;
                     case InteractionType.Hopper:

@@ -15,20 +15,57 @@ public class InteractorGenericSwitch : IFurniInteractor
         var modes = item.Definition.Modes - 1;
         if (session == null || !hasRights || modes <= 0) return;
         PlusEnvironment.Game.QuestManager.ProgressUserQuest(session, QuestType.FurniSwitch);
+        if (GateTransitionService.For(item) != null) { ToggleSequenced(session, item, modes); return; }
         var before = item.LegacyDataString;
-        GateTransitionService.ToggleState(item, current => NextMode(current, modes).ToString(), GateCloseReason.Click, afterWrite: changed =>
-        {
-            if (!string.Equals(before, changed.LegacyDataString, StringComparison.Ordinal))
-                RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
-        });
+        var currentMode = 0;
+        var newMode = 0;
+        if (!int.TryParse(item.LegacyDataString, out currentMode)) { }
+        if (currentMode <= 0)
+            newMode = 1;
+        else if (currentMode >= modes)
+            newMode = 0;
+        else
+            newMode = currentMode + 1;
+        item.LegacyDataString = newMode.ToString();
+        item.UpdateState();
+        if (!string.Equals(before, item.LegacyDataString, StringComparison.Ordinal))
+            RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
     }
 
     public void OnWiredTrigger(Item item)
     {
         var modes = item.Definition.Modes - 1;
         if (modes == 0) return;
-        GateTransitionService.ToggleState(item, current => string.IsNullOrEmpty(current) ? NextMode("0", modes).ToString()
-            : int.TryParse(current, out _) ? NextMode(current, modes).ToString() : null, GateCloseReason.Wired);
+        if (GateTransitionService.For(item) != null)
+        {
+            GateTransitionService.ToggleState(item, current => string.IsNullOrEmpty(current) ? NextMode("0", modes).ToString()
+                : int.TryParse(current, out _) ? NextMode(current, modes).ToString() : null, GateCloseReason.Wired);
+            return;
+        }
+        var currentMode = 0;
+        var newMode = 0;
+        if (string.IsNullOrEmpty(item.LegacyDataString))
+            item.LegacyDataString = "0";
+        if (!int.TryParse(item.LegacyDataString, out currentMode)) return;
+        if (currentMode <= 0)
+            newMode = 1;
+        else if (currentMode >= modes)
+            newMode = 0;
+        else
+            newMode = currentMode + 1;
+        item.LegacyDataString = newMode.ToString();
+        item.UpdateState();
+    }
+
+    // v2 only: gate states are written through the per-gate sequencer.
+    private static void ToggleSequenced(GameClient session, Item item, int modes)
+    {
+        var before = item.LegacyDataString;
+        GateTransitionService.ToggleState(item, current => NextMode(current, modes).ToString(), GateCloseReason.Click, afterWrite: changed =>
+        {
+            if (!string.Equals(before, changed.LegacyDataString, StringComparison.Ordinal))
+                RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
+        });
     }
 
     private static int NextMode(string current, int modes)

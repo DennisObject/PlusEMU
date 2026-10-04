@@ -34,6 +34,9 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         };
     }
 
+    // v2 only: legacy and shadow rooms write gate states directly and never enter the module's admission.
+    public bool SequencesGateWrites => GateTransitionService.For(room) != null;
+
     // The gate's per-write FIFO decides: behind a pending write, or a closing from another thread, the whole
     // transaction waits for the owner. Otherwise it runs now with the transform's single, already evaluated result.
     public IDisposable? Admit(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
@@ -41,7 +44,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     {
         admission = WiredAdmission.Proceed;
         if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state") return null;
-        if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || room.GetGameMap()?.Gates is not { } gates) return null;
+        if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || GateTransitionService.For(room) is not { } gates) return null;
         var original = transform;
         string? Peek(string current) => int.TryParse(current, out var value)
             ? original(value).ToString(CultureInfo.InvariantCulture) : null;
@@ -116,11 +119,19 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             var item = FindItem(holder);
             if (item is null || value < 0 || item.Definition.Modes <= value
                 || !int.TryParse(item.LegacyDataString, out var previous) || previous == value) return false;
-            var next = value.ToString(CultureInfo.InvariantCulture);
-            // Closing writes from other threads were sequenced whole by TryDefer; nothing is notified early.
-            if (GateTransitionService.IsClosing(item, next) && !RoomOwnerScope.IsOwner(room)) return false;
-            if (GateTransitionService.WriteNow(item, next, GateCloseReason.Wired) == GateTransition.Refused)
-                return false;
+            if (GateTransitionService.For(item) != null)
+            {
+                var next = value.ToString(CultureInfo.InvariantCulture);
+                // Closing writes from other threads were sequenced whole by Admit; nothing is notified early.
+                if (GateTransitionService.IsClosing(item, next) && !RoomOwnerScope.IsOwner(room)) return false;
+                if (GateTransitionService.WriteNow(item, next, GateCloseReason.Wired) == GateTransition.Refused)
+                    return false;
+            }
+            else
+            {
+                item.LegacyDataString = value.ToString(CultureInfo.InvariantCulture);
+                item.UpdateState();
+            }
             if (stateChanged is not null) completed = () => stateChanged(item, frame);
             return true;
         }

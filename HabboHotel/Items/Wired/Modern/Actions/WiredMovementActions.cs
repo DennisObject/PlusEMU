@@ -107,10 +107,19 @@ public sealed class WiredMovementActions
                 {
                     var states = item.Definition.Modes;
                     if (states <= 1) continue;
-                    var random = name.Equals("wf_act_toggle_to_rnd", StringComparison.OrdinalIgnoreCase);
-                    string? NextState(string current) => NextToggleState(current, states, random, Param(0) == 1);
-                    if (toggleState != null) affected |= toggleState(item, NextState);
-                    else if (NextState(item.LegacyDataString) is { } next) { setState(item, next); affected = true; }
+                    if (toggleState != null)
+                    {
+                        var random = name.Equals("wf_act_toggle_to_rnd", StringComparison.OrdinalIgnoreCase);
+                        affected |= toggleState(item, current => NextToggleState(current, states, random, Param(0) == 1));
+                        continue;
+                    }
+                    _ = int.TryParse(item.LegacyDataString, out var oldState);
+                    var next = name.Equals("wf_act_toggle_to_rnd", StringComparison.OrdinalIgnoreCase)
+                        ? Random.Shared.Next(states)
+                        : ((oldState + (Param(0) == 1 ? -1 : 1)) % states + states) % states;
+                    if (next == oldState) continue;
+                    setState(item, next.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    affected = true;
                 }
                 break;
             case "wf_act_teleport_to":
@@ -132,7 +141,7 @@ public sealed class WiredMovementActions
         return affected;
     }
 
-    // Null when the toggle would not change the state.
+    // v2 only. Null when the toggle would not change the state.
     private static string? NextToggleState(string current, int states, bool random, bool reverse)
     {
         _ = int.TryParse(current, out var oldState);

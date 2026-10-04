@@ -472,7 +472,7 @@ public class Room : RoomData
     {
         GetGameMap().Navigation?.ApplyDirty();
         GetGameMap().Navigation?.DrainCommands();
-        GetGameMap().Gates.Drain();
+        if (UsesV2Movement) GetGameMap().Gates.Drain();
         GetRoomItemHandler().OnCycle();
     }
 

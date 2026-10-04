@@ -33,6 +33,9 @@ public interface IWiredBuiltinVariables
     bool HasValue(WiredVariableReference reference) => RoomWiredBuiltinVariables.HasNumericValue(reference);
     WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame);
     bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame);
+    /// <summary>True only for sources whose gate writes use the v2 per-gate sequencer; the module then admits writes.</summary>
+    bool SequencesGateWrites => false;
+
     /// <summary>
     /// Lets a source sequence a write. `deferred`: the whole transaction was queued for its owner task. Otherwise
     /// run now; `transform` may have been replaced by its single, already evaluated result, and the returned scope
