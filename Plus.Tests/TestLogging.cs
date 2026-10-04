@@ -8,6 +8,13 @@ namespace Plus.Tests;
 
 internal static class TestLogging
 {
+    [System.Runtime.CompilerServices.ModuleInitializer]
+    internal static void Configure()
+    {
+        Plus.Core.ExceptionLogger.Configure(Factory);
+        Plus.Core.ConsoleCommands.Configure(Factory);
+    }
+
     internal static ILogger Logger => NullLogger.Instance;
     internal static ILogger<GameClient> GameClient => NullLogger<GameClient>.Instance;
     internal static ILogger<RoomNavigation> Navigation => NullLogger<RoomNavigation>.Instance;

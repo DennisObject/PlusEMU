@@ -403,15 +403,15 @@ public class ModernWiredRuntimeTests
     public void RoomForwardingResolvesActualLinkSectionsPairsAndFallbackInOrder()
     {
         var link = MakeItem(1, "link"); link.ExtraData = new MapDataFormat(new() { ["internalLink"] = "23" });
-        Assert.Equal(new WiredRoomForwarding.Destination(23), WiredRoomForwarding.Resolve([link], "99", _ => throw new Exception(), _ => throw new Exception()));
+        Assert.Equal(new WiredRoomForwarding.Destination(23), WiredRoomForwarding.Resolve([link], "99", _ => throw new Exception(), _ => throw new Exception(), TestLogging.Logger));
         link.ExtraData = new LegacyDataFormat { Data = "{\"room_linker\":{\"ItemId\":17}}" };
-        Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([link], "99", id => id == 17 ? 42u : 0, _ => throw new Exception()));
+        Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([link], "99", id => id == 17 ? 42u : 0, _ => throw new Exception(), TestLogging.Logger));
         var tele = MakeItem(2, "tele"); tele.Definition.InteractionType = InteractionType.Teleport;
-        Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([tele], "99", id => id == 17 ? 42u : 0, id => id == 2 ? 17u : 0));
-        Assert.Equal(new WiredRoomForwarding.Destination(99), WiredRoomForwarding.Resolve([], "99", _ => 0, _ => 0));
-        Assert.Null(WiredRoomForwarding.Resolve([], "2147483648", _ => 0, _ => 0));
+        Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([tele], "99", id => id == 17 ? 42u : 0, id => id == 2 ? 17u : 0, TestLogging.Logger));
+        Assert.Equal(new WiredRoomForwarding.Destination(99), WiredRoomForwarding.Resolve([], "99", _ => 0, _ => 0, TestLogging.Logger));
+        Assert.Null(WiredRoomForwarding.Resolve([], "2147483648", _ => 0, _ => 0, TestLogging.Logger));
         link.ExtraData = new LegacyDataFormat { Data = "{\"room_linker\":{\"RoomId\":\"bad\",\"ItemId\":[]}}" };
-        Assert.Equal(new WiredRoomForwarding.Destination(99), WiredRoomForwarding.Resolve([link], "99", _ => throw new Exception(), _ => throw new Exception()));
+        Assert.Equal(new WiredRoomForwarding.Destination(99), WiredRoomForwarding.Resolve([link], "99", _ => throw new Exception(), _ => throw new Exception(), TestLogging.Logger));
     }
 
     [Fact]

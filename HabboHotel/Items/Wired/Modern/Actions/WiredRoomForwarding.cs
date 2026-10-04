@@ -28,7 +28,7 @@ public static class WiredRoomForwarding
         error = ""; return true;
     }
 
-    public static Destination? Resolve(IEnumerable<Item> items, string roomText, Func<uint, uint> roomOfItem, Func<uint, uint> pairedItem, ILogger? logger = null)
+    public static Destination? Resolve(IEnumerable<Item> items, string roomText, Func<uint, uint> roomOfItem, Func<uint, uint> pairedItem, ILogger logger)
     {
         foreach (var item in items)
         {
@@ -50,7 +50,7 @@ public static class WiredRoomForwarding
                         }
                     }
                 }
-                catch (JsonException error) { logger?.LogWarning(error, "Invalid room_linker data on item {ItemId}", item.Id); }
+                catch (JsonException error) { logger.LogWarning(error, "Invalid room_linker data on item {ItemId}", item.Id); }
             }
             if (item.Definition.InteractionType != InteractionType.Teleport || item.Id > int.MaxValue) continue;
             var paired = pairedItem(item.Id);

@@ -16,6 +16,7 @@ using Plus.HabboHotel.Rooms.Games.Freeze;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.Rooms.PathFinding;
+using Plus.Utilities;
 
 namespace Plus.HabboHotel.Rooms;
 

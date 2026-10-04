@@ -40,7 +40,7 @@ public class SSOTicketEvent : IPacketEvent
     private readonly ISettingsManager _settingsManager;
     private readonly IRewardManager _rewardManager;
     private readonly ClubLifecycle _clubLifecycle;
-    private readonly ILogger _processLogger;
+    private readonly ILogger<ProcessComponent> _processLogger;
 
     public SSOTicketEvent(IAuthenticator authenticate,
         IBadgeManager badgeManager,
@@ -51,7 +51,7 @@ public class SSOTicketEvent : IPacketEvent
         ILanguageManager languageManager,
         ISettingsManager settingsManager,
         IRewardManager rewardManager, ClubLifecycle clubLifecycle, ClientAccessLists clientAccessLists,
-        ILoggerFactory loggerFactory)
+        ILogger<ProcessComponent> processLogger)
     {
         _authenticate = authenticate;
         _badgeManager = badgeManager;
@@ -64,7 +64,7 @@ public class SSOTicketEvent : IPacketEvent
         _rewardManager = rewardManager;
         _clubLifecycle = clubLifecycle;
         _clientAccessLists = clientAccessLists;
-        _processLogger = loggerFactory.CreateLogger(typeof(ProcessComponent).FullName!);
+        _processLogger = processLogger;
     }
 
     public async Task Parse(GameClient session, IIncomingPacket packet)

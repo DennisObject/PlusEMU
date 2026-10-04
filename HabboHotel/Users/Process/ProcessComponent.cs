@@ -4,11 +4,11 @@ using Plus.Communication.Packets.Outgoing.Handshake;
 
 namespace Plus.HabboHotel.Users.Process;
 
-internal sealed class ProcessComponent
+public sealed class ProcessComponent
 {
-    private readonly ILogger _logger;
+    private readonly ILogger<ProcessComponent> _logger;
 
-    public ProcessComponent(ILogger logger) => _logger = logger;
+    public ProcessComponent(ILogger<ProcessComponent> logger) => _logger = logger;
 
     /// <summary>
     /// How often the timer should execute.
