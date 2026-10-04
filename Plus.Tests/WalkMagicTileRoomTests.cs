@@ -412,10 +412,6 @@ public partial class PlacedFurniRoomTests
                     loaded.Columns[source]!.ColumnName = alias;
                 loaded.Columns.Add("GroupId", typeof(int)); loaded.Rows[0]["GroupId"] = 0;
                 return loaded;
-            }, (sql, values) =>
-            {
-                writes.Add(sql);
-                foreach (System.Data.Common.DbParameter value in values) parameters[value.ParameterName.TrimStart('@')] = value.Value;
             }),
             _ => throw new NotSupportedException(method)
         }));
