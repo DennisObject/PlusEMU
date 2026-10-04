@@ -67,10 +67,10 @@ public class Room
     private readonly ILogger<RoomNavigation> _navigationLogger;
     private readonly ILogger _wiredLogger;
 
-    public Room(RoomData data, IEnumerable<IRoomComponent>? components, ILogger<RoomNavigation> navigationLogger, ILogger wiredLogger)
+    public Room(RoomData data, IEnumerable<IRoomComponent> components, ILogger<RoomNavigation> navigationLogger, ILogger wiredLogger)
     {
         _data = data;
-        _components = (components ?? [new RoomRuntimeComponent(), new RoomDataComponent()]).ToArray();
+        _components = components.OrderBy(component => component.Order).ToArray();
         _navigationLogger = navigationLogger;
         _wiredLogger = wiredLogger;
     }
@@ -91,7 +91,7 @@ public class Room
     }
 
     internal void SetRuntime(Gamemap gamemap, RoomItemHandling items, RoomUserManager users,
-        FilterComponent filter, WiredComponent wired, BansComponent bans, TradingComponent trading)
+        FilterComponent filter, WiredComponent wired, TradingComponent trading)
     {
         IsLagging = 0;
         Unloaded = false;
@@ -104,10 +104,11 @@ public class Room
         _roomUserManager = users;
         _filterComponent = filter;
         _wiredComponent = wired;
-        _bansComponent = bans;
         _tradingComponent = trading;
         LastRegeneration = DateTime.Now;
     }
+
+    internal void SetBans(BansComponent bans) => _bansComponent = bans;
 
     internal ILogger<RoomNavigation> NavigationLogger => _navigationLogger;
     internal ILogger WiredLogger => _wiredLogger;

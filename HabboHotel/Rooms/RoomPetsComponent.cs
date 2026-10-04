@@ -7,21 +7,15 @@ namespace Plus.HabboHotel.Rooms;
 
 public sealed class RoomPetsComponent(IDatabase database) : IRoomComponent
 {
+    public int Order => 310;
     private Room _room = null!;
     public void Initiate(Room room) => _room = room;
     public void Initiated()
     {
         using var connection = database.Connection();
-        foreach (var row in connection.Query<PetLocation>(
-                     "SELECT id, user_id AS UserId, room_id AS RoomId, name, x, y, z FROM bots WHERE room_id = @roomId AND ai_type = 'pet'",
-                     new { roomId = _room.Id }))
+        foreach (var row in Load(connection, _room.Id))
         {
-            var data = connection.QuerySingleOrDefault<PetData>("""
-                SELECT type, race, color, experience, energy, nutrition, respect, createstamp,
-                       have_saddle AS HaveSaddle, anyone_ride AS AnyoneRide, hairdye, pethair,
-                       gnome_clothing AS GnomeClothing
-                FROM bots_petdata WHERE id = @petId LIMIT 1
-                """, new { petId = row.Id });
+            var data = LoadData(connection, row.Id);
             if (data == null) continue;
             var pet = new Pet(row.Id, row.UserId, row.RoomId, row.Name, data.Type, data.Race, data.Color,
                 data.Experience, data.Energy, data.Nutrition, data.Respect, data.Createstamp, row.X, row.Y, row.Z,
@@ -32,7 +26,17 @@ public sealed class RoomPetsComponent(IDatabase database) : IRoomComponent
         }
     }
 
-    private sealed record PetLocation(int Id, int UserId, uint RoomId, string Name, int X, int Y, double Z);
-    private sealed record PetData(int Type, string Race, string Color, int Experience, int Energy, int Nutrition,
+    internal static IEnumerable<PetLocation> Load(System.Data.IDbConnection connection, uint roomId) => connection.Query<PetLocation>(
+        "SELECT id, user_id AS UserId, room_id AS RoomId, name, x, y, z FROM bots WHERE room_id = @roomId AND ai_type = 'pet'", new { roomId });
+
+    internal static PetData? LoadData(System.Data.IDbConnection connection, int petId) => connection.QuerySingleOrDefault<PetData>("""
+        SELECT type, race, color, experience, energy, nutrition, respect, createstamp,
+               have_saddle AS HaveSaddle, anyone_ride AS AnyoneRide, hairdye, pethair,
+               gnome_clothing AS GnomeClothing
+        FROM bots_petdata WHERE id = @petId LIMIT 1
+        """, new { petId });
+
+    internal sealed record PetLocation(int Id, int UserId, uint RoomId, string Name, int X, int Y, double Z);
+    internal sealed record PetData(int Type, string Race, string Color, int Experience, int Energy, int Nutrition,
         int Respect, double Createstamp, int HaveSaddle, int AnyoneRide, int Hairdye, int Pethair, string GnomeClothing);
 }

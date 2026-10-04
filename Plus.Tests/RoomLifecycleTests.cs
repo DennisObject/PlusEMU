@@ -27,6 +27,19 @@ public sealed class RoomLifecycleTests
     }
 
     [Fact]
+    public void ComponentsUseDeterministicReadyOrderAfterEveryFirstPhase()
+    {
+        var calls = new List<string>();
+        var room = new Room(Data(1),
+            [new OrderedComponent("bots", 300, calls), new OrderedComponent("runtime", 0, calls), new OrderedComponent("data", 100, calls)],
+            TestLogging.Navigation, TestLogging.Logger);
+
+        room.Initiate();
+
+        Assert.Equal(["runtime:init", "data:init", "bots:init", "runtime:ready", "data:ready", "bots:ready"], calls);
+    }
+
+    [Fact]
     public void FactoryOwnsIndependentScopesAndDisposesThemWithRooms()
     {
         var services = new ServiceCollection();
@@ -108,6 +121,13 @@ public sealed class RoomLifecycleTests
 
     private sealed class RecordingComponent(string name, List<string> calls) : IRoomComponent
     {
+        public void Initiate(Room room) => calls.Add($"{name}:init");
+        public void Initiated() => calls.Add($"{name}:ready");
+    }
+
+    private sealed class OrderedComponent(string name, int order, List<string> calls) : IRoomComponent
+    {
+        public int Order => order;
         public void Initiate(Room room) => calls.Add($"{name}:init");
         public void Initiated() => calls.Add($"{name}:ready");
     }

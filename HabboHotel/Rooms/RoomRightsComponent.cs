@@ -5,6 +5,7 @@ namespace Plus.HabboHotel.Rooms;
 
 public sealed class RoomRightsComponent(IDatabase database) : IRoomComponent
 {
+    public int Order => 200;
     private Room _room = null!;
     public void Initiate(Room room) => _room = room;
     public void Initiated()
