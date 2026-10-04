@@ -4,6 +4,7 @@ using NLog;
 using NLog.Extensions.Logging;
 using Plus.Core;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Flash;
 using Plus.Communication.Http;
@@ -81,6 +82,12 @@ public static class Program
             Environment.Exit(1);
             return;
         }
+
+        // docker stop sends SIGTERM: run the normal shutdown (save state, stop listeners, exit)
+        // instead of dying mid-write or being kept alive by a listener's signal handler.
+        using var sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, OnStopSignal);
+        using var sigint = PosixSignalRegistration.Create(PosixSignal.SIGINT, OnStopSignal);
+
         if (Console.IsInputRedirected)
         {
             await Task.Delay(Timeout.Infinite);
@@ -159,6 +166,15 @@ public static class Program
     {
         services.Configure<T>(section);
         return services;
+    }
+
+    private static int _stopRequested;
+
+    private static void OnStopSignal(PosixSignalContext context)
+    {
+        context.Cancel = true;
+        if (Interlocked.Exchange(ref _stopRequested, 1) == 0)
+            new Thread(PlusEnvironment.PerformShutDown) { Name = "Shutdown" }.Start();
     }
 
     private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs args)

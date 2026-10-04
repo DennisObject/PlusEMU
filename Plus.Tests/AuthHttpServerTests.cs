@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Plus.Communication.Http;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users.Authentication;
@@ -81,6 +82,22 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.True(health.Headers.CacheControl!.NoStore);
         Assert.Equal("nosniff", health.Headers.GetValues("X-Content-Type-Options").Single());
         Assert.False(health.Headers.Contains("Server"));
+    }
+
+    [Fact]
+    public async Task TheHostLeavesStopSignalsToTheEmulatorAndStopsWhenAsked()
+    {
+        await Start();
+
+        // ASP.NET's default ConsoleLifetime swallows SIGTERM and waits for a host Run() that the
+        // emulator never calls, which kept the process alive.
+        var lifetime = _server!.Services!.GetRequiredService<Microsoft.Extensions.Hosting.IHostLifetime>();
+        Assert.DoesNotContain("Console", lifetime.GetType().Name);
+
+        var url = _server.Urls.Single();
+        await _server.Stop();
+        _server = null;
+        await Assert.ThrowsAsync<HttpRequestException>(() => new HttpClient().GetAsync(url + "/api/health"));
     }
 
     [Fact]

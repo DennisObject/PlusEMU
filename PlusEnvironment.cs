@@ -42,7 +42,7 @@ public class PlusEnvironment : IPlusEnvironment
     private static IRconSocket _rcon;
     private static IFlashServer _flashServer;
     private readonly INitroServer _nitroServer;
-    private readonly IAuthHttpServer _authHttpServer;
+    private static IAuthHttpServer _authHttpServer;
     private static IFigureDataManager _figureManager;
     private static IItemDataManager _itemDataManager;
 
@@ -300,6 +300,8 @@ public class PlusEnvironment : IPlusEnvironment
         Console.Clear();
         Log.Info("Server shutting down...");
         Console.Title = "PLUS EMULATOR: SHUTTING DOWN!";
+        // No new logins while the hotel goes down.
+        _authHttpServer.Stop().Wait(TimeSpan.FromSeconds(5));
         Game.ClientManager.SendPacket(new BroadcastMessageAlertComposer(LanguageManager.TryGetValue("server.shutdown.message")));
         Game.StopGameLoop();
         Thread.Sleep(2500);

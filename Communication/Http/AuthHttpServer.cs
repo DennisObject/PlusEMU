@@ -45,6 +45,8 @@ public class AuthHttpServer : IAuthHttpServer
 
     public IReadOnlyCollection<string> Urls => _app?.Urls.ToList() ?? [];
 
+    internal IServiceProvider? Services => _app?.Services;
+
     public async Task Start()
     {
         // The empty builder reads no appsettings or ASPNETCORE_* variables and watches no files:
@@ -53,6 +55,7 @@ public class AuthHttpServer : IAuthHttpServer
         builder.Logging.AddNLog(new NLogProviderOptions { RemoveLoggerFactoryFilter = false }).AddFilter("Microsoft", LogLevel.Warning);
         builder.WebHost.UseKestrelCore().ConfigureKestrel(ConfigureKestrel);
         builder.Services.AddRoutingCore();
+        builder.Services.AddSingleton<IHostLifetime, EmulatorOwnedLifetime>();
         builder.Services.Configure<ForwardedHeadersOptions>(ConfigureForwardedHeaders);
         builder.Services.AddRateLimiter(ConfigureRateLimiter);
 
@@ -167,5 +170,15 @@ public class AuthHttpServer : IAuthHttpServer
         context.Response.StatusCode = status;
         context.Response.Headers.CacheControl = "no-store";
         return context.Response.WriteAsJsonAsync(new { error, code });
+    }
+
+    /// <summary>
+    /// The emulator owns process shutdown (Program handles SIGTERM/SIGINT and calls Stop). The
+    /// default ConsoleLifetime would cancel the signal and wait for a host Run() that never comes.
+    /// </summary>
+    private sealed class EmulatorOwnedLifetime : IHostLifetime
+    {
+        public Task WaitForStartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }
