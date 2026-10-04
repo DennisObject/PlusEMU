@@ -1,5 +1,4 @@
-﻿using Plus.HabboHotel.Permissions;
-using Plus.Communication.Packets.Outgoing.Handshake;
+﻿using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -17,7 +16,7 @@ internal class FlagUserCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (target.Access.Can(PermissionKeys.ModerationTool))
+        if (!session.GetHabbo().Access.Outranks(target.Access))
         {
             session.SendWhisper("You are not allowed to flag that user.");
             return Task.CompletedTask;

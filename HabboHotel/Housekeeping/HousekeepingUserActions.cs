@@ -127,7 +127,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         if (!_permissions.TryGetRole(roleId, out _)) return HousekeepingOutcome.Fail(RankNotFound, HousekeepingTarget.User(userId), $"roleId={roleId}");
         using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
-        return _permissions.AssignRole(actor, userId, roleId)
+        return _permissions.ReplaceRoles(actor, userId, roleId)
             ? HousekeepingOutcome.Success(Label(user), $"roleId={roleId}")
             : HousekeepingOutcome.Fail(Forbidden, Label(user), $"roleId={roleId}");
     }

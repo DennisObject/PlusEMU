@@ -149,6 +149,16 @@ public sealed class AccessControlTests
         Assert.Equal(new object[] { 2, 7, true, 9, "Role 9", "B9", 3, "ambassador", 1, "camera.use", 1, "housekeeping.roles.manage", 1 }, packet.Writes);
     }
 
+    [Fact]
+    public void BroadcastFiltersRequireARegisteredPermissionDefinition()
+    {
+        Assert.Same(PermissionKeys.All.Single(permission => permission.Key == PermissionKeys.ModerationTool),
+            PermissionKeys.Definition(PermissionKeys.ModerationTool));
+        Assert.Throws<ArgumentException>(() => PermissionKeys.Definition("mod_tool"));
+        var parameter = typeof(Plus.HabboHotel.GameClients.IGameClientManager).GetMethod("SendPacket")!.GetParameters()[1];
+        Assert.Equal(typeof(PermissionDefinition), parameter.ParameterType);
+    }
+
     private sealed class TestClock : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = new(2026, 10, 4, 0, 0, 0, TimeSpan.Zero);

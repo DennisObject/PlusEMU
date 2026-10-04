@@ -123,7 +123,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     }
 
     [HousekeepingDatabaseFact]
-    public async Task HousekeepingBansRevokeCredentialsAndRoleAssignmentsAreAdditive()
+    public async Task HousekeepingBansRevokeCredentialsAndSetRankReplacesRoles()
     {
         await Login().Login("cr_target", OldPassword, "10.0.0.1", remember: true);
         Assert.True((await Actions().Ban(StaffHabbo(), Target, "cheating", 1)).Ok);
@@ -134,7 +134,10 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         Assert.Equal(1, LiveAccessTokens(Moderator));
         Assert.True(Actions().SetRank(StaffHabbo(), Moderator, 4).Ok);
         Assert.Equal(1, LiveAccessTokens(Moderator));
-        Assert.Equal(3, Scalar<int>($"SELECT COUNT(*) FROM user_roles WHERE user_id = {Moderator} AND role_id IN (3, 4, 5)"));
+        Assert.Equal(1, Scalar<int>($"SELECT COUNT(*) FROM user_roles WHERE user_id = {Moderator}"));
+        Assert.Equal(4, Scalar<int>($"SELECT role_id FROM user_roles WHERE user_id = {Moderator}"));
+        Assert.True(Actions().SetRank(StaffHabbo(), Moderator, 1).Ok);
+        Assert.Equal(0, Scalar<int>($"SELECT COUNT(*) FROM user_roles WHERE user_id = {Moderator}"));
     }
 
     // :ban, :ipban, :mip, the mod tool, word-filter bans and housekeeping all go through ModerationManager.BanUser.

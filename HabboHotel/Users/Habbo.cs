@@ -36,6 +36,9 @@ public class Habbo
     public ClothingComponent Clothing { get; set; }
 
     private bool _disconnected;
+    private bool _disposed;
+    internal bool AccessClosed => WalletClosed || _disposed;
+    internal event EventHandler? Disposed;
     public EffectsComponent Effects { get; set; }
 
     private bool _habboSaved;
@@ -261,6 +264,7 @@ public class Habbo
         if (_disconnected)
             return;
 
+        _disconnected = true;
         Disconnected?.Invoke(this, EventArgs.Empty);
 
         try
@@ -269,7 +273,6 @@ public class Habbo
                 Process.Dispose();
         }
         catch { }
-        _disconnected = true;
         // Unregister only after the wallet is saved: until then staff grants see the session and wait on WalletSync,
         // afterwards they write the saved row directly.
         try
@@ -294,6 +297,8 @@ public class Habbo
 
     public void Dispose()
     {
+        _disposed = true;
+        Disposed?.Invoke(this, EventArgs.Empty);
         if (InRoom && CurrentRoom != null)
             CurrentRoom.GetRoomUserManager().RemoveUserFromRoom(Client, false);
         if (Effects != null)

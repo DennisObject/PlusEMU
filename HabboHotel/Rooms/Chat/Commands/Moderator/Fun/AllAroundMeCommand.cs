@@ -20,6 +20,9 @@ internal class AllAroundMeCommand : IChatCommand
         {
             if (u == null || session.GetHabbo().Id == u.UserId)
                 continue;
+            if (u.GetClient()?.GetHabbo() is not { } target ||
+                !session.GetHabbo().Access.Outranks(target.Access))
+                continue;
             u.MoveTo(user.X, user.Y, true);
         }
     }

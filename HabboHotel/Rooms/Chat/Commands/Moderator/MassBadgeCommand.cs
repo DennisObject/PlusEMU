@@ -31,6 +31,8 @@ internal class MassBadgeCommand : IChatCommand
         {
             if (client == null || client.GetHabbo() == null || client.GetHabbo().Username == session.GetHabbo().Username)
                 continue;
+            if (!session.GetHabbo().Access.Outranks(client.GetHabbo().Access))
+                continue;
             if (!client.GetHabbo().Inventory.Badges.HasBadge(badgeCode))
             {
                 _badgeManager.GiveBadge(client.GetHabbo(), badgeCode).Wait();

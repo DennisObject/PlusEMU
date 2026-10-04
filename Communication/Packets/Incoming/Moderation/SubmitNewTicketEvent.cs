@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Moderation;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
@@ -60,7 +61,7 @@ internal class SubmitNewTicketEvent : IPacketEvent
             dbClient.RunQuery($"UPDATE `user_info` SET `cfhs` = `cfhs` + '1' WHERE `user_id` = '{session.GetHabbo().Id}' LIMIT 1");
         }
         _clientManager.ModAlert("A new support ticket has been submitted!");
-        _clientManager.SendPacket(new ModeratorSupportTicketComposer(session.GetHabbo().Id, ticket), "mod_tool");
+        _clientManager.SendPacket(new ModeratorSupportTicketComposer(session.GetHabbo().Id, ticket), PermissionKeys.Definition(PermissionKeys.ModerationTool));
         return Task.CompletedTask;
     }
 }

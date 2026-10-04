@@ -1,17 +1,27 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 
 internal class RoomUnmuteCommand : IChatCommand
 {
+    private readonly IAccessControl _access;
+
     public string Key => "roomunmute";
 
     public string Parameters => "";
 
     public string Description => "Unmute the room.";
 
+    public RoomUnmuteCommand(IAccessControl access)
+    {
+        _access = access;
+    }
+
     public void Execute(GameClient session, Room room, string[] parameters)
     {
+        if (room.OwnerId != session.GetHabbo().Id && !_access.Outranks(session.GetHabbo().Id, room.OwnerId))
+            return;
         if (!room.RoomMuted)
         {
             session.SendWhisper("This room isn't muted.");
