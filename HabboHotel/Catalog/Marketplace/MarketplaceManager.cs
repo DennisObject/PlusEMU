@@ -86,6 +86,28 @@ public class MarketplaceManager : IMarketplaceManager
         return new(averagePrice, OfferCountForSprite(spriteId));
     }
 
+    public MarketplaceOwnOffers OwnOffers(int userId)
+    {
+        using var connection = _database.Connection();
+        var rows = connection.Query<OwnOfferRow>(
+            "SELECT `timestamp` AS Timestamp, `state` AS State, `offer_id` AS OfferId, `sprite_id` AS SpriteId, `total_price` AS TotalPrice, `limited_number` AS LimitedNumber, `limited_stack` AS LimitedStack FROM `catalog_marketplace_offers` WHERE `user_id` = @userId",
+            new { userId }).ToArray();
+        var accumulated = connection.ExecuteScalar<int?>(
+            "SELECT SUM(`asking_price`) FROM `catalog_marketplace_offers` WHERE `state` = 2 AND `user_id` = @userId",
+            new { userId }) ?? 0;
+        var now = UnixTimestamp.GetNow();
+        var offers = rows.Select(row =>
+        {
+            var minutes = Convert.ToInt32(Math.Floor((row.Timestamp + 172800.0 - now) / 60.0));
+            var state = row.State;
+            if (minutes <= 0 && state != 2) { state = 3; minutes = 0; }
+            return new MarketplaceOwnOffer(row.OfferId, state, row.SpriteId, row.LimitedNumber, row.LimitedStack, row.TotalPrice, minutes);
+        }).ToArray();
+        return new(accumulated, offers);
+    }
+
+    private sealed record OwnOfferRow(double Timestamp, int State, int OfferId, int SpriteId, int TotalPrice, int LimitedNumber, int LimitedStack);
+
     public int CalculateComissionPrice(float price) => Convert.ToInt32(Math.Ceiling(price / 100 * 1));
 
     public async Task<bool> TryCancelOffer(Habbo habbo, uint offerId)
