@@ -6,6 +6,7 @@ using Plus.Database;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Users.Inventory.Furniture;
+using Dapper;
 
 namespace Plus.HabboHotel.Items;
 
@@ -23,17 +24,24 @@ public class ItemDataManager : IItemDataManager, IStartable
     }
 
     public int StartOrder => 10;
-    public Task Start()
-    {
-        Init();
-        return Task.CompletedTask;
-    }
+    public Task Start() => LoadAsync();
 
-    public void Init()
+    public void Init() => LoadAsync().GetAwaiter().GetResult();
+
+    private async Task LoadAsync()
     {
-        using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("SELECT * FROM `furniture`");
-        Load(dbClient.GetTable());
+        using var connection = _database.Connection();
+        var rows = await connection.QueryAsync("SELECT * FROM `furniture`");
+        var table = new DataTable();
+        foreach (var values in rows.Cast<IDictionary<string, object?>>())
+        {
+            if (table.Columns.Count == 0)
+                foreach (var name in values.Keys) table.Columns.Add(name, typeof(object));
+            var row = table.NewRow();
+            foreach (var value in values) row[value.Key] = value.Value ?? DBNull.Value;
+            table.Rows.Add(row);
+        }
+        Load(table);
     }
 
     // Builds new tables and swaps them in, so a reload never shows readers a half-loaded furniture table.
