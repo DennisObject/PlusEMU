@@ -33,6 +33,7 @@ public class SSOTicketEvent : IPacketEvent
     private readonly IAuthenticator _authenticate;
     private readonly IBadgeManager _badgeManager;
     private readonly IModerationManager _moderationManager;
+    private readonly IModeratorTicketService _tickets;
     private readonly IAchievementManager _achievementManager;
     private readonly ICacheManager _cacheManager;
     private readonly IFigureDataManager _figureManager;
@@ -51,11 +52,12 @@ public class SSOTicketEvent : IPacketEvent
         ILanguageManager languageManager,
         ISettingsManager settingsManager,
         IRewardManager rewardManager, ClubLifecycle clubLifecycle, ClientAccessLists clientAccessLists,
-        ILogger<ProcessComponent> processLogger)
+        ILogger<ProcessComponent> processLogger, IModeratorTicketService tickets)
     {
         _authenticate = authenticate;
         _badgeManager = badgeManager;
         _moderationManager = moderationManager;
+        _tickets = tickets;
         _achievementManager = achievementManager;
         _cacheManager = cacheManager;
         _figureManager = figureManager;
@@ -104,10 +106,7 @@ public class SSOTicketEvent : IPacketEvent
             session.GetHabbo().InitProcess(_processLogger);
             if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTickets))
             {
-                session.Send(new ModeratorInitComposer(
-                    _moderationManager.UserMessagePresets,
-                    _moderationManager.RoomMessagePresets,
-                    _moderationManager.GetTickets));
+                _tickets.SendInitialization(session);
             }
             if (_settingsManager.TryGetValue("user.login.message.enabled") == "1")
                 session.Send(new MOTDNotificationComposer(_languageManager.TryGetValue("user.login.message")));

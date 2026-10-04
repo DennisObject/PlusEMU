@@ -30,7 +30,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
     private readonly Dictionary<int, List<ModerationPresetActionMessages>> _userActionPresetMessages = new();
     private readonly List<string> _userPresets = new();
 
-    private int _ticketCount = 1;
+    private int _ticketCount;
 
     public ICollection<string> UserMessagePresets => _userPresets;
 
@@ -447,7 +447,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
 
     public bool TryAddTicket(ModerationTicket ticket)
     {
-        ticket.Id = _ticketCount++;
+        ticket.Id = Interlocked.Increment(ref _ticketCount);
         return _modTickets.TryAdd(ticket.Id, ticket);
     }
 
@@ -455,7 +455,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
 
     public bool UserHasTickets(int userId) => _modTickets.Any(x => x.Value.Sender.Id == userId && x.Value.Answered == false);
 
-    public ModerationTicket GetTicketBySenderId(int userId) => _modTickets.FirstOrDefault(x => x.Value.Sender.Id == userId).Value;
+    public ModerationTicket? GetTicketBySenderId(int userId) => _modTickets.Values.FirstOrDefault(ticket => ticket.Sender.Id == userId && !ticket.Answered);
 
     /// <summary>
     /// Runs a quick check to see if a ban record is cached in the server.

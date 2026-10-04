@@ -352,12 +352,13 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         field.SetValue(null, game);
         try
         {
-            await new SubmitNewTicketEvent(moderation, manager, _database).Parse(reporter, HabbiconTestSupport.Incoming("help", 1, Peer, 1, 0));
-            await new PickTicketEvent(moderation, manager).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
-            await new ReleaseTicketEvent(moderation, manager).Parse(moderator, HabbiconTestSupport.Incoming(1, 1));
-            await new PickTicketEvent(moderation, manager).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
-            await new CloseTicketEvent(moderation, manager, _database).Parse(moderator, HabbiconTestSupport.Incoming(3, 0, 1));
-            await new CallForHelpPendingCallsDeletedEvent(moderation, manager).Parse(reporter, HabbiconTestSupport.Incoming());
+            var ticketService = new ModeratorTicketService(moderation, manager, new ModeratorUserLookup(), new ModeratorTicketStore(_database), _clock);
+            await new SubmitNewTicketEvent(ticketService).Parse(reporter, HabbiconTestSupport.Incoming("help", 1, Peer, 1, 0));
+            await new PickTicketEvent(ticketService).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
+            await new ReleaseTicketEvent(ticketService).Parse(moderator, HabbiconTestSupport.Incoming(1, 1));
+            await new PickTicketEvent(ticketService).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
+            await new CloseTicketEvent(ticketService).Parse(moderator, HabbiconTestSupport.Incoming(3, 0, 1));
+            await new CallForHelpPendingCallsDeletedEvent(ticketService).Parse(reporter, HabbiconTestSupport.Incoming());
             Assert.Equal(6, updates.Count);
             Assert.All(updates, update => Assert.Equal(ServerPacketHeader.ModeratorSupportTicketComposer, update.Header));
             Assert.Equal(ServerPacketHeader.ModeratorSupportTicketResponseComposer, Assert.Single(_sent).Header);
