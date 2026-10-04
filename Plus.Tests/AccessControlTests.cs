@@ -123,6 +123,16 @@ public sealed class AccessControlTests
         Assert.False(AccessMutationPolicy.CanGrant(actor, "unknown.*", Registry));
     }
 
+    [Fact]
+    public void AssigningARoleCannotEscalateSecurityOrLimits()
+    {
+        var actor = Access(Role(9, 90, ["*"], 2, ("limit.daily_respects", 5)));
+        var target = Access(Role(1, 10, []));
+        Assert.False(AccessMutationPolicy.CanAssign(9, 1, actor, target, Role(2, 20, [], 7), Registry));
+        Assert.False(AccessMutationPolicy.CanAssign(9, 1, actor, target, Role(2, 20, [], 2, ("limit.daily_respects", 100)), Registry));
+        Assert.True(AccessMutationPolicy.CanAssign(9, 1, actor, target, Role(2, 20, [], 2, ("limit.daily_respects", 5)), Registry));
+    }
+
     [Theory]
     [InlineData(1, false, false)]
     [InlineData(4, true, false)]

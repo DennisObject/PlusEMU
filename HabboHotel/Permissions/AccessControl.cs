@@ -198,8 +198,9 @@ public sealed class AccessControl : IAccessControl, IDisposable
         connection.Execute("DELETE FROM user_roles WHERE expires_at <= @now" + filter, parameters, transaction);
         connection.Execute("DELETE FROM user_permissions WHERE expires_at <= @now" + filter, parameters, transaction);
         if (!userId.HasValue)
-            connection.Execute("UPDATE users u SET u.`rank` = COALESCE((SELECT MAX(r.security_level) FROM user_roles ur JOIN roles r ON r.id = ur.role_id " +
-                "WHERE ur.user_id = u.id AND (ur.expires_at IS NULL OR ur.expires_at > @now)), 1)", parameters, transaction);
+            connection.Execute("UPDATE users u SET u.`rank` = GREATEST(@defaultSecurity, COALESCE((SELECT MAX(r.security_level) FROM user_roles ur JOIN roles r ON r.id = ur.role_id " +
+                "WHERE ur.user_id = u.id AND (ur.expires_at IS NULL OR ur.expires_at > @now)), @defaultSecurity))",
+                new { parameters.now, defaultSecurity = _roles.Values.Single(role => role.Slug == "default").SecurityLevel }, transaction);
         transaction.Commit();
     }
 

@@ -209,6 +209,26 @@ public sealed class AccessControlDatabaseTests : IDisposable
         Assert.Contains("ACL limited", System.Text.Encoding.UTF8.GetString(messages[0].Payload));
     }
 
+    [AccessControlDatabaseFact]
+    public void ReloadIncludesTheImplicitDefaultRoleInOfflineRankCaches()
+    {
+        using var connection = _database.Connection();
+        var original = connection.ExecuteScalar<int>("SELECT security_level FROM roles WHERE slug = 'default'");
+        try
+        {
+            connection.Execute("UPDATE roles SET security_level = 4 WHERE slug = 'default'");
+            _access.Reload();
+            Assert.Equal(4, connection.ExecuteScalar<int>("SELECT `rank` FROM users WHERE id = @Target", new { Target }));
+            Assert.Equal(4, _access.Resolve(Target).SecurityLevel);
+            Assert.Equal(7, connection.ExecuteScalar<int>("SELECT `rank` FROM users WHERE id = @Peer", new { Peer }));
+        }
+        finally
+        {
+            connection.Execute("UPDATE roles SET security_level = @original WHERE slug = 'default'", new { original });
+            _access.Reload();
+        }
+    }
+
     public void Dispose()
     {
         _access.Dispose();

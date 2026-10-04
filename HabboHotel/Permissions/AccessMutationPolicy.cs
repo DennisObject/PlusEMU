@@ -6,7 +6,8 @@ internal static class AccessMutationPolicy
         actorId != targetId && actor.Can(PermissionKeys.HousekeepingRolesManage) && actor.Outranks(target);
 
     public static bool CanAssign(int actorId, int targetId, UserAccess actor, UserAccess target, AccessRole role, IEnumerable<string> registry) =>
-        CanEdit(actorId, targetId, actor, target) && role.Weight < actor.Weight &&
+        CanEdit(actorId, targetId, actor, target) && role.Weight < actor.Weight && role.SecurityLevel <= actor.SecurityLevel &&
+        role.Limits.All(limit => limit.Value <= actor.Limit(limit.Key, AccessLimits.Defaults.GetValueOrDefault(limit.Key))) &&
         registry.Where(key => role.Permissions.Any(pattern => UserAccess.Matches(pattern, key))).All(actor.Can);
 
     public static bool CanGrant(UserAccess actor, string pattern, IEnumerable<string> registry)
