@@ -10,7 +10,7 @@ using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Permissions;
 
-public sealed class AccessControl : IAccessControl, IDisposable
+public sealed partial class AccessControl : IAccessControl, IDisposable
 {
     private readonly IDatabase _database;
     private readonly IGameClientManager _clients;
@@ -47,11 +47,13 @@ public sealed class AccessControl : IAccessControl, IDisposable
                 connection.Execute("INSERT INTO acl_permissions (`key`, category, description, is_orphan) VALUES (@Key, @Category, @Description, 0) " +
                     "ON DUPLICATE KEY UPDATE category = @Category, description = @Description, is_orphan = 0", permission, transaction);
             transaction.Commit();
-            _registry = definitions.Select(permission => permission.Key).ToArray();
-            _roles = rows.ToFrozenDictionary(role => role.Id, role => new AccessRole(role.Id, role.Slug, role.Name, role.Weight,
+            var registry = definitions.Select(permission => permission.Key).ToArray();
+            var roles = rows.ToFrozenDictionary(role => role.Id, role => new AccessRole(role.Id, role.Slug, role.Name, role.Weight,
                 role.SecurityLevel, role.BadgeCode, role.IsStaff, permissions.Where(p => p.RoleId == role.Id).Select(p => p.PermissionKey).ToArray(),
                 limits.Where(limit => limit.RoleId == role.Id).ToFrozenDictionary(limit => limit.LimitKey, limit => limit.Value, StringComparer.Ordinal)));
-            if (!_roles.Values.Any(role => role.Slug == "default")) throw new InvalidOperationException("The default access role is missing. Apply the RBAC migration.");
+            if (!roles.Values.Any(role => role.Slug == "default")) throw new InvalidOperationException("The default access role is missing. Apply the RBAC migration.");
+            _registry = registry;
+            _roles = roles;
             foreach (var userId in _resolved.Keys) Resolve(userId);
             Prune(connection);
             _expiryTimer ??= _clock.CreateTimer(_ => RefreshExpired(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
@@ -106,7 +108,10 @@ public sealed class AccessControl : IAccessControl, IDisposable
     public bool Can(int userId, string key) => _resolved.GetOrAdd(userId, Resolve).Can(key);
     public int Limit(int userId, string key, int fallback = 0) => _resolved.GetOrAdd(userId, Resolve).Limit(key, fallback);
     public bool Outranks(int actorId, int targetId) => actorId != targetId && Resolve(actorId).Outranks(Resolve(targetId));
-    public bool TryGetRole(int roleId, out AccessRole role) => _roles.TryGetValue(roleId, out role!);
+    public bool TryGetRole(int roleId, out AccessRole role)
+    {
+        lock (_sync) return _roles.TryGetValue(roleId, out role!);
+    }
 
     public bool AssignRole(Habbo actor, int targetId, int roleId, DateTimeOffset? expiresAt = null) =>
         Mutate(actor, targetId, "role.assign", new { roleId, expiresAt }, (connection, transaction, actorAccess, targetAccess) =>

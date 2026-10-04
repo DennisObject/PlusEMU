@@ -130,9 +130,9 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         AssertSignedOut(Target);
 
         await Login().Login("cr_moderator", OldPassword, "10.0.0.1", remember: true);
-        Assert.True(Actions().SetRank(StaffHabbo(), Moderator, 5).Ok);
+        Assert.True(Access().AssignRole(StaffHabbo(), Moderator, 5));
         Assert.Equal(1, LiveAccessTokens(Moderator));
-        Assert.True(Actions().SetRank(StaffHabbo(), Moderator, 4).Ok);
+        Assert.True(Access().AssignRole(StaffHabbo(), Moderator, 4));
         Assert.Equal(1, LiveAccessTokens(Moderator));
         Assert.Equal(3, Scalar<int>($"SELECT COUNT(*) FROM user_roles WHERE user_id = {Moderator} AND role_id IN (3, 4, 5)"));
     }
@@ -506,13 +506,16 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
 
     private ModerationManager Moderation(ISessionIssuer? sessions = null) => new(_database, NullLogger<ModerationManager>.Instance, sessions ?? _sessions, _clients, _gate);
 
-    private HousekeepingUserActions Actions(ISessionIssuer? sessions = null)
+    private AccessControl Access()
     {
         var permissions = new AccessControl(_database, _clients, NullLogger<AccessControl>.Instance, TimeProvider.System);
         permissions.Init();
         _accessControls.Add(permissions);
-        return new(new HousekeepingUserStore(_database), _clients, Moderation(sessions), permissions, _hasher, _database, _gate, sessions ?? _sessions);
+        return permissions;
     }
+
+    private HousekeepingUserActions Actions(ISessionIssuer? sessions = null) =>
+        new(new HousekeepingUserStore(_database), _clients, Moderation(sessions), Access(), _hasher, _database, _gate, sessions ?? _sessions);
 
     private static Habbo StaffHabbo() => new() { Id = Staff, Username = "cr_staff", Access = HousekeepingPolicyTests.Access(90, PermissionKeys.HousekeepingRolesManage) };
 

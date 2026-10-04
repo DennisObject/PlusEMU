@@ -28,7 +28,7 @@ public sealed class AccessControlDatabaseFactAttribute : FactAttribute
 public sealed class AccessControlDatabaseCollection;
 
 [Collection("AccessControlDatabase")]
-public sealed class AccessControlDatabaseTests : IDisposable
+public sealed partial class AccessControlDatabaseTests : IDisposable
 {
     private const int Actor = 940001, Target = 940002, Peer = 940003;
     private const int ActorRole = 940101, LimitedRole = 940102, PeerRole = 940103;

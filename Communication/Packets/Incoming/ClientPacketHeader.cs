@@ -438,7 +438,6 @@ public static class ClientPacketHeader
     public const uint HousekeepingMuteUserEvent = 9104;
     public const uint HousekeepingKickUserEvent = 9105;
     public const uint HousekeepingForceDisconnectUserEvent = 9106;
-    public const uint HousekeepingSetUserRankEvent = 9107;
     public const uint HousekeepingTradeLockUserEvent = 9108;
     public const uint HousekeepingResetUserPasswordEvent = 9109;
     public const uint HousekeepingFindRoomByIdEvent = 9110;
@@ -488,4 +487,16 @@ public static class ClientPacketHeader
     public const uint CatalogStudioExportEvent = 10078;
     public const uint CatalogStudioDocumentDryRunEvent = 10079;
     public const uint CatalogStudioDocumentApplyEvent = 10080;
+    public const uint HousekeepingGetRolesEvent = 9130;
+    public const uint HousekeepingGetRoleMembersEvent = 9131;
+    public const uint HousekeepingGetUserOverridesEvent = 9132;
+    public const uint HousekeepingGetRolesAuditEvent = 9133;
+    public const uint HousekeepingSaveRoleEvent = 9134;
+    public const uint HousekeepingDeleteRoleEvent = 9135;
+    public const uint HousekeepingSetRolePermissionEvent = 9136;
+    public const uint HousekeepingSetRoleLimitEvent = 9137;
+    public const uint HousekeepingAssignRoleEvent = 9138;
+    public const uint HousekeepingRevokeRoleEvent = 9139;
+    public const uint HousekeepingSetUserOverrideEvent = 9140;
+    public const uint HousekeepingRemoveUserOverrideEvent = 9141;
 }

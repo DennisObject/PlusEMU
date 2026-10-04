@@ -374,4 +374,8 @@ public static class ServerPacketHeader
     public const uint CatalogStudioOperationComposer = 10072;
     public const uint CatalogStudioValidationComposer = 10073;
     public const uint CatalogStudioDocumentResultComposer = 10078;
+    public const uint HousekeepingRolesComposer = 9210;
+    public const uint HousekeepingRoleMembersComposer = 9211;
+    public const uint HousekeepingUserOverridesComposer = 9212;
+    public const uint HousekeepingRolesAuditComposer = 9213;
 }

@@ -310,7 +310,6 @@
     "HousekeepingMuteUserEvent": 0,
     "HousekeepingKickUserEvent": 0,
     "HousekeepingForceDisconnectUserEvent": 0,
-    "HousekeepingSetUserRankEvent": 0,
     "HousekeepingTradeLockUserEvent": 0,
     "HousekeepingResetUserPasswordEvent": 0,
     "HousekeepingFindRoomByIdEvent": 0,
@@ -358,7 +357,19 @@
     "CatalogStudioValidateEvent": 0,
     "CatalogStudioExportEvent": 0,
     "CatalogStudioDocumentDryRunEvent": 0,
-    "CatalogStudioDocumentApplyEvent": 0
+    "CatalogStudioDocumentApplyEvent": 0,
+    "HousekeepingGetRolesEvent": 0,
+    "HousekeepingGetRoleMembersEvent": 0,
+    "HousekeepingGetUserOverridesEvent": 0,
+    "HousekeepingGetRolesAuditEvent": 0,
+    "HousekeepingSaveRoleEvent": 0,
+    "HousekeepingDeleteRoleEvent": 0,
+    "HousekeepingSetRolePermissionEvent": 0,
+    "HousekeepingSetRoleLimitEvent": 0,
+    "HousekeepingAssignRoleEvent": 0,
+    "HousekeepingRevokeRoleEvent": 0,
+    "HousekeepingSetUserOverrideEvent": 0,
+    "HousekeepingRemoveUserOverrideEvent": 0
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 1347,
@@ -680,6 +691,10 @@
     "CatalogStudioHistoryComposer": 0,
     "CatalogStudioOperationComposer": 0,
     "CatalogStudioValidationComposer": 0,
-    "CatalogStudioDocumentResultComposer": 0
+    "CatalogStudioDocumentResultComposer": 0,
+    "HousekeepingRolesComposer": 0,
+    "HousekeepingRoleMembersComposer": 0,
+    "HousekeepingUserOverridesComposer": 0,
+    "HousekeepingRolesAuditComposer": 0
   }
 }

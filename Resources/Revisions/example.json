@@ -297,7 +297,19 @@
     "PublishPhotoEvent": 9702,
     "PurchasePhotoEvent": 9703,
     "RenderRoomEvent": 9704,
-    "RenderRoomThumbnailEvent": 9705
+    "RenderRoomThumbnailEvent": 9705,
+    "HousekeepingGetRolesEvent": 9130,
+    "HousekeepingGetRoleMembersEvent": 9131,
+    "HousekeepingGetUserOverridesEvent": 9132,
+    "HousekeepingGetRolesAuditEvent": 9133,
+    "HousekeepingSaveRoleEvent": 9134,
+    "HousekeepingDeleteRoleEvent": 9135,
+    "HousekeepingSetRolePermissionEvent": 9136,
+    "HousekeepingSetRoleLimitEvent": 9137,
+    "HousekeepingAssignRoleEvent": 9138,
+    "HousekeepingRevokeRoleEvent": 9139,
+    "HousekeepingSetUserOverrideEvent": 9140,
+    "HousekeepingRemoveUserOverrideEvent": 9141
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 3531,
@@ -591,6 +603,10 @@
     "CameraPurchaseOKComposer": 9702,
     "CameraPublishStatusComposer": 9703,
     "CompetitionStatusComposer": 9704,
-    "ThumbnailStatusComposer": 9705
+    "ThumbnailStatusComposer": 9705,
+    "HousekeepingRolesComposer": 9210,
+    "HousekeepingRoleMembersComposer": 9211,
+    "HousekeepingUserOverridesComposer": 9212,
+    "HousekeepingRolesAuditComposer": 9213
   }
 }
