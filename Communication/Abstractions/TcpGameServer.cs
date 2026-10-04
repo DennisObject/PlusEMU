@@ -4,6 +4,7 @@ using Plus.Communication.Packets;
 using Plus.HabboHotel.GameClients;
 using System.Collections.Concurrent;
 using Plus.Communication.Flash;
+using NLog;
 
 namespace Plus.Communication.Abstractions;
 
@@ -12,15 +13,22 @@ public abstract class TcpGameServer<TGameServerOptions> : TcpServer, IGameServer
 {
     private readonly IGameClientFactory<TcpSessionProxy, TcpServer> _clientFactory;
     private readonly IPacketManager _packetManager;
+    private readonly IReadOnlyDictionary<uint, IIncomingPacketInjector[]> _incomingInjectors;
+    private readonly IReadOnlyDictionary<uint, IOutgoingPacketInjector[]> _outgoingInjectors;
+    private static readonly ILogger Log = LogManager.GetCurrentClassLogger();
     private readonly ConcurrentDictionary<Guid, TcpSession> _connectedClients = new();
 
     protected TcpGameServer(IOptions<TGameServerOptions> options,
         IGameClientFactory<TcpSessionProxy, TcpServer> clientFactory,
-        IPacketManager packetManager) : base(options.Value.Hostname,
+        IPacketManager packetManager,
+        IEnumerable<IIncomingPacketInjector> incomingInjectors,
+        IEnumerable<IOutgoingPacketInjector> outgoingInjectors) : base(options.Value.Hostname,
         options.Value.Port)
     {
         _clientFactory = clientFactory;
         _packetManager = packetManager;
+        _incomingInjectors = incomingInjectors.GroupBy(x => x.MessageId).ToDictionary(x => x.Key, x => x.ToArray());
+        _outgoingInjectors = outgoingInjectors.GroupBy(x => x.MessageId).ToDictionary(x => x.Key, x => x.ToArray());
     }
 
     protected override TcpSession CreateSession() => _clientFactory.Create(this);
@@ -46,9 +54,26 @@ public abstract class TcpGameServer<TGameServerOptions> : TcpServer, IGameServer
         _connectedClients.TryRemove(session.Id, out _);
     }
 
-    // TODO @80O: Allow packet content to be modified before executing.
-    // TODO @80O: Add hooks before & after packet execution.
-    public Task PacketReceived(GameClient client, uint messageId, IIncomingPacket packet) => _packetManager.TryExecutePacket(client, messageId, packet);
+    public Task PacketReceived(GameClient client, uint messageId, IIncomingPacket packet)
+    {
+        packet.MessageId = messageId;
+        InvokeInjectors(_incomingInjectors, messageId, injector => injector.ModifyIncomingPacket(this, client, packet));
+        packet.Stream.Position = 0;
+        return _packetManager.TryExecutePacket(client, messageId, packet);
+    }
+
+    public void ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet) =>
+        InvokeInjectors(_outgoingInjectors, (uint)packet.MessageId, injector => injector.ModifyOutgoingPacket(this, client, packet));
+
+    private static void InvokeInjectors<T>(IReadOnlyDictionary<uint, T[]> injectors, uint messageId, Action<T> invoke)
+    {
+        if (!injectors.TryGetValue(messageId, out var matches)) return;
+        foreach (var injector in matches)
+        {
+            try { invoke(injector); }
+            catch (Exception exception) { Log.Error(exception, $"Packet injector {injector!.GetType().Name} failed for message {messageId}"); }
+        }
+    }
 }
 
 public interface IGameClientFactory<TGameClient, TServer> : IGameClientFactory

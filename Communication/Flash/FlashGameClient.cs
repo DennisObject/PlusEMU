@@ -6,6 +6,7 @@ namespace Plus.Communication.Flash;
 
 public class FlashGameClient : GameClient
 {
+    protected override bool SupportsLegacyCrypto => true;
     private bool _hasReceivedPolicy;
     private static byte[] XmlPolicy = Encoding.UTF8.GetBytes("<?xml version=\"1.0\"?>\r\n" +
                                                              "<!DOCTYPE cross-domain-policy SYSTEM \"/xml/dtds/cross-domain-policy.dtd\">\r\n" +

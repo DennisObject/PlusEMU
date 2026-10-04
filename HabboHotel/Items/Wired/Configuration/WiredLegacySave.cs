@@ -48,7 +48,8 @@ public static class WiredLegacySave
             detached.SetItems = new ConcurrentDictionary<uint, Item>(original.SetItems);
             if (original is IWiredCycle current && detached is IWiredCycle next)
                 next.Delay = current.Delay;
-            detached.HandleSave(new FlashIncomingPacket { Buffer = replay });
+            using var replayStream = PlusMemoryStream.GetStream(replay);
+            detached.HandleSave(new FlashIncomingPacket(replayStream));
             // Some legacy parsers intentionally consume only their prefix. The whole envelope was validated above.
             candidate = detached;
             error = string.Empty;

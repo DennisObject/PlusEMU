@@ -75,7 +75,8 @@ public static class WiredLegacyCustomEditor
             BinaryPrimitives.WriteInt32BigEndian(commandBuffer.AsSpan(4), proposed.IntParams[2]);
             BinaryPrimitives.WriteUInt16BigEndian(commandBuffer.AsSpan(8, 2), (ushort)commandText.Length);
             commandText.CopyTo(commandBuffer.AsSpan(10));
-            return WiredLegacySave.TryPrepare(original, new FlashIncomingPacket { Buffer = commandBuffer },
+            using var commandStream = PlusMemoryStream.GetStream(commandBuffer);
+            return WiredLegacySave.TryPrepare(original, new FlashIncomingPacket(commandStream),
                 WiredBoxCategory.Trigger, createCandidate, out candidate, out error);
         }
         string text;
@@ -108,7 +109,8 @@ public static class WiredLegacyCustomEditor
         var buffer = new byte[4 + 2 + bytes.Length + 4 + 4 + 4];
         BinaryPrimitives.WriteUInt16BigEndian(buffer.AsSpan(4, 2), (ushort)bytes.Length);
         bytes.CopyTo(buffer.AsSpan(6));
-        return WiredLegacySave.TryPrepare(original, new FlashIncomingPacket { Buffer = buffer }, WiredBoxCategory.Action,
+        using var actionStream = PlusMemoryStream.GetStream(buffer);
+        return WiredLegacySave.TryPrepare(original, new FlashIncomingPacket(actionStream), WiredBoxCategory.Action,
             createCandidate, out candidate, out error);
     }
 }

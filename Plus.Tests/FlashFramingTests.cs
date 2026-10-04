@@ -1,6 +1,8 @@
 using Plus.Communication.Flash;
 using Plus.Communication.Revisions;
 using Plus.HabboHotel.GameClients;
+using Plus.Communication.Encryption.Crypto.Prng;
+using Plus.Communication.Packets;
 using Xunit;
 
 namespace Plus.Tests;
@@ -85,6 +87,39 @@ public class FlashFramingTests
         Assert.Equal(new uint[] { 1, 2 }, server.MessageIds);
     }
 
+    [Fact]
+    public void LegacyCryptoDecryptsIncomingFrames()
+    {
+        var server = new FakeServer();
+        var client = Client(server, 1u);
+        var key = new byte[] { 1, 2, 3, 4 };
+        client.ActivateLegacyCrypto(key);
+        var frame = new byte[] { 0, 0, 0, 2, 0, 1 };
+        new Arc4(key).Encrypt(ref frame);
+
+        client.OnReceived(frame, 0, frame.Length);
+
+        Assert.Equal(new uint[] { 1 }, server.MessageIds);
+    }
+
+    [Fact]
+    public void LegacyCryptoEncryptsOutgoingFramesAfterInjection()
+    {
+        var server = new FakeServer { Modify = packet => packet.WriteByte(7) };
+        var client = Client(server);
+        client.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        var key = new byte[] { 1, 2, 3, 4 };
+        client.ActivateLegacyCrypto(key);
+        byte[]? sent = null;
+        client.SendCallback = args => { sent = args.MemoryBuffer.ToArray(); return false; };
+
+        client.Send(new TestComposer());
+
+        Assert.NotNull(sent);
+        new Arc4(key).Decrypt(ref sent!);
+        Assert.Equal(new byte[] { 0, 0, 0, 4, 0, 20, 5, 7 }, sent);
+    }
+
     private static FlashGameClient Client(FakeServer server, params uint[] messageIds)
     {
         var client = new FlashGameClient(server, new FlashPacketFactory())
@@ -103,6 +138,7 @@ public class FlashFramingTests
         public Task? Hold { get; init; }
         public int Count => MessageIds.Count;
         public List<uint> MessageIds { get; } = new();
+        public Action<IOutgoingPacket>? Modify { get; init; }
 
         public bool Start() => true;
         public bool Stop() => true;
@@ -112,5 +148,14 @@ public class FlashFramingTests
             MessageIds.Add(messageId);
             return Hold ?? Task.CompletedTask;
         }
+
+        public void ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet) => Modify?.Invoke(packet);
+    }
+
+
+    private sealed class TestComposer : IServerPacket
+    {
+        public uint MessageId => 10;
+        public void Compose(IOutgoingPacket packet) => packet.WriteByte(5);
     }
 }

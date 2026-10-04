@@ -5,7 +5,7 @@ namespace Plus.Communication.Flash;
 
 public class FlashPacketFactory : IPacketFactory
 {
-    public IIncomingPacket CreateIncomingPacket(Memory<byte> buffer) => new FlashIncomingPacket { Buffer = buffer };
+    public IIncomingPacket CreateIncomingPacket(RecyclableMemoryStream stream) => new FlashIncomingPacket(stream);
 
     public IOutgoingPacket CreateOutgoingPacket(RecyclableMemoryStream stream) => new FlashOutgoingPacket(stream);
 }

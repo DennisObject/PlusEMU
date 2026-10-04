@@ -1,8 +1,11 @@
-﻿namespace Plus.HabboHotel.GameClients;
+﻿using Microsoft.IO;
+
+namespace Plus.HabboHotel.GameClients;
 
 public interface IIncomingPacket
 {
-    int MessageId { get; set; }
+    uint MessageId { get; set; }
+    RecyclableMemoryStream Stream { get; }
     Memory<byte> Buffer { get; }
     byte ReadByte();
     short ReadShort();

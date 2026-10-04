@@ -21,7 +21,9 @@ public interface INitroServer : IGameServer
 
 public class NitroServer : WebsocketGameServer<NitroServerConfiguration>, INitroServer
 {
-    public NitroServer(IOptions<NitroServerConfiguration> options, NitroClientFactory clientFactory, IPacketManager packetManager) : base(options, clientFactory, packetManager) { }
+    public NitroServer(IOptions<NitroServerConfiguration> options, NitroClientFactory clientFactory, IPacketManager packetManager,
+        IEnumerable<IIncomingPacketInjector> incomingInjectors, IEnumerable<IOutgoingPacketInjector> outgoingInjectors)
+        : base(options, clientFactory, packetManager, incomingInjectors, outgoingInjectors) { }
 }
 
 
