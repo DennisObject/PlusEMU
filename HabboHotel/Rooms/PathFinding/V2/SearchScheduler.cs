@@ -23,6 +23,11 @@ public sealed class SearchScheduler<TActor> where TActor : class
         if (_actors.Remove(actor, out var node)) _jobs.Remove(node);
     }
 
+    public bool Contains(TActor actor) => _actors.ContainsKey(actor);
+
+    // FIFO order of the actors whose searches have not started.
+    public IEnumerable<TActor> Queued => _jobs.Select(job => job.Actor);
+
     public int Run(int budget, Func<SearchJob<TActor>, bool> isCurrent,
         Func<SearchJob<TActor>, SearchResult> search, Action<SearchJob<TActor>, SearchResult> onResult)
     {

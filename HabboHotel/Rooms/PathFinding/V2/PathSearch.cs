@@ -1,8 +1,9 @@
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
 public enum PathOutcome { Found, AlreadyThere, InvalidGoal, Unreachable, BudgetCancelled }
+// Complete searches (blocked-route fallback) ignore the operator per-search cap.
 public readonly record struct SearchRequest(ActorProfile Actor, NavPosition Start, int GoalX, int GoalY,
-    PlanningOccupancy? Occupancy = null, AcceptedGoal? Goals = null);
+    PlanningOccupancy? Occupancy = null, AcceptedGoal? Goals = null, bool Complete = false);
 
 public sealed class PathSearch(NavGrid grid, PathfindingSettings settings)
 {
@@ -38,7 +39,7 @@ public sealed class PathSearch(NavGrid grid, PathfindingSettings settings)
         sequences[first] = ws.NextSequence++;
         ws.Insert(first, PathTieBreak.Key(PathTieBreak.Heuristic(start.X, start.Y, goal.X, goal.Y),
             start.X, start.Y, goal.X, goal.Y, 0, sequences[first]));
-        var cap = settings.MaxExpansionsPerSearch ?? nodes + 1;
+        var cap = req.Complete ? nodes + 1 : settings.MaxExpansionsPerSearch ?? nodes + 1;
         while (ws.Count > 0)
         {
             var current = ws.Pop();
