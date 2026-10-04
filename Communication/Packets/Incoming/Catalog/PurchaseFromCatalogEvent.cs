@@ -189,7 +189,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                     limitedEditionSells = (uint)serial; limitedEditionStack = item.LimitedEditionStack;
                 }
                 return deliver?.Invoke(connection, transaction) ?? true;
-            }))
+            }, ClubRewards.EligibleCatalogPurchase(item.CatalogName)))
             {
                 if (soldOut)
                 {

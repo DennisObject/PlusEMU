@@ -18,6 +18,8 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
     internal static DateTimeOffset NextPayday(DateTimeOffset now) => new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(1);
     internal static int StreakBonus(int days) => days >= 365 ? 30 : days >= 180 ? 25 : days >= 90 ? 20 : days >= 60 ? 15 : days >= 30 ? 10 : days >= 7 ? 5 : 0;
     internal static int SpendingBonus(long spent, double percentage) => (int)Math.Clamp(Math.Floor(spent * percentage), 0, int.MaxValue);
+    // Polaris excludes redeemable credit furniture from its shop-spending query.
+    internal static bool EligibleCatalogPurchase(string name) => !name.StartsWith("CF_", StringComparison.OrdinalIgnoreCase) && !name.StartsWith("CFC_", StringComparison.OrdinalIgnoreCase);
     private double Percentage => int.TryParse(settings.GetOptionalValue("club.payday.percentage"), out var percent) ? Math.Clamp(percent, 0, 100) / 100.0 : 0.1;
 
     private IReadOnlyList<ClubGift> GiftOffers(Habbo habbo)
@@ -81,7 +83,7 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
         if (member && credits > 0)
             connection.Execute("INSERT INTO club_credit_spending (user_id, credits, spent_at) VALUES (@userId, @credits, @now)", new { userId, credits, now }, transaction);
     }
-    public bool Charge(Habbo habbo, int credits, int duckets = 0, int diamonds = 0, Func<IDbConnection, IDbTransaction, bool>? deliver = null)
+    public bool Charge(Habbo habbo, int credits, int duckets = 0, int diamonds = 0, Func<IDbConnection, IDbTransaction, bool>? deliver = null, bool kickbackEligible = true)
     {
         if (credits < 0 || duckets < 0 || diamonds < 0) return false;
         lock (habbo.WalletSync)
@@ -95,7 +97,7 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
             var now = clock.GetUtcNow().ToUnixTimeSeconds();
             connection.Execute("UPDATE users SET credits = @remainingCredits, activity_points = @remainingDuckets, vip_points = @remainingDiamonds WHERE id = @id",
                 new { id = habbo.Id, remainingCredits, remainingDuckets, remainingDiamonds }, transaction);
-            RecordSpending(connection, transaction, habbo.Id, credits, now, habbo.Access.Membership.Active(now));
+            RecordSpending(connection, transaction, habbo.Id, credits, now, kickbackEligible && habbo.Access.Membership.Active(now));
             if (deliver != null && !deliver(connection, transaction)) return false;
             transaction.Commit();
             habbo.Credits = remainingCredits; habbo.Duckets = remainingDuckets; habbo.Diamonds = remainingDiamonds;

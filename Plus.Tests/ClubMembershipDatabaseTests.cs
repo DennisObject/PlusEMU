@@ -148,6 +148,16 @@ public class ClubMembershipDatabaseTests : IDisposable
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM items WHERE user_id = 957001"));
     }
     [ClubDatabaseFact]
+    public void RedeemableCreditFurnitureDoesNotEarnKickback()
+    {
+        _memberships.Purchase(_habbo, Month);
+        Assert.True(_rewards.Charge(_habbo, 99, kickbackEligible: ClubRewards.EligibleCatalogPurchase("CF_100")));
+        Assert.True(_rewards.Charge(_habbo, 99, kickbackEligible: ClubRewards.EligibleCatalogPurchase("CFC_100")));
+        Assert.Equal(702, _habbo.Credits);
+        Assert.Equal(0, _rewards.Kickback(_habbo).Spent);
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM club_credit_spending WHERE user_id = 957001"));
+    }
+    [ClubDatabaseFact]
     public void DeliveryRefusalOrFailureRollsBackWalletSpendingAndProducts()
     {
         _memberships.Purchase(_habbo, Month);

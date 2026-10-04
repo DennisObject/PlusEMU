@@ -15,6 +15,6 @@ public interface IClubRewards
     ClubGiftInfo Gifts(Habbo habbo);
     ClubGiftClaim? Claim(Habbo habbo, string productCode);
     ClubKickback Kickback(Habbo habbo);
-    bool Charge(Habbo habbo, int credits, int duckets = 0, int diamonds = 0, Func<IDbConnection, IDbTransaction, bool>? deliver = null);
+    bool Charge(Habbo habbo, int credits, int duckets = 0, int diamonds = 0, Func<IDbConnection, IDbTransaction, bool>? deliver = null, bool kickbackEligible = true);
     void RunPaydays();
 }

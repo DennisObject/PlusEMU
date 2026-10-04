@@ -183,7 +183,7 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
             giveItem = new Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem { Id = newItemId, OwnerId = (uint)habbo.Id,
                 Definition = presentData, ExtraData = FurniExtraData.Load(presentData, extra_data, keepLegacy: true) };
             return true;
-        })) { session.Send(new PurchaseErrorComposer(0)); return Task.CompletedTask; }
+        }, ClubRewards.EligibleCatalogPurchase(item.CatalogName))) { session.Send(new PurchaseErrorComposer(0)); return Task.CompletedTask; }
         if (giveItem != null)
         {
             var receiver = _gameClientManager.GetClientByUserId(habbo.Id);
