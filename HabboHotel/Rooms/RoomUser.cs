@@ -19,6 +19,8 @@ namespace Plus.HabboHotel.Rooms;
 public class RoomUser
 {
     internal ActorProfile? NavigationProfile { get; set; }
+    private ActorMovementState? _movement;
+    public ActorMovementState Movement => LazyInitializer.EnsureInitialized(ref _movement)!;
 
     public WiredRoomEntrySnapshot WiredRoomEntry { get; internal set; }
     private GameClient _mClient;
@@ -78,9 +80,6 @@ public class RoomUser
     public int RotBody; //byte
     public int RotHead; //byte
 
-    internal List<Vector2D> PendingWalkSteps = new();
-    internal Vector2D? PendingWalkOrigin;
-    internal bool PendingWalkConsumesPath;
     public bool SetStep;
     public int SetX; //byte
     public int SetY; //byte
@@ -403,13 +402,12 @@ public class RoomUser
 
     public void ClearMovement(bool update)
     {
+        if (GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
+        {
+            navigation.Cancel(this);
+            return;
+        }
         IsWalking = false;
-        Path.Clear();
-        PathRecalcNeeded = false;
-        PathStep = 1;
-        PendingWalkSteps.Clear();
-        PendingWalkOrigin = null;
-        PendingWalkConsumesPath = false;
         Statusses.Remove("mv");
         GoalX = 0;
         GoalY = 0;
@@ -427,10 +425,16 @@ public class RoomUser
 
     public void MoveTo(int pX, int pY, bool pOverride)
     {
+        if (GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
+        {
+            navigation.Move(this, pX, pY, IsBot ? MoveOrigin.Bot : MoveOrigin.User,
+                TeleportEnabled ? MoveFlags.Teleport : MoveFlags.None);
+            return;
+        }
         if (TeleportEnabled)
         {
             UnIdle();
-            GetRoom().SendPacket(GetRoom().GetRoomItemHandler().UpdateUserOnRoller(this, new(pX, pY), 0, GetRoom().GetGameMap().SqAbsoluteHeight(pX, pY)));
+            GetRoom().SendPacket(GetRoom().GetRoomItemHandler().UpdateUserOnRoller(this, new(pX, pY), 0, GetRoom().GetGameMap().SqAbsoluteHeight(GoalX, GoalY)));
             if (Statusses.ContainsKey("sit"))
                 Z -= 0.35;
             UpdateNeeded = true;
@@ -450,6 +454,28 @@ public class RoomUser
         MoveTo(pX, pY, false);
     }
 
+    // Walks to the item's approach tile; under v2 with approach_auto_interact the arrival starts the interaction.
+    public void ApproachItem(Item item, int actionKind)
+    {
+        var front = item.SquareInFront;
+        if (!IsBot && !TeleportEnabled && GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true, Settings.ApproachAutoInteract: true } navigation
+            && navigation.DescribeApproach(item, actionKind) is { } approach)
+            navigation.Move(this, front.X, front.Y, MoveOrigin.User, MoveFlags.None, approach);
+        else MoveTo(front);
+    }
+
+    public void MoveTo(int x, int y, MoveOrigin origin, MoveFlags flags = MoveFlags.None)
+    {
+        if (GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
+            navigation.Move(this, x, y, origin, flags);
+        else MoveTo(x, y);
+    }
+
+    internal void InitializePosition(int x, int y, double z)
+    {
+        X = x; Y = y; Z = z;
+    }
+
     public void UnlockWalking()
     {
         AllowOverride = false;
@@ -459,6 +485,11 @@ public class RoomUser
 
     public void SetPos(int pX, int pY, double pZ)
     {
+        if (GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
+        {
+            navigation.ForcePlace(this, pX, pY, pZ, ForceResolution.ExactZ);
+            return;
+        }
         X = pX;
         Y = pY;
         Z = pZ;

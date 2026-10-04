@@ -1,4 +1,5 @@
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Wired;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
@@ -6,7 +7,7 @@ namespace Plus.HabboHotel.Rooms.PathFinding;
 public sealed record NavItemRecord(uint ItemId, long Version, double Z, double Height,
     bool Walkable, bool Seat, InteractionType Interaction, string State, int GroupId,
     int Rotation, bool Removed, IReadOnlyList<int> Footprint,
-    int X = 0, int Y = 0, int Length = 1, int Width = 1)
+    int X = 0, int Y = 0, int Length = 1, int Width = 1, WiredBoxType WiredType = WiredBoxType.None)
 {
     public double Top => Z + Height;
     internal static bool StateRelevant(ItemDefinition definition) => definition.InteractionType is InteractionType.Gate or InteractionType.GuildGate
@@ -27,7 +28,8 @@ public sealed record NavItemRecord(uint ItemId, long Version, double Z, double H
             && previous.Rotation == item.Rotation && previous.Length == definition.Length && previous.Width == definition.Width;
         if (sameFootprint && !previous!.Removed && previous.Z == item.GetZ && previous.Height == currentHeight
             && previous.Walkable == definition.Walkable && previous.Seat == definition.IsSeat
-            && previous.Interaction == definition.InteractionType && previous.State == state && previous.GroupId == group)
+            && previous.Interaction == definition.InteractionType && previous.State == state && previous.GroupId == group
+            && previous.WiredType == definition.WiredType)
             return previous;
         var footprint = sameFootprint ? previous!.Footprint : Array.AsReadOnly(Gamemap.GetAffectedTiles(definition.Length, definition.Width,
             item.GetX, item.GetY, item.Rotation).Values
@@ -36,6 +38,6 @@ public sealed record NavItemRecord(uint ItemId, long Version, double Z, double H
             .Select(p => p.Item2 * width + p.Item1).Distinct().Order().ToArray());
         return new(item.Id, version, item.GetZ, currentHeight,
             definition.Walkable, definition.IsSeat, definition.InteractionType,
-            state, group, item.Rotation, false, footprint, item.GetX, item.GetY, definition.Length, definition.Width);
+            state, group, item.Rotation, false, footprint, item.GetX, item.GetY, definition.Length, definition.Width, definition.WiredType);
     }
 }

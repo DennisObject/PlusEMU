@@ -234,6 +234,8 @@ public class Gamemap
             && settings.GetOptionalValue("pathfinding.engine") is "shadow" or "v2"
             && model.MapSizeX is > 0 and <= 256 && model.MapSizeY is > 0 and <= 256)
             Navigation = new(room, model, PathfindingSettings.Load(settings));
+        var legacyOccupancy = new LegacyGateOccupancy(this);
+        Gates = new(room, () => Navigation is { UsesExecutor: true } navigation ? navigation.GateOccupancy : legacyOccupancy);
         DiagonalEnabled = true;
         Model = new(StaticModel);
         _placementWidth = Model.MapSizeX;
@@ -249,6 +251,8 @@ public class Gamemap
 
     public RoomNavigation? Navigation { get; }
 
+    public GateTransitionService Gates { get; }
+
     public bool DiagonalEnabled { get; set; }
 
     public DynamicRoomModel Model { get; private set; }
@@ -261,6 +265,11 @@ public class Gamemap
 
     public void AddUserToMap(RoomUser user, Point coord)
     {
+        if (Navigation?.UsesExecutor == true)
+        {
+            if (user.Movement.RegisteredMapCoordinate is { } previous) RemoveUserFromMap(user, previous);
+            user.Movement.RegisteredMapCoordinate = coord;
+        }
         if (_userMap.ContainsKey(coord))
             _userMap[coord].Add(user);
         else
@@ -277,6 +286,11 @@ public class Gamemap
     {
         if (item == null || user == null)
             return;
+        if (Navigation is { UsesExecutor: true } navigation)
+        {
+            navigation.ForcePlace(user, item.GetX, item.GetY, item.GetZ, ForceResolution.ExactZ);
+            return;
+        }
         GameMap[user.X, user.Y] = user.SqState;
         UpdateUserMovement(new(user.Coordinate.X, user.Coordinate.Y), new(item.Coordinate.X, item.Coordinate.Y), user);
         user.X = item.GetX;
@@ -301,6 +315,15 @@ public class Gamemap
 
     public void RemoveUserFromMap(RoomUser user, Point coord)
     {
+        if (Navigation?.UsesExecutor == true)
+        {
+            // Walk-off callbacks run after map movement but before physical X/Y changes.
+            coord = user.Movement.RegisteredMapCoordinate ?? coord;
+            user.Movement.RegisteredMapCoordinate = null;
+            if (_userMap.TryGetValue(coord, out var registered))
+                registered.RemoveAll(other => ReferenceEquals(other, user));
+            return;
+        }
         if (_userMap.ContainsKey(coord))
             _userMap[coord].RemoveAll(x => x != null && x.VirtualId == user.VirtualId);
     }
@@ -422,6 +445,17 @@ public class Gamemap
         _roamTargets = null;
     }
 
+    // V2 only: the walkability ConstructMapForItem writes when an item is the top of its cell
+    // (1 walkable or an open floor gate, 3 seat/bed/small tent, otherwise 0). Mirrors that legacy rule.
+    internal byte ItemWalkState(Item item)
+    {
+        if (item.Definition.Walkable) return 1;
+        if (item.GetZ <= Model.SqFloorHeight[item.GetX, item.GetY] + 0.1 && item.Definition.InteractionType == InteractionType.Gate
+            && item.LegacyDataString == "1") return 1;
+        return item.Definition.IsSeat || item.Definition.InteractionType is InteractionType.Bed or InteractionType.TentSmall
+            ? (byte)3 : (byte)0;
+    }
+
     private byte StructuralTile(int x, int y)
     {
         var map = _structuralMap ?? GameMap;
@@ -467,6 +501,7 @@ public class Gamemap
 
     private void SetDefaultValue(int x, int y)
     {
+        Navigation?.ReleaseFloorStatus(x, y);
         GameMap[x, y] = 0;
         EffectMap[x, y] = 0;
         _itemHeightMap[x, y] = 0.0;
@@ -504,6 +539,7 @@ public class Gamemap
     private void GenerateMapsCore(bool checkLines)
     {
         Navigation?.Inputs.MarkAllDirty();
+        Navigation?.ReleaseFloorStatuses();
         var maxX = 0;
         var maxY = 0;
         _coordinatedItems = new();
@@ -638,6 +674,7 @@ public class Gamemap
             var walkMagic = WalkMagicAt(coord.X, coord.Y);
             if (walkMagic != null)
             {
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 GameMap[coord.X, coord.Y] = 1;
                 _itemHeightMap[coord.X, coord.Y] = walkMagic.GetZ - Model.SqFloorHeight[coord.X, coord.Y];
                 EffectMap[coord.X, coord.Y] = 0;
@@ -669,6 +706,7 @@ public class Gamemap
                 }
 
                 //SwimHalloween
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 if (item.Definition.Walkable) // If this item is walkable and on the floor, allow users to walk here.
                 {
                     if (GameMap[coord.X, coord.Y] != 3)
@@ -691,7 +729,10 @@ public class Gamemap
 
             // Set bad maps
             if (item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall)
+            {
+                Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 GameMap[coord.X, coord.Y] = 3;
+            }
             WriteStructural(coord.X, coord.Y, GameMap[coord.X, coord.Y]);
         }
         catch (Exception e)
@@ -1179,8 +1220,6 @@ public class Gamemap
             return IsValidBotStep(from, to, endOfPath);
         if (@override)
             return true;
-        if (!ValidTile(from.X, from.Y) || !TilesTouching(from.X, from.Y, to.X, to.Y) || !ValidCorner(from, to))
-            return false;
         /*
          * 0 = blocked
          * 1 = open
@@ -1235,7 +1274,6 @@ public class Gamemap
             if (user.Path.Count > 0)
                 user.Path.Clear();
             user.PathRecalcNeeded = true;
-            return false;
         }
         var heightDiff = SqAbsoluteHeight(to.X, to.Y) - SqAbsoluteHeight(from.X, from.Y);
         if (heightDiff > 1.5 && !user.RidingHorse)
@@ -1261,8 +1299,6 @@ public class Gamemap
                 return IsValidBotStep(from, to, endOfPath);
             return true;
         }
-        if (!ValidTile(from.X, from.Y) || !TilesTouching(from.X, from.Y, to.X, to.Y) || !ValidCorner(from, to))
-            return false;
         /*
          * 0 = blocked
          * 1 = open
@@ -1287,35 +1323,6 @@ public class Gamemap
                 return false;
         }
         return true;
-    }
-
-    private bool ValidCorner(Vector2D from, Vector2D to)
-    {
-        if (from.X == to.X || from.Y == to.Y)
-            return true;
-        var rule = PlusEnvironment.SettingsManager?.TryGetValue("pathfinding.corner_rule");
-        if (rule == "none")
-            return true;
-        var a = new Vector2D(to.X, from.Y);
-        var b = new Vector2D(from.X, to.Y);
-        if (!HasSurface(a) || !HasSurface(b))
-            return false;
-        var height = SqAbsoluteHeight(from.X, from.Y);
-        var aOpen = StructuralTile(a.X, a.Y) == 1 && SqAbsoluteHeight(a.X, a.Y) - height <= 1.5;
-        var bOpen = StructuralTile(b.X, b.Y) == 1 && SqAbsoluteHeight(b.X, b.Y) - height <= 1.5;
-        return rule == "strict" ? aOpen && bOpen : aOpen || bOpen;
-    }
-
-    private bool HasSurface(Vector2D tile)
-    {
-        if (!ValidTile(tile.X, tile.Y))
-            return false;
-        if (WalkMagicAt(tile.X, tile.Y) != null) return true;
-        // OpenSquare mutates the dynamic model when furniture is placed over void.
-        // Check the original model and current furniture so removed supports stay void.
-        return (tile.X < StaticModel.MapSizeX && tile.Y < StaticModel.MapSizeY &&
-                StaticModel.SqState[tile.X, tile.Y] != SquareState.Blocked) ||
-               GetAllRoomItemForSquare(tile.X, tile.Y).Any(item => !IgnoreStacktool(item));
     }
 
     public static bool CanWalk(byte state, bool overriding)

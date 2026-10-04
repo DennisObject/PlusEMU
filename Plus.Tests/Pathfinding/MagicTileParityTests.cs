@@ -72,7 +72,7 @@ public class MagicTileParityTests
     }
 
     [Fact]
-    public void WalkMagicOnVoidFlankAgreesWithOfficialLegacyCornerRuleAfterRemoval()
+    public void WalkMagicOnVoidFlankFollowsOfficialCornerRuleAfterRemoval()
     {
         WithSettings(true, () =>
         {
@@ -95,7 +95,6 @@ public class MagicTileParityTests
             void Check(bool expected)
             {
                 map.GenerateMaps(); navigation.Compiler.ApplyNow();
-                Assert.Equal(expected, map.IsValidStep(new(1, 1), new(2, 2), true, false, false));
                 var grid = navigation.Grid;
                 Assert.Equal(expected, new MovementRules(grid, navigation.Settings).CanStep(new(), grid.Position(5),
                     grid.Position(10), StepPurpose.Goal, OccupancyView.Planning).Ok);

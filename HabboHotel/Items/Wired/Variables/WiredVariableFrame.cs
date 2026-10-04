@@ -25,11 +25,28 @@ public sealed class WiredVariableFrame(uint roomId, IReadOnlyList<WiredVariableH
         ? holder.StableId == 0 && holder.EntityId == 0 : Holders.Contains(holder);
 }
 
+/// <summary>Proceed: run now. Deferred: queued whole. Stale: the target changed after reservation, before any evaluation.</summary>
+public enum WiredAdmission { Proceed, Deferred, Stale }
+
 public interface IWiredBuiltinVariables
 {
     bool HasValue(WiredVariableReference reference) => RoomWiredBuiltinVariables.HasNumericValue(reference);
     WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame);
     bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame);
+    /// <summary>True only for sources whose gate writes use the v2 per-gate sequencer; the module then admits writes.</summary>
+    bool SequencesGateWrites => false;
+
+    /// <summary>
+    /// Lets a source sequence a write. `deferred`: the whole transaction was queued for its owner task. Otherwise
+    /// run now; `transform` may have been replaced by its single, already evaluated result, and the returned scope
+    /// (if any) holds the source until the transaction, including its completion callback, has ended.
+    /// </summary>
+    IDisposable? Admit(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
+        Func<Func<int, int>, Action> replayWith, Func<bool> stillTargeted, out WiredAdmission admission)
+    {
+        admission = WiredAdmission.Proceed;
+        return null;
+    }
     /// <summary>Returns a local notification which the module invokes only after releasing its value lock.</summary>
     bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame, out Action? completed)
     {

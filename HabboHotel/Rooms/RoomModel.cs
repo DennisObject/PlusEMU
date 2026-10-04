@@ -76,6 +76,8 @@ public class RoomModel
 
     public bool CanCreate(UserAccess access)
     {
+        // AIR's stock creator omits these legacy models; neither has a newroom thumbnail.
+        if (Id is "model_s" or "model_wl") return false;
         var resolved = access.Capture();
         bool modelAllowed = RequiredClubLevel < 0
             ? resolved.Keys.Contains(PermissionKeys.NavigatorRoomModelsStaff)

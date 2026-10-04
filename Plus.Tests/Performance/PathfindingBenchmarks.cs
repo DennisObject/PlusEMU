@@ -77,6 +77,37 @@ public class PathfindingBenchmarks
         }
     }
 
+    [Fact]
+    public void MeasureLayeredSearch()
+    {
+        var output = Environment.GetEnvironmentVariable("PLUSEMU_PATHFINDING_BENCHMARK");
+        if (string.IsNullOrEmpty(output)) return;
+        var results = new List<string> { $"Runtime={Environment.Version}; Release/AnyCPU; µs/search; warmed; same records, layering off (K=1) vs on (K=2)" };
+        foreach (var layered in new[] { false, true })
+        {
+            // 64² floor with a zero-height deck at Z 1 over every even column: K=2 doubles those nodes.
+            var settings = new PathfindingSettings { LayeringEnabled = layered };
+            var (grid, inputs, compiler) = Plus.Tests.Pathfinding.NavTest.Create(64, 64, settings);
+            uint id = 1;
+            for (var t = 0; t < 64 * 64; t++)
+                if (t % 64 % 2 == 0) inputs.Publish(Plus.Tests.Pathfinding.NavTest.Record(id, id++, [t], z: 1));
+            compiler.ApplyNow();
+            var search = new PathSearch(grid, settings); var route = new Route();
+            var request = new SearchRequest(new ActorProfile(), grid.Position(grid.SurfaceAt(grid.Tile(1, 1), 0)), 62, 62);
+            using var lease = PathWorkspacePool.Rent(grid.SlotCapacity, grid.ActiveNodeCount);
+            var ws = lease.Workspace;
+            for (var i = 0; i < 50; i++) Assert.Equal(PathOutcome.Found, search.Find(request, ws, route));
+            var samples = new double[2000];
+            var allocated = GC.GetAllocatedBytesForCurrentThread();
+            for (var i = 0; i < samples.Length; i++) { var start = Stopwatch.GetTimestamp(); search.Find(request, ws, route); samples[i] = Microseconds(start); }
+            var bytes = (GC.GetAllocatedBytesForCurrentThread() - allocated) / samples.Length;
+            results.Add(Report($"64² decked columns K={(layered ? 2 : 1)}", samples, bytes)
+                + $"; expansions={ws.Expansions}; CanStep={ws.CanStepCalls}; heap_ops={ws.HeapOperations}; route_steps={route.Count}");
+            results.Add($"  slots={grid.SlotCapacity}; active_nodes={grid.ActiveNodeCount}; grid+connectivity={grid.RetainedBytes:N0}B; workspace={ws.RetainedBytes:N0}B");
+        }
+        File.WriteAllLines(output + ".layered", results);
+    }
+
     private static char[][] Open(int size) => Enumerable.Range(0, size).Select(_ => new string('0', size).ToCharArray()).ToArray();
     private static double Microseconds(long start) => (Stopwatch.GetTimestamp() - start) * 1e6 / Stopwatch.Frequency;
     private static string Report(string name, double[] times, long bytes)

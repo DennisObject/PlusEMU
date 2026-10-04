@@ -86,12 +86,67 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         int value, WiredVariableFrame frame, int origin = 0) => Change(reference, holder, mutation, _ => value, frame, origin);
 
     /// <summary>Arithmetic reads and writes the same locked value, including through references in another room.</summary>
+    // Test seam: runs between target resolution and admission, with the attempt number.
+    internal Action<int>? ResolutionHook { get; set; }
+
+    private const int AdmissionAttempts = 3;
+
     public bool Change(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
         Func<int, int> transform, WiredVariableFrame frame, int origin = 0)
     {
+        // v2 gate writes are admitted to the per-gate sequencer; everything else runs the original path.
+        if (builtins?.SequencesGateWrites == true)
+            return ChangeAdmitted(reference, holder, mutation, transform, frame, origin, admittedTarget: null);
         Action? completed;
         bool changed;
         lock (_gate) changed = ChangeLocked(reference, holder, mutation, transform, frame, origin, out completed);
+        if (changed) completed?.Invoke();
+        return changed;
+    }
+
+    // Aliases are resolved before admission so the gate lane sees the real target, without holding the module lock
+    // across it. The admitted target is then compared with the fresh authorized resolution under the lock: a fresh
+    // write retries admission a few times, a replay (which carries its admitted target) refuses on any mismatch.
+    private bool ChangeAdmitted(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
+        Func<int, int> transform, WiredVariableFrame frame, int origin, WiredVariableReference? admittedTarget)
+    {
+        for (var attempt = 1; attempt <= (admittedTarget is null ? AdmissionAttempts : 1); attempt++)
+        {
+            var target = admittedTarget ?? WriteTarget(reference);
+            ResolutionHook?.Invoke(attempt);
+            var effective = transform;
+            var admission = WiredAdmission.Proceed;
+            IDisposable? scope = null;
+            if (builtins != null)
+                scope = builtins.Admit(target, holder, ref effective,
+                    replayed => () => ChangeAdmitted(reference, holder, mutation, replayed, frame, origin, target),
+                    () => admittedTarget is not null || WriteTarget(reference) == target, out admission);
+            // The admission, if any, is held until the completion callback has run.
+            using (scope)
+            {
+                if (admission == WiredAdmission.Deferred) return true;
+                if (admission == WiredAdmission.Stale) continue;
+                // A transform already evaluated against an old target is never reused or re-run.
+                var evaluated = !ReferenceEquals(effective, transform);
+                var changed = ChangeIfTargetHolds(reference, holder, mutation, effective, frame, origin, target,
+                    retryable: admittedTarget is null && !evaluated);
+                if (changed is { } result) return result;
+            }
+        }
+        return false;
+    }
+
+    // Null when the target moved and a fresh write may retry admission.
+    private bool? ChangeIfTargetHolds(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
+        Func<int, int> transform, WiredVariableFrame frame, int origin, WiredVariableReference target, bool retryable)
+    {
+        Action? completed;
+        bool changed;
+        lock (_gate)
+        {
+            if (WriteTargetLocked(reference) != target) return retryable ? null : false;
+            changed = ChangeLocked(reference, holder, mutation, transform, frame, origin, out completed);
+        }
         if (changed) completed?.Invoke();
         return changed;
     }
@@ -293,6 +348,17 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
     private bool HasValue(Resolved resolved) => resolved.Definition?.HasValue
         ?? (resolved.Builtin is { } builtin && builtins?.HasValue(builtin) == true);
+
+    private WiredVariableReference WriteTarget(WiredVariableReference reference)
+    {
+        lock (_gate) return WriteTargetLocked(reference);
+    }
+
+    // The authorized final target: the builtin it echoes, otherwise the stored definition at the end of the alias chain.
+    private WiredVariableReference WriteTargetLocked(WiredVariableReference reference)
+        => Resolve(reference, true) is { } resolved
+            ? resolved.Builtin ?? new(reference.Target, resolved.Definition!.Token)
+            : reference;
 
     private Resolved? Resolve(WiredVariableReference reference, bool writing, IWiredVariableDirectory? readDirectory = null)
     {

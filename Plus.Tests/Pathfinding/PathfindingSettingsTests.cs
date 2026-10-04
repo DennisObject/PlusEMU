@@ -41,6 +41,19 @@ public class PathfindingSettingsTests
         Assert.Null(settings.MaxExpansionsPerSearch); Assert.Equal(1, settings.ShadowLogSample);
     }
 
+    [Theory]
+    [InlineData("0", 1)]
+    [InlineData("1", 1)]
+    [InlineData("4", 4)]
+    [InlineData("9", 4)]
+    [InlineData("x", 2)]
+    public void MaxSurfacesPerTileIsClampedToTheSurfaceKeyLimit(string value, int expected)
+    {
+        var settings = PathfindingSettings.Load(new Settings(new() { ["pathfinding.max_surfaces_per_tile"] = value }));
+        Assert.Equal(expected, settings.MaxSurfacesPerTile);
+        Assert.False(settings.LayeringEnabled);
+    }
+
     private sealed class Settings(Dictionary<string, string> values) : ISettingsManager
     {
         public Dictionary<string, string> Values => values;
