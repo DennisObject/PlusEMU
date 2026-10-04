@@ -357,6 +357,7 @@ public sealed class WiredNativeLifecycleTests
             var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);
             var users = new RoomUserManager(Room, TestRoomUserStore.Instance); Set(Room, "_roomUserManager", users);
+            TestRoomUserSnapshots.Install(Room);
             typeof(Gamemap).GetProperty("GameMap")!.SetValue(Map, new byte[3, 3]);
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(Map, new byte[3, 3]);
             _items = (ConcurrentDictionary<uint, Item>)Get(handler, "_floorItems");

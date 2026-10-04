@@ -192,6 +192,7 @@ public class StressBotTests
         var manager = new RoomUserManager(room, TestRoomUserStore.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
+        TestRoomUserSnapshots.Install(room);
         return (manager, map);
     }
 
