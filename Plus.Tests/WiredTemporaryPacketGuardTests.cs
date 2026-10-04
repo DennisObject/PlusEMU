@@ -163,6 +163,7 @@ public class WiredTemporaryPacketGuardTests
         if (name.Contains("MoveWall")) output.WriteString(":w=1,1 l=1,1 l");
         else if (name.Contains("SetMannequinName")) output.WriteString("changed");
         else if (name.Contains("FriendFurni")) output.WriteBoolean(true);
+        else if (name.Contains("ApplyHorse")) output.WriteInteger(42);
         else if (name.Contains("GetGroupFurni")) output.WriteInteger(0);
         else if (name.Contains("UpdateMagicTile")) output.WriteInteger(500);
         return new() { Buffer = stream.ToArray().AsMemory(6) };
