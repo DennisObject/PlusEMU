@@ -24,7 +24,7 @@ public static class RewardTrackRules
         return step;
     }
 
-    public static int PreviewClaim(RewardTrack? track, UserRewardTrackState? state, string? prizeId)
+    public static RewardTrackResults PreviewClaim(RewardTrack? track, UserRewardTrackState? state, string? prizeId)
     {
         if (track == null || state == null || string.IsNullOrEmpty(prizeId))
             return RewardTrackResults.Unknown;

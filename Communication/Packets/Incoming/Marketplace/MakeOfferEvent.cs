@@ -27,7 +27,7 @@ internal class MakeOfferEvent : IPacketEvent
         var item = session.GetHabbo().Inventory.Furniture.GetItem(itemId);
         if (item == null)
         {
-            session.Send(new MarketplaceMakeOfferResultComposer(0));
+            session.Send(new MarketplaceMakeOfferResultComposer(MarketplaceOfferResult.Rejected));
             return Task.CompletedTask;
         }
         // TODO @80O: Add configuration option to limit Marketplace to rares & LTD
@@ -38,7 +38,7 @@ internal class MakeOfferEvent : IPacketEvent
         //}
         if (sellingPrice > 70000000 || sellingPrice == 0)
         {
-            session.Send(new MarketplaceMakeOfferResultComposer(0));
+            session.Send(new MarketplaceMakeOfferResultComposer(MarketplaceOfferResult.Rejected));
             return Task.CompletedTask;
         }
         var comission = _marketplaceManager.CalculateComissionPrice(sellingPrice);
@@ -58,7 +58,7 @@ internal class MakeOfferEvent : IPacketEvent
         }
         session.GetHabbo().Inventory.Furniture.RemoveItem(itemId);
         session.Send(new FurniListRemoveComposer(itemId));
-        session.Send(new MarketplaceMakeOfferResultComposer(1));
+        session.Send(new MarketplaceMakeOfferResultComposer(MarketplaceOfferResult.Accepted));
         return Task.CompletedTask;
     }
 }

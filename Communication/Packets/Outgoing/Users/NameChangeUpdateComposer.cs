@@ -5,19 +5,19 @@ namespace Plus.Communication.Packets.Outgoing.Users;
 public class NameChangeUpdateComposer : IServerPacket
 {
     private readonly string _name;
-    private readonly int _error;
+    private readonly NameChangeError _error;
     private readonly ICollection<string> _tags;
 
     public uint MessageId => ServerPacketHeader.NameChangeUpdateComposer;
 
-    public NameChangeUpdateComposer(string name, int error, ICollection<string> tags)
+    public NameChangeUpdateComposer(string name, NameChangeError error, ICollection<string> tags)
     {
         _name = name;
         _error = error;
         _tags = tags;
     }
 
-    public NameChangeUpdateComposer(string name, int error)
+    public NameChangeUpdateComposer(string name, NameChangeError error)
     {
         _name = name;
         _error = error;
@@ -26,7 +26,7 @@ public class NameChangeUpdateComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_error);
+        packet.WriteInteger((int)_error);
         packet.WriteString(_name);
         packet.WriteInteger(_tags.Count);
         foreach (var tag in _tags) packet.WriteString(_name + tag);

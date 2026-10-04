@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using Plus.Communication.Packets;
+using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.Permissions;
 using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Handshake;
@@ -332,7 +333,7 @@ public class RoomUserManager
             if (session == null || session.GetHabbo() == null)
                 return;
             if (notifyKick)
-                session.Send(new GenericErrorComposer(4008));
+                session.Send(new GenericErrorComposer(GenericError.KickedFromRoom));
             if (nofityUser)
                 session.Send(new CloseConnectionComposer());
             if (session.GetHabbo().TentId > 0)

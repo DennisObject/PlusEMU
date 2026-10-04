@@ -47,33 +47,33 @@ internal class InitTradeEvent : IPacketEvent
         {
             if (room.TradeSettings == 0)
             {
-                session.Send(new TradingErrorComposer(6, targetUser.GetUsername()));
+                session.Send(new TradingErrorComposer(TradingError.RoomDisallowsTrading, targetUser.GetUsername()));
                 return Task.CompletedTask;
             }
             if (room.TradeSettings == 1 && room.OwnerId != session.GetHabbo().Id)
             {
-                session.Send(new TradingErrorComposer(6, targetUser.GetUsername()));
+                session.Send(new TradingErrorComposer(TradingError.RoomDisallowsTrading, targetUser.GetUsername()));
                 return Task.CompletedTask;
             }
         }
         if (roomUser.IsTrading && roomUser.TradePartner != targetUser.UserId)
         {
-            session.Send(new TradingErrorComposer(7, targetUser.GetUsername()));
+            session.Send(new TradingErrorComposer(TradingError.AlreadyTrading, targetUser.GetUsername()));
             return Task.CompletedTask;
         }
         if (targetUser.IsTrading && targetUser.TradePartner != roomUser.UserId)
         {
-            session.Send(new TradingErrorComposer(8, targetUser.GetUsername()));
+            session.Send(new TradingErrorComposer(TradingError.PartnerAlreadyTrading, targetUser.GetUsername()));
             return Task.CompletedTask;
         }
         if (!targetUser.GetClient().GetHabbo().AllowTradingRequests)
         {
-            session.Send(new TradingErrorComposer(4, targetUser.GetUsername()));
+            session.Send(new TradingErrorComposer(TradingError.PartnerUnavailable, targetUser.GetUsername()));
             return Task.CompletedTask;
         }
         if (targetUser.GetClient().GetHabbo().TradingLockExpiry > 0)
         {
-            session.Send(new TradingErrorComposer(4, targetUser.GetUsername()));
+            session.Send(new TradingErrorComposer(TradingError.PartnerUnavailable, targetUser.GetUsername()));
             return Task.CompletedTask;
         }
         if (!room.GetTrading().StartTrade(roomUser, targetUser, out var trade))

@@ -33,12 +33,12 @@ public abstract class HabbiconRequest(IHabbiconService service, ILogger<Habbicon
         }
         catch (HabbiconRejected rejected)
         {
-            if (purchase) session.Send(new PurchaseErrorComposer(rejected.Code));
+            if (purchase) session.Send(new PurchaseErrorComposer((PurchaseError)rejected.Code));
         }
         catch (MySqlException exception)
         {
             logger.LogError(exception, "Unable to process Habbicon request for {UserId}", session.GetHabbo().Id);
-            if (purchase) session.Send(new PurchaseErrorComposer(5));
+            if (purchase) session.Send(new PurchaseErrorComposer(PurchaseError.DeliveryFailed));
         }
         return Task.CompletedTask;
     }

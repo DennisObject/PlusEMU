@@ -4,17 +4,17 @@ namespace Plus.Communication.Packets.Outgoing.Moderation;
 
 public class ModeratorSupportTicketResponseComposer : IServerPacket
 {
-    private readonly int _result;
+    private readonly SupportTicketResult _result;
     public uint MessageId => ServerPacketHeader.ModeratorSupportTicketResponseComposer;
 
-    public ModeratorSupportTicketResponseComposer(int result)
+    public ModeratorSupportTicketResponseComposer(SupportTicketResult result)
     {
         _result = result;
     }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_result);
+        packet.WriteInteger((int)_result);
         packet.WriteString("");
     }
 }

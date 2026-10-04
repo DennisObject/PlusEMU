@@ -22,13 +22,13 @@ internal class SubmitBullyReportEvent : IPacketEvent
             return Task.CompletedTask;
         if (session.GetHabbo().AdvertisingReportedBlocked)
         {
-            session.Send(new SubmitBullyReportComposer(1)); //This user is blocked from reporting.
+            session.Send(new SubmitBullyReportComposer(BullyReportResult.Blocked)); //This user is blocked from reporting.
             return Task.CompletedTask;
         }
         var client = _clientManager.GetClientByUserId(Convert.ToInt32(userId));
         if (client == null)
         {
-            session.Send(new SubmitBullyReportComposer(0)); //Just say it's sent, the user isn't found.
+            session.Send(new SubmitBullyReportComposer(BullyReportResult.Sent)); //Just say it's sent, the user isn't found.
             return Task.CompletedTask;
         }
         if (session.GetHabbo().LastAdvertiseReport > UnixTimestamp.GetNow())
@@ -45,14 +45,14 @@ internal class SubmitBullyReportEvent : IPacketEvent
         //This user hasn't even said a word, nope!
         if (!client.GetHabbo().HasSpoken)
         {
-            session.Send(new SubmitBullyReportComposer(2));
+            session.Send(new SubmitBullyReportComposer(BullyReportResult.NoChat));
             return Task.CompletedTask;
         }
 
         //Already reported, nope.
         if (client.GetHabbo().AdvertisingReported && !session.GetHabbo().Access.Can(PermissionKeys.ChatReportUnlimited))
         {
-            session.Send(new SubmitBullyReportComposer(3));
+            session.Send(new SubmitBullyReportComposer(BullyReportResult.AlreadyReported));
             return Task.CompletedTask;
         }
         if (!session.GetHabbo().Access.Can(PermissionKeys.ChatReportUnlimited))
@@ -60,7 +60,7 @@ internal class SubmitBullyReportEvent : IPacketEvent
         else
             session.GetHabbo().LastAdvertiseReport = UnixTimestamp.GetNow();
         client.GetHabbo().AdvertisingReported = true;
-        session.Send(new SubmitBullyReportComposer(0));
+        session.Send(new SubmitBullyReportComposer(BullyReportResult.Sent));
         //_clientManager.ModAlert("New advertising report! " + Client.GetHabbo().Username + " has been reported for advertising by " + Session.GetHabbo().Username +".");
         _clientManager.DoAdvertisingReport(session, client);
         return Task.CompletedTask;

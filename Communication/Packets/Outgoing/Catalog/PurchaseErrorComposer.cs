@@ -4,14 +4,13 @@ namespace Plus.Communication.Packets.Outgoing.Catalog;
 
 public class PurchaseErrorComposer : IServerPacket
 {
-    private readonly int _errorCode;
+    private readonly PurchaseError _errorCode;
     public uint MessageId => ServerPacketHeader.PurchaseErrorComposer;
 
-    public PurchaseErrorComposer(int errorCode)
+    public PurchaseErrorComposer(PurchaseError errorCode)
     {
-        // TODO @80O: Convert to enum
         _errorCode = errorCode;
     }
 
-    public void Compose(IOutgoingPacket packet) => packet.WriteInteger(_errorCode);
+    public void Compose(IOutgoingPacket packet) => packet.WriteInteger((int)_errorCode);
 }

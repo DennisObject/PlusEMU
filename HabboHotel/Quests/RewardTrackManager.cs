@@ -549,10 +549,10 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
             session.Send(composer);
     }
 
-    private void LogClaim(int userId, string trackId, string prizeId, int result) =>
+    private void LogClaim(int userId, string trackId, string prizeId, RewardTrackResults result) =>
         _logger.LogInformation("Reward track claim user {UserId} track {TrackId} prize {PrizeId} result {Result}", userId, trackId, prizeId, result);
 
-    private void LogPremium(int userId, string trackId, int result) =>
+    private void LogPremium(int userId, string trackId, RewardTrackResults result) =>
         _logger.LogInformation("Reward track premium user {UserId} track {TrackId} result {Result}", userId, trackId, result);
 
     private sealed class TrackRow

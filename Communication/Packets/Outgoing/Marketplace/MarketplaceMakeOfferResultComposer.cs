@@ -4,13 +4,13 @@ namespace Plus.Communication.Packets.Outgoing.Marketplace;
 
 public class MarketplaceMakeOfferResultComposer : IServerPacket
 {
-    private readonly int _success;
+    private readonly MarketplaceOfferResult _success;
     public uint MessageId => ServerPacketHeader.MarketplaceMakeOfferResultComposer;
 
-    public MarketplaceMakeOfferResultComposer(int success)
+    public MarketplaceMakeOfferResultComposer(MarketplaceOfferResult success)
     {
         _success = success;
     }
 
-    public void Compose(IOutgoingPacket packet) => packet.WriteInteger(_success);
+    public void Compose(IOutgoingPacket packet) => packet.WriteInteger((int)_success);
 }

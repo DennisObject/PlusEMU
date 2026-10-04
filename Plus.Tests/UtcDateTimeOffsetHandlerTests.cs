@@ -1,3 +1,4 @@
+using Xunit;
 using Plus.Database;
 
 namespace Plus.Tests;

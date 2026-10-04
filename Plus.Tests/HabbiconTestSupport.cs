@@ -1,3 +1,4 @@
+using Plus.Communication.Packets;
 using System.Buffers.Binary;
 using System.Reflection;
 using System.Text;
@@ -76,7 +77,7 @@ internal static class HabbiconTestSupport
         public HabbiconChange Change(Habbo habbo, HabbiconAction action, int id)
         {
             Actions.Add((action, id));
-            if (Rejection is { } code) throw new HabbiconRejected(code);
+            if (Rejection is { } code) throw new HabbiconRejected((HabbiconActionError)code);
             return new(Data, new[] { Data.RequireItem(61) }, null);
         }
         public HabbiconChange BuyCatalog(Habbo habbo, int id, int credits, int duckets, int diamonds) => throw new NotImplementedException();

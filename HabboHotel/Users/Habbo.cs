@@ -1,3 +1,4 @@
+using Plus.Communication.Packets;
 using System.Collections;
 using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Handshake;
@@ -390,7 +391,7 @@ public class Habbo
         }
         if (room.GetRoomUserManager().UserCount >= room.UsersMax && !Access.Can(PermissionKeys.RoomEnterFull) && Client.GetHabbo().Id != room.OwnerId)
         {
-            Client.Send(new CantConnectComposer(1));
+            Client.Send(new CantConnectComposer(RoomConnectionError.Full));
             Client.Send(new CloseConnectionComposer());
             return;
         }
@@ -398,7 +399,7 @@ public class Habbo
         {
             RoomAuthOk = false;
             Client.GetHabbo().RoomAuthOk = false;
-            Client.Send(new CantConnectComposer(4));
+            Client.Send(new CantConnectComposer(RoomConnectionError.Banned));
             Client.Send(new CloseConnectionComposer());
             return;
         }
@@ -421,7 +422,7 @@ public class Habbo
             {
                 if (password.ToLower() != room.Password.ToLower() || string.IsNullOrWhiteSpace(password))
                 {
-                    Client.Send(new GenericErrorComposer(-100002));
+                    Client.Send(new GenericErrorComposer(GenericError.WrongRoomPassword));
                     Client.Send(new CloseConnectionComposer());
                     return;
                 }

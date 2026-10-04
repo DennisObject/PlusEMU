@@ -348,10 +348,10 @@ public class RewardTrackLiveTests
         }
 
         /// <summary>Result code of the last RewardTrackClaimResult: string track, string prize, int result.</summary>
-        public int ClaimResult()
+        public RewardTrackResults ClaimResult()
         {
             var body = _bodies[Sent.LastIndexOf(9451)];
-            return BinaryPrimitives.ReadInt32BigEndian(body.AsSpan(body.Length - 4));
+            return (RewardTrackResults)BinaryPrimitives.ReadInt32BigEndian(body.AsSpan(body.Length - 4));
         }
 
         internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer) =>

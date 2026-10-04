@@ -206,8 +206,8 @@ public class HabbiconDatabaseTests
         HabbiconMessagesForTest(client, await purchase);
         var balance = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = sent.Single(p => p.Header == Plus.Communication.Packets.Outgoing.ServerPacketHeader.CreditBalanceComposer).Payload };
         Assert.Equal("105.0", balance.ReadString());
-        string shutdown = habbo.GetQueryString;
-        Assert.Contains("`credits` = '105'", shutdown);
+        SaveWallet(habbo);
+        Assert.Equal(105, Scalar("SELECT credits FROM users WHERE id = 910001"));
         Assert.Equal(1, Assert.Throws<HabbiconRejected>(() => _service.Change(habbo, HabbiconAction.Buy, 62)).Code);
         Assert.False(await give.TryExecute(new[] { UserId.ToString(), "credits", "10" }));
         Assert.Equal(105, habbo.Credits);
@@ -280,7 +280,7 @@ public class HabbiconDatabaseTests
         _database.BeforeConnection = null;
         Assert.Equal(95, habbo.Credits);
         Assert.Equal(95, Scalar("SELECT credits FROM users WHERE id = 910001"));
-        _ = habbo.GetQueryString;
+        SaveWallet(habbo);
         Assert.False(await sync.TryExecute(new[] { UserId.ToString(), "credits" }));
         Assert.False(await sync.TryExecute(new[] { UserId.ToString(), "duckets" }));
         Assert.False(await sync.TryExecute(new[] { UserId.ToString(), "diamonds" }));
@@ -308,13 +308,21 @@ public class HabbiconDatabaseTests
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM items WHERE id = 910005"));
         Assert.Empty(habbo.Inventory.Furniture.AllItems);
         sent.Clear();
-        _ = habbo.GetQueryString;
+        SaveWallet(habbo);
         voucher.Id = 910006;
         Plus.HabboHotel.Rooms.Trading.Trade.ReceiveTradedItem(client, voucher, true, adapter);
         Assert.Equal(110, habbo.Credits);
         Assert.Same(voucher, habbo.Inventory.Furniture.GetItem(910006));
         Assert.Equal(UserId, Scalar("SELECT user_id FROM items WHERE id = 910006"));
         Assert.DoesNotContain(sent, packet => packet.Header == Plus.Communication.Packets.Outgoing.ServerPacketHeader.CreditBalanceComposer);
+    }
+
+    private void SaveWallet(Habbo habbo)
+    {
+        Execute("INSERT IGNORE INTO users_settings (user_id) VALUES (910001); INSERT IGNORE INTO user_statistics (id) VALUES (910001)");
+        habbo.SessionStartedAt = DateTimeOffset.UtcNow;
+        habbo.Persistence = new UserPersistenceService(_database, TimeProvider.System);
+        habbo.Save();
     }
 
     private void Execute(string sql) { using var connection = _database.Connection(); connection.Execute(sql); }

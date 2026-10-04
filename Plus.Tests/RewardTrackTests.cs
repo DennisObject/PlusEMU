@@ -166,10 +166,10 @@ public class RewardTrackTests
         new RewardTrackProgressComposer("introduction", "chat_with_users", 5, 10).Compose(progress);
         Assert.Equal(new object[] { "introduction", "chat_with_users", 5, 10 }, progress.Writes);
         var claim = new RecordingPacket();
-        new RewardTrackClaimResultComposer("introduction", "track_champ", 2).Compose(claim);
+        new RewardTrackClaimResultComposer("introduction", "track_champ", RewardTrackResults.NotEnoughPoints).Compose(claim);
         Assert.Equal(new object[] { "introduction", "track_champ", 2 }, claim.Writes);
         var premium = new RecordingPacket();
-        new RewardTrackPremiumPurchaseResultComposer("introduction", 5, 0).Compose(premium);
+        new RewardTrackPremiumPurchaseResultComposer("introduction", RewardTrackResults.NotEnoughCurrency, 0).Compose(premium);
         Assert.Equal(new object[] { "introduction", 5, 0 }, premium.Writes);
     }
 

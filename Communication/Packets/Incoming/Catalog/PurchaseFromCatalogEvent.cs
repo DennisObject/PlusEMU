@@ -78,7 +78,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             return;
         if (page.Layout is "club_buy" or "vip_buy" or "loyalty_vip_buy")
         {
-            if (amount != 1) { session.Send(new PurchaseErrorComposer(0)); return; }
+            if (amount != 1) { session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable)); return; }
             PurchaseClubOffer(session, itemId);
             return;
         }
@@ -89,19 +89,19 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         {
             try
             {
-                if (amount != 1 || item.Amount != 1 || item.IsLimited) throw new HabbiconRejected(1);
+                if (amount != 1 || item.Amount != 1 || item.IsLimited) throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
                 var change = _habbicons.BuyCatalog(session.GetHabbo(), item.HabbiconId, item.CostCredits, item.CostPixels, item.CostDiamonds);
                 HabbiconMessages.Publish(session, change);
                 session.Send(new PurchaseOkComposer());
             }
             catch (HabbiconRejected rejected)
             {
-                session.Send(new PurchaseErrorComposer(rejected.Code));
+                session.Send(new PurchaseErrorComposer((PurchaseError)rejected.Code));
             }
             catch (MySqlConnector.MySqlException exception)
             {
                 ExceptionLogger.LogException(exception);
-                session.Send(new PurchaseErrorComposer(5));
+                session.Send(new PurchaseErrorComposer(PurchaseError.DeliveryFailed));
             }
             return;
         }
@@ -167,7 +167,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             {
                 if (session.GetHabbo().Inventory.Badges.HasBadge(item.Definition.ItemName))
                 {
-                    session.Send(new PurchaseErrorComposer(1));
+                    session.Send(new PurchaseErrorComposer(PurchaseError.Rejected));
                     return;
                 }
                 break;
@@ -390,7 +390,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             expiry = _clubMemberships.Purchase(habbo, offer);
         if (expiry == null)
         {
-            session.Send(new PurchaseErrorComposer(0));
+            session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable));
             return;
         }
         if (offer.Credits > 0)

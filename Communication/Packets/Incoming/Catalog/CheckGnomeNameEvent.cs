@@ -32,12 +32,12 @@ internal class CheckGnomeNameEvent : RoomPacketEvent
         var petName = packet.ReadString();
         if (string.IsNullOrEmpty(petName))
         {
-            session.Send(new CheckGnomeNameComposer(petName, 1));
+            session.Send(new CheckGnomeNameComposer(petName, PetPackageNameError.InvalidName));
             return Task.CompletedTask;
         }
         if (!PetUtility.CheckPetName(petName))
         {
-            session.Send(new CheckGnomeNameComposer(petName, 1));
+            session.Send(new CheckGnomeNameComposer(petName, PetPackageNameError.InvalidName));
             return Task.CompletedTask;
         }
         var x = item.GetX;
@@ -53,7 +53,7 @@ internal class CheckGnomeNameEvent : RoomPacketEvent
             return Task.CompletedTask;
         }
         room.GetRoomItemHandler().RemoveFurniture(session, item.Id);
-        session.Send(new CheckGnomeNameComposer(petName, 0));
+        session.Send(new CheckGnomeNameComposer(petName, PetPackageNameError.None));
         var rndSpeechList = new List<RandomSpeech>();
 
         //Make a RoomUser of the pet.
