@@ -43,7 +43,9 @@ public sealed class RoomComponentDatabaseTests
                     timestamp_start DOUBLE NOT NULL, timestamp_expire DOUBLE NOT NULL, category_id INT NOT NULL);
                 CREATE TABLE items (id INT UNSIGNED PRIMARY KEY, user_id INT NOT NULL, room_id INT UNSIGNED NOT NULL DEFAULT 0,
                     x INT NOT NULL DEFAULT 0, y INT NOT NULL DEFAULT 0, z DOUBLE NOT NULL DEFAULT 0, rot INT NOT NULL DEFAULT 0,
-                    extra_data TEXT, wall_pos VARCHAR(100));
+                    extra_data TEXT, wall_pos VARCHAR(100), base_item INT UNSIGNED NOT NULL DEFAULT 0,
+                    limited_number INT UNSIGNED NOT NULL DEFAULT 0, limited_stack INT UNSIGNED NOT NULL DEFAULT 0);
+                CREATE TABLE users (id INT PRIMARY KEY, username VARCHAR(100));
                 CREATE TABLE logs_client_trade (
                     id INT AUTO_INCREMENT PRIMARY KEY, `1id` INT, `2id` INT, `1items` TEXT, `2items` TEXT, `timestamp` CHAR(20));
                 CREATE TABLE rooms (id INT UNSIGNED PRIMARY KEY, users_now INT NOT NULL DEFAULT 0);
@@ -58,6 +60,9 @@ public sealed class RoomComponentDatabaseTests
                 INSERT INTO bots_petdata VALUES (11, 2, '3', 'ffffff', 4, 5, 6, 7, 8.5, 1, 0, 9, 10, 'hat');
                 INSERT INTO room_promotions VALUES (42, 'Featured', 'Actual row', UNIX_TIMESTAMP() - 10, UNIX_TIMESTAMP() + 600, 3);
                 INSERT INTO items (id, user_id) VALUES (90, 1), (91, 1);
+                INSERT INTO users VALUES (7, 'owner');
+                INSERT INTO items (id, user_id, room_id, x, y, z, rot, extra_data, wall_pos, base_item, limited_number, limited_stack)
+                    VALUES (92, 7, 42, 2, 3, 2, 4, '100;1', '', 500, 6, 7), (93, 7, 42, 0, 0, 0, 0, '', '', 999, 0, 0);
                 INSERT INTO rooms VALUES (42, 0);
                 INSERT INTO user_roomvisits VALUES (42, 7, 0);
                 """);
@@ -102,6 +107,17 @@ public sealed class RoomComponentDatabaseTests
                 "SELECT experience, energy, nutrition, respect FROM bots_petdata WHERE id = 11"));
             Assert.Equal("pet", connection.QuerySingle<string>("SELECT ai_type FROM bots WHERE id = 13"));
             Assert.Throws<InvalidOperationException>(() => new RoomUserStore(new FailingDatabase()).UpdateUserCount(42, 0));
+            var definition = new Plus.HabboHotel.Items.ItemDefinition
+            {
+                Id = 500, Type = Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor,
+                InteractionType = Plus.HabboHotel.Items.InteractionType.WalkMagicTile
+            };
+            var loadedFurniture = new RoomFurnitureLoader(new ProbeDatabase(databaseConnection), new TestItemDataManager(definition)).Load(42);
+            var loadedItem = Assert.Single(loadedFurniture);
+            Assert.Equal((92u, 7u, "owner", 2, 3, 2d, 4, 6u, 7u),
+                (loadedItem.Id, loadedItem.OwnerId, loadedItem.Username, loadedItem.GetX, loadedItem.GetY, loadedItem.GetZ,
+                    loadedItem.Rotation, loadedItem.UniqueNumber, loadedItem.UniqueSeries));
+            Assert.Equal("200;1", loadedItem.LegacyDataString);
         }
         finally
         {
@@ -122,5 +138,13 @@ public sealed class RoomComponentDatabaseTests
         public bool IsConnected() => false;
         [Obsolete] public Plus.Database.Interfaces.IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public System.Data.IDbConnection Connection() => throw new InvalidOperationException("injected persistence failure");
+    }
+
+    private sealed class TestItemDataManager(Plus.HabboHotel.Items.ItemDefinition definition) : Plus.HabboHotel.Items.IItemDataManager
+    {
+        public void Init() { }
+        public Plus.HabboHotel.Items.ItemDefinition GetItemByName(string name) => definition;
+        public Dictionary<int, uint> Gifts { get; } = [];
+        public Dictionary<uint, Plus.HabboHotel.Items.ItemDefinition> Items { get; } = new() { [definition.Id] = definition };
     }
 }

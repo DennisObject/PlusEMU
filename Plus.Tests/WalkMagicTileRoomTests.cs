@@ -397,27 +397,7 @@ public partial class PlacedFurniRoomTests
         definition.Height = 0;
         var store = new RecordingRoomItemStore();
         Set("_roomItemHandling", new RoomItemHandling(_room, store));
-        var query = Proxy<Plus.Database.Interfaces.IQueryAdapter>((method, args) =>
-        {
-            return method == "GetTable" ? row.Table : null;
-        });
-        _databaseField.SetValue(null, Proxy<Plus.Database.IDatabase>((method, _) => method switch
-        {
-            "GetQueryReactor" => query,
-            "Connection" => new NoOpConnection(_ =>
-            {
-                var loaded = row.Table.Copy();
-                foreach (var (source, alias) in new[] { ("base_item", "BaseItem"), ("user_id", "UserId"), ("extra_data", "ExtraData"),
-                             ("limited_number", "LimitedNumber"), ("limited_stack", "LimitedStack"), ("wall_pos", "WallPos") })
-                    loaded.Columns[source]!.ColumnName = alias;
-                loaded.Columns.Add("GroupId", typeof(int)); loaded.Rows[0]["GroupId"] = 0;
-                return loaded;
-            }),
-            _ => throw new NotSupportedException(method)
-        }));
-        var definitions = Proxy<IItemDataManager>((method, _) => method == "get_Items" ? new Dictionary<uint, ItemDefinition> { [10] = definition } : null);
-        _gameField.SetValue(null, Proxy<Plus.HabboHotel.IGame>((method, _) => method == "get_ItemManager" ? definitions : null));
-        _room.GetRoomItemHandler().LoadFurniture();
+        _room.GetRoomItemHandler().LoadFurniture([ItemLoader.ReadRoomItem(row, RoomId, definition)]);
         var tile = _room.GetRoomItemHandler().GetItem(10);
         Assert.Equal("200;1", tile.LegacyDataString);
         typeof(RoomItemHandling).GetMethod("SaveFurniture", BindingFlags.Instance | BindingFlags.NonPublic)!
@@ -427,7 +407,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(2, saved.Z);
         // The persistent prefix and physical altitude survive another real room load.
         row["extra_data"] = saved.ExtraData!;
-        _room.GetRoomItemHandler().LoadFurniture();
+        _room.GetRoomItemHandler().LoadFurniture([ItemLoader.ReadRoomItem(row, RoomId, definition)]);
         Assert.Equal("200;1", _room.GetRoomItemHandler().GetItem(10).LegacyDataString);
     }
 

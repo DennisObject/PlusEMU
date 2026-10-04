@@ -143,7 +143,7 @@ public class RoomItemHandling
         }
     }
 
-    public void LoadFurniture()
+    public void LoadFurniture(IReadOnlyList<Item> items)
     {
         if (_floorItems.Count > 0)
         {
@@ -157,7 +157,6 @@ public class RoomItemHandling
         if (_wallItems.Count > 0)
             _wallItems.Clear();
         _temporaryItems.Clear();
-        var items = ItemLoader.GetItemsForRoom(_room.Id, _room);
         foreach (var item in items.ToList())
         {
             if (item == null)

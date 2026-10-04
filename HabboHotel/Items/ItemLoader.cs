@@ -9,21 +9,6 @@ namespace Plus.HabboHotel.Items;
 public static class ItemLoader
 {
 
-    public static List<Item> GetItemsForRoom(uint roomId, Room room)
-    {
-        var items = new List<Item>();
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        var rows = connection.Query<ItemRow>(
-            "SELECT items.id,items.base_item AS BaseItem,items.user_id AS UserId,items.extra_data AS ExtraData,items.x,items.y,items.z,items.rot,items.limited_number AS LimitedNumber,items.limited_stack AS LimitedStack,items.wall_pos AS WallPos,COALESCE(items_groups.group_id,0) AS GroupId,COALESCE(users.username,'') AS Username FROM items LEFT JOIN items_groups ON items.id=items_groups.id LEFT JOIN users ON users.id=items.user_id WHERE items.room_id=@roomId",
-            new { roomId });
-        foreach (var row in rows)
-        {
-            if (PlusEnvironment.Game.ItemManager.Items.TryGetValue(row.BaseItem, out var data))
-                items.Add(ReadRoomItem(row, roomId, data));
-        }
-        return items;
-    }
-
     internal static Item ReadRoomItem(DataRow row, uint roomId, ItemDefinition definition)
     {
         var item = new Item
@@ -42,30 +27,6 @@ public static class ItemLoader
         UniqueSeries = Convert.ToUInt32(row["limited_stack"]),
         WallCoordinates = Convert.ToString(row["wall_pos"]) ?? "",
         RoomId = roomId
-        };
-        MagicTileHeight.Sync(item);
-        return item;
-    }
-
-    private static Item ReadRoomItem(ItemRow row, uint roomId, ItemDefinition definition)
-    {
-        var item = new Item
-        {
-            Id = row.Id,
-            OwnerId = row.UserId,
-            UserId = checked((int)row.UserId),
-            Username = row.Username,
-            Definition = definition,
-            ExtraData = FurniExtraData.Load(definition, row.ExtraData, keepLegacy: true),
-            GetX = row.X,
-            GetY = row.Y,
-            GetZ = row.Z,
-            Rotation = row.Rot,
-            UniqueNumber = row.LimitedNumber,
-            UniqueSeries = row.LimitedStack,
-            WallCoordinates = row.WallPos,
-            RoomId = roomId,
-            GroupId = row.GroupId
         };
         MagicTileHeight.Sync(item);
         return item;
