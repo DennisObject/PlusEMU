@@ -173,7 +173,7 @@ public class PlusEnvironment : IPlusEnvironment
     }
 
     [Obsolete]
-    public static bool EnumToBool(string @enum) => @enum == "1";
+    public static bool EnumToBool(string @enum) => @enum == "1" || bool.TryParse(@enum, out var boolean) && boolean;
 
     [Obsolete]
     public static string BoolToEnum(bool @bool) => @bool ? "1" : "0";

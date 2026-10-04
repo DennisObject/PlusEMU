@@ -67,14 +67,14 @@ public class ItemDataManager : IItemDataManager, IStartable
                         Width = Convert.ToInt32(row["width"]),
                         Length = Convert.ToInt32(row["length"]),
                         Height = FurnitureNumbers.FromCell(row["stack_height"]),
-                        Stackable = row["can_stack"].ToString() == "1",
-                        Walkable = row["is_walkable"].ToString() == "1",
-                        IsSeat = row["can_sit"].ToString() == "1",
-                        AllowEcotronRecycle = row["allow_recycle"].ToString() == "1",
-                        AllowTrade = row["allow_trade"].ToString() == "1",
-                        AllowMarketplaceSell = row["allow_marketplace_sell"].ToString() == "1",
-                        AllowGift = row["allow_gift"].ToString() == "1",
-                        AllowInventoryStack = row["allow_inventory_stack"].ToString() == "1",
+                        Stackable = FurnitureNumbers.BooleanFromCell(row["can_stack"]),
+                        Walkable = FurnitureNumbers.BooleanFromCell(row["is_walkable"]),
+                        IsSeat = FurnitureNumbers.BooleanFromCell(row["can_sit"]),
+                        AllowEcotronRecycle = FurnitureNumbers.BooleanFromCell(row["allow_recycle"]),
+                        AllowTrade = FurnitureNumbers.BooleanFromCell(row["allow_trade"]),
+                        AllowMarketplaceSell = FurnitureNumbers.BooleanFromCell(row["allow_marketplace_sell"]),
+                        AllowGift = FurnitureNumbers.BooleanFromCell(row["allow_gift"]),
+                        AllowInventoryStack = FurnitureNumbers.BooleanFromCell(row["allow_inventory_stack"]),
                         InteractionType = ReadInteractionType(Convert.ToString(row["item_name"]), Convert.ToString(row["interaction_type"]), ReadWiredType(row["wired_id"])),
                         WiredType = ReadWiredType(row["wired_id"]),
                         InteractionName = Convert.ToString(row["interaction_type"]) ?? string.Empty,
@@ -87,8 +87,8 @@ public class ItemDataManager : IItemDataManager, IStartable
                             ? Convert.ToString(row["height_adjustable"]).Split(",").Select(FurnitureNumbers.Parse).ToList()
                             : new(0),
                         EffectId = Convert.ToInt32(row["effect_id"]),
-                        IsRare = row["is_rare"].ToString() == "1",
-                        ExtraRot = row["extra_rot"].ToString() == "1",
+                        IsRare = FurnitureNumbers.BooleanFromCell(row["is_rare"]),
+                        ExtraRot = FurnitureNumbers.BooleanFromCell(row["extra_rot"]),
                     };
 
                     gifts.TryAdd(definition.SpriteId, definition.Id);
