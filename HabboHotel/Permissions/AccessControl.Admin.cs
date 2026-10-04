@@ -44,7 +44,7 @@ public sealed partial class AccessControl
                 SaveAccessRole save => save.Id, DeleteAccessRole delete => delete.RoleId,
                 ChangeRolePermission permission => permission.RoleId, ChangeRoleLimit limit => limit.RoleId, _ => -1
             };
-            var role = connection.QuerySingleOrDefault<AccessAdminRole>("SELECT id, slug, weight, is_staff AS IsStaff FROM roles WHERE id = @roleId FOR UPDATE", new { roleId }, transaction);
+            var role = connection.QuerySingleOrDefault<AccessAdminRole>("SELECT id, slug, name, weight, is_staff AS IsStaff FROM roles WHERE id = @roleId FOR UPDATE", new { roleId }, transaction);
             if (roleId != 0 && (role == null || role.Weight >= actorAccess.Weight)) return Rejected();
             string action;
             switch (change)
@@ -101,7 +101,7 @@ public sealed partial class AccessControl
                 default: return Rejected(HousekeepingErrors.InvalidInput);
             }
             connection.Execute("INSERT INTO acl_audit_log (actor_id, action, target_type, target_id, payload) VALUES (@actorId, @action, 'role', @roleId, @payload)",
-                new { actorId = actor.Id, action, roleId, payload = JsonSerializer.Serialize(change, change.GetType()) }, transaction);
+                new { actorId = actor.Id, action, roleId, payload = JsonSerializer.Serialize(new { targetName = (change as SaveAccessRole)?.Name ?? role!.Name, change = JsonSerializer.SerializeToElement(change, change.GetType()) }) }, transaction);
             transaction.Commit();
             // Init replaces the immutable role table under the same lock; Reload publishes the new rights.
             Reload();
@@ -175,7 +175,7 @@ public sealed partial class AccessControl
             offset = Math.Max(0, offset);
             return new(offset, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log"), connection.Query<AccessAuditEntry>(
                 "SELECT a.id, COALESCE(actor.username, 'System') AS ActorName, a.action, a.target_type AS TargetType, a.target_id AS TargetId, " +
-                "COALESCE(target.username, r.name, CONCAT('#', a.target_id)) AS TargetName, a.payload, UNIX_TIMESTAMP(a.created_at) AS CreatedAt " +
+                "COALESCE(target.username, r.name, JSON_UNQUOTE(JSON_EXTRACT(a.payload, '$.targetName')), CONCAT('#', a.target_id)) AS TargetName, a.payload, UNIX_TIMESTAMP(a.created_at) AS CreatedAt " +
                 "FROM acl_audit_log a LEFT JOIN users actor ON actor.id = a.actor_id LEFT JOIN users target ON a.target_type = 'user' AND target.id = a.target_id " +
                 "LEFT JOIN roles r ON a.target_type = 'role' AND r.id = a.target_id ORDER BY a.id DESC LIMIT @limit OFFSET @offset", new { offset, limit = AdminPageSize }).ToArray());
         }
