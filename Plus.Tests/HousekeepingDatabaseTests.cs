@@ -133,7 +133,8 @@ public class HousekeepingDatabaseTests : IDisposable
         Assert.True(normal.CanUse(UserAccess.Empty));
         Assert.True(styles.TryGetStyle(9, out var club));
         Assert.True(club.RequiresHc);
-        Assert.True(club.CanUse(UserAccess.Empty));
+        Assert.False(club.CanUse(UserAccess.Empty));
+        Assert.True(club.CanUse(UserAccess.Create([], [new(PermissionKeys.ClubAccess, false)])));
         Assert.True(styles.TryGetStyle(34, out var staff));
         Assert.Equal(PermissionKeys.ChatStyleStaff, staff.RequiredPermission);
         Assert.False(staff.CanUse(UserAccess.Empty));
