@@ -128,22 +128,27 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
                 if (admission == WiredAdmission.Stale) continue;
                 // A transform already evaluated against an old target is never reused or re-run.
                 var evaluated = !ReferenceEquals(effective, transform);
-                Action? completed;
-                bool changed;
-                lock (_gate)
-                {
-                    if (WriteTargetLocked(reference) != target)
-                    {
-                        if (admittedTarget is not null || evaluated) return false;
-                        continue;
-                    }
-                    changed = ChangeLocked(reference, holder, mutation, effective, frame, origin, out completed);
-                }
-                if (changed) completed?.Invoke();
-                return changed;
+                var changed = ChangeIfTargetHolds(reference, holder, mutation, effective, frame, origin, target,
+                    retryable: admittedTarget is null && !evaluated);
+                if (changed is { } result) return result;
             }
         }
         return false;
+    }
+
+    // Null when the target moved and a fresh write may retry admission.
+    private bool? ChangeIfTargetHolds(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
+        Func<int, int> transform, WiredVariableFrame frame, int origin, WiredVariableReference target, bool retryable)
+    {
+        Action? completed;
+        bool changed;
+        lock (_gate)
+        {
+            if (WriteTargetLocked(reference) != target) return retryable ? null : false;
+            changed = ChangeLocked(reference, holder, mutation, transform, frame, origin, out completed);
+        }
+        if (changed) completed?.Invoke();
+        return changed;
     }
 
     private bool ChangeLocked(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
