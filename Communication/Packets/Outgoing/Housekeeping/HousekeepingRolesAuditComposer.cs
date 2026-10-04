@@ -21,7 +21,7 @@ public sealed class HousekeepingRolesAuditComposer(int requestId, AccessAuditPag
             packet.WriteInteger(row.TargetId);
             packet.WriteString(row.TargetName);
             packet.WriteString(row.Payload);
-            packet.WriteInteger((int)new DateTimeOffset(DateTime.SpecifyKind(row.CreatedAt, DateTimeKind.Utc)).ToUnixTimeSeconds());
+            packet.WriteInteger(row.CreatedAt);
         }
     }
 }

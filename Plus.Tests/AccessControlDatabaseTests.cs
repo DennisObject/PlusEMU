@@ -54,7 +54,8 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         var connectionString = Environment.GetEnvironmentVariable(AccessControlDatabaseFactAttribute.Variable)!;
         if (!new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_acl_tests_", StringComparison.Ordinal))
             throw new InvalidOperationException("Access-control tests require a disposable task_acl_tests_ database.");
-        _database = new(connectionString);
+        var builder = new MySqlConnectionStringBuilder(connectionString) { AllowZeroDateTime = true, ConvertZeroDateTime = true };
+        _database = new(builder.ConnectionString);
         using (var connection = _database.Connection())
         {
             connection.Execute("DELETE FROM user_roles WHERE user_id IN @ids; DELETE FROM user_permissions WHERE user_id IN @ids; DELETE FROM users WHERE id IN @ids; " +

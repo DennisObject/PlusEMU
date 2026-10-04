@@ -229,10 +229,10 @@ public sealed partial class AccessControl : IAccessControl, IDisposable
     private UserAccess Read(IDbConnection connection, int userId, IDbTransaction? transaction = null)
     {
         var assignments = new List<RoleAssignment> { new(_roles.Values.Single(role => role.Slug == "default")) };
-        foreach (var row in connection.Query<AssignmentRow>("SELECT role_id AS RoleId, expires_at AS ExpiresAt FROM user_roles WHERE user_id = @userId", new { userId }, transaction))
+        foreach (var row in connection.Query<AssignmentRow>("SELECT role_id AS RoleId, UNIX_TIMESTAMP(expires_at) AS ExpiresAt FROM user_roles WHERE user_id = @userId", new { userId }, transaction))
             if (_roles.TryGetValue(row.RoleId, out var role) && role.Slug != "default")
                 assignments.Add(new(role, Utc(row.ExpiresAt)));
-        var overrides = connection.Query<OverrideRow>("SELECT permission_key AS PermissionKey, effect, expires_at AS ExpiresAt FROM user_permissions WHERE user_id = @userId", new { userId }, transaction)
+        var overrides = connection.Query<OverrideRow>("SELECT permission_key AS PermissionKey, effect, UNIX_TIMESTAMP(expires_at) AS ExpiresAt FROM user_permissions WHERE user_id = @userId", new { userId }, transaction)
             .Select(row => new UserPermissionOverride(row.PermissionKey, row.Effect == "deny", Utc(row.ExpiresAt)));
         return UserAccess.Create(assignments, overrides, _registry, _clock);
     }
@@ -269,7 +269,7 @@ public sealed partial class AccessControl : IAccessControl, IDisposable
         catch (Exception exception) { _logger.LogError(exception, "Refreshing expired access failed"); }
     }
 
-    private static DateTimeOffset? Utc(DateTime? value) => value.HasValue ? new DateTimeOffset(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)) : null;
+    private static DateTimeOffset? Utc(long? value) => value.HasValue ? DateTimeOffset.FromUnixTimeSeconds(value.Value) : null;
     public void Dispose()
     {
         _expiryTimer?.Dispose();
@@ -280,6 +280,6 @@ public sealed partial class AccessControl : IAccessControl, IDisposable
     private sealed class RoleRow { public int Id { get; set; } public string Slug { get; set; } = ""; public string Name { get; set; } = ""; public int Weight { get; set; } public int SecurityLevel { get; set; } public string BadgeCode { get; set; } = ""; public bool IsStaff { get; set; } }
     private sealed class RolePermissionRow { public int RoleId { get; set; } public string PermissionKey { get; set; } = ""; }
     private sealed class RoleLimitRow { public int RoleId { get; set; } public string LimitKey { get; set; } = ""; public int Value { get; set; } }
-    private sealed class AssignmentRow { public int RoleId { get; set; } public DateTime? ExpiresAt { get; set; } }
-    private sealed class OverrideRow { public string PermissionKey { get; set; } = ""; public string Effect { get; set; } = ""; public DateTime? ExpiresAt { get; set; } }
+    private sealed class AssignmentRow { public int RoleId { get; set; } public long? ExpiresAt { get; set; } }
+    private sealed class OverrideRow { public string PermissionKey { get; set; } = ""; public string Effect { get; set; } = ""; public long? ExpiresAt { get; set; } }
 }

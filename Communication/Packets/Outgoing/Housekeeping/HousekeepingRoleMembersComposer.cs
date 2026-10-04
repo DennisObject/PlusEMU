@@ -17,7 +17,7 @@ public sealed class HousekeepingRoleMembersComposer(int requestId, AccessMemberP
         {
             packet.WriteInteger(member.Id);
             packet.WriteString(member.Username);
-            packet.WriteInteger(member.ExpiresAt.HasValue ? (int)new DateTimeOffset(DateTime.SpecifyKind(member.ExpiresAt.Value, DateTimeKind.Utc)).ToUnixTimeSeconds() : 0);
+            packet.WriteInteger(member.ExpiresAt ?? 0);
         }
     }
 }

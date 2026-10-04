@@ -27,13 +27,13 @@ public sealed partial class AccessControlDatabaseTests
     public static TheoryData<Type, object[], object[], string> AdminMutations => new()
     {
         { typeof(HousekeepingSaveRoleEvent), [0, "acl_new", "New role", "description", 5, 1, "B", false, true], [0, "acl_new", "New", "", 200, 1, "", false, false], "role.create" },
-        { typeof(HousekeepingSaveRoleEvent), [LimitedRole, "ignored", "Updated", "description", 25, 3, "B", true, false], [LimitedRole, "ignored", "Updated", "", 200, 3, "", false, false], "role.update" },
+        { typeof(HousekeepingSaveRoleEvent), [LimitedRole, "ignored", "Updated", "description", 25, 3, "B", false, false], [LimitedRole, "ignored", "Updated", "", 200, 3, "", false, false], "role.update" },
         { typeof(HousekeepingDeleteRoleEvent), [LimitedRole], [PeerRole], "role.delete" },
         { typeof(HousekeepingSetRolePermissionEvent), [LimitedRole, "moderation.*", true], [PeerRole, "moderation.*", true], "role.permission.grant" },
         { typeof(HousekeepingSetRoleLimitEvent), [LimitedRole, "limit.daily_respects", 5, false], [LimitedRole, "limit.daily_respects", 11, false], "role.limit.set" },
-        { typeof(HousekeepingAssignRoleEvent), ["acl_target", LimitedRole, 0], ["acl_peer", LimitedRole, 0], "role.assign" },
+        { typeof(HousekeepingAssignRoleEvent), ["acl_target", LimitedRole, 2000000000], ["acl_peer", LimitedRole, 0], "role.assign" },
         { typeof(HousekeepingRevokeRoleEvent), [Target, LimitedRole], [Peer, LimitedRole], "role.revoke" },
-        { typeof(HousekeepingSetUserOverrideEvent), ["acl_target", "camera.*", true, "temporary", 0], ["acl_peer", "camera.*", true, "temporary", 0], "permission.deny" },
+        { typeof(HousekeepingSetUserOverrideEvent), ["acl_target", "camera.*", true, "temporary", 2000000000], ["acl_peer", "camera.*", true, "temporary", 0], "permission.deny" },
         { typeof(HousekeepingRemoveUserOverrideEvent), [Target, "camera.use"], [Peer, "camera.use"], "permission.remove" }
     };
 
@@ -77,6 +77,9 @@ public sealed partial class AccessControlDatabaseTests
         Assert.NotEqual("{}", audit.Payload);
         Assert.Contains(_sent, packet => packet.Header == ServerPacketHeader.UserRightsComposer);
         Assert.True(_access.AdminSnapshot(_actor).Revision > revision);
+        if (action == "role.assign") Assert.Equal(2000000000, _access.Members(_actor, LimitedRole, 0).Members.Single(member => member.Id == Target).ExpiresAt);
+        if (action == "permission.deny") Assert.Equal(2000000000, _access.Overrides(_actor, "acl_target").Overrides.Single(row => row.Key == "camera.*").ExpiresAt);
+        Assert.NotEmpty(_access.Audit(_actor, 0).Entries);
         if (action == "role.update") Assert.Equal("acl_limited", _access.AdminSnapshot(_actor).Roles.Single(role => role.Id == LimitedRole).Slug);
         connection.Execute("DELETE FROM housekeeping_log WHERE actor_id = @Actor; DELETE FROM roles WHERE slug = 'acl_new'; DELETE FROM acl_permissions WHERE `key` LIKE '%acl_new'", new { Actor });
     }
@@ -145,4 +148,39 @@ public sealed partial class AccessControlDatabaseTests
         Assert.False(_access.Apply(_actor, revision, new ChangeRolePermission(LimitedRole, "camera.*", true)).Ok);
         Assert.False(_access.Apply(_actor, revision, new ChangeRolePermission(LimitedRole, "camera.use", false)).Ok);
     }
+    [AccessControlDatabaseFact]
+    public void NonstaffAdministratorCannotCreatePromoteOrAssignStaffRoles()
+    {
+        var revision = _access.AdminSnapshot(_actor).Revision;
+        Assert.False(_access.Apply(_actor, revision, new SaveAccessRole(0, "acl_staff", "Staff", "", 10, 1, "", true, false)).Ok);
+        Assert.False(_access.Apply(_actor, revision, new SaveAccessRole(LimitedRole, "ignored", "Staff", "", 20, 2, "", true, false)).Ok);
+        using var connection = _database.Connection();
+        connection.Execute("UPDATE roles SET is_staff = 1 WHERE id = @LimitedRole", new { LimitedRole });
+        _access.Reload();
+        Assert.False(_access.AssignRole(_actor, Target, LimitedRole));
+        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log WHERE actor_id = @Actor", new { Actor }));
+    }
+
+    [AccessControlDatabaseFact]
+    public void RemovingLastDefaultLimitCannotRaiseUsersAboveTheActorsCap()
+    {
+        using var connection = _database.Connection();
+        var defaultId = connection.ExecuteScalar<int>("SELECT id FROM roles WHERE slug = 'default'");
+        var previous = connection.QuerySingleOrDefault<int?>("SELECT value FROM role_limits WHERE role_id = @defaultId AND limit_key = 'limit.daily_respects'", new { defaultId });
+        try
+        {
+            connection.Execute("INSERT INTO role_limits (role_id, limit_key, value) VALUES (@defaultId, 'limit.daily_respects', 5) ON DUPLICATE KEY UPDATE value = 5", new { defaultId });
+            _access.Reload();
+            Assert.False(_access.Apply(_actor, _access.AdminSnapshot(_actor).Revision, new ChangeRoleLimit(defaultId, "limit.daily_respects", 0, true)).Ok);
+            Assert.Equal(5, _access.Resolve(Target).Limit("limit.daily_respects", 10));
+            Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log WHERE actor_id = @Actor", new { Actor }));
+        }
+        finally
+        {
+            connection.Execute("DELETE FROM role_limits WHERE role_id = @defaultId AND limit_key = 'limit.daily_respects'", new { defaultId });
+            if (previous.HasValue) connection.Execute("INSERT INTO role_limits (role_id, limit_key, value) VALUES (@defaultId, 'limit.daily_respects', @value)", new { defaultId, value = previous.Value });
+            _access.Reload();
+        }
+    }
+
 }

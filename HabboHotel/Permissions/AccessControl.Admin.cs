@@ -44,7 +44,7 @@ public sealed partial class AccessControl
                 SaveAccessRole save => save.Id, DeleteAccessRole delete => delete.RoleId,
                 ChangeRolePermission permission => permission.RoleId, ChangeRoleLimit limit => limit.RoleId, _ => -1
             };
-            var role = connection.QuerySingleOrDefault<AccessAdminRole>("SELECT id, slug, weight FROM roles WHERE id = @roleId FOR UPDATE", new { roleId }, transaction);
+            var role = connection.QuerySingleOrDefault<AccessAdminRole>("SELECT id, slug, weight, is_staff AS IsStaff FROM roles WHERE id = @roleId FOR UPDATE", new { roleId }, transaction);
             if (roleId != 0 && (role == null || role.Weight >= actorAccess.Weight)) return Rejected();
             string action;
             switch (change)
@@ -53,7 +53,8 @@ public sealed partial class AccessControl
                     if (save.Id < 0 || save.Name.Length is < 1 or > 100 || string.IsNullOrWhiteSpace(save.Name) || save.Description.Length > 255 ||
                         save.BadgeCode.Length > 64 || save.Weight < 0 || save.SecurityLevel is < 0 or > 7 ||
                         save.Id == 0 && !Regex.IsMatch(save.Slug, "^[a-z][a-z0-9_-]{0,99}$")) return Rejected(HousekeepingErrors.InvalidInput);
-                    if (save.Weight >= actorAccess.Weight || save.SecurityLevel > actorAccess.SecurityLevel) return Rejected();
+                    if (save.Weight >= actorAccess.Weight || save.SecurityLevel > actorAccess.SecurityLevel ||
+                        save.IsStaff && role?.IsStaff != true && !actorAccess.Roles.Any(held => held.IsStaff)) return Rejected();
                     if (save.Id == 0)
                     {
                         if (connection.ExecuteScalar<int>("SELECT COUNT(*) FROM roles WHERE slug = @Slug", save, transaction) != 0) return Rejected(HousekeepingErrors.InvalidInput);
@@ -87,7 +88,10 @@ public sealed partial class AccessControl
                     break;
                 case ChangeRoleLimit limit:
                     if (!AccessLimits.Defaults.TryGetValue(limit.Key, out var fallback) || limit.Value < 0) return Rejected(HousekeepingErrors.InvalidInput);
-                    if (!limit.Remove && limit.Value > actorAccess.Limit(limit.Key, fallback)) return Rejected();
+                    var resultingLimit = limit.Remove
+                        ? connection.QuerySingleOrDefault<int?>("SELECT value FROM role_limits l JOIN roles r ON r.id = l.role_id WHERE r.slug = 'default' AND l.role_id <> @RoleId AND l.limit_key = @Key", limit, transaction) ?? fallback
+                        : limit.Value;
+                    if (resultingLimit > actorAccess.Limit(limit.Key, fallback)) return Rejected();
                     if (limit.Remove)
                         connection.Execute("DELETE FROM role_limits WHERE role_id = @RoleId AND limit_key = @Key", limit, transaction);
                     else
@@ -145,7 +149,7 @@ public sealed partial class AccessControl
             var from = implicitRole ? "FROM users u" : "FROM user_roles ur JOIN users u ON u.id = ur.user_id WHERE ur.role_id = @roleId AND (ur.expires_at IS NULL OR ur.expires_at > @now)";
             var parameters = new { roleId, offset, limit = AdminPageSize, now = _clock.GetUtcNow().UtcDateTime };
             return new(roleId, offset, connection.ExecuteScalar<int>("SELECT COUNT(*) " + from, parameters),
-                connection.Query<AccessMember>("SELECT u.id, u.username, " + (implicitRole ? "NULL" : "ur.expires_at") + " AS ExpiresAt " + from + " ORDER BY u.username, u.id LIMIT @limit OFFSET @offset", parameters).ToArray());
+                connection.Query<AccessMember>("SELECT u.id, u.username, " + (implicitRole ? "NULL" : "UNIX_TIMESTAMP(ur.expires_at)") + " AS ExpiresAt " + from + " ORDER BY u.username, u.id LIMIT @limit OFFSET @offset", parameters).ToArray());
         }
     }
 
@@ -157,7 +161,7 @@ public sealed partial class AccessControl
             RequireAdmin(connection, actor);
             var user = ValidUsername(username) ? connection.QuerySingleOrDefault<AccessMember>("SELECT id, username FROM users WHERE username = @username", new { username }) : null;
             return user == null ? new(0, "", []) : new(user.Id, user.Username, connection.Query<AccessOverride>(
-                "SELECT permission_key AS `Key`, effect, reason, expires_at AS ExpiresAt FROM user_permissions WHERE user_id = @id AND (expires_at IS NULL OR expires_at > @now) ORDER BY permission_key",
+                "SELECT permission_key AS `Key`, effect, reason, UNIX_TIMESTAMP(expires_at) AS ExpiresAt FROM user_permissions WHERE user_id = @id AND (expires_at IS NULL OR expires_at > @now) ORDER BY permission_key",
                 new { id = user.Id, now = _clock.GetUtcNow().UtcDateTime }).ToArray());
         }
     }
@@ -171,7 +175,7 @@ public sealed partial class AccessControl
             offset = Math.Max(0, offset);
             return new(offset, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log"), connection.Query<AccessAuditEntry>(
                 "SELECT a.id, COALESCE(actor.username, 'System') AS ActorName, a.action, a.target_type AS TargetType, a.target_id AS TargetId, " +
-                "COALESCE(target.username, r.name, CONCAT('#', a.target_id)) AS TargetName, a.payload, a.created_at AS CreatedAt " +
+                "COALESCE(target.username, r.name, CONCAT('#', a.target_id)) AS TargetName, a.payload, UNIX_TIMESTAMP(a.created_at) AS CreatedAt " +
                 "FROM acl_audit_log a LEFT JOIN users actor ON actor.id = a.actor_id LEFT JOIN users target ON a.target_type = 'user' AND target.id = a.target_id " +
                 "LEFT JOIN roles r ON a.target_type = 'role' AND r.id = a.target_id ORDER BY a.id DESC LIMIT @limit OFFSET @offset", new { offset, limit = AdminPageSize }).ToArray());
         }

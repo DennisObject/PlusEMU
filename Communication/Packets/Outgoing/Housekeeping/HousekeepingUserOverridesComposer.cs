@@ -17,7 +17,7 @@ public sealed class HousekeepingUserOverridesComposer(int requestId, AccessOverr
             packet.WriteString(row.Key);
             packet.WriteString(row.Effect);
             packet.WriteString(row.Reason);
-            packet.WriteInteger(row.ExpiresAt.HasValue ? (int)new DateTimeOffset(DateTime.SpecifyKind(row.ExpiresAt.Value, DateTimeKind.Utc)).ToUnixTimeSeconds() : 0);
+            packet.WriteInteger(row.ExpiresAt ?? 0);
         }
     }
 }
