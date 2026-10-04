@@ -32,13 +32,11 @@ public class MarketplaceManager : IMarketplaceManager
             if (MarketCounts[spriteId] > 0) return MarketAverages[spriteId] / MarketCounts[spriteId];
             return 0;
         }
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery($"SELECT `avgprice` FROM `catalog_marketplace_data` WHERE `sprite` = '{spriteId}' LIMIT 1");
-            num = dbClient.GetInteger();
-            dbClient.SetQuery($"SELECT `sold` FROM `catalog_marketplace_data` WHERE `sprite` = '{spriteId}' LIMIT 1");
-            num2 = dbClient.GetInteger();
-        }
+        using var connection = _database.Connection();
+        var totals = connection.QuerySingleOrDefault<MarketTotals>(
+            "SELECT avgprice AS AveragePrice,sold AS Sold FROM catalog_marketplace_data WHERE sprite=@spriteId LIMIT 1", new { spriteId });
+        num = totals?.AveragePrice ?? 0;
+        num2 = totals?.Sold ?? 0;
         MarketAverages.Add(spriteId, num);
         MarketCounts.Add(spriteId, num2);
         if (num2 > 0)
@@ -118,4 +116,6 @@ public class MarketplaceManager : IMarketplaceManager
         using var connection = _database.Connection();
         await connection.ExecuteAsync("DELETE FROM `catalog_marketplace_offers` WHERE `offer_id` = @offerId LIMIT 1", new { offerId });
     }
+
+    private sealed record MarketTotals(int AveragePrice, int Sold);
 }
