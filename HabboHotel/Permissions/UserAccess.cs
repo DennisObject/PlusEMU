@@ -36,7 +36,7 @@ public sealed class UserAccess
         IEnumerable<string>? registry = null, TimeProvider? clock = null, ClubMembership? membership = null) =>
         new(roles, overrides ?? Array.Empty<UserPermissionOverride>(), registry ?? PermissionKeys.All.Select(p => p.Key), clock ?? TimeProvider.System, membership ?? ClubMembership.None);
 
-    // Keep this holder stable across reloads: a login can retain it before its client is registered.
+    // Keep the online session holder stable across refreshes and reloads.
     internal void ReplaceWith(UserAccess replacement)
     {
         lock (_sync)

@@ -1,17 +1,27 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 
 internal class RoomMuteCommand : IChatCommand
 {
+    private readonly IAccessControl _access;
+
     public string Key => "roommute";
 
     public string Parameters => "%message%";
 
     public string Description => "Mute the room with a reason.";
 
+    public RoomMuteCommand(IAccessControl access)
+    {
+        _access = access;
+    }
+
     public void Execute(GameClient session, Room room, string[] parameters)
     {
+        if (room.OwnerId != session.GetHabbo().Id && !_access.Outranks(session.GetHabbo().Id, room.OwnerId))
+            return;
         var message = CommandManager.MergeParams(parameters, 1);
         if (string.IsNullOrWhiteSpace(message))
         {

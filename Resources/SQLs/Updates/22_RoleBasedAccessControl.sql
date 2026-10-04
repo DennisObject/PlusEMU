@@ -2,6 +2,110 @@
 -- Roles replace both staff ranks and VIP tiers. users.rank is only a security-level cache.
 SET time_zone = '+00:00';
 
+-- Pre-flight uses temporary data only. Stop on the first SQL error (do not use --force).
+-- A failed assertion leaves all legacy tables and rows untouched, even if CHECK enforcement is disabled.
+CREATE TEMPORARY TABLE acl_migration_preflight (
+ assertion VARCHAR(100) NOT NULL,
+ valid BOOLEAN NULL
+);
+INSERT INTO acl_migration_preflight SELECT 'update_21_schema_required',
+ COUNT(*) = 14 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN
+ ('permissions_groups','permissions','permissions_rights','permissions_commands','permissions_subscriptions',
+  'users','subscriptions','ranks','catalog_pages','navigator_categories','catalog_admin_log','room_chat_styles','room_models','server_settings');
+INSERT INTO acl_migration_preflight SELECT 'migration_22_must_not_have_started',
+ COUNT(*) = 0 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN
+ ('roles','acl_permissions','role_permissions','user_roles','user_permissions','role_limits','acl_audit_log');
+INSERT INTO acl_migration_preflight SELECT 'migration_22_columns_must_not_exist', COUNT(*) = 0
+FROM information_schema.columns WHERE table_schema = DATABASE() AND
+ ((table_name IN ('catalog_pages','navigator_categories','room_chat_styles','room_models') AND column_name = 'required_permission')
+ OR (table_name = 'room_chat_styles' AND column_name IN ('requires_hc','enabled'))
+ OR (table_name = 'room_models' AND column_name = 'required_club_level'));
+INSERT INTO acl_migration_preflight SELECT 'valid_rank_ids_and_weight_range', NOT EXISTS (
+ SELECT id FROM permissions_groups WHERE id < 1 OR id > 214748364
+ UNION ALL SELECT rank FROM users WHERE rank IS NULL OR rank < 1 OR rank > 214748364
+ UNION ALL SELECT min_rank FROM catalog_pages WHERE min_rank < 0 OR min_rank > 214748364
+ UNION ALL SELECT required_rank FROM navigator_categories WHERE required_rank < 0 OR required_rank > 214748364
+ UNION ALL SELECT group_id FROM permissions_commands WHERE group_id < 0 OR group_id > 214748364
+);
+INSERT INTO acl_migration_preflight SELECT 'valid_vip_tiers', NOT EXISTS (
+ SELECT id FROM subscriptions WHERE id < 0
+ UNION ALL SELECT rank_vip FROM users WHERE rank_vip < 0
+ UNION ALL SELECT min_vip FROM catalog_pages WHERE min_vip < 0
+ UNION ALL SELECT subscription_id FROM permissions_subscriptions WHERE subscription_id < 1
+ UNION ALL SELECT subscription_id FROM permissions_commands WHERE subscription_id < 0
+);
+-- The shipped seed includes a permission_id = 0 placeholder; it has no effective grant.
+INSERT INTO acl_migration_preflight SELECT 'rights_reference_existing_groups_and_permissions', NOT EXISTS (
+ SELECT 1 FROM permissions_rights r LEFT JOIN permissions p ON p.id = r.permission_id
+ LEFT JOIN permissions_groups g ON g.id = r.group_id WHERE (p.id IS NULL AND r.permission_id <> 0) OR g.id IS NULL
+ UNION ALL SELECT 1 FROM permissions_subscriptions s LEFT JOIN permissions p ON p.id = s.permission_id WHERE p.id IS NULL AND s.permission_id <> 0
+);
+INSERT INTO acl_migration_preflight SELECT 'metadata_fits_new_columns', NOT EXISTS (
+ SELECT 1 FROM permissions_groups WHERE CHAR_LENGTH(name) > 100 OR CHAR_LENGTH(description) > 255 OR CHAR_LENGTH(badge_code) > 64
+ UNION ALL SELECT 1 FROM subscriptions WHERE CHAR_LENGTH(name) > 100 OR CHAR_LENGTH(badge_code) > 64
+ UNION ALL SELECT 1 FROM permissions WHERE CHAR_LENGTH(description) > 255 OR CHAR_LENGTH(permission) > 184
+  OR permission NOT REGEXP '^[a-zA-Z0-9_.]+$'
+ UNION ALL SELECT 1 FROM permissions_commands WHERE command NOT REGEXP '^command_[a-zA-Z0-9_]+$' OR CHAR_LENGTH(command) > 184
+);
+INSERT INTO acl_migration_preflight SELECT 'catalog_undo_thresholds_are_valid', NOT EXISTS (
+ SELECT 1 FROM (
+  SELECT before_json AS snapshot FROM catalog_admin_log WHERE entity_type = 'PAGE' AND before_json IS NOT NULL AND JSON_VALID(before_json)
+  UNION ALL SELECT after_json FROM catalog_admin_log WHERE entity_type = 'PAGE' AND after_json IS NOT NULL AND JSON_VALID(after_json)
+ ) snapshots WHERE COALESCE(JSON_VALUE(snapshot, IF(JSON_CONTAINS_PATH(snapshot, 'one', '$.page'), '$.page.minRank', '$.minRank')), 1)
+ NOT REGEXP '^[0-9]+$'
+ OR CAST(COALESCE(JSON_VALUE(snapshot, IF(JSON_CONTAINS_PATH(snapshot, 'one', '$.page'), '$.page.minRank', '$.minRank')), 1) AS UNSIGNED) > 214748364
+);
+
+-- A duplicate PRIMARY KEY aborts independently of server CHECK settings/version.
+CREATE TEMPORARY TABLE acl_migration_guard (valid BOOLEAN NOT NULL PRIMARY KEY);
+INSERT INTO acl_migration_guard VALUES (TRUE);
+INSERT INTO acl_migration_guard SELECT TRUE WHERE EXISTS
+ (SELECT 1 FROM acl_migration_preflight WHERE valid IS NULL OR valid = FALSE);
+
+-- Allocate every rank role before changing source data. Reserve VIP/default names,
+-- synthetic rank_N names and suffixes ending in digits for unambiguous _<id> disambiguation.
+CREATE TEMPORARY TABLE acl_migrated_rank_roles (
+ id INT NOT NULL PRIMARY KEY,
+ slug VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ name VARCHAR(100) NOT NULL,
+ description VARCHAR(255) NOT NULL,
+ badge_code VARCHAR(64) NOT NULL,
+ synthetic BOOLEAN NOT NULL
+);
+INSERT INTO acl_migrated_rank_roles
+SELECT id, TRIM(BOTH '_' FROM REGEXP_REPLACE(LOWER(name), '[^a-z0-9]+', '_')),
+ name, description, badge_code, FALSE FROM permissions_groups;
+INSERT IGNORE INTO acl_migrated_rank_roles
+SELECT rank_id, CONCAT('rank_', rank_id), CONCAT('Rank ', rank_id),
+ 'Unlisted legacy rank or permission gate threshold retained during migration.', '', TRUE
+FROM (
+ SELECT rank AS rank_id FROM users
+ UNION SELECT min_rank FROM catalog_pages WHERE min_rank > 1
+ UNION SELECT required_rank FROM navigator_categories WHERE required_rank > 1
+ UNION SELECT CAST(COALESCE(JSON_VALUE(snapshot, IF(JSON_CONTAINS_PATH(snapshot, 'one', '$.page'), '$.page.minRank', '$.minRank')), 1) AS UNSIGNED)
+ FROM (
+  SELECT before_json AS snapshot FROM catalog_admin_log WHERE entity_type = 'PAGE' AND before_json IS NOT NULL AND JSON_VALID(before_json)
+  UNION ALL SELECT after_json FROM catalog_admin_log WHERE entity_type = 'PAGE' AND after_json IS NOT NULL AND JSON_VALID(after_json)
+ ) snapshots
+ UNION SELECT 1
+) ranks_to_retain WHERE rank_id >= 1;
+CREATE TEMPORARY TABLE acl_rank_slug_counts AS
+SELECT slug, COUNT(*) AS occurrences FROM acl_migrated_rank_roles GROUP BY slug;
+UPDATE acl_migrated_rank_roles r JOIN acl_rank_slug_counts c ON c.slug = r.slug
+SET r.slug = CASE
+ WHEN r.id = 1 THEN 'default'
+ WHEN r.synthetic OR r.slug = '' THEN CONCAT('rank_', r.id)
+ -- vip_<id> itself is reserved for tiers, so a rank named VIP needs a second suffix.
+ WHEN r.slug = 'vip' THEN CONCAT('vip_', r.id, '_', r.id)
+ WHEN c.occurrences > 1 OR r.slug IN ('default','vip','gold_vip','events_staff') OR r.slug REGEXP '_[0-9]+$'
+ THEN CONCAT(LEFT(r.slug, 80), '_', r.id)
+ ELSE r.slug END;
+INSERT INTO acl_migration_preflight SELECT 'rank_slugs_are_unique', COUNT(*) = COUNT(DISTINCT slug) FROM acl_migrated_rank_roles;
+INSERT INTO acl_migration_guard SELECT TRUE WHERE EXISTS
+ (SELECT 1 FROM acl_migration_preflight WHERE valid IS NULL OR valid = FALSE);
+ALTER TABLE acl_migrated_rank_roles ADD UNIQUE KEY (slug);
+DROP TEMPORARY TABLE acl_migration_preflight, acl_rank_slug_counts, acl_migration_guard;
+
 -- The removed custom soundboard feature must not survive as an orphaned grant.
 DELETE rights_row FROM permissions_rights rights_row JOIN permissions p ON p.id = rights_row.permission_id
 WHERE p.permission = 'acc_soundboard_manage' OR p.permission LIKE 'soundboard%';
@@ -355,22 +459,11 @@ UPDATE acl_page_snapshots SET
 
 -- The original id is retained for each rank role. Rank 1 becomes the implicit default role.
 INSERT INTO roles (id, slug, name, description, weight, security_level, badge_code, is_staff)
-SELECT id, IF(id = 1, 'default', TRIM(BOTH '_' FROM REGEXP_REPLACE(LOWER(name), '[^a-z0-9]+', '_'))),
- name, description, IF(id = 1, 0, id * 10), LEAST(7, GREATEST(0, id)), badge_code, id > 1
-FROM permissions_groups;
-INSERT IGNORE INTO roles (id, slug, name, description, weight, security_level, is_staff)
-SELECT u.rank, IF(u.rank = 1, 'default', CONCAT('rank_', u.rank)),
- CONCAT('Rank ', u.rank), 'Unlisted legacy rank retained during migration.',
- IF(u.rank = 1, 0, u.rank * 10), LEAST(7, GREATEST(0, u.rank)), u.rank > 1
-FROM users u WHERE u.rank IS NOT NULL;
+SELECT id, slug, name, description, IF(id = 1, 0, id * 10), LEAST(7, id), badge_code, id > 1
+FROM acl_migrated_rank_roles ORDER BY id;
 INSERT IGNORE INTO roles (slug, name, description, weight, security_level)
 VALUES ('default', 'User', 'Default access for every user.', 0, 1);
--- Also retain empty threshold roles referenced by catalog/navigator gates and undo history.
-INSERT IGNORE INTO roles (id, slug, name, description, weight, security_level, is_staff)
-SELECT threshold, CONCAT('rank_', threshold), CONCAT('Rank ', threshold), 'Migrated permission gate threshold.', threshold * 10, LEAST(7, threshold), TRUE
-FROM (SELECT min_rank AS threshold FROM catalog_pages WHERE min_rank > 1
- UNION SELECT required_rank FROM navigator_categories WHERE required_rank > 1
- UNION SELECT min_rank FROM acl_page_snapshots WHERE min_rank > 1) AS thresholds;
+DROP TEMPORARY TABLE acl_migrated_rank_roles;
 CREATE TEMPORARY TABLE acl_rank_roles (old_rank INT PRIMARY KEY, role_id INT NOT NULL);
 INSERT INTO acl_rank_roles SELECT id, id FROM roles;
 INSERT IGNORE INTO role_permissions

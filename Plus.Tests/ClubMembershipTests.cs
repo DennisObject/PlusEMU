@@ -67,6 +67,9 @@ public class ClubMembershipTests
         var packet = new HabbiconTestSupport.RecordingPacket();
         new ScrSendUserInfoComposer(UserAccess.Create([], clock: clock, membership: membership), ScrSendUserInfoComposer.PurchaseResponse).Compose(packet);
         Assert.Equal(new object[] { "habbo_club", 1, 1, 1, 2, true, false, 40, 0, 46080, 2 }, packet.Writes);
+        var complimentary = new HabbiconTestSupport.RecordingPacket();
+        new ScrSendUserInfoComposer(UserAccess.Create([], [new(PermissionKeys.ClubAccess, false)], clock: clock)).Compose(complimentary);
+        Assert.Equal(new object[] { "habbo_club", 0, 0, 0, 1, false, false, 0, 0, 0, 0 }, complimentary.Writes);
         var absent = new HabbiconTestSupport.RecordingPacket();
         new ScrSendUserInfoComposer(UserAccess.Create([], clock: clock)).Compose(absent);
         Assert.Equal(new object[] { "habbo_club", 0, 0, 0, 1, false, false, 0, 0, 0, 0 }, absent.Writes);

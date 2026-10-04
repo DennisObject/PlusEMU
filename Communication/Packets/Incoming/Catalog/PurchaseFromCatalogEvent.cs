@@ -176,24 +176,29 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                 extraData = "";
                 break;
         }
-        if (item.IsLimited)
-        {
-            using var connection = _database.Connection();
-            if (CatalogLimitedStock.Reserve(connection, item.Id) is not { } serial)
-            {
-                session.SendNotification("This item has sold out!\n\n" + "Please note, you have not recieved another item (You have also not been charged for it!)");
-                session.Send(new CatalogUpdatedComposer());
-                session.Send(new PurchaseOkComposer());
-                return;
-            }
-            item.LimitedEditionSells = (uint)serial;
-
-            limitedEditionSells = (uint)serial;
-            limitedEditionStack = item.LimitedEditionStack;
-        }
         bool ChargePurchase(Func<System.Data.IDbConnection, System.Data.IDbTransaction, bool>? deliver = null)
         {
-            if (!item.CanPurchase(session.GetHabbo()) || !_clubRewards.Charge(session.GetHabbo(), totalCreditsCost, totalPixelCost, totalDiamondCost, (connection, transaction) => item.CanPurchase(session.GetHabbo()) && (deliver?.Invoke(connection, transaction) ?? true))) return false;
+            var soldOut = false;
+            if (!item.CanPurchase(session.GetHabbo()) || !_clubRewards.Charge(session.GetHabbo(), totalCreditsCost, totalPixelCost, totalDiamondCost, (connection, transaction) =>
+            {
+                if (!item.CanPurchase(session.GetHabbo())) return false;
+                if (item.IsLimited)
+                {
+                    if (CatalogLimitedStock.Reserve(connection, transaction, item.Id) is not { } serial)
+                    { soldOut = true; return false; }
+                    limitedEditionSells = (uint)serial; limitedEditionStack = item.LimitedEditionStack;
+                }
+                return deliver?.Invoke(connection, transaction) ?? true;
+            }))
+            {
+                if (soldOut)
+                {
+                    session.SendNotification("This item has sold out! You have not been charged.");
+                    session.Send(new CatalogUpdatedComposer()); session.Send(new PurchaseOkComposer());
+                }
+                return false;
+            }
+            if (item.IsLimited) item.LimitedEditionSells = Math.Max(item.LimitedEditionSells, limitedEditionSells);
             if (totalCreditsCost > 0) session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
             if (totalPixelCost > 0) session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, -totalPixelCost));
             if (totalDiamondCost > 0) session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, -totalDiamondCost, 5));

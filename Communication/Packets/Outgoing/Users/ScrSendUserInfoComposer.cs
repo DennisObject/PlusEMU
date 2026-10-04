@@ -28,7 +28,7 @@ public class ScrSendUserInfoComposer : IServerPacket
         packet.WriteInteger((int)Math.Min(int.MaxValue, membership.Elapsed(_now) / ClubMembership.Period));
         packet.WriteInteger(ahead);
         packet.WriteInteger(_responseType);
-        packet.WriteBoolean(membership.FirstStartedAt > 0 || ClubAccess.LevelFor(_snapshot, _now) > 0);
+        packet.WriteBoolean(membership.FirstStartedAt > 0);
         // HC branding in the purse is level 1; rights still carry level 2 for all merged benefits.
         packet.WriteBoolean(false);
         packet.WriteInteger((int)Math.Min(int.MaxValue, membership.Elapsed(_now) / ClubMembership.Day));

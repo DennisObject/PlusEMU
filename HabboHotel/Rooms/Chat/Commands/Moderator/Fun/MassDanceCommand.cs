@@ -31,6 +31,9 @@ internal class MassDanceCommand : IChatCommand
             {
                 if (u == null)
                     continue;
+                if (u.GetClient()?.GetHabbo() is not { } target ||
+                    target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access))
+                    continue;
                 if (u.CarryItemId > 0)
                     u.CarryItemId = 0;
                 u.DanceId = danceId;

@@ -41,9 +41,11 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
             {
                 if (ReferenceEquals(previous, habbo)) return;
                 previous.Disconnected -= Disconnected;
+                previous.Disposed -= Disconnected;
             }
             _sessions[habbo.Id] = habbo;
             habbo.Disconnected += Disconnected;
+            habbo.Disposed += Disconnected;
         }
     }
     private void Disconnected(object? sender, EventArgs args)
@@ -52,6 +54,7 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
         lock (_sessionSync)
         {
             habbo.Disconnected -= Disconnected;
+            habbo.Disposed -= Disconnected;
             if (_sessions.TryGetValue(habbo.Id, out var current) && ReferenceEquals(current, habbo))
             { _sessions.Remove(habbo.Id); _announcedGifts.TryRemove(habbo.Id, out _); }
         }
@@ -120,7 +123,8 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
         permissions.AccessChanged -= Normalize; _timer?.Dispose();
         lock (_sessionSync)
         {
-            foreach (var habbo in _sessions.Values) habbo.Disconnected -= Disconnected;
+            foreach (var habbo in _sessions.Values)
+            { habbo.Disconnected -= Disconnected; habbo.Disposed -= Disconnected; }
             _sessions.Clear(); _announcedGifts.Clear();
         }
     }

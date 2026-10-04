@@ -21,6 +21,9 @@ internal class AllEyesOnMeCommand : IChatCommand
         {
             if (u == null || session.GetHabbo().Id == u.UserId)
                 continue;
+            if (u.GetClient()?.GetHabbo() is not { } target ||
+                !session.GetHabbo().Access.Outranks(target.Access))
+                continue;
             u.SetRot(Rotation.Calculate(u.X, u.Y, thisUser.X, thisUser.Y), false);
         }
     }

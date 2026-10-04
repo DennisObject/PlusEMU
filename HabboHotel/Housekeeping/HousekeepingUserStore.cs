@@ -67,7 +67,7 @@ public static class HousekeepingUserTargets
         var found = users.Find(userId);
         if (found == null) return HousekeepingOutcome.Fail(HousekeepingErrors.UserNotFound, HousekeepingTarget.User(userId));
         // Equal ranks are refused too, which also stops staff acting on themselves.
-        if (actor.Id == found.Id || !actor.Access.Outranks(access.Resolve(found.Id)))
+        if (actor.Id == found.Id || !access.Outranks(actor.Id, found.Id))
             return HousekeepingOutcome.Fail(HousekeepingErrors.RankTooHigh, Label(found), $"targetUserId={found.Id}");
         user = found;
         return null;

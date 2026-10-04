@@ -16,6 +16,8 @@ internal class SuperPushCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
+        if (!RoomModerationPolicy.CanTarget(session.GetHabbo().Access, target.Access))
+            return Task.CompletedTask;
         if (!room.SuperPushEnabled && !room.CheckRights(session, true) && !session.GetHabbo().Access.Can(PermissionKeys.RoomOverrideCustomConfig))
         {
             session.SendWhisper("Oops, it appears that the room owner has disabled the ability to use the push command in here.");

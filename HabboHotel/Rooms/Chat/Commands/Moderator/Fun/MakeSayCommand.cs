@@ -1,5 +1,4 @@
-﻿using Plus.HabboHotel.Permissions;
-using Plus.Communication.Packets.Outgoing.Rooms.Chat;
+﻿using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -17,6 +16,8 @@ internal class MakeSayCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
+        if (!session.GetHabbo().Access.Outranks(target.Access))
+            return Task.CompletedTask;
         if (!parameters.Any())
             session.SendWhisper("You must enter a username and the message you wish to force them to say.");
         else
@@ -27,10 +28,7 @@ internal class MakeSayCommand : ITargetChatCommand
             {
                 if (targetUser.GetClient() != null && targetUser.GetClient().GetHabbo() != null)
                 {
-                    if (!targetUser.GetClient().GetHabbo().Access.Can(PermissionKeys.ModerationMakeSayAny))
-                        room.SendPacket(new ChatComposer(targetUser.VirtualId, message, 0, targetUser.LastBubble));
-                    else
-                        session.SendWhisper("You cannot use makesay on this user.");
+                    room.SendPacket(new ChatComposer(targetUser.VirtualId, message, 0, targetUser.LastBubble));
                 }
             }
             else

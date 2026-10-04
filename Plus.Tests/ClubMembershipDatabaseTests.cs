@@ -67,6 +67,23 @@ public class ClubMembershipDatabaseTests : IDisposable
     private ClubOffer Month => new() { Id = Offer, Days = 31, Credits = 100 };
 
     [ClubDatabaseFact]
+    public void ComplimentaryAccessHasNoPurchasedTenureGiftsOrPayday()
+    {
+        Sql("INSERT INTO user_permissions (user_id, permission_key, effect) VALUES (957001, 'club.access', 'grant')");
+        _access.Refresh(User);
+        Assert.Equal(2, ClubAccess.LevelFor(_habbo.Access));
+        Assert.Equal(0, _rewards.Gifts(_habbo).Available);
+        Assert.Null(_rewards.Claim(_habbo, "hc_arab_chair"));
+        Assert.Equal(0, _rewards.Kickback(_habbo).Streak);
+        Assert.Equal("", _rewards.Kickback(_habbo).FirstDate);
+        Assert.True(_rewards.Charge(_habbo, 99));
+        _clock.Now = new(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+        _rewards.RunPaydays();
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM club_credit_spending WHERE user_id = 957001"));
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM club_paydays WHERE user_id = 957001"));
+        Assert.Equal(901, _habbo.Credits);
+    }
+    [ClubDatabaseFact]
     public void PurchaseLoadsTheSnapshotAndInsufficientFundsCommitNothing()
     {
         var now = _clock.Now.ToUnixTimeSeconds();
@@ -110,7 +127,7 @@ public class ClubMembershipDatabaseTests : IDisposable
         Assert.Equal(0, Scalar("SELECT gifts_claimed FROM user_club_memberships WHERE user_id = 957001"));
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM items WHERE user_id = 957001"));
         var claims = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => Task.Run(() => _rewards.Claim(_habbo, "hc_arab_chair"))));
-        Assert.Single(claims.Where(claim => claim != null));
+        Assert.Single(claims, claim => claim != null);
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM items WHERE user_id = 957001"));
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM club_gift_claims WHERE user_id = 957001"));
         Assert.Equal(0, _rewards.Gifts(_habbo).Available);
@@ -148,6 +165,19 @@ public class ClubMembershipDatabaseTests : IDisposable
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM club_credit_spending WHERE user_id = 957001"));
     }
     [ClubDatabaseFact]
+    public void FailedDeliveryReturnsReservedLimitedStock()
+    {
+        Sql("UPDATE catalog_items SET limited_stack = 1, limited_sells = 0 WHERE id = 65398");
+        try
+        {
+            Assert.False(_rewards.Charge(_habbo, 99, deliver: (connection, transaction) =>
+            { Assert.Equal(1, CatalogLimitedStock.Reserve(connection, transaction, 65398)); return false; }));
+            Assert.Equal(0, Scalar("SELECT limited_sells FROM catalog_items WHERE id = 65398"));
+            Assert.Equal(1000, _habbo.Credits);
+        }
+        finally { Sql("UPDATE catalog_items SET limited_stack = 0, limited_sells = 0 WHERE id = 65398"); }
+    }
+    [ClubDatabaseFact]
     public async Task PaydaysPersistSpendingAndReplayCannotPayTwice()
     {
         _memberships.Purchase(_habbo, Month);
@@ -175,7 +205,7 @@ public class ClubMembershipDatabaseTests : IDisposable
     private long Scalar(string sql) { using var connection = _database.Connection(); return connection.ExecuteScalar<long>(sql); }
     private void Clean() => Sql("DROP TRIGGER IF EXISTS club_test_gift_failure; DELETE FROM user_club_memberships WHERE user_id = 957001; DELETE FROM club_membership_intervals WHERE user_id = 957001; " +
         "DELETE FROM club_credit_spending WHERE user_id = 957001; DELETE FROM club_paydays WHERE user_id = 957001; DELETE FROM club_gift_claims WHERE user_id = 957001; " +
-        "DELETE FROM items WHERE user_id = 957001; DELETE FROM acl_audit_log WHERE target_id = 957001; DELETE FROM users WHERE id = 957001; DELETE FROM catalog_club_offers WHERE id = 957101");
+        "DELETE FROM items WHERE user_id = 957001; DELETE FROM acl_audit_log WHERE target_id = 957001; DELETE FROM user_permissions WHERE user_id = 957001; DELETE FROM users WHERE id = 957001; DELETE FROM catalog_club_offers WHERE id = 957101");
     public void Dispose() { _access.Dispose(); Clean(); }
     public class Clients : DispatchProxy
     {

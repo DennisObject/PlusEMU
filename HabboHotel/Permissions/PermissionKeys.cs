@@ -221,6 +221,9 @@ public static class PermissionKeys
         .Where(field => field.IsLiteral && field.FieldType == typeof(string))
         .Select(field => Describe((string)field.GetRawConstantValue()!)).OrderBy(permission => permission.Key, StringComparer.Ordinal).ToArray();
 
+    public static PermissionDefinition Definition(string key) => All.FirstOrDefault(permission => permission.Key == key)
+        ?? throw new ArgumentException($"Unknown registered permission: {key}", nameof(key));
+
     // Threshold gates are named after configurable roles, so their concrete keys are generated here.
     public static IEnumerable<PermissionDefinition> ForRoles(IEnumerable<string> slugs) => slugs
         .SelectMany(slug => new[] { $"catalog.pages.{slug}", $"navigator.searches.{slug}" })

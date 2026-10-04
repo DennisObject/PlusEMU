@@ -59,7 +59,7 @@ public class ClubMembershipService(IDatabase database, IAccessControl permission
 
     public long? Grant(Habbo actor, int userId, int days)
     {
-        if (days < 0 || actor.Id == userId || !actor.Access.Can(PermissionKeys.HousekeepingEconomy) || !actor.Access.Outranks(permissions.Resolve(userId))) return null;
+        if (days < 0 || days > 36500 || actor.Id == userId || !actor.Access.Can(PermissionKeys.HousekeepingEconomy) || !permissions.Outranks(actor.Id, userId)) return null;
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
