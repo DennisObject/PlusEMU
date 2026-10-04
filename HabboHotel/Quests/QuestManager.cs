@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using Plus.Core;
 using System.Data;
+using System.Collections.Immutable;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Incoming;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
@@ -130,13 +131,13 @@ public class QuestManager : IQuestManager, IStartable
                 dbClient.RunQuery($"UPDATE `user_statistics` SET `quest_id` = '0' WHERE `id` = '{session.GetHabbo().Id}' LIMIT 1");
         }
         session.GetHabbo().Quests[session.GetHabbo().HabboStats.QuestId] = totalProgress;
-        session.Send(new QuestStartedComposer(session, quest));
+        session.Send(new QuestStartedComposer(QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(quest.Category))));
         if (completeQuest)
         {
             _messengerDataLoader.BroadcastStatusUpdate(session.GetHabbo(), MessengerEventTypes.QuestCompleted, $"{quest.Category}.{quest.Name}");
             session.GetHabbo().HabboStats.QuestId = 0;
             session.GetHabbo().QuestLastCompleted = quest.Id;
-            session.Send(new QuestCompletedComposer(session, quest));
+            session.Send(new QuestCompletedComposer(QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(quest.Category), QuestWireKind.Completed)));
             lock (session.GetHabbo().WalletSync)
             {
                 if (!session.GetHabbo().WalletClosed)
@@ -189,7 +190,11 @@ public class QuestManager : IQuestManager, IStartable
                 }
             }
         }
-        session.Send(new QuestListComposer(session, message != null, userQuests));
+        var wireQuests = userQuests.Where(entry => entry.Value != null)
+            .Select(entry => QuestWireDataFactory.Create(session, entry.Value, GetAmountOfQuestsInCategory(entry.Key)))
+            .Concat(userQuests.Where(entry => entry.Value == null).Select(entry => QuestWireDataFactory.Empty(entry.Key)))
+            .ToImmutableArray();
+        session.Send(new QuestListComposer(new(message != null, wireQuests)));
     }
 
     public void QuestReminder(GameClient session, int questId)
@@ -197,6 +202,6 @@ public class QuestManager : IQuestManager, IStartable
         var quest = GetQuest(questId);
         if (quest == null)
             return;
-        session.Send(new QuestStartedComposer(session, quest));
+        session.Send(new QuestStartedComposer(QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(quest.Category))));
     }
 }

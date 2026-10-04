@@ -80,6 +80,6 @@ public sealed class QuestProgressService(IQuestProgressStore store, IQuestManage
         store.Start(habbo.Id, quest.Id);
         habbo.HabboStats.QuestId = quest.Id;
         quests.GetList(session, null);
-        session.Send(new QuestStartedComposer(session, quest));
+        session.Send(new QuestStartedComposer(QuestWireDataFactory.Create(session, quest, quests.GetAmountOfQuestsInCategory(quest.Category))));
     }
 }
