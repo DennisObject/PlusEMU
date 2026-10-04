@@ -77,9 +77,6 @@ public class RoomUser
     public int RotBody; //byte
     public int RotHead; //byte
 
-    internal List<Vector2D> PendingWalkSteps = new();
-    internal Vector2D? PendingWalkOrigin;
-    internal bool PendingWalkConsumesPath;
     public bool SetStep;
     public int SetX; //byte
     public int SetY; //byte
@@ -410,12 +407,6 @@ public class RoomUser
     public void ClearMovement(bool update)
     {
         IsWalking = false;
-        Path.Clear();
-        PathRecalcNeeded = false;
-        PathStep = 1;
-        PendingWalkSteps.Clear();
-        PendingWalkOrigin = null;
-        PendingWalkConsumesPath = false;
         Statusses.Remove("mv");
         GoalX = 0;
         GoalY = 0;
@@ -436,7 +427,7 @@ public class RoomUser
         if (TeleportEnabled)
         {
             UnIdle();
-            GetRoom().SendPacket(GetRoom().GetRoomItemHandler().UpdateUserOnRoller(this, new(pX, pY), 0, GetRoom().GetGameMap().SqAbsoluteHeight(pX, pY)));
+            GetRoom().SendPacket(GetRoom().GetRoomItemHandler().UpdateUserOnRoller(this, new(pX, pY), 0, GetRoom().GetGameMap().SqAbsoluteHeight(GoalX, GoalY)));
             if (Statusses.ContainsKey("sit"))
                 Z -= 0.35;
             UpdateNeeded = true;
