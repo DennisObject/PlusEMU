@@ -6,6 +6,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.Utilities;
 
@@ -126,7 +127,11 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                     ? _movement.MoveAvatar(context, user, target.GetX, target.GetY, true, walkMode)
                     : Teleport(context, user, target, fast),
                 (item, state) => { item.LegacyDataString = state; item.UpdateState(); _publish(new(WiredEventKind.StateChanged) { Actor = context.Event.Actor, EventItem = item }); },
-                (item, x, y, rotation, height) => _movement.MoveFurniture(context, item, x, y, rotation, height, blockOnUserCollision: true));
+                (item, x, y, rotation, height) => _movement.MoveFurniture(context, item, x, y, rotation, height, blockOnUserCollision: true),
+                // v2 only: state toggles and snapshot restores go through the per-gate sequencer.
+                GateTransitionService.For(Instance) == null ? null : (item, nextState) => GateTransitionService.ToggleState(item, nextState, GateCloseReason.Wired,
+                    afterWrite: _ => _publish(new(WiredEventKind.StateChanged) { Actor = context.Event.Actor, EventItem = item }))
+                    is GateTransition.Applied or GateTransition.Queued);
         var items = config.FurniSources.ContainsKey("items") ? Furni(context, config, "items") : [];
         var changed = false;
         switch (name)

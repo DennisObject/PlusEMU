@@ -12,6 +12,17 @@ namespace Plus.Tests.Pathfinding;
 public class NavGridCompilerTests
 {
     [Fact]
+    public void NonWalkableEffectIsBlockedInCompatibilityMode()
+    {
+        var (grid, inputs, compiler) = NavTest.Create(2, 1);
+        inputs.Publish(NavTest.Record(10, 1, [1], walkable: false, interaction: InteractionType.Effect));
+        compiler.ApplyNow();
+        Assert.False(grid.Active(1));
+        Assert.False(new MovementRules(grid, new()).CanStep(new(), new(0, 0, 0),
+            grid.Position(1), StepPurpose.Goal, OccupancyView.Execution).Ok);
+    }
+
+    [Fact]
     public void CompatibilityCorpusUsesEffectiveKindAndDeterministicTopOrder()
     {
         var (grid, inputs, compiler) = NavTest.Create(9, 1, states: [SquareState.Open, SquareState.Open, SquareState.Open,

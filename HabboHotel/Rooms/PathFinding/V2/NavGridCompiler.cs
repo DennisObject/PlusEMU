@@ -4,6 +4,10 @@ namespace Plus.HabboHotel.Rooms.PathFinding;
 
 public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingSettings settings)
 {
+    private readonly LayeredTileCompiler _layers = new(grid, settings);
+    internal Action<IReadOnlySet<int>>? BeforePublish { get; set; }
+    // Surfaces holding members or claims; the overflow cap keeps them first (§5.3 step 5).
+    internal Func<SurfaceRef, bool>? SurfacePinned { get => _layers.SurfacePinned; set => _layers.SurfacePinned = value; }
     public void ApplyNow() => Apply();
     public void RebuildAll() { inputs.MarkAllDirty(); Apply(); }
 
@@ -12,6 +16,23 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
         var tiles = inputs.Drain();
         afterDrain?.Invoke();
         if (tiles.Count == 0) return;
+        var selected = SelectClosure(tiles, beforeRead);
+        var records = new Dictionary<uint, NavItemRecord>(inputs.AppliedRecords);
+        foreach (var (id, record) in selected) records[id] = record;
+        grid.BeginPublish();
+        SwitchMode(records.Values, tiles);
+        var covering = Covering(records.Values, tiles);
+        var compat = new Dictionary<int, CompatSurface>(tiles.Count);
+        foreach (var t in tiles) compat[t] = CompileCompat(t, covering.GetValueOrDefault(t));
+        if (grid.Layered) _layers.Compile(compat, covering);
+        else grid.SettleLeftPrimaries();
+        foreach (var (id, record) in selected) inputs.AppliedRecords[id] = record;
+        BeforePublish?.Invoke(tiles);
+        grid.Version++;
+    }
+
+    private Dictionary<uint, NavItemRecord> SelectClosure(HashSet<int> tiles, Action<uint>? beforeRead)
+    {
         var selected = new Dictionary<uint, NavItemRecord>();
         var snapshot = new Dictionary<uint, NavItemRecord>();
         foreach (var id in inputs.ItemIds.Union(inputs.AppliedRecords.Keys))
@@ -34,10 +55,13 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
                 foreach (var t in record.Footprint) changed |= tiles.Add(t);
             }
         } while (changed);
-        var records = new Dictionary<uint, NavItemRecord>(inputs.AppliedRecords);
-        foreach (var (id, record) in selected) records[id] = record;
+        return selected;
+    }
+
+    private Dictionary<int, List<NavItemRecord>> Covering(IEnumerable<NavItemRecord> records, HashSet<int> tiles)
+    {
         var covering = new Dictionary<int, List<NavItemRecord>>();
-        foreach (var record in records.Values)
+        foreach (var record in records)
         {
             if (record.Removed || !settings.StacktoolLegacyCollision && record.Interaction == InteractionType.Stacktool) continue;
             foreach (var t in record.Footprint)
@@ -47,72 +71,56 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
                     list.Add(record);
                 }
         }
-        foreach (var t in tiles) Compile(t, covering.GetValueOrDefault(t));
-        foreach (var (id, record) in selected) inputs.AppliedRecords[id] = record;
-        grid.Version++;
+        return covering;
+    }
+
+    // A mode change rebuilds every tile; rooms with unmigrated surface-sensitive furniture stay at K=1.
+    private void SwitchMode(IEnumerable<NavItemRecord> records, HashSet<int> tiles)
+    {
+        var layered = settings.LayeringEnabled && !records.Any(r => !r.Removed && LayeringEligibility.RequiresSingleSurface(r));
+        if (layered == grid.Layered) return;
+        if (layered) grid.EnterLayers(); else grid.LeaveLayers();
+        for (var t = 0; t < grid.TileCount; t++) tiles.Add(t);
     }
 
     private static bool Touches(NavItemRecord? record, HashSet<int> tiles) => record != null && record.Footprint.Any(tiles.Contains);
 
-    private void Compile(int t, List<NavItemRecord>? records)
+    private CompatSurface CompileCompat(int t, List<NavItemRecord>? records)
     {
-        var wasActive = grid.Active(t);
-        var flags = NavFlags.None;
-        uint support = 0;
-        var kind = SurfaceKind.Floor;
-        var z = grid.BaseZ[t];
-        var group = 0;
-        var top = records?.MaxBy(r => (r.Top, r.Z, r.ItemId));
-        grid.PillowTiles[t] = Array.Empty<int>();
-        grid.LegacyZ[t] = top?.Top ?? z;
-        var walkMagic = records?.Where(r => r.Interaction == InteractionType.WalkMagicTile)
-            .MaxBy(r => (r.Z, r.ItemId));
-        if (t == grid.DoorTile)
-        {
-            flags = NavFlags.Door; kind = SurfaceKind.Door; z = grid.DoorZ;
-        }
-        else if (walkMagic != null)
-        {
-            // The helper is the sole surface, even over void, seats or gates.
-            support = walkMagic.ItemId;
-            z = walkMagic.Z; kind = SurfaceKind.WalkMagic; flags = NavFlags.Transit;
-            grid.LegacyZ[t] = z;
-        }
-        else if (top != null)
-        {
-            support = top.ItemId;
-            z = top.Top; kind = SurfaceKind.Top;
-            if (top.Seat || top.Interaction is InteractionType.Bed or InteractionType.TentSmall)
-            {
-                z = top.Z;
-                flags = top.Seat ? NavFlags.GoalOnlySeat : NavFlags.GoalOnlyBed;
-                kind = top.Seat ? SurfaceKind.SeatBase : SurfaceKind.BedBase;
-                if (!top.Seat)
-                {
-                    // Pillow row is the item's leading footprint row. K=1 retains each
-                    // pillow slot; ResolveClick selects the nearest acceptable one.
-                    var row = top.Rotation is 2 or 6 ? top.Footprint.Min(p => p % grid.Width) : top.Footprint.Min(p => p / grid.Width);
-                    grid.PillowTiles[t] = top.Footprint.Where(p => (top.Rotation is 2 or 6 ? p % grid.Width : p / grid.Width) == row).ToArray();
-                }
-            }
-            else if (top.Interaction == InteractionType.GuildGate)
-            {
-                flags = NavFlags.Transit | NavFlags.GuildGate; kind = SurfaceKind.GateBase; group = top.GroupId;
-            }
-            else if (top.Walkable || top.Interaction == InteractionType.Gate && top.State == "1")
-                flags = NavFlags.Transit;
-            if (top.Interaction == InteractionType.Roller && flags.HasFlag(NavFlags.Transit)) flags |= NavFlags.Roller;
-            if (flags != NavFlags.None) grid.LegacyZ[t] = z;
-        }
-        else if (grid.BaseState[t] == SquareState.Open) flags = NavFlags.Transit;
-        else if (grid.BaseState[t] == SquareState.Seat) flags = NavFlags.GoalOnlySeat | NavFlags.ModelSeat;
-        grid.TileVoid[t] = grid.BaseState[t] == SquareState.Blocked && flags == NavFlags.None;
+        var surface = CompatSurface.Resolve(grid, t, records);
+        grid.LegacyZ[t] = surface.LegacyZ;
         var structuralStatus = Volatile.Read(ref grid.FloorStatusOverrides[t]);
         grid.LegacyFloorStatus[t] = structuralStatus >= 0 ? (byte)structuralStatus
-            : (flags & NavFlags.Transit) != 0 ? (byte)1 : flags == NavFlags.None ? (byte)0 : (byte)3;
-        if (structuralStatus == 0 || Volatile.Read(ref grid.FloorLocks[t]) != 0) flags |= NavFlags.FloorLocked;
-        grid.Flags[t] = flags; grid.WalkZ[t] = z; grid.SupportItem[t] = support;
-        grid.Kind[t] = kind; grid.GroupId[t] = group;
-        grid.ActiveNodeCount += (grid.Active(t) ? 1 : 0) - (wasActive ? 1 : 0);
+            : (surface.Flags & NavFlags.Transit) != 0 ? (byte)1 : surface.Flags == NavFlags.None ? (byte)0 : (byte)3;
+        if (grid.Layered) return surface;
+        grid.TileVoid[t] = grid.BaseState[t] == SquareState.Blocked && surface.Flags == NavFlags.None;
+        grid.WriteSurface(t, surface.Z, surface.Flags | LayeredTileCompiler.Lock(grid, t, structuralStatus), surface.Support,
+            surface.Kind, surface.Group, 0, surface.Pillows, []);
+        return surface;
+    }
+}
+
+// Plus's single surface: the top item's effective kind, the walk magic tile, or the door (§5.4 compatibility mode).
+internal readonly record struct CompatSurface(double Z, NavFlags Flags, uint Support, SurfaceKind Kind, int Group,
+    int[] Pillows, double LegacyZ)
+{
+    internal static CompatSurface Resolve(NavGrid grid, int t, List<NavItemRecord>? records)
+    {
+        var floorZ = grid.BaseZ[t];
+        var top = records?.MaxBy(r => (r.Top, r.Z, r.ItemId));
+        var legacyZ = top?.Top ?? floorZ;
+        if (t == grid.DoorTile) return new(grid.DoorZ, NavFlags.Door, 0, SurfaceKind.Door, 0, [], legacyZ);
+        var walkMagic = records?.Where(r => r.Interaction == InteractionType.WalkMagicTile).MaxBy(r => (r.Z, r.ItemId));
+        // The helper is the sole surface, even over void, seats or gates.
+        if (walkMagic != null) return new(walkMagic.Z, NavFlags.Transit, walkMagic.ItemId, SurfaceKind.WalkMagic, 0, [], walkMagic.Z);
+        if (top == null)
+        {
+            var floor = SurfaceRules.FloorCandidate(grid.BaseState[t], floorZ);
+            return new(floorZ, floor?.Flags ?? NavFlags.None, 0, SurfaceKind.Floor, 0, [], legacyZ);
+        }
+        var item = SurfaceRules.ItemCandidate(top);
+        // K=1 retains each pillow slot; ResolveClick selects the nearest acceptable one.
+        var pillows = item.Kind == SurfaceKind.BedBase ? SurfaceRules.PillowRow(top, grid.Width) : [];
+        return new(item.Z, item.Flags, item.Support, item.Kind, item.Group, pillows, item.Standable ? item.Z : legacyZ);
     }
 }

@@ -16,6 +16,7 @@ internal class RideHorseEvent : RoomPacketEvent
 
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
+        if (room.UsesV2Movement) return ParseExecutor(room, session, packet);
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         if (user == null)
             return Task.CompletedTask;
@@ -85,5 +86,23 @@ internal class RideHorseEvent : RoomPacketEvent
         }
         room.SendPacket(new PetHorseFigureInformationComposer(pet));
         return Task.CompletedTask;
+    }
+    private Task ParseExecutor(Room room, GameClient session, IIncomingPacket packet)
+    {
+        var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
+        if (user == null) return Task.CompletedTask;
+        var petId = packet.ReadInt(); var mount = packet.ReadBool();
+        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet) || pet.PetData == null)
+            return Task.CompletedTask;
+        if (!MayRide(session, user, pet)) return Task.CompletedTask;
+        room.GetGameMap().Navigation!.Mounts.Ride(user, pet, mount, _petLocale);
+        return Task.CompletedTask;
+    }
+
+    private static bool MayRide(GameClient session, RoomUser user, RoomUser pet)
+    {
+        if (pet.PetData.AnyoneCanRide != 0 || pet.PetData.OwnerId == user.UserId) return true;
+        session.SendNotification("You are unable to ride this horse.\nThe owner of the pet has not selected for anyone to ride it.");
+        return false;
     }
 }

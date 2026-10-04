@@ -3,6 +3,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Wired.Boxes.Effects;
 
@@ -134,6 +135,13 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
 
     private void SetState(Item item, string extradata)
     {
+        if (GateTransitionService.For(item) != null)
+        {
+            // v2: equality is decided against the committed state when the write runs, not before it queues.
+            if (item.Definition.InteractionType != InteractionType.Dice)
+                GateTransitionService.ToggleState(item, current => current == extradata ? null : extradata, GateCloseReason.Wired, persist: false);
+            return;
+        }
         if (item.LegacyDataString == extradata)
             return;
         if (item.Definition.InteractionType == InteractionType.Dice)

@@ -1,6 +1,7 @@
 using Plus.HabboHotel.Subscriptions;
 using System.Globalization;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Rooms.Games.Teams;
 
 namespace Plus.HabboHotel.Items.Wired.Variables;
@@ -32,6 +33,26 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             WiredVariableTarget.Context => key is "@selector_furni_count" or "@selector_user_count" or "@signal_furni_count" or "@signal_user_count",
             _ => false
         };
+    }
+
+    // v2 only: legacy and shadow rooms write gate states directly and never enter the module's admission.
+    public bool SequencesGateWrites => GateTransitionService.For(room) != null;
+
+    // The gate's per-write FIFO decides: behind a pending write, or a closing from another thread, the whole
+    // transaction waits for the owner. Otherwise it runs now with the transform's single, already evaluated result.
+    public IDisposable? Admit(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
+        Func<Func<int, int>, Action> replayWith, Func<bool> stillTargeted, out WiredAdmission admission)
+    {
+        admission = WiredAdmission.Proceed;
+        if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state") return null;
+        if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || GateTransitionService.For(room) is not { } gates) return null;
+        var original = transform;
+        string? Peek(string current) => int.TryParse(current, out var value)
+            ? original(value).ToString(CultureInfo.InvariantCulture) : null;
+        Action Replay(string? prepared) => replayWith(prepared is null ? original : _ => int.Parse(prepared, CultureInfo.InvariantCulture));
+        var scope = gates.AdmitVariableWrite(item, Peek, Replay, stillTargeted, out admission, out var evaluated);
+        if (evaluated is not null) transform = _ => int.Parse(evaluated, CultureInfo.InvariantCulture);
+        return scope;
     }
 
     public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)
@@ -99,12 +120,28 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             var item = FindItem(holder);
             if (item is null || value < 0 || item.Definition.Modes <= value
                 || !int.TryParse(item.LegacyDataString, out var previous) || previous == value) return false;
-            item.LegacyDataString = value.ToString(CultureInfo.InvariantCulture);
-            item.UpdateState();
+            if (GateTransitionService.For(item) != null)
+            {
+                if (!WriteGateState(item, value)) return false;
+            }
+            else
+            {
+                item.LegacyDataString = value.ToString(CultureInfo.InvariantCulture);
+                item.UpdateState();
+            }
             if (stateChanged is not null) completed = () => stateChanged(item, frame);
             return true;
         }
         return engineWrite?.Invoke(reference with { Token = $"internal:{key}" }, holder, value, frame) == true;
+    }
+
+    // v2 only: a gate's state goes through its transition service.
+    private bool WriteGateState(Item item, int value)
+    {
+        var next = value.ToString(CultureInfo.InvariantCulture);
+        // Closing writes from other threads were sequenced whole by Admit; nothing is notified early.
+        if (GateTransitionService.IsClosing(item, next) && !RoomOwnerScope.IsOwner(room)) return false;
+        return GateTransitionService.WriteNow(item, next, GateCloseReason.Wired) != GateTransition.Refused;
     }
 
     private Item? FindItem(WiredVariableHolder holder)

@@ -22,7 +22,8 @@ public sealed class WiredMovementActions
 
     public bool Execute(string name, WiredConfiguration configuration, IReadOnlyList<Item> movers,
         IReadOnlyList<Item> targets, IReadOnlyList<RoomUser> users,
-        MoveFurniture move, MoveAvatar relocate, Action<Item, string> setState, MoveFurniture? moveBlockingUsers = null)
+        MoveFurniture move, MoveAvatar relocate, Action<Item, string> setState, MoveFurniture? moveBlockingUsers = null,
+        Func<Item, Func<string, string?>, bool>? toggleState = null)
     {
         if (!WiredMovementConfiguration.TryValidate(name, configuration, out configuration, out _))
             return false;
@@ -88,7 +89,9 @@ public sealed class WiredMovementActions
                 {
                     var snapshot = configuration.Snapshots.FirstOrDefault(entry => entry.ItemId == item.Id);
                     if (snapshot == null) continue;
-                    if (Param(0) == 1 && !string.Equals(item.LegacyDataString, snapshot.State, StringComparison.Ordinal))
+                    if (Param(0) == 1 && toggleState != null)
+                        affected |= toggleState(item, current => string.Equals(current, snapshot.State, StringComparison.Ordinal) ? null : snapshot.State);
+                    else if (Param(0) == 1 && !string.Equals(item.LegacyDataString, snapshot.State, StringComparison.Ordinal))
                     {
                         setState(item, snapshot.State);
                         affected = true;
@@ -104,6 +107,12 @@ public sealed class WiredMovementActions
                 {
                     var states = item.Definition.Modes;
                     if (states <= 1) continue;
+                    if (toggleState != null)
+                    {
+                        var random = name.Equals("wf_act_toggle_to_rnd", StringComparison.OrdinalIgnoreCase);
+                        affected |= toggleState(item, current => NextToggleState(current, states, random, Param(0) == 1));
+                        continue;
+                    }
                     _ = int.TryParse(item.LegacyDataString, out var oldState);
                     var next = name.Equals("wf_act_toggle_to_rnd", StringComparison.OrdinalIgnoreCase)
                         ? Random.Shared.Next(states)
@@ -130,6 +139,14 @@ public sealed class WiredMovementActions
                 return false;
         }
         return affected;
+    }
+
+    // v2 only. Null when the toggle would not change the state.
+    private static string? NextToggleState(string current, int states, bool random, bool reverse)
+    {
+        _ = int.TryParse(current, out var oldState);
+        var next = random ? Random.Shared.Next(states) : ((oldState + (reverse ? -1 : 1)) % states + states) % states;
+        return next == oldState ? null : next.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static int MovementDirection(int movement) => movement switch

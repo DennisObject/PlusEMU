@@ -10,20 +10,23 @@ public enum SurfaceKind : byte { Floor, Top, SeatBase, BedBase, Door, GateBase, 
 public readonly record struct SurfaceRef(int Tile, uint SupportItemId, SurfaceKind Kind);
 public readonly record struct NavPosition(int X, int Y, double Z, int Slot = -1);
 
-public sealed class NavGrid
+public sealed partial class NavGrid
 {
+    public const int MaxSurfacesPerTile = 4;
     public int Width { get; }
     public int Height { get; }
-    public int SlotCapacity => Width * Height; // K=1: tile slots never compact.
+    public int TileCount => Width * Height;
+    // Slot t belongs to tile t; further layered surfaces use overflow slots that never compact.
+    public int SlotCapacity => TileCount + _overflowHighWater;
     public int ActiveNodeCount { get; internal set; }
     public int Version { get; internal set; }
-    public double[] WalkZ { get; }
-    public NavFlags[] Flags { get; }
-    public uint[] SupportItem { get; }
-    public byte[] Ordinal { get; }
-    public SurfaceKind[] Kind { get; }
-    public int[] GroupId { get; }
-    internal int[][] PillowTiles { get; }
+    public double[] WalkZ { get; private set; }
+    public NavFlags[] Flags { get; private set; }
+    public uint[] SupportItem { get; private set; }
+    public byte[] Ordinal { get; private set; }
+    public SurfaceKind[] Kind { get; private set; }
+    public int[] GroupId { get; private set; }
+    internal int[][] PillowTiles { get; private set; }
     public bool[] TileVoid { get; }
     public double[] LegacyZ { get; }
     public byte[] LegacyFloorStatus { get; }
@@ -44,20 +47,25 @@ public sealed class NavGrid
         Width = width; Height = height;
         BaseZ = (double[])baseZ.Clone(); BaseState = (SquareState[])baseState.Clone();
         DoorTile = doorTile; DoorZ = doorZ;
-        WalkZ = new double[SlotCapacity]; LegacyZ = new double[SlotCapacity];
-        Flags = new NavFlags[SlotCapacity]; SupportItem = new uint[SlotCapacity];
-        Ordinal = new byte[SlotCapacity]; Kind = new SurfaceKind[SlotCapacity];
-        GroupId = new int[SlotCapacity]; PillowTiles = new int[SlotCapacity][]; TileVoid = new bool[SlotCapacity];
-        FloorLocks = new int[SlotCapacity]; FloorStatusOverrides = new int[SlotCapacity];
-        Array.Fill(FloorStatusOverrides, -1); LegacyFloorStatus = new byte[SlotCapacity];
+        WalkZ = new double[TileCount]; LegacyZ = new double[TileCount];
+        Flags = new NavFlags[TileCount]; SupportItem = new uint[TileCount];
+        Ordinal = new byte[TileCount]; Kind = new SurfaceKind[TileCount];
+        GroupId = new int[TileCount]; PillowTiles = new int[TileCount][]; TileVoid = new bool[TileCount];
+        _contacts = new uint[TileCount][];
+        FloorLocks = new int[TileCount]; FloorStatusOverrides = new int[TileCount];
+        Array.Fill(FloorStatusOverrides, -1); LegacyFloorStatus = new byte[TileCount];
         Connectivity = new(this);
     }
 
     public bool InBounds(int x, int y) => (uint)x < Width && (uint)y < Height;
     public int Tile(int x, int y) => y * Width + x;
     public bool Active(int slot) => (Flags[slot] & ~NavFlags.FloorLocked) != 0;
-    public SurfaceRef Reference(int slot) => new(slot, SupportItem[slot], Kind[slot]);
-    public NavPosition Position(int slot, bool legacy = false) => new(slot % Width, slot / Width,
-        legacy ? LegacyZ[slot] : WalkZ[slot], slot);
-    public long RetainedBytes => SlotCapacity * (8L * 3 + 2 + 4 + 1 + 1 + 4 + 1 + 4 + 4) + SlotCapacity * 13L + PillowTiles.Sum(p => (p?.Length ?? 0) * 4L) + Connectivity.RetainedBytes;
+    public SurfaceRef Reference(int slot) => new(TileOf(slot), SupportItem[slot], Kind[slot]);
+    public NavPosition Position(int slot, bool legacy = false)
+    {
+        var tile = TileOf(slot);
+        return new(tile % Width, tile / Width, legacy ? LegacyZ[tile] : WalkZ[slot], slot);
+    }
+    public long RetainedBytes => SlotCapacity * (8L * 3 + 2 + 4 + 1 + 1 + 4 + 1 + 4 + 4) + SlotCapacity * 13L + PillowTiles.Sum(p => (p?.Length ?? 0) * 4L)
+        + LayerIndexBytes + Connectivity.RetainedBytes;
 }
