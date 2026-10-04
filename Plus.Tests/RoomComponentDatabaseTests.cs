@@ -35,7 +35,7 @@ public sealed class RoomComponentDatabaseTests
                 CREATE TABLE bots_speech (bot_id INT NOT NULL, text VARCHAR(255) NOT NULL);
                 CREATE TABLE bots_petdata (
                     id INT PRIMARY KEY, type INT NOT NULL, race VARCHAR(20) NOT NULL, color VARCHAR(20) NOT NULL,
-                    experience INT NOT NULL, energy INT NOT NULL, nutrition INT NOT NULL, respect INT NOT NULL,
+                    experience INT NOT NULL CHECK (experience >= 0), energy INT NOT NULL, nutrition INT NOT NULL, respect INT NOT NULL,
                     createstamp DOUBLE NOT NULL, have_saddle INT NOT NULL, anyone_ride INT NOT NULL,
                     hairdye INT NOT NULL, pethair INT NOT NULL, gnome_clothing VARCHAR(100) NOT NULL);
                 CREATE TABLE room_promotions (
@@ -59,6 +59,7 @@ public sealed class RoomComponentDatabaseTests
                     (12, 9, 99, 'other', '', '', 0, 0, 0, 0, 'generic', 'freeroam', FALSE, 1, FALSE, 0);
                 INSERT INTO bots_speech VALUES (10, 'first'), (10, 'second');
                 INSERT INTO bots_petdata VALUES (11, 2, '3', 'ffffff', 4, 5, 6, 7, 8.5, 1, 0, 9, 10, 'hat');
+                INSERT INTO bots_petdata VALUES (14, 2, '3', 'ffffff', 0, 100, 0, 0, 0, 0, 0, 1, -1, '-1');
                 INSERT INTO room_promotions VALUES (42, 'Featured', 'Actual row', UNIX_TIMESTAMP() - 10, UNIX_TIMESTAMP() + 600, 3);
                 INSERT INTO items (id, user_id) VALUES (90, 1), (91, 1);
                 INSERT INTO users VALUES (7, 'owner');
@@ -99,6 +100,13 @@ public sealed class RoomComponentDatabaseTests
             userStore.SaveBot(new(10, 8, 9, 1.5, "updated", "look", 4));
             userStore.SavePet(new(11, 8, 42, "pet", 2, "3", "ffffff", 8.5, 6, 7, 2.25, 40, 50, 60, 70, false));
             userStore.SavePet(new(13, 9, 42, "inserted", 4, "5", "000000", 9.5, 0, 0, 0, 0, 100, 0, 0, true));
+            Assert.Throws<MySqlException>(() =>
+                userStore.SavePet(new(14, 9, 42, "rollback", 4, "5", "000000", 9.5, 0, 0, 0, 0, 100, 0, 0, true)));
+            Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM bots WHERE id = 14"));
+            Assert.Throws<MySqlException>(() =>
+                userStore.SavePet(new(11, 8, 99, "pet", 2, "3", "ffffff", 8.5, 60, 70, 20.25, -1, 50, 60, 70, false)));
+            Assert.Equal((42u, 6, 7, 2.25),
+                connection.QuerySingle<(uint, int, int, double)>("SELECT room_id, x, y, z FROM bots WHERE id = 11"));
             userStore.RecordExit(42, 7, 1234, 6);
             Assert.Equal(6, connection.QuerySingle<int>("SELECT users_now FROM rooms WHERE id = 42"));
             Assert.Equal(1234, connection.QuerySingle<double>("SELECT exit_timestamp FROM user_roomvisits WHERE room_id = 42 AND user_id = 7"));
