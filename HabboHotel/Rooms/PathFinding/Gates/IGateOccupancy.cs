@@ -14,14 +14,22 @@ internal sealed class LegacyGateOccupancy(Gamemap map) : IGateOccupancy
     public bool IsBlocked(IReadOnlyList<Point> footprint) => footprint.Any(map.MapGotUser);
 }
 
-// v2 rooms: committed members, off-graph members and every claim kind (X/G/S/R) on the tile.
+// v2 rooms: committed members, off-graph members and every claim kind (X/G/S/R) on any surface of the tile.
 internal sealed class ExecutorGateOccupancy(NavGrid grid, ClaimLedger claims) : IGateOccupancy
 {
     private const long NoExcludedGroup = long.MinValue;
 
     public bool IsBlocked(IReadOnlyList<Point> footprint) => footprint.Any(IsTileBlocked);
 
-    private bool IsTileBlocked(Point tile)
-        => grid.InBounds(tile.X, tile.Y)
-            && claims.OccupancyAt(grid.Tile(tile.X, tile.Y), NoExcludedGroup) != TargetOccupancy.None;
+    private bool IsTileBlocked(Point point)
+    {
+        if (!grid.InBounds(point.X, point.Y)) return false;
+        var tile = grid.Tile(point.X, point.Y);
+        if (Held(tile)) return true;
+        for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++)
+            if (Held(grid.SurfaceAt(tile, ordinal))) return true;
+        return false;
+    }
+
+    private bool Held(int slot) => claims.OccupancyAt(slot, NoExcludedGroup) != TargetOccupancy.None;
 }
