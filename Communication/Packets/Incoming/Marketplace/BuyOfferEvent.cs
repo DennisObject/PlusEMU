@@ -9,6 +9,8 @@ using Plus.HabboHotel.Catalog.Marketplace;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 
+using Plus.HabboHotel.Users.Inventory.Furniture;
+
 namespace Plus.Communication.Packets.Incoming.Marketplace;
 
 internal class BuyOfferEvent : IPacketEvent
@@ -83,7 +85,7 @@ internal class BuyOfferEvent : IPacketEvent
                 session.GetHabbo().Inventory.Furniture.AddItem(giveItem);
                 session.Send(new FurniListNotificationComposer(giveItem.Id, 1));
                 session.Send(new PurchaseOKComposer());
-                session.Send(new FurniListAddComposer(giveItem));
+                session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(giveItem)));
                 session.Send(new FurniListUpdateComposer());
             }
             using var dbClient = _database.GetQueryReactor();

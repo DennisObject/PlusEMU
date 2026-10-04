@@ -173,7 +173,7 @@ public sealed class Trade
         // A wallet saved for shutdown cannot receive credits; transfer the voucher intact.
         if (habbo.Inventory.Furniture.AddItem(item))
         {
-            recipient.Send(new FurniListAddComposer(item));
+            recipient.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item)));
             recipient.Send(new FurniListNotificationComposer(item.Id, 1));
             store.TransferItem(item.Id, habbo.Id);
         }

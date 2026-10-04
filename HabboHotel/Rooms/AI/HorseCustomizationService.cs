@@ -8,6 +8,8 @@ using Plus.HabboHotel.Catalog.Utilities;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 
+using Plus.HabboHotel.Users.Inventory.Furniture;
+
 namespace Plus.HabboHotel.Rooms.AI;
 
 public interface IHorseCustomizationService
@@ -71,7 +73,7 @@ public sealed class HorseCustomizationService(
                 habbo.Inventory.Furniture.AddItem(item);
                 session.Send(new FurniListNotificationComposer(item.Id, 1));
                 session.Send(new PurchaseOKComposer());
-                session.Send(new FurniListAddComposer(item));
+                session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item)));
                 session.Send(new FurniListUpdateComposer());
             }
         }

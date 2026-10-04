@@ -1,4 +1,7 @@
 ﻿using System.Collections.Concurrent;
+using System.Collections.Immutable;
+using Plus.Communication.Packets.Outgoing.Inventory.Furni;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
 
@@ -96,6 +99,21 @@ public class FurnitureInventoryComponent
     public IEnumerable<InventoryItem> GetItems => _floorItems.Values.Concat(_wallItems.Values);
 
     public IEnumerable<InventoryItem> AllItems => _floorItems.Values.Concat(_wallItems.Values);
+
+    public void SendInventory(GameClient session)
+    {
+        const int itemsPerPage = 700;
+        var items = AllItems.Select(InventoryItemSnapshot.Capture).ToImmutableArray();
+        if (items.IsEmpty)
+        {
+            session.Send(new FurniListComposer(items, 1, 1));
+            return;
+        }
+        var pages = (items.Length - 1) / itemsPerPage + 1;
+        var page = 0;
+        foreach (var batch in items.Chunk(itemsPerPage))
+            session.Send(new FurniListComposer(batch.ToImmutableArray(), pages, page++));
+    }
 
     public void ClearItems()
     {

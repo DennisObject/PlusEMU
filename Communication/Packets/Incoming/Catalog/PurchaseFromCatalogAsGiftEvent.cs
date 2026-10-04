@@ -15,6 +15,8 @@ using Plus.Utilities;
 using Dapper;
 using Plus.HabboHotel.Subscriptions;
 
+using Plus.HabboHotel.Users.Inventory.Furniture;
+
 namespace Plus.Communication.Packets.Incoming.Catalog;
 
 public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
@@ -192,7 +194,7 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
                 receiver.GetHabbo().Inventory.Furniture.AddItem(giveItem);
                 receiver.Send(new FurniListNotificationComposer(giveItem.Id, 1));
                 receiver.Send(new PurchaseOKComposer());
-                receiver.Send(new FurniListAddComposer(giveItem));
+                receiver.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(giveItem)));
                 receiver.Send(new FurniListUpdateComposer());
             }
 

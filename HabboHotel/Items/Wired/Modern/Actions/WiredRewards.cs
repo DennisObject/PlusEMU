@@ -96,7 +96,7 @@ public static class WiredRewards
         if (grant.Furniture is { } item)
         {
             habbo.Inventory.Furniture.AddItem(item);
-            habbo.Client.Send(new FurniListAddComposer(item));
+            habbo.Client.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item)));
             habbo.Client.Send(new FurniListUpdateComposer());
             habbo.Client.Send(new FurniListNotificationComposer(item.Id, item.IsFloorItem ? 1 : 2));
         }

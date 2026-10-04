@@ -8,6 +8,8 @@ using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 
+using Plus.HabboHotel.Users.Inventory.Furniture;
+
 namespace Plus.HabboHotel.Rooms;
 
 [Obsolete("Everything in here is bad and whoever wrote this must've been high on some crack or something")]
@@ -802,7 +804,7 @@ public class RoomItemHandling
                 session.GetHabbo().Inventory.Furniture.AddItem(I.ToInventoryItem());
                 _room.SendPacket(new ItemRemoveComposer(item, item.UserId));
             }
-            session.Send(new FurniListAddComposer(item.ToInventoryItem()));
+            session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item.ToInventoryItem())));
         }
         _rollers.Clear();
         _room.GetGameMap().GenerateMaps();
