@@ -1,6 +1,6 @@
+using System.Collections.Immutable;
 using Dapper;
 using Plus.Database;
-using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Chat.Logs;
 
@@ -13,10 +13,20 @@ public interface IModeratorHistoryService
     ModeratorUserRoomVisits? GetUserRoomVisits(int userId);
 }
 
+public interface IModeratorUserLookup
+{
+    Users.Habbo? GetById(int userId);
+}
+
+public sealed class ModeratorUserLookup : IModeratorUserLookup
+{
+    public Users.Habbo? GetById(int userId) => PlusEnvironment.GetHabboById(userId);
+}
+
 public sealed class ModeratorHistoryService(
     IDatabase database,
     IRoomManager roomManager,
-    IGameClientManager clientManager,
+    IModeratorUserLookup userLookup,
     IChatlogManager chatlogManager,
     TimeProvider timeProvider) : IModeratorHistoryService
 {
@@ -40,15 +50,17 @@ public sealed class ModeratorHistoryService(
             """
             SELECT visits.room_id AS RoomId, rooms.caption AS RoomName,
                    visits.entry_timestamp AS EntryTimestamp, visits.exit_timestamp AS ExitTimestamp
-            FROM user_roomvisits AS visits
-            INNER JOIN rooms ON rooms.id=visits.room_id
-            WHERE visits.user_id=@userId
-            ORDER BY visits.entry_timestamp DESC LIMIT 7
+            FROM (
+                SELECT room_id, entry_timestamp, exit_timestamp FROM user_roomvisits
+                WHERE user_id=@userId ORDER BY entry_timestamp DESC LIMIT 7
+            ) AS visits
+            LEFT JOIN rooms ON rooms.id=visits.room_id
             """, new { userId });
         var rooms = new List<ModeratorRoomChatlog>();
         var now = timeProvider.GetUtcNow();
         foreach (var visit in visits)
         {
+            if (visit.RoomName == null) continue;
             var exit = visit.ExitTimestamp is > 0 ? visit.ExitTimestamp.Value : ToUnixTime(now);
             var entries = ResolveEntries(connection.Query<ChatlogRow>(
                 """
@@ -58,7 +70,7 @@ public sealed class ModeratorHistoryService(
                 """, new { visit.RoomId, visit.EntryTimestamp, ExitTimestamp = exit }));
             rooms.Add(new(new(visit.RoomId, visit.RoomName), entries));
         }
-        return new(new(user.Id, user.Username), rooms);
+        return new(new(user.Id, user.Username), rooms.ToImmutableArray());
     }
 
     public ModeratorUserRoomVisits? GetUserRoomVisits(int userId)
@@ -69,20 +81,21 @@ public sealed class ModeratorHistoryService(
         var rows = connection.Query<RoomVisitSummaryRow>(
             """
             SELECT visits.room_id AS RoomId, rooms.caption AS RoomName, visits.entry_timestamp AS EntryTimestamp
-            FROM user_roomvisits AS visits
-            INNER JOIN rooms ON rooms.id=visits.room_id
-            WHERE visits.user_id=@userId
-            ORDER BY visits.entry_timestamp DESC LIMIT 50
+            FROM (
+                SELECT room_id, entry_timestamp FROM user_roomvisits
+                WHERE user_id=@userId ORDER BY entry_timestamp DESC LIMIT 50
+            ) AS visits
+            LEFT JOIN rooms ON rooms.id=visits.room_id
             """, new { userId });
         var timestamps = new HashSet<double>();
         var visits = new List<ModeratorRoomVisit>();
         foreach (var row in rows)
-            if (timestamps.Add(row.EntryTimestamp))
+            if (row.RoomName != null && timestamps.Add(row.EntryTimestamp))
                 visits.Add(new(new(row.RoomId, row.RoomName), FromUnixTime(row.EntryTimestamp)));
-        return new(new(user.Id, user.Username), visits);
+        return new(new(user.Id, user.Username), visits.ToImmutableArray());
     }
 
-    private List<ModeratorChatEntry> ResolveEntries(IEnumerable<ChatlogRow> rows)
+    private ImmutableArray<ModeratorChatEntry> ResolveEntries(IEnumerable<ChatlogRow> rows)
     {
         var entries = new List<ModeratorChatEntry>();
         foreach (var row in rows)
@@ -90,22 +103,22 @@ public sealed class ModeratorHistoryService(
             var user = GetOnlineUser(row.UserId);
             if (user != null) entries.Add(new(row.UserId, user.Username, row.Message, FromUnixTime(row.Timestamp)));
         }
-        return entries;
+        return entries.ToImmutableArray();
     }
 
-    private Users.Habbo? GetOnlineUser(int userId) => clientManager.GetClientByUserId(userId)?.GetHabbo();
+    private Users.Habbo? GetOnlineUser(int userId) => userLookup.GetById(userId);
     private static DateTimeOffset FromUnixTime(double value) => DateTimeOffset.UnixEpoch.AddMilliseconds(value * 1000d);
     private static double ToUnixTime(DateTimeOffset value) => value.ToUnixTimeMilliseconds() / 1000d;
 
     private sealed record ChatlogRow(int UserId, double Timestamp, string Message);
-    private sealed record RoomVisitRow(uint RoomId, string RoomName, double EntryTimestamp, double? ExitTimestamp);
-    private sealed record RoomVisitSummaryRow(uint RoomId, string RoomName, double EntryTimestamp);
+    private sealed record RoomVisitRow(uint RoomId, string? RoomName, double EntryTimestamp, double? ExitTimestamp);
+    private sealed record RoomVisitSummaryRow(uint RoomId, string? RoomName, double EntryTimestamp);
 }
 
 public sealed record ModeratorUserIdentity(int Id, string Username);
 public sealed record ModeratorRoomIdentity(uint Id, string Name);
 public sealed record ModeratorChatEntry(int UserId, string Username, string Message, DateTimeOffset Timestamp);
-public sealed record ModeratorRoomChatlog(ModeratorRoomIdentity Room, IReadOnlyList<ModeratorChatEntry> Entries);
-public sealed record ModeratorUserChatlog(ModeratorUserIdentity User, IReadOnlyList<ModeratorRoomChatlog> Rooms);
+public sealed record ModeratorRoomChatlog(ModeratorRoomIdentity Room, ImmutableArray<ModeratorChatEntry> Entries);
+public sealed record ModeratorUserChatlog(ModeratorUserIdentity User, ImmutableArray<ModeratorRoomChatlog> Rooms);
 public sealed record ModeratorRoomVisit(ModeratorRoomIdentity Room, DateTimeOffset EnteredAt);
-public sealed record ModeratorUserRoomVisits(ModeratorUserIdentity User, IReadOnlyList<ModeratorRoomVisit> Visits);
+public sealed record ModeratorUserRoomVisits(ModeratorUserIdentity User, ImmutableArray<ModeratorRoomVisit> Visits);

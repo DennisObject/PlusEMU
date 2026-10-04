@@ -46,4 +46,21 @@ public sealed class ModeratorHistoryComposerTests
 
         Assert.Equal(new object[] { 7, "Alice", 1, (uint)42, "HQ", Timestamp.Hour, Timestamp.Minute }, packet.Writes);
     }
+
+    [Fact]
+    public void NestedHistoryCollectionsCannotMutateComposerOutput()
+    {
+        ModeratorRoomChatlog history = new(new(42, "HQ"), [new(7, "Alice", "original", Timestamp)]);
+        var composer = new ModeratorRoomChatlogComposer(history);
+        var first = new HabbiconTestSupport.RecordingPacket();
+        composer.Compose(first);
+
+        var changed = history.Entries.Add(new(8, "Bob", "later", Timestamp));
+        var second = new HabbiconTestSupport.RecordingPacket();
+        composer.Compose(second);
+
+        Assert.Equal(2, changed.Length);
+        Assert.Single(history.Entries);
+        Assert.Equal(first.Writes, second.Writes);
+    }
 }

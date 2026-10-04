@@ -11,7 +11,7 @@ public class ModeratorUserRoomVisitsComposer(ModeratorUserRoomVisits history) : 
     {
         packet.WriteInteger(history.User.Id);
         packet.WriteString(history.User.Username);
-        packet.WriteInteger(history.Visits.Count);
+        packet.WriteInteger(history.Visits.Length);
         foreach (var visit in history.Visits)
         {
             packet.WriteUInteger(visit.Room.Id);
