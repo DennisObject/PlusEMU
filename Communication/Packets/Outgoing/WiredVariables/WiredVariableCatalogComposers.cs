@@ -62,7 +62,7 @@ public sealed class WiredVariableHoldersPageComposer(string variableId, WiredVar
         }
         packet.WriteInteger(userFilter); packet.WriteInteger(sort);
     }
-    private static void WriteTimestamp(IOutgoingPacket packet, long timestamp)
+    internal static void WriteTimestamp(IOutgoingPacket packet, long timestamp)
     {
         packet.WriteInteger(unchecked((int)(timestamp >> 32))); packet.WriteInteger(unchecked((int)timestamp));
         packet.WriteString(timestamp > 0 && timestamp <= 253402300799999L

@@ -49,11 +49,11 @@ internal sealed partial class WiredStackEngine
     public bool Enqueue(WiredRuntimeEvent @event, int? depth = null) => Pass(() =>
     {
         var eventDepth = depth ?? (_runtimeContext?.Depth ?? -1) + 1;
-        if (eventDepth > _limits.MaxDepth || _runtimeRoom == null) return false;
+        if (TooDeep(eventDepth) || _runtimeRoom == null) return false;
         RefreshStacks();
         var dispatch = new PendingDispatch(@event, eventDepth);
         SnapshotDispatch(dispatch);
-        if (PendingCount + dispatch.Slots > _limits.MaxPendingStacks) return false;
+        if (QueueFull(dispatch.Slots)) return false;
         QueueDispatch(dispatch);
         UpdateFastWork();
         return true;
@@ -96,14 +96,14 @@ internal sealed partial class WiredStackEngine
         if (_runtimeRoom == null) return default;
         var depth = _queuedDepth ?? (_runtimeContext?.Depth ?? _context?.Depth ?? -1) + 1;
         _queuedDepth = null;
-        if (depth > _limits.MaxDepth) return default;
+        if (TooDeep(depth)) return default;
         RefreshStacks();
         var dispatch = new PendingDispatch(@event, depth) { IncludeLegacy = false };
         var complete = AdvanceDispatch(dispatch);
         if (!complete)
         {
             // A synchronous speech decision cannot consume chat on an unfinished condition gate.
-            if (@event.Kind is not (WiredEventKind.Speech or WiredEventKind.ClickUser) && PendingCount + dispatch.Slots <= _limits.MaxPendingStacks)
+            if (@event.Kind is not (WiredEventKind.Speech or WiredEventKind.ClickUser) && !QueueFull(dispatch.Slots))
             { QueueDispatch(dispatch); dispatch.Accepted = true; }
             else dispatch.Current?.Dispose();
         }
@@ -131,12 +131,12 @@ internal sealed partial class WiredStackEngine
 
     public bool CallStacks(WiredRuntimeContext parent, IEnumerable<Item> targets, bool negative = false) => Pass(() =>
     {
-        if (!ReferenceEquals(parent.Room, _runtimeRoom) || parent.Depth >= _limits.MaxDepth) return false;
+        if (!ReferenceEquals(parent.Room, _runtimeRoom) || TooDeep(parent.Depth + 1)) return false;
         var accepted = false;
         var visited = new HashSet<(int, int)>();
         foreach (var item in targets.OrderBy(x => x.GetZ).ThenBy(x => x.Id).ToArray())
         {
-            if (_remaining <= 0) break;
+            if (OutOfBudget()) break;
             if (!parent.Targets.IsAttached(item) || !parent.FurniIdentity.TryGetValue(item.Id, out var captured)
                 || !ReferenceEquals(captured, item)) continue;
             RefreshStacks();
@@ -158,12 +158,12 @@ internal sealed partial class WiredStackEngine
     public bool SendSignal(WiredRuntimeContext parent, IEnumerable<Item> receivers,
         WiredSelection selection, bool negative = false) => Pass(() =>
     {
-        if (!ReferenceEquals(parent.Room, _runtimeRoom) || parent.Depth >= _limits.MaxDepth) return false;
+        if (!ReferenceEquals(parent.Room, _runtimeRoom) || TooDeep(parent.Depth + 1)) return false;
         var live = _targets!.AllFurni().ToDictionary(x => x.Id);
         var accepted = false;
         foreach (var receiver in receivers.DistinctBy(x => x.Id))
         {
-            if (PendingCount >= _limits.MaxPendingStacks) break;
+            if (QueueFull(1)) break;
             if (!live.TryGetValue(receiver.Id, out var attached) || !ReferenceEquals(receiver, attached)
                 || !IsSignalReceiver(receiver)) continue;
             var child = parent.Fork(new(WiredEventKind.Signal) { Actor = parent.Event.Kind == WiredEventKind.Leave ? null : parent.Event.Actor, EventItem = receiver, Code = unchecked((int)receiver.Id) }, parent.Depth + 1);
@@ -172,7 +172,7 @@ internal sealed partial class WiredStackEngine
             child.Selected = selection.Copy();
             var dispatch = new PendingDispatch(child.Event, child.Depth, new(receiver, receiver.MovementGeneration, child, negative));
             SnapshotDispatch(dispatch);
-            if (PendingCount + dispatch.Slots > _limits.MaxPendingStacks) continue;
+            if (QueueFull(dispatch.Slots)) continue;
             QueueDispatch(dispatch);
             accepted = true;
         }
@@ -272,12 +272,12 @@ internal sealed partial class WiredStackEngine
 
     private bool RunRuntimeStack(IWiredItem source, WiredRuntimeContext context, bool? negative, object[][]? conditionActors = null, bool defer = true)
     {
-        if (context.Depth > _limits.MaxDepth || !IsAttached(source)) return false;
+        if (TooDeep(context.Depth) || !IsAttached(source)) return false;
         var firing = BeginFiring(source, context, negative, conditionActors);
         if (ResumeFiring(firing))
         { firing.Dispose(); UpdateFastWork(); return firing.Accepted; }
         // Chat consumption requires a completed synchronous decision. Do not defer its gate.
-        if (!defer || context.Event.Kind == WiredEventKind.Speech || PendingCount >= _limits.MaxPendingStacks)
+        if (!defer || context.Event.Kind == WiredEventKind.Speech || QueueFull(1))
         { firing.Dispose(); return false; }
         QueueDispatch(new(context.Event, context.Depth) { Current = firing, Triggers = [], Initialized = true });
         UpdateFastWork();
@@ -316,8 +316,9 @@ internal sealed partial class WiredStackEngine
 
     private bool InvokeRuntime(IWiredItem box, WiredRuntimeContext context, Func<bool> invoke)
     {
-        if (_remaining <= 0 || !IsAttached(box)) return false;
+        if (OutOfBudget() || !IsAttached(box)) return false;
         _remaining--;
+        _passPeakDepth = Math.Max(_passPeakDepth, context.Depth);
         var previous = _runtimeContext;
         _runtimeContext = context;
         context.NowMilliseconds = _now();
@@ -343,7 +344,7 @@ internal sealed partial class WiredStackEngine
     {
         var now = _now();
         // Accepted envelopes retain their next trigger and current stack evaluation across passes.
-        while (_remaining > 0 && _dispatches.TryPeek(out var pending))
+        while (_dispatches.TryPeek(out var pending) && !OutOfBudget())
         {
             if (!AdvanceDispatch(pending)) break;
             if (_dispatches.TryPeek(out var head) && ReferenceEquals(head, pending)) RemoveDispatchHead();
@@ -355,7 +356,7 @@ internal sealed partial class WiredStackEngine
             WiredRuntimeContext? snapshot = null;
             var timers = _items.Values.OfType<IWiredTimedTrigger>().Where(RuntimeSupported)
                 .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
-            for (var polled = 0; polled < timers.Length && _remaining > 0; polled++)
+            for (var polled = 0; polled < timers.Length && !OutOfBudget(); polled++)
             {
                 _timerCursor %= timers.Length;
                 var timer = timers[_timerCursor];

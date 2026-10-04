@@ -235,7 +235,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
             case "wf_act_log": case "wf_act_neg_log":
                 if (config.Text.Length == 0) return false;
                 var message = context.Policy.FormatText(context, config.Text);
-                _roomLog.Append(Param(config, 0), Item.Id, message, DateTimeOffset.UtcNow);
+                _roomLog.Append(Param(config, 0), WiredLogSource.WiredLog, Item.Id, Descriptor.CanonicalName, message, DateTimeOffset.UtcNow);
                 Log.Log(Param(config, 0) switch { 0 => LogLevel.Debug, 1 => LogLevel.Info, 2 => LogLevel.Warn, _ => LogLevel.Error }, message);
                 return true;
             case "wf_act_show_message":

@@ -17,6 +17,8 @@ public partial class WiredComponent
     private readonly WiredSelectorRoomState _selectorState = new();
     private readonly WiredCounterController _counters = new();
     private readonly WiredRoomLog _roomLog = new();
+    // The monitor polls several times a second; the full log stays on the paged log request.
+    private const int MonitorHistory = 100;
     private readonly Dictionary<uint, Item> _counterItems = [];
     private IWiredConfigurationStore? _configurationStore;
     private Lazy<WiredRoomVariables>? _variables;
@@ -84,7 +86,20 @@ public partial class WiredComponent
         return true;
     });
 
-    public WiredRoomLogPage ReadLogs(int page, int amount, int level = -1, string query = "") => _roomLog.Read(page, amount, level, query);
+    public WiredRoomLogPage ReadLogs(int page, int amount, int level = -1, string query = "", int source = -1) =>
+        _roomLog.Read(page, amount, level, query, source);
+
+    public WiredMonitorSnapshot ReadMonitor() => new(_engine.ReadStats(), _engine.Limits.MaxExecutionsPerPass,
+        _engine.Limits.MaxPendingStacks, _engine.Limits.MaxDepth, _roomLog.Summarize(MonitorHistory));
+
+    public void ClearLogs() => _roomLog.Clear();
+
+    private void NoteLimit(WiredEngineLimit limit, string reason) => _roomLog.Append(WiredRoomLog.ErrorLevel, limit switch
+    {
+        WiredEngineLimit.ExecutionBudget => WiredLogSource.ExecutionCap,
+        WiredEngineLimit.PendingStacks => WiredLogSource.DelayedEventsCap,
+        _ => WiredLogSource.RecursionTimeout
+    }, 0, "", reason, DateTimeOffset.UtcNow);
 
     public void AttachRoomItem(Item item) => _engine.Mutate(() =>
     {
@@ -171,3 +186,5 @@ public partial class WiredComponent
         }
     }
 }
+
+public sealed record WiredMonitorSnapshot(WiredEngineWindow Engine, int ExecutionsPerPass, int PendingLimit, int DepthLimit, WiredRoomLogSummary Logs);

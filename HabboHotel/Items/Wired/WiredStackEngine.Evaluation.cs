@@ -94,7 +94,7 @@ internal sealed partial class WiredStackEngine
             }
             if (pending.LegacyNext < pending.LegacyTriggers.Length)
             {
-                if (_remaining <= 0) return false;
+                if (OutOfBudget()) return false;
                 var box = pending.LegacyTriggers[pending.LegacyNext++];
                 var previous = _legacyRuntimeEvent;
                 _legacyRuntimeEvent = pending.Event;
@@ -103,7 +103,7 @@ internal sealed partial class WiredStackEngine
                 continue;
             }
             if (pending.Next >= pending.Triggers!.Length) return true;
-            if (_remaining <= 0) return false;
+            if (OutOfBudget()) return false;
             var trigger = pending.Triggers[pending.Next++];
             if (!IsAttached(trigger) || pending.TriggerPositions[trigger]
                 != (trigger.Item.GetX, trigger.Item.GetY, trigger.Item.GetZ, trigger.Item.MovementGeneration))
@@ -149,7 +149,7 @@ internal sealed partial class WiredStackEngine
                     if (!firing.Steps.MoveNext()) return true;
                     firing.Next = firing.Steps.Current;
                 }
-                if (firing.Next.CostsExecution && _remaining <= 0) return false;
+                if (firing.Next.CostsExecution && OutOfBudget()) return false;
                 var step = firing.Next;
                 firing.Next = null;
                 var previousTransfer = _transferringDispatch;

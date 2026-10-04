@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Runtime;
 
@@ -19,9 +20,13 @@ internal sealed partial class WiredStackEngine
     private readonly Action<Item> _flash;
     private readonly Action<Exception> _error;
     private readonly WiredEngineLimits _limits;
+    private readonly WiredEngineStats _stats = new();
     private WiredExecutionContext? _context;
     private int _passDepth;
     private int _remaining;
+    private int _passPeakDepth;
+    private bool _budgetDenied;
+    private long _passStarted;
     private long _sequence;
     private bool _draining;
     private ScheduledAction? _executingAction;
@@ -37,6 +42,15 @@ internal sealed partial class WiredStackEngine
         _flash = flash;
         _error = error;
         _limits = limits ?? new();
+    }
+
+    internal WiredEngineLimits Limits => _limits;
+    // Raised under the engine lock; the handler must not call back into the engine.
+    internal Action<WiredEngineLimit, string>? LimitReached { get; set; }
+    // The queue is read live: removal, cancellation and Clear change it without ending a pass.
+    internal WiredEngineWindow ReadStats()
+    {
+        lock (_sync) return _stats.Read(_now(), PendingCount);
     }
 
     public bool Add(IWiredItem box)
@@ -113,14 +127,14 @@ internal sealed partial class WiredStackEngine
         RefreshStacks();
         var context = CreateContext((arguments ?? []).ToArray(), _queuedDepth ?? (_runtimeContext?.Depth ?? _context?.Depth ?? -1) + 1);
         _queuedDepth = null;
-        if (context.Depth > _limits.MaxDepth) return false;
+        if (TooDeep(context.Depth)) return false;
         var matched = false;
         // Each registered trigger is visited once, even when a tile has several of the same type.
         foreach (var trigger in _stacks.Values.SelectMany(x => x)
                      .Where(x => x is not IWiredContextualTrigger && x.Type == type && IsKind(x, InteractionType.WiredTrigger))
                      .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray())
         {
-            if (_remaining <= 0) break;
+            if (OutOfBudget()) break;
             matched |= Execute(trigger, context);
         }
         return matched;
@@ -137,7 +151,7 @@ internal sealed partial class WiredStackEngine
     public bool CallStacks(IEnumerable<Item> targets, object[] arguments) => Pass(() =>
     {
         var depth = (_context?.Depth ?? 0) + 1;
-        if (depth > _limits.MaxDepth) return false;
+        if (TooDeep(depth)) return false;
         var matched = false;
         var visited = new HashSet<(int, int)>();
         foreach (var target in targets.OrderBy(x => x.GetZ).ThenBy(x => x.Id).ToArray())
@@ -158,7 +172,7 @@ internal sealed partial class WiredStackEngine
             // IWiredCycle remains the saved-delay contract; only periodic triggers tick.
             if (!IsAttached(box) || !IsKind(box, InteractionType.WiredTrigger) || box is not IWiredCycle cycle)
                 continue;
-            if (_remaining <= 0) break;
+            if (OutOfBudget()) break;
             if (cycle.TickCount > 0) cycle.TickCount--;
             else
             {
@@ -177,7 +191,7 @@ internal sealed partial class WiredStackEngine
         object[][]? conditionActors, Action? onAccepted)
     {
         var firedAt = _now();
-        if (context.Depth > _limits.MaxDepth || !IsActorPresent(context)) return false;
+        if (TooDeep(context.Depth) || !IsActorPresent(context)) return false;
         var stack = GetStack(source);
         if (stack.Length == 0) return false;
         if (_runtimeRoom != null && stack.Any(x => x is IWiredConfiguredItem))
@@ -194,7 +208,7 @@ internal sealed partial class WiredStackEngine
         var conditions = stack.Where(x => IsKind(x, InteractionType.WiredCondition)).ToArray();
         foreach (var condition in conditions)
         {
-            if (_remaining <= 0) return false;
+            if (OutOfBudget()) return false;
             var passed = conditionActors == null
                 ? Execute(condition, context)
                 : conditionActors.Any(actor => Execute(condition, CreateContext(actor, context.Depth)));
@@ -221,9 +235,14 @@ internal sealed partial class WiredStackEngine
         if (actions.Length > 0 && PendingCount >= _limits.MaxPendingStacks
             && _pending.RemoveWhere(chain => !IsChainValid(chain)) > 0)
             PruneSchedule();
+        if (actions.Length > 0 && QueueFull(1)) return false;
         // Preparation must happen synchronously; reject before acceptance if its calls cannot fit.
-        return (actions.Length == 0 || PendingCount < _limits.MaxPendingStacks)
-            && (prepared || actions.Count(action => action is IWiredFiringPreparation) <= _remaining);
+        if (prepared) return true;
+        var preparations = actions.Count(action => action is IWiredFiringPreparation);
+        if (preparations <= _remaining) return true;
+        LimitReached?.Invoke(WiredEngineLimit.ExecutionBudget,
+            $"A stack needed {preparations} executions to prepare but only {_remaining} were left in this pass, so it did not fire.");
+        return false;
     }
 
     private bool IsChainValid(ActionChain chain) => IsAttached(chain.Source)
@@ -275,7 +294,7 @@ internal sealed partial class WiredStackEngine
         var prune = false;
         try
         {
-            while (_remaining > 0 && _schedule.TryPeek(out _, out var priority) && priority.Due <= _now())
+            while (_schedule.TryPeek(out _, out var priority) && priority.Due <= _now() && !OutOfBudget())
             {
                 var scheduled = _schedule.Dequeue();
                 var chain = scheduled.Chain;
@@ -344,8 +363,9 @@ internal sealed partial class WiredStackEngine
 
     private bool Invoke(IWiredItem box, WiredExecutionContext context, Func<bool> body)
     {
-        if (_remaining <= 0 || !IsAttached(box) || !IsActorPresent(context)) return false;
+        if (OutOfBudget() || !IsAttached(box) || !IsActorPresent(context)) return false;
         _remaining--;
+        _passPeakDepth = Math.Max(_passPeakDepth, context.Depth);
         var previous = _context;
         _context = context;
         var previousRuntime = _runtimeContext;
@@ -392,10 +412,50 @@ internal sealed partial class WiredStackEngine
     {
         lock (_sync)
         {
-            if (_passDepth++ == 0) _remaining = _limits.MaxExecutionsPerPass;
+            if (_passDepth++ == 0)
+            {
+                _remaining = _limits.MaxExecutionsPerPass;
+                _passPeakDepth = 0;
+                _budgetDenied = false;
+                _passStarted = Stopwatch.GetTimestamp();
+            }
             try { return body(); }
-            finally { _passDepth--; }
+            finally { if (--_passDepth == 0) EndPass(); }
         }
+    }
+
+    // Observes the pass that just ended. It reports the limits the pass met and changes none of its decisions.
+    private void EndPass()
+    {
+        var executions = _limits.MaxExecutionsPerPass - Math.Max(0, _remaining);
+        if (_budgetDenied)
+            LimitReached?.Invoke(WiredEngineLimit.ExecutionBudget,
+                $"One pass used all {_limits.MaxExecutionsPerPass} wired executions; the rest waits for the next pass or was dropped.");
+        _stats.Record(_now(), Stopwatch.GetElapsedTime(_passStarted).TotalMilliseconds, executions, _passPeakDepth);
+    }
+
+    // Every budget check that turns waiting work away goes through here, so a pass that spends its
+    // budget exactly is not reported as capped.
+    private bool OutOfBudget()
+    {
+        if (_remaining > 0) return false;
+        _budgetDenied = true;
+        return true;
+    }
+
+    private bool TooDeep(int depth)
+    {
+        if (depth <= _limits.MaxDepth) return false;
+        LimitReached?.Invoke(WiredEngineLimit.Depth, $"A chain reached depth {depth}, over the limit of {_limits.MaxDepth}, and was not run.");
+        return true;
+    }
+
+    private bool QueueFull(int slots)
+    {
+        if (PendingCount + slots <= _limits.MaxPendingStacks) return false;
+        LimitReached?.Invoke(WiredEngineLimit.PendingStacks,
+            $"The wait queue was full ({PendingCount} of {_limits.MaxPendingStacks} chains); new work was dropped.");
+        return true;
     }
 
     private void CancelAuxiliary(ScheduledAction action)

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Data;
 using System.Drawing;
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Plus.Database;
@@ -33,6 +34,8 @@ using MySqlConnector;
 using Plus.HabboHotel.Users.Inventory;
 using Plus.HabboHotel.Users.Inventory.Badges;
 using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items.Wired.Settings;
+using Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
 
 namespace Plus.Tests;
 
@@ -105,6 +108,145 @@ public class ModernWiredRuntimeTests
         log.Append(2, 100, "Second", DateTimeOffset.UtcNow); log.Append(1, 100, "Third", DateTimeOffset.UtcNow);
         Assert.Equal(2, log.Read(0, 10).Total); Assert.Equal("Third", Assert.Single(log.Read(0, 10, 1, "third").Entries).Message);
         box.ApplyConfiguration(config with { Text = "" }); Assert.False(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+    }
+
+    [Fact]
+    public async Task FiredLogLineReachesTheLogPageAndMonitorForInspectorsOnly()
+    {
+        using var f = new TeleportFixture();
+        f.Room.OwnerName = "Alice"; f.Room.Type = "private"; f.Room.UsersWithRights = [];
+        var store = new MonitorSettingsStore();
+        var settings = new WiredRoomSettings(f.Room, store);
+        ((ConditionalWeakTable<Room, WiredRoomSettings>)typeof(WiredRoomSettings).GetField("Instances", BindingFlags.NonPublic | BindingFlags.Static)!
+            .GetValue(null)!).Add(f.Room, settings);
+        var item = MakeItem(102, "wf_act_log");
+        var box = Assert.IsType<WiredModernAction>(f.Room.GetWired().CreateConfiguredBox(item, Descriptor("wf_act_log")));
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0], Text = "Gate opened" }, out var config, out _));
+        box.ApplyConfiguration(config);
+        f.Items[102] = item; f.Engine.Add(box);
+        f.Fire();
+
+        var alice = Capture(f.Habbo.Client);
+        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, ""));
+        var page = Reply(alice, 918);
+        Assert.Equal((1, 1, 50, 1), (page.Int(), page.Int(), page.Int(), page.Int()));
+        Assert.Equal((1d, 2, 8, "Gate opened"), (page.Long(), page.Byte(), page.Byte(), page.String()));
+        var millis = page.Long();
+        Assert.InRange(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - millis, 0, 60_000);
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds((long)millis).UtcDateTime.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture), page.String());
+        Assert.Equal((false, false, false), (page.Bool(), page.Bool(), page.Bool()));
+        page.End();
+
+        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(9, 50, 2, 8, " GATE "));
+        page = Reply(alice, 918);
+        Assert.Equal((1, 1, 50, 1), (page.Int(), page.Int(), page.Int(), page.Int()));
+        Assert.Equal("Gate opened", page.Skip(2, 1, 1).String()); page.Skip(2).String();
+        Assert.Equal((true, 2, true, 8, true, "GATE"), (page.Bool(), page.Byte(), page.Bool(), page.Byte(), page.Bool(), page.String()));
+        page.End();
+        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, 4, "")); // a source Plus never writes
+        page = Reply(alice, 918);
+        Assert.Equal((0, 1, 50, 0), (page.Int(), page.Int(), page.Int(), page.Int()));
+
+        await new WiredMonitorRequestEvent().Parse(f.Room, f.Habbo.Client, Request(0));
+        var monitor = Reply(alice, 5101);
+        monitor.Skip(1); Assert.Equal(10000, monitor.Int()); Assert.False(monitor.Bool());
+        monitor.Skip(1); Assert.Equal(100, monitor.Int()); monitor.Skip(3); Assert.Equal(32, monitor.Int());
+        Assert.Equal((0, 1000, 0, 0, 0, 0, 0, 0), (monitor.Int(), monitor.Int(), monitor.Int(), monitor.Int(), monitor.Int(), monitor.Int(), monitor.Int(), monitor.Int()));
+        Assert.Equal(4, monitor.Int());
+        var tallies = Enumerable.Range(0, 4).Select(_ => (Type: monitor.String(), Severity: monitor.String(), Count: monitor.Int(), Seconds: monitor.Int(),
+            Reason: monitor.String(), Label: monitor.String(), Id: monitor.Int())).ToArray();
+        Assert.Equal(["EXECUTION_CAP", "DELAYED_EVENTS_CAP", "RECURSION_TIMEOUT", "WIRED_LOG"], tallies.Select(x => x.Type));
+        Assert.All(tallies[..3], tally => Assert.Equal(("ERROR", 0, 0), (tally.Severity, tally.Count, tally.Seconds)));
+        Assert.Equal(("WARNING", 1, "Gate opened", "wf_act_log", 102), (tallies[3].Severity, tallies[3].Count, tallies[3].Reason, tallies[3].Label, tallies[3].Id));
+        Assert.Equal(1, monitor.Int());
+        Assert.Equal(("WIRED_LOG", "WARNING"), (monitor.String(), monitor.String()));
+        Assert.Equal(tallies[3].Seconds, monitor.Int());
+        Assert.Equal(("Gate opened", "wf_act_log", 102), (monitor.String(), monitor.String(), monitor.Int()));
+        monitor.End();
+
+        // Without inspect rights neither request answers; with inspect only, a clear is refused.
+        var bob = new FlashGameClient(null!, new FlashPacketFactory()) { Revision = f.Habbo.Client.Revision };
+        bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
+        var bobReplies = Capture(bob);
+        await new WiredRoomLogsPageEvent().Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
+        await new WiredMonitorRequestEvent().Parse(f.Room, bob, Request(0));
+        Assert.Empty(bobReplies);
+        store.Saved = new(InspectMask: (int)WiredRoomAccess.Everyone); settings.Reload();
+        await new WiredMonitorRequestEvent().Parse(f.Room, bob, Request(1));
+        Assert.Empty(bobReplies);
+        var pages = new WiredRoomLogsPageEvent();
+        await pages.Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
+        await pages.Parse(f.Room, bob, Request(1, 50, -1, -1, "")); // inside the 250 ms page interval
+        Assert.Equal(1, Reply(bobReplies, 918).Int());
+        Assert.Empty(bobReplies);
+
+        await new WiredMonitorRequestEvent().Parse(f.Room, f.Habbo.Client, Request(1));
+        monitor = Reply(alice, 5101).Skip(16, 1);
+        Assert.Equal(4, monitor.Int());
+        for (var i = 0; i < 4; i++) { monitor.String(); monitor.String(); Assert.Equal(0, monitor.Int()); monitor.Skip(1).String(); monitor.String(); monitor.Int(); }
+        Assert.Equal(0, monitor.Int());
+        monitor.End();
+        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "x", 1)); // trailing data is malformed
+        Assert.Empty(alice);
+    }
+
+    private static List<(uint Header, byte[] Body)> Capture(GameClient client)
+    {
+        var replies = new List<(uint, byte[])>();
+        client.SendCallback = args => { replies.Add(((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2)), args.MemoryBuffer[6..].ToArray())); return true; };
+        return replies;
+    }
+
+    private static WireReader Reply(List<(uint Header, byte[] Body)> replies, uint header)
+    {
+        var reply = replies[0]; replies.RemoveAt(0);
+        Assert.Equal(header, reply.Header);
+        return new(reply.Body);
+    }
+
+    private static FlashIncomingPacket Request(params object[] values)
+    {
+        using var stream = new MemoryStream();
+        foreach (var value in values)
+        {
+            if (value is string text)
+            {
+                var bytes = System.Text.Encoding.UTF8.GetBytes(text); var length = new byte[2];
+                System.Buffers.Binary.BinaryPrimitives.WriteInt16BigEndian(length, (short)bytes.Length);
+                stream.Write(length); stream.Write(bytes);
+            }
+            else
+            {
+                var bytes = new byte[4]; System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes, (int)value); stream.Write(bytes);
+            }
+        }
+        return new FlashIncomingPacket { Buffer = stream.ToArray() };
+    }
+
+    /// <summary>Reads a reply the way the client's parsers do, down to its last byte.</summary>
+    private sealed class WireReader(byte[] body)
+    {
+        private int _position;
+        public int Int() { var value = System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(body.AsSpan(_position)); _position += 4; return value; }
+        public int Byte() => body[_position++];
+        public bool Bool() { var value = Byte(); Assert.InRange(value, 0, 1); return value == 1; }
+        public string String()
+        {
+            var length = System.Buffers.Binary.BinaryPrimitives.ReadInt16BigEndian(body.AsSpan(_position)); _position += 2;
+            var text = System.Text.Encoding.UTF8.GetString(body, _position, length); _position += length; return text;
+        }
+        // The client's readWiredLong: an unsigned high and low half.
+        public double Long() => (uint)Int() * 4294967296d + (uint)Int();
+        public WireReader Skip(int ints, int bytes = 0, int moreBytes = 0) { _position += ints * 4 + bytes + moreBytes; return this; }
+        public void End() => Assert.Equal(body.Length, _position);
+    }
+
+    private sealed class MonitorSettingsStore : IWiredRoomSettingsStore
+    {
+        public WiredRoomSettingsSnapshot? Saved = new();
+        public WiredRoomSettingsSnapshot? Load(uint roomId) => Saved;
+        public void Save(uint roomId, int actorId, bool staff, WiredRoomSettingsSnapshot? expected, WiredRoomSettingsSnapshot settings) =>
+            throw new NotSupportedException();
     }
 
     [Fact]
