@@ -10,6 +10,8 @@ using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms.AI.Speech;
 using Plus.HabboHotel.Subscriptions;
 
+using Plus.HabboHotel.Rooms;
+
 namespace Plus.HabboHotel.Rooms.AI;
 
 public enum BotAction { CopyLooks = 1, Speech = 2, Relax = 3, Dance = 4, Rename = 5 }
@@ -115,7 +117,7 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
             case BotAction.CopyLooks:
                 var look = figures.ProcessFigure(habbo.Look, habbo.Gender, habbo.Clothing.GetClothingParts, ClubAccess.LevelFor(habbo.Access));
                 store.SaveAppearance(bot.BotData.Id, room.RoomId, look, habbo.Gender); bot.BotData.Look = look; bot.BotData.Gender = habbo.Gender;
-                room.SendPacket(new UserChangeComposer(bot.BotData)); break;
+                room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(bot.BotData))); break;
             case BotAction.Speech: SaveSpeech(bot.BotData, request.Data); break;
             case BotAction.Relax:
                 var mode = bot.BotData.WalkingMode == "stand" ? "freeroam" : "stand";

@@ -5,6 +5,8 @@ using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
+using Plus.HabboHotel.Rooms;
+
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User.Fun;
 
 internal class MimicCommand : ITargetChatCommand
@@ -46,8 +48,8 @@ internal class MimicCommand : ITargetChatCommand
         if (user != null)
         {
             session.Send(new AvatarAspectUpdateComposer(session.GetHabbo().Look, session.GetHabbo().Gender));
-            session.Send(new UserChangeComposer(user, true));
-            room.SendPacket(new UserChangeComposer(user, false));
+            session.Send(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, true)));
+            room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
         }
         return Task.CompletedTask;
     }

@@ -100,7 +100,7 @@ public static class WiredBotActions
                 {
                     using var database = PlusEnvironment.DatabaseManager.Connection();
                     database.Execute("UPDATE bots SET look=@look WHERE id=@id LIMIT 1", new { look = text, bot.BotData.Id });
-                    bot.BotData.Look = text; context.Room.SendPacket(new UserChangeComposer(bot.BotData));
+                    bot.BotData.Look = text; context.Room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(bot.BotData)));
                 }
                 return true;
             case "wf_act_bot_talk": case "wf_act_bot_talk_to_avatar":

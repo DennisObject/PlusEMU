@@ -75,8 +75,8 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
             habbo.Client.Send(new AvatarAspectUpdateComposer(look, habbo.Gender));
             if (habbo.CurrentRoom?.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id) is { } user)
             {
-                habbo.Client.Send(new UserChangeComposer(user, true));
-                habbo.CurrentRoom.SendPacket(new UserChangeComposer(user, false));
+                habbo.Client.Send(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, true)));
+                habbo.CurrentRoom.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
             }
         }
         if (habbo.CustomBubbleId != 0 && (!styles.TryGetStyle(habbo.CustomBubbleId, out var style) || !style.CanUse(habbo.Access)))

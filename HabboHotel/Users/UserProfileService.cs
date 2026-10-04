@@ -12,6 +12,8 @@ using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Subscriptions;
 using Plus.Utilities;
 
+using Plus.HabboHotel.Rooms;
+
 namespace Plus.HabboHotel.Users;
 
 public sealed record FigureUpdateRequest(string Gender, string Figure);
@@ -65,8 +67,8 @@ public sealed class UserProfileService(
         if (!habbo.InRoom) return;
         var roomUser = habbo.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
         if (roomUser == null) return;
-        session.Send(new UserChangeComposer(roomUser, true));
-        habbo.CurrentRoom.SendPacket(new UserChangeComposer(roomUser, false));
+        session.Send(new UserChangeComposer(AvatarChangeSnapshot.Capture(roomUser, true)));
+        habbo.CurrentRoom.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(roomUser, false)));
     }
 
     public void ChangeMotto(GameClient session, string motto)
@@ -101,7 +103,7 @@ public sealed class UserProfileService(
         if (room == null) return;
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
         if (user?.GetClient() == null) return;
-        room.SendPacket(new UserChangeComposer(user, false));
+        room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
     }
 
     public void SetFocusPreference(GameClient session, bool enabled)

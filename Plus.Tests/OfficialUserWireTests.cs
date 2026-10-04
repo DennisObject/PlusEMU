@@ -76,9 +76,16 @@ public class OfficialUserWireTests
             .SetValue(user, client);
         var packet = new RecordingPacket();
 
-        new UserChangeComposer(user, true).Compose(packet);
+        new UserChangeComposer(AvatarChangeSnapshot.Capture(user, true)).Compose(packet);
 
         Assert.Equal(new object[] { -1, "hd-180-1", "M", "hi", 12 }, packet.Writes);
+        var composer = new UserChangeComposer(AvatarChangeSnapshot.Capture(user, true));
+        habbo.Look = "changed";
+        habbo.Motto = "changed";
+        habbo.Gender = "F";
+        habbo.HabboStats.AchievementPoints = 99;
+        Assert.Equal(new object[] { -1, "hd-180-1", "M", "hi", 12 }, Compose(composer));
+        Assert.Equal(new object[] { -1, "hd-180-1", "M", "hi", 12 }, Compose(composer));
     }
 
     private static object[] Compose(IServerPacket composer)
@@ -90,7 +97,7 @@ public class OfficialUserWireTests
 
     private sealed class TestClient : GameClient
     {
-        public TestClient() : base(null!, null!, TestLogging.GameClient)
+        public TestClient() : base(TestGameServer.Instance, new Plus.Communication.Flash.FlashPacketFactory(), TestLogging.GameClient)
         {
         }
 

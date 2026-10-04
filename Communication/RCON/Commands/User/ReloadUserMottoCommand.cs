@@ -3,6 +3,8 @@ using Plus.Database;
 using Dapper;
 using Plus.HabboHotel.GameClients;
 
+using Plus.HabboHotel.Rooms;
+
 namespace Plus.Communication.RCON.Commands.User;
 
 internal class ReloadUserMottoCommand : IRconCommand
@@ -42,7 +44,7 @@ internal class ReloadUserMottoCommand : IRconCommand
             var user = room.GetRoomUserManager().GetRoomUserByHabbo(client.GetHabbo().Id);
             if (user != null)
             {
-                room.SendPacket(new UserChangeComposer(user, false));
+                room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
                 return Task.FromResult(true);
             }
         }
