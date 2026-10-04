@@ -4,7 +4,7 @@ using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Subscriptions;
 using System.Data.Common;
 using System.Text.Json;
-using NLog;
+using Microsoft.Extensions.Logging;
 using Plus.Database;
 using Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
 using Plus.HabboHotel.GameClients;
@@ -16,9 +16,8 @@ using Plus.HabboHotel.Items.Wired.Settings;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
 
-internal abstract class SaveWiredConfigEvent(IDatabase database, IFigureDataManager figures) : IPacketEvent
+internal abstract class SaveWiredConfigEvent(IDatabase database, IFigureDataManager figures, ILogger<SaveWiredConfigEvent> logger) : IPacketEvent
 {
-    private static readonly ILogger Log = LogManager.GetLogger(nameof(SaveWiredConfigEvent));
     protected abstract WiredBoxCategory Envelope { get; }
 
     public virtual Task Parse(GameClient session, IIncomingPacket packet)
@@ -141,7 +140,7 @@ internal abstract class SaveWiredConfigEvent(IDatabase database, IFigureDataMana
         catch (Exception error) when (error is ArgumentException or IOException or OverflowException
             or InvalidOperationException or FormatException or DbException or JsonException)
         {
-            Log.Warn(error, "Failed to save Wired settings in room {RoomId}", room.Id);
+            logger.LogWarning(error, "Failed to save Wired settings in room {RoomId}", room.Id);
             session.Send(new WiredValidationErrorComposer("Unable to save these Wired settings."));
         }
         return Task.CompletedTask;

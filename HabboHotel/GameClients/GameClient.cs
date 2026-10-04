@@ -1,6 +1,7 @@
 ﻿using System.Net.Sockets;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IO;
-using NLog;
 using Plus.Communication.Encryption.Crypto.Prng;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets;
@@ -13,9 +14,9 @@ public abstract class GameClient
 {
     private readonly IGameServer _server;
     private readonly IPacketFactory _packetFactory;
-    private readonly SemaphoreSlim _receiveLock = new(1, 1);
     private readonly object _sendLock = new();
-    private static readonly ILogger Log = LogManager.GetLogger("Plus.HabboHotel.GameClients.GameClient");
+    private readonly ILogger<GameClient> _logger;
+    private readonly SemaphoreSlim _receiveLock = new(1, 1);
     private Habbo? _habbo;
     private readonly object _lifecycle = new();
     private readonly CancellationTokenSource _closed = new();
@@ -52,11 +53,15 @@ public abstract class GameClient
     /// <summary>Cancelled once the connection is closing, including after a packet timeout; session work should stop.</summary>
     internal CancellationToken Closed => _closed.Token;
 
-    protected GameClient(IGameServer server, IPacketFactory packetFactory)
+    protected GameClient(IGameServer server, IPacketFactory packetFactory, ILogger<GameClient> logger)
     {
         _packetFactory = packetFactory;
         _server = server;
+        _logger = logger;
     }
+
+    protected GameClient(IGameServer server, IPacketFactory packetFactory)
+        : this(server, packetFactory, NullLogger<GameClient>.Instance) { }
 
     internal event Action? CameraContextEnded;
     internal void EndCameraContext() => CameraContextEnded?.Invoke();
@@ -145,7 +150,7 @@ public abstract class GameClient
                 }
                 catch (Exception e)
                 {
-                    Log.Error(e, $"Error handling packet {messageId}");
+                    _logger.LogError(e, "Error handling packet {MessageId}", messageId);
                 }
                 memory = memory.Slice(headerLength + length);
                 if (!decrypted && SupportsLegacyCrypto && Rc4Client != null && !memory.IsEmpty)
@@ -279,8 +284,8 @@ public abstract class GameClient
 
     private void LogPacket(IServerPacket composer, uint outgoingMessageId)
     {
-        if (Log.IsDebugEnabled)
-            Log.Debug($"Send Packet: {composer.GetType().Name} (EmuId: {composer.MessageId}, ClientId: {outgoingMessageId})");
+        if (_logger.IsEnabled(LogLevel.Debug))
+            _logger.LogDebug("Send Packet: {PacketType} (EmuId: {EmulatorId}, ClientId: {ClientId})", composer.GetType().Name, composer.MessageId, outgoingMessageId);
     }
 
     public abstract void CreateHeader(Memory<byte> memory, uint messageId);

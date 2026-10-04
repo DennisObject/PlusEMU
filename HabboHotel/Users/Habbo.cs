@@ -22,6 +22,7 @@ using Plus.HabboHotel.Users.Process;
 using Plus.Utilities;
 
 using Dapper;
+using Microsoft.Extensions.Logging;
 using Plus.HabboHotel.Users.Navigator;
 
 namespace Plus.HabboHotel.Users;
@@ -217,9 +218,9 @@ public class Habbo
         return span.TotalMinutes >= 30;
     }
 
-    public bool InitProcess()
+    public bool InitProcess(ILogger logger)
     {
-        Process = new();
+        Process = new(logger);
         return Process.Init(this);
     }
 

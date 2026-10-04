@@ -1,6 +1,8 @@
 ﻿using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using System.Collections.Concurrent;
 using System.Drawing;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
@@ -223,7 +225,7 @@ public class Gamemap
     private Point[] _roamTargets;
     private ConcurrentDictionary<Point, List<RoomUser>> _userMap;
 
-    public Gamemap(Room room, RoomModel model)
+    public Gamemap(Room room, RoomModel model, ILogger<RoomNavigation>? navigationLogger = null)
     {
         _room = room;
         _placementRoom = room;
@@ -233,7 +235,7 @@ public class Gamemap
         if (PlusEnvironment.SettingsManager is { } settings
             && settings.GetOptionalValue("pathfinding.engine") is "shadow" or "v2"
             && model.MapSizeX is > 0 and <= 256 && model.MapSizeY is > 0 and <= 256)
-            Navigation = new(room, model, PathfindingSettings.Load(settings));
+            Navigation = new(room, model, PathfindingSettings.Load(settings), navigationLogger ?? NullLogger<RoomNavigation>.Instance);
         var legacyOccupancy = new LegacyGateOccupancy(this);
         Gates = new(room, () => Navigation is { UsesExecutor: true } navigation ? navigation.GateOccupancy : legacyOccupancy);
         DiagonalEnabled = true;

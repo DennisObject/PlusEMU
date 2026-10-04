@@ -1,7 +1,8 @@
 using Plus.HabboHotel.Permissions;
 using System.Collections.Immutable;
 using System.Globalization;
-using NLog;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Runtime;
@@ -19,7 +20,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     private readonly WiredRoomMovement _movement;
     private readonly WiredRoomLog _roomLog;
     private readonly WiredDirectionalActions _directions = new();
-    private static readonly Logger Log = LogManager.GetLogger("Wired");
+    private readonly ILogger _logger;
     public static readonly IReadOnlySet<string> OtherNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "wf_act_control_clock", "wf_act_adjust_clock", "wf_act_reset_timers", "wf_act_call_stacks", "wf_act_neg_call_stacks",
@@ -30,12 +31,16 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     public static bool Supports(string name) => WiredTemporaryFurnitureActions.Supports(name) || WiredMovementActions.Names.Contains(name) || OtherNames.Contains(name) || WiredBotActions.Names.Contains(name);
     public bool IsNegative => Descriptor.CanonicalName is "wf_act_neg_call_stacks" or "wf_act_neg_send_signal" or "wf_act_neg_log";
     public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
-        Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog) : base(room, item, descriptor)
+        Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog, ILogger logger) : base(room, item, descriptor)
     {
         if (!Supports(descriptor.CanonicalName)) throw new ArgumentException("Unknown action.", nameof(descriptor));
         _clocks = clocks; _publish = publish; _movement = new(walkTransition);
         _roomLog = roomLog;
+        _logger = logger;
     }
+    public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
+        Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog)
+        : this(room, item, descriptor, clocks, publish, walkTransition, roomLog, NullLogger.Instance) { }
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         var name = Descriptor.CanonicalName;
@@ -113,9 +118,9 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         var config = context.ConfigurationOf(this);
         if (!TryValidateConfiguration(config, out config, out _)) return false;
         var name = Descriptor.CanonicalName;
-        if (name == "wf_act_give_reward") return WiredRewards.Execute(Item, context, config);
+        if (name == "wf_act_give_reward") return WiredRewards.Execute(Item, context, config, _logger);
         if (WiredTemporaryFurnitureActions.Supports(name)) return WiredTemporaryFurnitureActions.Execute(name, Item, context, config);
-        if (name == "wf_act_teleport_to_room") return WiredRoomForwarding.Execute(context, config);
+        if (name == "wf_act_teleport_to_room") return WiredRoomForwarding.Execute(context, config, _logger);
         if (WiredBotActions.Names.Contains(name)) return WiredBotActions.Execute(name, context, config, _movement);
         if (WiredMovementActions.Names.Contains(name))
             return new WiredMovementActions().Execute(name, config,
@@ -236,7 +241,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 if (config.Text.Length == 0) return false;
                 var message = context.Policy.FormatText(context, config.Text);
                 _roomLog.Append(Param(config, 0), WiredLogSource.WiredLog, Item.Id, Descriptor.CanonicalName, message, DateTimeOffset.UtcNow);
-                Log.Log(Param(config, 0) switch { 0 => LogLevel.Debug, 1 => LogLevel.Info, 2 => LogLevel.Warn, _ => LogLevel.Error }, message);
+                _logger.Log(Param(config, 0) switch { 0 => LogLevel.Debug, 1 => LogLevel.Information, 2 => LogLevel.Warning, _ => LogLevel.Error }, "{Message}", message);
                 return true;
             case "wf_act_show_message":
                 if (config.Text.Length == 0) return false;

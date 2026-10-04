@@ -21,6 +21,8 @@ using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rewards;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Messenger.FriendBar;
+using Plus.HabboHotel.Users.Process;
+using Microsoft.Extensions.Logging;
 
 namespace Plus.Communication.Packets.Incoming.Handshake;
 
@@ -38,6 +40,7 @@ public class SSOTicketEvent : IPacketEvent
     private readonly ISettingsManager _settingsManager;
     private readonly IRewardManager _rewardManager;
     private readonly ClubLifecycle _clubLifecycle;
+    private readonly ILogger _processLogger;
 
     public SSOTicketEvent(IAuthenticator authenticate,
         IBadgeManager badgeManager,
@@ -47,7 +50,8 @@ public class SSOTicketEvent : IPacketEvent
         IFigureDataManager figureManager,
         ILanguageManager languageManager,
         ISettingsManager settingsManager,
-        IRewardManager rewardManager, ClubLifecycle clubLifecycle, ClientAccessLists clientAccessLists)
+        IRewardManager rewardManager, ClubLifecycle clubLifecycle, ClientAccessLists clientAccessLists,
+        ILoggerFactory loggerFactory)
     {
         _authenticate = authenticate;
         _badgeManager = badgeManager;
@@ -60,6 +64,7 @@ public class SSOTicketEvent : IPacketEvent
         _rewardManager = rewardManager;
         _clubLifecycle = clubLifecycle;
         _clientAccessLists = clientAccessLists;
+        _processLogger = loggerFactory.CreateLogger(typeof(ProcessComponent).FullName!);
     }
 
     public async Task Parse(GameClient session, IIncomingPacket packet)
@@ -96,7 +101,7 @@ public class SSOTicketEvent : IPacketEvent
             if (!_cacheManager.ContainsUser(session.GetHabbo().Id))
                 _cacheManager.GenerateUser(session.GetHabbo().Id);
             _clubLifecycle.Normalize(session.GetHabbo());
-            session.GetHabbo().InitProcess();
+            session.GetHabbo().InitProcess(_processLogger);
             if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTickets))
             {
                 session.Send(new ModeratorInitComposer(

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Outgoing.Rooms.Session;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired.Configuration;
@@ -27,7 +28,7 @@ public static class WiredRoomForwarding
         error = ""; return true;
     }
 
-    public static Destination? Resolve(IEnumerable<Item> items, string roomText, Func<uint, uint> roomOfItem, Func<uint, uint> pairedItem)
+    public static Destination? Resolve(IEnumerable<Item> items, string roomText, Func<uint, uint> roomOfItem, Func<uint, uint> pairedItem, ILogger? logger = null)
     {
         foreach (var item in items)
         {
@@ -49,7 +50,7 @@ public static class WiredRoomForwarding
                         }
                     }
                 }
-                catch (JsonException error) { NLog.LogManager.GetLogger("Wired").Warn(error, "Invalid room_linker data on item {0}", item.Id); }
+                catch (JsonException error) { logger?.LogWarning(error, "Invalid room_linker data on item {ItemId}", item.Id); }
             }
             if (item.Definition.InteractionType != InteractionType.Teleport || item.Id > int.MaxValue) continue;
             var paired = pairedItem(item.Id);
@@ -60,10 +61,10 @@ public static class WiredRoomForwarding
         return PositiveId(roomText, out var fallback) ? new(fallback) : null;
     }
 
-    public static bool Execute(WiredRuntimeContext context, WiredConfiguration config)
+    public static bool Execute(WiredRuntimeContext context, WiredConfiguration config, ILogger logger)
     {
         var items = context.Targets.ResolveFurni(context, config.SelectedItems, config.FurniSources["links"]);
-        var target = Resolve(items, config.Text, id => ItemTeleporterFinder.GetTeleRoomId(id, context.Room), ItemTeleporterFinder.GetLinkedTele);
+        var target = Resolve(items, config.Text, id => ItemTeleporterFinder.GetTeleRoomId(id, context.Room), ItemTeleporterFinder.GetLinkedTele, logger);
         if (target == null || target.RoomId == context.Room.RoomId) return false;
         var forwarded = false;
         foreach (var user in context.Targets.ResolveUsers(context, [], config.UserSources["users"]).Where(user => !user.IsBot))

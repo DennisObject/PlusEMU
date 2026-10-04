@@ -2,7 +2,7 @@ using System.Data;
 using System.Globalization;
 using System.Text.Json;
 using Dapper;
-using NLog;
+using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Packets.Outgoing.Inventory.Badges;
@@ -69,7 +69,7 @@ public static class WiredRewards
         foreach (var entry in candidates) { cumulative += entry.Probability; if (roll <= cumulative) return entry; }
         return null;
     }
-    public static bool Execute(Item box, WiredRuntimeContext context, WiredConfiguration config)
+    public static bool Execute(Item box, WiredRuntimeContext context, WiredConfiguration config, ILogger logger)
     {
         if (box.IsTemporary || !TryEntries(config.Text, out var prizes) || prizes.Count == 0) return false;
         var changed = false;
@@ -79,7 +79,7 @@ public static class WiredRewards
             if (habbo == null || !ReferenceEquals(habbo.CurrentRoom, context.Room)) continue;
             WiredRewardGrant grant;
             try { grant = new WiredRewardStore(PlusEnvironment.DatabaseManager).ClaimAndGrant(box, context.Room.Id, habbo, config, PlusEnvironment.Game.ItemManager, DateTimeOffset.UtcNow.ToUnixTimeSeconds()); }
-            catch (Exception exception) { LogManager.GetLogger("Wired").Error(exception, "Atomic wired reward failed for box {0}.", box.Id); continue; }
+            catch (Exception exception) { logger.LogError(exception, "Atomic wired reward failed for box {BoxId}.", box.Id); continue; }
             Publish(habbo, grant);
             changed |= grant.Reason is 4 or 5;
         }

@@ -1,4 +1,5 @@
 using Plus.HabboHotel.Items;
+using Microsoft.Extensions.Logging;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
@@ -60,7 +61,7 @@ public partial class WiredComponent
         }
         else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName))
         {
-            box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event), DispatchWalkTransition, _roomLog);
+            box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event), DispatchWalkTransition, _roomLog, _logger);
             defaults = WiredActionConfiguration.Defaults(descriptor.CanonicalName);
         }
         else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || WiredVariableMetadataBox.Supports(descriptor.CanonicalName)
@@ -171,7 +172,7 @@ public partial class WiredComponent
     private void QueueRuntimeEvent(WiredRuntimeEvent @event, int? depth = null)
     {
         if (!_engine.Enqueue(@event, depth))
-            NLog.LogManager.GetLogger("Wired").Warn("Wired {0} event rejected by room queue/depth limits in room {1}", @event.Kind, _room.Id);
+            _logger.LogWarning("Wired {EventKind} event rejected by room queue/depth limits in room {RoomId}", @event.Kind, _room.Id);
     }
 
     private void PublishCounterChanges(IEnumerable<WiredCounterChange> changes)

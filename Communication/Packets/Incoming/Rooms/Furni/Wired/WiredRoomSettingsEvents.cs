@@ -1,5 +1,6 @@
 using System.Data.Common;
-using NLog;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -8,17 +9,19 @@ using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
 
-public sealed class WiredRoomSettingsRequestEvent(IDatabase database) : RoomPacketEvent
+public sealed class WiredRoomSettingsRequestEvent(IDatabase database, ILoggerFactory loggerFactory) : RoomPacketEvent
 {
+    public WiredRoomSettingsRequestEvent(IDatabase database) : this(database, NullLoggerFactory.Instance) { }
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!packet.HasDataRemaining()) WiredRoomSettingsPackets.Reload(room, session, WiredRoomSettings.For(room, database));
+        if (!packet.HasDataRemaining()) WiredRoomSettingsPackets.Reload(room, session, WiredRoomSettings.For(room, database), loggerFactory.CreateLogger(nameof(WiredRoomSettingsPackets)));
         return Task.CompletedTask;
     }
 }
 
-public sealed class WiredRoomSettingsSaveEvent(IDatabase database) : RoomPacketEvent
+public sealed class WiredRoomSettingsSaveEvent(IDatabase database, ILoggerFactory loggerFactory) : RoomPacketEvent
 {
+    public WiredRoomSettingsSaveEvent(IDatabase database) : this(database, NullLoggerFactory.Instance) { }
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         int inspect, modify;
@@ -26,31 +29,31 @@ public sealed class WiredRoomSettingsSaveEvent(IDatabase database) : RoomPacketE
         catch (ArgumentException) { return Task.CompletedTask; }
         if (packet.HasDataRemaining()) return Task.CompletedTask;
         var settings = WiredRoomSettings.For(room, database);
-        WiredRoomSettingsPackets.Save(room, session, settings, inspect, modify, null);
+        WiredRoomSettingsPackets.Save(room, session, settings, inspect, modify, null, loggerFactory.CreateLogger(nameof(WiredRoomSettingsPackets)));
         return Task.CompletedTask;
     }
 }
 
-public sealed class WiredMenuPermissionsSaveEvent(IDatabase database) : RoomPacketEvent
+public sealed class WiredMenuPermissionsSaveEvent(IDatabase database, ILoggerFactory loggerFactory) : RoomPacketEvent
 {
+    public WiredMenuPermissionsSaveEvent(IDatabase database) : this(database, NullLoggerFactory.Instance) { }
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         int modify, inspect; string timezone;
         try { modify = packet.ReadInt(); inspect = packet.ReadInt(); timezone = packet.ReadString(); }
         catch (ArgumentException) { return Task.CompletedTask; }
         if (packet.HasDataRemaining()) return Task.CompletedTask;
-        WiredRoomSettingsPackets.Save(room, session, WiredRoomSettings.For(room, database), inspect, modify, timezone);
+        WiredRoomSettingsPackets.Save(room, session, WiredRoomSettings.For(room, database), inspect, modify, timezone, loggerFactory.CreateLogger(nameof(WiredRoomSettingsPackets)));
         return Task.CompletedTask;
     }
 }
 
 internal static class WiredRoomSettingsPackets
 {
-    private static readonly ILogger Log = LogManager.GetLogger(nameof(WiredRoomSettingsPackets));
     public static void Reply(Room room, GameClient session, WiredRoomSettings settings) =>
         session.Send(new WiredRoomSettingsDataComposer(room.Id, settings, session));
 
-    public static void Reload(Room room, GameClient session, WiredRoomSettings settings)
+    public static void Reload(Room room, GameClient session, WiredRoomSettings settings, ILogger logger)
     {
         try
         {
@@ -59,12 +62,12 @@ internal static class WiredRoomSettingsPackets
         }
         catch (Exception exception) when (exception is DbException or InvalidOperationException or InvalidDataException)
         {
-            Log.Error(exception, "Unable to reload Wired settings for room {RoomId}", room.Id);
+            logger.LogError(exception, "Unable to reload Wired settings for room {RoomId}", room.Id);
             session.Send(new WiredValidationErrorComposer("Unable to load Wired room settings."));
         }
     }
 
-    public static void Save(Room room, GameClient session, WiredRoomSettings settings, int inspect, int modify, string? timezone)
+    public static void Save(Room room, GameClient session, WiredRoomSettings settings, int inspect, int modify, string? timezone, ILogger logger)
     {
         try
         {
@@ -82,12 +85,12 @@ internal static class WiredRoomSettingsPackets
         }
         catch (Exception exception) when (exception is DbException or InvalidOperationException or InvalidDataException)
         {
-            Log.Error(exception, "Unable to save Wired settings for room {RoomId}", room.Id);
+            logger.LogError(exception, "Unable to save Wired settings for room {RoomId}", room.Id);
             session.Send(new WiredValidationErrorComposer("Unable to save Wired room settings."));
             // Restore the active client's optimistic settings without broadcasting rejected changes.
             try { Reply(room, session, settings); }
             catch (Exception readError) when (readError is DbException or InvalidOperationException or InvalidDataException)
-            { Log.Error(readError, "Unable to read Wired settings for room {RoomId}", room.Id); }
+            { logger.LogError(readError, "Unable to read Wired settings for room {RoomId}", room.Id); }
         }
     }
 }

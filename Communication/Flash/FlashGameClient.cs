@@ -1,5 +1,7 @@
 ﻿using System.Net.Sockets;
 using System.Text;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Flash;
@@ -13,9 +15,13 @@ public class FlashGameClient : GameClient
                                                              "<cross-domain-policy>\r\n" +
                                                              "<allow-access-from domain=\"*\" to-ports=\"1-31111\" />\r\n" +
                                                              "</cross-domain-policy>\x0");
-    public FlashGameClient(IGameServer server, IPacketFactory packetFactory) : base(server, packetFactory)
+    public FlashGameClient(IGameServer server, IPacketFactory packetFactory, ILogger<GameClient> logger) : base(server, packetFactory, logger)
     {
     }
+
+    public FlashGameClient(IGameServer server, IPacketFactory packetFactory)
+        : this(server, packetFactory, NullLogger<GameClient>.Instance) { }
+
 
     public static int DecodeInt32(ReadOnlyMemory<byte> v) => (v.Span[0] << 24) | (v.Span[1] << 16) | (v.Span[2] << 8) | v.Span[3];
     public static int DecodeInt16(ReadOnlyMemory<byte> v) => (v.Span[0] << 8) | v.Span[1];

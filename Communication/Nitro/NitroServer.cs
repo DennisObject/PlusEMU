@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 using NetCoreServer;
+using Microsoft.Extensions.Logging;
 using Plus.Communication.Abstractions;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets;
@@ -31,16 +32,18 @@ public class NitroClientFactory : IGameClientFactory<WsSessionProxy, WsServer>
 {
     private readonly FlashPacketFactory _packetFactory;
     private readonly IRevisionsCache _revisionsCache;
+    private readonly ILogger<GameClient> _logger;
 
-    public NitroClientFactory(FlashPacketFactory packetFactory, IRevisionsCache revisionsCache)
+    public NitroClientFactory(FlashPacketFactory packetFactory, IRevisionsCache revisionsCache, ILogger<GameClient> logger)
     {
         _packetFactory = packetFactory;
         _revisionsCache = revisionsCache;
+        _logger = logger;
     }
 
     public WsSessionProxy Create(WsServer server)
     {
-        var flashClient = new FlashGameClient((NitroServer)server, _packetFactory)
+        var flashClient = new FlashGameClient((NitroServer)server, _packetFactory, _logger)
             { Revision = _revisionsCache.InternalRevision };
         var wsSession = new WsSessionProxy((NitroServer)server, flashClient);
         return wsSession;

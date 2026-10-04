@@ -1,4 +1,6 @@
 ﻿using Plus.HabboHotel.Permissions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Data;
 using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
@@ -17,6 +19,7 @@ using Plus.HabboHotel.Rooms.Games.Football;
 using Plus.HabboHotel.Rooms.Games.Freeze;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.Instance;
+using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.Utilities;
 
 namespace Plus.HabboHotel.Rooms;
@@ -65,11 +68,19 @@ public class Room
 
     public List<int> UsersWithRights;
 
-    public Room(RoomData data, IEnumerable<IRoomComponent>? components = null)
+    private readonly ILogger<RoomNavigation> _navigationLogger;
+    private readonly ILogger _wiredLogger;
+
+    public Room(RoomData data, IEnumerable<IRoomComponent>? components, ILogger<RoomNavigation> navigationLogger, ILogger wiredLogger)
     {
         _data = data;
         _components = (components ?? [new RoomRuntimeComponent(), new RoomDataComponent()]).ToArray();
+        _navigationLogger = navigationLogger;
+        _wiredLogger = wiredLogger;
     }
+
+    public Room(RoomData data, IEnumerable<IRoomComponent>? components = null)
+        : this(data, components, NullLogger<RoomNavigation>.Instance, NullLogger.Instance) { }
 
     public RoomData Data => _data ??= new RoomData();
     public static implicit operator RoomData(Room room) => room.Data;
@@ -93,11 +104,11 @@ public class Room
         RoomMuted = false;
         MutedUsers = new();
         _tents = new();
-        _gamemap = new(this, Data.Model);
+        _gamemap = new(this, Data.Model, _navigationLogger);
         _roomItemHandling = new(this);
         _roomUserManager = new(this);
         _filterComponent = new(this);
-        _wiredComponent = new(this);
+        _wiredComponent = new(this, _wiredLogger);
         _bansComponent = new(this);
         _tradingComponent = new(this);
         LastRegeneration = DateTime.Now;

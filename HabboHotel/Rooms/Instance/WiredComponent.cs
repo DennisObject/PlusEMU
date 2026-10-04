@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Data;
+﻿using System.Data;
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Core;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Items;
@@ -21,10 +23,12 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly Room _room;
     private readonly WiredStackEngine _engine;
     private readonly WiredTargetResolver _targets;
+    private readonly ILogger _logger;
 
-    public WiredComponent(Room instance) //, RoomItem Items)
+    public WiredComponent(Room instance, ILogger? logger = null) //, RoomItem Items)
     {
         _room = instance;
+        _logger = logger ?? NullLogger.Instance;
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
             box => ReferenceEquals(_room.GetRoomItemHandler().GetItem(box.Item.Id), box.Item),
@@ -141,13 +145,13 @@ public partial class WiredComponent : IWiredRuntimeOperations
             }
             catch (Exception error)
             {
-                NLog.LogManager.GetLogger("Wired").Error(error, "Cannot load Wired configuration for item {0} in room {1}; saved bytes retained", item.Id, _room.Id);
+                _logger.LogError(error, "Cannot load Wired configuration for item {ItemId} in room {RoomId}; saved bytes retained", item.Id, _room.Id);
                 return null;
             }
         }
         if (newBox == null)
         {
-            NLog.LogManager.GetLogger("Wired").Warn("Unsupported wired type {0} on item {1} in room {2}",
+            _logger.LogWarning("Unsupported wired type {WiredType} on item {ItemId} in room {RoomId}",
                 item.Definition.WiredType, item.Id, _room.Id);
             return null;
         }
