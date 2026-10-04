@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Items;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
@@ -33,9 +34,20 @@ public sealed class FloorEffectService(Room room, Action<GameClient> progressSwi
         if (slot < 0) return map.EffectMap[x, y];
         if (grid!.Kind[slot] == SurfaceKind.WalkMagic) return 0;
         var top = SurfaceContacts.Filter(grid, x, y, slot, map.GetAllRoomItemForSquare(x, y)).MaxBy(item => item.TotalHeight);
-        return top != null ? Gamemap.ItemEffect(top.Definition.InteractionType)
+        return top != null ? ItemEffect(top.Definition.InteractionType)
             : map.Model.SqState[x, y] == SquareState.Pool ? (byte)6 : (byte)0;
     }
+
+    // The same item→effect codes the legacy map writes (Gamemap.AddItemToMap); the legacy code stays untouched.
+    private static byte ItemEffect(InteractionType interaction) => interaction switch
+    {
+        InteractionType.Pool => 1,
+        InteractionType.NormalSkates => 2,
+        InteractionType.IceSkates => 3,
+        InteractionType.Lowpool => 4,
+        InteractionType.Haloweenpool => 5,
+        _ => 0
+    };
 
     private static int EffectId(ItemEffectType kind, string gender) => kind switch
     {
