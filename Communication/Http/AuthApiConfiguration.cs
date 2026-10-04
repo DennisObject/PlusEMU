@@ -25,6 +25,10 @@ public class AuthApiConfiguration
     /// Further hashes wait in line.</summary>
     public int MaxConcurrentPasswordChecks { get; set; } = 4;
 
+    /// <summary>Password hashes allowed to wait for a slot; beyond this, login and register
+    /// answer 429 rate_limited.</summary>
+    public int MaxQueuedPasswordChecks { get; set; } = 100;
+
     public int FailedLoginWindowMinutes { get; set; } = 15;
     public int MaxFailedLoginsPerAccount { get; set; } = 10;
     public int MaxFailedLoginsPerAddress { get; set; } = 30;

@@ -7,7 +7,7 @@ namespace Plus.HabboHotel.Users.Registration;
 
 public interface IRegistrationService
 {
-    Task<RegistrationResult> Register(RegistrationRequest request);
+    Task<RegistrationResult> Register(RegistrationRequest request, CancellationToken cancellationToken = default);
     Task<Availability> CheckUsername(string username);
     Task<Availability> CheckEmail(string email);
 }
@@ -53,13 +53,13 @@ public class RegistrationService : IRegistrationService
         _defaults = options.Value.Registration;
     }
 
-    public async Task<RegistrationResult> Register(RegistrationRequest request)
+    public async Task<RegistrationResult> Register(RegistrationRequest request, CancellationToken cancellationToken = default)
     {
         var error = UsernameError(request.Username) ?? RegistrationValidator.EmailError(request.Email) ?? RegistrationValidator.PasswordError(request.Password, request.Username);
         if (error != null)
             return new(RegistrationStatus.Invalid, error);
 
-        var passwordHash = await _hasher.Hash(request.Password);
+        var passwordHash = await _hasher.Hash(request.Password, cancellationToken);
         var account = new NewAccount(request.Username, passwordHash, request.Email, RegistrationValidator.FigureOrDefault(request.Figure, _defaults.Look),
             RegistrationValidator.Gender(request.Gender), request.Address);
 

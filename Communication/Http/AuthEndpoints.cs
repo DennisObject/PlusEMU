@@ -58,7 +58,7 @@ public class AuthEndpoints
         if (string.IsNullOrWhiteSpace(body.Username) || string.IsNullOrEmpty(body.Password))
             return Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, "Please enter both your Habbo name and password.");
 
-        var result = await _login.Login(body.Username.Trim(), body.Password, AuthHttpServer.ClientAddress(context), body.Remember);
+        var result = await _login.Login(body.Username.Trim(), body.Password, AuthHttpServer.ClientAddress(context), body.Remember, context.RequestAborted);
         switch (result.Status)
         {
             case LoginStatus.Success:
@@ -78,7 +78,8 @@ public class AuthEndpoints
         if (string.IsNullOrWhiteSpace(body.Username) || string.IsNullOrEmpty(body.Password) || string.IsNullOrWhiteSpace(body.Email))
             return Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, "Choose a Habbo name, email and password.");
 
-        var result = await _registration.Register(new(body.Username.Trim(), body.Password, body.Email.Trim(), body.Figure, body.Gender, AuthHttpServer.ClientAddress(context)));
+        var result = await _registration.Register(new(body.Username.Trim(), body.Password, body.Email.Trim(), body.Figure, body.Gender, AuthHttpServer.ClientAddress(context)),
+            context.RequestAborted);
         return result.Status switch
         {
             // Revoked within the same instant (e.g. banned): the account exists, the session does not.

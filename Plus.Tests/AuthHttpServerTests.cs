@@ -271,6 +271,28 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task LoginsBeyondTheHashingQueueGetRateLimited()
+    {
+        var held = new HeldHasher();
+        _innerHasher = held;
+        await Start(c =>
+        {
+            c.MaxConcurrentPasswordChecks = 1;
+            c.MaxQueuedPasswordChecks = 0;
+        });
+
+        var first = Post("/api/auth/login", new { username = "Nobody", password = "x" });
+        await held.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var refused = await Post("/api/auth/login", new { username = "Other", password = "x" }).WaitAsync(TimeSpan.FromSeconds(5));
+        held.Release.Set();
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, refused.StatusCode);
+        Assert.Equal(AuthErrorCode.RateLimited, (await Json(refused)).GetProperty("code").GetString());
+        Assert.Equal("5", refused.Headers.GetValues("Retry-After").Single());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await first).StatusCode);
+    }
+
+    [Fact]
     public async Task ASlowRequestBodyDoesNotHoldAPasswordHashingSlot()
     {
         await Start(c => c.MaxConcurrentPasswordChecks = 1);

@@ -67,6 +67,7 @@ public class AuthHttpServer : IAuthHttpServer
         app.UseExceptionHandler(error => error.Run(context => WriteError(context, StatusCodes.Status500InternalServerError)));
         app.UseStatusCodePages(context => WriteError(context.HttpContext, context.HttpContext.Response.StatusCode));
         app.Use(AddSecurityHeaders);
+        app.Use(RefuseWhenHashingIsSaturated);
         app.UseRateLimiter();
         _endpoints.Map(app);
 
@@ -141,6 +142,19 @@ public class AuthHttpServer : IAuthHttpServer
                 QueueLimit = 0
             })
             : RateLimitPartition.GetNoLimiter(""));
+    }
+
+    private static async Task RefuseWhenHashingIsSaturated(HttpContext context, Func<Task> next)
+    {
+        try
+        {
+            await next();
+        }
+        catch (PasswordCheckQueueFullException) when (!context.Response.HasStarted)
+        {
+            SetRetryAfter(context.Response, TimeSpan.FromSeconds(5));
+            await WriteError(context, StatusCodes.Status429TooManyRequests);
+        }
     }
 
     private static Task AddSecurityHeaders(HttpContext context, Func<Task> next)

@@ -38,6 +38,7 @@
         "RememberTokenLifetimeDays": 30,
         "RequestsPerMinute": 60,
         "MaxConcurrentPasswordChecks": 4,
+        "MaxQueuedPasswordChecks": 100,
         "FailedLoginWindowMinutes": 15,
         "MaxFailedLoginsPerAccount": 10,
         "MaxFailedLoginsPerAddress": 30,

@@ -4,7 +4,7 @@ namespace Plus.HabboHotel.Users.Authentication;
 
 public interface ILoginService
 {
-    Task<LoginResult> Login(string username, string password, string address, bool remember = false);
+    Task<LoginResult> Login(string username, string password, string address, bool remember = false, CancellationToken cancellationToken = default);
 }
 
 public enum LoginStatus
@@ -42,7 +42,7 @@ public class LoginService : ILoginService
         _bans = bans;
     }
 
-    public async Task<LoginResult> Login(string username, string password, string address, bool remember = false)
+    public async Task<LoginResult> Login(string username, string password, string address, bool remember = false, CancellationToken cancellationToken = default)
     {
         var account = await _accounts.FindByUsername(username);
         var throttleKey = account != null ? LoginThrottle.AccountKey(account.Id) : LoginThrottle.UnknownNameKey(username);
@@ -55,9 +55,9 @@ public class LoginService : ILoginService
         var stored = account?.Password ?? "";
         // Plaintext rows and missing accounts would answer faster than real hashes.
         if (!stored.StartsWith("$argon2id$", StringComparison.Ordinal))
-            await _hasher.Verify(password, await DecoyHash());
+            await _hasher.Verify(password, await DecoyHash(cancellationToken), cancellationToken);
 
-        var verification = account == null ? PasswordVerificationResult.Failed : await _hasher.Verify(password, stored);
+        var verification = account == null ? PasswordVerificationResult.Failed : await _hasher.Verify(password, stored, cancellationToken);
         if (verification == PasswordVerificationResult.Failed)
         {
             _throttle.RecordFailure(throttleKey, address);
@@ -65,7 +65,7 @@ public class LoginService : ILoginService
         }
 
         if (verification == PasswordVerificationResult.SuccessRehashNeeded)
-            await _accounts.UpgradePassword(account!.Id, stored, await _hasher.Hash(password));
+            await _accounts.UpgradePassword(account!.Id, stored, await _hasher.Hash(password, cancellationToken));
 
         _throttle.RecordSuccess(throttleKey);
         if (await _bans.Find(account!.Username, address) is { } ban)
@@ -81,5 +81,5 @@ public class LoginService : ILoginService
     private string? _decoyHash;
 
     /// <summary>A real hash of a random secret, so failed lookups do the same Argon2id work.</summary>
-    private async Task<string> DecoyHash() => _decoyHash ??= await _hasher.Hash(SecureToken.Generate());
+    private async Task<string> DecoyHash(CancellationToken cancellationToken) => _decoyHash ??= await _hasher.Hash(SecureToken.Generate(), cancellationToken);
 }

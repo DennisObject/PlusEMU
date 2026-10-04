@@ -334,3 +334,22 @@ internal sealed class FakeGenerations : ICredentialGenerations
         await revocations(null!);
     }
 }
+
+/// <summary>Blocks every hash until released, counting how many ran.</summary>
+internal sealed class HeldHasher : IPasswordHasher
+{
+    public readonly TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public readonly ManualResetEventSlim Release = new(false);
+    public int Hashed;
+
+    public string Hash(string password) => Hold("$argon2id$held");
+    public PasswordVerificationResult Verify(string password, string stored) => Hold(PasswordVerificationResult.Failed);
+
+    private T Hold<T>(T result)
+    {
+        Entered.TrySetResult();
+        Release.Wait();
+        Interlocked.Increment(ref Hashed);
+        return result;
+    }
+}
