@@ -140,7 +140,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             var fxItem = new Item { Id = fxItemId, OwnerId = owner, Definition = new() { InteractionName = "wf_xtra_var_fx_health" } }; floor[fxItem.Id] = fxItem;
             var fxBox = Assert.IsType<WiredVariableMetadataBox>(roomVariables.CreateBox(fxItem)); roomVariables.ConfigurationLoaded(fxBox);
             var sentFx = new List<uint>();
-            var fxClient = new FlashGameClient(null!, new FlashPacketFactory())
+            var fxClient = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
             {
                 Revision = new Revision { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
                 {

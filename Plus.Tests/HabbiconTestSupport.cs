@@ -18,7 +18,7 @@ internal static class HabbiconTestSupport
         var sent = new List<(uint, byte[])>();
         var headers = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
             .Select(field => (uint)field.GetRawConstantValue()!).Where(id => id > 0).ToDictionary(id => id, id => id);
-        var client = new FlashGameClient(null!, new FlashPacketFactory())
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
         {
             Revision = new Revision { InternalIdToOutgoingIdMapping = headers },
             SendCallback = args =>

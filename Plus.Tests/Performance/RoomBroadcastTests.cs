@@ -59,8 +59,8 @@ public class RoomBroadcastTests
         var revision = new Revision { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [ServerPacketHeader.ChatComposer] = 222 } };
         var clients = new FlashGameClient[]
         {
-            new(null!, sharedFactory),
-            new(null!, new FlashPacketFactory()),
+            new(TestGameServer.Instance, sharedFactory),
+            new(TestGameServer.Instance, new FlashPacketFactory()),
             new AlternateHeaderClient(sharedFactory)
         };
         var received = new List<byte[]>();
@@ -248,7 +248,7 @@ public class RoomBroadcastTests
         public void Compose(IOutgoingPacket packet) { Count++; inner.Compose(packet); }
     }
 
-    private sealed class AlternateHeaderClient(IPacketFactory factory) : FlashGameClient(null!, factory)
+    private sealed class AlternateHeaderClient(IPacketFactory factory) : FlashGameClient(TestGameServer.Instance, factory)
     {
         public override void CreateHeader(Memory<byte> memory, uint messageId) => base.CreateHeader(memory, messageId + 1);
     }

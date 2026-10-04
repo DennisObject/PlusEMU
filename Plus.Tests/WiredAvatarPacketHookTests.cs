@@ -93,7 +93,7 @@ public class WiredAvatarPacketHookTests
             var items = new RoomItemHandling(Room); var users = new RoomUserManager(Room);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
             _wired = new WiredComponent(Room); Set(Room, "_wiredComponent", _wired);
-            Client = new FlashGameClient(null!, new FlashPacketFactory())
+            Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
             {
                 Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
                 { [ServerPacketHeader.ActionComposer] = 1, [ServerPacketHeader.DanceComposer] = 2,

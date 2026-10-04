@@ -183,7 +183,7 @@ public class WiredClickPacketHookTests
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);
             _wired = new WiredComponent(Room); Set(Room, "_wiredComponent", _wired);
             Set(Get(_wired, "_engine"), "_now", (Func<long>)(() => Clock));
-            Client = new FlashGameClient(null!, new FlashPacketFactory())
+            Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
             {
                 Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
                 { [ServerPacketHeader.WiredClickUserResponseComposer] = 9460, [ServerPacketHeader.InClientLinkComposer] = 2023,
@@ -192,7 +192,7 @@ public class WiredClickPacketHookTests
                     new() { Buffer = args.MemoryBuffer[6..].ToArray() })); return true; }
             };
             Actor = AddUser(42, 7, Client);
-            var targetClient = new FlashGameClient(null!, new FlashPacketFactory()) { Revision = Client.Revision, SendCallback = _ => true };
+            var targetClient = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory()) { Revision = Client.Revision, SendCallback = _ => true };
             Target = AddUser(43, 8, targetClient);
             Capture = new CaptureAction(Room, Item("wf_act_toggle_state")); Assert.True(_wired.AddBox(Capture));
             AddBox(trigger, parameters);

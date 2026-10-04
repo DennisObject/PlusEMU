@@ -182,7 +182,7 @@ public class WiredRoomSettingsTests
     }
     private static FlashGameClient Client(Room room, int id, params string[] rights)
     {
-        var client = new FlashGameClient(null!, new FlashPacketFactory());
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory());
         client.SetHabbo(new Habbo { Id = id, Username = id == room.OwnerId ? "owner" : "user" + id,
             CurrentRoom = room, Access = EditorTestSupport.Access([.. rights]) }); return client;
     }

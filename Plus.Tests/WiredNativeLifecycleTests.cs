@@ -383,7 +383,7 @@ public sealed class WiredNativeLifecycleTests
         }
         public RoomUser Human()
         {
-            var client = new FlashGameClient(null!, new FlashPacketFactory())
+            var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
             {
                 Revision = new() { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
                     .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id) },

@@ -775,7 +775,7 @@ public class WiredStackEngineTests
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         var packets = new List<uint>();
-        var client = new FlashGameClient(null!, new FlashPacketFactory())
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
         {
             Revision = new Revision { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
             {

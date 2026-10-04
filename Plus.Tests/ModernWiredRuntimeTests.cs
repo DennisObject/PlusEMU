@@ -165,7 +165,7 @@ public class ModernWiredRuntimeTests
         monitor.End();
 
         // Without inspect rights neither request answers; with inspect only, a clear is refused.
-        var bob = new FlashGameClient(null!, new FlashPacketFactory()) { Revision = f.Habbo.Client.Revision };
+        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory()) { Revision = f.Habbo.Client.Revision };
         bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
         var bobReplies = Capture(bob);
         await new WiredRoomLogsPageEvent().Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
@@ -575,7 +575,7 @@ public class ModernWiredRuntimeTests
             var clients = new GameClientManager(null!, null!); var game = DispatchProxy.Create<IGame, RecordingProxy>();
             ((RecordingProxy)(object)game).InvokeMethod = (method, _) => method.Name == "get_ClientManager" ? clients : method.Name == "get_ItemManager" ? DefinitionManager : null;
             gameField.SetValue(null, game);
-            var client = new FlashGameClient(null!, new FlashPacketFactory())
+            var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
             {
                 Revision = new Revision { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
                     .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id) },

@@ -327,7 +327,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         public Action<uint>? BeforeCapture { get; set; }
         public List<uint> Sent { get; } = new();
         public List<(uint Header, byte[] Body)> Packets { get; } = new();
-        public TestClient() : base(null!, new FlashPacketFactory())
+        public TestClient() : base(TestGameServer.Instance, new FlashPacketFactory())
         {
             Revision = new Revision
             {
