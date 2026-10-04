@@ -1,4 +1,4 @@
-﻿using System.Data;
+﻿using Dapper;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.Database;
@@ -26,29 +26,31 @@ internal class ConvertCreditsCommand : IChatCommand
         var totalValue = 0;
         try
         {
-            DataTable? table = null;
-            using (var dbClient = _database.GetQueryReactor())
-            {
-                dbClient.SetQuery($"SELECT `id` FROM `items` WHERE `user_id` = '{session.GetHabbo().Id}' AND (`room_id`=  '0' OR `room_id` = '')");
-                table = dbClient.GetTable();
-            }
-            if (table == null)
+            using var connection = _database.Connection();
+            var itemIds = connection.Query<uint>("SELECT id FROM items WHERE user_id=@userId AND room_id=0",
+                new { userId = session.GetHabbo().Id }).ToArray();
+            if (itemIds.Length == 0)
             {
                 session.SendWhisper("You currently have no items in your inventory!");
                 return;
             }
-            if (table.Rows.Count > 0)
+            var exchangeItems = itemIds.Select(session.GetHabbo().Inventory.Furniture.GetItem)
+                .Where(item => item?.Definition.InteractionType == InteractionType.Exchange)
+                .ToArray();
+            if (exchangeItems.Length > 0)
             {
-                using var dbClient = _database.GetQueryReactor();
-                foreach (DataRow row in table.Rows)
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
                 {
-                    var item = session.GetHabbo().Inventory.Furniture.GetItem(Convert.ToUInt32(row[0]));
-                    if (item == null || item.Definition.InteractionType != InteractionType.Exchange)
-                        continue;
-                    var value = item.Definition.BehaviourData;
-                    dbClient.RunQuery($"DELETE FROM `items` WHERE `id` = '{item.Id}' LIMIT 1");
+                    foreach (var item in exchangeItems)
+                        connection.Execute("DELETE FROM items WHERE id=@id LIMIT 1", new { item.Id }, transaction);
+                    transaction.Commit();
+                }
+                foreach (var item in exchangeItems)
+                {
                     session.GetHabbo().Inventory.Furniture.RemoveItem(item.Id);
                     session.Send(new FurniListRemoveComposer(item.Id));
+                    var value = item.Definition.BehaviourData;
                     totalValue += value;
                     if (value > 0)
                     {
