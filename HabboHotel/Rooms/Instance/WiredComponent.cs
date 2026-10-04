@@ -154,15 +154,13 @@ public partial class WiredComponent : IWiredRuntimeOperations
                 item.Definition.WiredType, item.Id, _room.Id);
             return null;
         }
-        DataRow? row = null;
-        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
+        using (var connection = PlusEnvironment.DatabaseManager.Connection())
         {
-            dbClient.SetQuery("SELECT * FROM wired_items WHERE id=@id LIMIT 1");
-            dbClient.AddParameter("id", item.Id);
-            row = dbClient.GetRow();
+            var row = connection.QuerySingleOrDefault<WiredItemRow>(
+                "SELECT items,delay,`string` AS StringData,`bool` AS BoolData FROM wired_items WHERE id=@id LIMIT 1", new { item.Id });
             if (row != null)
             {
-                if (string.IsNullOrEmpty(Convert.ToString(row["string"])))
+                if (string.IsNullOrEmpty(row.StringData))
                 {
                     if (newBox.Type == WiredBoxType.ConditionMatchStateAndPosition || newBox.Type == WiredBoxType.ConditionDontMatchStateAndPosition)
                         newBox.StringData = "0;0;0";

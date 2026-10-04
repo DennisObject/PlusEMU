@@ -246,7 +246,7 @@ public partial class PlacedFurniRoomTests : IDisposable
     }
 
     /// <summary>Accepts Dapper writes without a database.</summary>
-    private sealed class NoOpConnection : DbConnection
+    private sealed class NoOpConnection(Func<string, DataTable>? read = null, Action<string, DbParameterCollection>? write = null) : DbConnection
     {
         private ConnectionState _state = ConnectionState.Closed;
         [AllowNull] public override string ConnectionString { get; set; } = "";
@@ -258,10 +258,10 @@ public partial class PlacedFurniRoomTests : IDisposable
         public override void Close() => _state = ConnectionState.Closed;
         public override void Open() => _state = ConnectionState.Open;
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => throw new NotSupportedException();
-        protected override DbCommand CreateDbCommand() => new NoOpCommand { Connection = this };
+        protected override DbCommand CreateDbCommand() => new NoOpCommand(read, write) { Connection = this };
     }
 
-    private sealed class NoOpCommand : DbCommand
+    private sealed class NoOpCommand(Func<string, DataTable>? read = null, Action<string, DbParameterCollection>? write = null) : DbCommand
     {
         [AllowNull] public override string CommandText { get; set; } = "";
         public override int CommandTimeout { get; set; }
@@ -272,11 +272,22 @@ public partial class PlacedFurniRoomTests : IDisposable
         protected override DbParameterCollection DbParameterCollection { get; } = new NoOpParameters();
         protected override DbTransaction? DbTransaction { get; set; }
         public override void Cancel() { }
-        public override int ExecuteNonQuery() => 1;
+        public override int ExecuteNonQuery() { write?.Invoke(CommandText, Parameters); return 1; }
         public override object? ExecuteScalar() => null;
         public override void Prepare() { }
         protected override DbParameter CreateDbParameter() => new NoOpParameter();
-        protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior) => throw new NotSupportedException();
+        protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
+        {
+            if (read != null) return read(CommandText).CreateDataReader();
+            var table = new DataTable();
+            if (CommandText.Contains("FROM group_memberships", StringComparison.Ordinal))
+            {
+                table.Columns.Add("UserId", typeof(int));
+                table.Columns.Add("Rank", typeof(int));
+            }
+            else table.Columns.Add("Value", typeof(int));
+            return table.CreateDataReader();
+        }
     }
 
     private sealed class NoOpParameter : DbParameter

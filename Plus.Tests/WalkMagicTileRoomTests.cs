@@ -403,7 +403,24 @@ public partial class PlacedFurniRoomTests
             if (method == "AddParameter") parameters[(string)args[0]!] = args[1];
             return method == "GetTable" ? row.Table : null;
         });
-        _databaseField.SetValue(null, Proxy<Plus.Database.IDatabase>((method, _) => method == "GetQueryReactor" ? query : null));
+        _databaseField.SetValue(null, Proxy<Plus.Database.IDatabase>((method, _) => method switch
+        {
+            "GetQueryReactor" => query,
+            "Connection" => new NoOpConnection(_ =>
+            {
+                var loaded = row.Table.Copy();
+                foreach (var (source, alias) in new[] { ("base_item", "BaseItem"), ("user_id", "UserId"), ("extra_data", "ExtraData"),
+                             ("limited_number", "LimitedNumber"), ("limited_stack", "LimitedStack"), ("wall_pos", "WallPos") })
+                    loaded.Columns[source]!.ColumnName = alias;
+                loaded.Columns.Add("GroupId", typeof(int)); loaded.Rows[0]["GroupId"] = 0;
+                return loaded;
+            }, (sql, values) =>
+            {
+                writes.Add(sql);
+                foreach (System.Data.Common.DbParameter value in values) parameters[value.ParameterName.TrimStart('@')] = value.Value;
+            }),
+            _ => throw new NotSupportedException(method)
+        }));
         var definitions = Proxy<IItemDataManager>((method, _) => method == "get_Items" ? new Dictionary<uint, ItemDefinition> { [10] = definition } : null);
         _gameField.SetValue(null, Proxy<Plus.HabboHotel.IGame>((method, _) => method == "get_ItemManager" ? definitions : null));
         _room.GetRoomItemHandler().LoadFurniture();
