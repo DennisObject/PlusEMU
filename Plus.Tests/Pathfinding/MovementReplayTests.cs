@@ -17,7 +17,7 @@ public partial class PlacedFurniRoomTests
     [InlineData("fast", 3, 1, 0d)]
     [InlineData("superfast", 3, 1, 0d)]
     [InlineData("replacement", 1, 2, 0d)]
-    [InlineData("sealed corner", 1, 2, 0d)]
+    [InlineData("sealed corner", 0, 1, 0d)]
     [InlineData("locked pending", 0, 1, 0d)]
     [InlineData("cancel", 0, 1, 0d)]
     [InlineData("walk magic", 1, 1, .75)]
@@ -33,17 +33,14 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((finalX, finalY, finalZ), v2[^1].Location);
         var legacyGoal = scenario switch
         {
-            "superfast" => (2, 1, 0d), "locked pending" => (1, 1, 0d),
+            "superfast" => (2, 1, 0d), "locked pending" => (1, 1, 0d), "sealed corner" => (1, 2, 0d),
             _ => (finalX, finalY, finalZ)
         };
         Assert.Equal(legacyGoal, legacy[^1].Location);
         var differences = ClassifyReplayDifferences(legacy, v2, ReplayTrajectoryClass(scenario));
         AssertReplayScenarioDifferences(scenario, differences);
-        if (scenario is "normal" or "fast")
-        {
-            Assert.Empty(differences);
-            Assert.Equal(legacy.Select(FrameBytes), v2.Select(FrameBytes));
-        }
+        AssertReplayExactBytes(scenario, legacy, v2, differences);
+        if (scenario == "sealed corner") AssertReplaySealedCorner(legacy, v2);
         ReportReplay(scenario, stream, differences);
     }
 
@@ -130,6 +127,24 @@ public partial class PlacedFurniRoomTests
         _ => null
     };
 
+    private static void AssertReplayExactBytes(string scenario, List<ReplayFrame> legacy, List<ReplayFrame> v2,
+        List<ReplayDifference> differences)
+    {
+        if (scenario is not ("normal" or "fast")) return;
+        Assert.Empty(differences);
+        Assert.Equal(legacy.Select(FrameBytes), v2.Select(FrameBytes));
+    }
+
+    private static void AssertReplaySealedCorner(List<ReplayFrame> legacy, List<ReplayFrame> v2)
+    {
+        // The source is at the left edge, with the terminal door above it and blockers to its right/below.
+        // Original legacy cuts between those blockers; v2 cannot transit through the door to detour.
+        Assert.Equal("mv 1,2,0", legacy[0].Status);
+        Assert.Equal((1, 2, 0d), legacy[1].Location);
+        Assert.All(v2, frame => Assert.Equal((0, 1, 0d), frame.Location));
+        Assert.All(v2, frame => Assert.DoesNotContain("mv ", frame.Status));
+    }
+
     private static void AssertReplayScenarioDifferences(string scenario, List<ReplayDifference> differences)
     {
         var trajectory = ReplayTrajectoryClass(scenario);
@@ -141,7 +156,7 @@ public partial class PlacedFurniRoomTests
         Assert.Contains(trajectory.Value, differences);
         Assert.All(differences, difference => Assert.True(difference == trajectory || difference == ReplayDifference.TimingPhaseChange));
         if (scenario is "superfast" or "locked pending")
-            Assert.Equal(7, differences.Count(difference => difference == trajectory));
+            Assert.Equal(1, differences.Count(difference => difference == trajectory));
     }
 
     private static ReplayInput ReplayFurniture(uint id, int x, int y, double z, double height,
