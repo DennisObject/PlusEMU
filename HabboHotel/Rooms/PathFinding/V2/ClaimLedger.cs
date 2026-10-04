@@ -21,7 +21,7 @@ public sealed class ClaimLedger
     private List<Claim>?[] _claims;
     // Roller cargo destinations: R claims owned by no actor, released with the other roller claims.
     private int[] _cargoReservations;
-    private readonly List<int> _cargoSlots = new();
+    private readonly List<int> _cargoTiles = new();
     private readonly record struct Claim(ClaimMember Owner, ClaimKind Kind);
     private enum ReleaseMode { All, Batch, Roller }
     // Lifetime ids are positive, so this group excludes nobody (roller cargo belongs to no actor).
@@ -37,7 +37,7 @@ public sealed class ClaimLedger
         Head = new ClaimMember?[slotCapacity]; OffGraphHead = new ClaimMember?[tileCount];
         Count = new int[slotCapacity]; StationaryCount = new int[slotCapacity];
         TileCount = new int[tileCount]; _claims = new List<Claim>?[slotCapacity];
-        _cargoReservations = new int[slotCapacity];
+        _cargoReservations = new int[tileCount];
     }
 
     // Layered grids map overflow slots back to their tile for off-graph occupancy.
@@ -49,7 +49,6 @@ public sealed class ClaimLedger
         if (slots <= Head.Length) return;
         Head = Grow(Head, slots); Count = Grow(Count, slots);
         StationaryCount = Grow(StationaryCount, slots); _claims = Grow(_claims, slots);
-        _cargoReservations = Grow(_cargoReservations, slots);
     }
 
     internal bool Pinned(int slot) => slot >= 0 && slot < Head.Length && (Count[slot] > 0 || _claims[slot] is { Count: > 0 });
@@ -134,20 +133,31 @@ public sealed class ClaimLedger
     public void ReleaseRollers()
     {
         foreach (var member in _members.Values) ReleaseClaims(member, ReleaseMode.Roller);
-        foreach (var slot in _cargoSlots) _cargoReservations[slot] = 0;
-        _cargoSlots.Clear();
+        foreach (var tile in _cargoTiles) _cargoReservations[tile] = 0;
+        _cargoTiles.Clear();
     }
 
-    public bool TryReserveCargo(int slot, TargetOccupancy blockingMask, IReadOnlySet<RoomUser>? departing)
+    // Cargo excludes a whole destination tile, so its reservation is keyed by tile and never follows a slot.
+    public bool TryReserveCargo(int tile, TargetOccupancy blockingMask, IReadOnlySet<RoomUser>? departing)
     {
-        if ((OccupancyAt(slot, NoGroup, departing) & blockingMask) != 0) return false;
-        if (_cargoReservations[slot]++ == 0) _cargoSlots.Add(slot);
+        foreach (var slot in TileSlots(tile))
+            if ((OccupancyAt(slot, NoGroup, departing) & blockingMask) != 0) return false;
+        if (_cargoReservations[tile]++ == 0) _cargoTiles.Add(tile);
         return true;
     }
 
-    public void ReleaseCargo(int slot)
+    public void ReleaseCargo(int tile)
     {
-        if (_cargoReservations[slot] > 0 && --_cargoReservations[slot] == 0) _cargoSlots.Remove(slot);
+        if (_cargoReservations[tile] > 0 && --_cargoReservations[tile] == 0) _cargoTiles.Remove(tile);
+    }
+
+    // The tile's own slot plus every other compiled surface on it (only the own slot with K = 1).
+    private IEnumerable<int> TileSlots(int tile)
+    {
+        yield return tile;
+        if (_grid == null) yield break;
+        for (var ordinal = 0; ordinal < _grid.SurfaceCount(tile); ordinal++)
+            if (_grid.SurfaceAt(tile, ordinal) != tile && _grid.SurfaceAt(tile, ordinal) < Head.Length) yield return _grid.SurfaceAt(tile, ordinal);
     }
 
     public void ReleaseRollers(RoomUser actor)
@@ -170,7 +180,7 @@ public sealed class ClaimLedger
         if (_claims[slot] is { } claims)
             foreach (var claim in claims)
                 if (Counts(claim.Owner, excludingGroup, departing)) result |= ClaimBit(claim.Kind);
-        if (_cargoReservations[slot] != 0) result |= TargetOccupancy.RollerClaim;
+        if (tile < _cargoReservations.Length && _cargoReservations[tile] != 0) result |= TargetOccupancy.RollerClaim;
         return result;
     }
 
