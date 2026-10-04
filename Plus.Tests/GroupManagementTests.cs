@@ -604,12 +604,21 @@ public class GroupManagementTests : IDisposable
         public int ConnectionTimeout => 1;
         public string Database => "";
         public ConnectionState State { get; private set; } = ConnectionState.Open;
-        public IDbTransaction BeginTransaction() => throw new NotSupportedException();
-        public IDbTransaction BeginTransaction(IsolationLevel il) => throw new NotSupportedException();
+        public IDbTransaction BeginTransaction() => new RecordingTransaction(this);
+        public IDbTransaction BeginTransaction(IsolationLevel il) => new RecordingTransaction(this, il);
         public void ChangeDatabase(string databaseName) { }
         public void Close() => State = ConnectionState.Closed;
         public IDbCommand CreateCommand() => new RecordingCommand(database);
         public void Open() => State = ConnectionState.Open;
+        public void Dispose() { }
+    }
+
+    private sealed class RecordingTransaction(IDbConnection connection, IsolationLevel isolationLevel = IsolationLevel.Unspecified) : IDbTransaction
+    {
+        public IDbConnection Connection { get; } = connection;
+        public IsolationLevel IsolationLevel { get; } = isolationLevel;
+        public void Commit() { }
+        public void Rollback() { }
         public void Dispose() { }
     }
 
@@ -634,10 +643,26 @@ public class GroupManagementTests : IDisposable
         public IDataReader ExecuteReader(CommandBehavior behavior)
         {
             database.Statements.Add(CommandText);
+            if (CommandText.Contains("FROM group_memberships", StringComparison.OrdinalIgnoreCase))
+                return EmptyReader(("UserId", typeof(int)), ("Rank", typeof(int)));
+            if (CommandText.Contains("FROM group_requests", StringComparison.OrdinalIgnoreCase))
+                return EmptyReader(("user_id", typeof(int)));
             return new ScalarReader(database.Scalar);
         }
-        public object? ExecuteScalar() => database.Scalar;
+        public object? ExecuteScalar()
+        {
+            database.Statements.Add(CommandText);
+            return database.Scalar;
+        }
         public void Prepare() { }
+
+        private static IDataReader EmptyReader(params (string Name, Type Type)[] columns)
+        {
+            var table = new DataTable();
+            foreach (var column in columns)
+                table.Columns.Add(column.Name, column.Type);
+            return table.CreateDataReader();
+        }
     }
 
     private sealed class ScalarReader(int value) : IDataReader
