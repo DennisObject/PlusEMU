@@ -455,4 +455,37 @@ public static class ClientPacketHeader
     public const uint HousekeepingSendHotelAlertEvent = 9121;
     public const uint HousekeepingGetDashboardEvent = 9122;
     public const uint HousekeepingListActionLogEvent = 9123;
+    // Octane catalog editor and furni editor; the same ids on the wire.
+    public const uint FurniEditorSearchEvent = 10040;
+    public const uint FurniEditorDetailEvent = 10041;
+    public const uint FurniEditorBySpriteEvent = 10042;
+    public const uint FurniEditorInteractionsEvent = 10043;
+    public const uint FurniEditorUpdateEvent = 10044;
+    public const uint FurniEditorDeleteEvent = 10045;
+    public const uint FurniEditorUpdateFurnidataEvent = 10046;
+    public const uint FurniEditorRevertFurnidataEvent = 10048;
+    public const uint FurniEditorImportTextEvent = 10049;
+    public const uint CatalogAdminSavePageEvent = 10050;
+    public const uint CatalogAdminCreatePageEvent = 10051;
+    public const uint CatalogAdminDeletePageEvent = 10052;
+    public const uint CatalogAdminSaveOfferEvent = 10053;
+    public const uint CatalogAdminCreateOfferEvent = 10054;
+    public const uint CatalogAdminDeleteOfferEvent = 10055;
+    public const uint CatalogAdminMoveOfferEvent = 10056;
+    public const uint CatalogAdminMovePageEvent = 10057;
+    public const uint CatalogAdminPublishEvent = 10058;
+    public const uint CatalogAdminSavePageImagesEvent = 10060;
+    public const uint CatalogAdminSavePageIconEvent = 10061;
+    public const uint CatalogAdminLoadOfferEvent = 10062;
+    public const uint CatalogAdminLoadPageEvent = 10063;
+    public const uint CatalogAdminSetPageEnabledEvent = 10064;
+    public const uint CatalogAdminSetPageVisibleEvent = 10065;
+    public const uint CatalogAdminReorderOffersEvent = 10066;
+    public const uint CatalogStudioOpenSessionEvent = 10067;
+    public const uint CatalogStudioLoadHistoryEvent = 10071;
+    public const uint CatalogStudioUndoEvent = 10072;
+    public const uint CatalogStudioValidateEvent = 10073;
+    public const uint CatalogStudioExportEvent = 10078;
+    public const uint CatalogStudioDocumentDryRunEvent = 10079;
+    public const uint CatalogStudioDocumentApplyEvent = 10080;
 }

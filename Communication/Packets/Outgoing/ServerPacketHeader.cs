@@ -359,4 +359,19 @@ public static class ServerPacketHeader
     public const uint HousekeepingRoomListComposer = 9203;
     public const uint HousekeepingDashboardComposer = 9204;
     public const uint HousekeepingActionLogComposer = 9205;
+    // Octane catalog editor and furni editor; the same ids on the wire.
+    public const uint FurniEditorSearchResultComposer = 10040;
+    public const uint FurniEditorDetailResultComposer = 10041;
+    public const uint FurniEditorInteractionsResultComposer = 10043;
+    public const uint FurniEditorResultComposer = 10044;
+    public const uint FurnitureDataReloadComposer = 10047;
+    public const uint FurniEditorImportTextResultComposer = 10049;
+    public const uint CatalogAdminResultComposer = 10059;
+    public const uint CatalogAdminOfferDetailsComposer = 10062;
+    public const uint CatalogAdminPageDetailsComposer = 10063;
+    public const uint CatalogStudioSessionComposer = 10067;
+    public const uint CatalogStudioHistoryComposer = 10071;
+    public const uint CatalogStudioOperationComposer = 10072;
+    public const uint CatalogStudioValidationComposer = 10073;
+    public const uint CatalogStudioDocumentResultComposer = 10078;
 }
