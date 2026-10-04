@@ -60,15 +60,16 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
 
     public async Task<HousekeepingOutcome> Ban(Habbo actor, int userId, string reason, int hours)
     {
+        using var deadline = new CancellationTokenSource(ModerationManager.BanBudget);
         reason = HousekeepingLimits.Normalize(reason);
         if (!HousekeepingLimits.InRange(hours, 1, HousekeepingLimits.MaxBanHours) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
-        using var account = await _sessionGate.EnterAsync(userId);
+        using var account = await _sessionGate.EnterAsync(userId, deadline.Token);
         if (_users.Target(actor, userId, out var user) is { } denied) return denied;
-        var expire = UnixTimestamp.GetNow() + hours * 3600.0;
-        Execute("UPDATE `user_info` SET `bans` = `bans` + 1 WHERE `user_id` = @userId", new { userId });
-        // The ban coordinator signs the account out, stamps the gate and closes its session; this action holds the gate.
-        await _moderation.BanUserHoldingGate(userId, actor.Username, ModerationBanType.Username, user.Username, reason.Length > 0 ? reason : "No reason specified.", expire);
+        var expire = BanClock.Now() + hours * 3600.0;
+        // The ban coordinator counts the ban, signs the account out and closes its session; this action holds the gate.
+        await _moderation.BanAccount(actor.Username, userId, user.Username, reason.Length > 0 ? reason : "No reason specified.", expire, deadline.Token,
+            heldUserId: userId);
         return HousekeepingOutcome.Success(Label(user), $"hours={hours} reason={HousekeepingLimits.AuditValue(reason)}");
     }
 

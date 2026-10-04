@@ -168,7 +168,7 @@ public sealed class ModerationManager : IModerationManager
                     var ban = new ModerationBan(BanTypeUtility.GetModerationBanType(type), value, reason, expires);
                     if (ban != null)
                     {
-                        if (expires > PlusEnvironment.GetUnixTimestamp())
+                        if (expires > BanClock.Now())
                         {
                             if (!_bans.ContainsKey(value))
                                 _bans.TryAdd(value, ban);
@@ -209,7 +209,7 @@ public sealed class ModerationManager : IModerationManager
                     var ban = new ModerationBan(BanTypeUtility.GetModerationBanType(type), value, reason, expires);
                     if (ban != null)
                     {
-                        if (expires > PlusEnvironment.GetUnixTimestamp())
+                        if (expires > BanClock.Now())
                         {
                             if (!_bans.ContainsKey(value))
                                 _bans.TryAdd(value, ban);
@@ -235,36 +235,104 @@ public sealed class ModerationManager : IModerationManager
     private static readonly TimeSpan[] RetryDelays = { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(2) };
     private static readonly TimeSpan RetryAttemptTimeout = TimeSpan.FromSeconds(30);
 
-    // Ban work that outlived its caller, so an unban can cancel it.
-    private readonly ConcurrentDictionary<BanWork, CancellationTokenSource> _pendingBans = new();
+    // Ban writes and unbans take this in turn, so an unban either comes before a ban's row or finds its pending work.
+    private readonly SemaphoreSlim _banWrites = new(1, 1);
+    // Ban work that has written its row (or is still resolving it in the background) and not finished signing out.
+    private readonly ConcurrentDictionary<BanWork, byte> _pendingBans = new();
 
-    /// <summary>One ban being enforced. Its row id, once written, is what a delayed sign-out re-checks.</summary>
-    private sealed class BanWork(string mod, ModerationBanType type, string value, string reason, double expire)
+    /// <summary>One ban being enforced, kept whole through retries.</summary>
+    private sealed class BanWork(string mod, ModerationBanType type, string value, string reason, double expire, string account)
     {
+        // Never disposed: an unban may cancel it at any time, and it is collected with the work.
+        private readonly CancellationTokenSource _cancellation = new();
+
         public string Mod { get; } = mod;
         public ModerationBanType Type { get; } = type;
-        public string Value { get; } = value;
+        /// <summary>The banned value; empty for an address part until it is resolved from <see cref="AddressOf"/>.</summary>
+        public string Value { get; set; } = value;
         public string Reason { get; } = reason;
         public double Expire { get; } = expire;
+        /// <summary>The banned account's username, so unbanning it also stops this work; empty for standalone bans.</summary>
+        public string Account { get; } = account;
+        /// <summary>For an address part: the account whose recorded address is banned.</summary>
+        public int AddressOf { get; init; }
+        /// <summary>The ban's row, which every delayed sign-out re-checks.</summary>
         public long BanId { get; set; }
+        /// <summary>Covered accounts: captured from memory before the first disconnect, completed from the database once.</summary>
+        public HashSet<int> Accounts { get; } = new();
+        public bool AccountsComplete { get; set; }
+        public CancellationToken Cancelled => _cancellation.Token;
+
+        public void Cancel()
+        {
+            try
+            {
+                _cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Not disposed by design; tolerated so the remaining cancellations always run.
+            }
+        }
     }
 
     public Task BanUser(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp, CancellationToken deadline = default) =>
-        Ban(new(mod, type, banValue, reason, expireTimestamp), heldUserId: 0, deadline);
+        WithDeadline(deadline, token => Ban(new(mod, type, banValue, reason, expireTimestamp, type == ModerationBanType.Username ? banValue : string.Empty), 0, token));
 
-    public Task BanUserHoldingGate(int heldUserId, string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp) =>
-        Ban(new(mod, type, banValue, reason, expireTimestamp), heldUserId, default);
+    public Task BanAccount(string mod, int userId, string username, string reason, double expireTimestamp, CancellationToken deadline = default,
+        bool includeAddress = false, string? machineId = null, int heldUserId = 0) =>
+        WithDeadline(deadline, async token =>
+        {
+            await CountBan(userId, token);
+            await Ban(new(mod, ModerationBanType.Username, username, reason, expireTimestamp, username), heldUserId, token);
+            // The address is resolved inside the ban work, so running out of time defers it instead of dropping it.
+            if (includeAddress)
+                await Ban(new(mod, ModerationBanType.Ip, string.Empty, reason, expireTimestamp, username) { AddressOf = userId }, heldUserId, token);
+            if (!string.IsNullOrEmpty(machineId))
+                await Ban(new(mod, ModerationBanType.Machine, machineId, reason, expireTimestamp, username), heldUserId, token);
+        });
+
+    /// <summary>Runs a ban action on the caller's deadline, or on a fresh <see cref="BanBudget"/> created before any I/O.</summary>
+    private static async Task WithDeadline(CancellationToken deadline, Func<CancellationToken, Task> action)
+    {
+        using var budget = deadline.CanBeCanceled ? null : new CancellationTokenSource(BanBudget);
+        await action(budget?.Token ?? deadline);
+    }
+
+    private async Task CountBan(int userId, CancellationToken deadline)
+    {
+        try
+        {
+            using var connection = _database.Connection();
+            await connection.ExecuteAsync(new CommandDefinition("UPDATE `user_info` SET `bans` = `bans` + 1 WHERE `user_id` = @userId LIMIT 1",
+                new { userId }, cancellationToken: deadline));
+        }
+        catch (OperationCanceledException)
+        {
+            // Only the moderation counter; the ban itself goes ahead.
+        }
+    }
 
     private async Task Ban(BanWork work, int heldUserId, CancellationToken deadline)
     {
-        // Fail closed from memory before any I/O: the covered sessions close and logins not yet past their gate are stopped.
-        foreach (var client in OnlineCovered(work.Type, work.Value))
-            CloseSession(client.GetHabbo().Id);
+        // Fail closed from memory before any I/O, and remember who was covered: a session unregisters as it closes.
+        foreach (var client in OnlineCovered(work.Type, work.Value).ToList())
+        {
+            var userId = client.GetHabbo().Id;
+            work.Accounts.Add(userId);
+            _sessionGate.Revoke(userId);
+            client.Disconnect();
+        }
 
-        using var budget = deadline.CanBeCanceled ? CancellationTokenSource.CreateLinkedTokenSource(deadline) : new CancellationTokenSource(BanBudget);
+        using var token = CancellationTokenSource.CreateLinkedTokenSource(deadline, work.Cancelled);
         try
         {
-            await Enforce(work, heldUserId, budget.Token);
+            await Enforce(work, heldUserId, token.Token);
+            _pendingBans.TryRemove(work, out _);
+        }
+        catch (Exception) when (work.Cancelled.IsCancellationRequested)
+        {
+            _pendingBans.TryRemove(work, out _);
         }
         catch (Exception e)
         {
@@ -273,104 +341,121 @@ public sealed class ModerationManager : IModerationManager
         }
     }
 
-    /// <summary>Writes the ban once, then signs out every account it covers. Safe to run again after a partial attempt.</summary>
+    /// <summary>Resolves and writes the ban once, then signs out every account it covers. Safe to run again after a partial attempt.</summary>
     private async Task Enforce(BanWork work, int heldUserId, CancellationToken cancellationToken)
     {
+        if (work.Value.Length == 0 && work.AddressOf > 0)
+        {
+            work.Value = await AccountAddress(work.AddressOf, cancellationToken);
+            if (work.Value.Length == 0)
+                return; // No address on record for the account: nothing to ban.
+        }
         if (work.BanId == 0)
-            work.BanId = await WriteBan(work, cancellationToken);
-        var accounts = await BannedAccounts(work.Type, work.Value, cancellationToken);
-        foreach (var userId in accounts)
-            CloseSession(userId);
-        foreach (var userId in accounts)
+            await WriteBan(work, cancellationToken);
+        if (!work.AccountsComplete)
+        {
+            work.Accounts.UnionWith(await BannedAccounts(work.Type, work.Value, cancellationToken));
+            work.AccountsComplete = true;
+        }
+        foreach (var userId in work.Accounts.ToList())
             await SignOut(work, userId, userId == heldUserId, cancellationToken);
     }
 
     /// <summary>
-    /// Under the account's session gate, so a login that is loading the account attaches first. If this exact ban is still
-    /// in force, the credentials are revoked, the gate is stamped for logins already past their ticket, and any session
-    /// that registered meanwhile closes; a ban lifted meanwhile leaves the newer login alone.
+    /// Under the account's session gate, so a login that is loading the account attaches first. Nothing happens unless this
+    /// exact ban is still in force; then the gate is stamped for logins already past their ticket, the credentials are
+    /// revoked and any session that registered meanwhile closes. A ban lifted or expired meanwhile leaves newer logins alone.
     /// </summary>
     private async Task SignOut(BanWork work, int userId, bool gateHeld, CancellationToken cancellationToken)
     {
         using var gate = gateHeld ? null : await _sessionGate.EnterAsync(userId, cancellationToken);
         if (!await BanInForce(work.BanId, cancellationToken))
             return;
-        await _sessions.RevokeAll(userId, cancellationToken);
-        CloseSession(userId);
-    }
-
-    private void CloseSession(int userId)
-    {
         _sessionGate.Revoke(userId);
+        await _sessions.RevokeAll(userId, cancellationToken);
         _clients.GetClientByUserId(userId)?.Disconnect();
     }
 
     private void ContinueInBackground(BanWork work)
     {
-        var cancellation = new CancellationTokenSource();
-        _pendingBans[work] = cancellation;
+        _pendingBans[work] = 0;
         _ = Task.Run(async () =>
         {
             try
             {
                 foreach (var delay in RetryDelays)
                 {
-                    await Task.Delay(delay, cancellation.Token);
+                    await Task.Delay(delay, work.Cancelled);
                     try
                     {
-                        using var attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellation.Token);
+                        using var attempt = CancellationTokenSource.CreateLinkedTokenSource(work.Cancelled);
                         attempt.CancelAfter(RetryAttemptTimeout);
                         // The caller's gate is long released by now, so every account's gate is taken here.
                         await Enforce(work, heldUserId: 0, attempt.Token);
                         return;
                     }
-                    catch (Exception e) when (!cancellation.IsCancellationRequested)
+                    catch (Exception e) when (!work.Cancelled.IsCancellationRequested)
                     {
                         _logger.LogWarning(e, "Retrying ban of {Type} {Value} failed", work.Type, work.Value);
                     }
                 }
                 _logger.LogError("Gave up enforcing ban of {Type} {Value}", work.Type, work.Value);
             }
-            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            catch (OperationCanceledException) when (work.Cancelled.IsCancellationRequested)
             {
                 // Lifted meanwhile.
             }
             finally
             {
                 _pendingBans.TryRemove(work, out _);
-                cancellation.Dispose();
             }
         });
     }
 
-    private async Task<long> WriteBan(BanWork work, CancellationToken cancellationToken)
+    /// <summary>Writes the ban row and registers its work in the same turn of <see cref="_banWrites"/> that unbans use.</summary>
+    private async Task WriteBan(BanWork work, CancellationToken cancellationToken)
     {
         var banType = work.Type == ModerationBanType.Ip ? "ip" : work.Type == ModerationBanType.Machine ? "machine" : "user";
-        long banId;
-        using (var connection = _database.Connection())
+        await _banWrites.WaitAsync(cancellationToken);
+        try
         {
-            banId = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
-                "INSERT INTO `bans` (`bantype`, `value`, `reason`, `expire`, `added_by`, `added_date`) VALUES (@banType, @banValue, @reason, @expire, @mod, @addedDate); " +
-                "SELECT LAST_INSERT_ID();",
-                new { banType, banValue = work.Value, reason = work.Reason, expire = work.Expire, mod = work.Mod, addedDate = PlusEnvironment.GetUnixTimestamp().ToString(CultureInfo.InvariantCulture) },
-                cancellationToken: cancellationToken));
+            cancellationToken.ThrowIfCancellationRequested();
+            using (var connection = _database.Connection())
+            {
+                work.BanId = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                    "INSERT INTO `bans` (`bantype`, `value`, `reason`, `expire`, `added_by`, `added_date`) VALUES (@banType, @banValue, @reason, @expire, @mod, @addedDate); " +
+                    "SELECT LAST_INSERT_ID();",
+                    new { banType, banValue = work.Value, reason = work.Reason, expire = work.Expire, mod = work.Mod, addedDate = PlusEnvironment.GetUnixTimestamp().ToString(CultureInfo.InvariantCulture) },
+                    cancellationToken: cancellationToken));
+            }
+            _pendingBans[work] = 0;
+        }
+        finally
+        {
+            _banWrites.Release();
         }
         // A re-ban must also refresh the cached expiry.
         if (work.Type == ModerationBanType.Machine || work.Type == ModerationBanType.Username)
             _bans[work.Value] = new(work.Type, work.Value, work.Reason, work.Expire);
-        return banId;
+    }
+
+    /// <summary>Whether the ban row still exists and has not expired on the <see cref="BanClock"/>.</summary>
+    private async Task<bool> BanInForce(long banId, CancellationToken cancellationToken)
+    {
+        using var connection = _database.Connection();
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition("SELECT COUNT(*) FROM `bans` WHERE `id` = @banId AND `expire` > @now",
+            new { banId, now = BanClock.Now() }, cancellationToken: cancellationToken)) > 0;
     }
 
     /// <summary>
-    /// Whether the ban row still exists and has not expired. Ban expiries are written on both the local clock
-    /// (UnixTimestamp.GetNow) and UTC across the emulator, so the ban counts as in force by whichever clock is earlier.
+    /// The address the server knows for an account: users.ip_last, recorded by the auth API through its trusted proxies.
+    /// The game socket's own address is the proxy's, so it is never used.
     /// </summary>
-    private async Task<bool> BanInForce(long banId, CancellationToken cancellationToken)
+    private async Task<string> AccountAddress(int userId, CancellationToken cancellationToken)
     {
-        var now = Math.Min(UnixTimestamp.GetNow(), PlusEnvironment.GetUnixTimestamp());
         using var connection = _database.Connection();
-        return await connection.ExecuteScalarAsync<int>(new CommandDefinition("SELECT COUNT(*) FROM `bans` WHERE `id` = @banId AND `expire` > @now",
-            new { banId, now }, cancellationToken: cancellationToken)) > 0;
+        return await connection.ExecuteScalarAsync<string?>(new CommandDefinition("SELECT `ip_last` FROM `users` WHERE `id` = @userId",
+            new { userId }, cancellationToken: cancellationToken)) ?? string.Empty;
     }
 
     /// <summary>The sessions a ban covers that can be found without the database: by username or handshake machine id.</summary>
@@ -380,7 +465,7 @@ public sealed class ModerationManager : IModerationManager
         return type switch
         {
             ModerationBanType.Username => _clients.GetClientByUsername(banValue) is { } client && client.GetHabbo() != null ? [client] : [],
-            ModerationBanType.Machine => _clients.GetClients.Where(client => client.MachineId == banValue && client.GetHabbo() != null).ToList(),
+            ModerationBanType.Machine when banValue.Length > 0 => _clients.GetClients.Where(client => client.MachineId == banValue && client.GetHabbo() != null).ToList(),
             _ => []
         };
 #pragma warning restore CS0618
@@ -405,17 +490,25 @@ public sealed class ModerationManager : IModerationManager
 
     public bool UnbanUser(string username)
     {
-        int removed;
-        using (var connection = _database.Connection())
-            removed = connection.Execute("DELETE FROM `bans` WHERE `bantype` = 'user' AND `value` = @username", new { username });
-        RemoveBan(username);
-        // Ban work still running in the background for this account stops; it would re-check the deleted row anyway.
-        foreach (var (work, cancellation) in _pendingBans)
+        _banWrites.Wait();
+        try
         {
-            if (work.Type == ModerationBanType.Username && string.Equals(work.Value, username, StringComparison.OrdinalIgnoreCase))
-                cancellation.Cancel();
+            int removed;
+            using (var connection = _database.Connection())
+                removed = connection.Execute("DELETE FROM `bans` WHERE `bantype` = 'user' AND `value` = @username", new { username });
+            RemoveBan(username);
+            // Every part of a ban on this account still running stops; it would re-check its row anyway.
+            foreach (var work in _pendingBans.Keys)
+            {
+                if (string.Equals(work.Account, username, StringComparison.OrdinalIgnoreCase))
+                    work.Cancel();
+            }
+            return removed > 0;
         }
-        return removed > 0;
+        finally
+        {
+            _banWrites.Release();
+        }
     }
 
     public bool TryAddTicket(ModerationTicket ticket)

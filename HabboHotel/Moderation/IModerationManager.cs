@@ -9,14 +9,19 @@ public interface IModerationManager
     void Init();
     void ReCacheBans();
     /// <summary>
-    /// Writes the ban, then signs out every account it covers: the session closes at once, and under each account's
-    /// session gate its credentials are revoked, the gate is stamped and any session that registered meanwhile closes.
+    /// Writes the ban, then signs out every account it covers: covered sessions close at once, and under each account's
+    /// session gate, while this ban is still in force, its credentials are revoked and any session that attached meanwhile
+    /// closes. Work that outlives the deadline continues in the background.
     /// </summary>
-    /// <param name="deadline">Shared by the bans of one compound action; defaults to <see cref="ModerationManager.BanBudget"/>.</param>
+    /// <param name="deadline">Shared by every step of one action; defaults to <see cref="ModerationManager.BanBudget"/>.</param>
     Task BanUser(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp, CancellationToken deadline = default);
 
-    /// <summary>As <see cref="BanUser"/>, for a caller that already holds the session gate of <paramref name="heldUserId"/>.</summary>
-    Task BanUserHoldingGate(int heldUserId, string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp);
+    /// <summary>
+    /// Bans an account (and counts it), optionally with its recorded address and a device id, as one action on one deadline.
+    /// <paramref name="heldUserId"/> names an account whose session gate the caller already holds.
+    /// </summary>
+    Task BanAccount(string mod, int userId, string username, string reason, double expireTimestamp, CancellationToken deadline = default,
+        bool includeAddress = false, string? machineId = null, int heldUserId = 0);
 
     /// <summary>
     /// Removes a username ban from the database and cache. Returns false when no ban row existed.

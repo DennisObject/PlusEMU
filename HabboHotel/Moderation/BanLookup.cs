@@ -33,6 +33,6 @@ public class BanLookup : IBanLookup
             "SELECT `reason` AS Reason, CAST(`expire` AS SIGNED) AS ExpiresAt FROM `bans` " +
             "WHERE ((`bantype` = 'user' AND `value` = @username) OR (`bantype` = 'ip' AND `value` = @address)) AND `expire` > @now " +
             "ORDER BY `expire` DESC LIMIT 1",
-            new { username, address, now = _time.GetUtcNow().ToUnixTimeSeconds() });
+            new { username, address, now = BanClock.Now(_time) });
     }
 }
