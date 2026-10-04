@@ -1,5 +1,6 @@
 ﻿using Plus.HabboHotel.Subscriptions;
 ﻿using Plus.Communication.Packets.Outgoing.Rooms.Engine;
+using Dapper;
 using Plus.Core.FigureData;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -43,10 +44,9 @@ internal class FacelessCommand : IChatCommand
             }
         }
         session.GetHabbo().Look = _figureDataManager.ProcessFigure(session.GetHabbo().Look, session.GetHabbo().Gender, session.GetHabbo().Clothing.GetClothingParts, ClubAccess.LevelFor(session.GetHabbo().Access));
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.RunQuery($"UPDATE `users` SET `look` = '{session.GetHabbo().Look}' WHERE `id` = '{session.GetHabbo().Id}' LIMIT 1");
-        }
+        using var connection = _database.Connection();
+        connection.Execute("UPDATE users SET look=@look WHERE id=@userId LIMIT 1",
+            new { look = session.GetHabbo().Look, userId = session.GetHabbo().Id });
         session.Send(new UserChangeComposer(user, true));
         session.GetHabbo().CurrentRoom.SendPacket(new UserChangeComposer(user, false));
     }
