@@ -519,7 +519,7 @@ INSERT INTO `achievements_talents` VALUES ('29', 'citizenship', '23', '4', '29',
 DROP TABLE IF EXISTS `badge_definitions`;
 CREATE TABLE `badge_definitions` (
   `code` varchar(35) NOT NULL,
-  `required_right` varchar(25) NOT NULL DEFAULT '',
+  `required_right` varchar(191) NOT NULL DEFAULT '',
   PRIMARY KEY (`code`),
   UNIQUE KEY `code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -1163,7 +1163,7 @@ INSERT INTO `badge_definitions` VALUES ('ACH_Xm10QuestCompleted7', '');
 INSERT INTO `badge_definitions` VALUES ('ACH_Xm10QuestCompleted8', '');
 INSERT INTO `badge_definitions` VALUES ('ACH_Xm10QuestCompleted9', '');
 INSERT INTO `badge_definitions` VALUES ('ACMI', '');
-INSERT INTO `badge_definitions` VALUES ('ADM', 'mod_tool');
+INSERT INTO `badge_definitions` VALUES ('ADM', 'moderation.tool');
 INSERT INTO `badge_definitions` VALUES ('AF1', '');
 INSERT INTO `badge_definitions` VALUES ('AF1_HHSG', '');
 INSERT INTO `badge_definitions` VALUES ('AF1_HHUK', '');
@@ -14087,8 +14087,7 @@ CREATE TABLE `catalog_pages` (
   `icon_image` int(11) NOT NULL DEFAULT '1',
   `visible` enum('0','1') NOT NULL DEFAULT '1',
   `enabled` enum('0','1') NOT NULL DEFAULT '1',
-  `min_rank` int(11) unsigned NOT NULL DEFAULT '1',
-  `min_vip` int(11) NOT NULL DEFAULT '0',
+  `required_permission` varchar(191) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
   `order_num` int(11) NOT NULL,
   `page_link` varchar(35) NOT NULL DEFAULT '',
   `page_layout` varchar(35) NOT NULL DEFAULT 'default_3x3',
@@ -14102,300 +14101,300 @@ CREATE TABLE `catalog_pages` (
 -- ----------------------------
 -- Records of catalog_pages
 -- ----------------------------
-INSERT INTO `catalog_pages` VALUES ('1', '-1', 'Front Page', '213', '1', '1', '1', '0', '1', 'frontpage', 'frontpage4', 'catalog_frontpage_headline_shop_GENERAL|', '<i><b><font color=\"#0E668C\" size=\"16\">What can I find in the shop?</font></b></i><br><br>Upgrade your clothing with Habboon Club, adopt a pet or decorate your room the way you like it. Whatever you like to do most in Habboon, you\'ll find a way to make that experience even better by browsing our Shop.<br><br><li>Join <a href=\"event:catalog/open/habbo_club\">Habboon Club</a></li><li><a href=\"event:catalog/open/set_pixelnew\">Decorate </a>your room</li><li>Adopt a <a href=\"event:catalog/open/pets_shop\">Pet</a> or a <a href=\"event:catalog/open/bots\">Bot</a></li><li>Make your own <a href=\"event:catalog/open/category_wired\">Wired</a> games </li><li>Trade in our <a href=\"event:catalog/open/marketplace_offers\">Marketplace</a></li><br><i><b><font color=\"#0E668C\" size=\"16\">Where can I get credits?</font></b></i><br><br>We have a couple of methods of payment such as Credit Cards and PayPal which allow you to purchase credits at our Web Shop.<br><br><a href=\"https://easybuy.pw/packages/currency\" target=\"_new\">Visit our currency page for more info.</a>|Redeem a voucher code here:');
-INSERT INTO `catalog_pages` VALUES ('3', '9224', 'Classic Furni', '2', '0', '0', '1', '0', '14', '', 'default_3x3', 'catalog_frontpage_headline2_en|', '|');
-INSERT INTO `catalog_pages` VALUES ('4', '9224', 'Pixel Shop', '5', '0', '0', '1', '0', '24', '', 'default_3x3', 'catalog_frontpage_headline2_en|', '|');
-INSERT INTO `catalog_pages` VALUES ('5', '9224', 'Habboon Club', '172', '1', '0', '1', '0', '3', 'habbo_club', 'recycler_info', 'habboclub_2|VIP_badge', 'Habboon Club is free and you get in when you start. Although you can buy VIP read more about that below.|VIP is avaliable from habboon.com/store/vip for $40USD\\r\\r\r\nYou get the following features with VIP:\\r\r\nPush/Pull commands, VIP Catalogue including cool rares\\r\r\nand heaps of cool other features. So why not get it now?\\r');
-INSERT INTO `catalog_pages` VALUES ('6', '9224', 'Silver VIP', '196', '1', '1', '1', '1', '30', '', 'default_3x3', 'vipheader1|vipteaser2', 'Thank you for purchasing VIP! This section of the catalogue is especially for our VIP users. The Rares in this section aren\'t cheap, but you can sell them on to non VIP members for a much heftier price!|Click on an item for more information.');
-INSERT INTO `catalog_pages` VALUES ('7', '5', 'Buy Club', '75', '0', '0', '1', '0', '3', '', 'default_3x3', 'habboclub|catalog_hc_teaser', 'Habboon club comes with many bonuses! More hair and clothes choices, more hair and clothes colours to come from, new room layouts, new dances, and much, much more!|');
-INSERT INTO `catalog_pages` VALUES ('8', '5', 'Club Shop', '172', '1', '1', '1', '0', '20', '', 'default_3x3', 'catalog_header_hc|hc_catalog_teaser', 'As a member of Habboon Club you can shop from this selection of exclusive items.');
-INSERT INTO `catalog_pages` VALUES ('9', '9224', 'Bots', '65', '1', '1', '1', '0', '16', 'bots', 'bots', 'catalog_bots_headline1_en|catalog_bots_headline1_en', 'They walk, they talk, and they make the perfect addition to any room!|Choose a bot of your fancy!\\nNote: You can customise your bot once its in your room');
-INSERT INTO `catalog_pages` VALUES ('10', '9224', 'Marketplace', '69', '0', '0', '1', '0', '27', '', 'pets3', 'catalog_marketplace_header_en|catalog_note_marketplace', 'The Habboon Marketplace is a convenient and safe way to buy and sell items in Habboon.|How does the Habboon Marketplace work?|Selling items: You can sell any item which is tradable by selecting the item in your inventory and clicking on \"Sell in Marketplace\". You can also use items currently in the shop.\r\n\r\nBuying items: Browse for the item you want to buy on the Marketplace Offers page and click Buy. We guarantee you\'ll get the item at the cheapest price available at the moment of purchase.|');
-INSERT INTO `catalog_pages` VALUES ('11', '10', 'My Sales', '70', '1', '1', '1', '0', '1', '', 'marketplace_own_items', '', '');
-INSERT INTO `catalog_pages` VALUES ('12', '10', 'Offers', '71', '1', '1', '1', '0', '2', 'marketplace_offers', 'marketplace', '', '');
-INSERT INTO `catalog_pages` VALUES ('13', '9224', 'Habboon Exchange', '146', '1', '1', '1', '0', '1', '', 'default_3x3', 'catalog_bank_headline1|catalog_bank_teaser', 'You can exchange your Habboon credits here for Exchange furniture, which you can use in a trade or simply exchange for actual credits.|');
-INSERT INTO `catalog_pages` VALUES ('14', '-1', 'Pet Shop', '8', '1', '1', '1', '0', '3', 'pets_shop', 'pets3', 'catalog_pet_headline1|ctlg_pet_note', 'Pets are inhabitants of Habbo Hotel too so each pet owner needs to know a bit about them. If you want to look after your pet properly, make sure you read the following points carefully.|A few things you should know:|*You can place a pet in your room or take one for a walk with you in other rooms.\r\n*You can\'t trade your pet but they can follow you to friend\'s rooms to gather scratches.\r\n*You can have up to 50 pets in your room, but look after them all!\r\n\r\n\r\n*Look after your pet with food, water and treats. Check the Pets\' Accessories.\r\n*Unlock Badges and Achievements by Training your Pet.|Click your Pet and hit the \"Train\" button to get a list of commands that will level up your Pet in no time!');
-INSERT INTO `catalog_pages` VALUES ('15', '9020', 'Spaces', '225', '1', '1', '1', '0', '14', 'set_pixelnew', 'spaces_new', 'catalog_spaces_headline1|', 'Floors, wallpapers and landscapes - get a groovy combination for your room! Use our sample room below to try before you buy! Select your favourite designs and colours and simply click Buy!|');
-INSERT INTO `catalog_pages` VALUES ('16', '9224', 'Limited Rares', '145', '1', '1', '1', '0', '9', '', 'default_3x3', 'limited_header|', 'Get them while they\'re hot! Limited Edition Rare Furni is only available in limited quantities and once we\'ve sold out, they\'re gone! Each furni can be identified by its unique ID number and the LTD logo beside them!|');
-INSERT INTO `catalog_pages` VALUES ('18', '9224', 'New Furni', '2', '0', '0', '1', '0', '12', '', 'default_3x3', 'catalog_frontpage_headline2_en|', '|');
-INSERT INTO `catalog_pages` VALUES ('19', '9021', 'Cinema 2013', '136', '1', '1', '1', '0', '54', '', 'default_3x3', 'cinema_catalogheader|movie_catalog_teaser', 'All the way from Habbowood... Everything you could need and more to create your very own movie magic in a home theatre!|');
-INSERT INTO `catalog_pages` VALUES ('20', '-1', 'Clothing', '74', '1', '1', '1', '0', '4', 'clothing', 'default_3x3', 'clothing_catalog_header|tradeableclothing_teaser', 'The all NEW Habboon Couture tradeable clothing and accessories range is a cut above the rest! From stylish tops and jeans, to amazing accessories and hair; Habboon Couture lets you express yourself to the extreme!');
-INSERT INTO `catalog_pages` VALUES ('21', '9049', 'Gnomes', '200', '1', '1', '1', '0', '5', 'xmas14_gnome', 'default_3x3', 'xmas14_catalog_header|xmas14_gnome_teaser', 'The North Pole can be a tough place for a little Gnome, so this year they\'ve migrated to the sunny shores of Habboon Islands. Feed them, train them and treate them with care...');
-INSERT INTO `catalog_pages` VALUES ('22', '9021', 'New Years 2015', '2014', '1', '1', '1', '0', '156', '', 'default_3x3', '2015_header|catalog_2015_header', '');
-INSERT INTO `catalog_pages` VALUES ('24', '9020', 'Windows', '218', '1', '1', '1', '0', '20', '', 'default_3x3', 'ctlg_windows_headline1_en|ctlg_windows_teaser1_en', 'Let some light in! Our windows come in many unique styles to give an exciting look to your room. Buy landscapes to go with your windows from the \'Spaces\' page!|');
-INSERT INTO `catalog_pages` VALUES ('26', '9020', 'Moodlights', '40', '1', '1', '1', '0', '4', '', 'default_3x3', 'catalog_dimmers_header_en|dimmers_teaser', 'Our range of moodlights allow you to control the atmosphere and transform your room in just a click. What will your room look like? Click the switch and find out now!|');
-INSERT INTO `catalog_pages` VALUES ('27', '9021', 'Christmas', '168', '1', '1', '1', '0', '56', '', 'default_3x3', 'catalog_xmas_headline1|xmas2009_catalogue', 'Get yourself into the Christmas spirit with our selection of festive furni! From baubles to reindeer poo, we\'ve got it all!|');
-INSERT INTO `catalog_pages` VALUES ('28', '9021', 'Arctic', '13', '1', '1', '1', '0', '14', '', 'default_3x3', 'catalog_arc_header1_en|catalog_arc_teaser1_en', 'Stay cool (or warm with our campfire!) and create your own Winter Wonderland or Humble Homeland for your penguins.|');
-INSERT INTO `catalog_pages` VALUES ('29', '9020', 'Teleporters', '120', '1', '1', '1', '0', '16', '', 'default_3x3', 'catalog_doors_headline1|catalog_teaser_teleporters', 'Take your room to a whole new level with our range of space age teleporters! Just buy a pair, put one in each room and voila! You\'ll have two linked rooms!|');
-INSERT INTO `catalog_pages` VALUES ('30', '9021', 'Mode', '39', '1', '1', '1', '0', '144', '', 'default_3x3', 'catalog_mode_headline1|catalog_mode_teaser1', 'Steely, grey, industrial standard metal with a sleek design. The perfect range for a streetwise city dweller.|');
-INSERT INTO `catalog_pages` VALUES ('31', '9021', 'Candy', '19', '1', '1', '1', '0', '42', '', 'default_3x3', 'catalog_candy_headline1|catalog_candy_teaser1', 'A bit more feminine than \'Mode\', this will add a bit of glamour and glitz to your rooms. Lacking a few items? Head on over to the \'Mode\' category!|');
-INSERT INTO `catalog_pages` VALUES ('32', '9021', 'Pura', '48', '1', '1', '1', '0', '176', '', 'default_3x3', 'puraheader|catalog_pura_teaser1', 'The cleanest, freshest range. You can almost hear it breathe cool and tranquility within your room. Use it to create a haven away from the hectic lifestyle of Habboon Hotel.|');
-INSERT INTO `catalog_pages` VALUES ('33', '9021', 'Area', '14', '1', '1', '1', '0', '16', '', 'default_3x3', 'catalog_area_headline1|catalog_area_teaser1', 'A chunky and sofisticated line for the down-to-earth, studious Habboon. Its simplicty is beautful and will add a welcoming charm to every room.|');
-INSERT INTO `catalog_pages` VALUES ('34', '9021', 'Country', '21', '1', '1', '1', '0', '68', '', 'default_3x3', 'country_header1_en_001|country_teaser1', 'Let\'s leave the busy city streets and head over to the wide abyss of golden wheat, emerald fields and home grown, organic vegetables. Everything you need to create a farm!|');
-INSERT INTO `catalog_pages` VALUES ('35', '9021', 'Lodge', '37', '1', '1', '1', '0', '130', '', 'default_3x3', 'catalog_lodge_headline1|catalog_lodge_teaser1', 'For that splendid ski-lodge effect with an open fire and whisky on the sidebar. This range is for those who appreicate the true beauty of solid wood.|');
-INSERT INTO `catalog_pages` VALUES ('36', '9021', 'Plastic', '46', '1', '1', '1', '0', '168', '', 'default_3x3', 'catalog_plasto_headline1|', 'Throw on an afro and grab a disco ball! Feel that retro, 1970s vibe? You soon will with this colourful, plastic range! Choose a colour to suit your mood and off you go!|');
-INSERT INTO `catalog_pages` VALUES ('37', '9021', 'Lagomorph', '192', '1', '1', '1', '0', '126', '', 'default_3x3', 'catalog_header_easter14_001|catalog_lagomorph_teaser', 'From shape shifting wall pieces to crpytic teleports, the isle of Lagomorph furni line is sure to keep you guessing! Nothing is as it seems on this mind-bending island...');
-INSERT INTO `catalog_pages` VALUES ('38', '9021', 'Bathroom', '17', '1', '1', '1', '0', '26', '', 'default_3x3', 'catalog_bath_headline1|catalog_bath_teaser1', 'Lets face it.. you can\'t live without your bathroom. Give your guests somewhere to freshen up with our cheeful bathroom collection!|');
-INSERT INTO `catalog_pages` VALUES ('39', '9020', 'Plants', '220', '1', '1', '1', '0', '6', '', 'default_3x3', 'catalog_plants_headline1|catalog_plants_teaser1', 'Every room needs some greenery, dear! Not only do they enhance the air quality, they cheer up a room to make it simply splendid! And what better gift for a friend than an elegant rose..|');
-INSERT INTO `catalog_pages` VALUES ('40', '9020', 'Rugs', '116', '1', '1', '1', '0', '12', '', 'default_3x3', 'catalog_rugs_headline1|catalog_rugs_teaser1', 'Rugs for all occasions, white for weddings, black for funerals and everything in between! All rugs are non-slip and machine washable. Take your pick!|');
-INSERT INTO `catalog_pages` VALUES ('41', '9020', 'Posters and Flags', '219', '1', '1', '1', '0', '8', '', 'default_3x3', 'catalog_gallery_headline1|catalog_posters_teaser1', 'Adorn your walls with posters, art, plaques and wall hangings. This gallery is bursting with items to suit all tastes, traditional and modern!|');
-INSERT INTO `catalog_pages` VALUES ('42', '9021', 'Trophies', '60', '1', '1', '1', '0', '210', '', 'trophies', 'catalog_trophies_headline1|', 'Everyones a winner with Habboon trophies! Now you can reward all your friends with our pre-polished array of trohpies, in bronze, silver and gold. \r\nFirst choose your trophy model, then the metal, and carefully type your inscription. Don\'t worry, we\'ll engrave it all with your name and the date.|');
-INSERT INTO `catalog_pages` VALUES ('43', '9021', 'Accessories', '11', '1', '1', '1', '0', '2', '', 'default_3x3', 'catalog_extra_headline1|catalog_extra_teaser1', 'However you like to place your essentials, its the finishing touches that really make a room and express your true personality. Don\'t forget, like anything else, you can move them all about to suit your mood!|');
-INSERT INTO `catalog_pages` VALUES ('45', '4', 'Rentals', '44', '1', '1', '1', '0', '230', '', 'default_3x3', 'catalog_pixelrent_headline1_en|catalog_pxl_teaser3_en', 'Hire some cool effects to add an explosive touch to your room. From bubbles to firestarters, you can enhance your room dramatically!|');
-INSERT INTO `catalog_pages` VALUES ('46', '5', 'HC Executive', '172', '1', '1', '1', '0', '51', '', 'default_3x3', 'catalog_header_hc|hcexec_teaser', 'Habboon Club is back! With a new range of furniture; HC Executive!');
-INSERT INTO `catalog_pages` VALUES ('47', '9021', 'Base', '179', '1', '1', '1', '0', '24', '', 'default_3x3', 'catalog_header_base|base_rentable_teaser', 'This colourful range of furni has everything you need to style out your room and build great spaces.');
-INSERT INTO `catalog_pages` VALUES ('48', '9021', 'Health Spa', '211', '1', '1', '1', '0', '112', '', 'default_3x3', 'catalog_header_spa|catalog_teaser_spa', 'A day at the spa! Inhale...Exhale...Inhale...Exhale. With all the features of a premium Spa, you can now create your very own Habboon Health Spa relaxing retreat! Robe and slippers not included.');
-INSERT INTO `catalog_pages` VALUES ('49', '9021', 'Shakespeare', '59', '1', '1', '1', '0', '190', '', 'default_3x3', 'catalog_shakespeare_header|catalog_shakespeare_teaser', 'You can be the world\'s most famous poet! All you need to do is purchase the furniture below, be amazing at speaking and drink tea!');
-INSERT INTO `catalog_pages` VALUES ('50', '9224', 'Duckets Shop', '178', '1', '1', '1', '0', '13', '', 'info_duckets', 'duckets_header|', '<i><b><font color=\"#591d97\" size=\"16\">What are Duckets?</font></b></i><br><br>Ducket is a free virtual currency you can earn daily just by playing Habbo.<br><br><i><b><font color=\"#591d97\" size=\"16\">What are they good for?</font></b></i><br><br><li><a href=\"event:catalog/open/rentables_spaces\">Paint</a>  your rooms.</li><li>Get a <a href=\"event:catalog/open/duckets_cat\">cat</a> and <a href=\"event:catalog/open/duckets_petaccessories\">accessories</a>.</li><li><a href=\"event:catalog/open/rentables_info\">Rent furniture</a>.</li><li>Get <a href=\"event:catalog/open/special_effects\">avatar effects</a>.</li><li>Whatever fun stuff we come up with.</li><br><i><b><font color=\"#591d97\" size=\"16\">How can I get them?</font></b></i><br><br><li>Visit Habbo! Get some every day. The more active you are, the more you\'ll earn.</li><li>You get some for each completed achievement in the <a href=\"event:talent/open/citizenship\">Citizenship track</a>.</li><li>Any other surprise we might come up with!</li>|');
-INSERT INTO `catalog_pages` VALUES ('51', '9027', 'Extras', '28', '1', '1', '1', '0', '36', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('52', '9020', 'Badge Display', '224', '1', '1', '1', '0', '2', '', 'badge_display', '|', 'Got a badge that you want to flaunt off to others? Now is your chance!');
-INSERT INTO `catalog_pages` VALUES ('53', '50', 'Room Promo', '55', '1', '1', '1', '0', '3', 'room_ad', 'roomads', 'events_header|', '||');
-INSERT INTO `catalog_pages` VALUES ('55', '9021', 'Iced', '13', '1', '1', '1', '0', '114', '', 'default_3x3', 'catalog_iced_headline1|catalog_iced_teaser1', 'The Iced range: Squishy, soft and most definitely cool. Whatever your needs, this stylish range should cover it!|');
-INSERT INTO `catalog_pages` VALUES ('56', '9021', 'Alhambra', '12', '1', '1', '1', '0', '6', '', 'default_3x3', 'catalog_alh_headline1_en|dining_area_illustration', 'For the cold Arabian nights and hot Arabian days, you\'ll need a palace.. And we have just what you need! Green blossom print should cover it just fine!|');
-INSERT INTO `catalog_pages` VALUES ('57', '9021', 'Asian', '15', '1', '1', '1', '0', '18', '', 'default_3x3', 'catalog_asian_headline1|catalog_asian_teaser1', 'Ting tong! Ching chong? Ting chong ting, ping ping! I mean uh.. with our authentic Chinese furniture, you can make a beautiful oriental room!|');
-INSERT INTO `catalog_pages` VALUES ('58', '9021', 'Bensalem', '18', '1', '1', '1', '0', '28', '', 'default_3x3', 'catalog_lc_headline2_en|catalog_lc_teaser1_en_001', 'Under the seaaaaaaaaa, oh, Under the seaaaaaa! What will your underwater world look like? We have it all here, crabs, coral, and mythical sea creatures!|');
-INSERT INTO `catalog_pages` VALUES ('59', '9021', 'Easter 2011', '25', '1', '1', '1', '0', '80', '', 'default_3x3', 'catalog_easter_headline1|catalog_easter_teaser1', 'Little birdies hatching from their eggs, pretty, dainty flowers blooming and cute rabbits bouncy in Spring meadows.. It\'s Easter!|');
-INSERT INTO `catalog_pages` VALUES ('60', '9021', 'Executive', '27', '1', '1', '1', '0', '86', '', 'default_3x3', 'catalog_exe_headline1_en|catalog_exe_teaser_en', 'For the ultimate business man, the Executive range with its leather seats and Italian coffee is a dream! How about you try the easy lifestyle?|');
-INSERT INTO `catalog_pages` VALUES ('61', '9021', 'Glass', '29', '1', '1', '1', '0', '92', '', 'default_3x3', 'catalog_glass_headline1|catalog_glass_teaser1', 'You can really open up a space with this stylish glass furniture, just don\'t walk into it!|');
-INSERT INTO `catalog_pages` VALUES ('62', '9021', 'Gothic', '30', '1', '1', '1', '0', '94', '', 'default_3x3', 'catalog_gothic_headline1|catalog_gothic_teaser1', 'As the church bells ring out midnight, you walk through your cobbled hall lit by candles, throw yourself into your medieval throne and paint your nails black. This is what we imagined when we ordered this range!|');
-INSERT INTO `catalog_pages` VALUES ('63', '9021', 'Sports', '56', '1', '1', '1', '0', '196', '', 'default_3x3', 'sports|catalog_sports_teaser1', 'Sport contains all those vital Olympic pieces from running tracks to basketball courts! 3, 2, 1, GO!|');
-INSERT INTO `catalog_pages` VALUES ('64', '9021', 'Grunge', '32', '1', '1', '1', '0', '98', '', 'default_3x3', 'catalog_grunge_headline1|catalog_gru_teaser_en', 'Sleeping rough? Make the streets a bit more bearable with our collection of homeless furni, Grunge!|');
-INSERT INTO `catalog_pages` VALUES ('65', '9021', 'HabboWood', '33', '1', '1', '1', '0', '110', '', 'default_3x3', 'habbowood|ctlg_limited_teaser1', 'No flash photography, darling! This range is only for the VIP Hollywood actors!|');
-INSERT INTO `catalog_pages` VALUES ('66', '9021', 'Habboween 2011', '34', '1', '1', '1', '0', '102', '', 'default_3x3', 'catalog_halloween_headline1|catalog_voodoo_teaser', 'WooOOOOoooOOoo! Spooky! Don\'t wanna be left with this range at night.. who knows what would happen!|');
-INSERT INTO `catalog_pages` VALUES ('67', '9021', 'Japan', '36', '1', '1', '1', '0', '120', '', 'default_3x3', 'catalog_jap_headline1|catalog_jap_teaser3_en', 'We have sushi, tatami and katana\'s! I have no idea what the difference is, but I sure know its Japanese! Fulfil your fantasies and buy some today!|');
-INSERT INTO `catalog_pages` VALUES ('68', '9021', 'Lost Tribe', '38', '1', '1', '1', '0', '132', '', 'default_3x3', 'losttribe|LT_teaser_en', 'Start your own tribal village with our ancient furniture, all carved from hard wearing stone. NOTE: Lava is hot, get an adult to help you.|');
-INSERT INTO `catalog_pages` VALUES ('69', '9021', 'Neon', '41', '1', '1', '1', '0', '152', '', 'default_3x3', 'catalog_neon_header1_en|catalog_neon_teaser1_en', 'New years eve, birthdays and every other day of the year, there\'s always an excuse for a party! So, why don\'t you buy some Neon furni!?|');
-INSERT INTO `catalog_pages` VALUES ('71', '9021', 'Relax', '49', '1', '1', '1', '0', '180', '', 'default_3x3', 'rela_header_en|rela_teaser_en', 'Relax after a busy day in the Welcome Lounge. Light a few candles, and chill out with a good read in a wicker chair. We understand the needs of a Habboon with a hectic lifestyle!|');
-INSERT INTO `catalog_pages` VALUES ('72', '9021', 'Romantique', '50', '1', '1', '1', '0', '182', '', 'default_3x3', 'catalog_romantique_headline1|catalog_rom_teaser_en', 'Found in a French barn, this sweet but sexily romantic range caters to every ladies needs. Just going to powder my nose!|');
-INSERT INTO `catalog_pages` VALUES ('73', '9021', 'Science Fiction', '53', '1', '1', '1', '0', '188', '', 'default_3x3', 'sf_header_en|sf_teaser_en', 'Blipblop blip blip blip.. Oooh.. what\'s this button do?.. You can find out exactly what it does with our new Scifi range, batteries included!|');
-INSERT INTO `catalog_pages` VALUES ('74', '9021', 'Shalimar', '54', '1', '1', '1', '0', '192', '', 'default_3x3', 'catalog_shal_header1_en|catalog_shal_teaser_en', 'Everyone loves Bollywood! Watch out for rose petals!|');
-INSERT INTO `catalog_pages` VALUES ('75', '9021', 'Summer', '57', '1', '1', '1', '0', '204', '', 'default_3x3', 'summer|catalog_teaser_dragons', 'Phwoar! Start up the barbie! This range has everything you need for the perfect summer garden!|');
-INSERT INTO `catalog_pages` VALUES ('76', '9021', 'Valentines', '144', '1', '1', '1', '0', '220', '', 'default_3x3', 'catalog_header_val12_2_en|catalog_teaser_val12', 'Love is in the air once again! Buy your sweetheart a rose or whisper sweet nothings in their ear on a love sofa. Can you feel it? <3|');
-INSERT INTO `catalog_pages` VALUES ('77', '9021', 'Greek', '31', '1', '1', '1', '0', '96', '', 'default_3x3', 'greekheader|greekteaser', 'Be transported back to ancient Greece with a couple of thousand pounds and British Airways. Until then, build your own panthenon with our realist Greek range!|');
-INSERT INTO `catalog_pages` VALUES ('80', '503', 'Freeze', '87', '1', '1', '1', '0', '6', '', 'default_3x3', 'catalog_cltbs_heade r1_es|catalog_cltbs_tease r_es', 'Freeze!... and try the newest game to hit Habboon! Team up and plant snowball bombs to snap freeze your competitors. You could say it\'s so cool, it\'s frozen ;)');
-INSERT INTO `catalog_pages` VALUES ('85', '91', 'Collectibles', '28', '1', '1', '5', '0', '6', '', 'default_3x3', 'catalog_collectibles_headline1_en|catalog_cltbs_teaser_en', 'The Pixel Collectables are the ultimate collectors items, requiring a mammoth 2000 pixels and credits to buy! If you collect all the pieces and manage to put them together in certain ways, you\'ll receive a special effect!|');
-INSERT INTO `catalog_pages` VALUES ('91', '9225', 'Other Furni', '3009', '1', '1', '5', '0', '3', '', 'default_3x3', '|', '|');
-INSERT INTO `catalog_pages` VALUES ('92', '9225', 'Rare Furni', '3009', '1', '1', '5', '0', '1', '', 'default_3x3', '|', '|');
-INSERT INTO `catalog_pages` VALUES ('93', '91', 'Trophies', '28', '1', '1', '5', '0', '210', '', 'trophies', 'catalog_trophies_headline1|', 'This page contains special trophies available for staff to give as prizes. STAFF CAUGHT GIVING OUT THESE WITH NO REASON WILL BE DEMOTED.|');
-INSERT INTO `catalog_pages` VALUES ('94', '92', 'Rares', '28', '1', '1', '5', '0', '1', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('95', '91', 'Room Backgrounds', '28', '1', '1', '5', '0', '3', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'This page contains special rares available for staff. STAFF CAUGHT GIVING OUT THESE WITH NO REASON WILL BE DEMOTED.|');
-INSERT INTO `catalog_pages` VALUES ('96', '91', 'Theatredome', '28', '1', '1', '5', '0', '12', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('102', '9020', 'Rollers', '222', '1', '1', '1', '0', '10', '', 'default_3x3', 'catalog_roller_headline1|catalog_teaser_rollers_en', 'Zoooooooom, Zooooooooooooooooooooooooooom! Was it a plane? Was it a bird!? No, it was Danielle on a roller! You can use rollers in games, events or even just to move a queue along.|');
-INSERT INTO `catalog_pages` VALUES ('103', '9021', 'Diner', '204', '1', '1', '1', '0', '74', '', 'default_3x3', 'diner|catalog_diner_teaser_en', 'Originally from the 50\'s this furni has been refurbished and put right into the catalogue! Use this with the Kitchen range for ultimate diner experience!|');
-INSERT INTO `catalog_pages` VALUES ('112', '9021', 'Twilight', '64', '1', '1', '1', '0', '212', '', 'default_3x3', 'catalog_twilight_header_en|catalog_teaser_twilight', 'I\'ve never read the book, all I know is it has vampires playing basket ball and some heart throb called Edward Cullen, but the furni looks good!|');
-INSERT INTO `catalog_pages` VALUES ('120', '503', 'Battle Banzai', '78', '1', '1', '1', '0', '2', '', 'default_3x3', 'Battlebanzai|catalog_battleBanzai_teaser', 'Prepare for Battle Banzai!|');
-INSERT INTO `catalog_pages` VALUES ('123', '4', 'Hello', '35', '1', '1', '1', '0', '240', '', 'default_3x3', 'catalog_hello_header1_en|catalog_hello_teaser1_en', 'Hello Furni is available with Pixels and is perfect if you are decorating your room for the very first time. The Furni is yours to keep and therefore cannot be traded.|');
-INSERT INTO `catalog_pages` VALUES ('126', '9021', 'Tiki', '59', '1', '1', '1', '0', '208', '', 'default_3x3', 'catalog_tiki_header1_en|tiki_teaser', 'Imagine the scene.. lost on a desert island when you stumble across a small local tribe.. now you can with our Tiki range!|');
-INSERT INTO `catalog_pages` VALUES ('128', '9021', 'Urban', '26', '1', '1', '1', '0', '216', '', 'default_3x3', 'urban_header_en|urban_teaser_en', 'New York City styled furni range, Urban is perfect for any street, alleyway or road. Rubbish bins, street lights and benches, all the Urban furniture you need!|');
-INSERT INTO `catalog_pages` VALUES ('129', '9021', 'Automobile', '16', '1', '1', '1', '0', '22', '', 'default_3x3', 'catalog_automobile_header1_en|catalog_automobile_teaser1_en', 'Every Habbooner needs a car effect! Not only do they bring a bit of the outside inside, they also enhance the air quality! And what better gift for a friend than a beautiful traffic sign or elegant pile of tires...|');
-INSERT INTO `catalog_pages` VALUES ('134', '91', 'System', '28', '1', '1', '5', '0', '1', '', 'default_3x3', 'system1|', '|');
-INSERT INTO `catalog_pages` VALUES ('135', '9021', 'Habboween 2014', '231', '1', '1', '1', '0', '108', '', 'default_3x3', 'hween14_catalog_header|hween14_catalog_teaser', 'It\'s that time of the year again, and to celebrate the spooky month we\'ve released a new Habboweed furni range!');
-INSERT INTO `catalog_pages` VALUES ('136', '9021', 'Bling', '93', '1', '1', '1', '0', '34', '', 'default_3x3', 'catalog_header_bling_en|catalog_teaser_bling11', 'Bling, Bling! Flash, Flash! Want to have that real celebrity lifestyle? Well, go somewhere else, all we have here is a tacky range of furni.|');
-INSERT INTO `catalog_pages` VALUES ('137', '9021', 'Orgie', '235', '1', '1', '1', '0', '158', '', 'default_3x3', 'orgierange|', 'The latest range from Ann Summers, the Orgie line. Made of soft, wipe clean plastic, its perfect for any three, four or fivesome!|');
-INSERT INTO `catalog_pages` VALUES ('141', '14', 'Pigs', '67', '1', '1', '1', '0', '20', '', 'pets', 'catalog_pet_headline1|', 'These little scamps were destined for the dining table until we struck a deal with a local farmer to rescue their cute pigtails! Adopt your little piglet today, all you need now is a name.|Name your Pig:|Pick a Colour:|Pick a breed:');
-INSERT INTO `catalog_pages` VALUES ('142', '14', 'Pet Accessories', '43', '1', '1', '1', '0', '30', '', 'default_3x3', 'catalog_pet_headline1|ctlg_pet_teaser1', 'This page has everything you need to give your pet the happy life it deserves. We\'ve got a huge selection!|');
-INSERT INTO `catalog_pages` VALUES ('143', '9021', 'Flower Power', '73', '1', '1', '1', '0', '88', '', 'default_3x3', 'flowerpower|2828998428_1', 'Woah! Far out man... let the petals take control. Lets collaborate on a hippy hideout and plant some seeds! Lucy in the sky with diamonds style eyy?!|');
-INSERT INTO `catalog_pages` VALUES ('144', '9021', 'Runway', '74', '1', '1', '1', '0', '184', '', 'default_3x3', 'runway_header_en|runway_teaser_en', 'Spice up your salon, hair parlour or boutique with our stylish yet practical range! From sewing machines to comfy seating, we\'ve got the perfect option for you.|');
-INSERT INTO `catalog_pages` VALUES ('145', '9021', 'Wedding', '238', '1', '1', '1', '0', '232', '', 'default_3x3', 'Wedding1|9efov', 'Habboon just wouldn\'t be the same without a wedding to attend every now and again!|');
-INSERT INTO `catalog_pages` VALUES ('146', '9021', 'School', '130', '1', '1', '1', '0', '186', '', 'default_3x3', 'ruletheschool_header|catalog_school_teaser', 'Sick of being told what to do? Want to be the boss of someone else for a change? Well now you can with our very own school range!|');
-INSERT INTO `catalog_pages` VALUES ('147', '14', 'Terriers', '66', '1', '1', '1', '0', '26', '', 'pets', 'catalog_pet_headline1|', 'Good things come in small packages and Habboon\'s Terriers are no exception!|Name your Terrier:|Pick a colour:|Pick a breed:');
-INSERT INTO `catalog_pages` VALUES ('148', '14', 'Bears', '68', '1', '1', '1', '0', '2', '', 'pets', 'catalog_pet_headline1|', 'A large, heavy, mammal that walks on the soles of its feet, with thick fur and a very short tail. Fall in love with our adorable range of Bears that include the Grizzly and Polar varieties!|Name your Bear:|Pick a colour:|Pick a breed:|');
-INSERT INTO `catalog_pages` VALUES ('149', '14', 'Cats', '20', '1', '1', '1', '0', '4', '', 'pets', 'catalog_pet_headline1|', 'Fluff, whiskers, meows and purrs! You\'re about to enter the world of Habboon Cats. These cute little critters make great playmates and will keep you company if you look after them well. Find a new friend from our ever-changing selection.|Name your Cat:|Pick a Colour:|Pick a breed:');
-INSERT INTO `catalog_pages` VALUES ('150', '14', 'Dogs', '24', '1', '1', '1', '0', '10', '', 'pets', 'catalog_pet_headline1|', 'Wet noses, paws, yaps and woofs! You\'re about to enter the world of Habboon Dogs. An adorable and faithful servant awaits you with a wagging tail everytime they see you. Find a new friend from our ever-changing selection.|Name your Dog:|Pick a Colour:|Pick a breed:');
-INSERT INTO `catalog_pages` VALUES ('151', '14', 'Crocs', '22', '1', '1', '1', '0', '8', '', 'pets', 'catalog_pet_headline1|', 'Scaly skin, growls and snaps! You\'re about to enter the world of Habboon Crocs. Security for your room or to scare your friends a trustworthy and surprisingly loving companion can be yours. Find a new friend from our ever-changing selection.|Name your Croc:|Pick a Colour:|Pick a breed:');
-INSERT INTO `catalog_pages` VALUES ('152', '503', 'Football', '56', '1', '1', '1', '0', '4', '', 'default_3x3', 'WorldCup|worldcup_teaser', 'This furni range is a must have for any football fanatic!|');
-INSERT INTO `catalog_pages` VALUES ('159', '9021', 'Prison', '240', '1', '1', '1', '0', '170', '', 'default_3x3', 'prisonheader|prisonteaser', 'Hey, he\'s escaping! Just kidding, no one\'s getting out of these high security cells!|');
-INSERT INTO `catalog_pages` VALUES ('162', '9021', 'MTV Studio', '64', '1', '1', '1', '0', '148', '', 'default_3x3', 'MTV|teaser_studio', 'The MTV Studio range lets YOU be your own music producer!|');
-INSERT INTO `catalog_pages` VALUES ('167', '14', 'Lion', '76', '1', '1', '1', '0', '16', '', 'pets', 'catalog_pet_headline1|', 'Simba, is that you? Oh wait, it\'s just one of Habboon\'s adorable pet lions! Unlike real ones, these won\'t bite your arms off. And hey, now you can tell all those girls that you\'re a lion tamer, it\'s not technically lying!|Name your Lion:|Choose a colour:|Choose a breed:');
-INSERT INTO `catalog_pages` VALUES ('168', '14', 'Rhino', '77', '1', '1', '1', '0', '22', '', 'pets', 'catalog_pet_headline1|', 'Ever thought rhinos could be cute? Neither did we until we saw these pets released!|Name your Rhino:|Pick a Colour:|Pick a breed:');
-INSERT INTO `catalog_pages` VALUES ('169', '14', 'Spider', '95', '1', '1', '1', '0', '24', '', 'pets', 'catalog_pet_headline1|', 'One of the most feared creatures in nature, and perhaps the most misunderstood. The majority of Spiders are predators with sharp fangs that inject venom into their prey- but dont worry, these spiders wont bite you! Maybe...||Name your Spider:|Select your colour/breed:');
-INSERT INTO `catalog_pages` VALUES ('170', '14', 'Frog', '97', '1', '1', '1', '0', '14', '', 'pets', 'catalog_pet_headline1|', 'The Frog. Cute, green and slimy! Frogs come in a variety of weird colours and can be found all over the world. Frogs are great jumpers, and make great pets, but are harder to hold onto than a supermodel in a tornado.||Name your Frog:|Select your colour/Breed:');
-INSERT INTO `catalog_pages` VALUES ('171', '14', 'Chick', '107', '1', '1', '1', '0', '6', '', 'pets', 'catalog_pet_headline1|', 'Habboon is full of chicks (the pet kind!) Adopt your new born chicklet now and start training it to perform the Chicken Dance for your friends... it will be a show to remember!||Name your chick:|Pick a colour/breed:|');
-INSERT INTO `catalog_pages` VALUES ('172', '91', 'Special Offers', '28', '1', '1', '5', '0', '2', '', 'default_3x3', 'catalog_cltbs_header1_en|catalog_cltbs_teaser_en', 'Collectible furniture especially for you!|');
-INSERT INTO `catalog_pages` VALUES ('173', '14', 'Dragon', '109', '1', '1', '1', '0', '12', '', 'pets', 'catalog_pet_headline1|', 'Dragons, because who doesn\'t want flying, fire breating pets with huge taloned claws?||Name your Dragon:|Pick a colour/breed:|');
-INSERT INTO `catalog_pages` VALUES ('174', '9021', 'Cubie', '100', '1', '1', '1', '0', '70', '', 'default_3x3', 'catalog_cubie_header_en|catalog_cubie_teaser', 'The cubie range is stylish, square shaped furniture with a real edge!|');
-INSERT INTO `catalog_pages` VALUES ('175', '9021', 'Waasa', '103', '1', '1', '1', '0', '228', '', 'default_3x3', 'waasa_catalogue_header|waasa_teaser', 'Waasa is the perfect furniture for a chilled, laidback room. Especially good for students on a budget!|Click here >>');
-INSERT INTO `catalog_pages` VALUES ('176', '90213', 'Construction', '84', '0', '0', '1', '0', '30', '', 'default_3x3', 'catalog_constructions_headline1|conteaser', 'For all your civil-engineer needs!|');
-INSERT INTO `catalog_pages` VALUES ('177', '9021', 'American Idol', '50', '1', '1', '1', '0', '8', '', 'default_3x3', 'catalog_header_AI1_en|catalog_teaser_AI1_en', 'Host your own American Idol show with this replica furniture! All that\'s missing is a Randy Jackson lookalike!|');
-INSERT INTO `catalog_pages` VALUES ('178', '9021', 'Kitchen', '217', '1', '1', '1', '0', '124', '', 'default_3x3', 'catalog_header_kitchen|catalog_teaser_kitchen', 'Create your dream kitchen with this exquisite range of matured pine and marble furniture.|');
-INSERT INTO `catalog_pages` VALUES ('179', '14', 'Monkey', '128', '1', '1', '1', '0', '18', '', 'pets', 'catalog_pet_headline1', 'This mischievous monkey has made his way into the hotel and into our hearts. From the tilted beret to his love of bunches of bananas- this Monkey is sure to liven up your Habbo life!||Name your Monkey:|Select your colour/breed:|');
-INSERT INTO `catalog_pages` VALUES ('180', '14', 'Turtle', '126', '1', '1', '1', '0', '28', '', 'pets', 'catalog_pet_headline1', 'Anything but slow, these guys are ready to ride the waves and swim laps at your beaches!||Name your Turtle:|Select your color/breed:|');
-INSERT INTO `catalog_pages` VALUES ('191', '9021', 'USVA', '129', '1', '1', '1', '0', '218', '', 'default_3x3', 'catalog_header_USVA|Catalog_teaser_USVA', 'You don\'t need to be in college to use this furni line!|');
-INSERT INTO `catalog_pages` VALUES ('222', '9021', 'The Olympics', '162', '1', '1', '1', '0', '206', '', 'default_3x3', 'olympicsheader|olympicsteaser', 'Upset that the Olympics is over? Well now you don\'t have to be! Everything you need to create your own Olympics is in this furniture range!| ');
-INSERT INTO `catalog_pages` VALUES ('230', '16', 'Sold Rares', '198', '1', '1', '1', '0', '1', '', 'default_3x3', 'Limited_header_sold|limited_sold_promo', 'This page shows past Limited Edition Rares. They won\'t come back on sale in the Shop. If they\'re not sold out, they might be given as prizes later on, but for now the only way to get one is through trading!|');
-INSERT INTO `catalog_pages` VALUES ('232', '9021', 'Jet Set', '237', '1', '1', '1', '0', '122', '', 'default_3x3', 'jetsetheader|jetsetteaser', 'Are you ready for the launch of the new Jet Set series? We are! Get ready to ride the waves on your yacht or jet ski and just relax in a tropical paradise.| ');
-INSERT INTO `catalog_pages` VALUES ('234', '9021', 'Habboween 2012', '165', '1', '1', '1', '0', '104', '', 'default_3x3', 'hween12_header|habboweenteaser', 'Looking for a frightastical room? Well this is the place to be! We have everything you need to spook your friends this Halloween!| ');
-INSERT INTO `catalog_pages` VALUES ('249', '9021', 'Mystics', '185', '1', '1', '1', '0', '150', '', 'default_3x3', 'header_mystics|teaser_mystics', ' | ');
-INSERT INTO `catalog_pages` VALUES ('259', '9021', 'Easter 2013', '181', '1', '1', '1', '0', '82', '', 'default_3x3', 'easter13_header|easter13_teaser', 'Celebrate Easter with this new line of furni!|');
-INSERT INTO `catalog_pages` VALUES ('299', '95', 'Chess', '64', '1', '1', '1', '0', '0', '', 'default_3x3', 'chessheader|chessteaser', 'A challenging game to be played with 2 people, good for passing the time!|');
-INSERT INTO `catalog_pages` VALUES ('301', '9224', 'Wired', '80', '1', '0', '1', '0', '23', 'category_wired', 'default_3x3', '|', '|');
-INSERT INTO `catalog_pages` VALUES ('302', '301', 'Triggers', '81', '1', '1', '1', '0', '1', '', 'default_3x3', 'catalog_wired_header2_en|ctlg_pic_wired_triggers', 'Wired Triggers: What makes your action happen.|');
-INSERT INTO `catalog_pages` VALUES ('303', '301', 'Effects', '82', '1', '1', '1', '0', '2', '', 'default_3x3', 'catalog_wired_header3_en|ctlg_pic_wired_effects', 'Wired Effects: What happens when your Wired is triggered.|');
-INSERT INTO `catalog_pages` VALUES ('304', '301', 'Conditions', '83', '1', '1', '1', '0', '3', '', 'default_3x3', 'catalog_wired_header4_en|ctlg_pic_wired_conditions', 'Wired Conditions: Your action will only happen if these conditions are met.|');
-INSERT INTO `catalog_pages` VALUES ('305', '301', 'Add-Ons', '85', '1', '1', '1', '0', '4', '', 'default_3x3', 'catalog_wired_header5_en|', 'Wired Add Ons: Extra furniture for your Wired!|');
-INSERT INTO `catalog_pages` VALUES ('306', '301', 'Room Backgrounds', '80', '1', '1', '1', '0', '5', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('350', '9224', 'Cultural Furni', '2', '0', '0', '1', '0', '19', '', 'default_3x3', '|', '|');
-INSERT INTO `catalog_pages` VALUES ('351', '9224', 'Themed Furni', '2', '0', '0', '1', '0', '17', '', 'default_3x3', '|', '|');
-INSERT INTO `catalog_pages` VALUES ('352', '9224', 'Seasonal Furni', '2', '0', '0', '1', '0', '20', '', 'default_3x3', '|', '|');
-INSERT INTO `catalog_pages` VALUES ('399', '9021', 'Christmas 2012', '90', '1', '1', '1', '0', '58', '', 'default_3x3', 'newchristmasheader|newchristmasteaser', 'Get yourself into the festive spirit with these our selection of Christmas furniture!| ');
-INSERT INTO `catalog_pages` VALUES ('436', '9021', 'Furnimatic', '53', '1', '1', '1', '0', '90', '', 'default_3x3', 'furniheader|furniteaser', 'Sci Fi convention, outer space, the Moon, we have everything you need to make your own mystical, un-earthly room right here!| ');
-INSERT INTO `catalog_pages` VALUES ('456', '91', 'Customs', '28', '1', '1', '5', '0', '9', '', 'default_3x3', 'customheader|customtease', '|');
-INSERT INTO `catalog_pages` VALUES ('496', '9021', 'Virus & Hospital', '171', '1', '1', '1', '0', '226', '', 'default_3x3', 'virus|catalog_vir_teaser_en', 'The new hospital furniture range is here! Buy it now and create your own Hospital, but watch out for the blood!|');
-INSERT INTO `catalog_pages` VALUES ('497', '91', 'Stray Pixels', '28', '1', '1', '5', '0', '3', '', 'default_3x3', 'StrayPixelsLogo|', 'Stray Pixel|');
-INSERT INTO `catalog_pages` VALUES ('499', '9021', 'Mayan', '171', '1', '1', '1', '0', '138', '', 'default_3x3', 'mayanheader2|mayanteaser', 'Just what you need to prove you survived the apocolypse!| ');
-INSERT INTO `catalog_pages` VALUES ('501', '9021', 'New Years', '91', '1', '1', '1', '0', '154', '', 'default_3x3', 'newyears|catalog_limited_teaser_en', 'Just the stuff you need to throw an awesome New Year\'s party!|');
-INSERT INTO `catalog_pages` VALUES ('502', '9021', 'Africa', '233', '1', '1', '1', '0', '4', '', 'default_3x3', 'africaheader|newafrica', 'The new African furniture range is here!|');
-INSERT INTO `catalog_pages` VALUES ('503', '9224', 'Game Shop', '202', '1', '0', '1', '0', '25', '', 'default_3x3', ' | ', ' | ');
-INSERT INTO `catalog_pages` VALUES ('504', '503', 'Ice Tag', '86', '1', '1', '1', '0', '8', '', 'default_3x3', 'catalog_header_icetag|Catalog_Teaser_icetag', 'Create your own Ice Tag rink and get tagging! Tag, you\'re it!| ');
-INSERT INTO `catalog_pages` VALUES ('512', '9021', 'Anna', '104', '1', '1', '1', '0', '12', '', 'default_3x3', 'catalog_anna_header|catalog_anna_teaser', 'Our adorable Anna range comes in a huge variety of colours, we\'re sure there\'s one that suits you!|');
-INSERT INTO `catalog_pages` VALUES ('513', '9021', 'Picnic', '3', '1', '1', '1', '0', '164', '', 'default_3x3', 'picnic|picnicteaser', 'This furni line is perfect for those cute little picnics taken with a loved one or friends, or if you\'re really lonely, tea for one works too!|');
-INSERT INTO `catalog_pages` VALUES ('546', '9021', 'Steampunk', '180', '1', '1', '1', '0', '200', '', 'default_3x3', 'catalog_header_steampunk|catalog_teaser_steampunk', 'Steampunk furni for the industrial user!| ');
-INSERT INTO `catalog_pages` VALUES ('547', '9021', 'Camping', '186', '1', '1', '1', '0', '40', '', 'default_3x3', 'catalog_header_tents|catalog_teaser_tents', ' The perfect furni for the great outdoors!| ');
-INSERT INTO `catalog_pages` VALUES ('548', '9021', 'Pirate', '188', '1', '1', '1', '0', '166', '', 'default_3x3', 'catalog_header_pirate|', 'Please note some of this furniture may be buggy!|');
-INSERT INTO `catalog_pages` VALUES ('567', '9021', 'Coco', '127', '1', '1', '1', '0', '64', '', 'default_3x3', 'catalog_teaser_coco|coconew', 'Wooden yet comfortable furniture that wouldn\'t look out of place in a treetop house!|');
-INSERT INTO `catalog_pages` VALUES ('777', '57895', 'Horse Accessories', '216', '1', '1', '1', '0', '4', '', 'default_3x3', 'catalog_horseaccessories_header2_en|horse_teaser', 'Show your horse some love with the stable furniture- build your own stable or ranch and let your horse know how much you care.');
-INSERT INTO `catalog_pages` VALUES ('789', '91', 'LTD Edition', '28', '1', '1', '5', '0', '3', '', 'default_3x3', 'ltdheader|ltdteaser', '|');
-INSERT INTO `catalog_pages` VALUES ('790', '92', 'Slurpees', '28', '1', '1', '5', '0', '2', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('791', '9021', 'Christmas 2013', '90', '1', '1', '1', '0', '60', '', 'default_3x3', 'catalog_xmas_headline1|promo_small_polar_bear', 'The all new Christmas 2013 furniture is here! Get it whilst it\'s the hot topic!|');
-INSERT INTO `catalog_pages` VALUES ('890', '9021', 'Habboon Stars', '196', '1', '1', '1', '0', '100', '', 'default_3x3', 'habbostars1|habbostars2', 'Have you always wanted to be famous? Is singing, dancing, or acting your thing? Well we have the next best thing, Habboon Stars! Get your dancing feet on and make your name shine!| ');
-INSERT INTO `catalog_pages` VALUES ('900', '9021', 'Cinema', '136', '1', '1', '1', '0', '52', '', 'default_3x3', 'CINEMA|cine_2011_teaser', 'Everything you need to make your own indoors or outdoors cinema. Turn off that mobile phone!|');
-INSERT INTO `catalog_pages` VALUES ('901', '92', 'Dragons', '28', '1', '1', '5', '0', '10', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('902', '92', 'Pillows', '28', '1', '1', '5', '0', '11', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('903', '92', 'ICMs', '28', '1', '1', '5', '0', '12', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('904', '92', 'Laser Gates', '28', '1', '1', '5', '0', '13', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('905', '92', 'Smoke Machines', '28', '1', '1', '5', '0', '14', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('906', '92', 'Spaceship Doors', '28', '1', '1', '5', '0', '15', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('907', '92', 'Pillars', '28', '1', '1', '5', '0', '16', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('908', '92', 'Marquees', '28', '1', '1', '5', '0', '17', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('909', '92', 'Oriental Screens', '28', '1', '1', '5', '0', '18', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('910', '92', 'Sleeping Bags', '28', '1', '1', '5', '0', '19', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('911', '92', 'One Way Gates', '28', '1', '1', '5', '0', '20', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('912', '92', 'Fans', '28', '1', '1', '5', '0', '21', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('913', '92', 'Traffic Lights', '28', '1', '1', '5', '0', '22', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('914', '92', 'Inflatables', '28', '1', '1', '5', '0', '23', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
-INSERT INTO `catalog_pages` VALUES ('1042', '9021', 'Black Hole', '125', '1', '1', '1', '0', '32', '', 'default_3x3', 'catalog_blackhole_header|catalog_blackhole_teaser', 'This ingenious furni line has been created for you to create your very own custom room layouts!|');
-INSERT INTO `catalog_pages` VALUES ('1111', '9021', 'Best Sellers', '69', '1', '1', '1', '0', '30', '', 'default_3x3', 'catalog_bestsellers_header_en|catalog_teaser_bestsellers', 'The best sellers is where you can buy bulked up versions of the most commonly bought furni. Something missing? Let Jess know and she\'ll be sure to add it!|');
-INSERT INTO `catalog_pages` VALUES ('1188', '9021', 'Drago', '110', '1', '1', '1', '0', '78', '', 'default_3x3', 'drago_catalog_header2|drago_catalog_teaser2', 'Dungeon furniture, the perfect range to create your torturous cellars!|');
-INSERT INTO `catalog_pages` VALUES ('2012', '9021', 'Boutique', '131', '1', '1', '1', '0', '36', '', 'default_3x3', 'boutique_catalog_01|boutique_catalog_teaser_01', 'The boutique range is just the thing if you want to own a high end fashion store in Milan, but are on a budget.|');
-INSERT INTO `catalog_pages` VALUES ('2053', '9021', 'Public Furni', '28', '1', '1', '1', '0', '172', '', 'default_3x3', 'PUBLICFURNI|publicteaser', 'Public Furniture: Used to build the Picnic Area, Lido, and Welcome Lounge!| ');
-INSERT INTO `catalog_pages` VALUES ('9020', '9224', 'Furni By Item', '121', '1', '0', '1', '0', '7', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9021', '9224', 'Furni By Line', '197', '1', '0', '1', '0', '8', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9023', '57895', 'Saddles', '135', '1', '1', '1', '0', '1', '', 'default_3x3', 'catalog_saddles_header2_en|horse_teaser', 'Customize your horse and him unique with this selection of hair styles. Each style can also be added to your room as a piece of furniture.');
-INSERT INTO `catalog_pages` VALUES ('9024', '57895', 'Dyes', '133', '1', '1', '1', '0', '2', '', 'default_3x3', 'catalog_horsedyes_header2_en|catalog_teaser_horsedyes', 'Customize your horse and him unique with this selection of hair styles. Each style can also be added to your room as a piece of furniture.');
-INSERT INTO `catalog_pages` VALUES ('9025', '57895', 'Hair Styles', '132', '1', '1', '1', '0', '3', '', 'default_3x3', 'catalog_horsehairstyles2_header_en|catalog_teaser_horsehair', 'Customize your horse and him unique with this selection of hair styles. Each style can also be added to your room as a piece of furniture.');
-INSERT INTO `catalog_pages` VALUES ('9026', '57895', 'Horse Jump', '226', '1', '1', '1', '0', '5', '', 'default_3x3', 'catalog_header_jumping_en|catalog_teaser_horsejump', 'Take your horse jumping with these new Furni! Build a formidable race course to test your steed and your riding skills and challenge your friends!');
-INSERT INTO `catalog_pages` VALUES ('9027', '9224', 'Builders Club', '193', '1', '0', '1', '0', '2', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9028', '9021', 'Candy Land', '255', '1', '1', '1', '0', '44', 'candycolture', 'default_3x3', 'catalog_header_cland15|candyland_clothing', 'Straight from the runways of Milan, Habboon Candy Colture has launched. This stylish AND sweet clothing is sure to get you noticed!');
-INSERT INTO `catalog_pages` VALUES ('9036', '9224', 'Habboon Groups', '203', '1', '1', '1', '0', '15', '', 'guild_frontpage', 'catalog_groups_en|', 'Habbo Groups are a great way to stay in touch with your friends and share your interests with others. Each Group has a homeroom that can be decorated by other Group members, members can also purchase exclusive Group Furni that can be customised with your Group colours!| * Get together with people you get together with!\r\n * Co-op room decorating for group members\r\n * Show off your group badge!\r\n * Get some neat Furni in your group\'s colors!|What\'s So Great About Habbo Groups?');
-INSERT INTO `catalog_pages` VALUES ('9037', '9036', 'Group Furni', '28', '1', '1', '1', '0', '1', 'guild_custom_furni', 'guild_custom_furni', 'catalog_groups_en||', 'Show off your Group spirit with the new customisable Furni. Select your Group and then get your furni in your Groups colours.|Select a Furni or Group|');
-INSERT INTO `catalog_pages` VALUES ('9040', '50', 'Stacktiles', '28', '1', '1', '1', '0', '4', '', 'default_3x3', 'stackers|stackk', 'Stacking isn\'t your best profession? No need to worry, you can use Stacking Tools to stack now!|');
-INSERT INTO `catalog_pages` VALUES ('9041', '9020', 'Video TVs', '2055', '1', '1', '1', '0', '18', '', 'default_3x3', 'catalog_header_tv|yttv', 'Watch your favourite YouTube Videos with these new Televisions!|');
-INSERT INTO `catalog_pages` VALUES ('9044', '9021', 'Recording Room', '136', '1', '1', '1', '0', '178', '', 'default_3x3', 'header_studio|teaser_studio|', 'Build your very own VIP Recording Room with the awesome TV Studio Furni! Everything you need from amps and guitars, to lighting rigs and drum sets... You\'ll definitely be the hit of HabboPalooza 2014!');
-INSERT INTO `catalog_pages` VALUES ('9045', '9021', 'Palooza 2013', '187', '1', '1', '1', '0', '160', '', 'default_3x3', 'catalog_header_hbpalooza|catalog_teaser_hblooza', 'From tents galore to everything you need to build the perfect stage - all your old Palooza favourites are back! They are only here for a limited time so don\'t miss out!');
-INSERT INTO `catalog_pages` VALUES ('9046', '9021', 'Vikings', '208', '1', '1', '1', '0', '224', '', 'default_3x3', 'vikings_catalog_header|catalog_teaser_vikings', 'From weapon racks and heads on spikes, to ornate hand-carved wooden chairs and benches. This furni has everything you need and more to create the Viking village of your dreams. With furni available in clan colours, you can display your true loyalty with pride!');
-INSERT INTO `catalog_pages` VALUES ('9047', '9021', 'Palooza 2014', '227', '1', '1', '1', '0', '162', '', 'default_3x3', 'catalog_teaser_palooza', 'The new Habboon Palooza furni has arrived! Create carnivals, festivals, rodeos or whatever else you like!');
-INSERT INTO `catalog_pages` VALUES ('9048', '9021', 'Wild Wild West', '229', '1', '1', '1', '0', '234', '', 'default_3x3', 'catalog_header_wwest|catalog_teaser_wildwest', 'Wild west furni has made its way to town!');
-INSERT INTO `catalog_pages` VALUES ('9050', '91', 'Noob Lobby', '1', '1', '1', '2', '0', '2', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9051', '9021', 'University', '230', '1', '1', '1', '0', '214', '', 'default_3x3', 'catalog_header_en_backtoschool2013_global|catalog_teaser_backtoschool', 'Decorate your room with this University styled furniture.');
-INSERT INTO `catalog_pages` VALUES ('9052', '9021', 'Modern Bathroom', '17', '1', '1', '1', '0', '146', '', 'default_3x3', 'bathroom_catahead|permbath_catateaser', 'Design your new Habboon batheroom with this newly designed Modern Bathroom furniture range.');
-INSERT INTO `catalog_pages` VALUES ('9053', '9021', 'Habboween 2013', '34', '1', '1', '1', '0', '106', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9054', '9210', 'Badge Shop', '28', '1', '1', '1', '0', '1', '', 'default_3x3', '', 'Running low on swag? Buy a fresh new funky swagalicious badge!');
-INSERT INTO `catalog_pages` VALUES ('9056', '9224', 'Baby Pets Shop', '228', '1', '0', '1', '0', '21', '', 'default_3x3', 'babypets_cata_header|babypets_teaser', 'They\'re friendly. They\'re cute. They\'re here to win your hearts. Who are they? Baby pets! ALL NEW Kittens, puppies, piglets are storming their way through the hotel and joining the Bear Cubs and Terriers. Available via breeding boxes or sale.');
-INSERT INTO `catalog_pages` VALUES ('9057', '9056', 'Puppies', '228', '1', '1', '1', '0', '6', '', 'pets', 'babypets_cata_header', 'So soft and cuddly, these playful pups are certain to melt your heart. From Labradors to Dalmatians, there\'s a breed for everyone!||Name your pet:|Select your color/breed:');
-INSERT INTO `catalog_pages` VALUES ('9058', '9056', 'Kitten', '228', '1', '1', '1', '0', '2', '', 'pets', 'babypets_cata_header', 'Leaping their way around Habboon, these fluffy furballs are here to steal your heart...andd your yarn!||Name your pet:|Select your color/breed:');
-INSERT INTO `catalog_pages` VALUES ('9059', '9056', 'Piglets', '228', '1', '1', '1', '0', '4', '', 'pets', 'babypets_cata_header', 'OINK! Partial to a good roll in the mud, these playful piggies have trotted into Habboon and are ready for fun!||Name your pet:|Select your color/breed:');
-INSERT INTO `catalog_pages` VALUES ('9060', '9056', 'Food & Toys', '199', '1', '1', '1', '0', '8', '', 'default_3x3', 'babypets_cata_header|babypets_teaser', 'The baby pets are here! Take good care of them and keep them happy with our exciting range of food and toys!|Get some nice accessories for your pet.');
-INSERT INTO `catalog_pages` VALUES ('9061', '91', 'Customs 2015', '28', '1', '1', '5', '0', '70', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9062', '9021', 'Attic', '242', '1', '1', '1', '0', '20', '', 'default_3x3', 'attic15_catalog_header|attic15_catalog_teaser', 'From squeaky floor boards to ancient furniture, the Attic 2015 furniture is now here!|');
-INSERT INTO `catalog_pages` VALUES ('9063', '9021', 'Valentines 2015', '243', '1', '1', '1', '0', '222', '', 'default_3x3', 'val15_cata_header|val15_generic_small_promo2', 'Love is in the air once again! Buy your sweetheart a rose or whisper sweet nothings in their ear on a love sofa. ');
-INSERT INTO `catalog_pages` VALUES ('9064', '9027', 'Alphabet', '1009', '1', '1', '1', '0', '0', '', 'default_3x3_color_grouping', 'catalog_header_alpha1|catalog_teaser_alpha1', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9065', '9021', 'CyberPunk', '254', '1', '1', '1', '0', '72', '', 'default_3x3', 'catalog_header_cpunk15|catalog_teaser_cyberpunk', 'Light-filled cityscapes and brightly lit skycrapers looming ovehead... This is the dark, dark furni line of the future. The future is called CyberPunk.');
-INSERT INTO `catalog_pages` VALUES ('9066', '9021', 'Public Furni 2015', '28', '1', '1', '1', '0', '174', '', 'default_3x3', '', 'Public Furniture: Used to build new rooms such as the Noob Lobby, HC Lounge and Welcome Lounge [2015]');
-INSERT INTO `catalog_pages` VALUES ('9067', '9021', 'Chinese New Year', '15', '0', '1', '1', '0', '50', '', 'default_3x3', 'catalog_asian_headline1|catalog_asian_teaser1', 'The year of the Horse was engulfed in excitement, but it\'s time for the flames to die away as we slither into the next Chinese Lunar Year - The Goat!');
-INSERT INTO `catalog_pages` VALUES ('9069', '9021', 'St Patrick\'s 2014', '212', '0', '1', '1', '0', '198', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9070', '9021', 'Mall', '28', '1', '1', '1', '0', '136', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9071', '9021', 'Ancients', '170', '1', '1', '1', '0', '10', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9088', '9021', 'Stories', '210', '1', '1', '1', '0', '202', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9089', '9021', 'Igor', '239', '1', '1', '1', '0', '116', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9090', '9021', 'Loyalty', '184', '1', '1', '1', '0', '134', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9091', '9021', 'Spiderwick', '28', '1', '1', '1', '0', '194', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9092', '9021', 'Collectibles 2008', '28', '1', '1', '1', '0', '66', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9093', '9021', 'BubbleJuice', '28', '1', '1', '1', '0', '38', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9094', '9021', 'Ecotron', '163', '1', '1', '1', '0', '84', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9095', '9021', 'Wall Items', '122', '0', '1', '1', '0', '230', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9097', '9021', 'Childline', '28', '1', '1', '1', '0', '48', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9098', '9021', 'Misc', '28', '1', '1', '1', '0', '142', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9099', '9027', 'Cone', '244', '1', '1', '1', '0', '3', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9100', '9027', 'Cylinder', '245', '1', '1', '1', '0', '4', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9101', '9027', 'Half Cylinder', '251', '1', '1', '1', '0', '5', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9102', '9027', 'Hemisphere', '247', '1', '1', '1', '0', '6', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9103', '9027', 'Pyramid', '248', '1', '1', '1', '0', '7', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9104', '9027', 'Quarter Ring', '249', '1', '1', '1', '0', '8', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9105', '9027', 'Sphere', '250', '1', '1', '1', '0', '9', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9106', '9027', 'Standing Half Cylinder', '246', '1', '1', '1', '0', '10', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9107', '9027', 'Standing Triangular Prism', '252', '1', '1', '1', '0', '11', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9108', '9027', 'Wedge', '253', '1', '1', '1', '0', '12', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9109', '9027', 'Triangular Prism', '28', '1', '1', '1', '0', '13', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9110', '9027', 'Glass Panel', '28', '1', '1', '1', '0', '15', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9111', '9027', 'Round', '28', '1', '1', '1', '0', '30', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9112', '9027', 'Small', '28', '1', '1', '1', '0', '31', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9113', '9027', 'Large', '28', '1', '1', '1', '0', '20', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9114', '9027', 'Tile', '28', '1', '1', '1', '0', '14', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9115', '9027', 'Flower Hedge', '28', '1', '1', '1', '0', '16', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9116', '9027', 'Water', '28', '1', '1', '1', '0', '17', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9117', '9027', 'Simple Wood', '28', '1', '1', '1', '0', '18', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9118', '9027', 'Terra', '28', '1', '1', '1', '0', '19', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9119', '9027', 'Brick', '28', '1', '1', '1', '0', '21', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9120', '9027', 'Glass', '28', '1', '1', '1', '0', '92', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9121', '9027', 'Lava', '28', '1', '1', '1', '0', '23', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9122', '9027', 'Marble', '28', '1', '1', '1', '0', '24', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9123', '9027', 'Art Deco', '28', '1', '1', '1', '0', '25', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9124', '9027', 'Industrial', '28', '1', '1', '1', '0', '26', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9125', '9027', 'Sand', '28', '1', '1', '1', '0', '27', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9126', '9027', 'Metal', '28', '1', '1', '1', '0', '28', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9127', '9027', 'Metal Crate', '28', '1', '1', '1', '0', '29', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9128', '9027', 'Stone', '28', '1', '1', '1', '0', '33', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9129', '9027', 'Wool', '28', '1', '1', '1', '0', '34', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9130', '9027', 'Grass', '28', '1', '1', '1', '0', '35', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
-INSERT INTO `catalog_pages` VALUES ('9131', '9021', 'Military', '259', '1', '1', '1', '0', '140', '', 'default_3x3', 'army_header|army_teaser', 'Purchase the new in stock army/military based furni - from gun racks to choppers, no matter what item you\'re after; this section will have it!');
-INSERT INTO `catalog_pages` VALUES ('9132', '9021', 'Infobus', '9991', '1', '1', '1', '0', '118', '', 'default_3x3', 'bus_header|bus_teaser', '');
-INSERT INTO `catalog_pages` VALUES ('9136', '9021', 'Kitchen', '217', '1', '1', '1', '0', '4', '', 'default_3x3', 'catalog_header_kitchen2015|teaser_kitchen2015', 'Fancy owning a Habboon restraunt? Or just love catering for Habboons in style? With this furni line you can REALLY get cooking!');
-INSERT INTO `catalog_pages` VALUES ('9167', '91', 'Arcade Machines', '28', '1', '1', '5', '0', '50', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9168', '9021', 'Paris', '9990', '1', '1', '1', '0', '5', '', 'default_3x3', 'paris_header|paris_teaser', 'Always wanted to build a Paris designed room? Now is your chance with this brand new set of Paris furniture.');
-INSERT INTO `catalog_pages` VALUES ('9169', '92', 'new rares wouto', '1', '1', '1', '1', '0', '50', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9170', '9224', 'Event Staff', '196', '1', '1', '1', '3', '32', '', 'default_3x3', 'vipheader1|vipteaser2', 'Thank you for purchasing Events Staff, you\'re awesome! This section of the catalogue is especially for our VIP users. The Rares in this section aren\'t cheap, but you can sell them on to non VIP members for a much heftier price!|Click on an item for more information.');
-INSERT INTO `catalog_pages` VALUES ('9201', '9225', 'Payments', '3009', '0', '1', '5', '0', '2', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9202', '9201', 'Popular Packages', '3009', '1', '1', '5', '0', '1', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9203', '9201', 'Rare Package 1', '3009', '1', '1', '1', '0', '2', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9204', '9201', 'Rare Package 2', '3009', '1', '1', '1', '0', '3', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9205', '9201', 'Rare Package 3', '3009', '1', '1', '5', '0', '4', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9206', '9201', 'Rare Package 4', '3009', '1', '1', '1', '0', '5', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9207', '9201', 'Dragon Sets', '3009', '1', '1', '5', '0', '6', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9208', '9201', 'ICM Sets', '3009', '1', '1', '5', '0', '7', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9209', '9201', 'Birdbath Sets', '3009', '1', '1', '1', '0', '8', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9210', '9224', 'Badges', '28', '1', '0', '1', '0', '11', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9211', '9049', 'Halloween 2015 [LTD]', '262', '1', '1', '1', '0', '4', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9212', '9021', 'Halloween 2015', '262', '1', '1', '1', '0', '4', '', 'default_3x3', 'catalog_header_hw15|catalog_teaser_hw15', 'Darkness and evil is spreading through the hotel and you\'re one of the ONLY Habbos that can fight the bad energy! Dodge Evil Frank, avoid dark shadowy places and make it your mission to save Habboon Hotel from complete and TOTAL annihilation!');
-INSERT INTO `catalog_pages` VALUES ('9213', '9212', 'Clothing', '262', '1', '1', '1', '0', '1', '', 'default_3x3', 'catalog_header_hw15|catalog_teaser_hw15|hween15_clothing', 'Does your loyalty belong to the Light Guardians? Or are you intent on corrupting and destroying Habboon Hotel with the Lost Souls? Whichever side you choose, you can dress the part with these spooktacular Habboon Couture outfits. Which side will you choose?');
-INSERT INTO `catalog_pages` VALUES ('9214', '9225', 'Rares to Sort', '1', '1', '1', '8', '0', '5', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9215', '9225', 'LTD Rares', '1', '1', '1', '7', '0', '4', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9219', '9222', 'Bavarian Christmas', '197', '1', '1', '1', '0', '0', '', 'default_3x3', 'xmas15_head|xmas15_tease', 'Season\'s greetings! BRAND NEW Bavarian Christmas furni is now LIVE!');
-INSERT INTO `catalog_pages` VALUES ('9220', '9222', 'Arctic', '309', '1', '1', '1', '0', '0', '', 'default_3x3', '|iced15_tease', '');
-INSERT INTO `catalog_pages` VALUES ('9221', '9222', 'Clothing', '74', '1', '1', '1', '0', '0', '', 'default_3x3', 'clothing_catalog_header|tradeableclothing_teaser', 'The all NEW Christmas 2015 Habboon Couture tradeable clothing and accessories range is a cut above the rest! From santa outfits to scarfs and hair; Habboon Couture lets you express yourself to the extreme!');
-INSERT INTO `catalog_pages` VALUES ('9222', '9224', 'Christmas 2015', '168', '1', '0', '1', '0', '4', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9223', '9049', 'Group Forums', '1', '1', '0', '1', '0', '8', '', 'guild_forum', '', 'Group Forums are here!|<<i><b><font color=\"#0e3f52\" size=\"16\">What are Group Forums?</font></b></i>\r\n\r\nForums allow you to effortlessly post, comment and discuss topics freely, without even leaving the Hotel!\r\n\r\n<i><b><font color=\"#0e3f52\" size=\"16\">Who can start a forum? </font></b></i>\r\n\r\nOnly a group owner can start a forum for their group.\r\n\r\n<i><b><font color=\"#0e3f52\" size=\"16\">Do I need a Forum Terminal?</font></b></i>\r\n\r\nYes - In order to start a Group Forum the group owner must first purchase a forum terminal for the group.\r\n\r\n\r\nFind out more about Group Forums <a href=\"event:habbopages/forums\">here</a>.\r\n\r\nPlease note, we will continue to add more functionalities to this feature in the near future.');
-INSERT INTO `catalog_pages` VALUES ('9224', '-1', 'Furni', '1', '1', '1', '1', '0', '2', 'furni', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('9225', '-1', 'Staff', '1', '1', '1', '5', '0', '5', 'staff', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('57895', '9224', 'Pet Horse', '132', '1', '1', '1', '0', '18', '', 'pets', 'catalog_horse_header2_en| ', '');
-INSERT INTO `catalog_pages` VALUES ('789789', '95', 'Coloured Tiles', '64', '1', '1', '1', '0', '1', '', 'default_3x3', 'ctheader|ctteaser', '');
-INSERT INTO `catalog_pages` VALUES ('912345', '9021', 'Letter Blocks', '28', '1', '1', '1', '0', '128', '', 'default_3x3', '|', 'Letters A - Z in affordable furniture.|');
-INSERT INTO `catalog_pages` VALUES ('912346', '9021', 'Christmas 2014', '232', '1', '1', '1', '0', '62', '', 'default_3x3', 'xmas14_catalog_header|', 'Get into the Christmas spirit with this years tropical Christmas furni!');
-INSERT INTO `catalog_pages` VALUES ('912347', '9224', 'Gold VIP', '195', '1', '1', '1', '2', '31', '', 'default_3x3', 'vipheader1|vipteaser2', 'Thank you for purchasing Gold VIP, you\'re awesome! This section of the catalogue is especially for our VIP users. The Rares in this section aren\'t cheap, but you can sell them on to non VIP members for a much heftier price!|Click on an item for more information.');
-INSERT INTO `catalog_pages` VALUES ('912350', '9021', 'Carnival 2015', '160', '1', '1', '1', '0', '46', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('912357', '9049', 'Dev Wired', '1', '1', '1', '1', '0', '0', '', 'default_3x3', '', '');
-INSERT INTO `catalog_pages` VALUES ('912358', '9210', 'Badge Of The Week', '28', '1', '1', '1', '0', '2', '', 'default_3x3', '', 'Running low on swag? Buy a fresh new funky swagalicious badge!');
-INSERT INTO `catalog_pages` VALUES ('912359', '9021', 'Dinosaur', '260', '1', '1', '1', '0', '76', '', 'default_3x3', 'dino_header|dino_teaser', '');
-INSERT INTO `catalog_pages` VALUES ('912361', '9021', 'Garden', '123', '1', '1', '1', '0', '93', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('1', '-1', 'Front Page', '213', '1', '1', NULL, '1', 'frontpage', 'frontpage4', 'catalog_frontpage_headline_shop_GENERAL|', '<i><b><font color=\"#0E668C\" size=\"16\">What can I find in the shop?</font></b></i><br><br>Upgrade your clothing with Habboon Club, adopt a pet or decorate your room the way you like it. Whatever you like to do most in Habboon, you\'ll find a way to make that experience even better by browsing our Shop.<br><br><li>Join <a href=\"event:catalog/open/habbo_club\">Habboon Club</a></li><li><a href=\"event:catalog/open/set_pixelnew\">Decorate </a>your room</li><li>Adopt a <a href=\"event:catalog/open/pets_shop\">Pet</a> or a <a href=\"event:catalog/open/bots\">Bot</a></li><li>Make your own <a href=\"event:catalog/open/category_wired\">Wired</a> games </li><li>Trade in our <a href=\"event:catalog/open/marketplace_offers\">Marketplace</a></li><br><i><b><font color=\"#0E668C\" size=\"16\">Where can I get credits?</font></b></i><br><br>We have a couple of methods of payment such as Credit Cards and PayPal which allow you to purchase credits at our Web Shop.<br><br><a href=\"https://easybuy.pw/packages/currency\" target=\"_new\">Visit our currency page for more info.</a>|Redeem a voucher code here:');
+INSERT INTO `catalog_pages` VALUES ('3', '9224', 'Classic Furni', '2', '0', '0', NULL, '14', '', 'default_3x3', 'catalog_frontpage_headline2_en|', '|');
+INSERT INTO `catalog_pages` VALUES ('4', '9224', 'Pixel Shop', '5', '0', '0', NULL, '24', '', 'default_3x3', 'catalog_frontpage_headline2_en|', '|');
+INSERT INTO `catalog_pages` VALUES ('5', '9224', 'Habboon Club', '172', '1', '0', NULL, '3', 'habbo_club', 'recycler_info', 'habboclub_2|VIP_badge', 'Habboon Club is free and you get in when you start. Although you can buy VIP read more about that below.|VIP is avaliable from habboon.com/store/vip for $40USD\\r\\r\r\nYou get the following features with VIP:\\r\r\nPush/Pull commands, VIP Catalogue including cool rares\\r\r\nand heaps of cool other features. So why not get it now?\\r');
+INSERT INTO `catalog_pages` VALUES ('6', '9224', 'Silver VIP', '196', '1', '1', 'catalog.pages.vip', '30', '', 'default_3x3', 'vipheader1|vipteaser2', 'Thank you for purchasing VIP! This section of the catalogue is especially for our VIP users. The Rares in this section aren\'t cheap, but you can sell them on to non VIP members for a much heftier price!|Click on an item for more information.');
+INSERT INTO `catalog_pages` VALUES ('7', '5', 'Buy Club', '75', '0', '0', NULL, '3', '', 'default_3x3', 'habboclub|catalog_hc_teaser', 'Habboon club comes with many bonuses! More hair and clothes choices, more hair and clothes colours to come from, new room layouts, new dances, and much, much more!|');
+INSERT INTO `catalog_pages` VALUES ('8', '5', 'Club Shop', '172', '1', '1', NULL, '20', '', 'default_3x3', 'catalog_header_hc|hc_catalog_teaser', 'As a member of Habboon Club you can shop from this selection of exclusive items.');
+INSERT INTO `catalog_pages` VALUES ('9', '9224', 'Bots', '65', '1', '1', NULL, '16', 'bots', 'bots', 'catalog_bots_headline1_en|catalog_bots_headline1_en', 'They walk, they talk, and they make the perfect addition to any room!|Choose a bot of your fancy!\\nNote: You can customise your bot once its in your room');
+INSERT INTO `catalog_pages` VALUES ('10', '9224', 'Marketplace', '69', '0', '0', NULL, '27', '', 'pets3', 'catalog_marketplace_header_en|catalog_note_marketplace', 'The Habboon Marketplace is a convenient and safe way to buy and sell items in Habboon.|How does the Habboon Marketplace work?|Selling items: You can sell any item which is tradable by selecting the item in your inventory and clicking on \"Sell in Marketplace\". You can also use items currently in the shop.\r\n\r\nBuying items: Browse for the item you want to buy on the Marketplace Offers page and click Buy. We guarantee you\'ll get the item at the cheapest price available at the moment of purchase.|');
+INSERT INTO `catalog_pages` VALUES ('11', '10', 'My Sales', '70', '1', '1', NULL, '1', '', 'marketplace_own_items', '', '');
+INSERT INTO `catalog_pages` VALUES ('12', '10', 'Offers', '71', '1', '1', NULL, '2', 'marketplace_offers', 'marketplace', '', '');
+INSERT INTO `catalog_pages` VALUES ('13', '9224', 'Habboon Exchange', '146', '1', '1', NULL, '1', '', 'default_3x3', 'catalog_bank_headline1|catalog_bank_teaser', 'You can exchange your Habboon credits here for Exchange furniture, which you can use in a trade or simply exchange for actual credits.|');
+INSERT INTO `catalog_pages` VALUES ('14', '-1', 'Pet Shop', '8', '1', '1', NULL, '3', 'pets_shop', 'pets3', 'catalog_pet_headline1|ctlg_pet_note', 'Pets are inhabitants of Habbo Hotel too so each pet owner needs to know a bit about them. If you want to look after your pet properly, make sure you read the following points carefully.|A few things you should know:|*You can place a pet in your room or take one for a walk with you in other rooms.\r\n*You can\'t trade your pet but they can follow you to friend\'s rooms to gather scratches.\r\n*You can have up to 50 pets in your room, but look after them all!\r\n\r\n\r\n*Look after your pet with food, water and treats. Check the Pets\' Accessories.\r\n*Unlock Badges and Achievements by Training your Pet.|Click your Pet and hit the \"Train\" button to get a list of commands that will level up your Pet in no time!');
+INSERT INTO `catalog_pages` VALUES ('15', '9020', 'Spaces', '225', '1', '1', NULL, '14', 'set_pixelnew', 'spaces_new', 'catalog_spaces_headline1|', 'Floors, wallpapers and landscapes - get a groovy combination for your room! Use our sample room below to try before you buy! Select your favourite designs and colours and simply click Buy!|');
+INSERT INTO `catalog_pages` VALUES ('16', '9224', 'Limited Rares', '145', '1', '1', NULL, '9', '', 'default_3x3', 'limited_header|', 'Get them while they\'re hot! Limited Edition Rare Furni is only available in limited quantities and once we\'ve sold out, they\'re gone! Each furni can be identified by its unique ID number and the LTD logo beside them!|');
+INSERT INTO `catalog_pages` VALUES ('18', '9224', 'New Furni', '2', '0', '0', NULL, '12', '', 'default_3x3', 'catalog_frontpage_headline2_en|', '|');
+INSERT INTO `catalog_pages` VALUES ('19', '9021', 'Cinema 2013', '136', '1', '1', NULL, '54', '', 'default_3x3', 'cinema_catalogheader|movie_catalog_teaser', 'All the way from Habbowood... Everything you could need and more to create your very own movie magic in a home theatre!|');
+INSERT INTO `catalog_pages` VALUES ('20', '-1', 'Clothing', '74', '1', '1', NULL, '4', 'clothing', 'default_3x3', 'clothing_catalog_header|tradeableclothing_teaser', 'The all NEW Habboon Couture tradeable clothing and accessories range is a cut above the rest! From stylish tops and jeans, to amazing accessories and hair; Habboon Couture lets you express yourself to the extreme!');
+INSERT INTO `catalog_pages` VALUES ('21', '9049', 'Gnomes', '200', '1', '1', NULL, '5', 'xmas14_gnome', 'default_3x3', 'xmas14_catalog_header|xmas14_gnome_teaser', 'The North Pole can be a tough place for a little Gnome, so this year they\'ve migrated to the sunny shores of Habboon Islands. Feed them, train them and treate them with care...');
+INSERT INTO `catalog_pages` VALUES ('22', '9021', 'New Years 2015', '2014', '1', '1', NULL, '156', '', 'default_3x3', '2015_header|catalog_2015_header', '');
+INSERT INTO `catalog_pages` VALUES ('24', '9020', 'Windows', '218', '1', '1', NULL, '20', '', 'default_3x3', 'ctlg_windows_headline1_en|ctlg_windows_teaser1_en', 'Let some light in! Our windows come in many unique styles to give an exciting look to your room. Buy landscapes to go with your windows from the \'Spaces\' page!|');
+INSERT INTO `catalog_pages` VALUES ('26', '9020', 'Moodlights', '40', '1', '1', NULL, '4', '', 'default_3x3', 'catalog_dimmers_header_en|dimmers_teaser', 'Our range of moodlights allow you to control the atmosphere and transform your room in just a click. What will your room look like? Click the switch and find out now!|');
+INSERT INTO `catalog_pages` VALUES ('27', '9021', 'Christmas', '168', '1', '1', NULL, '56', '', 'default_3x3', 'catalog_xmas_headline1|xmas2009_catalogue', 'Get yourself into the Christmas spirit with our selection of festive furni! From baubles to reindeer poo, we\'ve got it all!|');
+INSERT INTO `catalog_pages` VALUES ('28', '9021', 'Arctic', '13', '1', '1', NULL, '14', '', 'default_3x3', 'catalog_arc_header1_en|catalog_arc_teaser1_en', 'Stay cool (or warm with our campfire!) and create your own Winter Wonderland or Humble Homeland for your penguins.|');
+INSERT INTO `catalog_pages` VALUES ('29', '9020', 'Teleporters', '120', '1', '1', NULL, '16', '', 'default_3x3', 'catalog_doors_headline1|catalog_teaser_teleporters', 'Take your room to a whole new level with our range of space age teleporters! Just buy a pair, put one in each room and voila! You\'ll have two linked rooms!|');
+INSERT INTO `catalog_pages` VALUES ('30', '9021', 'Mode', '39', '1', '1', NULL, '144', '', 'default_3x3', 'catalog_mode_headline1|catalog_mode_teaser1', 'Steely, grey, industrial standard metal with a sleek design. The perfect range for a streetwise city dweller.|');
+INSERT INTO `catalog_pages` VALUES ('31', '9021', 'Candy', '19', '1', '1', NULL, '42', '', 'default_3x3', 'catalog_candy_headline1|catalog_candy_teaser1', 'A bit more feminine than \'Mode\', this will add a bit of glamour and glitz to your rooms. Lacking a few items? Head on over to the \'Mode\' category!|');
+INSERT INTO `catalog_pages` VALUES ('32', '9021', 'Pura', '48', '1', '1', NULL, '176', '', 'default_3x3', 'puraheader|catalog_pura_teaser1', 'The cleanest, freshest range. You can almost hear it breathe cool and tranquility within your room. Use it to create a haven away from the hectic lifestyle of Habboon Hotel.|');
+INSERT INTO `catalog_pages` VALUES ('33', '9021', 'Area', '14', '1', '1', NULL, '16', '', 'default_3x3', 'catalog_area_headline1|catalog_area_teaser1', 'A chunky and sofisticated line for the down-to-earth, studious Habboon. Its simplicty is beautful and will add a welcoming charm to every room.|');
+INSERT INTO `catalog_pages` VALUES ('34', '9021', 'Country', '21', '1', '1', NULL, '68', '', 'default_3x3', 'country_header1_en_001|country_teaser1', 'Let\'s leave the busy city streets and head over to the wide abyss of golden wheat, emerald fields and home grown, organic vegetables. Everything you need to create a farm!|');
+INSERT INTO `catalog_pages` VALUES ('35', '9021', 'Lodge', '37', '1', '1', NULL, '130', '', 'default_3x3', 'catalog_lodge_headline1|catalog_lodge_teaser1', 'For that splendid ski-lodge effect with an open fire and whisky on the sidebar. This range is for those who appreicate the true beauty of solid wood.|');
+INSERT INTO `catalog_pages` VALUES ('36', '9021', 'Plastic', '46', '1', '1', NULL, '168', '', 'default_3x3', 'catalog_plasto_headline1|', 'Throw on an afro and grab a disco ball! Feel that retro, 1970s vibe? You soon will with this colourful, plastic range! Choose a colour to suit your mood and off you go!|');
+INSERT INTO `catalog_pages` VALUES ('37', '9021', 'Lagomorph', '192', '1', '1', NULL, '126', '', 'default_3x3', 'catalog_header_easter14_001|catalog_lagomorph_teaser', 'From shape shifting wall pieces to crpytic teleports, the isle of Lagomorph furni line is sure to keep you guessing! Nothing is as it seems on this mind-bending island...');
+INSERT INTO `catalog_pages` VALUES ('38', '9021', 'Bathroom', '17', '1', '1', NULL, '26', '', 'default_3x3', 'catalog_bath_headline1|catalog_bath_teaser1', 'Lets face it.. you can\'t live without your bathroom. Give your guests somewhere to freshen up with our cheeful bathroom collection!|');
+INSERT INTO `catalog_pages` VALUES ('39', '9020', 'Plants', '220', '1', '1', NULL, '6', '', 'default_3x3', 'catalog_plants_headline1|catalog_plants_teaser1', 'Every room needs some greenery, dear! Not only do they enhance the air quality, they cheer up a room to make it simply splendid! And what better gift for a friend than an elegant rose..|');
+INSERT INTO `catalog_pages` VALUES ('40', '9020', 'Rugs', '116', '1', '1', NULL, '12', '', 'default_3x3', 'catalog_rugs_headline1|catalog_rugs_teaser1', 'Rugs for all occasions, white for weddings, black for funerals and everything in between! All rugs are non-slip and machine washable. Take your pick!|');
+INSERT INTO `catalog_pages` VALUES ('41', '9020', 'Posters and Flags', '219', '1', '1', NULL, '8', '', 'default_3x3', 'catalog_gallery_headline1|catalog_posters_teaser1', 'Adorn your walls with posters, art, plaques and wall hangings. This gallery is bursting with items to suit all tastes, traditional and modern!|');
+INSERT INTO `catalog_pages` VALUES ('42', '9021', 'Trophies', '60', '1', '1', NULL, '210', '', 'trophies', 'catalog_trophies_headline1|', 'Everyones a winner with Habboon trophies! Now you can reward all your friends with our pre-polished array of trohpies, in bronze, silver and gold. \r\nFirst choose your trophy model, then the metal, and carefully type your inscription. Don\'t worry, we\'ll engrave it all with your name and the date.|');
+INSERT INTO `catalog_pages` VALUES ('43', '9021', 'Accessories', '11', '1', '1', NULL, '2', '', 'default_3x3', 'catalog_extra_headline1|catalog_extra_teaser1', 'However you like to place your essentials, its the finishing touches that really make a room and express your true personality. Don\'t forget, like anything else, you can move them all about to suit your mood!|');
+INSERT INTO `catalog_pages` VALUES ('45', '4', 'Rentals', '44', '1', '1', NULL, '230', '', 'default_3x3', 'catalog_pixelrent_headline1_en|catalog_pxl_teaser3_en', 'Hire some cool effects to add an explosive touch to your room. From bubbles to firestarters, you can enhance your room dramatically!|');
+INSERT INTO `catalog_pages` VALUES ('46', '5', 'HC Executive', '172', '1', '1', NULL, '51', '', 'default_3x3', 'catalog_header_hc|hcexec_teaser', 'Habboon Club is back! With a new range of furniture; HC Executive!');
+INSERT INTO `catalog_pages` VALUES ('47', '9021', 'Base', '179', '1', '1', NULL, '24', '', 'default_3x3', 'catalog_header_base|base_rentable_teaser', 'This colourful range of furni has everything you need to style out your room and build great spaces.');
+INSERT INTO `catalog_pages` VALUES ('48', '9021', 'Health Spa', '211', '1', '1', NULL, '112', '', 'default_3x3', 'catalog_header_spa|catalog_teaser_spa', 'A day at the spa! Inhale...Exhale...Inhale...Exhale. With all the features of a premium Spa, you can now create your very own Habboon Health Spa relaxing retreat! Robe and slippers not included.');
+INSERT INTO `catalog_pages` VALUES ('49', '9021', 'Shakespeare', '59', '1', '1', NULL, '190', '', 'default_3x3', 'catalog_shakespeare_header|catalog_shakespeare_teaser', 'You can be the world\'s most famous poet! All you need to do is purchase the furniture below, be amazing at speaking and drink tea!');
+INSERT INTO `catalog_pages` VALUES ('50', '9224', 'Duckets Shop', '178', '1', '1', NULL, '13', '', 'info_duckets', 'duckets_header|', '<i><b><font color=\"#591d97\" size=\"16\">What are Duckets?</font></b></i><br><br>Ducket is a free virtual currency you can earn daily just by playing Habbo.<br><br><i><b><font color=\"#591d97\" size=\"16\">What are they good for?</font></b></i><br><br><li><a href=\"event:catalog/open/rentables_spaces\">Paint</a>  your rooms.</li><li>Get a <a href=\"event:catalog/open/duckets_cat\">cat</a> and <a href=\"event:catalog/open/duckets_petaccessories\">accessories</a>.</li><li><a href=\"event:catalog/open/rentables_info\">Rent furniture</a>.</li><li>Get <a href=\"event:catalog/open/special_effects\">avatar effects</a>.</li><li>Whatever fun stuff we come up with.</li><br><i><b><font color=\"#591d97\" size=\"16\">How can I get them?</font></b></i><br><br><li>Visit Habbo! Get some every day. The more active you are, the more you\'ll earn.</li><li>You get some for each completed achievement in the <a href=\"event:talent/open/citizenship\">Citizenship track</a>.</li><li>Any other surprise we might come up with!</li>|');
+INSERT INTO `catalog_pages` VALUES ('51', '9027', 'Extras', '28', '1', '1', NULL, '36', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('52', '9020', 'Badge Display', '224', '1', '1', NULL, '2', '', 'badge_display', '|', 'Got a badge that you want to flaunt off to others? Now is your chance!');
+INSERT INTO `catalog_pages` VALUES ('53', '50', 'Room Promo', '55', '1', '1', NULL, '3', 'room_ad', 'roomads', 'events_header|', '||');
+INSERT INTO `catalog_pages` VALUES ('55', '9021', 'Iced', '13', '1', '1', NULL, '114', '', 'default_3x3', 'catalog_iced_headline1|catalog_iced_teaser1', 'The Iced range: Squishy, soft and most definitely cool. Whatever your needs, this stylish range should cover it!|');
+INSERT INTO `catalog_pages` VALUES ('56', '9021', 'Alhambra', '12', '1', '1', NULL, '6', '', 'default_3x3', 'catalog_alh_headline1_en|dining_area_illustration', 'For the cold Arabian nights and hot Arabian days, you\'ll need a palace.. And we have just what you need! Green blossom print should cover it just fine!|');
+INSERT INTO `catalog_pages` VALUES ('57', '9021', 'Asian', '15', '1', '1', NULL, '18', '', 'default_3x3', 'catalog_asian_headline1|catalog_asian_teaser1', 'Ting tong! Ching chong? Ting chong ting, ping ping! I mean uh.. with our authentic Chinese furniture, you can make a beautiful oriental room!|');
+INSERT INTO `catalog_pages` VALUES ('58', '9021', 'Bensalem', '18', '1', '1', NULL, '28', '', 'default_3x3', 'catalog_lc_headline2_en|catalog_lc_teaser1_en_001', 'Under the seaaaaaaaaa, oh, Under the seaaaaaa! What will your underwater world look like? We have it all here, crabs, coral, and mythical sea creatures!|');
+INSERT INTO `catalog_pages` VALUES ('59', '9021', 'Easter 2011', '25', '1', '1', NULL, '80', '', 'default_3x3', 'catalog_easter_headline1|catalog_easter_teaser1', 'Little birdies hatching from their eggs, pretty, dainty flowers blooming and cute rabbits bouncy in Spring meadows.. It\'s Easter!|');
+INSERT INTO `catalog_pages` VALUES ('60', '9021', 'Executive', '27', '1', '1', NULL, '86', '', 'default_3x3', 'catalog_exe_headline1_en|catalog_exe_teaser_en', 'For the ultimate business man, the Executive range with its leather seats and Italian coffee is a dream! How about you try the easy lifestyle?|');
+INSERT INTO `catalog_pages` VALUES ('61', '9021', 'Glass', '29', '1', '1', NULL, '92', '', 'default_3x3', 'catalog_glass_headline1|catalog_glass_teaser1', 'You can really open up a space with this stylish glass furniture, just don\'t walk into it!|');
+INSERT INTO `catalog_pages` VALUES ('62', '9021', 'Gothic', '30', '1', '1', NULL, '94', '', 'default_3x3', 'catalog_gothic_headline1|catalog_gothic_teaser1', 'As the church bells ring out midnight, you walk through your cobbled hall lit by candles, throw yourself into your medieval throne and paint your nails black. This is what we imagined when we ordered this range!|');
+INSERT INTO `catalog_pages` VALUES ('63', '9021', 'Sports', '56', '1', '1', NULL, '196', '', 'default_3x3', 'sports|catalog_sports_teaser1', 'Sport contains all those vital Olympic pieces from running tracks to basketball courts! 3, 2, 1, GO!|');
+INSERT INTO `catalog_pages` VALUES ('64', '9021', 'Grunge', '32', '1', '1', NULL, '98', '', 'default_3x3', 'catalog_grunge_headline1|catalog_gru_teaser_en', 'Sleeping rough? Make the streets a bit more bearable with our collection of homeless furni, Grunge!|');
+INSERT INTO `catalog_pages` VALUES ('65', '9021', 'HabboWood', '33', '1', '1', NULL, '110', '', 'default_3x3', 'habbowood|ctlg_limited_teaser1', 'No flash photography, darling! This range is only for the VIP Hollywood actors!|');
+INSERT INTO `catalog_pages` VALUES ('66', '9021', 'Habboween 2011', '34', '1', '1', NULL, '102', '', 'default_3x3', 'catalog_halloween_headline1|catalog_voodoo_teaser', 'WooOOOOoooOOoo! Spooky! Don\'t wanna be left with this range at night.. who knows what would happen!|');
+INSERT INTO `catalog_pages` VALUES ('67', '9021', 'Japan', '36', '1', '1', NULL, '120', '', 'default_3x3', 'catalog_jap_headline1|catalog_jap_teaser3_en', 'We have sushi, tatami and katana\'s! I have no idea what the difference is, but I sure know its Japanese! Fulfil your fantasies and buy some today!|');
+INSERT INTO `catalog_pages` VALUES ('68', '9021', 'Lost Tribe', '38', '1', '1', NULL, '132', '', 'default_3x3', 'losttribe|LT_teaser_en', 'Start your own tribal village with our ancient furniture, all carved from hard wearing stone. NOTE: Lava is hot, get an adult to help you.|');
+INSERT INTO `catalog_pages` VALUES ('69', '9021', 'Neon', '41', '1', '1', NULL, '152', '', 'default_3x3', 'catalog_neon_header1_en|catalog_neon_teaser1_en', 'New years eve, birthdays and every other day of the year, there\'s always an excuse for a party! So, why don\'t you buy some Neon furni!?|');
+INSERT INTO `catalog_pages` VALUES ('71', '9021', 'Relax', '49', '1', '1', NULL, '180', '', 'default_3x3', 'rela_header_en|rela_teaser_en', 'Relax after a busy day in the Welcome Lounge. Light a few candles, and chill out with a good read in a wicker chair. We understand the needs of a Habboon with a hectic lifestyle!|');
+INSERT INTO `catalog_pages` VALUES ('72', '9021', 'Romantique', '50', '1', '1', NULL, '182', '', 'default_3x3', 'catalog_romantique_headline1|catalog_rom_teaser_en', 'Found in a French barn, this sweet but sexily romantic range caters to every ladies needs. Just going to powder my nose!|');
+INSERT INTO `catalog_pages` VALUES ('73', '9021', 'Science Fiction', '53', '1', '1', NULL, '188', '', 'default_3x3', 'sf_header_en|sf_teaser_en', 'Blipblop blip blip blip.. Oooh.. what\'s this button do?.. You can find out exactly what it does with our new Scifi range, batteries included!|');
+INSERT INTO `catalog_pages` VALUES ('74', '9021', 'Shalimar', '54', '1', '1', NULL, '192', '', 'default_3x3', 'catalog_shal_header1_en|catalog_shal_teaser_en', 'Everyone loves Bollywood! Watch out for rose petals!|');
+INSERT INTO `catalog_pages` VALUES ('75', '9021', 'Summer', '57', '1', '1', NULL, '204', '', 'default_3x3', 'summer|catalog_teaser_dragons', 'Phwoar! Start up the barbie! This range has everything you need for the perfect summer garden!|');
+INSERT INTO `catalog_pages` VALUES ('76', '9021', 'Valentines', '144', '1', '1', NULL, '220', '', 'default_3x3', 'catalog_header_val12_2_en|catalog_teaser_val12', 'Love is in the air once again! Buy your sweetheart a rose or whisper sweet nothings in their ear on a love sofa. Can you feel it? <3|');
+INSERT INTO `catalog_pages` VALUES ('77', '9021', 'Greek', '31', '1', '1', NULL, '96', '', 'default_3x3', 'greekheader|greekteaser', 'Be transported back to ancient Greece with a couple of thousand pounds and British Airways. Until then, build your own panthenon with our realist Greek range!|');
+INSERT INTO `catalog_pages` VALUES ('80', '503', 'Freeze', '87', '1', '1', NULL, '6', '', 'default_3x3', 'catalog_cltbs_heade r1_es|catalog_cltbs_tease r_es', 'Freeze!... and try the newest game to hit Habboon! Team up and plant snowball bombs to snap freeze your competitors. You could say it\'s so cool, it\'s frozen ;)');
+INSERT INTO `catalog_pages` VALUES ('85', '91', 'Collectibles', '28', '1', '1', 'catalog.pages.administrator', '6', '', 'default_3x3', 'catalog_collectibles_headline1_en|catalog_cltbs_teaser_en', 'The Pixel Collectables are the ultimate collectors items, requiring a mammoth 2000 pixels and credits to buy! If you collect all the pieces and manage to put them together in certain ways, you\'ll receive a special effect!|');
+INSERT INTO `catalog_pages` VALUES ('91', '9225', 'Other Furni', '3009', '1', '1', 'catalog.pages.administrator', '3', '', 'default_3x3', '|', '|');
+INSERT INTO `catalog_pages` VALUES ('92', '9225', 'Rare Furni', '3009', '1', '1', 'catalog.pages.administrator', '1', '', 'default_3x3', '|', '|');
+INSERT INTO `catalog_pages` VALUES ('93', '91', 'Trophies', '28', '1', '1', 'catalog.pages.administrator', '210', '', 'trophies', 'catalog_trophies_headline1|', 'This page contains special trophies available for staff to give as prizes. STAFF CAUGHT GIVING OUT THESE WITH NO REASON WILL BE DEMOTED.|');
+INSERT INTO `catalog_pages` VALUES ('94', '92', 'Rares', '28', '1', '1', 'catalog.pages.administrator', '1', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('95', '91', 'Room Backgrounds', '28', '1', '1', 'catalog.pages.administrator', '3', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'This page contains special rares available for staff. STAFF CAUGHT GIVING OUT THESE WITH NO REASON WILL BE DEMOTED.|');
+INSERT INTO `catalog_pages` VALUES ('96', '91', 'Theatredome', '28', '1', '1', 'catalog.pages.administrator', '12', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('102', '9020', 'Rollers', '222', '1', '1', NULL, '10', '', 'default_3x3', 'catalog_roller_headline1|catalog_teaser_rollers_en', 'Zoooooooom, Zooooooooooooooooooooooooooom! Was it a plane? Was it a bird!? No, it was Danielle on a roller! You can use rollers in games, events or even just to move a queue along.|');
+INSERT INTO `catalog_pages` VALUES ('103', '9021', 'Diner', '204', '1', '1', NULL, '74', '', 'default_3x3', 'diner|catalog_diner_teaser_en', 'Originally from the 50\'s this furni has been refurbished and put right into the catalogue! Use this with the Kitchen range for ultimate diner experience!|');
+INSERT INTO `catalog_pages` VALUES ('112', '9021', 'Twilight', '64', '1', '1', NULL, '212', '', 'default_3x3', 'catalog_twilight_header_en|catalog_teaser_twilight', 'I\'ve never read the book, all I know is it has vampires playing basket ball and some heart throb called Edward Cullen, but the furni looks good!|');
+INSERT INTO `catalog_pages` VALUES ('120', '503', 'Battle Banzai', '78', '1', '1', NULL, '2', '', 'default_3x3', 'Battlebanzai|catalog_battleBanzai_teaser', 'Prepare for Battle Banzai!|');
+INSERT INTO `catalog_pages` VALUES ('123', '4', 'Hello', '35', '1', '1', NULL, '240', '', 'default_3x3', 'catalog_hello_header1_en|catalog_hello_teaser1_en', 'Hello Furni is available with Pixels and is perfect if you are decorating your room for the very first time. The Furni is yours to keep and therefore cannot be traded.|');
+INSERT INTO `catalog_pages` VALUES ('126', '9021', 'Tiki', '59', '1', '1', NULL, '208', '', 'default_3x3', 'catalog_tiki_header1_en|tiki_teaser', 'Imagine the scene.. lost on a desert island when you stumble across a small local tribe.. now you can with our Tiki range!|');
+INSERT INTO `catalog_pages` VALUES ('128', '9021', 'Urban', '26', '1', '1', NULL, '216', '', 'default_3x3', 'urban_header_en|urban_teaser_en', 'New York City styled furni range, Urban is perfect for any street, alleyway or road. Rubbish bins, street lights and benches, all the Urban furniture you need!|');
+INSERT INTO `catalog_pages` VALUES ('129', '9021', 'Automobile', '16', '1', '1', NULL, '22', '', 'default_3x3', 'catalog_automobile_header1_en|catalog_automobile_teaser1_en', 'Every Habbooner needs a car effect! Not only do they bring a bit of the outside inside, they also enhance the air quality! And what better gift for a friend than a beautiful traffic sign or elegant pile of tires...|');
+INSERT INTO `catalog_pages` VALUES ('134', '91', 'System', '28', '1', '1', 'catalog.pages.administrator', '1', '', 'default_3x3', 'system1|', '|');
+INSERT INTO `catalog_pages` VALUES ('135', '9021', 'Habboween 2014', '231', '1', '1', NULL, '108', '', 'default_3x3', 'hween14_catalog_header|hween14_catalog_teaser', 'It\'s that time of the year again, and to celebrate the spooky month we\'ve released a new Habboweed furni range!');
+INSERT INTO `catalog_pages` VALUES ('136', '9021', 'Bling', '93', '1', '1', NULL, '34', '', 'default_3x3', 'catalog_header_bling_en|catalog_teaser_bling11', 'Bling, Bling! Flash, Flash! Want to have that real celebrity lifestyle? Well, go somewhere else, all we have here is a tacky range of furni.|');
+INSERT INTO `catalog_pages` VALUES ('137', '9021', 'Orgie', '235', '1', '1', NULL, '158', '', 'default_3x3', 'orgierange|', 'The latest range from Ann Summers, the Orgie line. Made of soft, wipe clean plastic, its perfect for any three, four or fivesome!|');
+INSERT INTO `catalog_pages` VALUES ('141', '14', 'Pigs', '67', '1', '1', NULL, '20', '', 'pets', 'catalog_pet_headline1|', 'These little scamps were destined for the dining table until we struck a deal with a local farmer to rescue their cute pigtails! Adopt your little piglet today, all you need now is a name.|Name your Pig:|Pick a Colour:|Pick a breed:');
+INSERT INTO `catalog_pages` VALUES ('142', '14', 'Pet Accessories', '43', '1', '1', NULL, '30', '', 'default_3x3', 'catalog_pet_headline1|ctlg_pet_teaser1', 'This page has everything you need to give your pet the happy life it deserves. We\'ve got a huge selection!|');
+INSERT INTO `catalog_pages` VALUES ('143', '9021', 'Flower Power', '73', '1', '1', NULL, '88', '', 'default_3x3', 'flowerpower|2828998428_1', 'Woah! Far out man... let the petals take control. Lets collaborate on a hippy hideout and plant some seeds! Lucy in the sky with diamonds style eyy?!|');
+INSERT INTO `catalog_pages` VALUES ('144', '9021', 'Runway', '74', '1', '1', NULL, '184', '', 'default_3x3', 'runway_header_en|runway_teaser_en', 'Spice up your salon, hair parlour or boutique with our stylish yet practical range! From sewing machines to comfy seating, we\'ve got the perfect option for you.|');
+INSERT INTO `catalog_pages` VALUES ('145', '9021', 'Wedding', '238', '1', '1', NULL, '232', '', 'default_3x3', 'Wedding1|9efov', 'Habboon just wouldn\'t be the same without a wedding to attend every now and again!|');
+INSERT INTO `catalog_pages` VALUES ('146', '9021', 'School', '130', '1', '1', NULL, '186', '', 'default_3x3', 'ruletheschool_header|catalog_school_teaser', 'Sick of being told what to do? Want to be the boss of someone else for a change? Well now you can with our very own school range!|');
+INSERT INTO `catalog_pages` VALUES ('147', '14', 'Terriers', '66', '1', '1', NULL, '26', '', 'pets', 'catalog_pet_headline1|', 'Good things come in small packages and Habboon\'s Terriers are no exception!|Name your Terrier:|Pick a colour:|Pick a breed:');
+INSERT INTO `catalog_pages` VALUES ('148', '14', 'Bears', '68', '1', '1', NULL, '2', '', 'pets', 'catalog_pet_headline1|', 'A large, heavy, mammal that walks on the soles of its feet, with thick fur and a very short tail. Fall in love with our adorable range of Bears that include the Grizzly and Polar varieties!|Name your Bear:|Pick a colour:|Pick a breed:|');
+INSERT INTO `catalog_pages` VALUES ('149', '14', 'Cats', '20', '1', '1', NULL, '4', '', 'pets', 'catalog_pet_headline1|', 'Fluff, whiskers, meows and purrs! You\'re about to enter the world of Habboon Cats. These cute little critters make great playmates and will keep you company if you look after them well. Find a new friend from our ever-changing selection.|Name your Cat:|Pick a Colour:|Pick a breed:');
+INSERT INTO `catalog_pages` VALUES ('150', '14', 'Dogs', '24', '1', '1', NULL, '10', '', 'pets', 'catalog_pet_headline1|', 'Wet noses, paws, yaps and woofs! You\'re about to enter the world of Habboon Dogs. An adorable and faithful servant awaits you with a wagging tail everytime they see you. Find a new friend from our ever-changing selection.|Name your Dog:|Pick a Colour:|Pick a breed:');
+INSERT INTO `catalog_pages` VALUES ('151', '14', 'Crocs', '22', '1', '1', NULL, '8', '', 'pets', 'catalog_pet_headline1|', 'Scaly skin, growls and snaps! You\'re about to enter the world of Habboon Crocs. Security for your room or to scare your friends a trustworthy and surprisingly loving companion can be yours. Find a new friend from our ever-changing selection.|Name your Croc:|Pick a Colour:|Pick a breed:');
+INSERT INTO `catalog_pages` VALUES ('152', '503', 'Football', '56', '1', '1', NULL, '4', '', 'default_3x3', 'WorldCup|worldcup_teaser', 'This furni range is a must have for any football fanatic!|');
+INSERT INTO `catalog_pages` VALUES ('159', '9021', 'Prison', '240', '1', '1', NULL, '170', '', 'default_3x3', 'prisonheader|prisonteaser', 'Hey, he\'s escaping! Just kidding, no one\'s getting out of these high security cells!|');
+INSERT INTO `catalog_pages` VALUES ('162', '9021', 'MTV Studio', '64', '1', '1', NULL, '148', '', 'default_3x3', 'MTV|teaser_studio', 'The MTV Studio range lets YOU be your own music producer!|');
+INSERT INTO `catalog_pages` VALUES ('167', '14', 'Lion', '76', '1', '1', NULL, '16', '', 'pets', 'catalog_pet_headline1|', 'Simba, is that you? Oh wait, it\'s just one of Habboon\'s adorable pet lions! Unlike real ones, these won\'t bite your arms off. And hey, now you can tell all those girls that you\'re a lion tamer, it\'s not technically lying!|Name your Lion:|Choose a colour:|Choose a breed:');
+INSERT INTO `catalog_pages` VALUES ('168', '14', 'Rhino', '77', '1', '1', NULL, '22', '', 'pets', 'catalog_pet_headline1|', 'Ever thought rhinos could be cute? Neither did we until we saw these pets released!|Name your Rhino:|Pick a Colour:|Pick a breed:');
+INSERT INTO `catalog_pages` VALUES ('169', '14', 'Spider', '95', '1', '1', NULL, '24', '', 'pets', 'catalog_pet_headline1|', 'One of the most feared creatures in nature, and perhaps the most misunderstood. The majority of Spiders are predators with sharp fangs that inject venom into their prey- but dont worry, these spiders wont bite you! Maybe...||Name your Spider:|Select your colour/breed:');
+INSERT INTO `catalog_pages` VALUES ('170', '14', 'Frog', '97', '1', '1', NULL, '14', '', 'pets', 'catalog_pet_headline1|', 'The Frog. Cute, green and slimy! Frogs come in a variety of weird colours and can be found all over the world. Frogs are great jumpers, and make great pets, but are harder to hold onto than a supermodel in a tornado.||Name your Frog:|Select your colour/Breed:');
+INSERT INTO `catalog_pages` VALUES ('171', '14', 'Chick', '107', '1', '1', NULL, '6', '', 'pets', 'catalog_pet_headline1|', 'Habboon is full of chicks (the pet kind!) Adopt your new born chicklet now and start training it to perform the Chicken Dance for your friends... it will be a show to remember!||Name your chick:|Pick a colour/breed:|');
+INSERT INTO `catalog_pages` VALUES ('172', '91', 'Special Offers', '28', '1', '1', 'catalog.pages.administrator', '2', '', 'default_3x3', 'catalog_cltbs_header1_en|catalog_cltbs_teaser_en', 'Collectible furniture especially for you!|');
+INSERT INTO `catalog_pages` VALUES ('173', '14', 'Dragon', '109', '1', '1', NULL, '12', '', 'pets', 'catalog_pet_headline1|', 'Dragons, because who doesn\'t want flying, fire breating pets with huge taloned claws?||Name your Dragon:|Pick a colour/breed:|');
+INSERT INTO `catalog_pages` VALUES ('174', '9021', 'Cubie', '100', '1', '1', NULL, '70', '', 'default_3x3', 'catalog_cubie_header_en|catalog_cubie_teaser', 'The cubie range is stylish, square shaped furniture with a real edge!|');
+INSERT INTO `catalog_pages` VALUES ('175', '9021', 'Waasa', '103', '1', '1', NULL, '228', '', 'default_3x3', 'waasa_catalogue_header|waasa_teaser', 'Waasa is the perfect furniture for a chilled, laidback room. Especially good for students on a budget!|Click here >>');
+INSERT INTO `catalog_pages` VALUES ('176', '90213', 'Construction', '84', '0', '0', NULL, '30', '', 'default_3x3', 'catalog_constructions_headline1|conteaser', 'For all your civil-engineer needs!|');
+INSERT INTO `catalog_pages` VALUES ('177', '9021', 'American Idol', '50', '1', '1', NULL, '8', '', 'default_3x3', 'catalog_header_AI1_en|catalog_teaser_AI1_en', 'Host your own American Idol show with this replica furniture! All that\'s missing is a Randy Jackson lookalike!|');
+INSERT INTO `catalog_pages` VALUES ('178', '9021', 'Kitchen', '217', '1', '1', NULL, '124', '', 'default_3x3', 'catalog_header_kitchen|catalog_teaser_kitchen', 'Create your dream kitchen with this exquisite range of matured pine and marble furniture.|');
+INSERT INTO `catalog_pages` VALUES ('179', '14', 'Monkey', '128', '1', '1', NULL, '18', '', 'pets', 'catalog_pet_headline1', 'This mischievous monkey has made his way into the hotel and into our hearts. From the tilted beret to his love of bunches of bananas- this Monkey is sure to liven up your Habbo life!||Name your Monkey:|Select your colour/breed:|');
+INSERT INTO `catalog_pages` VALUES ('180', '14', 'Turtle', '126', '1', '1', NULL, '28', '', 'pets', 'catalog_pet_headline1', 'Anything but slow, these guys are ready to ride the waves and swim laps at your beaches!||Name your Turtle:|Select your color/breed:|');
+INSERT INTO `catalog_pages` VALUES ('191', '9021', 'USVA', '129', '1', '1', NULL, '218', '', 'default_3x3', 'catalog_header_USVA|Catalog_teaser_USVA', 'You don\'t need to be in college to use this furni line!|');
+INSERT INTO `catalog_pages` VALUES ('222', '9021', 'The Olympics', '162', '1', '1', NULL, '206', '', 'default_3x3', 'olympicsheader|olympicsteaser', 'Upset that the Olympics is over? Well now you don\'t have to be! Everything you need to create your own Olympics is in this furniture range!| ');
+INSERT INTO `catalog_pages` VALUES ('230', '16', 'Sold Rares', '198', '1', '1', NULL, '1', '', 'default_3x3', 'Limited_header_sold|limited_sold_promo', 'This page shows past Limited Edition Rares. They won\'t come back on sale in the Shop. If they\'re not sold out, they might be given as prizes later on, but for now the only way to get one is through trading!|');
+INSERT INTO `catalog_pages` VALUES ('232', '9021', 'Jet Set', '237', '1', '1', NULL, '122', '', 'default_3x3', 'jetsetheader|jetsetteaser', 'Are you ready for the launch of the new Jet Set series? We are! Get ready to ride the waves on your yacht or jet ski and just relax in a tropical paradise.| ');
+INSERT INTO `catalog_pages` VALUES ('234', '9021', 'Habboween 2012', '165', '1', '1', NULL, '104', '', 'default_3x3', 'hween12_header|habboweenteaser', 'Looking for a frightastical room? Well this is the place to be! We have everything you need to spook your friends this Halloween!| ');
+INSERT INTO `catalog_pages` VALUES ('249', '9021', 'Mystics', '185', '1', '1', NULL, '150', '', 'default_3x3', 'header_mystics|teaser_mystics', ' | ');
+INSERT INTO `catalog_pages` VALUES ('259', '9021', 'Easter 2013', '181', '1', '1', NULL, '82', '', 'default_3x3', 'easter13_header|easter13_teaser', 'Celebrate Easter with this new line of furni!|');
+INSERT INTO `catalog_pages` VALUES ('299', '95', 'Chess', '64', '1', '1', NULL, '0', '', 'default_3x3', 'chessheader|chessteaser', 'A challenging game to be played with 2 people, good for passing the time!|');
+INSERT INTO `catalog_pages` VALUES ('301', '9224', 'Wired', '80', '1', '0', NULL, '23', 'category_wired', 'default_3x3', '|', '|');
+INSERT INTO `catalog_pages` VALUES ('302', '301', 'Triggers', '81', '1', '1', NULL, '1', '', 'default_3x3', 'catalog_wired_header2_en|ctlg_pic_wired_triggers', 'Wired Triggers: What makes your action happen.|');
+INSERT INTO `catalog_pages` VALUES ('303', '301', 'Effects', '82', '1', '1', NULL, '2', '', 'default_3x3', 'catalog_wired_header3_en|ctlg_pic_wired_effects', 'Wired Effects: What happens when your Wired is triggered.|');
+INSERT INTO `catalog_pages` VALUES ('304', '301', 'Conditions', '83', '1', '1', NULL, '3', '', 'default_3x3', 'catalog_wired_header4_en|ctlg_pic_wired_conditions', 'Wired Conditions: Your action will only happen if these conditions are met.|');
+INSERT INTO `catalog_pages` VALUES ('305', '301', 'Add-Ons', '85', '1', '1', NULL, '4', '', 'default_3x3', 'catalog_wired_header5_en|', 'Wired Add Ons: Extra furniture for your Wired!|');
+INSERT INTO `catalog_pages` VALUES ('306', '301', 'Room Backgrounds', '80', '1', '1', NULL, '5', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('350', '9224', 'Cultural Furni', '2', '0', '0', NULL, '19', '', 'default_3x3', '|', '|');
+INSERT INTO `catalog_pages` VALUES ('351', '9224', 'Themed Furni', '2', '0', '0', NULL, '17', '', 'default_3x3', '|', '|');
+INSERT INTO `catalog_pages` VALUES ('352', '9224', 'Seasonal Furni', '2', '0', '0', NULL, '20', '', 'default_3x3', '|', '|');
+INSERT INTO `catalog_pages` VALUES ('399', '9021', 'Christmas 2012', '90', '1', '1', NULL, '58', '', 'default_3x3', 'newchristmasheader|newchristmasteaser', 'Get yourself into the festive spirit with these our selection of Christmas furniture!| ');
+INSERT INTO `catalog_pages` VALUES ('436', '9021', 'Furnimatic', '53', '1', '1', NULL, '90', '', 'default_3x3', 'furniheader|furniteaser', 'Sci Fi convention, outer space, the Moon, we have everything you need to make your own mystical, un-earthly room right here!| ');
+INSERT INTO `catalog_pages` VALUES ('456', '91', 'Customs', '28', '1', '1', 'catalog.pages.administrator', '9', '', 'default_3x3', 'customheader|customtease', '|');
+INSERT INTO `catalog_pages` VALUES ('496', '9021', 'Virus & Hospital', '171', '1', '1', NULL, '226', '', 'default_3x3', 'virus|catalog_vir_teaser_en', 'The new hospital furniture range is here! Buy it now and create your own Hospital, but watch out for the blood!|');
+INSERT INTO `catalog_pages` VALUES ('497', '91', 'Stray Pixels', '28', '1', '1', 'catalog.pages.administrator', '3', '', 'default_3x3', 'StrayPixelsLogo|', 'Stray Pixel|');
+INSERT INTO `catalog_pages` VALUES ('499', '9021', 'Mayan', '171', '1', '1', NULL, '138', '', 'default_3x3', 'mayanheader2|mayanteaser', 'Just what you need to prove you survived the apocolypse!| ');
+INSERT INTO `catalog_pages` VALUES ('501', '9021', 'New Years', '91', '1', '1', NULL, '154', '', 'default_3x3', 'newyears|catalog_limited_teaser_en', 'Just the stuff you need to throw an awesome New Year\'s party!|');
+INSERT INTO `catalog_pages` VALUES ('502', '9021', 'Africa', '233', '1', '1', NULL, '4', '', 'default_3x3', 'africaheader|newafrica', 'The new African furniture range is here!|');
+INSERT INTO `catalog_pages` VALUES ('503', '9224', 'Game Shop', '202', '1', '0', NULL, '25', '', 'default_3x3', ' | ', ' | ');
+INSERT INTO `catalog_pages` VALUES ('504', '503', 'Ice Tag', '86', '1', '1', NULL, '8', '', 'default_3x3', 'catalog_header_icetag|Catalog_Teaser_icetag', 'Create your own Ice Tag rink and get tagging! Tag, you\'re it!| ');
+INSERT INTO `catalog_pages` VALUES ('512', '9021', 'Anna', '104', '1', '1', NULL, '12', '', 'default_3x3', 'catalog_anna_header|catalog_anna_teaser', 'Our adorable Anna range comes in a huge variety of colours, we\'re sure there\'s one that suits you!|');
+INSERT INTO `catalog_pages` VALUES ('513', '9021', 'Picnic', '3', '1', '1', NULL, '164', '', 'default_3x3', 'picnic|picnicteaser', 'This furni line is perfect for those cute little picnics taken with a loved one or friends, or if you\'re really lonely, tea for one works too!|');
+INSERT INTO `catalog_pages` VALUES ('546', '9021', 'Steampunk', '180', '1', '1', NULL, '200', '', 'default_3x3', 'catalog_header_steampunk|catalog_teaser_steampunk', 'Steampunk furni for the industrial user!| ');
+INSERT INTO `catalog_pages` VALUES ('547', '9021', 'Camping', '186', '1', '1', NULL, '40', '', 'default_3x3', 'catalog_header_tents|catalog_teaser_tents', ' The perfect furni for the great outdoors!| ');
+INSERT INTO `catalog_pages` VALUES ('548', '9021', 'Pirate', '188', '1', '1', NULL, '166', '', 'default_3x3', 'catalog_header_pirate|', 'Please note some of this furniture may be buggy!|');
+INSERT INTO `catalog_pages` VALUES ('567', '9021', 'Coco', '127', '1', '1', NULL, '64', '', 'default_3x3', 'catalog_teaser_coco|coconew', 'Wooden yet comfortable furniture that wouldn\'t look out of place in a treetop house!|');
+INSERT INTO `catalog_pages` VALUES ('777', '57895', 'Horse Accessories', '216', '1', '1', NULL, '4', '', 'default_3x3', 'catalog_horseaccessories_header2_en|horse_teaser', 'Show your horse some love with the stable furniture- build your own stable or ranch and let your horse know how much you care.');
+INSERT INTO `catalog_pages` VALUES ('789', '91', 'LTD Edition', '28', '1', '1', 'catalog.pages.administrator', '3', '', 'default_3x3', 'ltdheader|ltdteaser', '|');
+INSERT INTO `catalog_pages` VALUES ('790', '92', 'Slurpees', '28', '1', '1', 'catalog.pages.administrator', '2', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('791', '9021', 'Christmas 2013', '90', '1', '1', NULL, '60', '', 'default_3x3', 'catalog_xmas_headline1|promo_small_polar_bear', 'The all new Christmas 2013 furniture is here! Get it whilst it\'s the hot topic!|');
+INSERT INTO `catalog_pages` VALUES ('890', '9021', 'Habboon Stars', '196', '1', '1', NULL, '100', '', 'default_3x3', 'habbostars1|habbostars2', 'Have you always wanted to be famous? Is singing, dancing, or acting your thing? Well we have the next best thing, Habboon Stars! Get your dancing feet on and make your name shine!| ');
+INSERT INTO `catalog_pages` VALUES ('900', '9021', 'Cinema', '136', '1', '1', NULL, '52', '', 'default_3x3', 'CINEMA|cine_2011_teaser', 'Everything you need to make your own indoors or outdoors cinema. Turn off that mobile phone!|');
+INSERT INTO `catalog_pages` VALUES ('901', '92', 'Dragons', '28', '1', '1', 'catalog.pages.administrator', '10', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('902', '92', 'Pillows', '28', '1', '1', 'catalog.pages.administrator', '11', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('903', '92', 'ICMs', '28', '1', '1', 'catalog.pages.administrator', '12', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('904', '92', 'Laser Gates', '28', '1', '1', 'catalog.pages.administrator', '13', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('905', '92', 'Smoke Machines', '28', '1', '1', 'catalog.pages.administrator', '14', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('906', '92', 'Spaceship Doors', '28', '1', '1', 'catalog.pages.administrator', '15', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('907', '92', 'Pillars', '28', '1', '1', 'catalog.pages.administrator', '16', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('908', '92', 'Marquees', '28', '1', '1', 'catalog.pages.administrator', '17', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('909', '92', 'Oriental Screens', '28', '1', '1', 'catalog.pages.administrator', '18', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('910', '92', 'Sleeping Bags', '28', '1', '1', 'catalog.pages.administrator', '19', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('911', '92', 'One Way Gates', '28', '1', '1', 'catalog.pages.administrator', '20', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('912', '92', 'Fans', '28', '1', '1', 'catalog.pages.administrator', '21', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('913', '92', 'Traffic Lights', '28', '1', '1', 'catalog.pages.administrator', '22', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('914', '92', 'Inflatables', '28', '1', '1', 'catalog.pages.administrator', '23', '', 'default_3x3', 'catalog_rares_headline1|raresteaser', 'Please do not give out rares to your friends or users for no reason, each purchase you make is logged for higher management to review.');
+INSERT INTO `catalog_pages` VALUES ('1042', '9021', 'Black Hole', '125', '1', '1', NULL, '32', '', 'default_3x3', 'catalog_blackhole_header|catalog_blackhole_teaser', 'This ingenious furni line has been created for you to create your very own custom room layouts!|');
+INSERT INTO `catalog_pages` VALUES ('1111', '9021', 'Best Sellers', '69', '1', '1', NULL, '30', '', 'default_3x3', 'catalog_bestsellers_header_en|catalog_teaser_bestsellers', 'The best sellers is where you can buy bulked up versions of the most commonly bought furni. Something missing? Let Jess know and she\'ll be sure to add it!|');
+INSERT INTO `catalog_pages` VALUES ('1188', '9021', 'Drago', '110', '1', '1', NULL, '78', '', 'default_3x3', 'drago_catalog_header2|drago_catalog_teaser2', 'Dungeon furniture, the perfect range to create your torturous cellars!|');
+INSERT INTO `catalog_pages` VALUES ('2012', '9021', 'Boutique', '131', '1', '1', NULL, '36', '', 'default_3x3', 'boutique_catalog_01|boutique_catalog_teaser_01', 'The boutique range is just the thing if you want to own a high end fashion store in Milan, but are on a budget.|');
+INSERT INTO `catalog_pages` VALUES ('2053', '9021', 'Public Furni', '28', '1', '1', NULL, '172', '', 'default_3x3', 'PUBLICFURNI|publicteaser', 'Public Furniture: Used to build the Picnic Area, Lido, and Welcome Lounge!| ');
+INSERT INTO `catalog_pages` VALUES ('9020', '9224', 'Furni By Item', '121', '1', '0', NULL, '7', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9021', '9224', 'Furni By Line', '197', '1', '0', NULL, '8', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9023', '57895', 'Saddles', '135', '1', '1', NULL, '1', '', 'default_3x3', 'catalog_saddles_header2_en|horse_teaser', 'Customize your horse and him unique with this selection of hair styles. Each style can also be added to your room as a piece of furniture.');
+INSERT INTO `catalog_pages` VALUES ('9024', '57895', 'Dyes', '133', '1', '1', NULL, '2', '', 'default_3x3', 'catalog_horsedyes_header2_en|catalog_teaser_horsedyes', 'Customize your horse and him unique with this selection of hair styles. Each style can also be added to your room as a piece of furniture.');
+INSERT INTO `catalog_pages` VALUES ('9025', '57895', 'Hair Styles', '132', '1', '1', NULL, '3', '', 'default_3x3', 'catalog_horsehairstyles2_header_en|catalog_teaser_horsehair', 'Customize your horse and him unique with this selection of hair styles. Each style can also be added to your room as a piece of furniture.');
+INSERT INTO `catalog_pages` VALUES ('9026', '57895', 'Horse Jump', '226', '1', '1', NULL, '5', '', 'default_3x3', 'catalog_header_jumping_en|catalog_teaser_horsejump', 'Take your horse jumping with these new Furni! Build a formidable race course to test your steed and your riding skills and challenge your friends!');
+INSERT INTO `catalog_pages` VALUES ('9027', '9224', 'Builders Club', '193', '1', '0', NULL, '2', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9028', '9021', 'Candy Land', '255', '1', '1', NULL, '44', 'candycolture', 'default_3x3', 'catalog_header_cland15|candyland_clothing', 'Straight from the runways of Milan, Habboon Candy Colture has launched. This stylish AND sweet clothing is sure to get you noticed!');
+INSERT INTO `catalog_pages` VALUES ('9036', '9224', 'Habboon Groups', '203', '1', '1', NULL, '15', '', 'guild_frontpage', 'catalog_groups_en|', 'Habbo Groups are a great way to stay in touch with your friends and share your interests with others. Each Group has a homeroom that can be decorated by other Group members, members can also purchase exclusive Group Furni that can be customised with your Group colours!| * Get together with people you get together with!\r\n * Co-op room decorating for group members\r\n * Show off your group badge!\r\n * Get some neat Furni in your group\'s colors!|What\'s So Great About Habbo Groups?');
+INSERT INTO `catalog_pages` VALUES ('9037', '9036', 'Group Furni', '28', '1', '1', NULL, '1', 'guild_custom_furni', 'guild_custom_furni', 'catalog_groups_en||', 'Show off your Group spirit with the new customisable Furni. Select your Group and then get your furni in your Groups colours.|Select a Furni or Group|');
+INSERT INTO `catalog_pages` VALUES ('9040', '50', 'Stacktiles', '28', '1', '1', NULL, '4', '', 'default_3x3', 'stackers|stackk', 'Stacking isn\'t your best profession? No need to worry, you can use Stacking Tools to stack now!|');
+INSERT INTO `catalog_pages` VALUES ('9041', '9020', 'Video TVs', '2055', '1', '1', NULL, '18', '', 'default_3x3', 'catalog_header_tv|yttv', 'Watch your favourite YouTube Videos with these new Televisions!|');
+INSERT INTO `catalog_pages` VALUES ('9044', '9021', 'Recording Room', '136', '1', '1', NULL, '178', '', 'default_3x3', 'header_studio|teaser_studio|', 'Build your very own VIP Recording Room with the awesome TV Studio Furni! Everything you need from amps and guitars, to lighting rigs and drum sets... You\'ll definitely be the hit of HabboPalooza 2014!');
+INSERT INTO `catalog_pages` VALUES ('9045', '9021', 'Palooza 2013', '187', '1', '1', NULL, '160', '', 'default_3x3', 'catalog_header_hbpalooza|catalog_teaser_hblooza', 'From tents galore to everything you need to build the perfect stage - all your old Palooza favourites are back! They are only here for a limited time so don\'t miss out!');
+INSERT INTO `catalog_pages` VALUES ('9046', '9021', 'Vikings', '208', '1', '1', NULL, '224', '', 'default_3x3', 'vikings_catalog_header|catalog_teaser_vikings', 'From weapon racks and heads on spikes, to ornate hand-carved wooden chairs and benches. This furni has everything you need and more to create the Viking village of your dreams. With furni available in clan colours, you can display your true loyalty with pride!');
+INSERT INTO `catalog_pages` VALUES ('9047', '9021', 'Palooza 2014', '227', '1', '1', NULL, '162', '', 'default_3x3', 'catalog_teaser_palooza', 'The new Habboon Palooza furni has arrived! Create carnivals, festivals, rodeos or whatever else you like!');
+INSERT INTO `catalog_pages` VALUES ('9048', '9021', 'Wild Wild West', '229', '1', '1', NULL, '234', '', 'default_3x3', 'catalog_header_wwest|catalog_teaser_wildwest', 'Wild west furni has made its way to town!');
+INSERT INTO `catalog_pages` VALUES ('9050', '91', 'Noob Lobby', '1', '1', '1', 'catalog.pages.trial_moderator', '2', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9051', '9021', 'University', '230', '1', '1', NULL, '214', '', 'default_3x3', 'catalog_header_en_backtoschool2013_global|catalog_teaser_backtoschool', 'Decorate your room with this University styled furniture.');
+INSERT INTO `catalog_pages` VALUES ('9052', '9021', 'Modern Bathroom', '17', '1', '1', NULL, '146', '', 'default_3x3', 'bathroom_catahead|permbath_catateaser', 'Design your new Habboon batheroom with this newly designed Modern Bathroom furniture range.');
+INSERT INTO `catalog_pages` VALUES ('9053', '9021', 'Habboween 2013', '34', '1', '1', NULL, '106', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9054', '9210', 'Badge Shop', '28', '1', '1', NULL, '1', '', 'default_3x3', '', 'Running low on swag? Buy a fresh new funky swagalicious badge!');
+INSERT INTO `catalog_pages` VALUES ('9056', '9224', 'Baby Pets Shop', '228', '1', '0', NULL, '21', '', 'default_3x3', 'babypets_cata_header|babypets_teaser', 'They\'re friendly. They\'re cute. They\'re here to win your hearts. Who are they? Baby pets! ALL NEW Kittens, puppies, piglets are storming their way through the hotel and joining the Bear Cubs and Terriers. Available via breeding boxes or sale.');
+INSERT INTO `catalog_pages` VALUES ('9057', '9056', 'Puppies', '228', '1', '1', NULL, '6', '', 'pets', 'babypets_cata_header', 'So soft and cuddly, these playful pups are certain to melt your heart. From Labradors to Dalmatians, there\'s a breed for everyone!||Name your pet:|Select your color/breed:');
+INSERT INTO `catalog_pages` VALUES ('9058', '9056', 'Kitten', '228', '1', '1', NULL, '2', '', 'pets', 'babypets_cata_header', 'Leaping their way around Habboon, these fluffy furballs are here to steal your heart...andd your yarn!||Name your pet:|Select your color/breed:');
+INSERT INTO `catalog_pages` VALUES ('9059', '9056', 'Piglets', '228', '1', '1', NULL, '4', '', 'pets', 'babypets_cata_header', 'OINK! Partial to a good roll in the mud, these playful piggies have trotted into Habboon and are ready for fun!||Name your pet:|Select your color/breed:');
+INSERT INTO `catalog_pages` VALUES ('9060', '9056', 'Food & Toys', '199', '1', '1', NULL, '8', '', 'default_3x3', 'babypets_cata_header|babypets_teaser', 'The baby pets are here! Take good care of them and keep them happy with our exciting range of food and toys!|Get some nice accessories for your pet.');
+INSERT INTO `catalog_pages` VALUES ('9061', '91', 'Customs 2015', '28', '1', '1', 'catalog.pages.administrator', '70', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9062', '9021', 'Attic', '242', '1', '1', NULL, '20', '', 'default_3x3', 'attic15_catalog_header|attic15_catalog_teaser', 'From squeaky floor boards to ancient furniture, the Attic 2015 furniture is now here!|');
+INSERT INTO `catalog_pages` VALUES ('9063', '9021', 'Valentines 2015', '243', '1', '1', NULL, '222', '', 'default_3x3', 'val15_cata_header|val15_generic_small_promo2', 'Love is in the air once again! Buy your sweetheart a rose or whisper sweet nothings in their ear on a love sofa. ');
+INSERT INTO `catalog_pages` VALUES ('9064', '9027', 'Alphabet', '1009', '1', '1', NULL, '0', '', 'default_3x3_color_grouping', 'catalog_header_alpha1|catalog_teaser_alpha1', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9065', '9021', 'CyberPunk', '254', '1', '1', NULL, '72', '', 'default_3x3', 'catalog_header_cpunk15|catalog_teaser_cyberpunk', 'Light-filled cityscapes and brightly lit skycrapers looming ovehead... This is the dark, dark furni line of the future. The future is called CyberPunk.');
+INSERT INTO `catalog_pages` VALUES ('9066', '9021', 'Public Furni 2015', '28', '1', '1', NULL, '174', '', 'default_3x3', '', 'Public Furniture: Used to build new rooms such as the Noob Lobby, HC Lounge and Welcome Lounge [2015]');
+INSERT INTO `catalog_pages` VALUES ('9067', '9021', 'Chinese New Year', '15', '0', '1', NULL, '50', '', 'default_3x3', 'catalog_asian_headline1|catalog_asian_teaser1', 'The year of the Horse was engulfed in excitement, but it\'s time for the flames to die away as we slither into the next Chinese Lunar Year - The Goat!');
+INSERT INTO `catalog_pages` VALUES ('9069', '9021', 'St Patrick\'s 2014', '212', '0', '1', NULL, '198', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9070', '9021', 'Mall', '28', '1', '1', NULL, '136', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9071', '9021', 'Ancients', '170', '1', '1', NULL, '10', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9088', '9021', 'Stories', '210', '1', '1', NULL, '202', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9089', '9021', 'Igor', '239', '1', '1', NULL, '116', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9090', '9021', 'Loyalty', '184', '1', '1', NULL, '134', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9091', '9021', 'Spiderwick', '28', '1', '1', NULL, '194', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9092', '9021', 'Collectibles 2008', '28', '1', '1', NULL, '66', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9093', '9021', 'BubbleJuice', '28', '1', '1', NULL, '38', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9094', '9021', 'Ecotron', '163', '1', '1', NULL, '84', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9095', '9021', 'Wall Items', '122', '0', '1', NULL, '230', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9097', '9021', 'Childline', '28', '1', '1', NULL, '48', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9098', '9021', 'Misc', '28', '1', '1', NULL, '142', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9099', '9027', 'Cone', '244', '1', '1', NULL, '3', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9100', '9027', 'Cylinder', '245', '1', '1', NULL, '4', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9101', '9027', 'Half Cylinder', '251', '1', '1', NULL, '5', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9102', '9027', 'Hemisphere', '247', '1', '1', NULL, '6', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9103', '9027', 'Pyramid', '248', '1', '1', NULL, '7', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9104', '9027', 'Quarter Ring', '249', '1', '1', NULL, '8', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9105', '9027', 'Sphere', '250', '1', '1', NULL, '9', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9106', '9027', 'Standing Half Cylinder', '246', '1', '1', NULL, '10', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9107', '9027', 'Standing Triangular Prism', '252', '1', '1', NULL, '11', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9108', '9027', 'Wedge', '253', '1', '1', NULL, '12', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9109', '9027', 'Triangular Prism', '28', '1', '1', NULL, '13', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9110', '9027', 'Glass Panel', '28', '1', '1', NULL, '15', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9111', '9027', 'Round', '28', '1', '1', NULL, '30', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9112', '9027', 'Small', '28', '1', '1', NULL, '31', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9113', '9027', 'Large', '28', '1', '1', NULL, '20', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9114', '9027', 'Tile', '28', '1', '1', NULL, '14', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9115', '9027', 'Flower Hedge', '28', '1', '1', NULL, '16', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9116', '9027', 'Water', '28', '1', '1', NULL, '17', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9117', '9027', 'Simple Wood', '28', '1', '1', NULL, '18', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9118', '9027', 'Terra', '28', '1', '1', NULL, '19', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9119', '9027', 'Brick', '28', '1', '1', NULL, '21', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9120', '9027', 'Glass', '28', '1', '1', NULL, '92', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9121', '9027', 'Lava', '28', '1', '1', NULL, '23', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9122', '9027', 'Marble', '28', '1', '1', NULL, '24', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9123', '9027', 'Art Deco', '28', '1', '1', NULL, '25', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9124', '9027', 'Industrial', '28', '1', '1', NULL, '26', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9125', '9027', 'Sand', '28', '1', '1', NULL, '27', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9126', '9027', 'Metal', '28', '1', '1', NULL, '28', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9127', '9027', 'Metal Crate', '28', '1', '1', NULL, '29', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9128', '9027', 'Stone', '28', '1', '1', NULL, '33', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9129', '9027', 'Wool', '28', '1', '1', NULL, '34', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9130', '9027', 'Grass', '28', '1', '1', NULL, '35', '', 'default_3x3', '', 'Feeling creative? You should be! Here is a full range of building blocks to create a master piece with!');
+INSERT INTO `catalog_pages` VALUES ('9131', '9021', 'Military', '259', '1', '1', NULL, '140', '', 'default_3x3', 'army_header|army_teaser', 'Purchase the new in stock army/military based furni - from gun racks to choppers, no matter what item you\'re after; this section will have it!');
+INSERT INTO `catalog_pages` VALUES ('9132', '9021', 'Infobus', '9991', '1', '1', NULL, '118', '', 'default_3x3', 'bus_header|bus_teaser', '');
+INSERT INTO `catalog_pages` VALUES ('9136', '9021', 'Kitchen', '217', '1', '1', NULL, '4', '', 'default_3x3', 'catalog_header_kitchen2015|teaser_kitchen2015', 'Fancy owning a Habboon restraunt? Or just love catering for Habboons in style? With this furni line you can REALLY get cooking!');
+INSERT INTO `catalog_pages` VALUES ('9167', '91', 'Arcade Machines', '28', '1', '1', 'catalog.pages.administrator', '50', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9168', '9021', 'Paris', '9990', '1', '1', NULL, '5', '', 'default_3x3', 'paris_header|paris_teaser', 'Always wanted to build a Paris designed room? Now is your chance with this brand new set of Paris furniture.');
+INSERT INTO `catalog_pages` VALUES ('9169', '92', 'new rares wouto', '1', '1', '1', NULL, '50', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9170', '9224', 'Event Staff', '196', '1', '1', 'catalog.pages.events_staff', '32', '', 'default_3x3', 'vipheader1|vipteaser2', 'Thank you for purchasing Events Staff, you\'re awesome! This section of the catalogue is especially for our VIP users. The Rares in this section aren\'t cheap, but you can sell them on to non VIP members for a much heftier price!|Click on an item for more information.');
+INSERT INTO `catalog_pages` VALUES ('9201', '9225', 'Payments', '3009', '0', '1', 'catalog.pages.administrator', '2', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9202', '9201', 'Popular Packages', '3009', '1', '1', 'catalog.pages.administrator', '1', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9203', '9201', 'Rare Package 1', '3009', '1', '1', NULL, '2', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9204', '9201', 'Rare Package 2', '3009', '1', '1', NULL, '3', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9205', '9201', 'Rare Package 3', '3009', '1', '1', 'catalog.pages.administrator', '4', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9206', '9201', 'Rare Package 4', '3009', '1', '1', NULL, '5', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9207', '9201', 'Dragon Sets', '3009', '1', '1', 'catalog.pages.administrator', '6', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9208', '9201', 'ICM Sets', '3009', '1', '1', 'catalog.pages.administrator', '7', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9209', '9201', 'Birdbath Sets', '3009', '1', '1', NULL, '8', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9210', '9224', 'Badges', '28', '1', '0', NULL, '11', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9211', '9049', 'Halloween 2015 [LTD]', '262', '1', '1', NULL, '4', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9212', '9021', 'Halloween 2015', '262', '1', '1', NULL, '4', '', 'default_3x3', 'catalog_header_hw15|catalog_teaser_hw15', 'Darkness and evil is spreading through the hotel and you\'re one of the ONLY Habbos that can fight the bad energy! Dodge Evil Frank, avoid dark shadowy places and make it your mission to save Habboon Hotel from complete and TOTAL annihilation!');
+INSERT INTO `catalog_pages` VALUES ('9213', '9212', 'Clothing', '262', '1', '1', NULL, '1', '', 'default_3x3', 'catalog_header_hw15|catalog_teaser_hw15|hween15_clothing', 'Does your loyalty belong to the Light Guardians? Or are you intent on corrupting and destroying Habboon Hotel with the Lost Souls? Whichever side you choose, you can dress the part with these spooktacular Habboon Couture outfits. Which side will you choose?');
+INSERT INTO `catalog_pages` VALUES ('9214', '9225', 'Rares to Sort', '1', '1', '1', 'catalog.pages.developer', '5', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9215', '9225', 'LTD Rares', '1', '1', '1', 'catalog.pages.community_leader', '4', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9219', '9222', 'Bavarian Christmas', '197', '1', '1', NULL, '0', '', 'default_3x3', 'xmas15_head|xmas15_tease', 'Season\'s greetings! BRAND NEW Bavarian Christmas furni is now LIVE!');
+INSERT INTO `catalog_pages` VALUES ('9220', '9222', 'Arctic', '309', '1', '1', NULL, '0', '', 'default_3x3', '|iced15_tease', '');
+INSERT INTO `catalog_pages` VALUES ('9221', '9222', 'Clothing', '74', '1', '1', NULL, '0', '', 'default_3x3', 'clothing_catalog_header|tradeableclothing_teaser', 'The all NEW Christmas 2015 Habboon Couture tradeable clothing and accessories range is a cut above the rest! From santa outfits to scarfs and hair; Habboon Couture lets you express yourself to the extreme!');
+INSERT INTO `catalog_pages` VALUES ('9222', '9224', 'Christmas 2015', '168', '1', '0', NULL, '4', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9223', '9049', 'Group Forums', '1', '1', '0', NULL, '8', '', 'guild_forum', '', 'Group Forums are here!|<<i><b><font color=\"#0e3f52\" size=\"16\">What are Group Forums?</font></b></i>\r\n\r\nForums allow you to effortlessly post, comment and discuss topics freely, without even leaving the Hotel!\r\n\r\n<i><b><font color=\"#0e3f52\" size=\"16\">Who can start a forum? </font></b></i>\r\n\r\nOnly a group owner can start a forum for their group.\r\n\r\n<i><b><font color=\"#0e3f52\" size=\"16\">Do I need a Forum Terminal?</font></b></i>\r\n\r\nYes - In order to start a Group Forum the group owner must first purchase a forum terminal for the group.\r\n\r\n\r\nFind out more about Group Forums <a href=\"event:habbopages/forums\">here</a>.\r\n\r\nPlease note, we will continue to add more functionalities to this feature in the near future.');
+INSERT INTO `catalog_pages` VALUES ('9224', '-1', 'Furni', '1', '1', '1', NULL, '2', 'furni', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('9225', '-1', 'Staff', '1', '1', '1', 'catalog.pages.administrator', '5', 'staff', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('57895', '9224', 'Pet Horse', '132', '1', '1', NULL, '18', '', 'pets', 'catalog_horse_header2_en| ', '');
+INSERT INTO `catalog_pages` VALUES ('789789', '95', 'Coloured Tiles', '64', '1', '1', NULL, '1', '', 'default_3x3', 'ctheader|ctteaser', '');
+INSERT INTO `catalog_pages` VALUES ('912345', '9021', 'Letter Blocks', '28', '1', '1', NULL, '128', '', 'default_3x3', '|', 'Letters A - Z in affordable furniture.|');
+INSERT INTO `catalog_pages` VALUES ('912346', '9021', 'Christmas 2014', '232', '1', '1', NULL, '62', '', 'default_3x3', 'xmas14_catalog_header|', 'Get into the Christmas spirit with this years tropical Christmas furni!');
+INSERT INTO `catalog_pages` VALUES ('912347', '9224', 'Gold VIP', '195', '1', '1', 'catalog.pages.gold_vip', '31', '', 'default_3x3', 'vipheader1|vipteaser2', 'Thank you for purchasing Gold VIP, you\'re awesome! This section of the catalogue is especially for our VIP users. The Rares in this section aren\'t cheap, but you can sell them on to non VIP members for a much heftier price!|Click on an item for more information.');
+INSERT INTO `catalog_pages` VALUES ('912350', '9021', 'Carnival 2015', '160', '1', '1', NULL, '46', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('912357', '9049', 'Dev Wired', '1', '1', '1', NULL, '0', '', 'default_3x3', '', '');
+INSERT INTO `catalog_pages` VALUES ('912358', '9210', 'Badge Of The Week', '28', '1', '1', NULL, '2', '', 'default_3x3', '', 'Running low on swag? Buy a fresh new funky swagalicious badge!');
+INSERT INTO `catalog_pages` VALUES ('912359', '9021', 'Dinosaur', '260', '1', '1', NULL, '76', '', 'default_3x3', 'dino_header|dino_teaser', '');
+INSERT INTO `catalog_pages` VALUES ('912361', '9021', 'Garden', '123', '1', '1', NULL, '93', '', 'default_3x3', '', '');
 
 -- ----------------------------
 -- Table structure for `catalog_pet_races`
@@ -23522,7 +23521,7 @@ CREATE TABLE `navigator_categories` (
   `category_identifier` varchar(35) NOT NULL DEFAULT '',
   `public_name` varchar(35) NOT NULL DEFAULT '',
   `view_mode` enum('REGULAR','THUMBNAIL') NOT NULL DEFAULT 'REGULAR',
-  `required_rank` int(11) NOT NULL DEFAULT '1',
+  `required_permission` varchar(191) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
   `category_type` varchar(25) NOT NULL DEFAULT 'category',
   `search_allowance` enum('NOTHING','SHOW_MORE') NOT NULL DEFAULT 'SHOW_MORE',
   `enabled` enum('0','1') NOT NULL DEFAULT '1',
@@ -23533,35 +23532,35 @@ CREATE TABLE `navigator_categories` (
 -- ----------------------------
 -- Records of navigator_categories
 -- ----------------------------
-INSERT INTO `navigator_categories` VALUES ('0', 'query', 'query', '', 'REGULAR', '1', 'query', 'NOTHING', '1', '0');
-INSERT INTO `navigator_categories` VALUES ('1', 'official_view', 'official-root', '', 'THUMBNAIL', '1', 'featured', 'NOTHING', '1', '0');
-INSERT INTO `navigator_categories` VALUES ('2', 'hotel_view', 'popular', 'Most Popular Rooms', 'REGULAR', '1', 'popular', 'SHOW_MORE', '1', '1');
-INSERT INTO `navigator_categories` VALUES ('4', 'myworld_view', 'my', '', 'REGULAR', '1', 'my_rooms', 'SHOW_MORE', '1', '0');
-INSERT INTO `navigator_categories` VALUES ('5', 'myworld_view', 'favorites', '', 'REGULAR', '1', 'my_favorites', 'SHOW_MORE', '1', '0');
-INSERT INTO `navigator_categories` VALUES ('6', 'myworld_view', 'my_groups', '', 'REGULAR', '1', 'my_groups', 'SHOW_MORE', '1', '0');
-INSERT INTO `navigator_categories` VALUES ('7', 'myworld_view', 'history', '', 'REGULAR', '1', 'my_history', 'SHOW_MORE', '0', '0');
-INSERT INTO `navigator_categories` VALUES ('8', 'myworld_view', 'friends_rooms', 'Rooms Where My Friends Are', 'REGULAR', '1', 'my_friends_room', 'SHOW_MORE', '1', '0');
-INSERT INTO `navigator_categories` VALUES ('9', 'myworld_view', 'history_freq', '', 'REGULAR', '1', 'my_history_freq', 'SHOW_MORE', '0', '0');
-INSERT INTO `navigator_categories` VALUES ('10', 'roomads_view', 'top_promotions', 'Top Promotions', 'REGULAR', '1', 'top_promotions', 'SHOW_MORE', '1', '0');
-INSERT INTO `navigator_categories` VALUES ('19', 'roomads_view', 'promotion_parties_music', 'Parties & Music', 'REGULAR', '1', 'promotion_category', 'SHOW_MORE', '1', '1');
-INSERT INTO `navigator_categories` VALUES ('20', 'roomads_view', 'promotion_roleplay', 'Role Play', 'REGULAR', '1', 'promotion_category', 'SHOW_MORE', '1', '2');
-INSERT INTO `navigator_categories` VALUES ('21', 'roomads_view', 'promotion_trading', 'Trading', 'REGULAR', '1', 'promotion_category', 'SHOW_MORE', '1', '3');
-INSERT INTO `navigator_categories` VALUES ('22', 'roomads_view', 'promotion_games', 'Games', 'REGULAR', '1', 'promotion_category', 'SHOW_MORE', '1', '4');
-INSERT INTO `navigator_categories` VALUES ('23', 'roomads_view', 'promotion_debates_discussion', 'Debates & Discussion', 'REGULAR', '1', 'promotion_category', 'SHOW_MORE', '1', '5');
-INSERT INTO `navigator_categories` VALUES ('24', 'roomads_view', 'promotion_grand_openings', 'Grand Openings', 'REGULAR', '1', 'promotion_category', 'SHOW_MORE', '1', '6');
-INSERT INTO `navigator_categories` VALUES ('25', 'roomads_view', 'promotion_friending', 'Friending', 'REGULAR', '1', 'promotion_category', 'SHOW_MORE', '1', '7');
-INSERT INTO `navigator_categories` VALUES ('26', 'roomads_view', 'promotion_jobs', 'Jobs', 'REGULAR', '1', 'promotion_category', 'SHOW_MORE', '1', '8');
-INSERT INTO `navigator_categories` VALUES ('27', 'roomads_view', 'promotion_group_events', 'Group Events', 'REGULAR', '1', 'promotion_category', 'SHOW_MORE', '1', '9');
-INSERT INTO `navigator_categories` VALUES ('28', 'hotel_view', 'staff_rooms', 'Staff Rooms', 'REGULAR', '5', 'category', 'SHOW_MORE', '0', '0');
-INSERT INTO `navigator_categories` VALUES ('29', 'hotel_view', 'chat_chill_discussion', 'Chat, Chill & Discussion', 'REGULAR', '1', 'category', 'SHOW_MORE', '1', '2');
-INSERT INTO `navigator_categories` VALUES ('30', 'hotel_view', 'trading_casinos', 'Trading & Casinos ', 'REGULAR', '1', 'category', 'SHOW_MORE', '1', '4');
-INSERT INTO `navigator_categories` VALUES ('31', 'hotel_view', 'games_events', 'Games & Events', 'REGULAR', '1', 'category', 'SHOW_MORE', '1', '3');
-INSERT INTO `navigator_categories` VALUES ('32', 'hotel_view', 'parties_clubs', 'Parties & Clubs', 'REGULAR', '1', 'category', 'SHOW_MORE', '1', '5');
-INSERT INTO `navigator_categories` VALUES ('33', 'hotel_view', 'role_playing', 'Role Playing', 'REGULAR', '1', 'category', 'SHOW_MORE', '1', '6');
-INSERT INTO `navigator_categories` VALUES ('34', 'hotel_view', 'help_centers', 'Help Centers', 'REGULAR', '1', 'category', 'SHOW_MORE', '1', '7');
-INSERT INTO `navigator_categories` VALUES ('35', 'hotel_view', 'agencies', 'Agencies', 'REGULAR', '1', 'category', 'SHOW_MORE', '1', '8');
-INSERT INTO `navigator_categories` VALUES ('36', 'hotel_view', 'all_other_rooms', 'All Other Rooms', 'REGULAR', '1', 'category', 'SHOW_MORE', '1', '9');
-INSERT INTO `navigator_categories` VALUES ('37', 'myworld_view', 'my_rights', 'Rooms Where I Have Rights', 'REGULAR', '1', 'my_rights', 'SHOW_MORE', '1', '0');
+INSERT INTO `navigator_categories` VALUES ('0', 'query', 'query', '', 'REGULAR', NULL, 'query', 'NOTHING', '1', '0');
+INSERT INTO `navigator_categories` VALUES ('1', 'official_view', 'official-root', '', 'THUMBNAIL', NULL, 'featured', 'NOTHING', '1', '0');
+INSERT INTO `navigator_categories` VALUES ('2', 'hotel_view', 'popular', 'Most Popular Rooms', 'REGULAR', NULL, 'popular', 'SHOW_MORE', '1', '1');
+INSERT INTO `navigator_categories` VALUES ('4', 'myworld_view', 'my', '', 'REGULAR', NULL, 'my_rooms', 'SHOW_MORE', '1', '0');
+INSERT INTO `navigator_categories` VALUES ('5', 'myworld_view', 'favorites', '', 'REGULAR', NULL, 'my_favorites', 'SHOW_MORE', '1', '0');
+INSERT INTO `navigator_categories` VALUES ('6', 'myworld_view', 'my_groups', '', 'REGULAR', NULL, 'my_groups', 'SHOW_MORE', '1', '0');
+INSERT INTO `navigator_categories` VALUES ('7', 'myworld_view', 'history', '', 'REGULAR', NULL, 'my_history', 'SHOW_MORE', '0', '0');
+INSERT INTO `navigator_categories` VALUES ('8', 'myworld_view', 'friends_rooms', 'Rooms Where My Friends Are', 'REGULAR', NULL, 'my_friends_room', 'SHOW_MORE', '1', '0');
+INSERT INTO `navigator_categories` VALUES ('9', 'myworld_view', 'history_freq', '', 'REGULAR', NULL, 'my_history_freq', 'SHOW_MORE', '0', '0');
+INSERT INTO `navigator_categories` VALUES ('10', 'roomads_view', 'top_promotions', 'Top Promotions', 'REGULAR', NULL, 'top_promotions', 'SHOW_MORE', '1', '0');
+INSERT INTO `navigator_categories` VALUES ('19', 'roomads_view', 'promotion_parties_music', 'Parties & Music', 'REGULAR', NULL, 'promotion_category', 'SHOW_MORE', '1', '1');
+INSERT INTO `navigator_categories` VALUES ('20', 'roomads_view', 'promotion_roleplay', 'Role Play', 'REGULAR', NULL, 'promotion_category', 'SHOW_MORE', '1', '2');
+INSERT INTO `navigator_categories` VALUES ('21', 'roomads_view', 'promotion_trading', 'Trading', 'REGULAR', NULL, 'promotion_category', 'SHOW_MORE', '1', '3');
+INSERT INTO `navigator_categories` VALUES ('22', 'roomads_view', 'promotion_games', 'Games', 'REGULAR', NULL, 'promotion_category', 'SHOW_MORE', '1', '4');
+INSERT INTO `navigator_categories` VALUES ('23', 'roomads_view', 'promotion_debates_discussion', 'Debates & Discussion', 'REGULAR', NULL, 'promotion_category', 'SHOW_MORE', '1', '5');
+INSERT INTO `navigator_categories` VALUES ('24', 'roomads_view', 'promotion_grand_openings', 'Grand Openings', 'REGULAR', NULL, 'promotion_category', 'SHOW_MORE', '1', '6');
+INSERT INTO `navigator_categories` VALUES ('25', 'roomads_view', 'promotion_friending', 'Friending', 'REGULAR', NULL, 'promotion_category', 'SHOW_MORE', '1', '7');
+INSERT INTO `navigator_categories` VALUES ('26', 'roomads_view', 'promotion_jobs', 'Jobs', 'REGULAR', NULL, 'promotion_category', 'SHOW_MORE', '1', '8');
+INSERT INTO `navigator_categories` VALUES ('27', 'roomads_view', 'promotion_group_events', 'Group Events', 'REGULAR', NULL, 'promotion_category', 'SHOW_MORE', '1', '9');
+INSERT INTO `navigator_categories` VALUES ('28', 'hotel_view', 'staff_rooms', 'Staff Rooms', 'REGULAR', 'navigator.searches.administrator', 'category', 'SHOW_MORE', '0', '0');
+INSERT INTO `navigator_categories` VALUES ('29', 'hotel_view', 'chat_chill_discussion', 'Chat, Chill & Discussion', 'REGULAR', NULL, 'category', 'SHOW_MORE', '1', '2');
+INSERT INTO `navigator_categories` VALUES ('30', 'hotel_view', 'trading_casinos', 'Trading & Casinos ', 'REGULAR', NULL, 'category', 'SHOW_MORE', '1', '4');
+INSERT INTO `navigator_categories` VALUES ('31', 'hotel_view', 'games_events', 'Games & Events', 'REGULAR', NULL, 'category', 'SHOW_MORE', '1', '3');
+INSERT INTO `navigator_categories` VALUES ('32', 'hotel_view', 'parties_clubs', 'Parties & Clubs', 'REGULAR', NULL, 'category', 'SHOW_MORE', '1', '5');
+INSERT INTO `navigator_categories` VALUES ('33', 'hotel_view', 'role_playing', 'Role Playing', 'REGULAR', NULL, 'category', 'SHOW_MORE', '1', '6');
+INSERT INTO `navigator_categories` VALUES ('34', 'hotel_view', 'help_centers', 'Help Centers', 'REGULAR', NULL, 'category', 'SHOW_MORE', '1', '7');
+INSERT INTO `navigator_categories` VALUES ('35', 'hotel_view', 'agencies', 'Agencies', 'REGULAR', NULL, 'category', 'SHOW_MORE', '1', '8');
+INSERT INTO `navigator_categories` VALUES ('36', 'hotel_view', 'all_other_rooms', 'All Other Rooms', 'REGULAR', NULL, 'category', 'SHOW_MORE', '1', '9');
+INSERT INTO `navigator_categories` VALUES ('37', 'myworld_view', 'my_rights', 'Rooms Where I Have Rights', 'REGULAR', NULL, 'my_rights', 'SHOW_MORE', '1', '0');
 
 -- ----------------------------
 -- Table structure for `navigator_publics`
@@ -23583,472 +23582,1458 @@ CREATE TABLE `navigator_publics` (
 -- ----------------------------
 
 -- ----------------------------
--- Table structure for `permissions`
+-- Role-based access control
 -- ----------------------------
-DROP TABLE IF EXISTS `permissions`;
-CREATE TABLE `permissions` (
-  `id` int(3) NOT NULL AUTO_INCREMENT,
-  `permission` varchar(50) NOT NULL,
-  `description` text NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=51 DEFAULT CHARSET=latin1;
+CREATE TABLE roles (
+ id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ slug VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
+ name VARCHAR(100) NOT NULL,
+ description VARCHAR(255) NOT NULL DEFAULT '',
+ weight INT NOT NULL DEFAULT 0,
+ security_level TINYINT UNSIGNED NOT NULL DEFAULT 1,
+ badge_code VARCHAR(64) NOT NULL DEFAULT '',
+ is_staff BOOLEAN NOT NULL DEFAULT FALSE,
+ is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+ CHECK (security_level <= 7)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE acl_permissions (
+ `key` VARCHAR(191) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+ category VARCHAR(64) NOT NULL,
+ description VARCHAR(255) NOT NULL DEFAULT '',
+ is_orphan BOOLEAN NOT NULL DEFAULT FALSE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE role_permissions (
+ role_id INT NOT NULL,
+ permission_key VARCHAR(191) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ PRIMARY KEY (role_id, permission_key),
+ FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE user_roles (
+ user_id INT NOT NULL,
+ role_id INT NOT NULL,
+ granted_by INT NULL,
+ expires_at DATETIME(6) NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ PRIMARY KEY (user_id, role_id),
+ KEY expires_at (expires_at),
+ FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE user_permissions (
+ user_id INT NOT NULL,
+ permission_key VARCHAR(191) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ effect ENUM('grant','deny') NOT NULL,
+ granted_by INT NULL,
+ reason VARCHAR(512) NOT NULL DEFAULT '',
+ expires_at DATETIME(6) NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ PRIMARY KEY (user_id, permission_key),
+ KEY expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE role_limits (
+ role_id INT NOT NULL,
+ limit_key VARCHAR(191) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ value INT NOT NULL,
+ PRIMARY KEY (role_id, limit_key),
+ FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE acl_audit_log (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ actor_id INT NULL,
+ action VARCHAR(64) NOT NULL,
+ target_type VARCHAR(32) NOT NULL,
+ target_id INT NOT NULL,
+ payload JSON NOT NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ KEY target (target_type, target_id),
+ KEY actor_created (actor_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ----------------------------
--- Records of permissions
--- ----------------------------
-INSERT INTO `permissions` VALUES ('1', 'silver_vip', 'User gains Silver VIP perks.');
-INSERT INTO `permissions` VALUES ('2', 'gold_vip', 'User gains Gold VIP perks.');
-INSERT INTO `permissions` VALUES ('3', 'events_staff', 'User gains Events Staff perks.');
-INSERT INTO `permissions` VALUES ('4', 'room_enter_full', 'Can enter rooms even when they are full');
-INSERT INTO `permissions` VALUES ('5', 'room_enter_locked', 'Can enter locked rooms without a password');
-INSERT INTO `permissions` VALUES ('6', 'room_any_owner', 'Owner of any room regardless');
-INSERT INTO `permissions` VALUES ('7', 'room_any_rights', 'Rights in any room regardless');
-INSERT INTO `permissions` VALUES ('8', 'room_ignore_mute', 'Can talk even if the room is muted.');
-INSERT INTO `permissions` VALUES ('9', 'mod_tool', 'Can use the moderation tool.');
-INSERT INTO `permissions` VALUES ('10', 'mod_kick', 'Can kick a user from rooms (via mod tool or command).');
-INSERT INTO `permissions` VALUES ('11', 'mod_soft_ban', 'Can user ban the user (via mod tool or command).');
-INSERT INTO `permissions` VALUES ('12', 'mod_ip_ban', 'Can IP ban the user (via mod tool or command).');
-INSERT INTO `permissions` VALUES ('13', 'mod_machine_ban', 'Can machine ban the user (via mod tool or command).');
-INSERT INTO `permissions` VALUES ('14', 'mod_alert', 'Can alert a user (via mod tool or command).');
-INSERT INTO `permissions` VALUES ('15', 'mod_room_alert', 'Can room alert (via mod tool or command).');
-INSERT INTO `permissions` VALUES ('16', 'command_hotel_alert', 'Can hotel alert (via command).');
-INSERT INTO `permissions` VALUES ('17', 'mod_tickets', 'Can handle moderation tickets.');
-INSERT INTO `permissions` VALUES ('18', 'room_ban_override', 'Can override a room ban.');
-INSERT INTO `permissions` VALUES ('19', 'staff_ignore_mod_alert', 'Allows certain staff ranks to ignore mod alert, so moderators can deal with it.');
-INSERT INTO `permissions` VALUES ('20', 'staff_ignore_advertisement_reports', 'Allows certain staff ranks to ignore advertisement reports, so moderators can deal with it.');
-INSERT INTO `permissions` VALUES ('21', 'mod_mute', 'Can mute a user (via mod tool or command).');
-INSERT INTO `permissions` VALUES ('22', 'mod_mute_any', '');
-INSERT INTO `permissions` VALUES ('23', 'mod_kick_any', '');
-INSERT INTO `permissions` VALUES ('24', 'mod_ban_any', '');
-INSERT INTO `permissions` VALUES ('25', 'override_command_setmax_limit', '');
-INSERT INTO `permissions` VALUES ('26', 'room_item_take', 'Allows the staff member to take this item, rather than eject it.');
-INSERT INTO `permissions` VALUES ('27', 'group_management_override', '');
-INSERT INTO `permissions` VALUES ('28', 'group_delete_override', '');
-INSERT INTO `permissions` VALUES ('29', 'group_delete_limit_override', '');
-INSERT INTO `permissions` VALUES ('30', 'room_trade_override', 'Can override the rooms trade settings.');
-INSERT INTO `permissions` VALUES ('31', 'mod_caution', 'Can a user (via mod tool).');
-INSERT INTO `permissions` VALUES ('32', 'mod_trade_lock_any', '');
-INSERT INTO `permissions` VALUES ('33', 'mod_trade_lock', 'Can trade lock a user (via mod tool or command).');
-INSERT INTO `permissions` VALUES ('34', 'room_item_wired_rewards', 'Can use the GiveUserBadgeBox wired.');
-INSERT INTO `permissions` VALUES ('35', 'word_filter_override', '');
-INSERT INTO `permissions` VALUES ('36', 'bot_place_any_override', '');
-INSERT INTO `permissions` VALUES ('37', 'bot_place_any_override', '');
-INSERT INTO `permissions` VALUES ('38', 'bot_edit_any_override', '');
-INSERT INTO `permissions` VALUES ('39', 'room_whisper_override', 'Can override another users whisper communication setting.');
-INSERT INTO `permissions` VALUES ('40', 'room_item_place_exchange_anywhere', '');
-INSERT INTO `permissions` VALUES ('41', 'room_item_save_branding_items', '');
-INSERT INTO `permissions` VALUES ('42', 'room_item_use_any_stack_tile', '');
-INSERT INTO `permissions` VALUES ('43', 'room_delete_any', 'Ability to delete any room.');
-INSERT INTO `permissions` VALUES ('44', 'mod_disconnect_any', '');
-INSERT INTO `permissions` VALUES ('45', 'mod_make_say_any', '');
-INSERT INTO `permissions` VALUES ('46', 'command_override_massenable', '');
-INSERT INTO `permissions` VALUES ('47', 'room_override_custom_config', '');
-INSERT INTO `permissions` VALUES ('48', 'mod_mute_limit_override', '');
-INSERT INTO `permissions` VALUES ('49', 'room_unload_any', '');
-INSERT INTO `permissions` VALUES ('50', 'fuse_group_accept_any', '');
 
--- ----------------------------
--- Table structure for `permissions_commands`
--- ----------------------------
-DROP TABLE IF EXISTS `permissions_commands`;
-CREATE TABLE `permissions_commands` (
-  `command` varchar(45) NOT NULL DEFAULT '',
-  `group_id` int(11) NOT NULL DEFAULT '4',
-  `subscription_id` int(11) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`command`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+INSERT INTO roles (`id`,`slug`,`name`,`description`,`weight`,`security_level`,`badge_code`,`is_staff`,`is_hidden`) VALUES
+ (1,'default','User','Given a default set of permissions.',0,1,'',0,0),
+ (11,'vip','Silver VIP','Migrated subscription tier.',10,1,'SVIP',0,0),
+ (12,'gold_vip','Gold VIP','Migrated subscription tier.',10,1,'GVIP',0,0),
+ (13,'events_staff','Events Staff','Migrated subscription tier.',10,1,'EVENT',0,0),
+ (2,'trial_moderator','Trial Moderator','Given a minimal set of moderation permissions.',20,2,'TMOD',1,0),
+ (3,'moderator','Moderator','Given further moderation permissions.',30,3,'MOD',1,0),
+ (4,'senior_moderator','Senior Moderator','Given further moderation permissions.',40,4,'SMOD',1,0),
+ (5,'administrator','Administrator','Given generic administration permissions.',50,5,'ADM',1,0),
+ (6,'manager','Manager','Inheirates administration permissions & more.',60,6,'MNGER',1,0),
+ (7,'community_leader','Community Leader','Inheirates manager permissions & more.',70,7,'ADM',1,0),
+ (8,'developer','Developer','Ability to access all permissions.',80,7,'DEV',1,0),
+ (9,'owner','Owner','Ability to access all permissions.',90,7,'OWNR',1,0);
 
--- ----------------------------
--- Records of permissions_commands
--- ----------------------------
-INSERT INTO `permissions_commands` VALUES ('command_alert_user', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_allaroundme', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_alleyesonme', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_ban', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_bubble', '1', '1');
-INSERT INTO `permissions_commands` VALUES ('command_carry', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_clubnx', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_control', '6', '0');
-INSERT INTO `permissions_commands` VALUES ('command_convert_credits', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_coords', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_dance', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_debug', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_delete_group', '6', '0');
-INSERT INTO `permissions_commands` VALUES ('command_disable_diagonal', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_disable_gifts', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_disable_mimic', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_disconnect', '3', '0');
-INSERT INTO `permissions_commands` VALUES ('command_dnd', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_ejectall', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_empty', '4', '0');
-INSERT INTO `permissions_commands` VALUES ('command_empty_items', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_enable', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_faceless', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_fastwalk', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_flagme', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_flaguser', '5', '0');
-INSERT INTO `permissions_commands` VALUES ('command_follow', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_forced_effects', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_forcesit', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_force_draw', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_freeze', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_give', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_give_badge', '4', '0');
-INSERT INTO `permissions_commands` VALUES ('command_give_coins', '5', '0');
-INSERT INTO `permissions_commands` VALUES ('command_give_diamonds', '5', '0');
-INSERT INTO `permissions_commands` VALUES ('command_give_gotw', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_give_pixels', '5', '0');
-INSERT INTO `permissions_commands` VALUES ('command_goto', '3', '0');
-INSERT INTO `permissions_commands` VALUES ('command_hal', '6', '0');
-INSERT INTO `permissions_commands` VALUES ('command_hotel_alert', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_hvusers', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_ignore_whispers', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_info', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_ip_ban', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_kick', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_kickbots', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_kickpets', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_lay', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_maintenance', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_makesay', '6', '0');
-INSERT INTO `permissions_commands` VALUES ('command_make_say', '6', '0');
-INSERT INTO `permissions_commands` VALUES ('command_make_shout', '6', '0');
-INSERT INTO `permissions_commands` VALUES ('command_massdance', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_massenable', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_mass_badge', '6', '0');
-INSERT INTO `permissions_commands` VALUES ('command_mimic', '1', '1');
-INSERT INTO `permissions_commands` VALUES ('command_mip', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_moonwalk', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_mute', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_mute_bots', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_mute_pets', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_override', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_override_massenable', '4', '0');
-INSERT INTO `permissions_commands` VALUES ('command_pet', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_pickall', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_pull', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_push', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_regen_maps', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_rig', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_room', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_roommute', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_room_alert', '1', '2');
-INSERT INTO `permissions_commands` VALUES ('command_room_badge', '4', '0');
-INSERT INTO `permissions_commands` VALUES ('command_room_kick', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_room_say', '7', '0');
-INSERT INTO `permissions_commands` VALUES ('command_room_shout', '7', '0');
-INSERT INTO `permissions_commands` VALUES ('command_setmax', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_setspeed', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_sit', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_staff_alert', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_stand', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_stats', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_summon', '3', '0');
-INSERT INTO `permissions_commands` VALUES ('command_super_fastwalk', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_super_pull', '1', '1');
-INSERT INTO `permissions_commands` VALUES ('command_super_push', '1', '1');
-INSERT INTO `permissions_commands` VALUES ('command_teleport', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_trade_ban', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_transfer', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_unfreeze', '3', '0');
-INSERT INTO `permissions_commands` VALUES ('command_unload', '1', '0');
-INSERT INTO `permissions_commands` VALUES ('command_unmute', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_unroommute', '2', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update', '5', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_achievements', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_anti_mutant', '6', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_bans', '4', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_bots', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_catalog', '5', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_cata_full', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_chat_styles', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_configuration', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_filter', '4', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_furni', '5', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_game_center', '5', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_models', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_moderation', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_navigator', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_promotions', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_quests', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_rewards', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_rights', '6', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_tickets', '5', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_vouchers', '5', '0');
-INSERT INTO `permissions_commands` VALUES ('command_update_youtube', '8', '0');
-INSERT INTO `permissions_commands` VALUES ('command_user_info', '2', '0');
+INSERT INTO acl_permissions (`key`,`category`,`description`,`is_orphan`) VALUES
+ ('ambassador','community','Ambassador access.',0),
+ ('avatar.name.staff_prefix_required','avatar','Require the staff username prefix.',0),
+ ('bot.edit_any_override','bot','',1),
+ ('bot.place_any_override','bot','',1),
+ ('camera.use','camera','Use the camera.',0),
+ ('catalog.edit','catalog','Can use the in-client catalog editor and furni editor.',1),
+ ('catalog.gift.staff','catalog','Staff catalog gifts.',0),
+ ('catalog.pages.administrator','catalog','Migrated catalog page access.',0),
+ ('catalog.pages.community_leader','catalog','Migrated catalog page access.',0),
+ ('catalog.pages.developer','catalog','Migrated catalog page access.',0),
+ ('catalog.pages.events_staff','catalog','Migrated catalog page access.',0),
+ ('catalog.pages.gold_vip','catalog','Migrated catalog page access.',0),
+ ('catalog.pages.trial_moderator','catalog','Migrated catalog page access.',0),
+ ('catalog.pages.vip','catalog','Migrated catalog page access.',0),
+ ('chat.filter_bypass','chat','',1),
+ ('chat.report.unlimited','chat','Bypass chat report cooldown.',0),
+ ('chat.style.staff','chat','Use staff chat styles.',0),
+ ('command.about','command','Migrated chat command.',1),
+ ('command.alert','command','Migrated chat command.',1),
+ ('command.allaroundme','command','Migrated chat command.',1),
+ ('command.alleyesonme','command','Migrated chat command.',1),
+ ('command.ban','command','Migrated chat command.',1),
+ ('command.bubble','command','Migrated chat command.',1),
+ ('command.carry','command','Migrated chat command.',1),
+ ('command.clubnx','command','Migrated chat command.',1),
+ ('command.control','command','Migrated chat command.',1),
+ ('command.convertcredits','command','Migrated chat command.',1),
+ ('command.coords','command','Migrated chat command.',1),
+ ('command.dance','command','Migrated chat command.',1),
+ ('command.dc','command','Migrated chat command.',1),
+ ('command.debug','command','Migrated chat command.',1),
+ ('command.deletegroup','command','Migrated chat command.',1),
+ ('command.disablediagonal','command','Migrated chat command.',1),
+ ('command.disablegifts','command','Migrated chat command.',1),
+ ('command.disablemimic','command','Migrated chat command.',1),
+ ('command.disablewhispers','command','Migrated chat command.',1),
+ ('command.dnd','command','Migrated chat command.',1),
+ ('command.eha','command','Migrated chat command.',1),
+ ('command.ejectall','command','Migrated chat command.',1),
+ ('command.empty','command','Migrated chat command.',1),
+ ('command.emptyitems','command','Migrated chat command.',1),
+ ('command.enable','command','Migrated chat command.',1),
+ ('command.faceless','command','Migrated chat command.',1),
+ ('command.fastwalk','command','Migrated chat command.',1),
+ ('command.flagme','command','Migrated chat command.',1),
+ ('command.flaguser','command','Migrated chat command.',1),
+ ('command.follow','command','Migrated chat command.',1),
+ ('command.force_draw','command','Migrated chat command.',1),
+ ('command.forced_effects','command','Migrated chat command.',1),
+ ('command.forcesit','command','Migrated chat command.',1),
+ ('command.freeze','command','Migrated chat command.',1),
+ ('command.give_coins','command','Migrated chat command.',1),
+ ('command.give_diamonds','command','Migrated chat command.',1),
+ ('command.give_gotw','command','Migrated chat command.',1),
+ ('command.give_pixels','command','Migrated chat command.',1),
+ ('command.give','command','Migrated chat command.',1),
+ ('command.givebadge','command','Migrated chat command.',1),
+ ('command.goto','command','Migrated chat command.',1),
+ ('command.ha','command','Can hotel alert (via command).',1),
+ ('command.hal','command','Migrated chat command.',1),
+ ('command.hvusers','command','Migrated chat command.',1),
+ ('command.ignorewhispers','command','Migrated chat command.',1),
+ ('command.ipban','command','Migrated chat command.',1),
+ ('command.kick','command','Migrated chat command.',1),
+ ('command.kickbots','command','Migrated chat command.',1),
+ ('command.kickpets','command','Migrated chat command.',1),
+ ('command.lay','command','Migrated chat command.',1),
+ ('command.maintenance','command','Migrated chat command.',1),
+ ('command.make_say','command','Migrated chat command.',1),
+ ('command.make_shout','command','Migrated chat command.',1),
+ ('command.makesay','command','Migrated chat command.',1),
+ ('command.massbadge','command','Migrated chat command.',1),
+ ('command.massdance','command','Migrated chat command.',1),
+ ('command.massenable','command','Migrated chat command.',1),
+ ('command.mimic','command','Migrated chat command.',1),
+ ('command.mip','command','Migrated chat command.',1),
+ ('command.moonwalk','command','Migrated chat command.',1),
+ ('command.mute','command','Migrated chat command.',1),
+ ('command.mutebots','command','Migrated chat command.',1),
+ ('command.mutepets','command','Migrated chat command.',1),
+ ('command.override_massenable','command','',1),
+ ('command.override','command','Migrated chat command.',1),
+ ('command.pet','command','Migrated chat command.',1),
+ ('command.pickall','command','Migrated chat command.',1),
+ ('command.pull','command','Migrated chat command.',1),
+ ('command.push','command','Migrated chat command.',1),
+ ('command.regenmaps','command','Migrated chat command.',1),
+ ('command.rig','command','Migrated chat command.',1),
+ ('command.room_say','command','Migrated chat command.',1),
+ ('command.room_shout','command','Migrated chat command.',1),
+ ('command.room','command','Migrated chat command.',1),
+ ('command.roomalert','command','Migrated chat command.',1),
+ ('command.roombadge','command','Migrated chat command.',1),
+ ('command.roomkick','command','Migrated chat command.',1),
+ ('command.roommute','command','Migrated chat command.',1),
+ ('command.roomunmute','command','Migrated chat command.',1),
+ ('command.sa','command','Migrated chat command.',1),
+ ('command.sellroom','command','Migrated chat command.',1),
+ ('command.setmax','command','Migrated chat command.',1),
+ ('command.setspeed','command','Migrated chat command.',1),
+ ('command.sit','command','Migrated chat command.',1),
+ ('command.spull','command','Migrated chat command.',1),
+ ('command.spush','command','Migrated chat command.',1),
+ ('command.stand','command','Migrated chat command.',1),
+ ('command.stats','command','Migrated chat command.',1),
+ ('command.stress','command','Migrated chat command.',1),
+ ('command.summon','command','Migrated chat command.',1),
+ ('command.superfastwalk','command','Migrated chat command.',1),
+ ('command.teleport','command','Migrated chat command.',1),
+ ('command.tradeban','command','Migrated chat command.',1),
+ ('command.transfer','command','Migrated chat command.',1),
+ ('command.unfreeze','command','Migrated chat command.',1),
+ ('command.unload','command','Migrated chat command.',1),
+ ('command.unmute','command','Migrated chat command.',1),
+ ('command.unused_override_massenable','command','Migrated chat command.',1),
+ ('command.update_achievements','command','Migrated chat command.',1),
+ ('command.update_anti_mutant','command','Migrated chat command.',1),
+ ('command.update_bans','command','Migrated chat command.',1),
+ ('command.update_bots','command','Migrated chat command.',1),
+ ('command.update_cata_full','command','Migrated chat command.',1),
+ ('command.update_catalog','command','Migrated chat command.',1),
+ ('command.update_chat_styles','command','Migrated chat command.',1),
+ ('command.update_configuration','command','Migrated chat command.',1),
+ ('command.update_filter','command','Migrated chat command.',1),
+ ('command.update_furni','command','Migrated chat command.',1),
+ ('command.update_game_center','command','Migrated chat command.',1),
+ ('command.update_models','command','Migrated chat command.',1),
+ ('command.update_moderation','command','Migrated chat command.',1),
+ ('command.update_navigator','command','Migrated chat command.',1),
+ ('command.update_promotions','command','Migrated chat command.',1),
+ ('command.update_quests','command','Migrated chat command.',1),
+ ('command.update_rewards','command','Migrated chat command.',1),
+ ('command.update_rights','command','Migrated chat command.',1),
+ ('command.update_tickets','command','Migrated chat command.',1),
+ ('command.update_vouchers','command','Migrated chat command.',1),
+ ('command.update_youtube','command','Migrated chat command.',1),
+ ('command.update','command','Migrated chat command.',1),
+ ('command.userinfo','command','Migrated chat command.',1),
+ ('furni.delete','furni','Can delete unused furniture definitions from the furni editor.',1),
+ ('furni.edit','furni','Can edit and revert the shared FurnitureData.json from the furni editor.',1),
+ ('group.accept.any','group','',1),
+ ('group.delete_limit_override','group','',1),
+ ('group.delete_override','group','',1),
+ ('group.management_override','group','',1),
+ ('housekeeping.access','housekeeping','Can open the in-client housekeeping panel and its lookups.',1),
+ ('housekeeping.alert','housekeeping','Housekeeping: send a hotel-wide alert.',1),
+ ('housekeeping.economy','housekeeping','Housekeeping: give currency, furniture and Habbo Club to lower ranks.',1),
+ ('housekeeping.password','housekeeping','Housekeeping: reset a lower rank\'s password to a one-time password.',1),
+ ('housekeeping.private_data','housekeeping','Housekeeping: see email addresses and last IPs in user lookups.',1),
+ ('housekeeping.roles.manage','housekeeping','Housekeeping: change lower ranks to a rank below your own.',1),
+ ('housekeeping.room_ownership','housekeeping','Housekeeping: transfer and delete rooms of lower ranks.',1),
+ ('housekeeping.rooms','housekeeping','Housekeeping: open, close, mute and empty rooms of lower ranks.',1),
+ ('housekeeping.sanction','housekeeping','Housekeeping: ban, unban, mute, kick, disconnect and trade lock lower ranks.',1),
+ ('moderation.alert','moderation','Can alert a user (via mod tool or command).',1),
+ ('moderation.ban.soft','moderation','Can user ban the user (via mod tool or command).',1),
+ ('moderation.ban','moderation','',1),
+ ('moderation.caution','moderation','Can a user (via mod tool).',1),
+ ('moderation.disconnect_any','moderation','',1),
+ ('moderation.ip_ban','moderation','Can IP ban the user (via mod tool or command).',1),
+ ('moderation.kick_any','moderation','',1),
+ ('moderation.kick','moderation','Can kick a user from rooms (via mod tool or command).',1),
+ ('moderation.machine_ban','moderation','Can machine ban the user (via mod tool or command).',1),
+ ('moderation.make_say_any','moderation','',1),
+ ('moderation.mute_limit_override','moderation','',1),
+ ('moderation.mute.any','moderation','',1),
+ ('moderation.mute','moderation','Can mute a user (via mod tool or command).',1),
+ ('moderation.room_alert','moderation','Can room alert (via mod tool or command).',1),
+ ('moderation.tickets','moderation','Can handle moderation tickets.',1),
+ ('moderation.tool','moderation','Can use the moderation tool.',1),
+ ('moderation.trade_lock_any','moderation','',1),
+ ('moderation.trade_lock','moderation','Can trade lock a user (via mod tool or command).',1),
+ ('navigator.categories.staff','navigator','See staff navigator categories.',0),
+ ('navigator.events.moderate','navigator','Moderate navigator events.',0),
+ ('navigator.room_models.staff','navigator','Use staff room models.',0),
+ ('navigator.searches.administrator','navigator','Migrated navigator search access.',0),
+ ('navigator.staff_pick','navigator','Manage staff picks.',0),
+ ('room.ban_override','room','Can override a room ban.',1),
+ ('room.delete_any','room','Ability to delete any room.',1),
+ ('room.enter_full','room','Can enter rooms even when they are full',1),
+ ('room.enter_locked','room','Can enter locked rooms without a password',1),
+ ('room.ignore_mute','room','Can talk even if the room is muted.',1),
+ ('room.item_place_exchange_anywhere','room','',1),
+ ('room.item_save_branding_items','room','',1),
+ ('room.item_take','room','Allows the staff member to take this item, rather than eject it.',1),
+ ('room.item_use_any_stack_tile','room','',1),
+ ('room.item_wired_rewards','room','Can use the GiveUserBadgeBox wired.',1),
+ ('room.override_custom_config','room','',1),
+ ('room.owner.any','room','Owner of any room regardless',1),
+ ('room.rights.any','room','Rights in any room regardless',1),
+ ('room.trade_override','room','Can override the rooms trade settings.',1),
+ ('room.unload_any','room','',1),
+ ('room.user_limit.override','room','',1),
+ ('room.whisper_override','room','Can override another users whisper communication setting.',1),
+ ('room.youtube.control_any','room','Control room videos.',0),
+ ('staff.events','staff','User gains Events Staff perks.',1),
+ ('staff.ignore_advertisement_reports','staff','Allows certain staff ranks to ignore advertisement reports, so moderators can deal with it.',1),
+ ('staff.ignore_mod_alert','staff','Allows certain staff ranks to ignore mod alert, so moderators can deal with it.',1),
+ ('staff.receive_alerts','staff','Receive staff broadcasts.',0);
 
--- ----------------------------
--- Table structure for `permissions_groups`
--- ----------------------------
-DROP TABLE IF EXISTS `permissions_groups`;
-CREATE TABLE `permissions_groups` (
-  `id` int(3) NOT NULL,
-  `name` varchar(50) NOT NULL,
-  `description` varchar(50) NOT NULL,
-  `badge_code` varchar(12) NOT NULL DEFAULT '',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+INSERT INTO role_permissions (`role_id`,`permission_key`) VALUES
+ (1,'camera.use'),
+ (1,'command.about'),
+ (1,'command.convertcredits'),
+ (1,'command.dance'),
+ (1,'command.disablediagonal'),
+ (1,'command.disablegifts'),
+ (1,'command.disablemimic'),
+ (1,'command.dnd'),
+ (1,'command.ejectall'),
+ (1,'command.emptyitems'),
+ (1,'command.enable'),
+ (1,'command.faceless'),
+ (1,'command.flagme'),
+ (1,'command.follow'),
+ (1,'command.kickbots'),
+ (1,'command.kickpets'),
+ (1,'command.lay'),
+ (1,'command.moonwalk'),
+ (1,'command.mutebots'),
+ (1,'command.mutepets'),
+ (1,'command.pet'),
+ (1,'command.pickall'),
+ (1,'command.pull'),
+ (1,'command.push'),
+ (1,'command.regenmaps'),
+ (1,'command.room'),
+ (1,'command.setmax'),
+ (1,'command.setspeed'),
+ (1,'command.sit'),
+ (1,'command.stand'),
+ (1,'command.stats'),
+ (1,'command.unload'),
+ (11,'camera.use'),
+ (11,'catalog.pages.vip'),
+ (11,'command.bubble'),
+ (11,'command.mimic'),
+ (11,'command.spull'),
+ (11,'command.spush'),
+ (12,'camera.use'),
+ (12,'catalog.pages.gold_vip'),
+ (12,'catalog.pages.vip'),
+ (12,'command.bubble'),
+ (12,'command.mimic'),
+ (12,'command.roomalert'),
+ (12,'command.spull'),
+ (12,'command.spush'),
+ (13,'camera.use'),
+ (13,'catalog.pages.events_staff'),
+ (13,'catalog.pages.gold_vip'),
+ (13,'catalog.pages.vip'),
+ (13,'command.bubble'),
+ (13,'command.mimic'),
+ (13,'command.roomalert'),
+ (13,'command.spull'),
+ (13,'command.spush'),
+ (13,'staff.events'),
+ (2,'avatar.name.staff_prefix_required'),
+ (2,'camera.use'),
+ (2,'catalog.pages.events_staff'),
+ (2,'catalog.pages.gold_vip'),
+ (2,'catalog.pages.trial_moderator'),
+ (2,'catalog.pages.vip'),
+ (2,'chat.report.unlimited'),
+ (2,'chat.style.staff'),
+ (2,'command.about'),
+ (2,'command.alert'),
+ (2,'command.ban'),
+ (2,'command.bubble'),
+ (2,'command.carry'),
+ (2,'command.clubnx'),
+ (2,'command.convertcredits'),
+ (2,'command.coords'),
+ (2,'command.dance'),
+ (2,'command.disablediagonal'),
+ (2,'command.disablegifts'),
+ (2,'command.disablemimic'),
+ (2,'command.dnd'),
+ (2,'command.ejectall'),
+ (2,'command.emptyitems'),
+ (2,'command.enable'),
+ (2,'command.faceless'),
+ (2,'command.fastwalk'),
+ (2,'command.flagme'),
+ (2,'command.follow'),
+ (2,'command.forced_effects'),
+ (2,'command.forcesit'),
+ (2,'command.freeze'),
+ (2,'command.give'),
+ (2,'command.give_gotw'),
+ (2,'command.ignorewhispers'),
+ (2,'command.ipban'),
+ (2,'command.kick'),
+ (2,'command.kickbots'),
+ (2,'command.kickpets'),
+ (2,'command.lay'),
+ (2,'command.massenable'),
+ (2,'command.mimic'),
+ (2,'command.mip'),
+ (2,'command.moonwalk'),
+ (2,'command.mute'),
+ (2,'command.mutebots'),
+ (2,'command.mutepets'),
+ (2,'command.override'),
+ (2,'command.pet'),
+ (2,'command.pickall'),
+ (2,'command.pull'),
+ (2,'command.push'),
+ (2,'command.regenmaps'),
+ (2,'command.room'),
+ (2,'command.roomalert'),
+ (2,'command.roomkick'),
+ (2,'command.roommute'),
+ (2,'command.roomunmute'),
+ (2,'command.sa'),
+ (2,'command.setmax'),
+ (2,'command.setspeed'),
+ (2,'command.sit'),
+ (2,'command.spull'),
+ (2,'command.spush'),
+ (2,'command.stand'),
+ (2,'command.stats'),
+ (2,'command.stress'),
+ (2,'command.superfastwalk'),
+ (2,'command.teleport'),
+ (2,'command.tradeban'),
+ (2,'command.unload'),
+ (2,'command.unmute'),
+ (2,'command.userinfo'),
+ (2,'moderation.alert'),
+ (2,'moderation.ban.soft'),
+ (2,'moderation.caution'),
+ (2,'moderation.ip_ban'),
+ (2,'moderation.kick'),
+ (2,'moderation.machine_ban'),
+ (2,'moderation.mute'),
+ (2,'moderation.room_alert'),
+ (2,'moderation.tickets'),
+ (2,'moderation.tool'),
+ (2,'moderation.trade_lock'),
+ (2,'room.ban_override'),
+ (2,'room.enter_full'),
+ (2,'room.enter_locked'),
+ (2,'room.ignore_mute'),
+ (2,'room.override_custom_config'),
+ (2,'room.trade_override'),
+ (2,'staff.receive_alerts'),
+ (3,'avatar.name.staff_prefix_required'),
+ (3,'camera.use'),
+ (3,'catalog.pages.events_staff'),
+ (3,'catalog.pages.gold_vip'),
+ (3,'catalog.pages.trial_moderator'),
+ (3,'catalog.pages.vip'),
+ (3,'chat.filter_bypass'),
+ (3,'chat.report.unlimited'),
+ (3,'chat.style.staff'),
+ (3,'command.about'),
+ (3,'command.alert'),
+ (3,'command.ban'),
+ (3,'command.bubble'),
+ (3,'command.carry'),
+ (3,'command.clubnx'),
+ (3,'command.convertcredits'),
+ (3,'command.coords'),
+ (3,'command.dance'),
+ (3,'command.dc'),
+ (3,'command.disablediagonal'),
+ (3,'command.disablegifts'),
+ (3,'command.disablemimic'),
+ (3,'command.dnd'),
+ (3,'command.ejectall'),
+ (3,'command.emptyitems'),
+ (3,'command.enable'),
+ (3,'command.faceless'),
+ (3,'command.fastwalk'),
+ (3,'command.flagme'),
+ (3,'command.follow'),
+ (3,'command.forced_effects'),
+ (3,'command.forcesit'),
+ (3,'command.freeze'),
+ (3,'command.give'),
+ (3,'command.give_gotw'),
+ (3,'command.goto'),
+ (3,'command.ignorewhispers'),
+ (3,'command.ipban'),
+ (3,'command.kick'),
+ (3,'command.kickbots'),
+ (3,'command.kickpets'),
+ (3,'command.lay'),
+ (3,'command.massenable'),
+ (3,'command.mimic'),
+ (3,'command.mip'),
+ (3,'command.moonwalk'),
+ (3,'command.mute'),
+ (3,'command.mutebots'),
+ (3,'command.mutepets'),
+ (3,'command.override'),
+ (3,'command.pet'),
+ (3,'command.pickall'),
+ (3,'command.pull'),
+ (3,'command.push'),
+ (3,'command.regenmaps'),
+ (3,'command.room'),
+ (3,'command.roomalert'),
+ (3,'command.roomkick'),
+ (3,'command.roommute'),
+ (3,'command.roomunmute'),
+ (3,'command.sa'),
+ (3,'command.setmax'),
+ (3,'command.setspeed'),
+ (3,'command.sit'),
+ (3,'command.spull'),
+ (3,'command.spush'),
+ (3,'command.stand'),
+ (3,'command.stats'),
+ (3,'command.stress'),
+ (3,'command.summon'),
+ (3,'command.superfastwalk'),
+ (3,'command.teleport'),
+ (3,'command.tradeban'),
+ (3,'command.unfreeze'),
+ (3,'command.unload'),
+ (3,'command.unmute'),
+ (3,'command.userinfo'),
+ (3,'moderation.alert'),
+ (3,'moderation.ban.soft'),
+ (3,'moderation.caution'),
+ (3,'moderation.ip_ban'),
+ (3,'moderation.kick'),
+ (3,'moderation.machine_ban'),
+ (3,'moderation.mute'),
+ (3,'moderation.room_alert'),
+ (3,'moderation.tickets'),
+ (3,'moderation.tool'),
+ (3,'moderation.trade_lock'),
+ (3,'room.ban_override'),
+ (3,'room.enter_full'),
+ (3,'room.enter_locked'),
+ (3,'room.ignore_mute'),
+ (3,'room.override_custom_config'),
+ (3,'room.trade_override'),
+ (3,'staff.receive_alerts'),
+ (4,'camera.use'),
+ (4,'catalog.pages.events_staff'),
+ (4,'catalog.pages.gold_vip'),
+ (4,'catalog.pages.trial_moderator'),
+ (4,'catalog.pages.vip'),
+ (4,'chat.filter_bypass'),
+ (4,'chat.report.unlimited'),
+ (4,'chat.style.staff'),
+ (4,'command.about'),
+ (4,'command.alert'),
+ (4,'command.ban'),
+ (4,'command.bubble'),
+ (4,'command.carry'),
+ (4,'command.clubnx'),
+ (4,'command.convertcredits'),
+ (4,'command.coords'),
+ (4,'command.dance'),
+ (4,'command.dc'),
+ (4,'command.disablediagonal'),
+ (4,'command.disablegifts'),
+ (4,'command.disablemimic'),
+ (4,'command.dnd'),
+ (4,'command.ejectall'),
+ (4,'command.empty'),
+ (4,'command.emptyitems'),
+ (4,'command.enable'),
+ (4,'command.faceless'),
+ (4,'command.fastwalk'),
+ (4,'command.flagme'),
+ (4,'command.follow'),
+ (4,'command.forced_effects'),
+ (4,'command.forcesit'),
+ (4,'command.freeze'),
+ (4,'command.give'),
+ (4,'command.give_gotw'),
+ (4,'command.givebadge'),
+ (4,'command.goto'),
+ (4,'command.ignorewhispers'),
+ (4,'command.ipban'),
+ (4,'command.kick'),
+ (4,'command.kickbots'),
+ (4,'command.kickpets'),
+ (4,'command.lay'),
+ (4,'command.massenable'),
+ (4,'command.mimic'),
+ (4,'command.mip'),
+ (4,'command.moonwalk'),
+ (4,'command.mute'),
+ (4,'command.mutebots'),
+ (4,'command.mutepets'),
+ (4,'command.override'),
+ (4,'command.pet'),
+ (4,'command.pickall'),
+ (4,'command.pull'),
+ (4,'command.push'),
+ (4,'command.regenmaps'),
+ (4,'command.room'),
+ (4,'command.roomalert'),
+ (4,'command.roombadge'),
+ (4,'command.roomkick'),
+ (4,'command.roommute'),
+ (4,'command.roomunmute'),
+ (4,'command.sa'),
+ (4,'command.setmax'),
+ (4,'command.setspeed'),
+ (4,'command.sit'),
+ (4,'command.spull'),
+ (4,'command.spush'),
+ (4,'command.stand'),
+ (4,'command.stats'),
+ (4,'command.stress'),
+ (4,'command.summon'),
+ (4,'command.superfastwalk'),
+ (4,'command.teleport'),
+ (4,'command.tradeban'),
+ (4,'command.unfreeze'),
+ (4,'command.unload'),
+ (4,'command.unmute'),
+ (4,'command.unused_override_massenable'),
+ (4,'command.update_bans'),
+ (4,'command.update_filter'),
+ (4,'command.userinfo'),
+ (4,'moderation.alert'),
+ (4,'moderation.ban.soft'),
+ (4,'moderation.ip_ban'),
+ (4,'moderation.kick'),
+ (4,'moderation.machine_ban'),
+ (4,'moderation.mute'),
+ (4,'moderation.room_alert'),
+ (4,'moderation.tickets'),
+ (4,'moderation.tool'),
+ (4,'moderation.trade_lock'),
+ (4,'moderation.trade_lock_any'),
+ (4,'navigator.room_models.staff'),
+ (4,'room.ban_override'),
+ (4,'room.enter_full'),
+ (4,'room.enter_locked'),
+ (4,'room.ignore_mute'),
+ (4,'room.override_custom_config'),
+ (4,'room.owner.any'),
+ (4,'room.trade_override'),
+ (4,'room.youtube.control_any'),
+ (4,'staff.receive_alerts'),
+ (5,'camera.use'),
+ (5,'catalog.gift.staff'),
+ (5,'catalog.pages.administrator'),
+ (5,'catalog.pages.events_staff'),
+ (5,'catalog.pages.gold_vip'),
+ (5,'catalog.pages.trial_moderator'),
+ (5,'catalog.pages.vip'),
+ (5,'chat.filter_bypass'),
+ (5,'chat.report.unlimited'),
+ (5,'chat.style.staff'),
+ (5,'command.about'),
+ (5,'command.alert'),
+ (5,'command.ban'),
+ (5,'command.bubble'),
+ (5,'command.carry'),
+ (5,'command.clubnx'),
+ (5,'command.convertcredits'),
+ (5,'command.coords'),
+ (5,'command.dance'),
+ (5,'command.dc'),
+ (5,'command.disablediagonal'),
+ (5,'command.disablegifts'),
+ (5,'command.disablemimic'),
+ (5,'command.dnd'),
+ (5,'command.ejectall'),
+ (5,'command.empty'),
+ (5,'command.emptyitems'),
+ (5,'command.enable'),
+ (5,'command.faceless'),
+ (5,'command.fastwalk'),
+ (5,'command.flagme'),
+ (5,'command.flaguser'),
+ (5,'command.follow'),
+ (5,'command.forced_effects'),
+ (5,'command.forcesit'),
+ (5,'command.freeze'),
+ (5,'command.give'),
+ (5,'command.give_coins'),
+ (5,'command.give_diamonds'),
+ (5,'command.give_gotw'),
+ (5,'command.give_pixels'),
+ (5,'command.givebadge'),
+ (5,'command.goto'),
+ (5,'command.ignorewhispers'),
+ (5,'command.ipban'),
+ (5,'command.kick'),
+ (5,'command.kickbots'),
+ (5,'command.kickpets'),
+ (5,'command.lay'),
+ (5,'command.massenable'),
+ (5,'command.mimic'),
+ (5,'command.mip'),
+ (5,'command.moonwalk'),
+ (5,'command.mute'),
+ (5,'command.mutebots'),
+ (5,'command.mutepets'),
+ (5,'command.override'),
+ (5,'command.pet'),
+ (5,'command.pickall'),
+ (5,'command.pull'),
+ (5,'command.push'),
+ (5,'command.regenmaps'),
+ (5,'command.room'),
+ (5,'command.roomalert'),
+ (5,'command.roombadge'),
+ (5,'command.roomkick'),
+ (5,'command.roommute'),
+ (5,'command.roomunmute'),
+ (5,'command.sa'),
+ (5,'command.setmax'),
+ (5,'command.setspeed'),
+ (5,'command.sit'),
+ (5,'command.spull'),
+ (5,'command.spush'),
+ (5,'command.stand'),
+ (5,'command.stats'),
+ (5,'command.stress'),
+ (5,'command.summon'),
+ (5,'command.superfastwalk'),
+ (5,'command.teleport'),
+ (5,'command.tradeban'),
+ (5,'command.unfreeze'),
+ (5,'command.unload'),
+ (5,'command.unmute'),
+ (5,'command.unused_override_massenable'),
+ (5,'command.update'),
+ (5,'command.update_bans'),
+ (5,'command.update_catalog'),
+ (5,'command.update_filter'),
+ (5,'command.update_furni'),
+ (5,'command.update_game_center'),
+ (5,'command.update_tickets'),
+ (5,'command.update_vouchers'),
+ (5,'command.userinfo'),
+ (5,'moderation.alert'),
+ (5,'moderation.ban.soft'),
+ (5,'moderation.ip_ban'),
+ (5,'moderation.kick'),
+ (5,'moderation.machine_ban'),
+ (5,'moderation.mute'),
+ (5,'moderation.room_alert'),
+ (5,'moderation.tickets'),
+ (5,'moderation.tool'),
+ (5,'moderation.trade_lock'),
+ (5,'moderation.trade_lock_any'),
+ (5,'navigator.events.moderate'),
+ (5,'navigator.room_models.staff'),
+ (5,'navigator.searches.administrator'),
+ (5,'room.ban_override'),
+ (5,'room.enter_full'),
+ (5,'room.enter_locked'),
+ (5,'room.ignore_mute'),
+ (5,'room.override_custom_config'),
+ (5,'room.owner.any'),
+ (5,'room.rights.any'),
+ (5,'room.trade_override'),
+ (5,'room.youtube.control_any'),
+ (5,'staff.receive_alerts'),
+ (6,'camera.use'),
+ (6,'catalog.gift.staff'),
+ (6,'catalog.pages.administrator'),
+ (6,'catalog.pages.events_staff'),
+ (6,'catalog.pages.gold_vip'),
+ (6,'catalog.pages.trial_moderator'),
+ (6,'catalog.pages.vip'),
+ (6,'chat.report.unlimited'),
+ (6,'chat.style.staff'),
+ (6,'command.about'),
+ (6,'command.alert'),
+ (6,'command.ban'),
+ (6,'command.bubble'),
+ (6,'command.carry'),
+ (6,'command.clubnx'),
+ (6,'command.control'),
+ (6,'command.convertcredits'),
+ (6,'command.coords'),
+ (6,'command.dance'),
+ (6,'command.dc'),
+ (6,'command.deletegroup'),
+ (6,'command.disablediagonal'),
+ (6,'command.disablegifts'),
+ (6,'command.disablemimic'),
+ (6,'command.dnd'),
+ (6,'command.ejectall'),
+ (6,'command.empty'),
+ (6,'command.emptyitems'),
+ (6,'command.enable'),
+ (6,'command.faceless'),
+ (6,'command.fastwalk'),
+ (6,'command.flagme'),
+ (6,'command.flaguser'),
+ (6,'command.follow'),
+ (6,'command.forced_effects'),
+ (6,'command.forcesit'),
+ (6,'command.freeze'),
+ (6,'command.give'),
+ (6,'command.give_coins'),
+ (6,'command.give_diamonds'),
+ (6,'command.give_gotw'),
+ (6,'command.give_pixels'),
+ (6,'command.givebadge'),
+ (6,'command.goto'),
+ (6,'command.hal'),
+ (6,'command.ignorewhispers'),
+ (6,'command.ipban'),
+ (6,'command.kick'),
+ (6,'command.kickbots'),
+ (6,'command.kickpets'),
+ (6,'command.lay'),
+ (6,'command.make_say'),
+ (6,'command.make_shout'),
+ (6,'command.makesay'),
+ (6,'command.massbadge'),
+ (6,'command.massenable'),
+ (6,'command.mimic'),
+ (6,'command.mip'),
+ (6,'command.moonwalk'),
+ (6,'command.mute'),
+ (6,'command.mutebots'),
+ (6,'command.mutepets'),
+ (6,'command.override'),
+ (6,'command.pet'),
+ (6,'command.pickall'),
+ (6,'command.pull'),
+ (6,'command.push'),
+ (6,'command.regenmaps'),
+ (6,'command.room'),
+ (6,'command.roomalert'),
+ (6,'command.roombadge'),
+ (6,'command.roomkick'),
+ (6,'command.roommute'),
+ (6,'command.roomunmute'),
+ (6,'command.sa'),
+ (6,'command.setmax'),
+ (6,'command.setspeed'),
+ (6,'command.sit'),
+ (6,'command.spull'),
+ (6,'command.spush'),
+ (6,'command.stand'),
+ (6,'command.stats'),
+ (6,'command.stress'),
+ (6,'command.summon'),
+ (6,'command.superfastwalk'),
+ (6,'command.teleport'),
+ (6,'command.tradeban'),
+ (6,'command.unfreeze'),
+ (6,'command.unload'),
+ (6,'command.unmute'),
+ (6,'command.unused_override_massenable'),
+ (6,'command.update'),
+ (6,'command.update_anti_mutant'),
+ (6,'command.update_bans'),
+ (6,'command.update_catalog'),
+ (6,'command.update_filter'),
+ (6,'command.update_furni'),
+ (6,'command.update_game_center'),
+ (6,'command.update_rights'),
+ (6,'command.update_tickets'),
+ (6,'command.update_vouchers'),
+ (6,'command.userinfo'),
+ (6,'moderation.alert'),
+ (6,'moderation.ban.soft'),
+ (6,'moderation.ip_ban'),
+ (6,'moderation.kick'),
+ (6,'moderation.machine_ban'),
+ (6,'moderation.mute'),
+ (6,'moderation.room_alert'),
+ (6,'moderation.tickets'),
+ (6,'moderation.tool'),
+ (6,'moderation.trade_lock'),
+ (6,'moderation.trade_lock_any'),
+ (6,'navigator.events.moderate'),
+ (6,'navigator.room_models.staff'),
+ (6,'navigator.searches.administrator'),
+ (6,'room.ban_override'),
+ (6,'room.enter_full'),
+ (6,'room.enter_locked'),
+ (6,'room.ignore_mute'),
+ (6,'room.item_take'),
+ (6,'room.item_wired_rewards'),
+ (6,'room.override_custom_config'),
+ (6,'room.owner.any'),
+ (6,'room.rights.any'),
+ (6,'room.trade_override'),
+ (6,'room.youtube.control_any'),
+ (6,'staff.receive_alerts'),
+ (7,'camera.use'),
+ (7,'catalog.gift.staff'),
+ (7,'catalog.pages.administrator'),
+ (7,'catalog.pages.community_leader'),
+ (7,'catalog.pages.events_staff'),
+ (7,'catalog.pages.gold_vip'),
+ (7,'catalog.pages.trial_moderator'),
+ (7,'catalog.pages.vip'),
+ (7,'chat.report.unlimited'),
+ (7,'chat.style.staff'),
+ (7,'command.about'),
+ (7,'command.alert'),
+ (7,'command.ban'),
+ (7,'command.bubble'),
+ (7,'command.carry'),
+ (7,'command.clubnx'),
+ (7,'command.control'),
+ (7,'command.convertcredits'),
+ (7,'command.coords'),
+ (7,'command.dance'),
+ (7,'command.dc'),
+ (7,'command.deletegroup'),
+ (7,'command.disablediagonal'),
+ (7,'command.disablegifts'),
+ (7,'command.disablemimic'),
+ (7,'command.dnd'),
+ (7,'command.ejectall'),
+ (7,'command.empty'),
+ (7,'command.emptyitems'),
+ (7,'command.enable'),
+ (7,'command.faceless'),
+ (7,'command.fastwalk'),
+ (7,'command.flagme'),
+ (7,'command.flaguser'),
+ (7,'command.follow'),
+ (7,'command.forced_effects'),
+ (7,'command.forcesit'),
+ (7,'command.freeze'),
+ (7,'command.give'),
+ (7,'command.give_coins'),
+ (7,'command.give_diamonds'),
+ (7,'command.give_gotw'),
+ (7,'command.give_pixels'),
+ (7,'command.givebadge'),
+ (7,'command.goto'),
+ (7,'command.hal'),
+ (7,'command.ignorewhispers'),
+ (7,'command.ipban'),
+ (7,'command.kick'),
+ (7,'command.kickbots'),
+ (7,'command.kickpets'),
+ (7,'command.lay'),
+ (7,'command.make_say'),
+ (7,'command.make_shout'),
+ (7,'command.makesay'),
+ (7,'command.massbadge'),
+ (7,'command.massenable'),
+ (7,'command.mimic'),
+ (7,'command.mip'),
+ (7,'command.moonwalk'),
+ (7,'command.mute'),
+ (7,'command.mutebots'),
+ (7,'command.mutepets'),
+ (7,'command.override'),
+ (7,'command.pet'),
+ (7,'command.pickall'),
+ (7,'command.pull'),
+ (7,'command.push'),
+ (7,'command.regenmaps'),
+ (7,'command.room'),
+ (7,'command.room_say'),
+ (7,'command.room_shout'),
+ (7,'command.roomalert'),
+ (7,'command.roombadge'),
+ (7,'command.roomkick'),
+ (7,'command.roommute'),
+ (7,'command.roomunmute'),
+ (7,'command.sa'),
+ (7,'command.setmax'),
+ (7,'command.setspeed'),
+ (7,'command.sit'),
+ (7,'command.spull'),
+ (7,'command.spush'),
+ (7,'command.stand'),
+ (7,'command.stats'),
+ (7,'command.stress'),
+ (7,'command.summon'),
+ (7,'command.superfastwalk'),
+ (7,'command.teleport'),
+ (7,'command.tradeban'),
+ (7,'command.unfreeze'),
+ (7,'command.unload'),
+ (7,'command.unmute'),
+ (7,'command.unused_override_massenable'),
+ (7,'command.update'),
+ (7,'command.update_anti_mutant'),
+ (7,'command.update_bans'),
+ (7,'command.update_catalog'),
+ (7,'command.update_filter'),
+ (7,'command.update_furni'),
+ (7,'command.update_game_center'),
+ (7,'command.update_rights'),
+ (7,'command.update_tickets'),
+ (7,'command.update_vouchers'),
+ (7,'command.userinfo'),
+ (7,'moderation.alert'),
+ (7,'moderation.ban.soft'),
+ (7,'moderation.ip_ban'),
+ (7,'moderation.kick'),
+ (7,'moderation.machine_ban'),
+ (7,'moderation.mute'),
+ (7,'moderation.room_alert'),
+ (7,'moderation.tickets'),
+ (7,'moderation.tool'),
+ (7,'moderation.trade_lock'),
+ (7,'moderation.trade_lock_any'),
+ (7,'navigator.categories.staff'),
+ (7,'navigator.events.moderate'),
+ (7,'navigator.room_models.staff'),
+ (7,'navigator.searches.administrator'),
+ (7,'navigator.staff_pick'),
+ (7,'room.ban_override'),
+ (7,'room.enter_full'),
+ (7,'room.enter_locked'),
+ (7,'room.ignore_mute'),
+ (7,'room.item_take'),
+ (7,'room.item_wired_rewards'),
+ (7,'room.override_custom_config'),
+ (7,'room.owner.any'),
+ (7,'room.rights.any'),
+ (7,'room.trade_override'),
+ (7,'room.youtube.control_any'),
+ (7,'staff.receive_alerts'),
+ (8,'bot.edit_any_override'),
+ (8,'bot.place_any_override'),
+ (8,'camera.use'),
+ (8,'catalog.edit'),
+ (8,'catalog.gift.staff'),
+ (8,'catalog.pages.administrator'),
+ (8,'catalog.pages.community_leader'),
+ (8,'catalog.pages.developer'),
+ (8,'catalog.pages.events_staff'),
+ (8,'catalog.pages.gold_vip'),
+ (8,'catalog.pages.trial_moderator'),
+ (8,'catalog.pages.vip'),
+ (8,'chat.filter_bypass'),
+ (8,'chat.report.unlimited'),
+ (8,'chat.style.staff'),
+ (8,'command.about'),
+ (8,'command.alert'),
+ (8,'command.allaroundme'),
+ (8,'command.alleyesonme'),
+ (8,'command.ban'),
+ (8,'command.bubble'),
+ (8,'command.carry'),
+ (8,'command.clubnx'),
+ (8,'command.control'),
+ (8,'command.convertcredits'),
+ (8,'command.coords'),
+ (8,'command.dance'),
+ (8,'command.dc'),
+ (8,'command.debug'),
+ (8,'command.deletegroup'),
+ (8,'command.disablediagonal'),
+ (8,'command.disablegifts'),
+ (8,'command.disablemimic'),
+ (8,'command.dnd'),
+ (8,'command.ejectall'),
+ (8,'command.empty'),
+ (8,'command.emptyitems'),
+ (8,'command.enable'),
+ (8,'command.faceless'),
+ (8,'command.fastwalk'),
+ (8,'command.flagme'),
+ (8,'command.flaguser'),
+ (8,'command.follow'),
+ (8,'command.force_draw'),
+ (8,'command.forced_effects'),
+ (8,'command.forcesit'),
+ (8,'command.freeze'),
+ (8,'command.give'),
+ (8,'command.give_coins'),
+ (8,'command.give_diamonds'),
+ (8,'command.give_gotw'),
+ (8,'command.give_pixels'),
+ (8,'command.givebadge'),
+ (8,'command.goto'),
+ (8,'command.ha'),
+ (8,'command.hal'),
+ (8,'command.hvusers'),
+ (8,'command.ignorewhispers'),
+ (8,'command.ipban'),
+ (8,'command.kick'),
+ (8,'command.kickbots'),
+ (8,'command.kickpets'),
+ (8,'command.lay'),
+ (8,'command.maintenance'),
+ (8,'command.make_say'),
+ (8,'command.make_shout'),
+ (8,'command.makesay'),
+ (8,'command.massbadge'),
+ (8,'command.massdance'),
+ (8,'command.massenable'),
+ (8,'command.mimic'),
+ (8,'command.mip'),
+ (8,'command.moonwalk'),
+ (8,'command.mute'),
+ (8,'command.mutebots'),
+ (8,'command.mutepets'),
+ (8,'command.override'),
+ (8,'command.override_massenable'),
+ (8,'command.pet'),
+ (8,'command.pickall'),
+ (8,'command.pull'),
+ (8,'command.push'),
+ (8,'command.regenmaps'),
+ (8,'command.rig'),
+ (8,'command.room'),
+ (8,'command.room_say'),
+ (8,'command.room_shout'),
+ (8,'command.roomalert'),
+ (8,'command.roombadge'),
+ (8,'command.roomkick'),
+ (8,'command.roommute'),
+ (8,'command.roomunmute'),
+ (8,'command.sa'),
+ (8,'command.setmax'),
+ (8,'command.setspeed'),
+ (8,'command.sit'),
+ (8,'command.spull'),
+ (8,'command.spush'),
+ (8,'command.stand'),
+ (8,'command.stats'),
+ (8,'command.stress'),
+ (8,'command.summon'),
+ (8,'command.superfastwalk'),
+ (8,'command.teleport'),
+ (8,'command.tradeban'),
+ (8,'command.transfer'),
+ (8,'command.unfreeze'),
+ (8,'command.unload'),
+ (8,'command.unmute'),
+ (8,'command.unused_override_massenable'),
+ (8,'command.update'),
+ (8,'command.update_achievements'),
+ (8,'command.update_anti_mutant'),
+ (8,'command.update_bans'),
+ (8,'command.update_bots'),
+ (8,'command.update_cata_full'),
+ (8,'command.update_catalog'),
+ (8,'command.update_chat_styles'),
+ (8,'command.update_configuration'),
+ (8,'command.update_filter'),
+ (8,'command.update_furni'),
+ (8,'command.update_game_center'),
+ (8,'command.update_models'),
+ (8,'command.update_moderation'),
+ (8,'command.update_navigator'),
+ (8,'command.update_promotions'),
+ (8,'command.update_quests'),
+ (8,'command.update_rewards'),
+ (8,'command.update_rights'),
+ (8,'command.update_tickets'),
+ (8,'command.update_vouchers'),
+ (8,'command.update_youtube'),
+ (8,'command.userinfo'),
+ (8,'furni.delete'),
+ (8,'furni.edit'),
+ (8,'group.delete_limit_override'),
+ (8,'group.delete_override'),
+ (8,'group.management_override'),
+ (8,'housekeeping.access'),
+ (8,'housekeeping.alert'),
+ (8,'housekeeping.economy'),
+ (8,'housekeeping.password'),
+ (8,'housekeeping.private_data'),
+ (8,'housekeeping.roles.manage'),
+ (8,'housekeeping.room_ownership'),
+ (8,'housekeeping.rooms'),
+ (8,'housekeeping.sanction'),
+ (8,'moderation.alert'),
+ (8,'moderation.ban'),
+ (8,'moderation.ban.soft'),
+ (8,'moderation.caution'),
+ (8,'moderation.disconnect_any'),
+ (8,'moderation.ip_ban'),
+ (8,'moderation.kick'),
+ (8,'moderation.kick_any'),
+ (8,'moderation.machine_ban'),
+ (8,'moderation.make_say_any'),
+ (8,'moderation.mute'),
+ (8,'moderation.mute.any'),
+ (8,'moderation.mute_limit_override'),
+ (8,'moderation.room_alert'),
+ (8,'moderation.tickets'),
+ (8,'moderation.tool'),
+ (8,'moderation.trade_lock'),
+ (8,'moderation.trade_lock_any'),
+ (8,'navigator.categories.staff'),
+ (8,'navigator.events.moderate'),
+ (8,'navigator.room_models.staff'),
+ (8,'navigator.searches.administrator'),
+ (8,'navigator.staff_pick'),
+ (8,'room.ban_override'),
+ (8,'room.delete_any'),
+ (8,'room.enter_full'),
+ (8,'room.enter_locked'),
+ (8,'room.ignore_mute'),
+ (8,'room.item_place_exchange_anywhere'),
+ (8,'room.item_save_branding_items'),
+ (8,'room.item_take'),
+ (8,'room.item_use_any_stack_tile'),
+ (8,'room.item_wired_rewards'),
+ (8,'room.override_custom_config'),
+ (8,'room.owner.any'),
+ (8,'room.rights.any'),
+ (8,'room.trade_override'),
+ (8,'room.unload_any'),
+ (8,'room.user_limit.override'),
+ (8,'room.whisper_override'),
+ (8,'room.youtube.control_any'),
+ (8,'staff.events'),
+ (8,'staff.ignore_advertisement_reports'),
+ (8,'staff.ignore_mod_alert'),
+ (8,'staff.receive_alerts'),
+ (9,'bot.edit_any_override'),
+ (9,'bot.place_any_override'),
+ (9,'camera.use'),
+ (9,'catalog.edit'),
+ (9,'catalog.gift.staff'),
+ (9,'catalog.pages.administrator'),
+ (9,'catalog.pages.community_leader'),
+ (9,'catalog.pages.developer'),
+ (9,'catalog.pages.events_staff'),
+ (9,'catalog.pages.gold_vip'),
+ (9,'catalog.pages.trial_moderator'),
+ (9,'catalog.pages.vip'),
+ (9,'chat.filter_bypass'),
+ (9,'chat.report.unlimited'),
+ (9,'chat.style.staff'),
+ (9,'command.about'),
+ (9,'command.alert'),
+ (9,'command.allaroundme'),
+ (9,'command.alleyesonme'),
+ (9,'command.ban'),
+ (9,'command.bubble'),
+ (9,'command.carry'),
+ (9,'command.clubnx'),
+ (9,'command.control'),
+ (9,'command.convertcredits'),
+ (9,'command.coords'),
+ (9,'command.dance'),
+ (9,'command.dc'),
+ (9,'command.debug'),
+ (9,'command.deletegroup'),
+ (9,'command.disablediagonal'),
+ (9,'command.disablegifts'),
+ (9,'command.disablemimic'),
+ (9,'command.dnd'),
+ (9,'command.ejectall'),
+ (9,'command.empty'),
+ (9,'command.emptyitems'),
+ (9,'command.enable'),
+ (9,'command.faceless'),
+ (9,'command.fastwalk'),
+ (9,'command.flagme'),
+ (9,'command.flaguser'),
+ (9,'command.follow'),
+ (9,'command.force_draw'),
+ (9,'command.forced_effects'),
+ (9,'command.forcesit'),
+ (9,'command.freeze'),
+ (9,'command.give'),
+ (9,'command.give_coins'),
+ (9,'command.give_diamonds'),
+ (9,'command.give_gotw'),
+ (9,'command.give_pixels'),
+ (9,'command.givebadge'),
+ (9,'command.goto'),
+ (9,'command.ha'),
+ (9,'command.hal'),
+ (9,'command.hvusers'),
+ (9,'command.ignorewhispers'),
+ (9,'command.ipban'),
+ (9,'command.kick'),
+ (9,'command.kickbots'),
+ (9,'command.kickpets'),
+ (9,'command.lay'),
+ (9,'command.maintenance'),
+ (9,'command.make_say'),
+ (9,'command.make_shout'),
+ (9,'command.makesay'),
+ (9,'command.massbadge'),
+ (9,'command.massdance'),
+ (9,'command.massenable'),
+ (9,'command.mimic'),
+ (9,'command.mip'),
+ (9,'command.moonwalk'),
+ (9,'command.mute'),
+ (9,'command.mutebots'),
+ (9,'command.mutepets'),
+ (9,'command.override'),
+ (9,'command.override_massenable'),
+ (9,'command.pet'),
+ (9,'command.pickall'),
+ (9,'command.pull'),
+ (9,'command.push'),
+ (9,'command.regenmaps'),
+ (9,'command.rig'),
+ (9,'command.room'),
+ (9,'command.room_say'),
+ (9,'command.room_shout'),
+ (9,'command.roomalert'),
+ (9,'command.roombadge'),
+ (9,'command.roomkick'),
+ (9,'command.roommute'),
+ (9,'command.roomunmute'),
+ (9,'command.sa'),
+ (9,'command.setmax'),
+ (9,'command.setspeed'),
+ (9,'command.sit'),
+ (9,'command.spull'),
+ (9,'command.spush'),
+ (9,'command.stand'),
+ (9,'command.stats'),
+ (9,'command.stress'),
+ (9,'command.summon'),
+ (9,'command.superfastwalk'),
+ (9,'command.teleport'),
+ (9,'command.tradeban'),
+ (9,'command.transfer'),
+ (9,'command.unfreeze'),
+ (9,'command.unload'),
+ (9,'command.unmute'),
+ (9,'command.unused_override_massenable'),
+ (9,'command.update'),
+ (9,'command.update_achievements'),
+ (9,'command.update_anti_mutant'),
+ (9,'command.update_bans'),
+ (9,'command.update_bots'),
+ (9,'command.update_cata_full'),
+ (9,'command.update_catalog'),
+ (9,'command.update_chat_styles'),
+ (9,'command.update_configuration'),
+ (9,'command.update_filter'),
+ (9,'command.update_furni'),
+ (9,'command.update_game_center'),
+ (9,'command.update_models'),
+ (9,'command.update_moderation'),
+ (9,'command.update_navigator'),
+ (9,'command.update_promotions'),
+ (9,'command.update_quests'),
+ (9,'command.update_rewards'),
+ (9,'command.update_rights'),
+ (9,'command.update_tickets'),
+ (9,'command.update_vouchers'),
+ (9,'command.update_youtube'),
+ (9,'command.userinfo'),
+ (9,'furni.delete'),
+ (9,'furni.edit'),
+ (9,'group.delete_limit_override'),
+ (9,'group.delete_override'),
+ (9,'group.management_override'),
+ (9,'housekeeping.access'),
+ (9,'housekeeping.alert'),
+ (9,'housekeeping.economy'),
+ (9,'housekeeping.password'),
+ (9,'housekeeping.private_data'),
+ (9,'housekeeping.roles.manage'),
+ (9,'housekeeping.room_ownership'),
+ (9,'housekeeping.rooms'),
+ (9,'housekeeping.sanction'),
+ (9,'moderation.alert'),
+ (9,'moderation.ban'),
+ (9,'moderation.ban.soft'),
+ (9,'moderation.caution'),
+ (9,'moderation.disconnect_any'),
+ (9,'moderation.ip_ban'),
+ (9,'moderation.kick'),
+ (9,'moderation.kick_any'),
+ (9,'moderation.machine_ban'),
+ (9,'moderation.make_say_any'),
+ (9,'moderation.mute'),
+ (9,'moderation.mute.any'),
+ (9,'moderation.mute_limit_override'),
+ (9,'moderation.room_alert'),
+ (9,'moderation.tickets'),
+ (9,'moderation.tool'),
+ (9,'moderation.trade_lock'),
+ (9,'moderation.trade_lock_any'),
+ (9,'navigator.categories.staff'),
+ (9,'navigator.events.moderate'),
+ (9,'navigator.room_models.staff'),
+ (9,'navigator.searches.administrator'),
+ (9,'navigator.staff_pick'),
+ (9,'room.ban_override'),
+ (9,'room.delete_any'),
+ (9,'room.enter_full'),
+ (9,'room.enter_locked'),
+ (9,'room.ignore_mute'),
+ (9,'room.item_place_exchange_anywhere'),
+ (9,'room.item_save_branding_items'),
+ (9,'room.item_take'),
+ (9,'room.item_use_any_stack_tile'),
+ (9,'room.item_wired_rewards'),
+ (9,'room.override_custom_config'),
+ (9,'room.owner.any'),
+ (9,'room.rights.any'),
+ (9,'room.trade_override'),
+ (9,'room.unload_any'),
+ (9,'room.user_limit.override'),
+ (9,'room.whisper_override'),
+ (9,'room.youtube.control_any'),
+ (9,'staff.events'),
+ (9,'staff.ignore_advertisement_reports'),
+ (9,'staff.ignore_mod_alert'),
+ (9,'staff.receive_alerts');
 
--- ----------------------------
--- Records of permissions_groups
--- ----------------------------
-INSERT INTO `permissions_groups` VALUES ('1', 'User', 'Given a default set of permissions.', '');
-INSERT INTO `permissions_groups` VALUES ('2', 'Trial Moderator', 'Given a minimal set of moderation permissions.', 'TMOD');
-INSERT INTO `permissions_groups` VALUES ('3', 'Moderator', 'Given further moderation permissions.', 'MOD');
-INSERT INTO `permissions_groups` VALUES ('4', 'Senior Moderator', 'Given further moderation permissions.', 'SMOD');
-INSERT INTO `permissions_groups` VALUES ('5', 'Administrator', 'Given generic administration permissions.', 'ADM');
-INSERT INTO `permissions_groups` VALUES ('6', 'Manager', 'Inheirates administration permissions & more.', 'MNGER');
-INSERT INTO `permissions_groups` VALUES ('7', 'Community Leader', 'Inheirates manager permissions & more.', 'ADM');
-INSERT INTO `permissions_groups` VALUES ('8', 'Developer', 'Ability to access all permissions.', 'DEV');
-INSERT INTO `permissions_groups` VALUES ('9', 'Owner', 'Ability to access all permissions.', 'OWNR');
-
--- ----------------------------
--- Table structure for `permissions_rights`
--- ----------------------------
-DROP TABLE IF EXISTS `permissions_rights`;
-CREATE TABLE `permissions_rights` (
-  `id` int(10) NOT NULL AUTO_INCREMENT,
-  `group_id` int(10) NOT NULL,
-  `permission_id` int(10) NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=237 DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Records of permissions_rights
--- ----------------------------
-INSERT INTO `permissions_rights` VALUES ('1', '2', '4');
-INSERT INTO `permissions_rights` VALUES ('2', '2', '5');
-INSERT INTO `permissions_rights` VALUES ('3', '2', '8');
-INSERT INTO `permissions_rights` VALUES ('4', '2', '9');
-INSERT INTO `permissions_rights` VALUES ('5', '2', '10');
-INSERT INTO `permissions_rights` VALUES ('6', '2', '11');
-INSERT INTO `permissions_rights` VALUES ('7', '2', '12');
-INSERT INTO `permissions_rights` VALUES ('8', '2', '13');
-INSERT INTO `permissions_rights` VALUES ('9', '2', '14');
-INSERT INTO `permissions_rights` VALUES ('10', '2', '15');
-INSERT INTO `permissions_rights` VALUES ('12', '2', '17');
-INSERT INTO `permissions_rights` VALUES ('13', '2', '18');
-INSERT INTO `permissions_rights` VALUES ('14', '2', '21');
-INSERT INTO `permissions_rights` VALUES ('15', '2', '31');
-INSERT INTO `permissions_rights` VALUES ('16', '2', '33');
-INSERT INTO `permissions_rights` VALUES ('17', '3', '4');
-INSERT INTO `permissions_rights` VALUES ('18', '3', '5');
-INSERT INTO `permissions_rights` VALUES ('19', '3', '8');
-INSERT INTO `permissions_rights` VALUES ('20', '3', '9');
-INSERT INTO `permissions_rights` VALUES ('21', '3', '10');
-INSERT INTO `permissions_rights` VALUES ('22', '3', '11');
-INSERT INTO `permissions_rights` VALUES ('23', '3', '12');
-INSERT INTO `permissions_rights` VALUES ('24', '3', '13');
-INSERT INTO `permissions_rights` VALUES ('25', '3', '14');
-INSERT INTO `permissions_rights` VALUES ('26', '3', '15');
-INSERT INTO `permissions_rights` VALUES ('27', '3', '17');
-INSERT INTO `permissions_rights` VALUES ('28', '3', '18');
-INSERT INTO `permissions_rights` VALUES ('29', '3', '21');
-INSERT INTO `permissions_rights` VALUES ('30', '3', '31');
-INSERT INTO `permissions_rights` VALUES ('31', '3', '33');
-INSERT INTO `permissions_rights` VALUES ('32', '3', '35');
-INSERT INTO `permissions_rights` VALUES ('33', '4', '4');
-INSERT INTO `permissions_rights` VALUES ('34', '4', '5');
-INSERT INTO `permissions_rights` VALUES ('35', '4', '8');
-INSERT INTO `permissions_rights` VALUES ('36', '4', '9');
-INSERT INTO `permissions_rights` VALUES ('37', '4', '10');
-INSERT INTO `permissions_rights` VALUES ('38', '4', '11');
-INSERT INTO `permissions_rights` VALUES ('39', '4', '12');
-INSERT INTO `permissions_rights` VALUES ('40', '4', '13');
-INSERT INTO `permissions_rights` VALUES ('41', '4', '14');
-INSERT INTO `permissions_rights` VALUES ('42', '4', '15');
-INSERT INTO `permissions_rights` VALUES ('43', '4', '17');
-INSERT INTO `permissions_rights` VALUES ('44', '4', '18');
-INSERT INTO `permissions_rights` VALUES ('45', '4', '21');
-INSERT INTO `permissions_rights` VALUES ('46', '4', '32');
-INSERT INTO `permissions_rights` VALUES ('47', '4', '33');
-INSERT INTO `permissions_rights` VALUES ('48', '4', '35');
-INSERT INTO `permissions_rights` VALUES ('49', '5', '4');
-INSERT INTO `permissions_rights` VALUES ('50', '5', '5');
-INSERT INTO `permissions_rights` VALUES ('51', '5', '8');
-INSERT INTO `permissions_rights` VALUES ('52', '5', '9');
-INSERT INTO `permissions_rights` VALUES ('53', '5', '10');
-INSERT INTO `permissions_rights` VALUES ('54', '5', '11');
-INSERT INTO `permissions_rights` VALUES ('55', '5', '12');
-INSERT INTO `permissions_rights` VALUES ('56', '5', '13');
-INSERT INTO `permissions_rights` VALUES ('57', '5', '14');
-INSERT INTO `permissions_rights` VALUES ('58', '5', '15');
-INSERT INTO `permissions_rights` VALUES ('59', '5', '17');
-INSERT INTO `permissions_rights` VALUES ('60', '5', '18');
-INSERT INTO `permissions_rights` VALUES ('61', '5', '21');
-INSERT INTO `permissions_rights` VALUES ('62', '5', '32');
-INSERT INTO `permissions_rights` VALUES ('63', '5', '33');
-INSERT INTO `permissions_rights` VALUES ('64', '5', '35');
-INSERT INTO `permissions_rights` VALUES ('65', '5', '7');
-INSERT INTO `permissions_rights` VALUES ('66', '6', '4');
-INSERT INTO `permissions_rights` VALUES ('67', '6', '5');
-INSERT INTO `permissions_rights` VALUES ('68', '6', '8');
-INSERT INTO `permissions_rights` VALUES ('69', '6', '9');
-INSERT INTO `permissions_rights` VALUES ('70', '6', '10');
-INSERT INTO `permissions_rights` VALUES ('71', '6', '11');
-INSERT INTO `permissions_rights` VALUES ('72', '6', '12');
-INSERT INTO `permissions_rights` VALUES ('73', '6', '13');
-INSERT INTO `permissions_rights` VALUES ('74', '6', '14');
-INSERT INTO `permissions_rights` VALUES ('75', '6', '15');
-INSERT INTO `permissions_rights` VALUES ('76', '6', '17');
-INSERT INTO `permissions_rights` VALUES ('77', '6', '18');
-INSERT INTO `permissions_rights` VALUES ('78', '6', '21');
-INSERT INTO `permissions_rights` VALUES ('79', '6', '32');
-INSERT INTO `permissions_rights` VALUES ('80', '6', '33');
-INSERT INTO `permissions_rights` VALUES ('81', '6', '34');
-INSERT INTO `permissions_rights` VALUES ('82', '6', '7');
-INSERT INTO `permissions_rights` VALUES ('83', '6', '6');
-INSERT INTO `permissions_rights` VALUES ('84', '6', '26');
-INSERT INTO `permissions_rights` VALUES ('85', '7', '4');
-INSERT INTO `permissions_rights` VALUES ('86', '7', '5');
-INSERT INTO `permissions_rights` VALUES ('87', '7', '8');
-INSERT INTO `permissions_rights` VALUES ('88', '7', '9');
-INSERT INTO `permissions_rights` VALUES ('89', '7', '10');
-INSERT INTO `permissions_rights` VALUES ('90', '7', '11');
-INSERT INTO `permissions_rights` VALUES ('91', '7', '12');
-INSERT INTO `permissions_rights` VALUES ('92', '7', '13');
-INSERT INTO `permissions_rights` VALUES ('93', '7', '14');
-INSERT INTO `permissions_rights` VALUES ('94', '7', '15');
-INSERT INTO `permissions_rights` VALUES ('95', '7', '17');
-INSERT INTO `permissions_rights` VALUES ('96', '7', '18');
-INSERT INTO `permissions_rights` VALUES ('97', '7', '21');
-INSERT INTO `permissions_rights` VALUES ('98', '7', '32');
-INSERT INTO `permissions_rights` VALUES ('99', '7', '33');
-INSERT INTO `permissions_rights` VALUES ('100', '7', '34');
-INSERT INTO `permissions_rights` VALUES ('101', '7', '7');
-INSERT INTO `permissions_rights` VALUES ('102', '7', '6');
-INSERT INTO `permissions_rights` VALUES ('103', '7', '26');
-INSERT INTO `permissions_rights` VALUES ('124', '8', '1');
-INSERT INTO `permissions_rights` VALUES ('125', '8', '2');
-INSERT INTO `permissions_rights` VALUES ('126', '8', '3');
-INSERT INTO `permissions_rights` VALUES ('127', '8', '4');
-INSERT INTO `permissions_rights` VALUES ('128', '8', '5');
-INSERT INTO `permissions_rights` VALUES ('129', '8', '6');
-INSERT INTO `permissions_rights` VALUES ('130', '8', '7');
-INSERT INTO `permissions_rights` VALUES ('131', '8', '8');
-INSERT INTO `permissions_rights` VALUES ('132', '8', '9');
-INSERT INTO `permissions_rights` VALUES ('133', '8', '10');
-INSERT INTO `permissions_rights` VALUES ('134', '8', '11');
-INSERT INTO `permissions_rights` VALUES ('135', '8', '12');
-INSERT INTO `permissions_rights` VALUES ('136', '8', '13');
-INSERT INTO `permissions_rights` VALUES ('137', '8', '14');
-INSERT INTO `permissions_rights` VALUES ('138', '8', '15');
-INSERT INTO `permissions_rights` VALUES ('139', '8', '16');
-INSERT INTO `permissions_rights` VALUES ('140', '8', '17');
-INSERT INTO `permissions_rights` VALUES ('141', '8', '18');
-INSERT INTO `permissions_rights` VALUES ('142', '8', '19');
-INSERT INTO `permissions_rights` VALUES ('143', '8', '20');
-INSERT INTO `permissions_rights` VALUES ('144', '8', '21');
-INSERT INTO `permissions_rights` VALUES ('145', '8', '22');
-INSERT INTO `permissions_rights` VALUES ('146', '8', '23');
-INSERT INTO `permissions_rights` VALUES ('147', '8', '24');
-INSERT INTO `permissions_rights` VALUES ('148', '8', '25');
-INSERT INTO `permissions_rights` VALUES ('149', '8', '26');
-INSERT INTO `permissions_rights` VALUES ('150', '8', '27');
-INSERT INTO `permissions_rights` VALUES ('151', '8', '28');
-INSERT INTO `permissions_rights` VALUES ('152', '8', '29');
-INSERT INTO `permissions_rights` VALUES ('153', '8', '30');
-INSERT INTO `permissions_rights` VALUES ('154', '8', '31');
-INSERT INTO `permissions_rights` VALUES ('155', '8', '32');
-INSERT INTO `permissions_rights` VALUES ('156', '8', '33');
-INSERT INTO `permissions_rights` VALUES ('157', '8', '34');
-INSERT INTO `permissions_rights` VALUES ('158', '8', '35');
-INSERT INTO `permissions_rights` VALUES ('159', '8', '36');
-INSERT INTO `permissions_rights` VALUES ('160', '8', '37');
-INSERT INTO `permissions_rights` VALUES ('161', '8', '38');
-INSERT INTO `permissions_rights` VALUES ('162', '8', '39');
-INSERT INTO `permissions_rights` VALUES ('163', '8', '40');
-INSERT INTO `permissions_rights` VALUES ('164', '8', '41');
-INSERT INTO `permissions_rights` VALUES ('165', '8', '42');
-INSERT INTO `permissions_rights` VALUES ('166', '8', '43');
-INSERT INTO `permissions_rights` VALUES ('167', '8', '44');
-INSERT INTO `permissions_rights` VALUES ('168', '8', '45');
-INSERT INTO `permissions_rights` VALUES ('169', '8', '46');
-INSERT INTO `permissions_rights` VALUES ('170', '8', '47');
-INSERT INTO `permissions_rights` VALUES ('171', '8', '48');
-INSERT INTO `permissions_rights` VALUES ('172', '8', '49');
-INSERT INTO `permissions_rights` VALUES ('173', '2', '47');
-INSERT INTO `permissions_rights` VALUES ('174', '3', '47');
-INSERT INTO `permissions_rights` VALUES ('175', '4', '47');
-INSERT INTO `permissions_rights` VALUES ('176', '5', '47');
-INSERT INTO `permissions_rights` VALUES ('177', '6', '47');
-INSERT INTO `permissions_rights` VALUES ('178', '7', '47');
-INSERT INTO `permissions_rights` VALUES ('180', '2', '30');
-INSERT INTO `permissions_rights` VALUES ('181', '3', '30');
-INSERT INTO `permissions_rights` VALUES ('182', '4', '30');
-INSERT INTO `permissions_rights` VALUES ('183', '5', '30');
-INSERT INTO `permissions_rights` VALUES ('184', '6', '30');
-INSERT INTO `permissions_rights` VALUES ('185', '7', '30');
-INSERT INTO `permissions_rights` VALUES ('187', '9', '1');
-INSERT INTO `permissions_rights` VALUES ('188', '9', '2');
-INSERT INTO `permissions_rights` VALUES ('189', '9', '3');
-INSERT INTO `permissions_rights` VALUES ('190', '9', '4');
-INSERT INTO `permissions_rights` VALUES ('191', '9', '5');
-INSERT INTO `permissions_rights` VALUES ('192', '9', '6');
-INSERT INTO `permissions_rights` VALUES ('193', '9', '7');
-INSERT INTO `permissions_rights` VALUES ('194', '9', '8');
-INSERT INTO `permissions_rights` VALUES ('195', '9', '9');
-INSERT INTO `permissions_rights` VALUES ('196', '9', '0');
-INSERT INTO `permissions_rights` VALUES ('197', '9', '10');
-INSERT INTO `permissions_rights` VALUES ('198', '9', '11');
-INSERT INTO `permissions_rights` VALUES ('199', '9', '12');
-INSERT INTO `permissions_rights` VALUES ('200', '9', '13');
-INSERT INTO `permissions_rights` VALUES ('201', '9', '14');
-INSERT INTO `permissions_rights` VALUES ('202', '9', '15');
-INSERT INTO `permissions_rights` VALUES ('203', '9', '16');
-INSERT INTO `permissions_rights` VALUES ('204', '9', '17');
-INSERT INTO `permissions_rights` VALUES ('205', '9', '18');
-INSERT INTO `permissions_rights` VALUES ('206', '9', '19');
-INSERT INTO `permissions_rights` VALUES ('207', '9', '20');
-INSERT INTO `permissions_rights` VALUES ('208', '9', '21');
-INSERT INTO `permissions_rights` VALUES ('209', '9', '22');
-INSERT INTO `permissions_rights` VALUES ('210', '9', '23');
-INSERT INTO `permissions_rights` VALUES ('211', '9', '24');
-INSERT INTO `permissions_rights` VALUES ('212', '9', '25');
-INSERT INTO `permissions_rights` VALUES ('213', '9', '26');
-INSERT INTO `permissions_rights` VALUES ('214', '9', '27');
-INSERT INTO `permissions_rights` VALUES ('215', '9', '28');
-INSERT INTO `permissions_rights` VALUES ('216', '9', '29');
-INSERT INTO `permissions_rights` VALUES ('217', '9', '30');
-INSERT INTO `permissions_rights` VALUES ('218', '9', '31');
-INSERT INTO `permissions_rights` VALUES ('219', '9', '32');
-INSERT INTO `permissions_rights` VALUES ('220', '9', '33');
-INSERT INTO `permissions_rights` VALUES ('221', '9', '34');
-INSERT INTO `permissions_rights` VALUES ('222', '9', '35');
-INSERT INTO `permissions_rights` VALUES ('223', '9', '36');
-INSERT INTO `permissions_rights` VALUES ('224', '9', '37');
-INSERT INTO `permissions_rights` VALUES ('225', '9', '38');
-INSERT INTO `permissions_rights` VALUES ('226', '9', '39');
-INSERT INTO `permissions_rights` VALUES ('227', '9', '40');
-INSERT INTO `permissions_rights` VALUES ('228', '9', '41');
-INSERT INTO `permissions_rights` VALUES ('229', '9', '42');
-INSERT INTO `permissions_rights` VALUES ('230', '9', '43');
-INSERT INTO `permissions_rights` VALUES ('231', '9', '44');
-INSERT INTO `permissions_rights` VALUES ('232', '9', '45');
-INSERT INTO `permissions_rights` VALUES ('233', '9', '46');
-INSERT INTO `permissions_rights` VALUES ('234', '9', '47');
-INSERT INTO `permissions_rights` VALUES ('235', '9', '48');
-INSERT INTO `permissions_rights` VALUES ('236', '9', '49');
-
--- ----------------------------
--- Table structure for `permissions_subscriptions`
--- ----------------------------
-DROP TABLE IF EXISTS `permissions_subscriptions`;
-CREATE TABLE `permissions_subscriptions` (
-  `id` int(10) NOT NULL AUTO_INCREMENT,
-  `subscription_id` int(10) NOT NULL,
-  `permission_id` int(10) NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Records of permissions_subscriptions
--- ----------------------------
-INSERT INTO `permissions_subscriptions` VALUES ('1', '1', '1');
-INSERT INTO `permissions_subscriptions` VALUES ('2', '2', '2');
-INSERT INTO `permissions_subscriptions` VALUES ('3', '3', '3');
-
+INSERT INTO role_limits (`role_id`,`limit_key`,`value`) VALUES
+ (1,'limit.daily_pet_respects',10),
+ (1,'limit.daily_respects',10),
+ (1,'limit.flood_tolerance',1),
+ (1,'limit.name_change_frequency',0),
+ (11,'limit.currency_credits',200),
+ (11,'limit.currency_duckets',150),
+ (11,'limit.daily_pet_respects',15),
+ (11,'limit.daily_respects',15),
+ (11,'limit.flood_tolerance',11),
+ (11,'limit.name_change_frequency',1),
+ (11,'limit.staff_effect',23),
+ (12,'limit.currency_credits',300),
+ (12,'limit.currency_duckets',200),
+ (12,'limit.daily_pet_respects',20),
+ (12,'limit.daily_respects',20),
+ (12,'limit.flood_tolerance',14),
+ (12,'limit.name_change_frequency',7),
+ (12,'limit.staff_effect',178),
+ (13,'limit.currency_credits',500),
+ (13,'limit.currency_duckets',250),
+ (13,'limit.daily_pet_respects',20),
+ (13,'limit.daily_respects',20),
+ (13,'limit.flood_tolerance',18),
+ (13,'limit.name_change_frequency',604800),
+ (13,'limit.staff_effect',187),
+ (2,'limit.daily_pet_respects',20),
+ (2,'limit.daily_respects',20),
+ (2,'limit.flood_tolerance',1),
+ (2,'limit.name_change_frequency',604800),
+ (3,'limit.daily_pet_respects',20),
+ (3,'limit.daily_respects',20),
+ (3,'limit.flood_tolerance',1),
+ (3,'limit.name_change_frequency',604800),
+ (4,'limit.daily_pet_respects',20),
+ (4,'limit.daily_respects',20),
+ (4,'limit.flood_tolerance',1),
+ (4,'limit.name_change_frequency',604800),
+ (5,'limit.daily_pet_respects',20),
+ (5,'limit.daily_respects',20),
+ (5,'limit.flood_tolerance',1),
+ (5,'limit.name_change_frequency',604800),
+ (6,'limit.daily_pet_respects',20),
+ (6,'limit.daily_respects',20),
+ (6,'limit.flood_tolerance',1),
+ (6,'limit.name_change_frequency',604800),
+ (7,'limit.daily_pet_respects',20),
+ (7,'limit.daily_respects',20),
+ (7,'limit.flood_tolerance',1),
+ (7,'limit.name_change_frequency',604800),
+ (8,'limit.daily_pet_respects',20),
+ (8,'limit.daily_respects',20),
+ (8,'limit.flood_tolerance',18),
+ (8,'limit.name_change_frequency',604800),
+ (8,'limit.staff_effect',187),
+ (9,'limit.daily_pet_respects',20),
+ (9,'limit.daily_respects',20),
+ (9,'limit.flood_tolerance',18),
+ (9,'limit.name_change_frequency',604800),
+ (9,'limit.staff_effect',187);
 -- ----------------------------
 -- Table structure for `quests`
 -- ----------------------------
@@ -24128,33 +25113,6 @@ INSERT INTO `quests` VALUES ('165', 'xmas2012_20', '20', '0', '0', 'placeholder'
 INSERT INTO `quests` VALUES ('166', 'xmas2012_21', '0', '0', '0', '', '10', '', '0', '0', '0');
 INSERT INTO `quests` VALUES ('180', 'xmas2012_22', '22', '17', '45207', 'find_fire', '0', '', '0', '1356328800', '1356328800');
 INSERT INTO `quests` VALUES ('181', 'xmas2012_23', '23', '29', '300', 'party', '0', '', '0', '0', '0');
-
--- ----------------------------
--- Table structure for `ranks`
--- ----------------------------
-DROP TABLE IF EXISTS `ranks`;
-CREATE TABLE `ranks` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) NOT NULL,
-  `badgeid` varchar(5) NOT NULL,
-  `title` varchar(50) NOT NULL,
-  `tab_colour` enum('red','green','pixeldarkblue','orange','blue','settings','pixellightblue') NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `id` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Records of ranks
--- ----------------------------
-INSERT INTO `ranks` VALUES ('1', 'User', 'VIP', '', 'green');
-INSERT INTO `ranks` VALUES ('2', 'Trial Moderators', 'TMOD', 'Trial Moderation Staff', 'green');
-INSERT INTO `ranks` VALUES ('3', 'Moderators', 'ADM', 'Community Moderation Staff', 'settings');
-INSERT INTO `ranks` VALUES ('4', 'Senior Moderators', 'SMOD', 'Moderator Coordinators/Leaders', 'orange');
-INSERT INTO `ranks` VALUES ('5', 'Administrators', 'ADM', 'Administrative Staff', 'pixeldarkblue');
-INSERT INTO `ranks` VALUES ('6', 'Managers', 'MNGR', 'Head Administrative Staff', 'green');
-INSERT INTO `ranks` VALUES ('7', 'Community Leaders', 'ADM', 'Lead Administrative Staff', 'settings');
-INSERT INTO `ranks` VALUES ('8', 'Developers', 'DEV', '', 'pixellightblue');
-INSERT INTO `ranks` VALUES ('9', 'Owners', 'OWNR', 'Backend Administrators/Hotel Creators', 'red');
 
 -- ----------------------------
 -- Table structure for `rooms`
@@ -24239,53 +25197,116 @@ DROP TABLE IF EXISTS `room_chat_styles`;
 CREATE TABLE `room_chat_styles` (
   `id` int(11) NOT NULL,
   `name` varchar(25) DEFAULT '',
-  `required_right` varchar(25) DEFAULT '',
+  `required_permission` varchar(191) DEFAULT '',
+  `requires_hc` boolean NOT NULL DEFAULT FALSE,
+  `enabled` boolean NOT NULL DEFAULT TRUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- ----------------------------
 -- Records of room_chat_styles
 -- ----------------------------
-INSERT INTO `room_chat_styles` VALUES ('0', 'normal_chat', '');
-INSERT INTO `room_chat_styles` VALUES ('1', '', 'mod_tool');
-INSERT INTO `room_chat_styles` VALUES ('2', '', 'mod_tool');
-INSERT INTO `room_chat_styles` VALUES ('3', '', '');
-INSERT INTO `room_chat_styles` VALUES ('4', '', '');
-INSERT INTO `room_chat_styles` VALUES ('5', '', '');
-INSERT INTO `room_chat_styles` VALUES ('6', '', '');
-INSERT INTO `room_chat_styles` VALUES ('7', '', '');
-INSERT INTO `room_chat_styles` VALUES ('8', '', '');
-INSERT INTO `room_chat_styles` VALUES ('9', 'zombie_hand', '');
-INSERT INTO `room_chat_styles` VALUES ('10', 'skeleton', '');
-INSERT INTO `room_chat_styles` VALUES ('11', '', '');
-INSERT INTO `room_chat_styles` VALUES ('12', '', '');
-INSERT INTO `room_chat_styles` VALUES ('13', '', '');
-INSERT INTO `room_chat_styles` VALUES ('14', '', '');
-INSERT INTO `room_chat_styles` VALUES ('15', '', '');
-INSERT INTO `room_chat_styles` VALUES ('16', '', '');
-INSERT INTO `room_chat_styles` VALUES ('17', '', '');
-INSERT INTO `room_chat_styles` VALUES ('18', '', '');
-INSERT INTO `room_chat_styles` VALUES ('19', 'piglet', '');
-INSERT INTO `room_chat_styles` VALUES ('20', 'sausagedog', '');
-INSERT INTO `room_chat_styles` VALUES ('21', 'firingmylazer', '');
-INSERT INTO `room_chat_styles` VALUES ('22', 'dragon', '');
-INSERT INTO `room_chat_styles` VALUES ('23', 'staff', 'mod_tool');
-INSERT INTO `room_chat_styles` VALUES ('24', 'bats', '');
-INSERT INTO `room_chat_styles` VALUES ('25', 'console', '');
-INSERT INTO `room_chat_styles` VALUES ('26', '', '');
-INSERT INTO `room_chat_styles` VALUES ('27', 'storm', '');
-INSERT INTO `room_chat_styles` VALUES ('28', 'parrot', '');
-INSERT INTO `room_chat_styles` VALUES ('29', 'pirate', '');
-INSERT INTO `room_chat_styles` VALUES ('30', 'bot_guide', 'mod_tool');
-INSERT INTO `room_chat_styles` VALUES ('31', 'bot_rentable', 'mod_tool');
-INSERT INTO `room_chat_styles` VALUES ('32', 'skelestock', '');
-INSERT INTO `room_chat_styles` VALUES ('33', 'bot_frank', 'mod_tool');
-INSERT INTO `room_chat_styles` VALUES ('34', 'notification', 'mod_tool');
-INSERT INTO `room_chat_styles` VALUES ('35', 'goat', 'mod_tool');
-INSERT INTO `room_chat_styles` VALUES ('36', 'santa', 'mod_tool');
-INSERT INTO `room_chat_styles` VALUES ('37', '', 'mod_tool');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('0', 'normal_chat', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('1', '', 'chat.style.staff');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('2', '', 'chat.style.staff');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('3', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('4', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('5', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('6', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('7', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('8', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('9', 'zombie_hand', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('10', 'skeleton', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('11', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('12', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('13', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('14', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('15', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('16', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('17', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('18', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('19', 'piglet', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('20', 'sausagedog', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('21', 'firingmylazer', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('22', 'dragon', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('23', 'staff', 'chat.style.staff');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('24', 'bats', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('25', 'console', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('26', '', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('27', 'storm', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('28', 'parrot', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('29', 'pirate', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('30', 'bot_guide', 'chat.style.staff');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('31', 'bot_rentable', 'chat.style.staff');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('32', 'skelestock', '');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('33', 'bot_frank', 'chat.style.staff');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('34', 'notification', 'chat.style.staff');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('35', 'goat', 'chat.style.staff');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('36', 'santa', 'chat.style.staff');
+INSERT INTO `room_chat_styles` (`id`, `name`, `required_permission`) VALUES ('37', '', 'chat.style.staff');
 
 -- ----------------------------
+-- Default picker metadata is authoritative on the server. Preserve custom permission gates
+-- and existing enabled choices; stock empty/moderation gates follow the known style list.
+INSERT IGNORE INTO room_chat_styles (id, name, required_permission, requires_hc, enabled) VALUES
+ (0, '', NULL, FALSE, TRUE),
+ (1, '', NULL, FALSE, TRUE),
+ (2, '', NULL, FALSE, TRUE),
+ (3, '', NULL, FALSE, TRUE),
+ (4, '', NULL, FALSE, TRUE),
+ (5, '', NULL, FALSE, TRUE),
+ (6, '', NULL, FALSE, TRUE),
+ (7, '', NULL, FALSE, TRUE),
+ (8, '', NULL, FALSE, TRUE),
+ (9, '', NULL, FALSE, TRUE),
+ (10, '', NULL, FALSE, TRUE),
+ (11, '', NULL, FALSE, TRUE),
+ (12, '', NULL, FALSE, TRUE),
+ (13, '', NULL, FALSE, TRUE),
+ (14, '', NULL, FALSE, TRUE),
+ (15, '', NULL, FALSE, TRUE),
+ (16, '', NULL, FALSE, TRUE),
+ (17, '', NULL, FALSE, TRUE),
+ (18, '', NULL, FALSE, TRUE),
+ (19, '', NULL, FALSE, TRUE),
+ (20, '', NULL, FALSE, TRUE),
+ (21, '', NULL, FALSE, TRUE),
+ (22, '', NULL, FALSE, TRUE),
+ (23, '', NULL, FALSE, TRUE),
+ (24, '', NULL, FALSE, TRUE),
+ (25, '', NULL, FALSE, TRUE),
+ (26, '', NULL, FALSE, TRUE),
+ (27, '', NULL, FALSE, TRUE),
+ (28, '', NULL, FALSE, TRUE),
+ (29, '', NULL, FALSE, TRUE),
+ (30, '', NULL, FALSE, TRUE),
+ (31, '', NULL, FALSE, TRUE),
+ (32, '', NULL, FALSE, TRUE),
+ (33, '', NULL, FALSE, TRUE),
+ (34, '', NULL, FALSE, TRUE),
+ (35, '', NULL, FALSE, TRUE),
+ (36, '', NULL, FALSE, TRUE),
+ (37, '', NULL, FALSE, TRUE),
+ (38, '', NULL, FALSE, TRUE),
+ (39, '', NULL, FALSE, TRUE),
+ (40, '', NULL, FALSE, TRUE),
+ (41, '', NULL, FALSE, TRUE),
+ (42, '', NULL, FALSE, TRUE),
+ (43, '', NULL, FALSE, TRUE),
+ (44, '', NULL, FALSE, TRUE),
+ (45, '', NULL, FALSE, TRUE),
+ (46, '', NULL, FALSE, TRUE),
+ (47, '', NULL, FALSE, TRUE),
+ (48, '', NULL, FALSE, TRUE),
+ (49, '', NULL, FALSE, TRUE),
+ (50, '', NULL, FALSE, TRUE),
+ (51, '', NULL, FALSE, TRUE),
+ (52, '', NULL, FALSE, TRUE),
+ (53, '', NULL, FALSE, TRUE);
+UPDATE room_chat_styles SET required_permission = CASE WHEN id IN (1,2,8,23,30,31,33,34,37,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53) THEN 'chat.style.staff' ELSE NULL END
+WHERE id BETWEEN 0 AND 53 AND COALESCE(required_permission, '') IN ('', 'chat.style.staff');
+UPDATE room_chat_styles SET requires_hc = id IN (9,10,11,12,13,14,15,16,17,18,19,20,21,22,24,25,26,27,28,29,32,35,36,38) WHERE id BETWEEN 0 AND 53;
+
 -- Table structure for `room_filter`
 -- ----------------------------
 DROP TABLE IF EXISTS `room_filter`;
@@ -24370,7 +25391,8 @@ CREATE TABLE `room_models` (
   `door_dir` int(4) NOT NULL DEFAULT '2',
   `heightmap` text NOT NULL,
   `public_items` text NOT NULL,
-  `club_only` enum('0','1') NOT NULL DEFAULT '0',
+  `required_club_level` int NOT NULL DEFAULT 0,
+  `required_permission` varchar(191) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
   `poolmap` varchar(100) NOT NULL DEFAULT '',
   `custom` enum('0','1') NOT NULL DEFAULT '0',
   `wall_height` int(11) NOT NULL DEFAULT '-1',
@@ -24381,43 +25403,43 @@ CREATE TABLE `room_models` (
 -- ----------------------------
 -- Records of room_models
 -- ----------------------------
-INSERT INTO `room_models` VALUES ('model_0', '0', '4', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000\r\n000000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_1', '0', '10', '10', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxeeeeeeeeeeeeeeeedcba9888888888888\r\nxeeeeeeeeeeeeeeeexxxxxx88888888888\r\nxeeeeeeeeeeeeeeeexxxxxx88888888888\r\nxeeeeeeeeeeeeeeeexxxxxx88888888888\r\nxeeeeeeeeeeeeeeeexxxxxx88888888888\r\nxdxxxxxxxxxxxxxxxxxxxxx88888888888\r\nxcxxxxxxxxxxxxxxxxxxxxx88888888888\r\nxbxxxxxxxxxxxxxxxxxxxxx88888888888\r\nxaxxxxxxxxxxxxxxxxxxxxx88888888888\r\naaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxx\r\nxaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxx\r\nxaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxx\r\nxaaaaaaaaaaaaaaaaxxxx6666666666666\r\nxaaaaaaaaaaaaaaaaxxxx6666666666666\r\nxaaaaaaaaaaaaaaaaxxxx6666666666666\r\nxaaaaaaaaaaaaaaaaxxxx6666666666666\r\nxaaaaaaaaaaaaaaaaxxxx6666666666666\r\nxaaaaaaaaaaaaaaaa98766666666666666\r\nxaaaaaaaaaaaaaaaaxxxxxxxxxxxx5xxxx\r\nxaaaaaaaaaaaaaaaaxxxxxxxxxxxx4xxxx\r\nxaaaaaaaaaaaaaaaaxxxxxxxxxxxx3xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxxxxxxxxxxxxxxxx9xxx3333333333xxxx\r\nxxxxxxxxxxxxxxxx8xxx3333333333xxxx\r\nxxxxxxxxxxxxxxxx7xxx3333333333xxxx\r\nxxx777777777xxxx6xxx3333333333xxxx\r\nxxx777777777xxxx5xxxxxxxxxxxxxxxxx\r\nxxx777777777xxxx4xxxxxxxxxxxxxxxxx\r\nxxx777777777xxxx3xxxxxxxxxxxxxxxxx\r\nxxx777777777xxxx2xxxxxxxxxxxxxxxxx\r\nxfffffffffxxxxxx1xxxxxxxxxxxxxxxxx\r\nxfffffffffxxxxxx111111111111111111\r\nxfffffffffxxxxxx111111111111111111\r\nxfffffffffxxxxxx111111111111111111\r\nxfffffffffxxxxxx111111111111111111\r\nxfffffffffxxxxxx111111111111111111\r\nxfffffffffxxxxxx111111111111111111\r\nxxxxxxxxxxxxxxxx111111111111111111\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_2', '0', '15', '14', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxxxxxxxxxxxxiix0000xxxxxxxxxx\r\nxxxxxxxxxxxxhhx0000xxxxxxxxxx\r\nxxxxxxxxxxxxggx0000xxxxxxxxxx\r\nxxxxxxxxxxxxffx0000xxxxxxxxxx\r\nxxxxxxxxxxxxeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\neeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxxxxxxxxxxxxddx00000000000000\r\nxxxxxxxxxxxxccx00000000000000\r\nxxxxxxxxxxxxbbx00000000000000\r\nxxxxxxxxxxxxaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxxxxxxxxxxxx99x0000xxxxxxxxxx\r\nxxxxxxxxxxxx88x0000xxxxxxxxxx\r\nxxxxxxxxxxxx77x0000xxxxxxxxxx\r\nxxxxxxxxxxxx66x0000xxxxxxxxxx\r\nxxxxxxxxxxxx55x0000xxxxxxxxxx\r\nxxxxxxxxxxxx44x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nxxxxxxxxxxxx33x0000xxxxxxxxxx\r\nxxxxxxxxxxxx22x0000xxxxxxxxxx\r\nxxxxxxxxxxxx11x0000xxxxxxxxxx\r\nxxxxxxxxxxxx00x0000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_3', '0', '10', '0', '2', 'xxxxxxxxxxxxxxxxx\r\nxxx0000000000000x\r\nxxx0000000000000x\r\nxxx0000000000000x\r\nxxx0000000000000x\r\nxxx0000000000000x\r\nxxx0000000000000x\r\nx000000000000000x\r\nx000000000000000x\r\nx000000000000000x\r\n0000000000000000x\r\nx000000000000000x\r\nx000000000000000x\r\nx000000000000000x\r\nxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_4', '0', '10', '0', '2', 'xxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxaaaaaaaaaaax\r\nxxxxxxxxxaaaaaaaaaaax\r\nxxxxxxxxxaaaaaaaaaaax\r\nxxxxxxxxxaaaaaaaaaaax\r\nx00000000xxxxxaaaaaax\r\nx00000000xxxxxaaaaaax\r\nx00000000xxxxxaaaaaax\r\nx00000000xxxxxaaaaaax\r\nx0000000000000aaaaaax\r\n00000000000000aaaaaax\r\nx0000000000000aaaaaax\r\nx0000000000000aaaaaax\r\nx0000000000000xxxxxxx\r\nx0000000000000xxxxxxx\r\nx0000000000000xxxxxxx\r\nx0000000000000xxxxxxx\r\nx0000000000000xxxxxxx\r\nx0000000000000xxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_5', '0', '10', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\n000000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_6', '0', '15', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x00000000xxxxxxxx00000000xxxx\r\nx11xxxxxxxx00000000xxxxxxxx00000000xxxx\r\nx00x000000000000000xxxxxxxx00000000xxxx\r\nx00x000000000000000xxxxxxxx00000000xxxx\r\nx000000000000000000xxxxxxxx00000000xxxx\r\nx000000000000000000xxxxxxxx00000000xxxx\r\n0000000000000000000xxxxxxxx00000000xxxx\r\nx000000000000000000xxxxxxxx00000000xxxx\r\nx00x000000000000000xxxxxxxx00000000xxxx\r\nx00x000000000000000xxxxxxxx00000000xxxx\r\nx00xxxxxxxxxxxxxxxxxxxxxxxx00000000xxxx\r\nx00xxxxxxxxxxxxxxxxxxxxxxxx00000000xxxx\r\nx00x0000000000000000000000000000000xxxx\r\nx00x0000000000000000000000000000000xxxx\r\nx0000000000000000000000000000000000xxxx\r\nx0000000000000000000000000000000000xxxx\r\nx0000000000000000000000000000000000xxxx\r\nx0000000000000000000000000000000000xxxx\r\nx00x0000000000000000000000000000000xxxx\r\nx00x0000000000000000000000000000000xxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_7', '0', '17', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxx\r\nx222222xx00000000xxxxxxxx\r\nx222222xx00000000xxxxxxxx\r\nx2222221000000000xxxxxxxx\r\nx2222221000000000xxxxxxxx\r\nx222222xx00000000xxxxxxxx\r\nx222222xx00000000xxxxxxxx\r\nx222222xxxxxxxxxxxxxxxxxx\r\nx222222xkkkkkkxxiiiiiiiix\r\nx222222xkkkkkkxxiiiiiiiix\r\nx222222xkkkkkkjiiiiiiiiix\r\nx222222xkkkkkkjiiiiiiiiix\r\nx222222xkkkkkkxxiiiiiiiix\r\nxxx11xxxkkkkkkxxiiiiiiiix\r\nxxx00xxxkkkkkkxxxxxxxxxxx\r\nx000000xkkkkkkxxxxxxxxxxx\r\nx000000xkkkkkkxxxxxxxxxxx\r\n0000000xkkkkkkxxxxxxxxxxx\r\nx000000xkkkkkkxxxxxxxxxxx\r\nx000000xkkkkkkxxxxxxxxxxx\r\nx000000xxxjjxxxxxxxxxxxxx\r\nx000000xxxiixxxxxxxxxxxxx\r\nx000000xiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_8', '0', '15', '5', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555xxxxxxxxxxxxxxxxxxxxxxxx\r\nx55555555554321000000000000000000xx\r\nx55555555554321000000000000000000xx\r\nx5555555555xxxxx00000000000000000xx\r\nx555555x44x0000000000000000000000xx\r\nx555555x33x0000000000000000000000xx\r\nx555555x22x0000000000000000000000xx\r\nx555555x11x0000000000000000000000xx\r\n5555555x00x0000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_9', '0', '17', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxx\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\n00000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nxxxxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_a', '3', '5', '0', '2', 'xxxxxxxxxxxx\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_b', '0', '5', '0', '2', 'xxxxxxxxxxxx\r\nxxxxx0000000\r\nxxxxx0000000\r\nxxxxx0000000\r\nxxxxx0000000\r\nx00000000000\r\nx00000000000\r\nx00000000000\r\nx00000000000\r\nx00000000000\r\nx00000000000\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_c', '4', '7', '0', '2', 'xxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_d', '4', '7', '0', '2', 'xxxxxxxxxxxx\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_e', '1', '5', '0', '2', 'xxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_f', '2', '5', '0', '2', 'xxxxxxxxxxxx\r\nxxxxxxx0000x\r\nxxxxxxx0000x\r\nxxx00000000x\r\nxxx00000000x\r\nxxx00000000x\r\nxxx00000000x\r\nx0000000000x\r\nx0000000000x\r\nx0000000000x\r\nx0000000000x\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_g', '1', '7', '1', '2', 'xxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxx00000\r\nxxxxxxx00000\r\nxxxxxxx00000\r\nxx1111000000\r\nxx1111000000\r\nxx1111000000\r\nxx1111000000\r\nxx1111000000\r\nxxxxxxx00000\r\nxxxxxxx00000\r\nxxxxxxx00000\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_h', '4', '4', '1', '2', 'xxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxx111111x\r\nxxxxx111111x\r\nxxxxx111111x\r\nxxxxx111111x\r\nxxxxx111111x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxx00000000x\r\nxxx00000000x\r\nxxx00000000x\r\nxxx00000000x\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_i', '0', '10', '0', '2', 'xxxxxxxxxxxxxxxxx\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_j', '0', '10', '0', '2', 'xxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxx0000000000\r\nxxxxxxxxxxx0000000000\r\nxxxxxxxxxxx0000000000\r\nxxxxxxxxxxx0000000000\r\nxxxxxxxxxxx0000000000\r\nxxxxxxxxxxx0000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx0000000000xxxxxxxxxx\r\nx0000000000xxxxxxxxxx\r\nx0000000000xxxxxxxxxx\r\nx0000000000xxxxxxxxxx\r\nx0000000000xxxxxxxxxx\r\nx0000000000xxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_k', '0', '13', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxxxxxx00000000\r\nxxxxxxxxxxxxxxxxx00000000\r\nxxxxxxxxxxxxxxxxx00000000\r\nxxxxxxxxxxxxxxxxx00000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_l', '0', '16', '0', '2', 'xxxxxxxxxxxxxxxxxxxxx\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_m', '0', '15', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_n', '0', '16', '0', '2', 'xxxxxxxxxxxxxxxxxxxxx\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx000000xxxxxxxx000000\r\nx000000x000000x000000\r\nx000000x000000x000000\r\nx000000x000000x000000\r\nx000000x000000x000000\r\nx000000x000000x000000\r\nx000000x000000x000000\r\nx000000xxxxxxxx000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_o', '0', '18', '1', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx00000000xxxx\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_p', '0', '23', '2', '2', 'xxxxxxxxxxxxxxxxxxx\r\nxxxxxxx222222222222\r\nxxxxxxx222222222222\r\nxxxxxxx222222222222\r\nxxxxxxx222222222222\r\nxxxxxxx222222222222\r\nxxxxxxx222222222222\r\nxxxxxxx22222222xxxx\r\nxxxxxxx11111111xxxx\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx2222xx11111111xxxx\r\nx2222xx00000000xxxx\r\nx2222xx000000000000\r\nx2222xx000000000000\r\nx2222xx000000000000\r\nx2222xx000000000000\r\n22222xx000000000000\r\nx2222xx000000000000\r\nxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_q', '10', '4', '2', '2', 'xxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxx22222222\r\nxxxxxxxxxxx22222222\r\nxxxxxxxxxxx22222222\r\nxxxxxxxxxx222222222\r\nxxxxxxxxxxx22222222\r\nxxxxxxxxxxx22222222\r\nx222222222222222222\r\nx222222222222222222\r\nx222222222222222222\r\nx222222222222222222\r\nx222222222222222222\r\nx222222222222222222\r\nx2222xxxxxxxxxxxxxx\r\nx2222xxxxxxxxxxxxxx\r\nx2222211111xx000000\r\nx222221111110000000\r\nx222221111110000000\r\nx2222211111xx000000\r\nxx22xxx1111xxxxxxxx\r\nxx11xxx1111xxxxxxxx\r\nx1111xx1111xx000000\r\nx1111xx111110000000\r\nx1111xx111110000000\r\nx1111xx1111xx000000\r\nxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_r', '10', '4', '3', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxx33333333333333\r\nxxxxxxxxxxx33333333333333\r\nxxxxxxxxxxx33333333333333\r\nxxxxxxxxxx333333333333333\r\nxxxxxxxxxxx33333333333333\r\nxxxxxxxxxxx33333333333333\r\nxxxxxxx333333333333333333\r\nxxxxxxx333333333333333333\r\nxxxxxxx333333333333333333\r\nxxxxxxx333333333333333333\r\nxxxxxxx333333333333333333\r\nxxxxxxx333333333333333333\r\nx4444433333xxxxxxxxxxxxxx\r\nx4444433333xxxxxxxxxxxxxx\r\nx44444333333222xx000000xx\r\nx44444333333222xx000000xx\r\nxxx44xxxxxxxx22xx000000xx\r\nxxx33xxxxxxxx11xx000000xx\r\nxxx33322222211110000000xx\r\nxxx33322222211110000000xx\r\nxxxxxxxxxxxxxxxxx000000xx\r\nxxxxxxxxxxxxxxxxx000000xx\r\nxxxxxxxxxxxxxxxxx000000xx\r\nxxxxxxxxxxxxxxxxx000000xx\r\nxxxxxxxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_s', '0', '3', '0', '2', 'xxxxxx\r\nx00000\r\nx00000\r\n000000\r\nx00000\r\nx00000\r\nx00000\r\nx00000', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_t', '0', '3', '2', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx222222222222222222222222222x\r\nx222222222222222222222222222x\r\n2222222222222222222222222222x\r\nx222222222222222222222222222x\r\nx2222xxxxxx222222xxxxxxx2222x\r\nx2222xxxxxx111111xxxxxxx2222x\r\nx2222xx111111111111111xx2222x\r\nx2222xx111111111111111xx2222x\r\nx2222xx11xxx1111xxxx11xx2222x\r\nx2222xx11xxx0000xxxx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx2222xx11xxxxxxxxxxx11xx2222x\r\nx2222xx11xxxxxxxxxxx11xx2222x\r\nx2222xx111111111111111xx2222x\r\nx2222xx111111111111111xx2222x\r\nx2222xxxxxxxxxxxxxxxxxxx2222x\r\nx2222xxxxxxxxxxxxxxxxxxx2222x\r\nx222222222222222222222222222x\r\nx222222222222222222222222222x\r\nx222222222222222222222222222x\r\nx222222222222222222222222222x\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_u', '0', '17', '1', '2', 'xxxxxxxxxxxxxxxxxxxxxxxx\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\n11111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nxxxxxxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_v', '0', '3', '2', '2', 'xxxxxxxxxxxxxxxxxxxx\r\nx222221111111111111x\r\nx222221111111111111x\r\n2222221111111111111x\r\nx222221111111111111x\r\nx222221111111111111x\r\nx222221111111111111x\r\nxxxxxxxx1111xxxxxxxx\r\nxxxxxxxx0000xxxxxxxx\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx00000000000x000000x\r\nx00000000000x000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nxxxxxxxx00000000000x\r\nx000000x00000000000x\r\nx000000x0000xxxxxxxx\r\nx00000000000x000000x\r\nx00000000000x000000x\r\nx00000000000x000000x\r\nx00000000000x000000x\r\nxxxxxxxx0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nxxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_w', '0', '3', '2', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxx\rx2222xx1111111111xx11111111\rx2222xx1111111111xx11111111\r222222111111111111111111111\rx22222111111111111111111111\rx22222111111111111111111111\rx22222111111111111111111111\rx2222xx1111111111xx11111111\rx2222xx1111111111xx11111111\rx2222xx1111111111xxxx1111xx\rx2222xx1111111111xxxx0000xx\rxxxxxxx1111111111xx00000000\rxxxxxxx1111111111xx00000000\rx22222111111111111000000000\rx22222111111111111000000000\rx22222111111111111000000000\rx22222111111111111000000000\rx2222xx1111111111xx00000000\rx2222xx1111111111xx00000000\rx2222xxxx1111xxxxxxxxxxxxxx\rx2222xxxx0000xxxxxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_wl', '10', '5', '0', '2', 'xx3333333333xxxxxxxxxxxxxxxxxxxx\r\nxx3333333333xxxxxxxxxxxxxxxxxxxx\r\nxx3333333333xxxxxxxxxxxxxxxxxxxx\r\nxx3333333333211111111111111111xx\r\nxx3333333333211111111111111111xx\r\nxx3333333333xx1111111111111111xx\r\nxx3333333333xx1111111111111111xx\r\nxx3333333333211111111111111111xx\r\nxx3333333333211111111111111111xx\r\nxx3333333333xxxx11111111111111xx\r\nxx3333333333xxxx11111111111111xx\r\nxx3333333333xxxx1111111111xxxxxx\r\nxxxxxxxxxxxxxxxx1111111111xxxxxx\r\nxxxxxxxxxxxxxxxx0000000000xxxxxx\r\nxxxxx0000xxxxxxx0000000000xxxxxx\r\nxxxxx0000xxxxxxx0000000000xxxxxx\r\nxxxxxxxxxxxxxxxx0000000000xxxxxx\r\nxxxxxxxxxxxxxxxx0000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n00000000000000000000000000xxxxxx\r\n00000000000000000000000000xxxxxx\r\n0000000000000000000000xxxxxxxxxx\r\n0000000000000000000000xxxxxxxxxx\r\nxxxxxx00xxxxxx00000000xxxxxxxxxx\r\nxxxxxx0000000000000000xxxxxxxxxx\r\nxxxxxx0000000000000000xxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '0', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_x', '0', '12', '0', '2', 'xxxxxxxxxxxxxxxxxxxx\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nxxx00xxx0000xxx00xxx\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\n0000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000xxxxxx000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nxxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_y', '0', '3', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000xx0000000000xx0000x\r\nx00000000xx0000000000xx0000x\r\n000000000xx0000000000xx0000x\r\nx00000000xx0000000000xx0000x\r\nx00000000xx0000xx0000xx0000x\r\nx00000000xx0000xx0000xx0000x\r\nx00000000xx0000xx0000000000x\r\nx00000000xx0000xx0000000000x\r\nxxxxx0000xx0000xx0000000000x\r\nxxxxx0000xx0000xx0000000000x\r\nxxxxx0000xx0000xxxxxxxxxxxxx\r\nxxxxx0000xx0000xxxxxxxxxxxxx\r\nx00000000xx0000000000000000x\r\nx00000000xx0000000000000000x\r\nx00000000xx0000000000000000x\r\nx00000000xx0000000000000000x\r\nx0000xxxxxxxxxxxxxxxxxx0000x\r\nx0000xxxxxxxxxxxxxxxxxx0000x\r\nx00000000000000000000000000x\r\nx00000000000000000000000000x\r\nx00000000000000000000000000x\r\nx00000000000000000000000000x\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
-INSERT INTO `room_models` VALUES ('model_z', '0', '9', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxx00000000000000000000\r\nxxxxxxxxxxx00000000000000000000\r\nxxxxxxxxxxx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\n000000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nxxxxxxxxxxx00000000000000000000\r\nxxxxxxxxxxx00000000000000000000\r\nxxxxxxxxxxx00000000000000000000\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', '1', '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_0', '0', '4', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000\r\n000000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000xx00000000xx00000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_1', '0', '10', '10', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxeeeeeeeeeeeeeeeedcba9888888888888\r\nxeeeeeeeeeeeeeeeexxxxxx88888888888\r\nxeeeeeeeeeeeeeeeexxxxxx88888888888\r\nxeeeeeeeeeeeeeeeexxxxxx88888888888\r\nxeeeeeeeeeeeeeeeexxxxxx88888888888\r\nxdxxxxxxxxxxxxxxxxxxxxx88888888888\r\nxcxxxxxxxxxxxxxxxxxxxxx88888888888\r\nxbxxxxxxxxxxxxxxxxxxxxx88888888888\r\nxaxxxxxxxxxxxxxxxxxxxxx88888888888\r\naaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxx\r\nxaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxx\r\nxaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxx\r\nxaaaaaaaaaaaaaaaaxxxx6666666666666\r\nxaaaaaaaaaaaaaaaaxxxx6666666666666\r\nxaaaaaaaaaaaaaaaaxxxx6666666666666\r\nxaaaaaaaaaaaaaaaaxxxx6666666666666\r\nxaaaaaaaaaaaaaaaaxxxx6666666666666\r\nxaaaaaaaaaaaaaaaa98766666666666666\r\nxaaaaaaaaaaaaaaaaxxxxxxxxxxxx5xxxx\r\nxaaaaaaaaaaaaaaaaxxxxxxxxxxxx4xxxx\r\nxaaaaaaaaaaaaaaaaxxxxxxxxxxxx3xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxaaaaaaaaaaaaaaaaxxx3333333333xxxx\r\nxxxxxxxxxxxxxxxx9xxx3333333333xxxx\r\nxxxxxxxxxxxxxxxx8xxx3333333333xxxx\r\nxxxxxxxxxxxxxxxx7xxx3333333333xxxx\r\nxxx777777777xxxx6xxx3333333333xxxx\r\nxxx777777777xxxx5xxxxxxxxxxxxxxxxx\r\nxxx777777777xxxx4xxxxxxxxxxxxxxxxx\r\nxxx777777777xxxx3xxxxxxxxxxxxxxxxx\r\nxxx777777777xxxx2xxxxxxxxxxxxxxxxx\r\nxfffffffffxxxxxx1xxxxxxxxxxxxxxxxx\r\nxfffffffffxxxxxx111111111111111111\r\nxfffffffffxxxxxx111111111111111111\r\nxfffffffffxxxxxx111111111111111111\r\nxfffffffffxxxxxx111111111111111111\r\nxfffffffffxxxxxx111111111111111111\r\nxfffffffffxxxxxx111111111111111111\r\nxxxxxxxxxxxxxxxx111111111111111111\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_2', '0', '15', '14', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxjjjjjjjjjjjjjx0000xxxxxxxxxx\r\nxxxxxxxxxxxxiix0000xxxxxxxxxx\r\nxxxxxxxxxxxxhhx0000xxxxxxxxxx\r\nxxxxxxxxxxxxggx0000xxxxxxxxxx\r\nxxxxxxxxxxxxffx0000xxxxxxxxxx\r\nxxxxxxxxxxxxeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\neeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxeeeeeeeeeeeeex0000xxxxxxxxxx\r\nxxxxxxxxxxxxddx00000000000000\r\nxxxxxxxxxxxxccx00000000000000\r\nxxxxxxxxxxxxbbx00000000000000\r\nxxxxxxxxxxxxaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxaaaaaaaaaaaaax00000000000000\r\nxxxxxxxxxxxx99x0000xxxxxxxxxx\r\nxxxxxxxxxxxx88x0000xxxxxxxxxx\r\nxxxxxxxxxxxx77x0000xxxxxxxxxx\r\nxxxxxxxxxxxx66x0000xxxxxxxxxx\r\nxxxxxxxxxxxx55x0000xxxxxxxxxx\r\nxxxxxxxxxxxx44x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nx4444444444444x0000xxxxxxxxxx\r\nxxxxxxxxxxxx33x0000xxxxxxxxxx\r\nxxxxxxxxxxxx22x0000xxxxxxxxxx\r\nxxxxxxxxxxxx11x0000xxxxxxxxxx\r\nxxxxxxxxxxxx00x0000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nx000000000000000000xxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_3', '0', '10', '0', '2', 'xxxxxxxxxxxxxxxxx\r\nxxx0000000000000x\r\nxxx0000000000000x\r\nxxx0000000000000x\r\nxxx0000000000000x\r\nxxx0000000000000x\r\nxxx0000000000000x\r\nx000000000000000x\r\nx000000000000000x\r\nx000000000000000x\r\n0000000000000000x\r\nx000000000000000x\r\nx000000000000000x\r\nx000000000000000x\r\nxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_4', '0', '10', '0', '2', 'xxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxaaaaaaaaaaax\r\nxxxxxxxxxaaaaaaaaaaax\r\nxxxxxxxxxaaaaaaaaaaax\r\nxxxxxxxxxaaaaaaaaaaax\r\nx00000000xxxxxaaaaaax\r\nx00000000xxxxxaaaaaax\r\nx00000000xxxxxaaaaaax\r\nx00000000xxxxxaaaaaax\r\nx0000000000000aaaaaax\r\n00000000000000aaaaaax\r\nx0000000000000aaaaaax\r\nx0000000000000aaaaaax\r\nx0000000000000xxxxxxx\r\nx0000000000000xxxxxxx\r\nx0000000000000xxxxxxx\r\nx0000000000000xxxxxxx\r\nx0000000000000xxxxxxx\r\nx0000000000000xxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_5', '0', '10', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\n000000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nx00000000000000000000000000000000x\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_6', '0', '15', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x000000000000000000000000xxxx\r\nx222222222x00000000xxxxxxxx00000000xxxx\r\nx11xxxxxxxx00000000xxxxxxxx00000000xxxx\r\nx00x000000000000000xxxxxxxx00000000xxxx\r\nx00x000000000000000xxxxxxxx00000000xxxx\r\nx000000000000000000xxxxxxxx00000000xxxx\r\nx000000000000000000xxxxxxxx00000000xxxx\r\n0000000000000000000xxxxxxxx00000000xxxx\r\nx000000000000000000xxxxxxxx00000000xxxx\r\nx00x000000000000000xxxxxxxx00000000xxxx\r\nx00x000000000000000xxxxxxxx00000000xxxx\r\nx00xxxxxxxxxxxxxxxxxxxxxxxx00000000xxxx\r\nx00xxxxxxxxxxxxxxxxxxxxxxxx00000000xxxx\r\nx00x0000000000000000000000000000000xxxx\r\nx00x0000000000000000000000000000000xxxx\r\nx0000000000000000000000000000000000xxxx\r\nx0000000000000000000000000000000000xxxx\r\nx0000000000000000000000000000000000xxxx\r\nx0000000000000000000000000000000000xxxx\r\nx00x0000000000000000000000000000000xxxx\r\nx00x0000000000000000000000000000000xxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_7', '0', '17', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxx\r\nx222222xx00000000xxxxxxxx\r\nx222222xx00000000xxxxxxxx\r\nx2222221000000000xxxxxxxx\r\nx2222221000000000xxxxxxxx\r\nx222222xx00000000xxxxxxxx\r\nx222222xx00000000xxxxxxxx\r\nx222222xxxxxxxxxxxxxxxxxx\r\nx222222xkkkkkkxxiiiiiiiix\r\nx222222xkkkkkkxxiiiiiiiix\r\nx222222xkkkkkkjiiiiiiiiix\r\nx222222xkkkkkkjiiiiiiiiix\r\nx222222xkkkkkkxxiiiiiiiix\r\nxxx11xxxkkkkkkxxiiiiiiiix\r\nxxx00xxxkkkkkkxxxxxxxxxxx\r\nx000000xkkkkkkxxxxxxxxxxx\r\nx000000xkkkkkkxxxxxxxxxxx\r\n0000000xkkkkkkxxxxxxxxxxx\r\nx000000xkkkkkkxxxxxxxxxxx\r\nx000000xkkkkkkxxxxxxxxxxx\r\nx000000xxxjjxxxxxxxxxxxxx\r\nx000000xxxiixxxxxxxxxxxxx\r\nx000000xiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx\r\nxxxxxxxxiiiiiixxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_8', '0', '15', '5', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555555555555555555xxxxxxxxx\r\nx5555555555xxxxxxxxxxxxxxxxxxxxxxxx\r\nx55555555554321000000000000000000xx\r\nx55555555554321000000000000000000xx\r\nx5555555555xxxxx00000000000000000xx\r\nx555555x44x0000000000000000000000xx\r\nx555555x33x0000000000000000000000xx\r\nx555555x22x0000000000000000000000xx\r\nx555555x11x0000000000000000000000xx\r\n5555555x00x0000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nx555555x0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxx0000000000000000000000000xx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_9', '0', '17', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxx\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\n00000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nx0000000000000000000000x\r\nxxxxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_a', '3', '5', '0', '2', 'xxxxxxxxxxxx\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxx00000000\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_b', '0', '5', '0', '2', 'xxxxxxxxxxxx\r\nxxxxx0000000\r\nxxxxx0000000\r\nxxxxx0000000\r\nxxxxx0000000\r\nx00000000000\r\nx00000000000\r\nx00000000000\r\nx00000000000\r\nx00000000000\r\nx00000000000\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_c', '4', '7', '0', '2', 'xxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_d', '4', '7', '0', '2', 'xxxxxxxxxxxx\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_e', '1', '5', '0', '2', 'xxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxx0000000000\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_f', '2', '5', '0', '2', 'xxxxxxxxxxxx\r\nxxxxxxx0000x\r\nxxxxxxx0000x\r\nxxx00000000x\r\nxxx00000000x\r\nxxx00000000x\r\nxxx00000000x\r\nx0000000000x\r\nx0000000000x\r\nx0000000000x\r\nx0000000000x\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_g', '1', '7', '1', '2', 'xxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxx00000\r\nxxxxxxx00000\r\nxxxxxxx00000\r\nxx1111000000\r\nxx1111000000\r\nxx1111000000\r\nxx1111000000\r\nxx1111000000\r\nxxxxxxx00000\r\nxxxxxxx00000\r\nxxxxxxx00000\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', 1, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_h', '4', '4', '1', '2', 'xxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxx111111x\r\nxxxxx111111x\r\nxxxxx111111x\r\nxxxxx111111x\r\nxxxxx111111x\r\nxxxxx000000x\r\nxxxxx000000x\r\nxxx00000000x\r\nxxx00000000x\r\nxxx00000000x\r\nxxx00000000x\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx\r\nxxxxxxxxxxxx', '', 1, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_i', '0', '10', '0', '2', 'xxxxxxxxxxxxxxxxx\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nx0000000000000000\r\nxxxxxxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_j', '0', '10', '0', '2', 'xxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxx0000000000\r\nxxxxxxxxxxx0000000000\r\nxxxxxxxxxxx0000000000\r\nxxxxxxxxxxx0000000000\r\nxxxxxxxxxxx0000000000\r\nxxxxxxxxxxx0000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx0000000000xxxxxxxxxx\r\nx0000000000xxxxxxxxxx\r\nx0000000000xxxxxxxxxx\r\nx0000000000xxxxxxxxxx\r\nx0000000000xxxxxxxxxx\r\nx0000000000xxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_k', '0', '13', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxxxxxx00000000\r\nxxxxxxxxxxxxxxxxx00000000\r\nxxxxxxxxxxxxxxxxx00000000\r\nxxxxxxxxxxxxxxxxx00000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nx000000000000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxxxxxxxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_l', '0', '16', '0', '2', 'xxxxxxxxxxxxxxxxxxxxx\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nx00000000xxxx00000000\r\nxxxxxxxxxxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_m', '0', '15', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nx0000000000000000000000000000\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxx00000000xxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_n', '0', '16', '0', '2', 'xxxxxxxxxxxxxxxxxxxxx\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx000000xxxxxxxx000000\r\nx000000x000000x000000\r\nx000000x000000x000000\r\nx000000x000000x000000\r\nx000000x000000x000000\r\nx000000x000000x000000\r\nx000000x000000x000000\r\nx000000xxxxxxxx000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nx00000000000000000000\r\nxxxxxxxxxxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_o', '0', '18', '1', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx11111111xxxx\r\nxxxxxxxxxxxxx00000000xxxx\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nx111111100000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxx0000000000000000\r\nxxxxxxxxxxxxxxxxxxxxxxxxx', '', 1, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_p', '0', '23', '2', '2', 'xxxxxxxxxxxxxxxxxxx\r\nxxxxxxx222222222222\r\nxxxxxxx222222222222\r\nxxxxxxx222222222222\r\nxxxxxxx222222222222\r\nxxxxxxx222222222222\r\nxxxxxxx222222222222\r\nxxxxxxx22222222xxxx\r\nxxxxxxx11111111xxxx\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx222221111111111111\r\nx2222xx11111111xxxx\r\nx2222xx00000000xxxx\r\nx2222xx000000000000\r\nx2222xx000000000000\r\nx2222xx000000000000\r\nx2222xx000000000000\r\n22222xx000000000000\r\nx2222xx000000000000\r\nxxxxxxxxxxxxxxxxxxx', '', 1, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_q', '10', '4', '2', '2', 'xxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxx22222222\r\nxxxxxxxxxxx22222222\r\nxxxxxxxxxxx22222222\r\nxxxxxxxxxx222222222\r\nxxxxxxxxxxx22222222\r\nxxxxxxxxxxx22222222\r\nx222222222222222222\r\nx222222222222222222\r\nx222222222222222222\r\nx222222222222222222\r\nx222222222222222222\r\nx222222222222222222\r\nx2222xxxxxxxxxxxxxx\r\nx2222xxxxxxxxxxxxxx\r\nx2222211111xx000000\r\nx222221111110000000\r\nx222221111110000000\r\nx2222211111xx000000\r\nxx22xxx1111xxxxxxxx\r\nxx11xxx1111xxxxxxxx\r\nx1111xx1111xx000000\r\nx1111xx111110000000\r\nx1111xx111110000000\r\nx1111xx1111xx000000\r\nxxxxxxxxxxxxxxxxxxx', '', 1, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_r', '10', '4', '3', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxx33333333333333\r\nxxxxxxxxxxx33333333333333\r\nxxxxxxxxxxx33333333333333\r\nxxxxxxxxxx333333333333333\r\nxxxxxxxxxxx33333333333333\r\nxxxxxxxxxxx33333333333333\r\nxxxxxxx333333333333333333\r\nxxxxxxx333333333333333333\r\nxxxxxxx333333333333333333\r\nxxxxxxx333333333333333333\r\nxxxxxxx333333333333333333\r\nxxxxxxx333333333333333333\r\nx4444433333xxxxxxxxxxxxxx\r\nx4444433333xxxxxxxxxxxxxx\r\nx44444333333222xx000000xx\r\nx44444333333222xx000000xx\r\nxxx44xxxxxxxx22xx000000xx\r\nxxx33xxxxxxxx11xx000000xx\r\nxxx33322222211110000000xx\r\nxxx33322222211110000000xx\r\nxxxxxxxxxxxxxxxxx000000xx\r\nxxxxxxxxxxxxxxxxx000000xx\r\nxxxxxxxxxxxxxxxxx000000xx\r\nxxxxxxxxxxxxxxxxx000000xx\r\nxxxxxxxxxxxxxxxxxxxxxxxxx', '', 1, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_s', '0', '3', '0', '2', 'xxxxxx\r\nx00000\r\nx00000\r\n000000\r\nx00000\r\nx00000\r\nx00000\r\nx00000', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_t', '0', '3', '2', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx222222222222222222222222222x\r\nx222222222222222222222222222x\r\n2222222222222222222222222222x\r\nx222222222222222222222222222x\r\nx2222xxxxxx222222xxxxxxx2222x\r\nx2222xxxxxx111111xxxxxxx2222x\r\nx2222xx111111111111111xx2222x\r\nx2222xx111111111111111xx2222x\r\nx2222xx11xxx1111xxxx11xx2222x\r\nx2222xx11xxx0000xxxx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx22222111x00000000xx11xx2222x\r\nx2222xx11xxxxxxxxxxx11xx2222x\r\nx2222xx11xxxxxxxxxxx11xx2222x\r\nx2222xx111111111111111xx2222x\r\nx2222xx111111111111111xx2222x\r\nx2222xxxxxxxxxxxxxxxxxxx2222x\r\nx2222xxxxxxxxxxxxxxxxxxx2222x\r\nx222222222222222222222222222x\r\nx222222222222222222222222222x\r\nx222222222222222222222222222x\r\nx222222222222222222222222222x\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_u', '0', '17', '1', '2', 'xxxxxxxxxxxxxxxxxxxxxxxx\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\n11111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nx1111100000000000000000x\r\nxxxxxxxxxxxxxxxxxxxxxxxx', '', 1, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_v', '0', '3', '2', '2', 'xxxxxxxxxxxxxxxxxxxx\r\nx222221111111111111x\r\nx222221111111111111x\r\n2222221111111111111x\r\nx222221111111111111x\r\nx222221111111111111x\r\nx222221111111111111x\r\nxxxxxxxx1111xxxxxxxx\r\nxxxxxxxx0000xxxxxxxx\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx00000000000x000000x\r\nx00000000000x000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nxxxxxxxx00000000000x\r\nx000000x00000000000x\r\nx000000x0000xxxxxxxx\r\nx00000000000x000000x\r\nx00000000000x000000x\r\nx00000000000x000000x\r\nx00000000000x000000x\r\nxxxxxxxx0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nxxxxxxxxxxxxxxxxxxxx', '', 1, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_w', '0', '3', '2', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxx\rx2222xx1111111111xx11111111\rx2222xx1111111111xx11111111\r222222111111111111111111111\rx22222111111111111111111111\rx22222111111111111111111111\rx22222111111111111111111111\rx2222xx1111111111xx11111111\rx2222xx1111111111xx11111111\rx2222xx1111111111xxxx1111xx\rx2222xx1111111111xxxx0000xx\rxxxxxxx1111111111xx00000000\rxxxxxxx1111111111xx00000000\rx22222111111111111000000000\rx22222111111111111000000000\rx22222111111111111000000000\rx22222111111111111000000000\rx2222xx1111111111xx00000000\rx2222xx1111111111xx00000000\rx2222xxxx1111xxxxxxxxxxxxxx\rx2222xxxx0000xxxxxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rx2222x0000000000xxxxxxxxxxx\rxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_wl', '10', '5', '0', '2', 'xx3333333333xxxxxxxxxxxxxxxxxxxx\r\nxx3333333333xxxxxxxxxxxxxxxxxxxx\r\nxx3333333333xxxxxxxxxxxxxxxxxxxx\r\nxx3333333333211111111111111111xx\r\nxx3333333333211111111111111111xx\r\nxx3333333333xx1111111111111111xx\r\nxx3333333333xx1111111111111111xx\r\nxx3333333333211111111111111111xx\r\nxx3333333333211111111111111111xx\r\nxx3333333333xxxx11111111111111xx\r\nxx3333333333xxxx11111111111111xx\r\nxx3333333333xxxx1111111111xxxxxx\r\nxxxxxxxxxxxxxxxx1111111111xxxxxx\r\nxxxxxxxxxxxxxxxx0000000000xxxxxx\r\nxxxxx0000xxxxxxx0000000000xxxxxx\r\nxxxxx0000xxxxxxx0000000000xxxxxx\r\nxxxxxxxxxxxxxxxx0000000000xxxxxx\r\nxxxxxxxxxxxxxxxx0000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n000000xxxx0000000000000000xxxxxx\r\n00000000000000000000000000xxxxxx\r\n00000000000000000000000000xxxxxx\r\n0000000000000000000000xxxxxxxxxx\r\n0000000000000000000000xxxxxxxxxx\r\nxxxxxx00xxxxxx00000000xxxxxxxxxx\r\nxxxxxx0000000000000000xxxxxxxxxx\r\nxxxxxx0000000000000000xxxxxxxxxx\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 0, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_x', '0', '12', '0', '2', 'xxxxxxxxxxxxxxxxxxxx\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nxxx00xxx0000xxx00xxx\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\n0000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000x0000x000000x\r\nx000000xxxxxx000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nx000000000000000000x\r\nxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_y', '0', '3', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nx00000000xx0000000000xx0000x\r\nx00000000xx0000000000xx0000x\r\n000000000xx0000000000xx0000x\r\nx00000000xx0000000000xx0000x\r\nx00000000xx0000xx0000xx0000x\r\nx00000000xx0000xx0000xx0000x\r\nx00000000xx0000xx0000000000x\r\nx00000000xx0000xx0000000000x\r\nxxxxx0000xx0000xx0000000000x\r\nxxxxx0000xx0000xx0000000000x\r\nxxxxx0000xx0000xxxxxxxxxxxxx\r\nxxxxx0000xx0000xxxxxxxxxxxxx\r\nx00000000xx0000000000000000x\r\nx00000000xx0000000000000000x\r\nx00000000xx0000000000000000x\r\nx00000000xx0000000000000000x\r\nx0000xxxxxxxxxxxxxxxxxx0000x\r\nx0000xxxxxxxxxxxxxxxxxx0000x\r\nx00000000000000000000000000x\r\nx00000000000000000000000000x\r\nx00000000000000000000000000x\r\nx00000000000000000000000000x\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
+INSERT INTO `room_models` VALUES ('model_z', '0', '9', '0', '2', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nxxxxxxxxxxx00000000000000000000\r\nxxxxxxxxxxx00000000000000000000\r\nxxxxxxxxxxx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\n000000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nx00000000xx00000000000000000000\r\nxxxxxxxxxxx00000000000000000000\r\nxxxxxxxxxxx00000000000000000000\r\nxxxxxxxxxxx00000000000000000000\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', '', 2, NULL, '', '0', '-1');
 
 -- ----------------------------
 -- Table structure for `room_promotions`
@@ -24578,27 +25600,6 @@ CREATE TABLE `server_status` (
 INSERT INTO `server_status` VALUES ('0', '0');
 
 -- ----------------------------
--- Table structure for `subscriptions`
--- ----------------------------
-DROP TABLE IF EXISTS `subscriptions`;
-CREATE TABLE `subscriptions` (
-  `id` int(10) NOT NULL DEFAULT '0',
-  `name` varchar(50) NOT NULL,
-  `badge_code` varchar(10) NOT NULL,
-  `credits` int(11) NOT NULL DEFAULT '100',
-  `duckets` int(11) NOT NULL DEFAULT '100',
-  `respects` int(11) NOT NULL DEFAULT '3',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Records of subscriptions
--- ----------------------------
-INSERT INTO `subscriptions` VALUES ('1', 'Silver VIP', 'SVIP', '200', '150', '15');
-INSERT INTO `subscriptions` VALUES ('2', 'Gold VIP', 'GVIP', '300', '200', '20');
-INSERT INTO `subscriptions` VALUES ('3', 'Events Staff', 'EVENT', '500', '250', '20');
-
--- ----------------------------
 -- Table structure for `talents`
 -- ----------------------------
 DROP TABLE IF EXISTS `talents`;
@@ -24659,7 +25660,6 @@ CREATE TABLE `users` (
   `mail` varchar(255) DEFAULT 'defaultuser@meth0d.org',
   `auth_ticket` varchar(60) NOT NULL,
   `rank` int(1) unsigned DEFAULT '1',
-  `rank_vip` int(1) DEFAULT '1',
   `credits` int(11) DEFAULT '50000',
   `vip_points` int(11) DEFAULT '0',
   `activity_points` int(11) DEFAULT '5000',
@@ -24694,7 +25694,7 @@ CREATE TABLE `users` (
   `disable_forced_effects` enum('0','1') NOT NULL DEFAULT '0',
   `allow_mimic` enum('1','0') NOT NULL DEFAULT '1',
   PRIMARY KEY (`id`,`auth_ticket`),
-  UNIQUE KEY `id` (`id`) USING HASH,
+  UNIQUE KEY `id` (`id`) USING BTREE,
   UNIQUE KEY `username` (`username`) USING BTREE,
   KEY `rank` (`rank`),
   KEY `ip_last` (`ip_last`),
@@ -24707,7 +25707,6 @@ CREATE TABLE `users` (
   KEY `auth_ticket` (`auth_ticket`),
   KEY `last_online` (`last_online`),
   KEY `home_room` (`home_room`),
-  KEY `rank_vip` (`rank_vip`),
   KEY `messenger` (`id`,`username`,`look`,`motto`,`last_online`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
@@ -25066,7 +26065,7 @@ ALTER TABLE `user_ignores` ADD PRIMARY KEY(`user_id`, `ignore_id`);
 ALTER TABLE user_stats RENAME TO user_statistics;
 
 -- 6_AddIsAmbassadorUsersColums
-ALTER TABLE `users` ADD `is_ambassador` BOOLEAN NOT NULL DEFAULT FALSE AFTER `allow_mimic`;
+-- Ambassador status is stored as a per-user permission override.
 
 -- 7_AddAmbassadorsLogs
 CREATE TABLE `ambassador_logs` (
@@ -25080,7 +26079,7 @@ CREATE TABLE `ambassador_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- 8_AddBubbleIDToUsersTable
-ALTER TABLE `users` ADD COLUMN `bubble_id` TINYINT NOT NULL DEFAULT '0' AFTER `is_ambassador`;
+ALTER TABLE `users` ADD COLUMN `bubble_id` TINYINT NOT NULL DEFAULT '0' AFTER `allow_mimic`;
 
 -- 9_ChangeRoomDataToBooleans
 ALTER TABLE `rooms` CHANGE `allow_pets` `allow_pets` BOOLEAN NOT NULL DEFAULT FALSE, 
@@ -25140,4 +26139,593 @@ ALTER TABLE `rooms`
 -- 13_DeletePrimaryKeyAuthTicket
 ALTER TABLE `users`
     DROP PRIMARY KEY,
-    ADD PRIMARY KEY (`id`)
+    ADD PRIMARY KEY (`id`);
+
+-- 14_Habbicons
+-- Apply while PlusEMU is stopped. Back up the database first; Plus does not auto-run SQL updates.
+-- Existing configured collections, prices and ownership are preserved when this script is rerun.
+-- Wallet row locks require InnoDB (the original Plus users table is already InnoDB).
+SET @wallet_engine = (SELECT ENGINE FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users');
+SET @wallet_ddl = IF(@wallet_engine <> 'InnoDB', 'ALTER TABLE users ENGINE=InnoDB', 'SELECT 1');
+PREPARE wallet_ddl FROM @wallet_ddl;
+EXECUTE wallet_ddl;
+DEALLOCATE PREPARE wallet_ddl;
+
+CREATE TABLE IF NOT EXISTS habbicon_collections (
+    id INT NOT NULL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    reward_id INT NOT NULL DEFAULT 0,
+    cost_credits INT UNSIGNED NOT NULL DEFAULT 0,
+    cost_points INT UNSIGNED NOT NULL DEFAULT 0,
+    points_type INT UNSIGNED NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS habbicons (
+    id INT NOT NULL PRIMARY KEY,
+    collection_id INT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    cost_credits INT UNSIGNED NOT NULL DEFAULT 0,
+    cost_points INT UNSIGNED NOT NULL DEFAULT 0,
+    points_type INT UNSIGNED NOT NULL DEFAULT 0,
+    available BOOLEAN NOT NULL DEFAULT TRUE,
+    default_owned BOOLEAN NOT NULL DEFAULT FALSE,
+    KEY collection_id (collection_id),
+    FOREIGN KEY (collection_id) REFERENCES habbicon_collections(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS users_habbicons (
+    user_id INT NOT NULL,
+    habbicon_id INT NOT NULL,
+    state TINYINT NOT NULL DEFAULT 2,
+    unseen BOOLEAN NOT NULL DEFAULT FALSE,
+    last_used BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, habbicon_id),
+    KEY recent (user_id, last_used),
+    FOREIGN KEY (habbicon_id) REFERENCES habbicons(id),
+    CHECK (state IN (1, 2, 3))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Collection membership and rewards are hotel configuration; AIR supplies them over the wire.
+-- Names and collection badge ids come from the September Habbicon asset set.
+INSERT IGNORE INTO habbicon_collections (id, name, reward_id, cost_credits) VALUES
+    (7, 'duck', 38, 40), (8, 'duck2', 49, 40), (5, 'frank', 60, 40), (6, 'toast', 71, 40);
+
+INSERT IGNORE INTO habbicons (id, collection_id, name, default_owned, cost_credits) VALUES
+    (28, 7, 'duck_duck', 1, 0),
+    (29, 7, 'duck_happy', 0, 5),
+    (30, 7, 'duck_sad', 0, 5),
+    (31, 7, 'duck_shock', 0, 5),
+    (32, 7, 'duck_think', 0, 5),
+    (33, 7, 'duck_nohear', 0, 5),
+    (34, 7, 'duck_nosee', 0, 5),
+    (35, 7, 'duck_nosay', 0, 5),
+    (36, 7, 'duck_angel', 0, 5),
+    (37, 7, 'duck_devil', 0, 5),
+    (38, 7, 'duck_spinning', 0, 0),
+    (39, 8, 'duck_cool', 0, 5),
+    (40, 8, 'duck_pleased', 0, 5),
+    (41, 8, 'duck_laughing', 0, 5),
+    (42, 8, 'duck_grimace', 0, 5),
+    (43, 8, 'duck_devious', 0, 5),
+    (44, 8, 'duck_metal', 0, 5),
+    (45, 8, 'duck_pleading', 0, 5),
+    (46, 8, 'duck_silly', 0, 5),
+    (47, 8, 'duck_wink', 0, 5),
+    (48, 8, 'duck_party', 0, 5),
+    (49, 8, 'duck_love', 0, 0),
+    (50, 5, 'frank_frank', 0, 5),
+    (51, 5, 'frank_smile', 0, 5),
+    (52, 5, 'frank_happy', 0, 5),
+    (53, 5, 'frank_sad', 0, 5),
+    (54, 5, 'frank_scared', 0, 5),
+    (55, 5, 'frank_surprised', 0, 5),
+    (56, 5, 'frank_thinking', 0, 5),
+    (57, 5, 'frank_silly', 0, 5),
+    (58, 5, 'frank_relief', 0, 5),
+    (59, 5, 'frank_wink', 0, 5),
+    (60, 5, 'frank_stareyes', 0, 0),
+    (61, 6, 'toast_toast', 0, 5),
+    (62, 6, 'toast_happy', 0, 5),
+    (63, 6, 'toast_cute', 0, 5),
+    (64, 6, 'toast_wink', 0, 5),
+    (65, 6, 'toast_sad', 0, 5),
+    (66, 6, 'toast_cry', 0, 5),
+    (67, 6, 'toast_grumpy', 0, 5),
+    (68, 6, 'toast_sleep', 0, 5),
+    (69, 6, 'toast_shock', 0, 5),
+    (70, 6, 'toast_flustered', 0, 5),
+    (71, 6, 'toast_fine', 0, 0);
+
+
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'catalog_items' AND COLUMN_NAME = 'habbicon_id');
+SET @ddl = IF(@col_exists = 0,
+    'ALTER TABLE catalog_items ADD COLUMN habbicon_id INT NOT NULL DEFAULT 0', 'SELECT 1');
+PREPARE habbicon_ddl FROM @ddl;
+EXECUTE habbicon_ddl;
+DEALLOCATE PREPARE habbicon_ddl;
+
+INSERT INTO catalog_pages (parent_id, caption, page_link, page_layout, icon_image, required_permission, order_num, page_strings_1, page_strings_2)
+SELECT -1, 'Habbicons', 'habbicons', 'default_3x3', 107, NULL, 6, '', ''
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM catalog_pages WHERE page_link = 'habbicons');
+SET @habbicon_page = (SELECT MIN(id) FROM catalog_pages WHERE page_link = 'habbicons');
+
+INSERT INTO catalog_items (item_id, page_id, catalog_name, cost_credits, cost_pixels, cost_diamonds, amount, offer_id, offer_active, habbicon_id)
+SELECT '0', @habbicon_page, name, cost_credits,
+       IF(points_type = 0, cost_points, 0), IF(points_type = 5, cost_points, 0), 1, -1, '1', id
+FROM habbicons
+WHERE (cost_credits > 0 OR cost_points > 0)
+  AND NOT EXISTS (SELECT 1 FROM catalog_items existing_offer WHERE existing_offer.habbicon_id = habbicons.id);
+
+-- 15_IntroductionRewardTrack
+-- Apply while PlusEMU is stopped. Back up the database first; Plus does not auto-run SQL updates.
+-- Creates the introduction reward track. Safe to run again: existing rows and player progress stay.
+
+CREATE TABLE IF NOT EXISTS reward_tracks (
+    id VARCHAR(64) NOT NULL,
+    theme VARCHAR(64) NOT NULL DEFAULT 'blue',
+    sort_order INT NOT NULL DEFAULT 0,
+    starts_at INT NOT NULL DEFAULT 0,
+    ends_at INT NOT NULL DEFAULT 0,
+    has_premium TINYINT(1) NOT NULL DEFAULT 0,
+    premium_task_points_boost DOUBLE NOT NULL DEFAULT 0,
+    premium_instant_points INT NOT NULL DEFAULT 0,
+    premium_cost_diamonds INT NOT NULL DEFAULT 0,
+    premium_cost_credits INT NOT NULL DEFAULT 0,
+    enabled TINYINT(1) NOT NULL DEFAULT 1,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS reward_track_tasks (
+    track_id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL,
+    action_type VARCHAR(64) NOT NULL,
+    parameter VARCHAR(255) NOT NULL DEFAULT '',
+    premium TINYINT(1) NOT NULL DEFAULT 0,
+    sort_order INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (track_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS reward_track_task_levels (
+    track_id VARCHAR(64) NOT NULL,
+    task_id VARCHAR(64) NOT NULL,
+    level INT NOT NULL,
+    required_count INT NOT NULL DEFAULT 1,
+    points_reward INT NOT NULL DEFAULT 0,
+    premium TINYINT(1) NOT NULL DEFAULT 0,
+    PRIMARY KEY (track_id, task_id, level)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS reward_track_prizes (
+    track_id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL,
+    required_points INT NOT NULL DEFAULT 0,
+    product_item_type_id INT NOT NULL DEFAULT 0,
+    reward_type VARCHAR(32) NOT NULL DEFAULT 'duckets',
+    extra_params VARCHAR(255) NOT NULL DEFAULT '',
+    reward_amount INT NOT NULL DEFAULT 0,
+    premium TINYINT(1) NOT NULL DEFAULT 0,
+    sort_order INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (track_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS users_reward_tracks (
+    user_id INT NOT NULL,
+    track_id VARCHAR(64) NOT NULL,
+    points INT NOT NULL DEFAULT 0,
+    premium TINYINT(1) NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, track_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS users_reward_track_tasks (
+    user_id INT NOT NULL,
+    track_id VARCHAR(64) NOT NULL,
+    task_id VARCHAR(64) NOT NULL,
+    progress_count INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, track_id, task_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS users_reward_track_prizes (
+    user_id INT NOT NULL,
+    track_id VARCHAR(64) NOT NULL,
+    prize_id VARCHAR(64) NOT NULL,
+    claimed_at INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, track_id, prize_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO reward_tracks
+(id, theme, sort_order, starts_at, ends_at, has_premium, premium_task_points_boost,
+ premium_instant_points, premium_cost_diamonds, premium_cost_credits, enabled)
+VALUES ('introduction', 'blue', 0, 0, 0, 1, 1.5, 25, 0, 25, 1);
+
+INSERT IGNORE INTO reward_track_tasks (track_id, id, action_type, parameter, premium, sort_order) VALUES
+('introduction', 'chat_with_users', 'chat_with_someone', '', 0, 1),
+('introduction', 'visit_rooms', 'enter_other_users_room', '', 0, 2),
+('introduction', 'place_furniture', 'place_item', '', 0, 3),
+('introduction', 'give_respect', 'give_respect', '', 0, 4),
+('introduction', 'buy_catalog_furni', 'buy_from_catalogue', '', 0, 5),
+('introduction', 'change_motto', 'change_motto', '', 0, 6),
+('introduction', 'change_outfit', 'change_figure', '', 0, 7),
+('introduction', 'close_love_lock', 'friend_furni_locked', '', 0, 8),
+('introduction', 'create_room', 'create_room', '', 0, 9),
+('introduction', 'dance_in_room', 'dance', '', 0, 10),
+('introduction', 'feed_pet', 'pet_eat', '', 0, 11),
+('introduction', 'follow_friend', 'follow_friend', '', 0, 12),
+('introduction', 'go_swimming', 'swim', '', 0, 13),
+('introduction', 'grab_drink', 'find_hand_item', '', 0, 14),
+('introduction', 'level_pet', 'pet_level', '', 0, 15),
+('introduction', 'make_friends', 'request_friend', '', 0, 16),
+('introduction', 'move_furniture', 'move_item', '', 0, 17),
+('introduction', 'pet_a_pet', 'pet_respect', '', 0, 18),
+('introduction', 'place_builders_club_furni', 'place_builders_club_furni', '', 0, 19),
+('introduction', 'publish_picture', 'publish_picture', '', 0, 20),
+('introduction', 'replenish_respect', 'replenish_respect', '', 0, 21),
+('introduction', 'rotate_furniture', 'rotate_item', '', 0, 22),
+('introduction', 'send_messenger_invite', 'send_messenger_invite', '', 0, 23),
+('introduction', 'send_messenger_message', 'send_messenger_message', '', 0, 24),
+('introduction', 'set_relationship_status', 'set_relationship_status', '', 0, 25),
+('introduction', 'use_furniture', 'switch_item_state', '', 0, 26),
+('introduction', 'use_habbicon', 'use_habbicon', '', 0, 27),
+('introduction', 'use_teleport', 'teleport', '', 0, 28),
+('introduction', 'wave_at_user', 'wave', '', 0, 29),
+('introduction', 'wear_badge', 'wear_badge', '', 0, 30);
+
+INSERT IGNORE INTO reward_track_task_levels
+(track_id, task_id, level, required_count, points_reward, premium) VALUES
+('introduction', 'chat_with_users', 1, 5, 10, 0),
+('introduction', 'chat_with_users', 2, 25, 20, 0),
+('introduction', 'chat_with_users', 3, 100, 40, 0),
+('introduction', 'visit_rooms', 1, 1, 10, 0),
+('introduction', 'visit_rooms', 2, 5, 20, 0),
+('introduction', 'visit_rooms', 3, 10, 40, 0),
+('introduction', 'place_furniture', 1, 1, 10, 0),
+('introduction', 'place_furniture', 2, 5, 20, 0),
+('introduction', 'place_furniture', 3, 15, 40, 0),
+('introduction', 'give_respect', 1, 1, 10, 0),
+('introduction', 'give_respect', 2, 3, 20, 0),
+('introduction', 'give_respect', 3, 5, 40, 0),
+('introduction', 'buy_catalog_furni', 1, 1, 10, 0),
+('introduction', 'buy_catalog_furni', 2, 5, 20, 0),
+('introduction', 'buy_catalog_furni', 3, 20, 40, 0),
+('introduction', 'change_motto', 1, 1, 10, 0),
+('introduction', 'change_outfit', 1, 1, 10, 0),
+('introduction', 'close_love_lock', 1, 1, 10, 0),
+('introduction', 'create_room', 1, 1, 10, 0),
+('introduction', 'dance_in_room', 1, 1, 10, 0),
+('introduction', 'dance_in_room', 2, 5, 20, 0),
+('introduction', 'dance_in_room', 3, 20, 40, 0),
+('introduction', 'feed_pet', 1, 1, 10, 0),
+('introduction', 'feed_pet', 2, 5, 20, 0),
+('introduction', 'feed_pet', 3, 20, 40, 0),
+('introduction', 'follow_friend', 1, 1, 10, 0),
+('introduction', 'follow_friend', 2, 5, 20, 0),
+('introduction', 'follow_friend', 3, 20, 40, 0),
+('introduction', 'go_swimming', 1, 1, 10, 0),
+('introduction', 'go_swimming', 2, 5, 20, 0),
+('introduction', 'go_swimming', 3, 20, 40, 0),
+('introduction', 'grab_drink', 1, 1, 10, 0),
+('introduction', 'grab_drink', 2, 5, 20, 0),
+('introduction', 'grab_drink', 3, 20, 40, 0),
+('introduction', 'level_pet', 1, 1, 10, 0),
+('introduction', 'level_pet', 2, 5, 20, 0),
+('introduction', 'level_pet', 3, 20, 40, 0),
+('introduction', 'make_friends', 1, 1, 10, 0),
+('introduction', 'make_friends', 2, 5, 20, 0),
+('introduction', 'make_friends', 3, 20, 40, 0),
+('introduction', 'move_furniture', 1, 1, 10, 0),
+('introduction', 'move_furniture', 2, 5, 20, 0),
+('introduction', 'move_furniture', 3, 20, 40, 0),
+('introduction', 'pet_a_pet', 1, 1, 10, 0),
+('introduction', 'pet_a_pet', 2, 5, 20, 0),
+('introduction', 'pet_a_pet', 3, 20, 40, 0),
+('introduction', 'place_builders_club_furni', 1, 1, 10, 0),
+('introduction', 'place_builders_club_furni', 2, 5, 20, 0),
+('introduction', 'place_builders_club_furni', 3, 20, 40, 0),
+('introduction', 'publish_picture', 1, 1, 10, 0),
+('introduction', 'replenish_respect', 1, 1, 10, 0),
+('introduction', 'rotate_furniture', 1, 1, 10, 0),
+('introduction', 'rotate_furniture', 2, 5, 20, 0),
+('introduction', 'rotate_furniture', 3, 20, 40, 0),
+('introduction', 'send_messenger_invite', 1, 1, 10, 0),
+('introduction', 'send_messenger_invite', 2, 5, 20, 0),
+('introduction', 'send_messenger_invite', 3, 20, 40, 0),
+('introduction', 'send_messenger_message', 1, 1, 10, 0),
+('introduction', 'send_messenger_message', 2, 5, 20, 0),
+('introduction', 'send_messenger_message', 3, 20, 40, 0),
+('introduction', 'set_relationship_status', 1, 1, 10, 0),
+('introduction', 'use_furniture', 1, 1, 10, 0),
+('introduction', 'use_furniture', 2, 5, 20, 0),
+('introduction', 'use_furniture', 3, 20, 40, 0),
+('introduction', 'use_habbicon', 1, 1, 10, 0),
+('introduction', 'use_habbicon', 2, 5, 20, 0),
+('introduction', 'use_habbicon', 3, 20, 40, 0),
+('introduction', 'use_teleport', 1, 1, 10, 0),
+('introduction', 'use_teleport', 2, 5, 20, 0),
+('introduction', 'use_teleport', 3, 20, 40, 0),
+('introduction', 'wave_at_user', 1, 1, 10, 0),
+('introduction', 'wave_at_user', 2, 5, 20, 0),
+('introduction', 'wave_at_user', 3, 20, 40, 0),
+('introduction', 'wear_badge', 1, 1, 10, 0);
+
+INSERT IGNORE INTO reward_track_prizes
+(track_id, id, required_points, product_item_type_id, reward_type, extra_params, reward_amount, premium, sort_order) VALUES
+('introduction', 'track_champ', 50, 4, 'badge', 'ACH_RewardTracksCompleted1', 1, 0, 1),
+('introduction', 'track_champ_premium', 200, 4, 'badge', 'ACH_RewardTracksCompleted2', 1, 1, 2);
+
+-- Official achievement badges (badge_name_ACH_RewardTracksCompleted "Track Champ %roman%"); claims need their definitions.
+INSERT IGNORE INTO badge_definitions (code, required_right) VALUES
+('ACH_RewardTracksCompleted1', ''),
+('ACH_RewardTracksCompleted2', '');
+
+-- 15_TrustedCamera
+-- Apply while PlusEMU is stopped; SQL updates are not automatic.
+-- Camera media can only be minted by the emulator's authenticated renderer.
+CREATE TABLE IF NOT EXISTS camera_media (
+ id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+ user_id INT NOT NULL, room_id INT UNSIGNED NOT NULL,
+ created_at DATETIME(6) NOT NULL,
+ KEY owner_created (user_id, created_at)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS camera_purchases (
+ item_id INT UNSIGNED NOT NULL PRIMARY KEY,
+ media_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ user_id INT NOT NULL, created_at DATETIME(6) NOT NULL,
+ KEY media_id (media_id)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS camera_publications (
+ media_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+ user_id INT NOT NULL, room_id INT UNSIGNED NOT NULL,
+ created_at DATETIME(6) NOT NULL,
+ KEY owner_created (user_id, created_at)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS camera_accounts (
+ user_id INT NOT NULL PRIMARY KEY,
+ last_publish_at DATETIME(6) NULL
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS camera_competition_entries (
+ media_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+ user_id INT NOT NULL, created_at DATETIME(6) NOT NULL,
+ KEY owner_created (user_id, created_at)
+) ENGINE=InnoDB;
+INSERT INTO furniture
+ (item_name,public_name,type,sprite_id,can_stack,allow_recycle,allow_trade,
+  allow_marketplace_sell,allow_gift,allow_inventory_stack,interaction_type)
+SELECT 'external_image_wallitem_poster_small','Photograph','i',4597,'0','0','1','0','1','0','camera_picture'
+WHERE NOT EXISTS (SELECT 1 FROM furniture WHERE interaction_type='camera_picture');
+
+-- UTC quotas survive reconnects; rows are locked when reserving a render.
+CREATE TABLE IF NOT EXISTS camera_quota (
+ user_id INT NOT NULL, quota_date DATE NOT NULL,
+ captures INT UNSIGNED NOT NULL DEFAULT 0, edits INT UNSIGNED NOT NULL DEFAULT 0,
+ last_capture_at DATETIME(6) NULL, last_edit_at DATETIME(6) NULL,
+ last_thumbnail_at DATETIME(6) NULL,
+ PRIMARY KEY (user_id, quota_date)
+) ENGINE=InnoDB;
+
+-- Existing operator choices are preserved, including an intentionally disabled camera.
+INSERT IGNORE INTO server_settings (`key`, `value`, description) VALUES
+ ('camera.enabled','1','Enable trusted room photography'),
+ ('camera.price.credits','2','Credits charged per wall photograph'),
+ ('camera.price.points','0','Activity points charged per wall photograph'),
+ ('camera.price.points.type','0','Photo point currency: 0 duckets (other types fail closed)'),
+ ('camera.price.publish.points','1','Duckets charged per publication'),
+ ('camera.price.publish.points.type','0','Publication point currency: 0 duckets (other types fail closed)'),
+ ('camera.publish.cooldown','180','Seconds between publications per account'),
+ ('camera.render.cooldown','5','Seconds between new shutter captures'),
+ ('camera.render.daily','50','New shutter captures per account per UTC day'),
+ ('camera.render.edit.cooldown','1','Seconds between editor renders'),
+ ('camera.render.edit.daily','200','Editor renders per account per UTC day'),
+ ('camera.thumbnail.cooldown','15','Seconds between room thumbnail captures'),
+ ('camera.competition.enabled','0','Enable photo competition submissions'),
+ ('camera.competition.daily','3','Competition entries per account per UTC day'),
+ ('camera.competition.require_email','0','Require an email for competition entries');
+INSERT IGNORE INTO server_settings (`key`, `value`, description)
+SELECT 'camera.item_id', CAST(MIN(id) AS CHAR), 'Wall camera_picture furniture definition'
+FROM furniture WHERE type='i' AND interaction_type='camera_picture';
+
+-- Each threshold is incremental because achievement progress resets on unlocking.
+INSERT INTO achievements (group_name, category, level, reward_pixels, reward_points, progress_needed, game_id)
+SELECT 'ACH_CameraPhotoCount', 'explore', levels.level, 0, 5, levels.progress_needed, 0
+FROM (SELECT 1 AS level, 1 AS progress_needed UNION ALL SELECT 2,4
+ UNION ALL SELECT 3,5 UNION ALL SELECT 4,10 UNION ALL SELECT 5,10
+ UNION ALL SELECT 6,20 UNION ALL SELECT 7,25 UNION ALL SELECT 8,25
+ UNION ALL SELECT 9,50 UNION ALL SELECT 10,50) AS levels
+WHERE NOT EXISTS (SELECT 1 FROM achievements existing
+ WHERE existing.group_name='ACH_CameraPhotoCount' AND existing.level=levels.level);
+
+-- 16_HabboClubOffers
+-- Apply while PlusEMU is stopped; SQL updates are not automatic.
+-- Offers shown on club_buy/vip_buy catalog pages, and the club time users bought there.
+CREATE TABLE IF NOT EXISTS catalog_club_offers (
+ id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ enabled TINYINT(1) NOT NULL DEFAULT 1,
+ name VARCHAR(64) NOT NULL,
+ days INT NOT NULL,
+ credits INT NOT NULL DEFAULT 0,
+ points INT NOT NULL DEFAULT 0,
+ points_type INT NOT NULL DEFAULT 0,
+ type ENUM('HC','VIP') NOT NULL DEFAULT 'HC',
+ giftable TINYINT(1) NOT NULL DEFAULT 0
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS user_club_memberships (
+ user_id INT NOT NULL PRIMARY KEY,
+ expires_at INT NOT NULL
+) ENGINE=InnoDB;
+-- Same lengths and prices as the old DEAL_HC furni on the Buy Club page.
+INSERT INTO catalog_club_offers (id, name, days, credits, type)
+SELECT * FROM (SELECT 1, 'HABBO_CLUB_1_MONTH', 31, 100, 'HC' UNION ALL
+               SELECT 2, 'HABBO_CLUB_3_MONTHS', 93, 250, 'HC' UNION ALL
+               SELECT 3, 'HABBO_CLUB_6_MONTHS', 186, 500, 'HC') AS offers
+WHERE NOT EXISTS (SELECT 1 FROM catalog_club_offers);
+-- The Habbo Club page and its Buy Club child render the club purchase list.
+-- hc_membership is the page name the client opens from the toolbar and HC center.
+UPDATE catalog_pages SET page_layout = 'club_buy' WHERE id = 5 AND page_link = 'habbo_club';
+UPDATE catalog_pages SET page_layout = 'club_buy', page_link = 'hc_membership' WHERE id = 7 AND caption = 'Buy Club';
+
+-- 17_OfficialCatalogStructure
+-- Apply while PlusEMU is stopped; SQL updates are not automatic. Written for MariaDB.
+-- Room for the official catalog: long page names, per-offer club level, preview image and order,
+-- separate builders club pages and typed front page items.
+ALTER TABLE catalog_pages
+ MODIFY caption VARCHAR(128) NOT NULL,
+ MODIFY page_link VARCHAR(128) NOT NULL DEFAULT '',
+ MODIFY page_layout VARCHAR(64) NOT NULL DEFAULT 'default_3x3',
+ ADD COLUMN IF NOT EXISTS catalog_mode ENUM('NORMAL','BUILDERS_CLUB') NOT NULL DEFAULT 'NORMAL';
+ALTER TABLE catalog_items
+ MODIFY badge VARCHAR(64) NOT NULL DEFAULT '',
+ MODIFY extradata VARCHAR(1024) NOT NULL DEFAULT '',
+ ADD COLUMN IF NOT EXISTS club_level TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ ADD COLUMN IF NOT EXISTS preview_image VARCHAR(255) NOT NULL DEFAULT '',
+ ADD COLUMN IF NOT EXISTS order_num INT NOT NULL DEFAULT 0;
+ALTER TABLE catalog_promotions
+ MODIFY title VARCHAR(128) DEFAULT '',
+ MODIFY image VARCHAR(255) DEFAULT '',
+ MODIFY page_link VARCHAR(128) DEFAULT '',
+ ADD COLUMN IF NOT EXISTS position INT NOT NULL DEFAULT 0,
+ ADD COLUMN IF NOT EXISTS item_type TINYINT NOT NULL DEFAULT 0,
+ ADD COLUMN IF NOT EXISTS offer_id INT NOT NULL DEFAULT -1,
+ ADD COLUMN IF NOT EXISTS product_code VARCHAR(128) NOT NULL DEFAULT '',
+ ADD COLUMN IF NOT EXISTS expires_at INT NOT NULL DEFAULT 0;
+-- Existing promotions keep the slot they had: their id.
+UPDATE catalog_promotions SET position = id WHERE position = 0;
+
+-- 19_SecureLoginTokens
+-- Apply while PlusEMU is stopped; SQL updates are not automatic. Safe to re-run on MariaDB.
+
+-- SSO tickets are single-use and short-lived. A consumed ticket is cleared to ''
+-- (the stock dump declares auth_ticket NOT NULL).
+ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_expires_at` int(11) unsigned NULL DEFAULT NULL AFTER `auth_ticket`;
+-- Bumped whenever all of a user's credentials are revoked; logins that started before it
+-- changed write nothing.
+ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `credential_generation` int(11) unsigned NOT NULL DEFAULT 0;
+-- The login session (user_sessions.id) the current ticket belongs to.
+ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_session` char(32) NULL DEFAULT NULL;
+-- Set once the ticket has been traded for an HTTP access token (allowed once per ticket).
+ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_exchanged` tinyint(1) NOT NULL DEFAULT 0 AFTER `auth_ticket_expires_at`;
+
+-- Tickets issued before this migration never expired and doubled as HTTP bearer tokens.
+UPDATE `users` SET `auth_ticket` = '', `auth_ticket_expires_at` = NULL, `auth_ticket_exchanged` = 0, `auth_ticket_session` = NULL WHERE `auth_ticket` <> '';
+
+-- One row per login (device). Logout revokes a session: its ticket, access tokens and
+-- remember family; credentials are only written while their session is not revoked.
+CREATE TABLE IF NOT EXISTS `user_sessions` (
+    `id` char(32) NOT NULL,
+    `user_id` int(11) NOT NULL,
+    `created_at` int(11) unsigned NOT NULL,
+    `revoked_at` int(11) unsigned NULL DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    KEY `user_id` (`user_id`),
+    KEY `created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- HTTP bearer tokens. Only the SHA-256 hex digest of a token is stored:
+-- token_hash = SHA2(<token>, 256).
+CREATE TABLE IF NOT EXISTS `user_access_tokens` (
+    `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` int(11) NOT NULL,
+    `session_id` char(32) NULL DEFAULT NULL,
+    `token_hash` char(64) NOT NULL,
+    `created_at` int(11) unsigned NOT NULL,
+    `expires_at` int(11) unsigned NOT NULL,
+    `revoked_at` int(11) unsigned NULL DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `token_hash` (`token_hash`),
+    KEY `user_id` (`user_id`),
+    KEY `session_id` (`session_id`),
+    KEY `expires_at` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- "Remember me" tokens, also stored only as SHA-256 hex digests. family_id is the login's
+-- user_sessions.id. Every use marks the row used and adds its successor in the same family.
+-- Presenting a used token again within AuthApi:RememberReuseGraceSeconds (at most 3 times) adds
+-- another successor; later, it signs the account out everywhere.
+CREATE TABLE IF NOT EXISTS `user_remember_tokens` (
+    `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` int(11) NOT NULL,
+    `family_id` char(32) NOT NULL,
+    `token_hash` char(64) NOT NULL,
+    `created_at` int(11) unsigned NOT NULL,
+    `expires_at` int(11) unsigned NOT NULL,
+    `used_at` int(11) unsigned NULL DEFAULT NULL,
+    `grace_uses` tinyint(3) unsigned NOT NULL DEFAULT 0,
+    `revoked_at` int(11) unsigned NULL DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `token_hash` (`token_hash`),
+    KEY `user_id` (`user_id`),
+    KEY `family_id` (`family_id`),
+    KEY `expires_at` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- Columns added after the first draft of this update, for databases that applied it early.
+ALTER TABLE `user_access_tokens` ADD COLUMN IF NOT EXISTS `session_id` char(32) NULL DEFAULT NULL AFTER `user_id`,
+    ADD KEY IF NOT EXISTS `session_id` (`session_id`);
+ALTER TABLE `user_remember_tokens` ADD COLUMN IF NOT EXISTS `grace_uses` tinyint(3) unsigned NOT NULL DEFAULT 0 AFTER `used_at`;
+
+-- 20_Housekeeping
+-- Apply while PlusEMU is stopped; SQL updates are not automatic.
+-- Audit trail of in-client housekeeping actions; the panel's audit tab reads it back.
+CREATE TABLE IF NOT EXISTS housekeeping_log (
+ id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ `timestamp` INT NOT NULL,
+ actor_id INT NOT NULL,
+ actor_name VARCHAR(125) NOT NULL DEFAULT '',
+ target_type VARCHAR(16) NOT NULL DEFAULT 'user',
+ target_id INT NOT NULL DEFAULT 0,
+ target_label VARCHAR(255) NOT NULL DEFAULT '',
+ action VARCHAR(64) NOT NULL,
+ detail VARCHAR(500) NOT NULL DEFAULT '',
+ success TINYINT(1) NOT NULL DEFAULT 1,
+ KEY timestamp_action (`timestamp`, action),
+ KEY actor (actor_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Daily online peaks for the dashboard, written by the server status updater.
+CREATE TABLE IF NOT EXISTS housekeeping_online_peaks (
+ day DATE NOT NULL PRIMARY KEY,
+ peak INT NOT NULL DEFAULT 0
+) ENGINE=InnoDB;
+
+
+-- 21_CatalogAdminEditor
+-- Apply while PlusEMU is stopped; SQL updates are not automatic. Written for MariaDB.
+-- Octane's in-client catalog editor and furni editor. Every staff mutation is written to an
+-- audit table in the same transaction as the change. catalog_admin_log.id is also the catalog
+-- revision the editor uses to detect stale saves.
+CREATE TABLE IF NOT EXISTS catalog_admin_log (
+ id INT NOT NULL AUTO_INCREMENT,
+ user_id INT NOT NULL,
+ username VARCHAR(50) NOT NULL,
+ action VARCHAR(32) NOT NULL,
+ entity_type ENUM('PAGE','OFFER') NOT NULL,
+ catalog_type ENUM('NORMAL','BUILDER') NOT NULL,
+ entity_id INT NOT NULL,
+ operation VARCHAR(16) NOT NULL,
+ summary VARCHAR(255) NOT NULL DEFAULT '',
+ before_json MEDIUMTEXT NULL,
+ after_json MEDIUMTEXT NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY (id),
+ KEY idx_catalog_admin_log_entity (entity_type, entity_id),
+ KEY idx_catalog_admin_log_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- furnidata_update rows hold the whole furnidata entry before and after, and which entry it was (several can share a
+-- classname); revert restores the newest unreverted one for the item, only if the entry is still the after image.
+CREATE TABLE IF NOT EXISTS furni_editor_log (
+ id INT NOT NULL AUTO_INCREMENT,
+ user_id INT NOT NULL,
+ username VARCHAR(50) NOT NULL,
+ action ENUM('update','delete','furnidata_update','furnidata_revert') NOT NULL,
+ item_id INT UNSIGNED NOT NULL,
+ classname VARCHAR(70) NOT NULL DEFAULT '',
+ entry_id INT NULL,
+ entry_section ENUM('roomitemtypes','wallitemtypes') NULL,
+ before_json MEDIUMTEXT NULL,
+ after_json MEDIUMTEXT NULL,
+ reverted TINYINT(1) NOT NULL DEFAULT 0,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY (id),
+ KEY idx_furni_editor_log_item (item_id, action, reverted),
+ KEY idx_furni_editor_log_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
