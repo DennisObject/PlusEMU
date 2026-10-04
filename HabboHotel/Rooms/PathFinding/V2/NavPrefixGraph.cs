@@ -8,15 +8,19 @@ internal sealed class NavPrefixGraph(NavGrid grid, MovementRules rules, ActorPro
 {
     public const TargetOccupancy Kept = TargetOccupancy.Stationary | TargetOccupancy.OffGraph;
 
-    // Compatibility mode compiles one surface per tile (K = 1).
+    // Every compiled surface on the tile (one with K = 1); the LegacyTile view has one node per tile.
     public int Candidates(int x, int y, Span<PrefixCandidate> into)
     {
         if (!grid.InBounds(x, y)) return 0;
-        var slot = grid.Tile(x, y);
-        if (!grid.Active(slot) && !profile.LegacyOverride) return 0;
-        var z = profile.LegacyOverride ? grid.LegacyZ[slot] : grid.WalkZ[slot];
-        into[0] = new(x, y, z, grid.SupportItem[slot], slot);
-        return 1;
+        var tile = grid.Tile(x, y);
+        if (profile.LegacyOverride) { into[0] = new(x, y, grid.LegacyZ[tile], grid.SupportItem[tile], tile); return 1; }
+        var count = 0;
+        for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++)
+        {
+            var slot = grid.SurfaceAt(tile, ordinal);
+            if (grid.Active(slot)) into[count++] = new(x, y, grid.WalkZ[slot], grid.SupportItem[slot], slot);
+        }
+        return count;
     }
 
     public bool CanStep(in PrefixCandidate from, in PrefixCandidate to, StepPurpose purpose)

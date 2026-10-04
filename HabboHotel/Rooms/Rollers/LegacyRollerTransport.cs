@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Items;
 using System.Drawing;
 using Plus.HabboHotel.Rooms.PathFinding;
 
@@ -8,6 +9,8 @@ namespace Plus.HabboHotel.Rooms.Rollers;
 internal sealed class LegacyRollerTransport(Room room, RoomItemHandling handler) : IRollerTransportEngine
 {
     public bool CanRide(RoomUser actor) => !actor.IsWalking;
+    public bool RestsOnRoller(Item roller, RoomUser actor) => true;
+    public bool RestsOnRoller(Item roller, Item cargo) => true;
 
     public void RefreshCapabilities(IEnumerable<RoomUser> actors) { }
 

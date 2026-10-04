@@ -7,6 +7,7 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
 
     internal void BeforePublish(IReadOnlySet<int> tiles)
     {
+        context.Claims.RemapSlots(Grid.ReleasedSlots, LiveSlot);
         foreach (var actor in context.Room.GetRoomUserManager().GetUserList())
         {
             var state = actor.Movement;
@@ -35,8 +36,8 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
         {
             var target = state.Pending[index];
             var privileged = state.Profile.LegacyOverride || state.Origin == MoveOrigin.Interaction;
-            if (!tiles.Contains(target.Tile)
-                || (Grid.Active(target.Tile) || privileged) && context.Graph.IsValid(target, state.PendingView)) continue;
+            var slot = context.Graph.Slot(target, state.PendingView);
+            if (!tiles.Contains(target.Tile) || slot >= 0 && (Grid.Active(slot) || privileged)) continue;
             context.Claims.ReleaseBatch(actor);
             state.PendingCount = 0; actor.SetStep = false;
             actor.RemoveStatus("mv"); actor.UpdateNeeded = true;
@@ -45,9 +46,18 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
         return false;
     }
 
+    private int LiveSlot(SurfaceRef surface)
+    {
+        var slot = Grid.SlotOf(surface);
+        return slot >= 0 && Grid.Active(slot) ? slot : -1;
+    }
+
     private bool RouteTouches(RoomUser actor, IReadOnlySet<int> tiles)
     {
         var state = actor.Movement;
+        // A queued layered goal names surfaces on its tile; rebuilding that tile re-resolves it.
+        if (Grid.Layered && state.AcceptedGoal is { } goal && Grid.InBounds(goal.X, goal.Y)
+            && tiles.Contains(Grid.Tile(goal.X, goal.Y))) return true;
         if (Grid.InBounds(actor.X, actor.Y) && Near(Grid.Tile(actor.X, actor.Y), tiles)) return true;
         for (var index = 0; index < state.PendingCount; index++)
             if (Near(state.Pending[index].Tile, tiles)) return true;

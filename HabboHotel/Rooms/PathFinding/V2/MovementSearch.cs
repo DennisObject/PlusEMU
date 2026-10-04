@@ -29,7 +29,8 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
         var profile = context.Profiles.Refresh(actor);
         var occupancy = context.Occupancy(actor);
         var start = new NavPosition(actor.X, actor.Y, state.SupportZ);
-        var goal = state.AcceptedGoal ?? InteractionGoal(actor, start) ?? GoalResolver.ResolveClick(navigation.Grid, profile, start, actor.GoalX, actor.GoalY, occupancy);
+        var goal = state.AcceptedGoal?.Resolve(navigation.Grid) ?? context.ApproachGoals.Reresolve(actor,
+            InteractionGoal(actor, start) ?? GoalResolver.ResolveClick(navigation.Grid, profile, start, actor.GoalX, actor.GoalY, occupancy));
         actor.GoalX = goal.X; actor.GoalY = goal.Y;
         using var lease = PathWorkspacePool.Rent(navigation.Grid.SlotCapacity,
             profile.LegacyOverride ? navigation.Grid.SlotCapacity : navigation.Grid.ActiveNodeCount);
@@ -56,7 +57,7 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
     private AcceptedGoal? InteractionGoal(RoomUser actor, NavPosition start)
     {
         if (actor.Movement.Origin != MoveOrigin.Interaction || !navigation.Grid.InBounds(actor.GoalX, actor.GoalY)) return null;
-        return new(actor.GoalX, actor.GoalY, navigation.Grid.Tile(actor.GoalX, actor.GoalY));
+        return new(actor.GoalX, actor.GoalY, navigation.Grid.TopSlot(navigation.Grid.Tile(actor.GoalX, actor.GoalY)));
     }
     private PathOutcome InteractionRoute(RoomUser actor, NavPosition start, AcceptedGoal goal, Route route)
     {

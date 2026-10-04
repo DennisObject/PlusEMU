@@ -4,7 +4,7 @@ namespace Plus.HabboHotel.Rooms.PathFinding;
 
 public sealed class FloorEffectService(Room room, Action<GameClient> progressSwim)
 {
-    public void Apply(RoomUser actor, int x, int y)
+    public void Apply(RoomUser actor, int x, int y, SurfaceRef? surface = null)
     {
         if (actor.IsBot) return;
         var client = actor.GetClient();
@@ -12,7 +12,7 @@ public sealed class FloorEffectService(Room room, Action<GameClient> progressSwi
         if (habbo?.Effects == null) return;
         try
         {
-            var value = room.GetGameMap().EffectMap[x, y];
+            var value = EffectValue(x, y, surface, actor.Movement.SupportZ);
             if (value > 0 && habbo.Effects.CurrentEffect == 0) actor.CurrentItemEffect = ItemEffectType.None;
             var kind = ByteToItemEffectEnum.Parse(value);
             if (kind == actor.CurrentItemEffect) return;
@@ -21,6 +21,20 @@ public sealed class FloorEffectService(Room room, Action<GameClient> progressSwi
             if (kind == ItemEffectType.Swim) progressSwim(client!);
         }
         catch { }
+    }
+
+    // K=1 reads the legacy tile map. A layered surface takes the effect of its highest owned item,
+    // so skates under a deck do not apply on the deck; a walk magic surface has none (as legacy).
+    private byte EffectValue(int x, int y, SurfaceRef? surface, double z)
+    {
+        var map = room.GetGameMap();
+        var grid = map.Navigation?.Grid;
+        var slot = SurfaceContacts.ContactSlot(grid, x, y, surface, z);
+        if (slot < 0) return map.EffectMap[x, y];
+        if (grid!.Kind[slot] == SurfaceKind.WalkMagic) return 0;
+        var top = SurfaceContacts.Filter(grid, x, y, slot, map.GetAllRoomItemForSquare(x, y)).MaxBy(item => item.TotalHeight);
+        return top != null ? Gamemap.ItemEffect(top.Definition.InteractionType)
+            : map.Model.SqState[x, y] == SquareState.Pool ? (byte)6 : (byte)0;
     }
 
     private static int EffectId(ItemEffectType kind, string gender) => kind switch

@@ -30,8 +30,9 @@ public sealed class Route
         Array.Copy(source._steps, _steps, source.Count); Array.Copy(source._advisoryZ, _advisoryZ, source.Count);
         Count = source.Count; GridVersion = source.GridVersion; View = source.View; GoalSurface = source.GoalSurface;
     }
-    // Only a route that still ends at its goal surface has a Goal edge; a truncated prefix is all Transit.
+    // Only the goal surface itself is a Goal edge (§5.7): other surfaces of the goal tile are Transit,
+    // and a truncated prefix (no goal surface) is all Transit.
     internal StepPurpose PurposeAt(int index, MoveOrigin origin) => origin == MoveOrigin.Interaction
         ? StepPurpose.Interaction
-        : index == Count - 1 && GoalSurface != null ? StepPurpose.Goal : StepPurpose.Transit;
+        : GoalSurface is { } goal && _steps[index] == goal ? StepPurpose.Goal : StepPurpose.Transit;
 }
