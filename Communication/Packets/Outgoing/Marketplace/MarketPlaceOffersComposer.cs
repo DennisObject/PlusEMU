@@ -5,35 +5,32 @@ namespace Plus.Communication.Packets.Outgoing.Marketplace;
 
 public class MarketPlaceOffersComposer : IServerPacket
 {
-    private readonly Dictionary<uint, MarketOffer> _dictionary;
-    private readonly Dictionary<uint, int> _dictionary2;
+    private readonly MarketplaceOffersSnapshot _offers;
     public uint MessageId => ServerPacketHeader.MarketPlaceOffersComposer;
 
-    public MarketPlaceOffersComposer(Dictionary<uint, MarketOffer> dictionary, Dictionary<uint, int> dictionary2)
-        : base()
+    public MarketPlaceOffersComposer(MarketplaceOffersSnapshot offers)
     {
-        _dictionary = dictionary;
-        _dictionary2 = dictionary2;
+        _offers = offers;
     }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_dictionary.Count);
-        foreach (var (_, value) in _dictionary)
+        packet.WriteInteger(_offers.Offers.Length);
+        foreach (var offer in _offers.Offers)
         {
-            packet.WriteUInteger(value.OfferId);
+            packet.WriteUInteger(offer.OfferId);
             packet.WriteInteger(1); //State
             packet.WriteInteger(1);
-            packet.WriteUInteger(value.SpriteId);
+            packet.WriteUInteger(offer.SpriteId);
             packet.WriteInteger(256);
             packet.WriteString("");
-            packet.WriteUInteger(value.LimitedNumber);
-            packet.WriteUInteger(value.LimitedStack);
-            packet.WriteInteger(value.TotalPrice);
+            packet.WriteUInteger(offer.LimitedNumber);
+            packet.WriteUInteger(offer.LimitedStack);
+            packet.WriteInteger(offer.TotalPrice);
             packet.WriteInteger(0);
-            packet.WriteInteger(PlusEnvironment.Game.Catalog.Marketplace.AvgPriceForSprite((int)value.SpriteId));
-            packet.WriteInteger(_dictionary2[value.SpriteId]);
+            packet.WriteInteger(offer.AveragePrice);
+            packet.WriteInteger(offer.Count);
         }
-        packet.WriteInteger(_dictionary.Count); //Item count to show how many were found.
+        packet.WriteInteger(_offers.Offers.Length); //Item count to show how many were found.
     }
 }

@@ -19,13 +19,15 @@ internal class BuyOfferEvent : IPacketEvent
     private readonly IItemDataManager _itemDataManager;
     private readonly IDatabase _database;
     private readonly IItemFactory _itemFactory;
+    private readonly IMarketplaceOfferSearchService _offers;
 
-    public BuyOfferEvent(IMarketplaceManager marketplace, IItemDataManager itemDataManager, IDatabase database, IItemFactory itemFactory)
+    public BuyOfferEvent(IMarketplaceManager marketplace, IItemDataManager itemDataManager, IDatabase database, IItemFactory itemFactory, IMarketplaceOfferSearchService offers)
     {
         _marketplace = marketplace;
         _itemDataManager = itemDataManager;
         _database = database;
         _itemFactory = itemFactory;
+        _offers = offers;
     }
 
     public Task Parse(GameClient session, IIncomingPacket packet)
@@ -184,6 +186,6 @@ internal class BuyOfferEvent : IPacketEvent
                 dictionary2.Add(item.SpriteId, 1);
             }
         }
-        session.Send(new MarketPlaceOffersComposer(dictionary, dictionary2));
+        session.Send(new MarketPlaceOffersComposer(_offers.Capture(dictionary, dictionary2)));
     }
 }
