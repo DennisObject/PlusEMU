@@ -119,6 +119,7 @@ public partial class PlacedFurniRoomTests
             else if (input.Kind == ReplayInputKind.Tick) frames.Add(fixture.ReplayTick(actor!));
             else fixture.ApplyReplayInput(input, actor);
         }
+        ReportReplayFrames(engine, frames);
         return frames;
     }
 
@@ -201,6 +202,13 @@ public partial class PlacedFurniRoomTests
             result.Add(ReplayDifference.TimingPhaseChange);
         }
         return result;
+    }
+
+    private static void ReportReplayFrames(PathfindingEngine engine, List<ReplayFrame> frames)
+    {
+        var output = Environment.GetEnvironmentVariable("PLUSEMU_REPLAY_FRAMES");
+        if (!string.IsNullOrEmpty(output))
+            File.AppendAllLines(output, new[] { System.Text.Json.JsonSerializer.Serialize(new { engine, frames }) });
     }
 
     private static string FrameBytes(ReplayFrame frame) => string.Join('|', frame.RawPackets.Select(Convert.ToHexString));

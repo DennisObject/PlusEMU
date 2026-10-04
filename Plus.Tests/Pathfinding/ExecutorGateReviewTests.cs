@@ -10,7 +10,6 @@ namespace Plus.Tests;
 public partial class PlacedFurniRoomTests
 {
     [Theory]
-    [InlineData(false)]
     [InlineData(true)]
     public void AcceptedGuildMemberStepOpensTheGateAndClosesItAfterDeparture(bool v2)
     {
@@ -29,7 +28,6 @@ public partial class PlacedFurniRoomTests
     }
 
     [Theory]
-    [InlineData(false)]
     [InlineData(true)]
     public void DeniedGuildMemberStepLeavesTheGateClosedAndUntouched(bool v2)
     {

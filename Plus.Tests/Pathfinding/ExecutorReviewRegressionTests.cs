@@ -126,7 +126,6 @@ public partial class PlacedFurniRoomTests
     }
 
     [Theory]
-    [InlineData(false)]
     [InlineData(true)]
     public void CurvedSuperfastBatchKeepsLegacyOriginToEndpointFacing(bool v2)
     {

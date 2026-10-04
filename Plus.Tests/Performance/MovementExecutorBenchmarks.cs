@@ -136,7 +136,7 @@ public class MovementExecutorBenchmarks
 
         private void InitializeActors()
         {
-            using var owner = RoomOwnerScope.Enter(_fixture.Room);
+            using var owner = _engine == PathfindingEngine.V2 ? RoomOwnerScope.Enter(_fixture.Room) : null;
             for (var index = 0; index < _fixture.Bots.Count; index++)
             {
                 var actor = _fixture.Bots[index];
@@ -178,7 +178,7 @@ public class MovementExecutorBenchmarks
 
         internal void Tick()
         {
-            using var owner = RoomOwnerScope.Enter(_fixture.Room);
+            using var owner = _engine == PathfindingEngine.V2 ? RoomOwnerScope.Enter(_fixture.Room) : null;
             _navigation.DrainCommands();
             _fixture.Manager.OnCycle();
         }
