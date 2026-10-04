@@ -36,7 +36,7 @@ public interface ISessionIssuer
 
     /// <summary>Signs the user out everywhere (game ticket, access tokens, remember tokens) and
     /// voids any login still in flight.</summary>
-    Task RevokeAll(int userId);
+    Task RevokeAll(int userId, CancellationToken cancellationToken = default);
 }
 
 /// <param name="SsoTicket">Default when the session was resumed without a ticket.</param>
@@ -160,7 +160,8 @@ public class SessionIssuer : ISessionIssuer
             await _accessTokens.Revoke(accessToken);
     }
 
-    public Task RevokeAll(int userId) => _generations.Revoke(userId, scope => RevokeCredentials(userId, scope));
+    public Task RevokeAll(int userId, CancellationToken cancellationToken = default) =>
+        _generations.Revoke(userId, scope => RevokeCredentials(userId, scope), cancellationToken);
 
     private async Task EndSession(int userId, string sessionId, CredentialScope scope)
     {

@@ -388,9 +388,9 @@ public class HousekeepingCredentialRevocationDatabaseTests
     /// <summary>Runs a hook as soon as the revocation (and its generation bump) has committed.</summary>
     private sealed class AfterRevokeAll(ISessionIssuer inner, Action hook) : ISessionIssuer
     {
-        public async Task RevokeAll(int userId)
+        public async Task RevokeAll(int userId, CancellationToken cancellationToken = default)
         {
-            await inner.RevokeAll(userId);
+            await inner.RevokeAll(userId, cancellationToken);
             hook();
         }
 

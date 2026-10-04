@@ -89,7 +89,8 @@ public class SsoTicketStore : ISsoTicketStore
     public async Task Revoke(int userId, CredentialScope? scope = null)
     {
         using var owned = scope == null ? _database.Connection() : null;
-        await (scope?.Connection ?? owned!).ExecuteAsync($"UPDATE `users` SET {Cleared} WHERE `id` = @userId", new { userId }, scope?.Transaction);
+        await (scope?.Connection ?? owned!).ExecuteAsync(new CommandDefinition($"UPDATE `users` SET {Cleared} WHERE `id` = @userId", new { userId }, scope?.Transaction,
+            cancellationToken: scope?.CancellationToken ?? default));
     }
 
     public Task RevokeSession(int userId, string sessionId, CredentialScope scope) =>

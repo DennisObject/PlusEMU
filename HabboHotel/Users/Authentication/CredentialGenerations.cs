@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using System.Security.Cryptography;
 using Dapper;
 using Plus.Database;
@@ -6,7 +7,8 @@ using Plus.Database;
 namespace Plus.HabboHotel.Users.Authentication;
 
 /// <summary>A connection and transaction that credential writes join, holding the users row lock.</summary>
-public sealed record CredentialScope(IDbConnection Connection, IDbTransaction Transaction);
+/// <param name="CancellationToken">Honoured by every statement run in the scope (set for revocations).</param>
+public sealed record CredentialScope(IDbConnection Connection, IDbTransaction Transaction, CancellationToken CancellationToken = default);
 
 /// <summary>Who a presented credential belongs to: the user and the login session it came from.</summary>
 public sealed record CredentialOwner(int UserId, string? SessionId);
@@ -36,7 +38,7 @@ public interface ICredentialGenerations
 
     /// <summary>Bumps the generation, revokes every session and runs <paramref name="revocations"/>
     /// in the same transaction.</summary>
-    Task Revoke(int userId, Func<CredentialScope, Task> revocations);
+    Task Revoke(int userId, Func<CredentialScope, Task> revocations, CancellationToken cancellationToken = default);
 
     /// <summary>Bumps the generation and revokes every session inside a caller's transaction that
     /// already holds the user's row lock.</summary>
@@ -92,13 +94,14 @@ public class CredentialGenerations : ICredentialGenerations
         return true;
     }
 
-    public async Task Revoke(int userId, Func<CredentialScope, Task> revocations)
+    public async Task Revoke(int userId, Func<CredentialScope, Task> revocations, CancellationToken cancellationToken = default)
     {
-        using var connection = _database.Connection();
-        connection.Open();
-        using var transaction = connection.BeginTransaction();
-        await Lock(connection, transaction, userId);
-        var scope = new CredentialScope(connection, transaction);
+        // Every step honours the token, so a caller that gives up leaves no revoke that lands later.
+        using var connection = (DbConnection)_database.Connection();
+        await connection.OpenAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await Lock(connection, transaction, userId, cancellationToken);
+        var scope = new CredentialScope(connection, transaction, cancellationToken);
         await Bump(userId, scope);
         await revocations(scope);
         transaction.Commit();
@@ -106,9 +109,10 @@ public class CredentialGenerations : ICredentialGenerations
 
     public async Task Bump(int userId, CredentialScope scope)
     {
-        await scope.Connection.ExecuteAsync("UPDATE `users` SET `credential_generation` = `credential_generation` + 1 WHERE `id` = @userId", new { userId }, scope.Transaction);
-        await scope.Connection.ExecuteAsync("UPDATE `user_sessions` SET `revoked_at` = UNIX_TIMESTAMP() WHERE `user_id` = @userId AND `revoked_at` IS NULL",
-            new { userId }, scope.Transaction);
+        await scope.Connection.ExecuteAsync(new CommandDefinition("UPDATE `users` SET `credential_generation` = `credential_generation` + 1 WHERE `id` = @userId",
+            new { userId }, scope.Transaction, cancellationToken: scope.CancellationToken));
+        await scope.Connection.ExecuteAsync(new CommandDefinition("UPDATE `user_sessions` SET `revoked_at` = UNIX_TIMESTAMP() WHERE `user_id` = @userId AND `revoked_at` IS NULL",
+            new { userId }, scope.Transaction, cancellationToken: scope.CancellationToken));
     }
 
     public async Task Locked(int userId, Func<CredentialScope, Task> work)
@@ -145,6 +149,7 @@ public class CredentialGenerations : ICredentialGenerations
             new { sessionId, userId }, transaction);
 
     /// <summary>Locks the user's row and returns its generation (-1 when the user is gone).</summary>
-    internal static async Task<long> Lock(IDbConnection connection, IDbTransaction transaction, int userId) =>
-        await connection.ExecuteScalarAsync<long?>("SELECT `credential_generation` FROM `users` WHERE `id` = @userId FOR UPDATE", new { userId }, transaction) ?? -1;
+    internal static async Task<long> Lock(IDbConnection connection, IDbTransaction transaction, int userId, CancellationToken cancellationToken = default) =>
+        await connection.ExecuteScalarAsync<long?>(new CommandDefinition("SELECT `credential_generation` FROM `users` WHERE `id` = @userId FOR UPDATE",
+            new { userId }, transaction, cancellationToken: cancellationToken)) ?? -1;
 }

@@ -54,8 +54,8 @@ public class AccessTokenStore : IAccessTokenStore
     public async Task RevokeAll(int userId, CredentialScope? scope = null)
     {
         using var owned = scope == null ? _database.Connection() : null;
-        await (scope?.Connection ?? owned!).ExecuteAsync("UPDATE `user_access_tokens` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
-            new { userId, now = Now() }, scope?.Transaction);
+        await (scope?.Connection ?? owned!).ExecuteAsync(new CommandDefinition("UPDATE `user_access_tokens` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
+            new { userId, now = Now() }, scope?.Transaction, cancellationToken: scope?.CancellationToken ?? default));
     }
 
     public Task RevokeSession(string sessionId, CredentialScope scope) =>

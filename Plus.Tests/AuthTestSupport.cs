@@ -385,7 +385,7 @@ internal sealed class FakeGenerations : ICredentialGenerations
         return true;
     }
 
-    public async Task Revoke(int userId, Func<CredentialScope, Task> revocations)
+    public async Task Revoke(int userId, Func<CredentialScope, Task> revocations, CancellationToken cancellationToken = default)
     {
         await Bump(userId, null!);
         await revocations(null!);
