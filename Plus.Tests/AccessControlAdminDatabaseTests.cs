@@ -106,7 +106,7 @@ public sealed partial class AccessControlDatabaseTests
     {
         using var connection = _database.Connection();
         connection.Execute("INSERT INTO user_permissions (user_id, permission_key, effect) VALUES (@Actor, 'housekeeping.roles.manage', 'deny')", new { Actor });
-        _access.Resolve(Actor);
+        _actor.Access = _access.Resolve(Actor);
         Assert.Empty(await Dispatch(type, []));
         Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log WHERE actor_id = @Actor", new { Actor }));
     }
@@ -125,7 +125,7 @@ public sealed partial class AccessControlDatabaseTests
         Assert.Equal(42, new FlashIncomingPacket { Buffer = response.Payload }.ReadInt());
         using var connection = _database.Connection();
         connection.Execute("INSERT INTO user_permissions (user_id, permission_key, effect) VALUES (@Actor, 'housekeeping.roles.manage', 'deny')", new { Actor });
-        _access.Resolve(Actor);
+        _actor.Access = _access.Resolve(Actor);
         Assert.Empty(await Dispatch(type, []));
         Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log WHERE actor_id = @Actor", new { Actor }));
     }

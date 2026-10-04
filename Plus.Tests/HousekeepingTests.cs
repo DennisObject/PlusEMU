@@ -91,6 +91,7 @@ public class HousekeepingActionTests
         var store = new FakeUserStore(users.Select(user => user.User));
         var permissions = DispatchProxy.Create<IAccessControl, AccessProxy>();
         ((AccessProxy)(object)permissions).Users = users.ToDictionary(user => user.User.Id, user => user.Access);
+        ((AccessProxy)(object)permissions).Users.TryAdd(1, Staff().Access);
         var clients = new FakeClients();
         return (new(store, clients, null!, permissions, null!, null!, gate, null!), new(store, clients, items, itemFactory, null!, null!, gate, permissions), clients);
     }
@@ -153,9 +154,13 @@ public class HousekeepingActionTests
     public class AccessProxy : DispatchProxy
     {
         public Dictionary<int, UserAccess> Users { get; set; } = new();
-        protected override object? Invoke(MethodInfo? method, object?[]? args) =>
-            method?.Name == nameof(IAccessControl.Resolve) ? Users.GetValueOrDefault((int)args![0]!, UserAccess.Empty)
-                : throw new NotSupportedException(method?.Name);
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name switch
+        {
+            nameof(IAccessControl.Resolve) => Users.GetValueOrDefault((int)args![0]!, UserAccess.Empty),
+            nameof(IAccessControl.Outranks) => (int)args![0]! != (int)args[1]! &&
+                Users.GetValueOrDefault((int)args[0]!, UserAccess.Empty).Outranks(Users.GetValueOrDefault((int)args[1]!, UserAccess.Empty)),
+            _ => throw new NotSupportedException(method?.Name)
+        };
     }
 
     [Theory]
@@ -252,7 +257,7 @@ public class HousekeepingActionTests
         public ICollection<GameClient> GetClients => Online.Values;
         public GameClient? GetClientByUserId(int userId) => Online.GetValueOrDefault(userId);
         public GameClient? GetClientByUsername(string username) => Online.Values.FirstOrDefault(client => client.GetHabbo().Username == username);
-        public void SendPacket(IServerPacket packet, string fuse = "") => Broadcasts.Add(packet);
+        public void SendPacket(IServerPacket packet, PermissionDefinition? permission = null) => Broadcasts.Add(packet);
         public void OnCycle() { }
         public bool TryGetClient(Guid clientId, out GameClient client) => throw new NotSupportedException();
         public bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername) => throw new NotSupportedException();

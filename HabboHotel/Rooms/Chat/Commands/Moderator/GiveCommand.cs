@@ -17,6 +17,8 @@ internal class GiveCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
+        if (target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access))
+            return Task.CompletedTask;
         if (!parameters.Any())
         {
             session.SendWhisper("Please enter a currency type! (coins, duckets, diamonds, gotw)");

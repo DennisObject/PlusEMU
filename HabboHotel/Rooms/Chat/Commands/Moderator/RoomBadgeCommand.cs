@@ -29,6 +29,9 @@ internal class RoomBadgeCommand : IChatCommand
         {
             if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null)
                 continue;
+            if (user.GetClient()?.GetHabbo() is not { } target ||
+                target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access))
+                continue;
             if (!user.GetClient().GetHabbo().Inventory.Badges.HasBadge(badgeCode))
             {
                 _badgeManager.GiveBadge(user.GetClient().GetHabbo(), badgeCode).Wait();

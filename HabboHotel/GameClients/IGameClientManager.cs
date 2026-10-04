@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets;
 using Plus.HabboHotel.Users.Messenger;
 
 namespace Plus.HabboHotel.GameClients;
@@ -17,7 +18,7 @@ public interface IGameClientManager
     void StaffAlert(IServerPacket message, int exclude = 0);
     void ModAlert(string message);
     void DoAdvertisingReport(GameClient reporter, GameClient target);
-    void SendPacket(IServerPacket packet, string fuse = "");
+    void SendPacket(IServerPacket packet, PermissionDefinition? permission = null);
     void LogClonesOut(int userId);
     void RegisterClient(GameClient client, int userId, string username);
     void UnregisterClient(GameClient client, int userId, string username);

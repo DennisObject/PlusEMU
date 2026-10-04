@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Moderation;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 
@@ -23,7 +24,7 @@ internal class CallForHelpPendingCallsDeletedEvent : IPacketEvent
             if (pendingTicket != null)
             {
                 pendingTicket.Answered = true;
-                _clientManager.SendPacket(new ModeratorSupportTicketComposer(session.GetHabbo().Id, pendingTicket), "mod_tool");
+                _clientManager.SendPacket(new ModeratorSupportTicketComposer(session.GetHabbo().Id, pendingTicket), PermissionKeys.Definition(PermissionKeys.ModerationTool));
             }
         }
         return Task.CompletedTask;

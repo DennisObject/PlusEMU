@@ -1,4 +1,9 @@
 using System.Reflection;
+using System.Data;
+using Plus.Database;
+using Plus.Database.Interfaces;
+using Plus.HabboHotel;
+using Plus.HabboHotel.Users.Permissions;
 using Microsoft.Extensions.Options;
 using Plus.Communication.Http;
 using Plus.HabboHotel.Users.Authentication;
@@ -7,6 +12,8 @@ using Dapper;
 using Microsoft.Extensions.Logging.Abstractions;
 using MySqlConnector;
 using Plus.Communication.Packets.Outgoing;
+using Plus.Communication.Packets.Incoming.Moderation;
+using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Users;
@@ -34,6 +41,7 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
     private const int ActorRole = 940101, LimitedRole = 940102, PeerRole = 940103;
     private readonly HabbiconDatabaseTests.TestDatabase _database;
     private readonly AccessControl _access;
+    private readonly CountingDatabase _accessDatabase;
     private readonly IGameClientManager _clients;
     private readonly ManualClock _clock = new();
     private int? _registeredUserId;
@@ -62,7 +70,9 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         _sent = sent;
         var clients = _clients = DispatchProxy.Create<IGameClientManager, Clients>();
         ((Clients)(object)clients).Client = client;
-        _access = new(_database, clients, NullLogger<AccessControl>.Instance, _clock);
+        _target.Client = client;
+        _accessDatabase = new(_database);
+        _access = new(_accessDatabase, clients, NullLogger<AccessControl>.Instance, _clock);
         _access.Init();
         _actor = new() { Id = Actor, Access = _access.Resolve(Actor) };
         _target.Access = _access.Resolve(Target);
@@ -150,26 +160,172 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
     }
 
     [AccessControlDatabaseFact]
-    public void AUserLoadedBeforeClientRegistrationObservesMutationsAndReloads()
+    public async Task LoginReReadsChangesMadeBetweenLoadingAndClientAttachment()
     {
-        // Login holds this reference between its data-loading task and client attachment.
-        var loaded = _access.Resolve(Target);
         ((Clients)(object)_clients).Registered = false;
+        var loader = new LoadUserPermissionsTask(_access);
+        await loader.Load(_target);
+        var loaded = _target.Access;
         Assert.True(_access.SetOverride(_actor, Target, PermissionKeys.ModerationTool, false, "grant while login is paused"));
-        Assert.True(loaded.Can(PermissionKeys.ModerationTool));
         Assert.True(_access.SetOverride(_actor, Target, PermissionKeys.ModerationTool, true, "deny while login is paused"));
-        Assert.False(loaded.Can(PermissionKeys.ModerationTool));
         using (var connection = _database.Connection())
             connection.Execute("INSERT INTO user_roles (user_id, role_id) VALUES (@Target, @LimitedRole)", new { Target, LimitedRole });
         _access.Reload();
-        Assert.Same(loaded, _access.Resolve(Target));
-        Assert.Equal(LimitedRole, loaded.PrimaryRole!.Id);
+        Assert.Empty(CachedUsers("_resolved"));
+        Assert.Empty(CachedUsers("_refreshAt"));
         Assert.Empty(_sent);
         ((Clients)(object)_clients).Registered = true;
+        await loader.UserLoggedIn(_target);
+        Assert.NotSame(loaded, _target.Access);
+        Assert.Equal(LimitedRole, _target.Access.PrimaryRole!.Id);
+        Assert.False(_target.Access.Can(PermissionKeys.ModerationTool));
+        Assert.Same(_target.Access, _access.Resolve(Target));
         _access.Refresh(Target);
-        Assert.Same(loaded, _target.Access);
         Assert.Single(_sent);
     }
+
+    [AccessControlDatabaseFact]
+    public void OfflinePermissionLimitAndHierarchyReadsDoNotPopulateEitherCache()
+    {
+        Assert.True(_access.Can(Actor, PermissionKeys.CameraUse));
+        Assert.Equal(10, _access.Limit(Peer, "limit.daily_respects"));
+        Assert.False(_access.Outranks(Actor, Peer));
+        Assert.NotSame(_access.Resolve(Peer), _access.Resolve(Peer));
+        Assert.Equal(new[] { Target }, CachedUsers("_resolved"));
+        Assert.Equal(new[] { Target }, CachedUsers("_refreshAt"));
+    }
+
+    [AccessControlDatabaseFact]
+    public void OnlinePermissionLimitAndHierarchyReadsUseCachedSnapshotsWithoutDatabaseReads()
+    {
+        var clients = (Clients)(object)_clients;
+        clients.Additional.Add(HabbiconTestSupport.Client(_actor).Client);
+        _actor.Access = _access.Resolve(Actor);
+        _accessDatabase.Connections = 0;
+        for (var i = 0; i < 50; i++)
+        {
+            Assert.True(_access.Can(Actor, PermissionKeys.CameraUse));
+            Assert.Equal(10, _access.Limit(Target, "limit.daily_respects"));
+            Assert.True(_access.Outranks(Actor, Target));
+        }
+        Assert.Equal(0, _accessDatabase.Connections);
+    }
+
+    [AccessControlDatabaseFact]
+    public void ReloadReReadsOnlyOnlineUsersAndLeavesOfflineSnapshotsUntracked()
+    {
+        var offline = _access.Resolve(Actor);
+        _access.Resolve(Peer);
+        using (var connection = _database.Connection())
+            connection.Execute("INSERT INTO user_permissions (user_id, permission_key, effect) VALUES (@Actor, 'camera.use', 'deny'); " +
+                "INSERT INTO user_roles (user_id, role_id) VALUES (@Target, @LimitedRole)", new { Actor, Target, LimitedRole });
+        _accessDatabase.Connections = 0;
+        _access.Reload();
+        Assert.Equal(2, _accessDatabase.Connections); // registry/prune plus the one online account
+        Assert.Equal(LimitedRole, _target.Access.PrimaryRole!.Id);
+        Assert.Single(_sent);
+        Assert.True(offline.Can(PermissionKeys.CameraUse));
+        Assert.False(_access.Can(Actor, PermissionKeys.CameraUse));
+        Assert.Equal(new[] { Target }, CachedUsers("_resolved"));
+        Assert.Equal(new[] { Target }, CachedUsers("_refreshAt"));
+    }
+
+    [AccessControlDatabaseFact]
+    public void HabboDisposalEvictsBothCachesAndCannotBeReCachedByAnOfflineRead()
+    {
+        _target.Dispose();
+        AssertUncachedAfterLogout();
+    }
+
+    [AccessControlDatabaseFact]
+    public void ClientDisconnectEvictsBothCachesBeforeLogoutCompletes()
+    {
+        var field = typeof(PlusEnvironment).GetField("_game", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var previous = field.GetValue(null);
+        var game = DispatchProxy.Create<IGame, Game>();
+        ((Game)(object)game).Clients = _clients;
+        field.SetValue(null, game);
+        // Skip persistence already tested by the wallet suites; exercise the real disconnect/unregister path.
+        typeof(Habbo).GetField("_habboSaved", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(_target, true);
+        try
+        {
+            ((Clients)(object)_clients).Client.OnDisconnected();
+            Assert.False(((Clients)(object)_clients).Registered);
+            AssertUncachedAfterLogout();
+        }
+        finally { field.SetValue(null, previous); }
+    }
+
+    [AccessControlDatabaseFact]
+    public void OldSessionDisposalCannotEvictTheReplacementSession()
+    {
+        var replacement = new Habbo { Id = Target, Username = "acl_target" };
+        ((Clients)(object)_clients).Client = HabbiconTestSupport.Client(replacement).Client;
+        var access = _access.Resolve(Target);
+        _target.Dispose();
+        Assert.Equal(new[] { Target }, CachedUsers("_resolved"));
+        Assert.Equal(new[] { Target }, CachedUsers("_refreshAt"));
+        _accessDatabase.Connections = 0;
+        Assert.True(_access.Can(Target, PermissionKeys.CameraUse));
+        Assert.Equal(0, _accessDatabase.Connections);
+        Assert.Same(access, replacement.Access);
+    }
+
+    private void AssertUncachedAfterLogout()
+    {
+        Assert.Empty(CachedUsers("_resolved"));
+        Assert.Empty(CachedUsers("_refreshAt"));
+        Assert.True(_access.Can(Target, PermissionKeys.CameraUse));
+        Assert.Empty(CachedUsers("_resolved"));
+        Assert.Empty(CachedUsers("_refreshAt"));
+        _accessDatabase.Connections = 0;
+        _access.Reload();
+        Assert.Equal(1, _accessDatabase.Connections); // global registry/prune, no per-user reads
+        Assert.Empty(_sent);
+    }
+
+    private int[] CachedUsers(string field) => ((System.Collections.IDictionary)typeof(AccessControl)
+        .GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_access)!).Keys.Cast<int>().Order().ToArray();
+
+    [AccessControlDatabaseFact]
+    public async Task AllFiveTicketBroadcastPathsReachOnlyResolvedModerationToolHolders()
+    {
+        var manager = new GameClientManager(_database, NullLogger<GameClientManager>.Instance);
+        var (moderator, updates) = HabbiconTestSupport.Client(_actor);
+        var reporter = ((Clients)(object)_clients).Client;
+        var (ordinary, ordinaryMessages) = HabbiconTestSupport.Client(new Habbo { Id = Peer, Username = "acl_peer", Access = _access.Resolve(Peer) });
+        foreach (var client in new[] { moderator, reporter, ordinary })
+        {
+            client.Id = Guid.NewGuid();
+            manager.RegisterClient(client, client.GetHabbo().Id, client.GetHabbo().Username);
+        }
+        var moderation = DispatchProxy.Create<IModerationManager, Tickets>();
+        var tickets = (Tickets)(object)moderation;
+        var field = typeof(PlusEnvironment).GetField("_game", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var previous = field.GetValue(null);
+        var game = DispatchProxy.Create<IGame, Game>();
+        ((Game)(object)game).Clients = manager;
+        field.SetValue(null, game);
+        try
+        {
+            await new SubmitNewTicketEvent(moderation, manager, _database).Parse(reporter, HabbiconTestSupport.Incoming("help", 1, Peer, 1, 0));
+            await new PickTicketEvent(moderation, manager).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
+            await new ReleaseTicketEvent(moderation, manager).Parse(moderator, HabbiconTestSupport.Incoming(1, 1));
+            await new PickTicketEvent(moderation, manager).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
+            await new CloseTicketEvent(moderation, manager, _database).Parse(moderator, HabbiconTestSupport.Incoming(3, 0, 1));
+            await new CallForHelpPendingCallsDeletedEvent(moderation, manager).Parse(reporter, HabbiconTestSupport.Incoming());
+            Assert.Equal(6, updates.Count);
+            Assert.All(updates, update => Assert.Equal(ServerPacketHeader.ModeratorSupportTicketComposer, update.Header));
+            Assert.Equal(ServerPacketHeader.ModeratorSupportTicketResponseComposer, Assert.Single(_sent).Header);
+            Assert.Empty(ordinaryMessages);
+            Assert.True(tickets.Ticket!.Answered);
+        }
+        finally { field.SetValue(null, previous); }
+    }
+
+
+
+
 
     [AccessControlDatabaseFact]
     public async Task RegistrationUsesRolesAndPreservesTheOldDefaultVipTier()
@@ -263,16 +419,59 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         }
     }
 
+    private sealed class CountingDatabase(IDatabase inner) : IDatabase
+    {
+        public int Connections { get; set; }
+        public bool IsConnected() => inner.IsConnected();
+#pragma warning disable CS0612
+        public IQueryAdapter GetQueryReactor() => inner.GetQueryReactor();
+#pragma warning restore CS0612
+        public IDbConnection Connection()
+        {
+            Connections++;
+            return inner.Connection();
+        }
+    }
+
+    public class Tickets : DispatchProxy
+    {
+        public ModerationTicket? Ticket { get; set; }
+        protected override object? Invoke(MethodInfo? method, object?[]? args)
+        {
+            switch (method!.Name)
+            {
+                case "UserHasTickets": return Ticket != null;
+                case "GetTicketBySenderId": return Ticket;
+                case "TryAddTicket": Ticket = (ModerationTicket)args![0]!; return true;
+                case "TryGetTicket": args![1] = Ticket; return Ticket != null;
+                default: throw new InvalidOperationException(method.Name);
+            }
+        }
+    }
+
+    public class Game : DispatchProxy
+    {
+        public IGameClientManager Clients { get; set; } = null!;
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => method!.Name == "get_ClientManager"
+            ? Clients : throw new InvalidOperationException(method.Name);
+    }
+
     public class Clients : DispatchProxy
     {
         public GameClient Client { get; set; } = null!;
+        public List<GameClient> Additional { get; } = new();
         public bool Registered { get; set; } = true;
-        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => targetMethod!.Name switch
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            "get_GetClients" => Registered ? new List<GameClient> { Client } : new List<GameClient>(),
-            "GetClientByUsername" => Registered && (string)args![0]! == Client.GetHabbo().Username ? Client : null,
-            "GetClientByUserId" => Registered && (int)args![0]! == Client.GetHabbo().Id ? Client : null,
-            _ => throw new InvalidOperationException($"Unexpected client call {targetMethod.Name}")
-        };
+            var clients = Registered ? new[] { Client }.Concat(Additional).ToList() : new List<GameClient>();
+            switch (targetMethod!.Name)
+            {
+                case "get_GetClients": return clients;
+                case "GetClientByUsername": return clients.FirstOrDefault(client => client.GetHabbo().Username == (string)args![0]!);
+                case "GetClientByUserId": return clients.FirstOrDefault(client => client.GetHabbo().Id == (int)args![0]!);
+                case "UnregisterClient": Registered = false; return null;
+                default: throw new InvalidOperationException($"Unexpected client call {targetMethod.Name}");
+            }
+        }
     }
 }

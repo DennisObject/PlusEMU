@@ -20,7 +20,7 @@ public sealed partial class AccessControl : IAccessControl, IDisposable
     private FrozenDictionary<int, AccessRole> _roles = new Dictionary<int, AccessRole>().ToFrozenDictionary();
     private string[] _registry = Array.Empty<string>();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<int, DateTimeOffset> _refreshAt = new();
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, UserAccess> _resolved = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, CachedAccess> _resolved = new();
     private ITimer? _expiryTimer;
 
     public AccessControl(IDatabase database, IGameClientManager clients, ILogger<AccessControl> logger, TimeProvider clock)
@@ -54,8 +54,11 @@ public sealed partial class AccessControl : IAccessControl, IDisposable
             if (!roles.Values.Any(role => role.Slug == "default")) throw new InvalidOperationException("The default access role is missing. Apply the RBAC migration.");
             _registry = registry;
             _roles = roles;
-            foreach (var userId in _resolved.Keys) Resolve(userId);
+            foreach (var entry in _resolved.Values.ToArray())
+                if (!ReferenceEquals(GetOnlineHabbo(entry.Habbo.Id), entry.Habbo)) Evict(entry);
             Prune(connection);
+            foreach (var client in _clients.GetClients.ToArray())
+                if (client.GetHabbo() is { AccessClosed: false } habbo) Resolve(habbo.Id);
             _expiryTimer ??= _clock.CreateTimer(_ => RefreshExpired(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
             _logger.LogInformation("Loaded {Roles} access roles and {Permissions} permission keys", _roles.Count, _registry.Length);
         }
@@ -67,23 +70,44 @@ public sealed partial class AccessControl : IAccessControl, IDisposable
         {
             using var connection = _database.Connection();
             var access = Read(connection, userId);
-            var holder = _resolved.AddOrUpdate(userId, access, (_, current) =>
+            var habbo = GetOnlineHabbo(userId);
+            if (_resolved.TryGetValue(userId, out var current) && !ReferenceEquals(current.Habbo, habbo))
             {
-                current.ReplaceWith(access);
-                return current;
-            });
+                Evict(current);
+                current = null;
+            }
+            if (habbo == null) return access;
+            if (current != null)
+            {
+                current.Access.ReplaceWith(access);
+                access = current.Access;
+            }
+            else
+            {
+                habbo.Disconnected += OnAccessEnded;
+                habbo.Disposed += OnAccessEnded;
+                if (habbo.AccessClosed)
+                {
+                    habbo.Disconnected -= OnAccessEnded;
+                    habbo.Disposed -= OnAccessEnded;
+                    return access;
+                }
+                _resolved[userId] = new(habbo, access);
+            }
+            habbo.Access = access;
             // Reads must not cancel an expiry that has yet to be published to the client.
             var next = access.NextExpiry ?? DateTimeOffset.MaxValue;
             _refreshAt.AddOrUpdate(userId, next, (_, pending) => pending < next ? pending : next);
-            return holder;
+            return access;
         }
     }
 
     public void Reload()
     {
         Init();
-        foreach (var client in _clients.GetClients.ToArray())
-            if (client.GetHabbo() is { } habbo) Refresh(habbo.Id);
+        lock (_sync)
+            foreach (var client in _clients.GetClients.ToArray())
+                if (client.GetHabbo() is { AccessClosed: false } habbo) Publish(habbo.Id, GetAccess(habbo.Id));
     }
 
     public void Refresh(int userId)
@@ -96,22 +120,47 @@ public sealed partial class AccessControl : IAccessControl, IDisposable
                 connection.Execute("UPDATE users SET `rank` = @securityLevel WHERE id = @userId", new { userId, securityLevel = access.SecurityLevel });
                 Prune(connection, userId);
             }
-            if (_clients.GetClientByUserId(userId) is { } client && client.GetHabbo() is { } habbo)
-            {
-                habbo.Access = access;
-                client.Send(new UserRightsComposer(access));
-            }
-            _refreshAt[userId] = access.NextExpiry ?? DateTimeOffset.MaxValue;
+            Publish(userId, access);
         }
     }
 
-    public bool Can(int userId, string key) => _resolved.GetOrAdd(userId, Resolve).Can(key);
-    public int Limit(int userId, string key, int fallback = 0) => _resolved.GetOrAdd(userId, Resolve).Limit(key, fallback);
-    public bool Outranks(int actorId, int targetId) => actorId != targetId && Resolve(actorId).Outranks(Resolve(targetId));
+
+    private Habbo? GetOnlineHabbo(int userId) => _clients.GetClientByUserId(userId)?.GetHabbo() is { AccessClosed: false } habbo ? habbo : null;
+
+    private UserAccess GetAccess(int userId) => _resolved.TryGetValue(userId, out var entry) &&
+        ReferenceEquals(GetOnlineHabbo(userId), entry.Habbo) ? entry.Access : Resolve(userId);
+
+    private void Publish(int userId, UserAccess access)
+    {
+        var client = _clients.GetClientByUserId(userId);
+        if (client?.GetHabbo() is not { AccessClosed: false } habbo) return;
+        habbo.Access = access;
+        client.Send(new UserRightsComposer(access));
+        _refreshAt[userId] = access.NextExpiry ?? DateTimeOffset.MaxValue;
+    }
+
+    private void OnAccessEnded(object? sender, EventArgs args)
+    {
+        lock (_sync)
+            if (sender is Habbo habbo && _resolved.TryGetValue(habbo.Id, out var entry) && ReferenceEquals(entry.Habbo, habbo)) Evict(entry);
+    }
+
+    private void Evict(CachedAccess entry)
+    {
+        _resolved.TryRemove(entry.Habbo.Id, out _);
+        _refreshAt.TryRemove(entry.Habbo.Id, out _);
+        entry.Habbo.Disconnected -= OnAccessEnded;
+        entry.Habbo.Disposed -= OnAccessEnded;
+    }
+
+    public bool Can(int userId, string key) => GetAccess(userId).Can(key);
+    public int Limit(int userId, string key, int fallback = 0) => GetAccess(userId).Limit(key, fallback);
+    public bool Outranks(int actorId, int targetId) => actorId != targetId && GetAccess(actorId).Outranks(GetAccess(targetId));
     public bool TryGetRole(int roleId, out AccessRole role)
     {
         lock (_sync) return _roles.TryGetValue(roleId, out role!);
     }
+
 
     public bool AssignRole(Habbo actor, int targetId, int roleId, DateTimeOffset? expiresAt = null) =>
         Mutate(actor, targetId, "role.assign", new { roleId, expiresAt }, (connection, transaction, actorAccess, targetAccess) =>
@@ -215,13 +264,19 @@ public sealed partial class AccessControl : IAccessControl, IDisposable
         {
             var now = _clock.GetUtcNow();
             foreach (var client in _clients.GetClients.ToArray())
-                if (client.GetHabbo() is { } habbo && _refreshAt.TryGetValue(habbo.Id, out var expiry) && expiry <= now) Refresh(habbo.Id);
+                if (client.GetHabbo() is { AccessClosed: false } habbo && _refreshAt.TryGetValue(habbo.Id, out var expiry) && expiry <= now) Refresh(habbo.Id);
         }
         catch (Exception exception) { _logger.LogError(exception, "Refreshing expired access failed"); }
     }
 
     private static DateTimeOffset? Utc(DateTime? value) => value.HasValue ? new DateTimeOffset(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)) : null;
-    public void Dispose() => _expiryTimer?.Dispose();
+    public void Dispose()
+    {
+        _expiryTimer?.Dispose();
+        lock (_sync)
+            foreach (var entry in _resolved.Values.ToArray()) Evict(entry);
+    }
+    private sealed record CachedAccess(Habbo Habbo, UserAccess Access);
     private sealed class RoleRow { public int Id { get; set; } public string Slug { get; set; } = ""; public string Name { get; set; } = ""; public int Weight { get; set; } public int SecurityLevel { get; set; } public string BadgeCode { get; set; } = ""; public bool IsStaff { get; set; } }
     private sealed class RolePermissionRow { public int RoleId { get; set; } public string PermissionKey { get; set; } = ""; }
     private sealed class RoleLimitRow { public int RoleId { get; set; } public string LimitKey { get; set; } = ""; public int Value { get; set; } }

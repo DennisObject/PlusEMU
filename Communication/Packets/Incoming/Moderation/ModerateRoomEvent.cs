@@ -26,7 +26,7 @@ internal class ModerateRoomEvent : IPacketEvent
     {
         if (!_roomManager.TryGetRoom(packet.ReadUInt(), out var room))
             return Task.CompletedTask;
-        if (room.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(_permissions.Resolve(room.OwnerId)))
+        if (room.OwnerId != session.GetHabbo().Id && !_permissions.Outranks(session.GetHabbo().Id, room.OwnerId))
             return Task.CompletedTask;
         var setLock = packet.ReadInt() == 1;
         var setName = packet.ReadInt() == 1;

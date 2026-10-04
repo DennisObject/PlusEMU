@@ -77,7 +77,7 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
         if (Load(actor, roomId, out var room) is { } denied) return denied;
         var newOwner = _users.Find(newOwnerId);
         if (newOwner == null) return HousekeepingOutcome.Fail(NewOwnerNotFound, Label(room), $"newOwnerId={newOwnerId}");
-        if (newOwner.Id == actor.Id || !actor.Access.Outranks(_permissions.Resolve(newOwner.Id))) return HousekeepingOutcome.Fail(RankTooHigh, Label(room), $"newOwnerId={newOwner.Id}");
+        if (newOwner.Id == actor.Id || !_permissions.Outranks(actor.Id, newOwner.Id)) return HousekeepingOutcome.Fail(RankTooHigh, Label(room), $"newOwnerId={newOwner.Id}");
         // A group home room belongs to the group; moving it would split group and room ownership.
         if (room.Group != null) return HousekeepingOutcome.Fail(RoomActionFailed, Label(room), "group_room");
         using (var connection = _database.Connection())
@@ -115,7 +115,7 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
 
     private HousekeepingOutcome? Guard(Habbo actor, Room room)
     {
-        return room.OwnerId == actor.Id || actor.Access.Outranks(_permissions.Resolve(room.OwnerId))
+        return room.OwnerId == actor.Id || _permissions.Outranks(actor.Id, room.OwnerId)
             ? null : HousekeepingOutcome.Fail(RankTooHigh, Label(room), $"ownerId={room.OwnerId}");
     }
 

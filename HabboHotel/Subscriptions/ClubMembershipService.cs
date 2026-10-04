@@ -62,7 +62,7 @@ public class ClubMembershipService : IClubMembershipService
 
     public int? Grant(Habbo actor, int userId, int days)
     {
-        if (actor.Id == userId || !actor.Access.Can(PermissionKeys.HousekeepingEconomy) || !actor.Access.Outranks(_permissions.Resolve(userId)))
+        if (actor.Id == userId || !actor.Access.Can(PermissionKeys.HousekeepingEconomy) || !_permissions.Outranks(actor.Id, userId))
             return null;
         using var connection = _database.Connection();
         connection.Open();

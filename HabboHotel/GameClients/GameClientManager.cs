@@ -49,7 +49,7 @@ public class GameClientManager : IGameClientManager
         HandleTimeouts();
     }
 
-    public GameClient? GetClientByUserId(int userId) => _userIdRegister.ContainsKey(userId) ? _userIdRegister[userId] : null;
+    public GameClient? GetClientByUserId(int userId) => _userIdRegister.TryGetValue(userId, out var client) ? client : null;
 
     public GameClient? GetClientByUsername(string username) => _usernameRegister.ContainsKey(username.ToLower()) ? _usernameRegister[username.ToLower()] : null;
 
@@ -145,17 +145,14 @@ public class GameClientManager : IGameClientManager
     }
 
 
-    public void SendPacket(IServerPacket packet, string fuse = "")
+    public void SendPacket(IServerPacket packet, PermissionDefinition? permission = null)
     {
         foreach (var client in _clients.Values.ToList())
         {
             if (client == null || client.GetHabbo() == null)
                 continue;
-            if (!string.IsNullOrEmpty(fuse))
-            {
-                if (!client.GetHabbo().Access.Can(fuse))
-                    continue;
-            }
+            if (permission != null && !client.GetHabbo().Access.Can(permission.Key))
+                continue;
             client.Send(packet);
         }
     }

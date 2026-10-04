@@ -37,6 +37,9 @@ internal class MassEnableCommand : IChatCommand
                 {
                     if (u == null || u.RidingHorse)
                         continue;
+                    if (u.GetClient()?.GetHabbo() is not { } target ||
+                        target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access))
+                        continue;
                     u.ApplyEffect(enableId);
                 }
             }

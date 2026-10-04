@@ -120,6 +120,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         return HousekeepingOutcome.Success(Label(user), $"reason={HousekeepingLimits.AuditValue(reason)}");
     }
 
+
     public HousekeepingOutcome TradeLock(Habbo actor, int userId, int hours, string reason)
     {
         reason = HousekeepingLimits.Normalize(reason);

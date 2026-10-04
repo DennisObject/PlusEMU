@@ -25,7 +25,7 @@ internal class PickTicketEvent : IPacketEvent
         if (!_moderationManager.TryGetTicket(ticketId, out var ticket))
             return Task.CompletedTask;
         ticket.Moderator = session.GetHabbo();
-        _clientManager.SendPacket(new ModeratorSupportTicketComposer(session.GetHabbo().Id, ticket), "mod_tool");
+        _clientManager.SendPacket(new ModeratorSupportTicketComposer(session.GetHabbo().Id, ticket), PermissionKeys.Definition(PermissionKeys.ModerationTool));
         return Task.CompletedTask;
     }
 }
