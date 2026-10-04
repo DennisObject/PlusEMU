@@ -9,10 +9,12 @@ namespace Plus.Communication.Packets.Incoming.Groups;
 internal class UpdateGroupBadgeEvent : IPacketEvent
 {
     private readonly IGroupManager _groupManager;
+    private readonly IGroupInfoSnapshotService _groupInfo;
     private readonly IDatabase _database;
 
-    public UpdateGroupBadgeEvent(IGroupManager groupManager, IDatabase database)
+    public UpdateGroupBadgeEvent(IGroupManager groupManager, IDatabase database, IGroupInfoSnapshotService groupInfo)
     {
+        _groupInfo = groupInfo;
         _groupManager = groupManager;
         _database = database;
     }
@@ -34,7 +36,7 @@ internal class UpdateGroupBadgeEvent : IPacketEvent
         {
             connection.Execute("UPDATE `groups` SET `badge` = @badge WHERE `id` = @groupId LIMIT 1", new { badge = group.Badge, groupId = group.Id });
         }
-        session.Send(new GroupInfoComposer(group, session));
+        session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id)));
         return Task.CompletedTask;
     }
 }

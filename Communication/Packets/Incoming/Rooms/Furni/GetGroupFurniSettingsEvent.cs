@@ -8,9 +8,11 @@ namespace Plus.Communication.Packets.Incoming.Rooms.Furni;
 internal class GetGroupFurniSettingsEvent : IPacketEvent
 {
     private readonly IGroupManager _groupManager;
+    private readonly IGroupInfoSnapshotService _groupInfo;
 
-    public GetGroupFurniSettingsEvent(IGroupManager groupManager)
+    public GetGroupFurniSettingsEvent(IGroupManager groupManager, IGroupInfoSnapshotService groupInfo)
     {
+        _groupInfo = groupInfo;
         _groupManager = groupManager;
     }
 
@@ -28,7 +30,7 @@ internal class GetGroupFurniSettingsEvent : IPacketEvent
         if (!_groupManager.TryGetGroup(groupId, out var group))
             return Task.CompletedTask;
         session.Send(new GroupFurniSettingsComposer(group, itemId, session.GetHabbo().Id));
-        session.Send(new GroupInfoComposer(group, session));
+        session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id)));
         return Task.CompletedTask;
     }
 }

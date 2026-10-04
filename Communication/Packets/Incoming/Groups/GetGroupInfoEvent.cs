@@ -7,9 +7,11 @@ namespace Plus.Communication.Packets.Incoming.Groups;
 internal class GetGroupInfoEvent : IPacketEvent
 {
     private readonly IGroupManager _groupManager;
+    private readonly IGroupInfoSnapshotService _groupInfo;
 
-    public GetGroupInfoEvent(IGroupManager groupManager)
+    public GetGroupInfoEvent(IGroupManager groupManager, IGroupInfoSnapshotService groupInfo)
     {
+        _groupInfo = groupInfo;
         _groupManager = groupManager;
     }
 
@@ -19,7 +21,7 @@ internal class GetGroupInfoEvent : IPacketEvent
         var newWindow = packet.ReadBool();
         if (!_groupManager.TryGetGroup(groupId, out var group))
             return Task.CompletedTask;
-        session.Send(new GroupInfoComposer(group, session, newWindow));
+        session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id), newWindow));
         return Task.CompletedTask;
     }
 }

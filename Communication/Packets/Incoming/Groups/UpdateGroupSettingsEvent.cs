@@ -11,11 +11,13 @@ namespace Plus.Communication.Packets.Incoming.Groups;
 internal class UpdateGroupSettingsEvent : IPacketEvent
 {
     private readonly IGroupManager _groupManager;
+    private readonly IGroupInfoSnapshotService _groupInfo;
     private readonly IRoomManager _roomManager;
     private readonly IDatabase _database;
 
-    public UpdateGroupSettingsEvent(IGroupManager groupManager, IRoomManager roomManager, IDatabase database)
+    public UpdateGroupSettingsEvent(IGroupManager groupManager, IRoomManager roomManager, IDatabase database, IGroupInfoSnapshotService groupInfo)
     {
+        _groupInfo = groupInfo;
         _groupManager = groupManager;
         _roomManager = roomManager;
         _database = database;
@@ -79,7 +81,7 @@ internal class UpdateGroupSettingsEvent : IPacketEvent
                 }
             }
         }
-        session.Send(new GroupInfoComposer(group, session));
+        session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id)));
         return Task.CompletedTask;
     }
 }

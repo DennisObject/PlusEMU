@@ -9,10 +9,12 @@ namespace Plus.Communication.Packets.Incoming.Groups;
 internal class JoinGroupEvent : IPacketEvent
 {
     private readonly IGroupManager _groupManager;
+    private readonly IGroupInfoSnapshotService _groupInfo;
     private readonly IGameClientManager _clientManager;
 
-    public JoinGroupEvent(IGroupManager groupManager, IGameClientManager clientManager)
+    public JoinGroupEvent(IGroupManager groupManager, IGameClientManager clientManager, IGroupInfoSnapshotService groupInfo)
     {
+        _groupInfo = groupInfo;
         _groupManager = groupManager;
         _clientManager = clientManager;
     }
@@ -36,7 +38,7 @@ internal class JoinGroupEvent : IPacketEvent
                 where client != null && client.GetHabbo() != null && @group.IsAdmin(client.GetHabbo().Id)
                 select client).ToList();
             foreach (var client in groupAdmins) client.Send(new GroupMembershipRequestedComposer(group.Id, session.GetHabbo(), 3));
-            session.Send(new GroupInfoComposer(group, session));
+            session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id)));
         }
         else
         {
@@ -50,7 +52,7 @@ internal class JoinGroupEvent : IPacketEvent
                     memberGroup.CreatorId,
                     memberGroup.ForumEnabled))
                 .ToArray()));
-            session.Send(new GroupInfoComposer(group, session));
+            session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id)));
             if (session.GetHabbo().CurrentRoom != null)
                 session.GetHabbo().CurrentRoom.SendPacket(new RefreshFavouriteGroupComposer(session.GetHabbo().Id));
             else

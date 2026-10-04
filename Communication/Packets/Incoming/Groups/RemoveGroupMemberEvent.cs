@@ -11,11 +11,13 @@ namespace Plus.Communication.Packets.Incoming.Groups;
 internal class RemoveGroupMemberEvent : IPacketEvent
 {
     private readonly IGroupManager _groupManager;
+    private readonly IGroupInfoSnapshotService _groupInfo;
     private readonly IRoomManager _roomManager;
     private readonly IDatabase _database;
 
-    public RemoveGroupMemberEvent(IGroupManager groupManager, IRoomManager roomManager, IDatabase database)
+    public RemoveGroupMemberEvent(IGroupManager groupManager, IRoomManager roomManager, IDatabase database, IGroupInfoSnapshotService groupInfo)
     {
+        _groupInfo = groupInfo;
         _groupManager = groupManager;
         _roomManager = roomManager;
         _database = database;
@@ -54,7 +56,7 @@ internal class RemoveGroupMemberEvent : IPacketEvent
                 connection.Execute(
                     "DELETE FROM `group_memberships` WHERE `group_id` = @groupId AND `user_id` = @userId", new { groupId, userId });
             }
-            session.Send(new GroupInfoComposer(group, session));
+            session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id)));
             if (session.GetHabbo().HabboStats.FavouriteGroupId == groupId)
             {
                 session.GetHabbo().HabboStats.FavouriteGroupId = 0;
@@ -137,7 +139,7 @@ internal class RemoveGroupMemberEvent : IPacketEvent
                     else
                         removedClient.Send(new RefreshFavouriteGroupComposer(userId));
                 }
-                removedClient.Send(new GroupInfoComposer(group, removedClient));
+                removedClient.Send(new GroupInfoComposer(_groupInfo.Capture(group, removedClient.GetHabbo().Id)));
             }
             session.Send(new UnknownGroupComposer(group.Id, userId));
         }

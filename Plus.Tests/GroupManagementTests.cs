@@ -99,7 +99,7 @@ public class GroupManagementTests : IDisposable
         group.Badge = "b05114s06114";
         var (client, sent) = Client(Owner());
         var groups = GroupSource(group);
-        await new UpdateGroupBadgeEvent(groups, _database).Parse(client, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
+        await new UpdateGroupBadgeEvent(groups, _database, GroupInfo()).Parse(client, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
 
         Assert.Equal("b01014s02024", group.Badge);
         Assert.Contains("UPDATE `groups` SET `badge`", string.Join("\n", _database.Statements));
@@ -107,12 +107,12 @@ public class GroupManagementTests : IDisposable
 
         group.Badge = "b05114s06114";
         var written = _database.Statements.Count;
-        await new UpdateGroupBadgeEvent(groups, _database).Parse(client, Packet(group.Id, 4, 1, 1, 4));
+        await new UpdateGroupBadgeEvent(groups, _database, GroupInfo()).Parse(client, Packet(group.Id, 4, 1, 1, 4));
         Assert.Equal("b05114s06114", group.Badge);
         Assert.Equal(written, _database.Statements.Count);
 
         var (member, memberSent) = Client(new Habbo { Id = 2, Username = "Member2", Access = Rights() });
-        await new UpdateGroupBadgeEvent(groups, _database).Parse(member, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
+        await new UpdateGroupBadgeEvent(groups, _database, GroupInfo()).Parse(member, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
         Assert.Equal("b05114s06114", group.Badge);
         Assert.Empty(memberSent);
     }
@@ -128,7 +128,7 @@ public class GroupManagementTests : IDisposable
             args[1] = null;
             return false;
         });
-        await new UpdateGroupSettingsEvent(GroupSource(group), rooms, _database).Parse(client, Packet(group.Id, 1, 0, true));
+        await new UpdateGroupSettingsEvent(GroupSource(group), rooms, _database, GroupInfo()).Parse(client, Packet(group.Id, 1, 0, true));
 
         Assert.Equal(GroupType.Locked, group.Type);
         Assert.Equal(0, group.AdminOnlyDeco);
@@ -291,7 +291,7 @@ public class GroupManagementTests : IDisposable
         group.AddMember(8);
         var rooms = UnloadedRooms();
         var (owner, sent) = Client(Owner());
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database).Parse(owner, Packet(group.Id, 8, true));
+        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database, GroupInfo()).Parse(owner, Packet(group.Id, 8, true));
 
         Assert.False(group.IsMember(8));
         var body = sent.Single(item => item.Header == ServerPacketHeader.UnknownGroupComposer).Payload;
@@ -325,7 +325,7 @@ public class GroupManagementTests : IDisposable
             return true;
         });
         var (owner, sent) = Client(Owner());
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database).Parse(owner, Packet(group.Id, 8, true));
+        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database, GroupInfo()).Parse(owner, Packet(group.Id, 8, true));
 
         Assert.False(group.IsAdmin(8));
         Assert.False(group.IsMember(8));
@@ -352,7 +352,7 @@ public class GroupManagementTests : IDisposable
         group.AddMember(8);
         var rooms = UnloadedRooms();
         var (owner, sent) = Client(Owner());
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database).Parse(owner, Packet(group.Id, 8));
+        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database, GroupInfo()).Parse(owner, Packet(group.Id, 8));
 
         Assert.False(group.IsMember(8));
         Assert.Contains(ServerPacketHeader.UnknownGroupComposer, sent.Select(item => item.Header));
@@ -372,8 +372,8 @@ public class GroupManagementTests : IDisposable
         var (admin, adminSent) = Client(new Habbo { Id = 4, Username = "Admin", Access = Rights() });
         await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(admin, Packet(group.Id, 7));
         await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(admin, Packet(group.Id, 5));
-        await new RemoveGroupMemberEvent(groups, rooms, _database).Parse(admin, Packet(group.Id, 7));
-        await new RemoveGroupMemberEvent(groups, rooms, _database).Parse(admin, Packet(group.Id, 5));
+        await new RemoveGroupMemberEvent(groups, rooms, _database, GroupInfo()).Parse(admin, Packet(group.Id, 7));
+        await new RemoveGroupMemberEvent(groups, rooms, _database, GroupInfo()).Parse(admin, Packet(group.Id, 5));
         Assert.DoesNotContain(adminSent, item => item.Header == ServerPacketHeader.GroupConfirmRemoveMemberComposer || item.Header == ServerPacketHeader.UnknownGroupComposer);
         Assert.True(group.IsMember(7));
         Assert.True(group.IsAdmin(5));
@@ -406,7 +406,7 @@ public class GroupManagementTests : IDisposable
             args[1] = null;
             return false;
         });
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database).Parse(client, Packet(group.Id, 11));
+        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database, GroupInfo()).Parse(client, Packet(group.Id, 11));
 
         Assert.False(group.IsMember(11));
         Assert.False(group.IsAdmin(11));
@@ -467,6 +467,14 @@ public class GroupManagementTests : IDisposable
         args[1] = group;
         return true;
     });
+
+    private IGroupInfoSnapshotService GroupInfo()
+    {
+        var clients = Proxy<IGameClientManager>((method, args) =>
+            method == "GetClientByUserId" ? _clients.GetValueOrDefault((int)args[0]!) : throw new InvalidOperationException(method));
+        var cache = Proxy<ICacheManager>((method, _) => method == "GenerateUser" ? null : throw new InvalidOperationException(method));
+        return new GroupInfoSnapshotService(clients, cache, _database);
+    }
 
     private static MembersPage DecodeMembers(byte[] body)
     {
@@ -572,7 +580,7 @@ public class GroupManagementTests : IDisposable
         }
     }
 
-    private sealed class RecordingDatabase : IDatabase
+    internal sealed class RecordingDatabase : IDatabase
     {
         public List<string> Statements { get; } = new();
         public int Scalar { get; set; }
