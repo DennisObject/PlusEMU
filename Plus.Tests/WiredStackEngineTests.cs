@@ -421,6 +421,85 @@ public class WiredStackEngineTests
     }
 
     [Fact]
+    public void SpendingTheBudgetExactlyIsNotACapButTurningWorkAwayIs()
+    {
+        var fixture = new Fixture(limits: new() { MaxExecutionsPerPass = 2 });
+        var notes = new List<WiredEngineLimit>();
+        fixture.Engine.LimitReached = (limit, _) => notes.Add(limit);
+        var trigger = fixture.Trigger();
+        var effects = new[] { fixture.Effect(), fixture.Effect() };
+        Assert.True(fixture.Engine.RunStack(trigger, []));
+        Assert.All(effects, effect => Assert.Single(effect.Calls));
+        Assert.Empty(notes);
+
+        var third = fixture.Effect();
+        Assert.True(fixture.Engine.RunStack(trigger, []));
+        Assert.Equal([WiredEngineLimit.ExecutionBudget], notes);
+        fixture.Engine.OnCycle();
+        Assert.Single(third.Calls); // the deferred action still ran: the note changed nothing
+        Assert.Single(notes);
+    }
+
+    [Fact]
+    public void DepthAndQueueRejectionsAreReportedAndStillRejected()
+    {
+        var deep = new Fixture(limits: new() { MaxDepth = 3 });
+        var depthNotes = new List<WiredEngineLimit>();
+        deep.Engine.LimitReached = (limit, _) => depthNotes.Add(limit);
+        var target = deep.Trigger();
+        var caller = deep.Effect();
+        caller.Body = args => deep.Engine.CallStacks([target.Item], args);
+        deep.Engine.RunStack(target, [new object()]);
+        Assert.Equal(4, caller.Calls.Count);
+        Assert.Equal([WiredEngineLimit.Depth], depthNotes);
+
+        var full = new Fixture(limits: new() { MaxPendingStacks = 1 });
+        var queueNotes = new List<string>();
+        full.Engine.LimitReached = (limit, reason) => { Assert.Equal(WiredEngineLimit.PendingStacks, limit); queueNotes.Add(reason); };
+        var trigger = full.Trigger();
+        full.Effect(delay: 1);
+        Assert.True(full.Engine.RunStack(trigger, []));
+        Assert.Empty(queueNotes);
+        Assert.False(full.Engine.RunStack(trigger, []));
+        Assert.Equal("The wait queue was full (1 of 1 chains); new work was dropped.", Assert.Single(queueNotes));
+    }
+
+    [Fact]
+    public void StatsReportTheLastFullWindowOfPassesThatRanBoxes()
+    {
+        var fixture = new Fixture(limits: new() { MaxExecutionsPerPass = 10 });
+        var trigger = fixture.Trigger();
+        fixture.Effect(); fixture.Effect(); fixture.Effect();
+        fixture.Engine.RunStack(trigger, []);
+        for (var i = 0; i < 20; i++) fixture.Engine.GetBoxes(trigger, InteractionType.WiredEffect); // inspection passes run nothing
+        Assert.Equal(new WiredEngineWindow(1000, 0, 0, 0, 0, 0), fixture.Engine.ReadStats()); // the first window is still open
+
+        fixture.Advance(1000);
+        var window = fixture.Engine.ReadStats();
+        Assert.Equal((1000, 3, 0, 0), (window.WindowMs, window.PeakExecutions, window.PeakDepth, window.Pending));
+        Assert.True(window.AverageMs <= window.PeakMs);
+
+        fixture.Advance(2500); // an idle gap leaves nothing to report
+        Assert.Equal(0, fixture.Engine.ReadStats().PeakExecutions);
+    }
+
+    [Fact]
+    public void PendingIsReadLiveAfterCancellationAndClearWithoutAnotherPass()
+    {
+        var fixture = new Fixture();
+        var trigger = fixture.Trigger();
+        fixture.Effect(delay: 1);
+        Assert.True(fixture.Engine.RunStack(trigger, []));
+        Assert.True(fixture.Engine.RunStack(trigger, []));
+        Assert.Equal(2, fixture.Engine.ReadStats().Pending);
+        fixture.Engine.CancelPending(trigger);
+        Assert.Equal(0, fixture.Engine.ReadStats().Pending);
+        Assert.True(fixture.Engine.RunStack(trigger, []));
+        fixture.Engine.Clear();
+        Assert.Equal(0, fixture.Engine.ReadStats().Pending);
+    }
+
+    [Fact]
     public void SafetyLimitsReadExistingSettingsAndDefaultWhenAbsent()
     {
         var defaults = WiredEngineLimits.FromSettings(_ => "0");

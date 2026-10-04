@@ -50,6 +50,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
                 if (_variables?.IsValueCreated == true) _variables.Value.HolderLeft(WiredVariableRuntimeFrames.UserHolder(evt.Actor));
             }
         };
+        _engine.LimitReached = NoteLimit;
         _engine.CaptureSpeech = (context, trigger) => _variables?.IsValueCreated == true
             ? _variables.Value.CaptureSpeech(context, trigger) : null;
         _engine.ConfigurationPublished = box =>
