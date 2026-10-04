@@ -162,11 +162,12 @@ public class Group
             if (accepted)
             {
                 connection.Execute("INSERT INTO group_memberships (user_id,group_id) VALUES (@id,@groupId)", new { id, groupId = Id }, transaction);
-                _members.Add(id);
             }
             connection.Execute("DELETE FROM group_requests WHERE user_id=@id AND group_id=@groupId LIMIT 1", new { id, groupId = Id }, transaction);
             transaction.Commit();
         }
+        if (accepted)
+            _members.Add(id);
         if (_requests.Contains(id))
             _requests.Remove(id);
     }

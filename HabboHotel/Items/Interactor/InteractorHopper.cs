@@ -37,7 +37,7 @@ public class InteractorHopper : IFurniInteractor, IApproachInteractor
 
         itemRoom.GetRoomItemHandler().HopperCount--;
         using var connection = PlusEnvironment.DatabaseManager.Connection();
-        connection.Execute("DELETE FROM items_hopper WHERE hopper_id=@id OR room_id=@roomId LIMIT 1", new { id = item.Id, roomId = itemRoom.RoomId });
+        connection.Execute("DELETE FROM items_hopper WHERE hopper_id=@id AND room_id=@roomId LIMIT 1", new { id = item.Id, roomId = itemRoom.RoomId });
         if (item.InteractingUser != 0)
         {
             var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
