@@ -47,24 +47,43 @@ internal class ModerationBanEvent : IPacketEvent
 #pragma warning disable CS0618 // The handshake's machine id only lives on the session.
         var machineId = targetClient!.MachineId;
 #pragma warning restore CS0618
-        using (var connection = _database.Connection())
-            connection.Execute("UPDATE `user_info` SET `bans` = `bans` + 1 WHERE `user_id` = @userId LIMIT 1", new { userId = habbo.Id });
+        // Fail closed first, from memory; then one deadline covers every step of this compound ban.
+        targetClient.Disconnect();
+        using var deadline = new CancellationTokenSource(ModerationManager.BanBudget);
+        try
+        {
+            using var connection = _database.Connection();
+            await connection.ExecuteAsync(new CommandDefinition("UPDATE `user_info` SET `bans` = `bans` + 1 WHERE `user_id` = @userId LIMIT 1",
+                new { userId = habbo.Id }, cancellationToken: deadline.Token));
+        }
+        catch (OperationCanceledException)
+        {
+            // Only the ban counter; the bans themselves continue below and in the background.
+        }
 
         // IP and machine bans also ban the account, as :ipban and :mip do.
-        await _moderationManager.BanUser(moderator, ModerationBanType.Username, habbo.Username, message, length);
-        if ((ipBan || machineBan) && AccountAddress(habbo.Id) is { Length: > 0 } address)
-            await _moderationManager.BanUser(moderator, ModerationBanType.Ip, address, message, length);
+        await _moderationManager.BanUser(moderator, ModerationBanType.Username, habbo.Username, message, length, deadline.Token);
+        if ((ipBan || machineBan) && await AccountAddress(habbo.Id, deadline.Token) is { Length: > 0 } address)
+            await _moderationManager.BanUser(moderator, ModerationBanType.Ip, address, message, length, deadline.Token);
         if (machineBan && !string.IsNullOrEmpty(machineId))
-            await _moderationManager.BanUser(moderator, ModerationBanType.Machine, machineId, message, length);
+            await _moderationManager.BanUser(moderator, ModerationBanType.Machine, machineId, message, length, deadline.Token);
     }
 
     /// <summary>
     /// The address the server knows for the account: users.ip_last, recorded by the auth API through its trusted proxies.
-    /// The game socket's own address is the proxy's, so it is never used.
+    /// The game socket's own address is the proxy's, so it is never used. Empty when it cannot be read in time.
     /// </summary>
-    private string AccountAddress(int userId)
+    private async Task<string> AccountAddress(int userId, CancellationToken cancellationToken)
     {
-        using var connection = _database.Connection();
-        return connection.ExecuteScalar<string?>("SELECT `ip_last` FROM `users` WHERE `id` = @userId", new { userId }) ?? string.Empty;
+        try
+        {
+            using var connection = _database.Connection();
+            return await connection.ExecuteScalarAsync<string?>(new CommandDefinition("SELECT `ip_last` FROM `users` WHERE `id` = @userId",
+                new { userId }, cancellationToken: cancellationToken)) ?? string.Empty;
+        }
+        catch (OperationCanceledException)
+        {
+            return string.Empty;
+        }
     }
 }

@@ -12,7 +12,8 @@ public interface IModerationManager
     /// Writes the ban, then signs out every account it covers: the session closes at once, and under each account's
     /// session gate its credentials are revoked, the gate is stamped and any session that registered meanwhile closes.
     /// </summary>
-    Task BanUser(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp);
+    /// <param name="deadline">Shared by the bans of one compound action; defaults to <see cref="ModerationManager.BanBudget"/>.</param>
+    Task BanUser(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp, CancellationToken deadline = default);
 
     /// <summary>As <see cref="BanUser"/>, for a caller that already holds the session gate of <paramref name="heldUserId"/>.</summary>
     Task BanUserHoldingGate(int heldUserId, string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp);

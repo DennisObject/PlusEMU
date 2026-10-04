@@ -8,6 +8,7 @@ using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Authentication;
+using Plus.Utilities;
 using Xunit;
 
 namespace Plus.Tests;
@@ -16,7 +17,7 @@ namespace Plus.Tests;
 [Collection("HousekeepingDatabase")]
 public class HousekeepingCredentialRevocationDatabaseTests
 {
-    private const int Staff = 940001, Target = 940002, Moderator = 940003, Neighbour = 940004, Locked = 940005;
+    private const int Staff = 940001, Target = 940002, Moderator = 940003, Neighbour = 940004, Locked = 940005, Unbanned = 940006;
     private const string OldPassword = "old-password-1234";
     private readonly HabbiconDatabaseTests.TestDatabase _database;
     private readonly IOptions<AuthApiConfiguration> _options = Options.Create(new AuthApiConfiguration());
@@ -45,8 +46,8 @@ public class HousekeepingCredentialRevocationDatabaseTests
         Execute("INSERT INTO users (id, username, password, auth_ticket, `rank`, ip_last, online) VALUES " +
                 $"({Staff}, 'cr_staff', '', '', 9, '', 0), ({Target}, 'cr_target', @hash, '', 1, '10.94.0.2', 0), " +
                 $"({Moderator}, 'cr_moderator', @hash, '', 3, '', 0), ({Neighbour}, 'cr_neighbour', @hash, '', 1, '10.94.0.4', 0), " +
-                $"({Locked}, 'cr_locked', @hash, '', 1, '', 0)", new { hash });
-        Execute($"INSERT INTO user_info (user_id) VALUES ({Target}), ({Moderator}), ({Neighbour}), ({Locked})");
+                $"({Locked}, 'cr_locked', @hash, '', 1, '', 0), ({Unbanned}, 'cr_unbanned', @hash, '', 1, '', 0)", new { hash });
+        Execute($"INSERT INTO user_info (user_id) VALUES ({Target}), ({Moderator}), ({Neighbour}), ({Locked}), ({Unbanned})");
     }
 
     [HousekeepingDatabaseFact]
@@ -240,6 +241,89 @@ public class HousekeepingCredentialRevocationDatabaseTests
         await handler.Parse(moderator, HabbiconTestSupport.Incoming(Target, "spam", 2, "", "", false, true));
         Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM bans WHERE bantype = 'machine' AND value = 'cr-device-1'"));
     }
+
+    // A ban whose sign-out timed out must not later revoke a login made after the account was unbanned.
+    [HousekeepingDatabaseFact]
+    public async Task AnUnbanStopsTheDelayedSignOutOfThatBan()
+    {
+        var moderation = Moderation();
+        await WithLockedRow($"SELECT id FROM users WHERE id = {Unbanned} FOR UPDATE", async () =>
+        {
+            await moderation.BanUser("System", ModerationBanType.Username, "cr_unbanned", "auto-ban", UnixTimestamp.GetNow() + 3600)
+                .WaitAsync(TimeSpan.FromSeconds(4.5));
+            Assert.True(moderation.UnbanUser("cr_unbanned"));
+        });
+        var fresh = await Login().Login("cr_unbanned", OldPassword, "10.0.0.1");
+        Assert.Equal(LoginStatus.Success, fresh.Status);
+        // Past the first retry of the timed-out sign-out.
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        Assert.Equal(1, LiveAccessTokens(Unbanned));
+    }
+
+    // One deadline covers the whole compound mod-tool ban (account, address, device), however the database stalls.
+    [HousekeepingDatabaseFact]
+    public async Task TheModToolReturnsWithinTheBudgetWhenTheTargetRowIsLocked()
+    {
+        await Login().Login("cr_target", OldPassword, "10.94.0.2", remember: true);
+        var target = Online(Target, "cr_target", machineId: "cr-device-2");
+        var handler = ModTool();
+        await WithLockedRow($"SELECT id FROM users WHERE id = {Target} FOR UPDATE", async () =>
+        {
+            var started = DateTime.UtcNow;
+            await handler.Parse(ModeratorSession(), HabbiconTestSupport.Incoming(Target, "spam", 2, "", "", false, true)).WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.InRange(DateTime.UtcNow - started, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+            Assert.True(target.Closed.IsCancellationRequested);
+        });
+        await Eventually(() => LiveAccessTokens(Target) == 0);
+        Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM bans WHERE bantype = 'machine' AND value = 'cr-device-2'"));
+    }
+
+    [HousekeepingDatabaseFact]
+    public async Task TheModToolReturnsWithinTheBudgetWhenTheBansTableIsLocked()
+    {
+        await Login().Login("cr_target", OldPassword, "10.94.0.2", remember: true);
+        var target = Online(Target, "cr_target");
+        var handler = ModTool();
+        await WithLockedRow("SELECT id FROM bans FOR UPDATE", async () =>
+        {
+            var started = DateTime.UtcNow;
+            await handler.Parse(ModeratorSession(), HabbiconTestSupport.Incoming(Target, "spam", 2, "", "", false, false)).WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.InRange(DateTime.UtcNow - started, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+            Assert.True(target.Closed.IsCancellationRequested);
+        });
+        // The ban row and the sign-out finish in the background once the table frees up.
+        await Eventually(() => Scalar<int>("SELECT COUNT(*) FROM bans WHERE bantype = 'user' AND value = 'cr_target'") == 1);
+        await Eventually(() => LiveAccessTokens(Target) == 0);
+    }
+
+    private async Task WithLockedRow(string lockSql, Func<Task> whileLocked)
+    {
+        using var locker = new MySqlConnection(Environment.GetEnvironmentVariable("PLUS_HOUSEKEEPING_TEST_CONNECTION_STRING"));
+        locker.Open();
+        using var transaction = locker.BeginTransaction();
+        locker.Execute(lockSql, transaction: transaction);
+        try
+        {
+            await whileLocked();
+        }
+        finally
+        {
+            transaction.Rollback();
+        }
+    }
+
+    private static async Task Eventually(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        while (!condition() && DateTime.UtcNow < deadline)
+            await Task.Delay(250);
+        Assert.True(condition());
+    }
+
+    private Plus.Communication.Packets.Incoming.Moderation.ModerationBanEvent ModTool() => new(_clients, Moderation(), _database);
+
+    private static Plus.HabboHotel.GameClients.GameClient ModeratorSession() =>
+        HabbiconTestSupport.Client(new Habbo { Id = Staff, Username = "cr_staff", Rank = 9, Permissions = new(["mod_soft_ban", "mod_ban_any"], []) }).Client;
 
     private Plus.HabboHotel.GameClients.GameClient Online(int userId, string username, string machineId = "")
     {

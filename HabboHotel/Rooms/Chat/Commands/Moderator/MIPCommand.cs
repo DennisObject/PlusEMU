@@ -46,11 +46,12 @@ internal class MipCommand : ITargetChatCommand
             reason = CommandManager.MergeParams(parameters);
         else
             reason = "No reason specified.";
+        using var deadline = new CancellationTokenSource(ModerationManager.BanBudget);
         if (!string.IsNullOrEmpty(ipAddress))
-            await _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Ip, ipAddress, reason, expire);
-        await _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Username, target.Username, reason, expire);
+            await _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Ip, ipAddress, reason, expire, deadline.Token);
+        await _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Username, target.Username, reason, expire, deadline.Token);
         if (!string.IsNullOrEmpty(target.MachineId))
-            await _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Machine, target.MachineId, reason, expire);
+            await _moderationManager.BanUser(session.GetHabbo().Username, ModerationBanType.Machine, target.MachineId, reason, expire, deadline.Token);
         target.Client?.Disconnect();
         session.SendWhisper($"Success, you have machine, IP and account banned the user '{username}' for '{reason}'!");
     }
