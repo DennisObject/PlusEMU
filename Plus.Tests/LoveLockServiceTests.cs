@@ -1,7 +1,10 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Buffers.Binary;
+using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.GameClients;
@@ -52,6 +55,62 @@ public sealed class LoveLockServiceTests
         Assert.Empty(sent);
     }
 
+    [Fact]
+    public void TwoConfirmationsStageThenPersistBeforeFinalPublication()
+    {
+        var room = TestRoom();
+        var (oneClient, oneSent) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "one", Look = "look1", CurrentRoom = room });
+        var (twoClient, twoSent) = HabbiconTestSupport.Client(new Habbo { Id = 2, Username = "two", Look = "look2", CurrentRoom = room });
+        var one = AddUser(room, oneClient, 1); var two = AddUser(room, twoClient, 2);
+        var item = AddItem(room, 1, 2);
+        var store = new RecordingStore(() =>
+        {
+            Assert.Equal(1, item.InteractingUser);
+            Assert.Equal(2, item.InteractingUser2);
+            Assert.Equal("", item.ExtraData.Serialize());
+            Assert.Empty(twoSent);
+        });
+        var service = new LoveLockService(store);
+
+        service.Confirm(oneClient, new(item.Id, true));
+
+        Assert.Equal(0, store.Writes);
+        var staged = Assert.Single(oneSent);
+        Assert.Equal(ServerPacketHeader.LoveLockDialogueSetLockedComposer, staged.Header);
+        Assert.Equal(item.Id, BinaryPrimitives.ReadUInt32BigEndian(staged.Payload));
+        Assert.Equal(2, one.LlPartner);
+
+        service.Confirm(twoClient, new(item.Id, true));
+
+        Assert.Equal(1, store.Writes);
+        Assert.Equal(0, item.InteractingUser);
+        Assert.Equal(0, item.InteractingUser2);
+        Assert.Contains(((char)5).ToString(), item.ExtraData.Serialize());
+        Assert.Equal(0, one.LlPartner);
+        Assert.Equal(0, two.LlPartner);
+        Assert.True(one.CanWalk);
+        Assert.True(two.CanWalk);
+        Assert.Contains(twoSent, packet => packet.Header == ServerPacketHeader.LoveLockDialogueCloseComposer && BinaryPrimitives.ReadUInt32BigEndian(packet.Payload) == item.Id);
+    }
+
+    [Fact]
+    public void NonOwnerParticipantContextIsDeniedWithoutMutation()
+    {
+        var room = TestRoom();
+        var (oneClient, sent) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "one", CurrentRoom = room });
+        var (twoClient, _) = HabbiconTestSupport.Client(new Habbo { Id = 2, Username = "two", CurrentRoom = room });
+        AddUser(room, oneClient, 1); AddUser(room, twoClient, 2);
+        var item = AddItem(room, 1, 2, ownerId: 99);
+        var store = new RecordingStore();
+
+        new LoveLockService(store).Confirm(oneClient, new(item.Id, true));
+
+        Assert.Equal(1, item.InteractingUser);
+        Assert.Equal(2, item.InteractingUser2);
+        Assert.Equal(0, store.Writes);
+        Assert.Empty(sent);
+    }
+
     private static Room TestRoom()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 9;
@@ -60,9 +119,10 @@ public sealed class LoveLockServiceTests
         return room;
     }
 
-    private static Item AddItem(Room room, int one, int two)
+    private static Item AddItem(Room room, int one, int two, uint ownerId = 1)
     {
-        var item = new Item { Id = 7, RoomId = room.Id, OwnerId = 1, Definition = new() { InteractionType = InteractionType.Lovelock }, InteractingUser = one, InteractingUser2 = two };
+        var item = new Item { Id = 7, RoomId = room.Id, OwnerId = ownerId, Definition = new() { InteractionType = InteractionType.Lovelock },
+            ExtraData = new LegacyDataFormat(), InteractingUser = one, InteractingUser2 = two };
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;
         floor[item.Id] = item; return item;
     }
@@ -75,10 +135,10 @@ public sealed class LoveLockServiceTests
         users[id] = user; return user;
     }
 
-    private sealed class RecordingStore : ILoveLockStore
+    private sealed class RecordingStore(Action? beforeLock = null) : ILoveLockStore
     {
         public bool Fail { get; init; }
         public int Writes { get; private set; }
-        public void Lock(uint itemId, uint roomId, string data) { Writes++; if (Fail) throw new InvalidOperationException("forced failure"); }
+        public void Lock(uint itemId, uint roomId, string data) { beforeLock?.Invoke(); Writes++; if (Fail) throw new InvalidOperationException("forced failure"); }
     }
 }

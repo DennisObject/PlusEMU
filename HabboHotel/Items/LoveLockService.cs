@@ -33,11 +33,14 @@ public sealed class LoveLockService(ILoveLockStore store) : ILoveLockService
         if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Lovelock) return;
         var one = room.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
         var two = room.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser2);
-        if (!ValidParticipants(session, item, one, two)) { Cancel(item, one, two, session, true); return; }
+        if (one?.GetClient() == null || two?.GetClient() == null) { Cancel(item, one, two, session, true); return; }
+        var actorId = session.GetHabbo().Id;
+        if ((actorId != item.InteractingUser && actorId != item.InteractingUser2) ||
+            (item.UserId != item.InteractingUser && item.UserId != item.InteractingUser2)) return;
         if (item.ExtraData.Serialize().Contains((char)5)) { Cancel(item, one, two, session, false); return; }
         if (!confirmation.Confirmed) { Cancel(item, one, two, session, false, false); return; }
 
-        var actor = session.GetHabbo().Id;
+        var actor = actorId;
         var completes = actor == item.InteractingUser ? two!.LlPartner != 0 : one!.LlPartner != 0;
         if (!completes)
         {
@@ -59,13 +62,6 @@ public sealed class LoveLockService(ILoveLockStore store) : ILoveLockService
         RewardTrackManager.Current?.Progress(oneClient, RewardTrackActions.FriendFurniLocked);
         RewardTrackManager.Current?.Progress(twoClient, RewardTrackActions.FriendFurniLocked);
         one.CanWalk = two.CanWalk = true;
-    }
-
-    private static bool ValidParticipants(GameClient session, Item item, RoomUser? one, RoomUser? two)
-    {
-        if (one?.GetClient() == null || two?.GetClient() == null) return false;
-        if (session.GetHabbo().Id != item.InteractingUser && session.GetHabbo().Id != item.InteractingUser2) return false;
-        return item.UserId == item.InteractingUser || item.UserId == item.InteractingUser2;
     }
 
     private static void Cancel(Item item, RoomUser? one, RoomUser? two, GameClient session, bool partnerLeft, bool notify = true)
