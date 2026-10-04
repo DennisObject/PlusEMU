@@ -12,17 +12,28 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
     internal MovementProfileService Profiles { get; } = profiles;
     internal TransportLandingService TransportLandings { get; } = new(room);
     internal GeometryPublicationService Geometry { get; set; } = null!;
-    internal ClaimLedger Claims { get; } = new(navigation.Grid.SlotCapacity, navigation.Grid.SlotCapacity);
+    internal ClaimLedger Claims { get; } = new(navigation.Grid);
     internal SearchScheduler<RoomUser> Scheduler { get; } = new();
     internal ApproachIntentRegistry Approaches { get; } = new();
-    private PlanningOccupancy ExecutionOccupancy { get; } = new(navigation.Grid.SlotCapacity);
+    internal ApproachGoalResolver ApproachGoals => _approachGoals ??= new(this);
+    private ApproachGoalResolver? _approachGoals;
+    private PlanningOccupancy _executionOccupancy = new(navigation.Grid.SlotCapacity);
     internal void RefreshMembership(RoomUser actor)
     {
         var grid = Navigation.Grid;
         if (!grid.InBounds(actor.X, actor.Y)) { Claims.Remove(actor); return; }
         var tile = grid.Tile(actor.X, actor.Y);
-        Claims.Move(actor, actor.Movement.CurrentRef?.Tile, tile, IsWalking(actor),
+        Claims.EnsureCapacity(grid.SlotCapacity);
+        Claims.Move(actor, MembershipSlot(actor.Movement.CurrentRef), tile, IsWalking(actor),
             Group(actor));
+    }
+    // K=1 keeps the tile slot; a layered reference without a live surface is off-graph.
+    private int? MembershipSlot(SurfaceRef? current)
+    {
+        if (current is not { } surface) return null;
+        if (!Grid.Layered) return surface.Tile;
+        var slot = Grid.SlotOf(surface);
+        return slot >= 0 && Grid.Active(slot) ? slot : null;
     }
     private bool IsWalking(RoomUser actor)
     {
@@ -47,10 +58,16 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
         var state = actor.Movement;
         if (state.HasIntent) Scheduler.Enqueue(actor, state.LifetimeId, state.GoalRevision);
     }
-    internal PlanningOccupancy Occupancy(RoomUser actor) => Claims.Snapshot(Group(actor));
+    internal PlanningOccupancy Occupancy(RoomUser actor)
+    {
+        Claims.EnsureCapacity(Grid.SlotCapacity);
+        return Claims.Snapshot(Group(actor));
+    }
     internal PlanningOccupancy OccupancyAt(RoomUser actor, int slot, IReadOnlySet<RoomUser>? departing = null)
     {
-        ExecutionOccupancy.Targets[slot] = Claims.OccupancyAt(slot, Group(actor), departing);
-        return ExecutionOccupancy;
+        Claims.EnsureCapacity(Grid.SlotCapacity);
+        if (_executionOccupancy.Targets.Length < Grid.SlotCapacity) _executionOccupancy = new(Grid.SlotCapacity);
+        _executionOccupancy.Targets[slot] = Claims.OccupancyAt(slot, Group(actor), departing);
+        return _executionOccupancy;
     }
 }

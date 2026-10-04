@@ -8,7 +8,7 @@ internal sealed class ForcePlacementService(Room room, RoomNavigation navigation
     internal void Teleport(RoomUser actor, MoveCommand command)
     {
         if (!Grid.InBounds(command.X, command.Y)) { cancellation.Cancel(actor, command.Sequence); return; }
-        var z = Grid.WalkZ[Grid.Tile(command.X, command.Y)];
+        var z = Grid.WalkZ[Grid.TopSlot(Grid.Tile(command.X, command.Y))];
         var slide = new SlideObjectBundleComposer(actor.X, actor.Y, actor.Z,
             command.X, command.Y, z, 0, actor.VirtualId, 0);
         actor.UnIdle();
@@ -46,11 +46,9 @@ internal sealed class ForcePlacementService(Room room, RoomNavigation navigation
     private void ResolveSupport(RoomUser actor, double z, ForceResolution resolution)
     {
         if (!Grid.InBounds(actor.X, actor.Y)) return;
-        var tile = Grid.Tile(actor.X, actor.Y);
-        if (!Grid.Active(tile)) return;
-        if (resolution == ForceResolution.ExactZ && Math.Abs(Grid.WalkZ[tile] - z) > .001) return;
-        if (resolution == ForceResolution.NearestAtOrBelow && Grid.WalkZ[tile] > z + .001) return;
-        actor.Movement.CurrentRef = Grid.Reference(tile); actor.Movement.SupportZ = Grid.WalkZ[tile];
+        var slot = SurfaceSelection.Select(Grid, Grid.Tile(actor.X, actor.Y), z, resolution);
+        if (slot < 0) return;
+        actor.Movement.CurrentRef = Grid.Reference(slot); actor.Movement.SupportZ = Grid.WalkZ[slot];
     }
 
 }

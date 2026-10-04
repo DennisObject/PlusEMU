@@ -11,7 +11,10 @@ internal sealed class TransportLandingService(Room room)
         var habbo = actor.GetClient()?.GetHabbo();
         if (habbo == null) return;
         var revision = actor.Movement.LocationRevision;
-        var items = room.GetGameMap().GetRoomItemForSquare(destination.X, destination.Y).ToList();
+        var grid = room.GetGameMap().Navigation?.Grid;
+        var contact = SurfaceContacts.ContactSlot(grid, destination.X, destination.Y, actor.Movement.CurrentRef, actor.Movement.SupportZ);
+        var items = SurfaceContacts.Filter(grid, destination.X, destination.Y, contact,
+            room.GetGameMap().GetRoomItemForSquare(destination.X, destination.Y));
         foreach (var item in items)
         {
             room.GetWired().TriggerEvent(WiredBoxType.TriggerWalkOnFurni, habbo, item);

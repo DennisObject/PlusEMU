@@ -22,6 +22,8 @@ public sealed class ActorMovementState
     public int Cursor { get; internal set; }
     public SurfaceRef[] Pending { get; } = new SurfaceRef[3];
     public int PendingCount { get; internal set; }
+    // Purpose each pending edge was claimed with; commit re-validates with the same purpose.
+    public StepPurpose[] PendingPurpose { get; } = new StepPurpose[3];
     internal GraphView PendingView { get; set; }
     public bool HasIntent { get; internal set; }
     internal bool RouteInvalidated { get; set; }
@@ -32,7 +34,7 @@ public sealed class ActorMovementState
     public int BoundVersion { get; internal set; } = -1;
     public MoveOrigin Origin { get; internal set; }
     public MoveFlags Flags { get; internal set; }
-    internal AcceptedGoal? AcceptedGoal { get; set; }
+    internal GoalIdentity? AcceptedGoal { get; set; }
     public ActorProfile Profile { get; } = new();
     public long NextSequence() => Interlocked.Increment(ref _sequence);
 }

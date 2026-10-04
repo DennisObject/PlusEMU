@@ -29,10 +29,11 @@ internal sealed class RollerLoadBuilder(Room room, RollerTransport transport)
         var map = room.GetGameMap();
         var destination = roller.SquareInFront;
         var nextIsRoller = map.GetAllRoomItemForSquare(destination.X, destination.Y).Any(RollerIdentity.IsRoller);
-        var moves = map.GetRoomItemForSquare(roller.GetX, roller.GetY, roller.GetZ).Take(MaxCargo)
+        var moves = map.GetRoomItemForSquare(roller.GetX, roller.GetY, roller.GetZ)
+            .Where(cargo => transport.RestsOnRoller(roller, cargo)).Take(MaxCargo)
             .Where(cargo => cargoSeen.Add(cargo.Id))
             .Select(cargo => CargoMove(roller, cargo, destination, nextIsRoller)).ToList();
-        var actor = map.GetRoomUsers(new(roller.GetX, roller.GetY)).FirstOrDefault();
+        var actor = map.GetRoomUsers(new(roller.GetX, roller.GetY)).FirstOrDefault(user => transport.RestsOnRoller(roller, user));
         if (actor != null && transport.CanRide(actor) && actorsSeen.Add(actor))
             moves.Add(ActorMove(roller, actor, destination, nextIsRoller));
         return new(roller, destination, moves);

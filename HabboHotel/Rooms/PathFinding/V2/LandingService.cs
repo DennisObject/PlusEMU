@@ -6,11 +6,11 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
     {
         var state = actor.Movement; var revision = state.LocationRevision;
         var wasLaying = actor.HasStatus("lay");
-        var initial = context.Graph.Position(surface.Tile, view);
+        var initial = context.Graph.Position(surface, view);
         room.GetGameMap().UpdateUserMovement(new(actor.X, actor.Y), new(initial.X, initial.Y), actor);
         if (!LeaveOrigin(actor, revision)) return;
         navigation.ApplyDirty();
-        var landing = context.Graph.ResolveLanding(surface.Tile, view, initial.Z);
+        var landing = context.Graph.ResolveLanding(surface, view, initial.Z);
         SetLandingPosition(actor, landing);
         if (surface.Tile == navigation.Grid.DoorTile && !actor.IsBot)
         {
@@ -21,7 +21,7 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
     }
     private bool LeaveOrigin(RoomUser actor, long revision)
     {
-        foreach (var item in room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y)).ToList())
+        foreach (var item in SurfaceContacts.Of(room, actor, room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y))))
         {
             item.UserWalksOffFurni(actor);
             if (actor.Movement.LocationRevision != revision || actor.Movement.State != NavState.Active) return false;
@@ -38,7 +38,7 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
     }
     private void Arrive(RoomUser actor, long revision, bool wasLaying)
     {
-        var items = room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y)).ToList();
+        var items = SurfaceContacts.Of(room, actor, room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y)));
         foreach (var item in items)
         {
             item.Interactor.OnWalkOn(actor);
