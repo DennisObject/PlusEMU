@@ -64,7 +64,7 @@ public class UserDataFactory : IUserDataFactory
 
     public async Task<Habbo?> GetUserDataByIdAsync(int userId) => await LoadHabboInfo(userId);
 
-    private async Task<Habbo> LoadHabboInfo(int userId)
+    private async Task<Habbo?> LoadHabboInfo(int userId)
     {
         using var connection = _database.Connection();
         var habbo = await connection.QuerySingleOrDefaultAsync<Habbo>(

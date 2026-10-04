@@ -225,18 +225,6 @@ public class Habbo
         return Process.Init(this);
     }
 
-    public bool InitFx()
-    {
-        Effects = new();
-        return Effects.Init(this);
-    }
-
-    public bool InitClothing()
-    {
-        Clothing = new();
-        return Clothing.Init(this);
-    }
-
     [Obsolete("Each loading task should be moved to their own IUserDataLoadingTask")]
     public void Init(GameClient client)
     {

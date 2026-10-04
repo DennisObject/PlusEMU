@@ -74,5 +74,5 @@ public sealed class AvatarEffect
         Store.SaveQuantity(Id, Quantity, Activated, ActivatedAt);
     }
 
-    private IAvatarEffectStore Store => _store ?? new AvatarEffectStore(PlusEnvironment.DatabaseManager);
+    private IAvatarEffectStore Store => _store ?? throw new InvalidOperationException("Avatar effect persistence is not configured.");
 }
