@@ -173,8 +173,10 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
             store.UpdatePage(moved);
             foreach (var (page, order) in renumbered)
                 store.SetPageOrder(page.Id, order);
-            var before = new CatalogAdminMove(CatalogAdminMapping.ToPage(existing), renumbered.Select(entry => new CatalogAdminOrder(entry.Page.Id, entry.Page.OrderNum)).ToList());
-            var after = new CatalogAdminMove(CatalogAdminMapping.ToPage(moved), renumbered.Select(entry => new CatalogAdminOrder(entry.Page.Id, entry.Order)).ToList());
+            var before = new CatalogAdminMove(CatalogAdminMapping.ToPage(existing),
+                renumbered.Select(entry => new CatalogAdminOrder(entry.Page.Id, entry.Page.ParentId, entry.Page.CatalogMode, entry.Page.OrderNum)).ToList());
+            var after = new CatalogAdminMove(CatalogAdminMapping.ToPage(moved),
+                renumbered.Select(entry => new CatalogAdminOrder(entry.Page.Id, entry.Page.ParentId, entry.Page.CatalogMode, entry.Order)).ToList());
             return new(new(PageEntity, after.Page.CatalogType, pageId, "MOVE", before, after), after.Page, "Page moved");
         });
 

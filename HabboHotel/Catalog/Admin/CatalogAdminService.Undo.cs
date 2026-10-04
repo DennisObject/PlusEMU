@@ -43,7 +43,8 @@ public sealed partial class CatalogAdminService
         foreach (var sibling in after.Siblings)
         {
             var current = store.Page(sibling.PageId);
-            if (current == null || current.OrderNum != sibling.OrderNum)
+            // A sibling that moved elsewhere since may keep the same order number; its place is parent, catalog and order.
+            if (current == null || current.ParentId != sibling.ParentId || current.CatalogMode != sibling.CatalogMode || current.OrderNum != sibling.OrderNum)
                 throw ChangedSince();
             if (current.MinRank > actor.Rank)
                 throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "This move reordered pages above your rank.");

@@ -319,6 +319,28 @@ public sealed class EditorDatabaseTests : IDisposable
     }
 
     [EditorDatabaseFact]
+    public void MoveUndoIsRefusedWhenASiblingLeftTheParentSince()
+    {
+        var owner = EditorTestSupport.Staff(9);
+        var p = CreatePage(owner, "left_p", -1);
+        var q = CreatePage(owner, "left_q", -1);
+        CreatePage(owner, "left_x", q.PageId, order: 0);
+        var a = CreatePage(owner, "left_a", p.PageId, order: 0);
+        CreatePage(owner, "left_b", p.PageId, order: 1);
+        var c = CreatePage(owner, "left_c", p.PageId, order: 2);
+        var first = _catalog.MovePage(owner, Envelope(Revision()), c.PageId, p.PageId, 0);
+        Assert.True(first.Success, first.Message);
+        var away = _catalog.MovePage(owner, Envelope(Revision()), a.PageId, q.PageId, 1);
+        Assert.True(away.Success, away.Message);
+        Assert.Equal((q.PageId, 1), Scalar<(int, int)>("SELECT parent_id, order_num FROM catalog_pages WHERE id = @id", a.PageId));
+
+        var undo = _catalog.Undo(owner, Envelope(Revision()), first.Revision);
+
+        Assert.Equal((false, CatalogAdminCodes.Conflict, "This entity changed again later; undo the newer change first."), (undo.Success, undo.Code, undo.Message));
+        Assert.Equal((q.PageId, 1), Scalar<(int, int)>("SELECT parent_id, order_num FROM catalog_pages WHERE id = @id", a.PageId));
+    }
+
+    [EditorDatabaseFact]
     public void FurniDetailShowsOnlyOffersOnPagesTheActorCanOpen()
     {
         var owner = EditorTestSupport.Staff(9);
