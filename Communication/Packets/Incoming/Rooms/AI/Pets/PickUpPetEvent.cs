@@ -44,7 +44,7 @@ internal class PickUpPetEvent : RoomPacketEvent
             room.SendPacket(new UserRemoveComposer(targetUser.VirtualId));
 
             //Add the new one, they won't even notice a thing!!11 8-)
-            room.SendPacket(new UsersComposer(targetUser));
+            room.SendUser(targetUser);
             return Task.CompletedTask;
         }
         if (session.GetHabbo().Id != pet.PetData.OwnerId && !room.CheckRights(session, true))
@@ -112,7 +112,7 @@ internal class PickUpPetEvent : RoomPacketEvent
         if (user?.GetClient()?.GetHabbo() == null) return;
         user.GetClient().GetHabbo().PetId = 0;
         room.SendPacket(new UserRemoveComposer(user.VirtualId));
-        room.SendPacket(new UsersComposer(user));
+        room.SendUser(user);
     }
 
     private void ReturnToInventory(GameClient session, Pet data)

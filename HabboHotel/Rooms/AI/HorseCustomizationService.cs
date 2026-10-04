@@ -78,7 +78,7 @@ public sealed class HorseCustomizationService(
                 session.Send(new FurniListUpdateComposer());
             }
         }
-        room.SendPacket(new UsersComposer(petUser));
+        room.SendUser(petUser);
         room.SendPacket(new PetHorseFigureInformationComposer(petUser));
     }
 
@@ -103,7 +103,7 @@ public sealed class HorseCustomizationService(
             change.Value.Publish(petUser.PetData);
             room.GetRoomItemHandler().RemoveFurniture(session, item.Id);
         }
-        room.SendPacket(new UsersComposer(petUser));
+        room.SendUser(petUser);
         room.SendPacket(new PetHorseFigureInformationComposer(petUser));
     }
 

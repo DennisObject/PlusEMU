@@ -39,6 +39,7 @@ public class Room
     private RoomItemHandling _roomItemHandling;
 
     private RoomUserManager _roomUserManager;
+    private IRoomUserSnapshotService _userSnapshots;
     private Soccer _soccer;
 
     public bool IsCrashed;
@@ -91,7 +92,7 @@ public class Room
     }
 
     internal void SetRuntime(Gamemap gamemap, RoomItemHandling items, RoomUserManager users,
-        FilterComponent filter, WiredComponent wired)
+        FilterComponent filter, WiredComponent wired, IRoomUserSnapshotService userSnapshots)
     {
         IsLagging = 0;
         Unloaded = false;
@@ -104,6 +105,7 @@ public class Room
         _roomUserManager = users;
         _filterComponent = filter;
         _wiredComponent = wired;
+        _userSnapshots = userSnapshots;
         LastRegeneration = DateTime.Now;
     }
 
@@ -530,7 +532,9 @@ public class Room
         {
             if (user == null)
                 continue;
-            session.Send(new UsersComposer(user));
+            var userSnapshot = _userSnapshots.Capture(user);
+            if (userSnapshot != null)
+                session.Send(new UsersComposer(userSnapshot));
             if (user.IsBot && user.BotData.DanceId > 0)
                 session.Send(new DanceComposer(user, user.BotData.DanceId));
             else if (!user.IsBot && !user.IsPet && user.IsDancing)
@@ -614,8 +618,12 @@ public class Room
     public void SendObject(Item item) => SendPacket(item.IsWallItem ? new ItemAddComposer(RoomItemSnapshot.Capture(item)) : new ObjectAddComposer(RoomItemSnapshot.Capture(item)), false,
         viewer => _wiredComponent?.ObjectEnqueued(viewer, item, null));
 
-    public void SendUser(RoomUser user) => SendPacket(new UsersComposer(user), false,
-        viewer => _wiredComponent?.ObjectEnqueued(viewer, null, user));
+    public void SendUser(RoomUser user)
+    {
+        var snapshot = _userSnapshots.Capture(user);
+        if (snapshot != null)
+            SendPacket(new UsersComposer(snapshot), false, viewer => _wiredComponent?.ObjectEnqueued(viewer, null, user));
+    }
 
     private void SendPacket(IServerPacket packet, bool withRightsOnly, Action<RoomUser>? enqueued)
     {

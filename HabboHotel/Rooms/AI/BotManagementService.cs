@@ -127,7 +127,7 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
                 room.SendPacket(new DanceComposer(bot, bot.BotData.DanceId)); break;
             case BotAction.Rename:
                 if (!ValidName(session, request.Data)) return;
-                store.SaveName(bot.BotData.Id, room.RoomId, request.Data); bot.BotData.Name = request.Data; room.SendPacket(new UsersComposer(bot)); break;
+                store.SaveName(bot.BotData.Id, room.RoomId, request.Data); bot.BotData.Name = request.Data; room.SendUser(bot); break;
         }
     }
 
