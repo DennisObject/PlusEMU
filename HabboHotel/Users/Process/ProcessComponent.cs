@@ -1,5 +1,6 @@
 ﻿using NLog;
 using Plus.Communication.Packets.Outgoing.Handshake;
+using Dapper;
 
 namespace Plus.HabboHotel.Users.Process;
 
@@ -88,11 +89,9 @@ internal sealed class ProcessComponent
             if (_player.HabboStats.RespectsTimestamp != DateTime.Today.ToString("MM/dd"))
             {
                 _player.HabboStats.RespectsTimestamp = DateTime.Today.ToString("MM/dd");
-                using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-                {
-                    dbClient.RunQuery(
-                        $"UPDATE `user_statistics` SET `dailyRespectPoints` = '{_player.Access.Limit("limit.daily_respects", 10)}', `dailyPetRespectPoints` = '{_player.Access.Limit("limit.daily_pet_respects", 10)}', `respectsTimestamp` = '{DateTime.Today:MM/dd}' WHERE `id` = '{_player.Id}' LIMIT 1");
-                }
+                using var connection = PlusEnvironment.DatabaseManager.Connection();
+                connection.Execute("UPDATE `user_statistics` SET `dailyRespectPoints` = @respects, `dailyPetRespectPoints` = @petRespects, `respectsTimestamp` = @timestamp WHERE `id` = @id",
+                    new { respects = _player.Access.Limit("limit.daily_respects", 10), petRespects = _player.Access.Limit("limit.daily_pet_respects", 10), timestamp = DateTime.Today.ToString("MM/dd"), id = _player.Id });
                 _player.HabboStats.DailyRespectPoints = _player.Access.Limit("limit.daily_respects", 10);
                 _player.HabboStats.DailyPetRespectPoints = _player.Access.Limit("limit.daily_pet_respects", 10);
                 if (_player.Client != null)

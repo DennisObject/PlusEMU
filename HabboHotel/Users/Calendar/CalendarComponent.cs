@@ -1,4 +1,4 @@
-﻿using System.Data;
+﻿using Dapper;
 
 namespace Plus.HabboHotel.Users.Calendar;
 
@@ -30,23 +30,16 @@ public sealed class CalendarComponent
             _lateBoxes.Clear();
         if (_openedBoxes.Count > 0)
             _openedBoxes.Clear();
-        DataTable? getData = null;
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.SetQuery("SELECT * FROM `user_xmas15_calendar` WHERE `user_id` = @id;");
-        dbClient.AddParameter("id", player.Id);
-        getData = dbClient.GetTable();
-        if (getData != null)
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        foreach (var row in connection.Query<CalendarEntry>("SELECT `day`, `status` FROM `user_xmas15_calendar` WHERE `user_id` = @id", new { id = player.Id }))
         {
-            foreach (DataRow row in getData.Rows)
-            {
-                if (Convert.ToInt32(row["status"]) == 0)
-                    _lateBoxes.Add(Convert.ToInt32(row["day"]));
-                else
-                    _openedBoxes.Add(Convert.ToInt32(row["day"]));
-            }
+            if (row.Status == 0) _lateBoxes.Add(row.Day);
+            else _openedBoxes.Add(row.Day);
         }
         return true;
     }
+
+    private sealed record CalendarEntry(int Day, int Status);
 
     public List<int> GetOpenedBoxes() => _openedBoxes;
 

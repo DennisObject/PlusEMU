@@ -2,6 +2,7 @@
 using System.Data;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Utilities;
+using Dapper;
 
 namespace Plus.HabboHotel.Users.Effects;
 
@@ -24,28 +25,15 @@ public sealed class EffectsComponent
     {
         if (_effects.Count > 0)
             return false;
-        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
+        foreach (var effect in new AvatarEffectStore(PlusEnvironment.DatabaseManager).Load(habbo.Id))
         {
-            dbClient.SetQuery("SELECT * FROM `user_effects` WHERE `user_id` = @id;");
-            dbClient.AddParameter("id", habbo.Id);
-            var getEffects = dbClient.GetTable();
-            if (getEffects != null)
-            {
-                foreach (DataRow row in getEffects.Rows)
-                {
-                    if (_effects.TryAdd(Convert.ToInt32(row["id"]),
-                            new(Convert.ToInt32(row["id"]), Convert.ToInt32(row["user_id"]), Convert.ToInt32(row["effect_id"]), Convert.ToDouble(row["total_duration"]),
-                                ConvertExtensions.EnumToBool(row["is_activated"].ToString()), Convert.ToDouble(row["activated_stamp"]), Convert.ToInt32(row["quantity"]))))
-                    {
-                        //umm?
-                    }
-                }
-            }
+            _effects.TryAdd(effect.Id, effect);
         }
         _habbo = habbo;
         CurrentEffect = 0;
         return true;
     }
+
 
     public bool TryAdd(AvatarEffect effect) => _effects.TryAdd(effect.Id, effect);
 

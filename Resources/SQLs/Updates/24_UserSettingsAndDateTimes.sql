@@ -42,6 +42,8 @@ ON DUPLICATE KEY UPDATE
   `allow_gifts` = VALUES(`allow_gifts`), `friend_bar_state` = VALUES(`friend_bar_state`),
   `disable_forced_effects` = VALUES(`disable_forced_effects`), `allow_mimic` = VALUES(`allow_mimic`);
 
+ALTER TABLE `users` DROP INDEX `messenger`;
+
 ALTER TABLE `users`
   MODIFY COLUMN `online` VARCHAR(1) NULL DEFAULT '0',
   MODIFY COLUMN `vip` VARCHAR(1) NULL DEFAULT '1';
@@ -65,7 +67,9 @@ ALTER TABLE `users`
   DROP COLUMN `allow_gifts`, DROP COLUMN `friend_bar_state`, DROP COLUMN `disable_forced_effects`, DROP COLUMN `allow_mimic`,
   DROP COLUMN `account_created`, DROP COLUMN `last_online`, DROP COLUMN `last_change`,
   RENAME COLUMN `account_created_at` TO `account_created`, RENAME COLUMN `last_online_at` TO `last_online`,
-  RENAME COLUMN `last_change_at` TO `last_change`, ADD INDEX `last_online` (`last_online`);
+  RENAME COLUMN `last_change_at` TO `last_change`,
+  ADD INDEX `last_online` (`last_online`),
+  ADD INDEX `messenger` (`id`, `username`, `look`, `motto`, `last_online`);
 
 ALTER TABLE `user_info` ADD COLUMN `trading_locked_at` DATETIME NULL;
 UPDATE `user_info` SET `trading_locked_at` = CASE WHEN CAST(`trading_locked` AS UNSIGNED) = 0 THEN NULL ELSE DATE_ADD('1970-01-01 00:00:00', INTERVAL CAST(`trading_locked` AS UNSIGNED) SECOND) END;
