@@ -37,6 +37,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
     private readonly IItemFactory _itemFactory;
     private readonly IClubMembershipService _clubMemberships;
     private readonly IClubRewards _clubRewards;
+    private readonly IAvatarEffectStore _avatarEffects;
     // Window id the client's club purchase page requests offers for.
     private const int ClubWindow = 1;
 
@@ -48,7 +49,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         IBadgeManager badgeManager,
         IItemFactory itemFactory,
         IHabbiconService habbicons,
-        IClubMembershipService clubMemberships, IClubRewards clubRewards)
+        IClubMembershipService clubMemberships, IClubRewards clubRewards, IAvatarEffectStore avatarEffects)
     {
         _catalogManager = catalogManager;
         _habbicons = habbicons;
@@ -60,6 +61,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         _itemFactory = itemFactory;
         _clubMemberships = clubMemberships;
         _clubRewards = clubRewards;
+        _avatarEffects = avatarEffects;
     }
     public async Task Parse(GameClient session, IIncomingPacket packet)
     {
@@ -323,7 +325,11 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                     if (effect != null) effect.AddToQuantity();
                 }
                 else
-                    effect = AvatarEffectFactory.CreateNullable(session.GetHabbo(), item.Definition.SpriteId, 3600);
+                {
+                    var habbo = session.GetHabbo();
+                    effect = _avatarEffects.Create(habbo.Id, item.Definition.SpriteId, 3600);
+                    habbo.Effects.TryAdd(effect);
+                }
                 if (effect != null) // && Session.GetHabbo().Effects().TryAdd(Effect))
                     session.Send(new AvatarEffectAddedComposer(item.Definition.SpriteId, 3600));
                 break;
