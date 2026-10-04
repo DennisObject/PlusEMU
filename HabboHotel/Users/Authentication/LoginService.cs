@@ -46,11 +46,12 @@ public class LoginService : ILoginService
 
     public async Task<LoginResult> Login(string username, string password, string address)
     {
-        var blockedFor = _throttle.BlockedFor(username, address);
+        var account = await _accounts.FindByUsername(username);
+        var throttleKey = account != null ? LoginThrottle.AccountKey(account.Id) : LoginThrottle.UnknownNameKey(username);
+        var blockedFor = _throttle.BlockedFor(throttleKey, address);
         if (blockedFor > TimeSpan.Zero)
             return new(LoginStatus.Throttled, RetryAfter: blockedFor);
 
-        var account = await _accounts.FindByUsername(username);
         var stored = account?.Password ?? "";
         // Plaintext rows and missing accounts would answer faster than real hashes.
         if (!stored.StartsWith("$argon2id$", StringComparison.Ordinal))
@@ -59,14 +60,14 @@ public class LoginService : ILoginService
         var verification = account == null ? PasswordVerificationResult.Failed : _hasher.Verify(password, stored);
         if (verification == PasswordVerificationResult.Failed)
         {
-            _throttle.RecordFailure(username, address);
+            _throttle.RecordFailure(throttleKey, address);
             return new(LoginStatus.InvalidCredentials);
         }
 
         if (verification == PasswordVerificationResult.SuccessRehashNeeded)
             await _accounts.UpgradePassword(account!.Id, stored, _hasher.Hash(password));
 
-        _throttle.RecordSuccess(username);
+        _throttle.RecordSuccess(throttleKey);
         if (await _bans.Find(account!.Username, address) is { } ban)
             return new(LoginStatus.Banned, Ban: ban);
 

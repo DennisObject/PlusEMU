@@ -40,6 +40,7 @@
         "FailedLoginWindowMinutes": 15,
         "MaxFailedLoginsPerAccount": 10,
         "MaxFailedLoginsPerAddress": 30,
+        "MaxTrackedLoginFailures": 100000,
         "Registration": {
             "Look": "hd-180-1.hr-100-61.ch-210-66.lg-270-82.sh-290-80",
             "Motto": "Octane",

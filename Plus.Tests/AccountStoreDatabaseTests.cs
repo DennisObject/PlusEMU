@@ -60,6 +60,17 @@ public sealed class AccountStoreDatabaseTests : IDisposable
     }
 
     [AuthDatabaseFact]
+    public async Task TheUsernameCollationResolvesAccentVariantsToOneAccount()
+    {
+        // Why the login lockout counts existing accounts by id rather than by typed name.
+        var name = "Den" + Guid.NewGuid().ToString("N")[..9];
+        var id = Track(AuthTestDatabase.InsertUser(name, "secret", name + "@example.com"));
+
+        Assert.Equal(id, (await _store.FindByUsername("Dé" + name[2..]))?.Id);
+        Assert.Equal(id, (await _store.FindByUsername("DÊ" + name[2..]))?.Id);
+    }
+
+    [AuthDatabaseFact]
     public async Task UpgradeOnlyReplacesThePasswordItVerified()
     {
         var id = Track(AuthTestDatabase.InsertUser(AuthTestDatabase.UniqueName("upg"), "Secret"));

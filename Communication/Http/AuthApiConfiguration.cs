@@ -26,6 +26,10 @@ public class AuthApiConfiguration
     public int MaxFailedLoginsPerAccount { get; set; } = 10;
     public int MaxFailedLoginsPerAddress { get; set; } = 30;
 
+    /// <summary>Failure counters kept in memory. When full, untracked callers are treated as
+    /// locked until expired counters are swept.</summary>
+    public int MaxTrackedLoginFailures { get; set; } = 100_000;
+
     public RegistrationDefaults Registration { get; set; } = new();
 }
 

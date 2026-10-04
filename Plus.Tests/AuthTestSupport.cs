@@ -93,7 +93,9 @@ internal sealed class FakeAccounts : IAccountStore
             await HoldLookups;
         if (FailLookupsWith != null)
             throw FailLookupsWith;
-        return Rows.FirstOrDefault(r => string.Equals(r.Username, username, StringComparison.OrdinalIgnoreCase));
+        // Like the users.username collation: case- and accent-insensitive.
+        return Rows.FirstOrDefault(r => System.Globalization.CultureInfo.InvariantCulture.CompareInfo.Compare(r.Username, username,
+            System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) == 0);
     }
 
     public Task UpgradePassword(int userId, string current, string replacement)

@@ -94,6 +94,17 @@ public class LoginServiceTests
     }
 
     [Fact]
+    public async Task NameVariantsTheDatabaseResolvesToOneAccountShareItsLockout()
+    {
+        _accounts.Add("Dennis", Hasher.Hash("correct horse"));
+        var service = Service();
+        foreach (var variant in new[] { "Dénnis", "Dènnis", "Dênnis" })
+            Assert.Equal(LoginStatus.InvalidCredentials, (await service.Login(variant, "guess", "10.0.0." + variant.Length)).Status);
+
+        Assert.Equal(LoginStatus.Throttled, (await service.Login("Dennis", "correct horse", "10.0.0.9")).Status);
+    }
+
+    [Fact]
     public async Task LockingAnUnknownNameLooksTheSameAsLockingARealOne()
     {
         var service = Service();
