@@ -95,12 +95,35 @@ public sealed partial class RoomNavigation
         // not staff's wall/void override. Group access is refreshed on each search.
         ApplyDirty();
         Array.Clear(_occupancy.Targets);
+        var profile = ShadowProfile(actor);
+        MarkLegacyOccupancy(actor);
+        ActorAccessResolver.Live.Refresh(profile, actor.GetClient()?.GetHabbo()?.Id, Grid.GroupId.Where(groupId => groupId != 0).Distinct());
+        using var lease = PathWorkspacePool.Rent(Grid.SlotCapacity, profile.LegacyOverride ? Grid.SlotCapacity : Grid.ActiveNodeCount);
+        var started = Stopwatch.GetTimestamp();
+        var request = new SearchRequest(profile, new(actor.X, actor.Y, actor.Z), actor.GoalX, actor.GoalY, _occupancy);
+        var outcome = _search.Find(request, lease.Workspace, _route);
+        var elapsed = Stopwatch.GetTimestamp() - started;
+        var divergent = Diverges(outcome, _route.Count, legacyPath.Count) || outcome == PathOutcome.Found && RouteDiffersFromLegacy(legacyPath);
+        if (Random.Shared.NextDouble() < Settings.ShadowLogSample)
+            Logger.Info("Pathfinding shadow room={0} actor={1} goal={2},{3} divergence={4} outcome={5} legacy_steps={6} v2_steps={7} legacy_us={8:F2} v2_us={9:F2} expansions={10}",
+                _room.RoomId, actor.VirtualId, request.GoalX, request.GoalY, divergent, outcome,
+                Math.Max(0, legacyPath.Count - 1), _route.Count, legacyTicks * 1e6 / Stopwatch.Frequency,
+                elapsed * 1e6 / Stopwatch.Frequency, lease.Workspace.Expansions);
+    }
+
+    private ActorProfile ShadowProfile(RoomUser actor)
+    {
         var profile = actor.NavigationProfile ??= new ActorProfile();
         profile.LegacyOverride = actor.AllowOverride && actor.BotData?.IsTemporary != true;
         profile.IgnoreUsers = actor.BotData?.IsTemporary == true;
         profile.IgnoreStepHeight = actor.RidingHorse && Settings.RidersIgnoreHeight;
         profile.Walkthrough = _room.RoomBlockingEnabled;
         profile.DiagonalEnabled = _room.GetGameMap().DiagonalEnabled;
+        return profile;
+    }
+
+    private void MarkLegacyOccupancy(RoomUser actor)
+    {
         foreach (var other in _room.GetRoomUserManager().GetUserList())
         {
             if (other == actor || actor.RidingHorse && other.VirtualId == actor.HorseId || !Grid.InBounds(other.X, other.Y)) continue;
@@ -108,23 +131,15 @@ public sealed partial class RoomNavigation
             _occupancy.Targets[t] |= !Grid.Active(t) || other.Z != Grid.WalkZ[t] ? TargetOccupancy.OffGraph
                 : other.IsWalking ? TargetOccupancy.Walking : TargetOccupancy.Stationary;
         }
-        ActorAccessResolver.Live.Refresh(profile, actor.GetClient()?.GetHabbo()?.Id, Grid.GroupId.Where(groupId => groupId != 0).Distinct());
-        using var lease = PathWorkspacePool.Rent(Grid.SlotCapacity, profile.LegacyOverride ? Grid.SlotCapacity : Grid.ActiveNodeCount);
-        var started = Stopwatch.GetTimestamp();
-        var request = new SearchRequest(profile, new(actor.X, actor.Y, actor.Z), actor.GoalX, actor.GoalY, _occupancy);
-        var outcome = _search.Find(request, lease.Workspace, _route);
-        var elapsed = Stopwatch.GetTimestamp() - started;
-        var divergent = Diverges(outcome, _route.Count, legacyPath.Count);
-        if (!divergent && outcome == PathOutcome.Found)
-            for (var i = 0; i < _route.Count; i++)
-            {
-                var t = _route.Steps[i].Tile; var old = legacyPath[legacyPath.Count - 2 - i];
-                if (old.X != t % Grid.Width || old.Y != t / Grid.Width) { divergent = true; break; }
-            }
-        if (Random.Shared.NextDouble() < Settings.ShadowLogSample)
-            Logger.Info("Pathfinding shadow room={0} actor={1} goal={2},{3} divergence={4} outcome={5} legacy_steps={6} v2_steps={7} legacy_us={8:F2} v2_us={9:F2} expansions={10}",
-                _room.RoomId, actor.VirtualId, request.GoalX, request.GoalY, divergent, outcome,
-                Math.Max(0, legacyPath.Count - 1), _route.Count, legacyTicks * 1e6 / Stopwatch.Frequency,
-                elapsed * 1e6 / Stopwatch.Frequency, lease.Workspace.Expansions);
+    }
+
+    private bool RouteDiffersFromLegacy(IReadOnlyList<Vector2D> legacyPath)
+    {
+        for (var i = 0; i < _route.Count; i++)
+        {
+            var t = _route.Steps[i].Tile; var old = legacyPath[legacyPath.Count - 2 - i];
+            if (old.X != t % Grid.Width || old.Y != t / Grid.Width) return true;
+        }
+        return false;
     }
 }
