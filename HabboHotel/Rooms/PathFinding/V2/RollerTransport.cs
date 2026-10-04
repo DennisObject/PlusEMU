@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Items;
 using System.Drawing;
 using Plus.HabboHotel.Items.Wired.Modern;
 
@@ -12,6 +13,19 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
 
     public bool CanRide(RoomUser actor) => actor.Movement.State == NavState.Active && !actor.IsWalking
         && actor.Movement.PendingCount == 0;
+
+    public bool RestsOnRoller(Item roller, RoomUser actor) => !Grid.Layered
+        || SurfaceContacts.ContactSlot(Grid, actor.X, actor.Y, actor.Movement.CurrentRef, actor.Movement.SupportZ) == RollerSlot(roller);
+
+    public bool RestsOnRoller(Item roller, Item cargo) => !Grid.Layered
+        || SurfaceContacts.Owner(Grid, Grid.Tile(roller.GetX, roller.GetY), cargo) == RollerSlot(roller);
+
+    // The surface the roller provides: the one that owns the roller item.
+    private int RollerSlot(Item roller)
+    {
+        if (!Grid.InBounds(roller.GetX, roller.GetY)) return -1;
+        return SurfaceContacts.Owner(Grid, Grid.Tile(roller.GetX, roller.GetY), roller);
+    }
 
     public void RefreshCapabilities(IEnumerable<RoomUser> actors)
     {

@@ -29,7 +29,7 @@ internal static class SurfaceContacts
     }
 
     // Items published after the latest compile are owned by the surface they rest on.
-    private static int Owner(NavGrid grid, int tile, Item item)
+    internal static int Owner(NavGrid grid, int tile, Item item)
     {
         var owner = grid.OwnerOf(tile, item.Id);
         return owner >= 0 ? owner : SurfaceSelection.Resting(grid, tile, item.GetZ);
