@@ -19,8 +19,7 @@ internal sealed class V2MovementEngine : IMovementEngine
         var rewards = RewardTrackManager.Current;
         Context = new(room, navigation, new LandingEffects(room, database),
             new FloorEffectService(room, client => rewards?.Progress(client, RewardTrackActions.Swim)),
-            new MovementProfileService(room, navigation.Grid, navigation.Settings,
-                (groupId, habboId) => game.GroupManager.TryGetGroup(groupId, out var group) && group.IsMember(habboId)));
+            new MovementProfileService(room, navigation.Grid, navigation.Settings, ActorAccessResolver.ForGame(game)));
         _cancellation = new(Context);
         _placement = new(room, navigation, Context, _cancellation);
         _admission = new(room, Context, _placement);
