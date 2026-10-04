@@ -1,4 +1,5 @@
 ﻿using Plus.HabboHotel.Permissions;
+using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 
@@ -45,8 +46,8 @@ internal class SetMaxCommand : IChatCommand
             else
                 session.SendWhisper($"visitor amount set to {maxAmount}.");
             room.UsersMax = maxAmount;
-            using var dbClient = _database.GetQueryReactor();
-            dbClient.RunQuery($"UPDATE `rooms` SET `users_max` = {maxAmount} WHERE `id` = '{room.Id}' LIMIT 1");
+            using var connection = _database.Connection();
+            connection.Execute("UPDATE rooms SET users_max=@maxAmount WHERE id=@roomId LIMIT 1", new { maxAmount, roomId = room.Id });
         }
         else
             session.SendWhisper("Invalid amount, please enter a valid number.");

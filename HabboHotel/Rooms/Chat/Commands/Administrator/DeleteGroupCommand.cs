@@ -1,4 +1,5 @@
 ﻿using Plus.HabboHotel.Permissions;
+using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
@@ -37,15 +38,17 @@ internal class DeleteGroupCommand : IChatCommand
         }
         if (room.Group.CreatorId != session.GetHabbo().Id && !_access.Outranks(session.GetHabbo().Id, room.Group.CreatorId))
             return;
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.RunQuery($"DELETE FROM `groups` WHERE `id` = '{room.Group.Id}'");
-            dbClient.RunQuery($"DELETE FROM `group_memberships` WHERE `group_id` = '{room.Group.Id}'");
-            dbClient.RunQuery($"DELETE FROM `group_requests` WHERE `group_id` = '{room.Group.Id}'");
-            dbClient.RunQuery($"UPDATE `rooms` SET `group_id` = '0' WHERE `group_id` = '{room.Group.Id}' LIMIT 1");
-            dbClient.RunQuery($"UPDATE `user_statistics` SET `groupid` = '0' WHERE `groupid` = '{room.Group.Id}' LIMIT 1");
-            dbClient.RunQuery($"DELETE FROM `items_groups` WHERE `group_id` = '{room.Group.Id}'");
-        }
+        var groupId = room.Group.Id;
+        using var connection = _database.Connection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        connection.Execute("DELETE FROM `groups` WHERE id=@groupId", new { groupId }, transaction);
+        connection.Execute("DELETE FROM group_memberships WHERE group_id=@groupId", new { groupId }, transaction);
+        connection.Execute("DELETE FROM group_requests WHERE group_id=@groupId", new { groupId }, transaction);
+        connection.Execute("UPDATE rooms SET group_id=0 WHERE group_id=@groupId", new { groupId }, transaction);
+        connection.Execute("UPDATE user_statistics SET groupid=0 WHERE groupid=@groupId", new { groupId }, transaction);
+        connection.Execute("DELETE FROM items_groups WHERE group_id=@groupId", new { groupId }, transaction);
+        transaction.Commit();
         _groupManager.DeleteGroup(room.Group.Id);
         room.Group = null;
         _roomManager.UnloadRoom(room.Id);
