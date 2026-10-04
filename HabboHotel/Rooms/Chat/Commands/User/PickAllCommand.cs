@@ -8,7 +8,6 @@ internal class PickAllCommand : IChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "pickall";
-    public string PermissionRequired => "command_pickall";
 
     public string Parameters => "";
 

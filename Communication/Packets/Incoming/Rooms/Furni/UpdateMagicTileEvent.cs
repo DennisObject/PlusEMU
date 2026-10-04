@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using Plus.HabboHotel.Permissions;
+using System.Drawing;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Communication.Packets.Outgoing.Rooms.Furni;
 using Plus.HabboHotel.GameClients;
@@ -29,7 +30,7 @@ internal class UpdateMagicTileEvent : IPacketEvent
         var habbo = session.GetHabbo();
         var room = habbo?.CurrentRoom;
         return habbo != null && room != null
-            && (room.CheckRights(session, false, true) || habbo.Permissions.HasRight("room_item_use_any_stack_tile")) ? room : null;
+            && (room.CheckRights(session, false, true) || habbo.Access.Can(PermissionKeys.RoomItemUseAnyStackTile)) ? room : null;
     }
 
     internal static void Apply(Room room, Item item, int requestedHeight, bool? multiWalk = null)

@@ -1,18 +1,20 @@
+using Plus.HabboHotel.Permissions;
+
 namespace Plus.HabboHotel.Housekeeping;
 
 /// <summary>
-/// Rank rights (permissions table) that gate the in-client housekeeping panel.
+/// Permission keys that gate the in-client housekeeping panel.
 /// Access opens the panel and its read-only lookups; every mutation also needs its own right.
 /// </summary>
 public static class HousekeepingRights
 {
-    public const string Access = "acc_housekeeping";
-    public const string Sanction = "housekeeping_sanction";
-    public const string Rank = "housekeeping_rank";
-    public const string Password = "housekeeping_password";
-    public const string Rooms = "housekeeping_rooms";
-    public const string RoomOwnership = "housekeeping_room_ownership";
-    public const string Economy = "housekeeping_economy";
-    public const string Alert = "housekeeping_alert";
-    public const string PrivateData = "housekeeping_private_data";
+    public const string Access = PermissionKeys.HousekeepingAccess;
+    public const string Sanction = PermissionKeys.HousekeepingSanction;
+    public const string Rank = PermissionKeys.HousekeepingRolesManage;
+    public const string Password = PermissionKeys.HousekeepingPassword;
+    public const string Rooms = PermissionKeys.HousekeepingRooms;
+    public const string RoomOwnership = PermissionKeys.HousekeepingRoomOwnership;
+    public const string Economy = PermissionKeys.HousekeepingEconomy;
+    public const string Alert = PermissionKeys.HousekeepingAlert;
+    public const string PrivateData = PermissionKeys.HousekeepingPrivateData;
 }

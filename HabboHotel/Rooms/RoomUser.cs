@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using Plus.HabboHotel.Permissions;
+using System.Drawing;
 using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
@@ -170,7 +171,7 @@ public class RoomUser
                 return false;
             if (GetClient() == null || GetClient().GetHabbo() == null)
                 return true;
-            if (GetClient().GetHabbo().Permissions.HasRight("mod_tool") || GetRoom().OwnerId == HabboId)
+            if (GetClient().GetHabbo().Access.Can(PermissionKeys.ModerationTool) || GetRoom().OwnerId == HabboId)
                 return false;
             if (GetRoom().Id == 1649919)
                 return false;
@@ -330,14 +331,7 @@ public class RoomUser
             ChatSpamTicks = 8;
         else if (ChatSpamCount >= 6)
         {
-            if (GetClient().GetHabbo().Permissions.HasRight("events_staff"))
-                muteTime = 3;
-            else if (GetClient().GetHabbo().Permissions.HasRight("gold_vip"))
-                muteTime = 7;
-            else if (GetClient().GetHabbo().Permissions.HasRight("silver_vip"))
-                muteTime = 10;
-            else
-                muteTime = 20;
+            muteTime = Math.Clamp(21 - GetClient().GetHabbo().Access.Limit("limit.flood_tolerance", 1), 1, 20);
             GetClient().GetHabbo().FloodTime = UnixTimestamp.GetNow() + muteTime;
             ChatSpamCount = 0;
             return true;
@@ -352,7 +346,7 @@ public class RoomUser
         if (_mRoom.GetWired().TriggerEvent(WiredBoxType.TriggerUserSays, GetClient().GetHabbo(), message))
             return;
         GetClient().GetHabbo().HasSpoken = true;
-        if (_mRoom.WordFilterList.Count > 0 && !GetClient().GetHabbo().Permissions.HasRight("word_filter_override")) message = _mRoom.GetFilter().CheckMessage(message);
+        if (_mRoom.WordFilterList.Count > 0 && !GetClient().GetHabbo().Access.Can(PermissionKeys.ChatFilterBypass)) message = _mRoom.GetFilter().CheckMessage(message);
         IServerPacket packet = null;
         if (shout)
             packet = new ShoutComposer(VirtualId, message, PlusEnvironment.Game.ChatManager.GetEmotions().GetEmotionsForText(message), colour);
@@ -362,7 +356,7 @@ public class RoomUser
         {
             _mRoom.SendToTent(GetClient().GetHabbo().Id, GetClient().GetHabbo().TentId, packet);
             packet = new WhisperComposer(VirtualId, $"[Tent Chat] {message}", 0, colour);
-            var toNotify = _mRoom.GetRoomUserManager().GetRoomUserByRank(2);
+            var toNotify = _mRoom.GetRoomUserManager().GetRoomUsersWithPermission(PermissionKeys.StaffReceiveAlerts);
             if (toNotify.Count > 0)
             {
                 foreach (var user in toNotify)

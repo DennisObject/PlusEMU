@@ -7,7 +7,6 @@ internal class MutePetsCommand : IChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "mutepets";
-    public string PermissionRequired => "command_mute_pets";
 
     public string Parameters => "";
 

@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Chat;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -7,7 +8,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User.Fun;
 internal class PullCommand : ITargetChatCommand
 {
     public string Key => "pull";
-    public string PermissionRequired => "command_pull";
 
     public string Parameters => "%target%";
 
@@ -16,7 +16,7 @@ internal class PullCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (!room.PullEnabled && !session.GetHabbo().Permissions.HasRight("room_override_custom_config"))
+        if (!room.PullEnabled && !session.GetHabbo().Access.Can(PermissionKeys.RoomOverrideCustomConfig))
         {
             session.SendWhisper("Oops, it appears that the room owner has disabled the ability to use the pull command in here.");
             return Task.CompletedTask;

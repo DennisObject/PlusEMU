@@ -8,7 +8,6 @@ internal class InfoCommand : IChatCommand
     private readonly IGameClientManager _gameClientManager;
     private readonly IRoomManager _roomManager;
     public string Key => "about";
-    public string PermissionRequired => "command_info";
 
     public string Parameters => "";
 

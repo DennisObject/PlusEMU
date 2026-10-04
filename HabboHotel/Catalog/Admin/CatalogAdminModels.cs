@@ -27,8 +27,8 @@ public static class CatalogAdminTypes
 // Field names follow Octane's CatalogStudioPageSnapshot so the JSON can be sent as the save acknowledgement entity.
 public sealed record CatalogAdminPage(
     string CatalogType, int PageId, int ParentId, string CaptionSave, string Caption, string PageLayout,
-    int IconColor, int IconImage, int MinRank, int OrderNum, bool Visible, bool Enabled, bool ClubOnly,
-    string CatalogMode, bool VipOnly, string PageHeadline, string PageTeaser, string PageSpecial,
+    int IconColor, int IconImage, string RequiredPermission, int OrderNum, bool Visible, bool Enabled, bool ClubOnly,
+    string CatalogMode, string PageHeadline, string PageTeaser, string PageSpecial,
     string PageText1, string PageText2, string PageTextDetails, string PageTextTeaser, int RoomId, string Includes);
 
 // Field names follow Octane's CatalogStudioOfferSnapshot. OfferId is the id the client knows the offer by.
@@ -54,8 +54,7 @@ public sealed class CatalogPageRow
     public int IconImage { get; set; }
     public bool Visible { get; set; }
     public bool Enabled { get; set; }
-    public int MinRank { get; set; }
-    public int MinVip { get; set; }
+    public string? RequiredPermission { get; set; }
     public int OrderNum { get; set; }
     public string PageLayout { get; set; } = string.Empty;
     public string PageStrings1 { get; set; } = string.Empty;

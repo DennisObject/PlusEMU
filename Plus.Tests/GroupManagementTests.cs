@@ -20,7 +20,7 @@ using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Users;
-using Plus.HabboHotel.Users.Permissions;
+using Plus.HabboHotel.Permissions;
 using Xunit;
 
 namespace Plus.Tests;
@@ -111,7 +111,7 @@ public class GroupManagementTests : IDisposable
         Assert.Equal("b05114s06114", group.Badge);
         Assert.Equal(written, _database.Statements.Count);
 
-        var (member, memberSent) = Client(new Habbo { Id = 2, Username = "Member2", Permissions = Rights() });
+        var (member, memberSent) = Client(new Habbo { Id = 2, Username = "Member2", Access = Rights() });
         await new UpdateGroupBadgeEvent(groups, _database).Parse(member, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
         Assert.Equal("b05114s06114", group.Badge);
         Assert.Empty(memberSent);
@@ -154,7 +154,7 @@ public class GroupManagementTests : IDisposable
             return new CachedUser { Id = id, Username = id == 30 ? "Pending" : "Member" + id, Look = "hr-1" };
         });
         var handler = new GetGroupMembersEvent(GroupSource(group), cache);
-        var (member, memberSent) = Client(new Habbo { Id = 2, Username = "Member2", Permissions = Rights() });
+        var (member, memberSent) = Client(new Habbo { Id = 2, Username = "Member2", Access = Rights() });
         await handler.Parse(member, Packet(group.Id, 0, "", 0));
         var firstPage = DecodeMembers(memberSent[0].Payload);
         Assert.Equal(14, firstPage.Count);
@@ -220,7 +220,7 @@ public class GroupManagementTests : IDisposable
             throw new InvalidOperationException(method);
         });
         var settings = Proxy<ISettingsManager>((_, _) => "50");
-        var (stranger, strangerSent) = Client(new Habbo { Id = 8, Username = "Stranger", Permissions = Rights() });
+        var (stranger, strangerSent) = Client(new Habbo { Id = 8, Username = "Stranger", Access = Rights() });
         var handler = new DeleteGroupEvent(groups, _database, rooms, settings);
         await handler.Parse(stranger, Packet(group.Id));
         Assert.Empty(deleted);
@@ -241,7 +241,7 @@ public class GroupManagementTests : IDisposable
         var group = NewGroup(hasForum: false);
         group.Type = GroupType.Locked;
         group.AddMember(8);
-        var (target, _) = Client(new Habbo { Id = 8, Username = "Bob", Look = "hr-1", Permissions = Rights() });
+        var (target, _) = Client(new Habbo { Id = 8, Username = "Bob", Look = "hr-1", Access = Rights() });
         var (owner, sent) = Client(Owner());
         await new AcceptGroupMembershipEvent(GroupSource(group)).Parse(owner, Packet(group.Id, 8));
 
@@ -306,7 +306,7 @@ public class GroupManagementTests : IDisposable
         group.AddMember(8);
         group.MakeAdmin(8);
         var stats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, group.Id, "", 0);
-        var targetHabbo = new Habbo { Id = 8, Username = "Target", Permissions = Rights(), HabboStats = stats };
+        var targetHabbo = new Habbo { Id = 8, Username = "Target", Access = Rights(), HabboStats = stats };
         var (_, targetSent) = Client(targetHabbo);
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var manager = new RoomUserManager(room);
@@ -369,7 +369,7 @@ public class GroupManagementTests : IDisposable
         group.MakeAdmin(5);
         var rooms = UnloadedRooms();
         var groups = GroupSource(group);
-        var (admin, adminSent) = Client(new Habbo { Id = 4, Username = "Admin", Permissions = Rights() });
+        var (admin, adminSent) = Client(new Habbo { Id = 4, Username = "Admin", Access = Rights() });
         await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(admin, Packet(group.Id, 7));
         await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(admin, Packet(group.Id, 5));
         await new RemoveGroupMemberEvent(groups, rooms, _database).Parse(admin, Packet(group.Id, 7));
@@ -378,7 +378,7 @@ public class GroupManagementTests : IDisposable
         Assert.True(group.IsMember(7));
         Assert.True(group.IsAdmin(5));
 
-        var (member, memberSent) = Client(new Habbo { Id = 8, Username = "Member", Permissions = Rights() });
+        var (member, memberSent) = Client(new Habbo { Id = 8, Username = "Member", Access = Rights() });
         group.AddMember(8);
         await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(member, Packet(group.Id, 4));
         Assert.Empty(memberSent);
@@ -396,7 +396,7 @@ public class GroupManagementTests : IDisposable
         {
             Id = 11,
             Username = "Leaver",
-            Permissions = Rights(),
+            Access = Rights(),
             HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
         };
         var (client, sent) = Client(leaver);
@@ -449,14 +449,14 @@ public class GroupManagementTests : IDisposable
         return group;
     }
 
-    private Habbo Owner() => new() { Id = 7, Username = "Owner", Permissions = Rights() };
+    private Habbo Owner() => new() { Id = 7, Username = "Owner", Access = Rights() };
 
-    private static PermissionComponent Rights(params string[] rights) => new(rights.ToList(), new List<string>());
+    private static UserAccess Rights(params string[] rights) => EditorTestSupport.Access(rights);
 
     private (GameClient Client, List<(uint Header, byte[] Payload)> Sent) Client(Habbo habbo)
     {
         var result = HabbiconTestSupport.Client(habbo);
-        habbo.Permissions ??= Rights();
+        habbo.Access ??= Rights();
         _clients[habbo.Id] = result.Client;
         return result;
     }

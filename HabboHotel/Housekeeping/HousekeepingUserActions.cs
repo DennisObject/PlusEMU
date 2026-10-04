@@ -1,13 +1,11 @@
 using System.Security.Cryptography;
 using Dapper;
-using Plus.Core.Settings;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Authentication;
-using Plus.HabboHotel.Users.Permissions;
 using Plus.Utilities;
 using static Plus.HabboHotel.Housekeeping.HousekeepingErrors;
 using static Plus.HabboHotel.Housekeeping.HousekeepingUserTargets;
@@ -35,23 +33,21 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     private readonly IHousekeepingUserStore _users;
     private readonly IGameClientManager _clients;
     private readonly IModerationManager _moderation;
-    private readonly IPermissionManager _permissions;
-    private readonly ISettingsManager _settings;
+    private readonly IAccessControl _permissions;
     private readonly IBoundedPasswordHasher _passwordHasher;
     private readonly ISessionIssuer _sessions;
     private readonly IDatabase _database;
     // Held for every write to an account so it cannot interleave with that account's login.
     private readonly IAccountSessionGate _sessionGate;
 
-    public HousekeepingUserActions(IHousekeepingUserStore users, IGameClientManager clients, IModerationManager moderation, IPermissionManager permissions,
-        ISettingsManager settings, IBoundedPasswordHasher passwordHasher, IDatabase database, IAccountSessionGate sessionGate,
+    public HousekeepingUserActions(IHousekeepingUserStore users, IGameClientManager clients, IModerationManager moderation, IAccessControl permissions,
+        IBoundedPasswordHasher passwordHasher, IDatabase database, IAccountSessionGate sessionGate,
         ISessionIssuer sessions)
     {
         _users = users;
         _clients = clients;
         _moderation = moderation;
         _permissions = permissions;
-        _settings = settings;
         _passwordHasher = passwordHasher;
         _database = database;
         _sessionGate = sessionGate;
@@ -65,7 +61,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         if (!HousekeepingLimits.InRange(hours, 1, HousekeepingLimits.MaxBanHours) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         using var account = await _sessionGate.EnterAsync(userId, deadline.Token);
-        if (_users.Target(actor, userId, out var user) is { } denied) return denied;
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
         var expire = BanClock.Now() + hours * 3600.0;
         // The ban coordinator counts the ban, signs the account out and closes its session; this action holds the gate.
         await _moderation.BanAccount(actor.Username, userId, user.Username, reason.Length > 0 ? reason : "No reason specified.", expire, deadline.Token,
@@ -76,7 +72,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     public HousekeepingOutcome Unban(Habbo actor, int userId)
     {
         using var account = _sessionGate.Enter(userId);
-        if (_users.Target(actor, userId, out var user) is { } denied) return denied;
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
         return _moderation.UnbanUser(user.Username)
             ? HousekeepingOutcome.Success(Label(user), "unbanned")
             : HousekeepingOutcome.Fail(NoActiveBan, Label(user));
@@ -88,7 +84,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         if (!HousekeepingLimits.InRange(minutes, 1, HousekeepingLimits.MaxMuteMinutes) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         using var account = _sessionGate.Enter(userId);
-        if (_users.Target(actor, userId, out var user) is { } denied) return denied;
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
         var seconds = minutes * 60.0;
         Execute("UPDATE `users` SET `time_muted` = @seconds WHERE `id` = @userId LIMIT 1", new { seconds, userId });
         if (_clients.Online(userId) is { } client)
@@ -104,7 +100,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         reason = HousekeepingLimits.Normalize(reason);
         if (!HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength)) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         using var account = _sessionGate.Enter(userId);
-        if (_users.Target(actor, userId, out var user) is { } denied) return denied;
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
         if (_clients.Online(userId) is not { } client) return HousekeepingOutcome.Fail(UserOffline, Label(user));
         var room = client.GetHabbo().CurrentRoom;
         if (room == null) return HousekeepingOutcome.Fail(UserNotInRoom, Label(user));
@@ -118,34 +114,22 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         reason = HousekeepingLimits.Normalize(reason);
         if (!HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength)) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         using var account = _sessionGate.Enter(userId);
-        if (_users.Target(actor, userId, out var user) is { } denied) return denied;
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
         if (_clients.Online(userId) is not { } client) return HousekeepingOutcome.Fail(UserOffline, Label(user));
         if (reason.Length > 0) client.SendNotification(reason);
         client.Disconnect();
         return HousekeepingOutcome.Success(Label(user), $"reason={HousekeepingLimits.AuditValue(reason)}");
     }
 
-    public HousekeepingOutcome SetRank(Habbo actor, int userId, int rankId)
+    public HousekeepingOutcome SetRank(Habbo actor, int userId, int roleId)
     {
-        if (rankId <= 0) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
-        if (!_permissions.TryGetGroup(rankId, out _)) return HousekeepingOutcome.Fail(RankNotFound, HousekeepingTarget.User(userId), $"rankId={rankId}");
-        if (!HousekeepingRankPolicy.CanAssign(actor.Rank, rankId)) return HousekeepingOutcome.Fail(RankTooHigh, HousekeepingTarget.User(userId), $"rankId={rankId}");
+        if (roleId <= 0) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
+        if (!_permissions.TryGetRole(roleId, out _)) return HousekeepingOutcome.Fail(RankNotFound, HousekeepingTarget.User(userId), $"roleId={roleId}");
         using var account = _sessionGate.Enter(userId);
-        if (_users.Target(actor, userId, out var user) is { } denied) return denied;
-        Execute("UPDATE `users` SET `rank` = @rankId WHERE `id` = @userId LIMIT 1", new { rankId, userId });
-        // Credential hygiene: a demoted account signs in again. Rights are never read from tokens, and a
-        // live session keeps running with the refreshed rights below.
-        if (rankId < user.Rank)
-            SignOutEverywhere(userId);
-        if (_clients.Online(userId) is { } client)
-        {
-            // Rights are resolved at login; refresh them so a demotion takes effect immediately.
-            var habbo = client.GetHabbo();
-            habbo.Rank = rankId;
-            habbo.Permissions = new(_permissions.GetPermissionsForPlayer(habbo), _permissions.GetCommandsForPlayer(habbo));
-            client.Send(ClientPermissions.Composer(habbo, _permissions, _settings));
-        }
-        return HousekeepingOutcome.Success(Label(user), $"fromRank={user.Rank} toRank={rankId}");
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
+        return _permissions.AssignRole(actor, userId, roleId)
+            ? HousekeepingOutcome.Success(Label(user), $"roleId={roleId}")
+            : HousekeepingOutcome.Fail(Forbidden, Label(user), $"roleId={roleId}");
     }
 
     public HousekeepingOutcome TradeLock(Habbo actor, int userId, int hours, string reason)
@@ -154,7 +138,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         if (!HousekeepingLimits.InRange(hours, 1, HousekeepingLimits.MaxTradeLockHours) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         using var account = _sessionGate.Enter(userId);
-        if (_users.Target(actor, userId, out var user) is { } denied) return denied;
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
         var until = UnixTimestamp.GetNow() + hours * 3600.0;
         Execute("INSERT INTO `user_info` (`user_id`, `trading_locked`, `trading_locks_count`) VALUES (@userId, @until, 1) " +
                 "ON DUPLICATE KEY UPDATE `trading_locked` = @until, `trading_locks_count` = `trading_locks_count` + 1", new { userId, until });
@@ -169,7 +153,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     public HousekeepingOutcome ResetPassword(Habbo actor, int userId)
     {
         using var account = _sessionGate.Enter(userId);
-        if (_users.Target(actor, userId, out var user) is { } denied) return denied;
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
         var password = GeneratePassword();
         // The new hash is written before the revocation: a login that reads the row after the generation bump must
         // already find the new password, or it would pass with the old one under the new generation.

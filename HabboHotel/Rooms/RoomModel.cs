@@ -1,8 +1,12 @@
-﻿namespace Plus.HabboHotel.Rooms;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Subscriptions;
+
+namespace Plus.HabboHotel.Rooms;
 
 public class RoomModel
 {
-    public bool ClubOnly;
+    public int RequiredClubLevel { get; set; }
+    public string? RequiredPermission { get; set; }
     public int DoorOrientation;
     public int DoorX;
     public int DoorY;
@@ -20,8 +24,9 @@ public class RoomModel
 
     public int WallHeight;
 
-    public RoomModel(string id, int doorX, int doorY, double doorZ, int doorOrientation, string heightmap, bool clubOnly, int wallHeight, bool custom)
+    public RoomModel(string id, int doorX, int doorY, double doorZ, int doorOrientation, string heightmap, int requiredClubLevel, int wallHeight, bool custom)
     {
+        RequiredClubLevel = requiredClubLevel;
         try
         {
             Id = id;
@@ -34,7 +39,6 @@ public class RoomModel
             var tmpHeightmap = heightmap.Split(Convert.ToChar(13));
             MapSizeX = tmpHeightmap[0].Length;
             MapSizeY = tmpHeightmap.Length;
-            ClubOnly = clubOnly;
             SqState = new SquareState[MapSizeX, MapSizeY];
             SqFloorHeight = new short[MapSizeX, MapSizeY];
             SqSeatRot = new byte[MapSizeX, MapSizeY];
@@ -66,6 +70,15 @@ public class RoomModel
     }
 
     public string Id { get; set; }
+
+    public bool CanCreate(UserAccess access)
+    {
+        var resolved = access.Capture();
+        bool modelAllowed = RequiredClubLevel < 0
+            ? resolved.Keys.Contains(PermissionKeys.NavigatorRoomModelsStaff)
+            : ClubAccess.LevelFor(access) >= RequiredClubLevel;
+        return modelAllowed && (string.IsNullOrEmpty(RequiredPermission) || resolved.Keys.Contains(RequiredPermission));
+    }
 
     public static short Parse(char input)
     {

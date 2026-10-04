@@ -1,9 +1,11 @@
+using Plus.Communication.Attributes;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Housekeeping;
 
 namespace Plus.Communication.Packets.Incoming.Housekeeping;
 
+[RequiresPermission(HousekeepingRights.Access)]
 internal class HousekeepingSendHotelAlertEvent : IPacketEvent
 {
     private readonly IHousekeepingActionRunner _runner;

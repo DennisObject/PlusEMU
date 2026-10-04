@@ -392,7 +392,7 @@ public class BotRoamingTests
     private static (Room Room, Gamemap Map) Create(string heightmap, int doorX, int doorY)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var model = new RoomModel("test", doorX, doorY, 0, 0, heightmap, false, 0, false);
+        var model = new RoomModel("test", doorX, doorY, 0, 0, heightmap, 0, 0, false);
         var map = new Gamemap(room, model);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         return (room, map);

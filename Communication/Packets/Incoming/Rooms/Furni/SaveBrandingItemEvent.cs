@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
 
@@ -13,7 +14,7 @@ internal class SaveBrandingItemEvent : IPacketEvent
         var room = session.GetHabbo().CurrentRoom;
         if (room == null)
             return Task.CompletedTask;
-        if (!room.CheckRights(session, true) || !session.GetHabbo().Permissions.HasRight("room_item_save_branding_items"))
+        if (!room.CheckRights(session, true) || !session.GetHabbo().Access.Can(PermissionKeys.RoomItemSaveBrandingItems))
             return Task.CompletedTask;
         var itemId = packet.ReadUInt();
         var item = room.GetRoomItemHandler().GetItem(itemId);

@@ -5,7 +5,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 internal class StandCommand : IChatCommand
 {
     public string Key => "stand";
-    public string PermissionRequired => "command_stand";
 
     public string Parameters => "";
 

@@ -8,7 +8,6 @@ internal class KickBotsCommand : IChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "kickbots";
-    public string PermissionRequired => "command_kickbots";
 
     public string Parameters => "";
 

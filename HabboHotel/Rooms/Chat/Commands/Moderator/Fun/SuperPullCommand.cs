@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Chat;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -8,7 +9,6 @@ internal class SuperPullCommand : ITargetChatCommand
 {
     private readonly IGameClientManager _gameClientManager;
     public string Key => "spull";
-    public string PermissionRequired => "command_super_pull";
 
     public string Parameters => "%username%";
 
@@ -23,7 +23,7 @@ internal class SuperPullCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (!room.SuperPullEnabled && !room.CheckRights(session, true) && !session.GetHabbo().Permissions.HasRight("room_override_custom_config"))
+        if (!room.SuperPullEnabled && !room.CheckRights(session, true) && !session.GetHabbo().Access.Can(PermissionKeys.RoomOverrideCustomConfig))
         {
             session.SendWhisper("Oops, it appears that the room owner has disabled the ability to use the spull command in here.");
             return Task.CompletedTask;

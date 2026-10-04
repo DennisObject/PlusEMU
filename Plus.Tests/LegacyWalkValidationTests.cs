@@ -7,7 +7,7 @@ using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms.Instance;
-using Plus.HabboHotel.Users.Permissions;
+using Plus.HabboHotel.Permissions;
 using System.Runtime.CompilerServices;
 using Plus.Core.Settings;
 using Plus.HabboHotel.Rooms;
@@ -354,7 +354,7 @@ public class LegacyWalkValidationTests
         f.Map.GenerateMaps();
         var rider = f.Users[0];
         var horse = f.Bots[0];
-        rider.GetClient().GetHabbo().Permissions = new PermissionComponent(new(), new());
+        rider.GetClient().GetHabbo().Access = UserAccess.Empty;
         rider.GetClient().GetHabbo().Id = rider.HabboId;
         rider.SetPos(3, 1, 0);
         horse.SetPos(3, 1, 0);
@@ -493,7 +493,7 @@ public class LegacyWalkValidationTests
         f.Map.GenerateMaps();
         var user = f.Users[0];
         user.AllowOverride = false;
-        user.GetClient().GetHabbo().Permissions = new PermissionComponent(new(), new());
+        user.GetClient().GetHabbo().Access = UserAccess.Empty;
         var origin = user.Coordinate;
         user.SetPos(path.Length == 0 ? 1 : 3, 1, 0);
         f.Map.UpdateUserMovement(origin, user.Coordinate, user);
@@ -508,7 +508,7 @@ public class LegacyWalkValidationTests
     private static (Room Room, Gamemap Map) Create(string floor)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var map = new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, floor, false, 0, false));
+        var map = new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, floor, 0, 0, false));
         RoomPerformanceFixture.SetField(room, "_gamemap", map);
         RoomPerformanceFixture.SetField(room, "_roomUserManager", new RoomUserManager(room));
         RoomPerformanceFixture.SetField(room, "_roomItemHandling", new RoomItemHandling(room));

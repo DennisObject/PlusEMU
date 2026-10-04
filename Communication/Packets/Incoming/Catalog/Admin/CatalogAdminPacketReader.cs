@@ -16,38 +16,40 @@ internal static class CatalogAdminPacketReader
     {
         int pageId = packet.ReadInt();
         string caption = packet.ReadString(), captionSave = packet.ReadString(), layout = packet.ReadString();
-        int iconImage = packet.ReadInt(), minRank = packet.ReadInt();
+        int iconImage = packet.ReadInt();
+        string requiredPermission = packet.ReadString();
         bool visible = packet.ReadBool(), enabled = packet.ReadBool();
         int orderNum = packet.ReadInt(), parentId = packet.ReadInt();
         string headline = packet.ReadString(), teaser = packet.ReadString(), textDetails = packet.ReadString();
         string targetType = packet.ReadString(), catalogMode = packet.ReadString(), text1 = packet.ReadString();
         int iconColor = packet.ReadInt();
-        bool clubOnly = packet.ReadBool(), vipOnly = packet.ReadBool();
+        bool clubOnly = packet.ReadBool();
         string special = packet.ReadString(), text2 = packet.ReadString(), textTeaser = packet.ReadString();
         int roomId = packet.ReadInt();
         string includes = packet.ReadString();
         var type = CatalogType(targetType);
-        var page = new CatalogAdminPage(type, pageId, parentId, captionSave, caption, layout, iconColor, iconImage, minRank, orderNum,
-            visible, enabled, clubOnly, catalogMode, vipOnly, headline, teaser, special, text1, text2, textDetails, textTeaser, roomId, includes);
+        var page = new CatalogAdminPage(type, pageId, parentId, captionSave, caption, layout, iconColor, iconImage, requiredPermission, orderNum,
+            visible, enabled, clubOnly, catalogMode, headline, teaser, special, text1, text2, textDetails, textTeaser, roomId, includes);
         return (page, Envelope(packet, type));
     }
 
     public static (CatalogAdminPage Page, CatalogAdminEnvelope Envelope) CreatePage(IIncomingPacket packet)
     {
         string caption = packet.ReadString(), captionSave = packet.ReadString(), layout = packet.ReadString();
-        int iconImage = packet.ReadInt(), minRank = packet.ReadInt();
+        int iconImage = packet.ReadInt();
+        string requiredPermission = packet.ReadString();
         bool visible = packet.ReadBool(), enabled = packet.ReadBool();
         int orderNum = packet.ReadInt(), parentId = packet.ReadInt();
         string targetType = packet.ReadString(), catalogMode = packet.ReadString();
         int iconColor = packet.ReadInt();
-        bool clubOnly = packet.ReadBool(), vipOnly = packet.ReadBool();
+        bool clubOnly = packet.ReadBool();
         string headline = packet.ReadString(), teaser = packet.ReadString(), special = packet.ReadString();
         string text1 = packet.ReadString(), text2 = packet.ReadString(), textDetails = packet.ReadString(), textTeaser = packet.ReadString();
         int roomId = packet.ReadInt();
         string includes = packet.ReadString();
         var type = CatalogType(targetType);
-        var page = new CatalogAdminPage(type, 0, parentId, captionSave, caption, layout, iconColor, iconImage, minRank, orderNum,
-            visible, enabled, clubOnly, catalogMode, vipOnly, headline, teaser, special, text1, text2, textDetails, textTeaser, roomId, includes);
+        var page = new CatalogAdminPage(type, 0, parentId, captionSave, caption, layout, iconColor, iconImage, requiredPermission, orderNum,
+            visible, enabled, clubOnly, catalogMode, headline, teaser, special, text1, text2, textDetails, textTeaser, roomId, includes);
         return (page, Envelope(packet, type));
     }
 

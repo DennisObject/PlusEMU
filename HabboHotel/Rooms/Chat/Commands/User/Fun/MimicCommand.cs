@@ -10,7 +10,6 @@ internal class MimicCommand : ITargetChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "mimic";
-    public string PermissionRequired => "command_mimic";
 
     public string Parameters => "%username%";
 

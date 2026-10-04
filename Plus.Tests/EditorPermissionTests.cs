@@ -17,7 +17,7 @@ namespace Plus.Tests;
 public class EditorPermissionTests
 {
     private static readonly CatalogAdminEnvelope Envelope = new("NORMAL", 1, 0, "", "", "op-1");
-    private static readonly CatalogAdminPage Page = new("NORMAL", 1, -1, "p", "Page", "default_3x3", 1, 1, 1, 0, true, true, false, "NORMAL", false,
+    private static readonly CatalogAdminPage Page = new("NORMAL", 1, -1, "p", "Page", "default_3x3", 1, 1, "", 0, true, true, false, "NORMAL",
         "", "", "", "", "", "", "", 0, "");
     private static readonly CatalogAdminOffer Offer = new("NORMAL", 1, "1", 1, "o", 0, 0, 0, 1, 0, 0, -1, 0, "", true, false);
 
@@ -36,7 +36,13 @@ public class EditorPermissionTests
             NullLogger<FurniEditorService>.Instance), (Recorder)(object)refresher);
     }
 
-    public static TheoryData<Habbo> Denied => new() { EditorTestSupport.Player(), EditorTestSupport.Staff(9, "mod_tool") };
+    public static TheoryData<Habbo> Denied => new()
+    {
+        EditorTestSupport.Player(), EditorTestSupport.Staff(90, PermissionKeys.ModerationTool),
+        new Habbo { Id = 7003, Username = "denied editor", Access = EditorTestSupport.Access(
+            [PermissionKeys.CatalogEdit, PermissionKeys.FurniEdit, PermissionKeys.FurniDelete],
+            overrides: [new UserPermissionOverride(PermissionKeys.CatalogEdit, true)]) }
+    };
 
     [Theory]
     [MemberData(nameof(Denied))]
@@ -91,14 +97,14 @@ public class EditorPermissionTests
     public void DestructiveFurniActionsNeedTheirOwnRight()
     {
         var (service, _) = Furni();
-        var editorOnly = EditorTestSupport.Staff(9, EditorPermissions.CatalogFurni);
+        var editorOnly = EditorTestSupport.Staff(90, PermissionKeys.CatalogEdit);
         Assert.Equal(1u, service.Delete(editorOnly, 1).ItemId);
         Assert.False(service.Delete(editorOnly, 1).Success);
         Assert.False(service.UpdateFurnidata(editorOnly, 1, "{\"name\":\"x\"}").Success);
         Assert.False(service.RevertFurnidata(editorOnly, 1).Success);
-        Assert.False(EditorPermissions.Allows(EditorTestSupport.Staff(9, EditorPermissions.FurniDelete), EditorPermissions.FurniDelete));
-        Assert.True(EditorPermissions.Allows(EditorTestSupport.Staff(), EditorPermissions.FurniDelete));
-        Assert.False(EditorPermissions.Allows(null));
+        var deleteOnly = EditorTestSupport.Staff(90, PermissionKeys.FurniDelete);
+        Assert.False(service.Delete(deleteOnly, 1).Success);
+        Assert.True(EditorTestSupport.Staff().Access.Can(PermissionKeys.FurniDelete));
     }
 
     [Fact]
@@ -112,6 +118,15 @@ public class EditorPermissionTests
         var revision = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/OCTANE-3-6-0-FLOOR-20260909.json"))).RootElement;
         foreach (var handler in handlers)
         {
+            var permission = handler.GetCustomAttribute<Plus.Communication.Attributes.RequiresPermissionAttribute>();
+            Assert.NotNull(permission);
+            string[] expected = handler.Name switch
+            {
+                nameof(FurniEditorDeleteEvent) => [PermissionKeys.CatalogEdit, PermissionKeys.FurniDelete],
+                nameof(FurniEditorUpdateFurnidataEvent) or nameof(FurniEditorRevertFurnidataEvent) => [PermissionKeys.CatalogEdit, PermissionKeys.FurniEdit],
+                _ => [PermissionKeys.CatalogEdit]
+            };
+            Assert.Equal(expected, permission!.Permissions);
             var header = typeof(Plus.Communication.Packets.Incoming.ClientPacketHeader).GetField(handler.Name);
             Assert.NotNull(header);
             Assert.Equal((uint)header!.GetValue(null)!, revision.GetProperty("IncomingHeaders").GetProperty(handler.Name).GetUInt32());

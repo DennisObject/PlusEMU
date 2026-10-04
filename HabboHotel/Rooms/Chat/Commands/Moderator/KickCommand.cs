@@ -6,7 +6,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 internal class KickCommand : ITargetChatCommand
 {
     public string Key => "kick";
-    public string PermissionRequired => "command_kick";
 
     public string Parameters => "%username% %reason%";
 
@@ -16,6 +15,8 @@ internal class KickCommand : ITargetChatCommand
     
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
+        if (!session.GetHabbo().Access.Outranks(target.Access))
+            return Task.CompletedTask;
         if (target == session.GetHabbo())
         {
             session.SendWhisper("Get a life.");

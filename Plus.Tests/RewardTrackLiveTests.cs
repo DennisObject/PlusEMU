@@ -17,7 +17,7 @@ using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Badges;
 using Plus.HabboHotel.Users.Inventory;
 using Plus.HabboHotel.Users.Inventory.Badges;
-using Plus.HabboHotel.Users.Permissions;
+using Plus.HabboHotel.Permissions;
 using Xunit;
 
 namespace Plus.Tests;
@@ -155,7 +155,7 @@ public class RewardTrackLiveTests
         {
             Id = 7,
             Username = "player",
-            Permissions = new PermissionComponent(new(), new()),
+            Access = UserAccess.Empty,
             Inventory = new InventoryComponent { Badges = new BadgesInventoryComponent(new()) }
         };
         client.SetHabbo(habbo);

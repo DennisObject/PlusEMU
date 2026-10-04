@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Groups;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Groups;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 
@@ -19,7 +20,7 @@ internal class AcceptGroupMembershipEvent : IPacketEvent
         var userId = packet.ReadInt();
         if (!_groupManager.TryGetGroup(groupId, out var group))
             return Task.CompletedTask;
-        if (session.GetHabbo().Id != group.CreatorId && !group.IsAdmin(session.GetHabbo().Id) && !session.GetHabbo().Permissions.HasRight("fuse_group_accept_any"))
+        if (session.GetHabbo().Id != group.CreatorId && !group.IsAdmin(session.GetHabbo().Id) && !session.GetHabbo().Access.Can(PermissionKeys.GroupAcceptAny))
             return Task.CompletedTask;
         if (!group.HasRequest(userId))
             return Task.CompletedTask;

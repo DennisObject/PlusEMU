@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 
@@ -21,7 +22,7 @@ internal class GiveHandItemEvent : RoomPacketEvent
         var targetUser = room.GetRoomUserManager().GetRoomUserByHabbo(packet.ReadInt());
         if (targetUser == null)
             return Task.CompletedTask;
-        if (!(Math.Abs(user.X - targetUser.X) >= 3 || Math.Abs(user.Y - targetUser.Y) >= 3) || session.GetHabbo().Permissions.HasRight("mod_tool"))
+        if (!(Math.Abs(user.X - targetUser.X) >= 3 || Math.Abs(user.Y - targetUser.Y) >= 3) || session.GetHabbo().Access.Can(PermissionKeys.ModerationTool))
         {
             if (user.CarryItemId > 0 && user.CarryTimer > 0)
             {

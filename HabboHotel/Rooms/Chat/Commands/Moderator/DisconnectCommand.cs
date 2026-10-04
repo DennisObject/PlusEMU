@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
@@ -6,7 +7,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 internal class DisconnectCommand : ITargetChatCommand
 {
     public string Key => "dc";
-    public string PermissionRequired => "command_disconnect";
 
     public string Parameters => "%username%";
 
@@ -16,7 +16,7 @@ internal class DisconnectCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (target.Permissions.HasRight("mod_tool") && !target.Permissions.HasRight("mod_disconnect_any"))
+        if (target.Access.Can(PermissionKeys.ModerationTool) && !target.Access.Can(PermissionKeys.ModerationDisconnectAny))
         {
             session.SendWhisper("You are not allowed to Disconnect that user.");
             return Task.CompletedTask;

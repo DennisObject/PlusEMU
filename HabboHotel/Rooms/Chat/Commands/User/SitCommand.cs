@@ -5,7 +5,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 internal class SitCommand : IChatCommand
 {
     public string Key => "sit";
-    public string PermissionRequired => "command_sit";
 
     public string Parameters => "";
 

@@ -78,7 +78,7 @@ public class WiredTemporaryPacketGuardTests
     {
         var (room, client) = Room();
         var highId = uint.MaxValue - 1;
-        var map = new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "000\r000\r000", false, 0, false));
+        var map = new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false));
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         map.GenerateMaps();
         var item = new Item { Id = highId, Definition = new() { Type = ItemType.Floor, InteractionType = InteractionType.Stacktool }, GetZ = 1 };
@@ -171,7 +171,7 @@ public class WiredTemporaryPacketGuardTests
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
         var client = new FlashGameClient(null!, new FlashPacketFactory());
         client.SetHabbo(new Habbo { Id = 42, Username = "owner", CurrentRoom = room, Credits = 10,
-            Permissions = new(["room_item_save_branding_items"], []) });
+            Access = EditorTestSupport.Access(["room.item_save_branding_items"]) });
         return (room, client);
     }
 

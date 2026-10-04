@@ -7,22 +7,22 @@ using Xunit;
 
 namespace Plus.Tests;
 
-// Argument orders are copied from Octane-Renderer's outgoing/catalog/CatalogAdmin*Composer and their contract test.
+// Field orders follow the RBAC catalog editor wire contract.
 public class CatalogAdminWireTests
 {
-    private static readonly CatalogAdminPage Page = new("NORMAL", 42, 7, "guild_shop", "Guild shop", "guild_furni", 1, 145, 5, 9, true, false,
-        false, "NORMAL", false, "headline", "teaser", "", "text one", "", "details", "teaser text", 0, "");
+    private static readonly CatalogAdminPage Page = new("NORMAL", 42, 7, "guild_shop", "Guild shop", "guild_furni", 1, 145, "catalog.pages.guild", 9, true, false,
+        false, "NORMAL", "headline", "teaser", "", "text one", "", "details", "teaser text", 0, "");
 
     [Fact]
     public void SavePageReadsEveryFieldAndTheDraftEnvelope()
     {
-        var packet = EditorTestSupport.Incoming(42, "Guild shop", "guild_shop", "guild_furni", 145, 5, true, false, 9, 7,
-            "headline", "teaser", "details", "BUILDERS_CLUB", "BUILDER", "text one", 3, true, false, "special", "text two", "teaser text", 123, "1;2;3",
+        var packet = EditorTestSupport.Incoming(42, "Guild shop", "guild_shop", "guild_furni", 145, "catalog.pages.guild", true, false, 9, 7,
+            "headline", "teaser", "details", "BUILDERS_CLUB", "BUILDER", "text one", 3, true, "special", "text two", "teaser text", 123, "1;2;3",
             12, 7, "token-123", "Updated page: Guild shop", "save-page-1");
 
         var (page, envelope) = CatalogAdminPacketReader.SavePage(packet);
 
-        Assert.Equal(new CatalogAdminPage("BUILDER", 42, 7, "guild_shop", "Guild shop", "guild_furni", 3, 145, 5, 9, true, false, true, "BUILDER", false,
+        Assert.Equal(new CatalogAdminPage("BUILDER", 42, 7, "guild_shop", "Guild shop", "guild_furni", 3, 145, "catalog.pages.guild", 9, true, false, true, "BUILDER",
             "headline", "teaser", "special", "text one", "text two", "details", "teaser text", 123, "1;2;3"), page);
         Assert.Equal(new CatalogAdminEnvelope("BUILDER", 12, 7, "token-123", "Updated page: Guild shop", "save-page-1"), envelope);
         Assert.False(packet.HasDataRemaining());
@@ -31,13 +31,13 @@ public class CatalogAdminWireTests
     [Fact]
     public void CreatePageReadsTheCreateOrder()
     {
-        var packet = EditorTestSupport.Incoming("Guild shop", "guild_shop", "guild_furni", 145, 5, true, false, 9, 7,
-            "NORMAL", "NORMAL", 3, false, true, "headline", "teaser", "special", "text one", "text two", "details", "teaser text", 0, "",
+        var packet = EditorTestSupport.Incoming("Guild shop", "guild_shop", "guild_furni", 145, "catalog.pages.guild", true, false, 9, 7,
+            "NORMAL", "NORMAL", 3, false, "headline", "teaser", "special", "text one", "text two", "details", "teaser text", 0, "",
             1, 4, "", "Created page: Guild shop", "create-page-1");
 
         var (page, envelope) = CatalogAdminPacketReader.CreatePage(packet);
 
-        Assert.Equal(new CatalogAdminPage("NORMAL", 0, 7, "guild_shop", "Guild shop", "guild_furni", 3, 145, 5, 9, true, false, false, "NORMAL", true,
+        Assert.Equal(new CatalogAdminPage("NORMAL", 0, 7, "guild_shop", "Guild shop", "guild_furni", 3, 145, "catalog.pages.guild", 9, true, false, false, "NORMAL",
             "headline", "teaser", "special", "text one", "text two", "details", "teaser text", 0, ""), page);
         Assert.Equal(("create-page-1", 4), (envelope.OperationId, envelope.ExpectedRevision));
         Assert.False(packet.HasDataRemaining());
@@ -119,7 +119,7 @@ public class CatalogAdminWireTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         new CatalogAdminPageDetailsComposer(Page).Compose(packet);
-        Assert.Equal(new object[] { 42, "Guild shop", "guild_shop", 7, "NORMAL", "guild_furni", 1, 145, 5, 9, true, false, false, false,
+        Assert.Equal(new object[] { 42, "Guild shop", "guild_shop", 7, "NORMAL", "guild_furni", 1, 145, "catalog.pages.guild", 9, true, false, false,
             "headline", "teaser", "", "text one", "", "details", "teaser text", 0, "" }, packet.Writes);
     }
 

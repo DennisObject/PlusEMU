@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Outgoing.Navigator;
@@ -69,7 +70,7 @@ public class GetGuestRoomResultComposer : IServerPacket
         packet.WriteInteger(_data.WhoCanMute);
         packet.WriteInteger(_data.WhoCanKick);
         packet.WriteInteger(_data.WhoCanBan);
-        packet.WriteBoolean(_session.GetHabbo().Permissions.HasRight("mod_tool") || _data.OwnerName == _session.GetHabbo().Username);
+        packet.WriteBoolean(_session.GetHabbo().Access.Can(PermissionKeys.ModerationTool) || _data.OwnerName == _session.GetHabbo().Username);
         packet.WriteInteger(_data.ChatMode);
         packet.WriteInteger(_data.ChatSize);
         packet.WriteInteger(_data.ChatSpeed);

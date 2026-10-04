@@ -8,7 +8,6 @@ internal class TradeBanCommand : ITargetChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "tradeban";
-    public string PermissionRequired => "command_trade_ban";
 
     public string Parameters => "%target% %length%";
 
@@ -23,6 +22,8 @@ internal class TradeBanCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
+        if (!session.GetHabbo().Access.Outranks(target.Access))
+            return Task.CompletedTask;
         if (!parameters.Any())
         {
             session.SendWhisper("Please define tohe amount of days. Use 0 to reset.");

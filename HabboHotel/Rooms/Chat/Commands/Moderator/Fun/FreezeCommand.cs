@@ -7,7 +7,6 @@ internal class FreezeCommand : ITargetChatCommand
 {
     private readonly IGameClientManager _gameClientManager;
     public string Key => "freeze";
-    public string PermissionRequired => "command_freeze";
 
     public string Parameters => "%username%";
 
@@ -22,6 +21,8 @@ internal class FreezeCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
+        if (!session.GetHabbo().Access.Outranks(target.Access))
+            return Task.CompletedTask;
         var targetUser = session.GetHabbo().CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(target.Id);
         if (targetUser != null)
             targetUser.Frozen = true;

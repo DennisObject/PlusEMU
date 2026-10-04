@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Chat;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -7,7 +8,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator.Fun;
 internal class MakeSayCommand : ITargetChatCommand
 {
     public string Key => "makesay";
-    public string PermissionRequired => "command_makesay";
 
     public string Parameters => "%username% %message%";
 
@@ -27,7 +27,7 @@ internal class MakeSayCommand : ITargetChatCommand
             {
                 if (targetUser.GetClient() != null && targetUser.GetClient().GetHabbo() != null)
                 {
-                    if (!targetUser.GetClient().GetHabbo().Permissions.HasRight("mod_make_say_any"))
+                    if (!targetUser.GetClient().GetHabbo().Access.Can(PermissionKeys.ModerationMakeSayAny))
                         room.SendPacket(new ChatComposer(targetUser.VirtualId, message, 0, targetUser.LastBubble));
                     else
                         session.SendWhisper("You cannot use makesay on this user.");

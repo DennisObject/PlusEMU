@@ -2,6 +2,7 @@ using Dapper;
 using Plus.Communication.Packets.Outgoing.Navigator;
 using Plus.Communication.Packets.Outgoing.Rooms.Settings;
 using Plus.Database;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 using static Plus.HabboHotel.Housekeeping.HousekeepingErrors;
@@ -23,13 +24,15 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
     private readonly IRoomDeletionService _roomDeletion;
     private readonly IHousekeepingUserStore _users;
     private readonly IDatabase _database;
+    private readonly IAccessControl _permissions;
 
-    public HousekeepingRoomActions(IRoomManager roomManager, IRoomDeletionService roomDeletion, IHousekeepingUserStore users, IDatabase database)
+    public HousekeepingRoomActions(IRoomManager roomManager, IRoomDeletionService roomDeletion, IHousekeepingUserStore users, IDatabase database, IAccessControl permissions)
     {
         _roomManager = roomManager;
         _roomDeletion = roomDeletion;
         _users = users;
         _database = database;
+        _permissions = permissions;
     }
 
     public HousekeepingOutcome SetState(Habbo actor, int roomId, bool open)
@@ -60,7 +63,7 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
         foreach (var roomUser in room.GetRoomUserManager().GetUserList().ToList())
         {
             var habbo = roomUser?.GetClient()?.GetHabbo();
-            if (roomUser == null || roomUser.IsBot || habbo == null || habbo.Id == actor.Id || !HousekeepingRankPolicy.CanTarget(actor.Rank, habbo.Rank))
+            if (roomUser == null || roomUser.IsBot || habbo == null || habbo.Id == actor.Id || !actor.Access.Outranks(habbo.Access))
                 continue;
             room.GetRoomUserManager().RemoveUserFromRoom(roomUser.GetClient(), true);
             kicked++;
@@ -74,7 +77,7 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
         if (Load(actor, roomId, out var room) is { } denied) return denied;
         var newOwner = _users.Find(newOwnerId);
         if (newOwner == null) return HousekeepingOutcome.Fail(NewOwnerNotFound, Label(room), $"newOwnerId={newOwnerId}");
-        if (!HousekeepingRankPolicy.CanTarget(actor.Rank, newOwner.Rank)) return HousekeepingOutcome.Fail(RankTooHigh, Label(room), $"newOwnerRank={newOwner.Rank}");
+        if (newOwner.Id == actor.Id || !actor.Access.Outranks(_permissions.Resolve(newOwner.Id))) return HousekeepingOutcome.Fail(RankTooHigh, Label(room), $"newOwnerId={newOwner.Id}");
         // A group home room belongs to the group; moving it would split group and room ownership.
         if (room.Group != null) return HousekeepingOutcome.Fail(RoomActionFailed, Label(room), "group_room");
         using (var connection = _database.Connection())
@@ -112,8 +115,8 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
 
     private HousekeepingOutcome? Guard(Habbo actor, Room room)
     {
-        var ownerRank = _users.Find(room.OwnerId)?.Rank ?? 0;
-        return HousekeepingRankPolicy.CanManageRoom(actor.Rank, ownerRank) ? null : HousekeepingOutcome.Fail(RankTooHigh, Label(room), $"ownerRank={ownerRank}");
+        return room.OwnerId == actor.Id || actor.Access.Outranks(_permissions.Resolve(room.OwnerId))
+            ? null : HousekeepingOutcome.Fail(RankTooHigh, Label(room), $"ownerId={room.OwnerId}");
     }
 
     private static HousekeepingOutcome Invalid(int roomId) => HousekeepingOutcome.Fail(InvalidInput, HousekeepingTarget.Room(Math.Max(roomId, 0)));

@@ -1,38 +1,30 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.Communication.Packets.Outgoing.Handshake;
 
-public class UserRightsComposer : IServerPacket
+public sealed class UserRightsComposer(UserAccess access) : IServerPacket
 {
-    private readonly int _rank;
-    private readonly bool _isAmbassador;
-    private readonly string _rankName;
-    private readonly string _rankBadge;
-    private readonly IReadOnlyList<string> _permissions;
     public uint MessageId => ServerPacketHeader.UserRightsComposer;
-
-    public UserRightsComposer(int rank, bool isAmbassador, string rankName, string rankBadge, IReadOnlyList<string> permissions)
-    {
-        _rank = rank;
-        _isAmbassador = isAmbassador;
-        _rankName = rankName;
-        _rankBadge = rankBadge;
-        _permissions = permissions;
-    }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(2); //Club level
-        packet.WriteInteger(_rank);
-        packet.WriteBoolean(_isAmbassador); //Is an ambassador
-        // Octane's optional rank metadata and resolved permission block (1 = allowed).
-        packet.WriteInteger(_rank);
-        packet.WriteString(_rankName);
-        packet.WriteString(_rankBadge);
-        packet.WriteInteger(_permissions.Count);
-        foreach (var permission in _permissions)
+        // Capture all fields together so an expiry cannot mix two resolutions in one packet.
+        var resolved = access.Capture();
+        var roles = resolved.Roles;
+        var primary = roles.OrderByDescending(role => role.Weight).ThenBy(role => role.Id).FirstOrDefault();
+        var keys = resolved.Keys.Order(StringComparer.Ordinal).ToArray();
+        packet.WriteInteger(ClubAccess.LevelFor(access));
+        packet.WriteInteger(resolved.SecurityLevel);
+        packet.WriteBoolean(keys.Contains(PermissionKeys.Ambassador, StringComparer.Ordinal));
+        packet.WriteInteger(primary?.Id ?? 0);
+        packet.WriteString(primary?.Name ?? string.Empty);
+        packet.WriteString(primary?.BadgeCode ?? string.Empty);
+        packet.WriteInteger(keys.Length);
+        foreach (var key in keys)
         {
-            packet.WriteString(permission);
+            packet.WriteString(key);
             packet.WriteInteger(1);
         }
     }

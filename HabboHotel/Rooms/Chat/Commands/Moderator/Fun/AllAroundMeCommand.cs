@@ -5,7 +5,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator.Fun;
 internal class AllAroundMeCommand : IChatCommand
 {
     public string Key => "allaroundme";
-    public string PermissionRequired => "command_allaroundme";
 
     public string Parameters => "";
 

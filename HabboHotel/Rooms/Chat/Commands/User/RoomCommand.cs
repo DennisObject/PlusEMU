@@ -10,7 +10,6 @@ internal class RoomCommand : IChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "room";
-    public string PermissionRequired => "command_room";
 
     public string Parameters => "push/pull/enables/respect";
 

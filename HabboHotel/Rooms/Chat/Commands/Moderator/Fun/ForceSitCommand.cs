@@ -6,7 +6,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator.Fun;
 internal class ForceSitCommand : ITargetChatCommand
 {
     public string Key => "forcesit";
-    public string PermissionRequired => "command_forcesit";
 
     public string Parameters => "%username%";
 

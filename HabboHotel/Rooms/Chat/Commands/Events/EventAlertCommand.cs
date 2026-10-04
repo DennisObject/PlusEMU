@@ -7,7 +7,6 @@ internal class EventAlertCommand : IChatCommand
 {
     private readonly IGameClientManager _gameClientManager;
     public string Key => "eha";
-    public string PermissionRequired => "command_event_alert";
 
     public string Parameters => "";
 

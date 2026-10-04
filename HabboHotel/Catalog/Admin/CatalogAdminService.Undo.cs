@@ -27,7 +27,7 @@ public sealed partial class CatalogAdminService
         if (CatalogAdminMapping.ToPage(existing) != Snapshot<CatalogAdminPage>(entry.AfterJson!))
             throw ChangedSince();
         var before = Snapshot<CatalogAdminPage>(entry.BeforeJson!) with { PageId = existing.Id };
-        Reject(CatalogAdminValidation.Page(before, existing, actor.Rank, store.Page));
+        Reject(CatalogAdminValidation.Page(before, existing, actor.Access, store.Page));
         var row = CatalogAdminMapping.Apply(before, existing);
         store.UpdatePage(row);
         return PageChange("UPDATE", existing, row, "Change undone");
@@ -46,10 +46,10 @@ public sealed partial class CatalogAdminService
             // A sibling that moved elsewhere since may keep the same order number; its place is parent, catalog and order.
             if (current == null || current.ParentId != sibling.ParentId || current.CatalogMode != sibling.CatalogMode || current.OrderNum != sibling.OrderNum)
                 throw ChangedSince();
-            if (current.MinRank > actor.Rank)
-                throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "This move reordered pages above your rank.");
+            if (!CatalogAdminValidation.Available(current.RequiredPermission, actor.Access))
+                throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "This move reordered pages requiring a permission you do not have.");
         }
-        Reject(CatalogAdminValidation.Move(existing.Id, before.Page.ParentId, CatalogAdminTypes.FromMode(existing.CatalogMode), actor.Rank, store.Page));
+        Reject(CatalogAdminValidation.Move(existing.Id, before.Page.ParentId, CatalogAdminTypes.FromMode(existing.CatalogMode), actor.Access, store.Page));
         var restored = existing.Copy();
         restored.ParentId = before.Page.ParentId;
         restored.OrderNum = before.Page.OrderNum;
@@ -68,7 +68,7 @@ public sealed partial class CatalogAdminService
         if (CatalogAdminMapping.ToOffer(existing, after.OfferId, type) with { LimitedSells = 0 } != after)
             throw ChangedSince();
         var before = Snapshot<CatalogAdminOffer>(entry.BeforeJson!);
-        Reject(CatalogAdminValidation.Offer(before, existing, actor.Rank, store.Page, store.FurnitureExists));
+        Reject(CatalogAdminValidation.Offer(before, existing, actor.Access, store.Page, store.FurnitureExists));
         var row = CatalogAdminMapping.Apply(before, existing);
         store.UpdateOffer(row);
         type = CatalogType(store.Page(row.PageId)!);

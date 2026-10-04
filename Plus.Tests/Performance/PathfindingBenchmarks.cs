@@ -42,7 +42,7 @@ public class PathfindingBenchmarks
 
         void Run(string name, char[][] rows, int sx, int sy, int gx, int gy, int v2Iterations, int legacyIterations)
         {
-            var model = new RoomModel("benchmark", 0, 0, 0, 0, string.Join('\r', rows.Select(r => new string(r))), false, 0, false);
+            var model = new RoomModel("benchmark", 0, 0, 0, 0, string.Join('\r', rows.Select(r => new string(r))), 0, 0, false);
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
             var map = new Gamemap(room, model);
             Set(room, "_gamemap", map); Set(room, "_roomItemHandling", new RoomItemHandling(room)); Set(room, "_roomUserManager", new RoomUserManager(room));

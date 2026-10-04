@@ -51,7 +51,7 @@ public class RegistrationDefaults
     public string Motto { get; set; } = "Octane";
     public int Credits { get; set; } = 50000;
     public int ActivityPoints { get; set; } = 5000;
-    public int Rank { get; set; } = 1;
+    public string[] Roles { get; set; } = ["vip"];
     public bool Vip { get; set; } = true;
     public int HomeRoom { get; set; } = 1;
 

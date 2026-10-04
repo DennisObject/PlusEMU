@@ -8,7 +8,6 @@ internal class UnmuteCommand : ITargetChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "unmute";
-    public string PermissionRequired => "command_unmute";
 
     public string Parameters => "%username%";
 
@@ -23,6 +22,8 @@ internal class UnmuteCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
+        if (!session.GetHabbo().Access.Outranks(target.Access))
+            return Task.CompletedTask;
         using (var dbClient = _database.GetQueryReactor())
         {
             dbClient.RunQuery($"UPDATE `users` SET `time_muted` = '0' WHERE `id` = '{target.Id}' LIMIT 1");

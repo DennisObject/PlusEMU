@@ -1,4 +1,6 @@
-﻿using Plus.Communication.Packets.Outgoing.Moderation;
+﻿using Plus.Communication.Attributes;
+using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
@@ -6,6 +8,7 @@ using Dapper;
 
 namespace Plus.Communication.Packets.Incoming.Moderation;
 
+[RequiresPermission(PermissionKeys.ModerationTool)]
 internal class CloseTicketEvent : IPacketEvent
 {
     private readonly IModerationManager _moderationManager;
@@ -21,8 +24,6 @@ internal class CloseTicketEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().Permissions.HasRight("mod_tool"))
-            return Task.CompletedTask;
         var result = packet.ReadInt(); // 1 = useless, 2 = abusive, 3 = resolved
         packet.ReadInt(); //junk
         var ticketId = packet.ReadInt();

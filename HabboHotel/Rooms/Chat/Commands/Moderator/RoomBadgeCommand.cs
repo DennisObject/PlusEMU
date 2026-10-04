@@ -7,7 +7,6 @@ internal class RoomBadgeCommand : IChatCommand
 {
     private readonly IBadgeManager _badgeManager;
     public string Key => "roombadge";
-    public string PermissionRequired => "command_room_badge";
 
     public string Parameters => "%badge%";
 

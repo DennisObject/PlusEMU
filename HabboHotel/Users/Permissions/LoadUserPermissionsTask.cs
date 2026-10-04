@@ -1,20 +1,13 @@
-﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Users.UserData;
 
 namespace Plus.HabboHotel.Users.Permissions;
 
-internal class LoadUserPermissionsTask : IUserDataLoadingTask
+internal sealed class LoadUserPermissionsTask(IAccessControl accessControl) : IUserDataLoadingTask
 {
-    private readonly IPermissionManager _permissionManager;
-
-    public LoadUserPermissionsTask(IPermissionManager permissionManager)
-    {
-        _permissionManager = permissionManager;
-    }
-
     public Task Load(Habbo habbo)
     {
-        habbo.Permissions = new(_permissionManager.GetPermissionsForPlayer(habbo), _permissionManager.GetCommandsForPlayer(habbo));
+        habbo.Access = accessControl.Resolve(habbo.Id);
         return Task.CompletedTask;
     }
 }

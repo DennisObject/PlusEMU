@@ -1,4 +1,5 @@
-﻿using Plus.Database;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Database;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
@@ -7,7 +8,6 @@ internal class SetMaxCommand : IChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "setmax";
-    public string PermissionRequired => "command_setmax";
 
     public string Parameters => "%value%";
 
@@ -34,7 +34,7 @@ internal class SetMaxCommand : IChatCommand
                 maxAmount = 10;
                 session.SendWhisper("visitor amount too low, visitor amount has been set to 10.");
             }
-            else if (maxAmount > 200 && !session.GetHabbo().Permissions.HasRight("override_command_setmax_limit"))
+            else if (maxAmount > 200 && !session.GetHabbo().Access.Can(PermissionKeys.RoomUserLimitOverride))
             {
                 maxAmount = 200;
                 session.SendWhisper("visitor amount too high for your rank, visitor amount has been set to 200.");

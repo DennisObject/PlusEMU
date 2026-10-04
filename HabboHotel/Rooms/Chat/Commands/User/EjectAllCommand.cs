@@ -10,7 +10,6 @@ internal class EjectAllCommand : IChatCommand
     private readonly IGameClientManager _gameClientManager;
     private readonly IDatabase _database;
     public string Key => "ejectall";
-    public string PermissionRequired => "command_ejectall";
 
     public string Parameters => "";
 

@@ -3,6 +3,7 @@ using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.Communication.Packets.Outgoing.Users;
 using Plus.Database;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Subscriptions;
@@ -38,6 +39,7 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
     };
 
     private readonly IHousekeepingUserStore _users;
+    private readonly IAccessControl _permissions;
     private readonly IGameClientManager _clients;
     private readonly IItemDataManager _itemData;
     private readonly IItemFactory _itemFactory;
@@ -47,9 +49,10 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
     private readonly IAccountSessionGate _sessionGate;
 
     public HousekeepingEconomyActions(IHousekeepingUserStore users, IGameClientManager clients, IItemDataManager itemData, IItemFactory itemFactory,
-        IClubMembershipService clubMemberships, IDatabase database, IAccountSessionGate sessionGate)
+        IClubMembershipService clubMemberships, IDatabase database, IAccountSessionGate sessionGate, IAccessControl permissions)
     {
         _users = users;
+        _permissions = permissions;
         _clients = clients;
         _itemData = itemData;
         _itemFactory = itemFactory;
@@ -62,7 +65,7 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
     {
         if (!Enum.IsDefined(currency) || !HousekeepingLimits.InRange(amount, 1, HousekeepingLimits.MaxGrantAmount)) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         using var account = _sessionGate.Enter(userId);
-        if (_users.Target(actor, userId, out var user) is { } denied) return denied;
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
         var detail = $"currency={currency} amount={amount}";
         if (_clients.Online(userId) is { } client)
         {
@@ -93,7 +96,7 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
     {
         if (itemId <= 0 || !HousekeepingLimits.InRange(quantity, 1, HousekeepingLimits.MaxItemQuantity)) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         using var account = _sessionGate.Enter(userId);
-        if (_users.Target(actor, userId, out var user) is { } denied) return denied;
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
         if (!_itemData.Items.TryGetValue((uint)itemId, out var definition) || UngrantableItems.Contains(definition.InteractionType))
             return HousekeepingOutcome.Fail(ItemNotFound, Label(user), $"itemId={itemId}");
         var items = _itemFactory.CreateMultipleItems(definition, user.Id, string.Empty, quantity);
@@ -113,9 +116,11 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
     {
         if (!HousekeepingLimits.InRange(days, 0, HousekeepingLimits.MaxClubDays)) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         using var account = _sessionGate.Enter(userId);
-        if (_users.Target(actor, userId, out var user) is { } denied) return denied;
-        var expiry = _clubMemberships.Grant(user.Id, days);
-        _clients.Online(userId)?.Send(new ScrSendUserInfoComposer(expiry - (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
+        var expiry = _clubMemberships.Grant(actor, user.Id, days);
+        if (expiry == null) return HousekeepingOutcome.Fail(Forbidden, Label(user));
+        if (_clients.Online(userId) is { } client)
+            client.Send(new ScrSendUserInfoComposer(client.GetHabbo().Access, expiry.Value - (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
         return HousekeepingOutcome.Success(Label(user), $"days={days} expires={expiry}");
     }
 

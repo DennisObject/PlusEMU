@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Subscriptions;
 using System.Globalization;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Games.Teams;
@@ -147,7 +148,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             "@sign" => avatar.Statusses.TryGetValue("sign", out var sign) && int.TryParse(sign, NumberStyles.None, CultureInfo.InvariantCulture, out var signId) ? signId : -1,
             "@effect" => habbo?.Effects.CurrentEffect, "@gender" => habbo is null ? -1 : habbo.Gender.Equals("M", StringComparison.OrdinalIgnoreCase) ? 0 : 1,
             "@achievement_score" => habbo?.HabboStats.AchievementPoints,
-            "@is_hc" => Flag(habbo is not null && habbo.VipRank > 0),
+            "@is_hc" => Flag(habbo is not null && ClubAccess.LevelFor(habbo.Access) > 0),
             "@is_idle" => Flag(avatar.IsAsleep), "@is_frozen" => Flag(avatar.Freezed || avatar.Frozen),
             "@is_trading" => Flag(avatar.IsTrading), "@is_muted" => Flag(habbo is not null && habbo.TimeMuted > 0),
             "@is_owner" => Flag(habbo is not null && habbo.Id == room.OwnerId),

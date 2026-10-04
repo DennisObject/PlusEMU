@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Users;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Users;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.Chat.Filter;
@@ -35,13 +36,13 @@ internal class CheckUserNameEvent : IPacketEvent
             session.Send(new NameChangeUpdateComposer(name, 4));
             return;
         }
-        if (!session.GetHabbo().Permissions.HasRight("mod_tool") && name.ToLower().Contains("mod") || name.ToLower().Contains("adm") || name.ToLower().Contains("admin") ||
+        if (!session.GetHabbo().Access.Can(PermissionKeys.ModerationTool) && name.ToLower().Contains("mod") || name.ToLower().Contains("adm") || name.ToLower().Contains("admin") ||
             name.ToLower().Contains("m0d"))
         {
             session.Send(new NameChangeUpdateComposer(name, 4));
             return;
         }
-        if (!name.ToLower().Contains("mod") && (session.GetHabbo().Rank == 2 || session.GetHabbo().Rank == 3))
+        if (!name.ToLower().Contains("mod") && session.GetHabbo().Access.Can(PermissionKeys.AvatarNameStaffPrefixRequired))
         {
             session.Send(new NameChangeUpdateComposer(name, 4));
             return;

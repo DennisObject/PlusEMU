@@ -1,4 +1,5 @@
-﻿using Plus.Database;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -8,7 +9,6 @@ internal class MuteCommand : ITargetChatCommand
 {
     private readonly IDatabase _database;
     public string Key => "mute";
-    public string PermissionRequired => "command_mute";
 
     public string Parameters => "%username% %time%";
 
@@ -23,14 +23,14 @@ internal class MuteCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (target.Permissions.HasRight("mod_tool") && !session.GetHabbo().Permissions.HasRight("mod_mute_any"))
+        if (!session.GetHabbo().Access.Outranks(target.Access))
         {
             session.SendWhisper("Oops, you cannot mute that user.");
             return Task.CompletedTask;
         }
         if (double.TryParse(parameters[0], out var time))
         {
-            if (time > 600 && !session.GetHabbo().Permissions.HasRight("mod_mute_limit_override"))
+            if (time > 600 && !session.GetHabbo().Access.Can(PermissionKeys.ModerationMuteLimitOverride))
                 time = 600;
             using (var dbClient = _database.GetQueryReactor())
             {

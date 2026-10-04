@@ -8,7 +8,6 @@ internal class GiveBadgeCommand : ITargetChatCommand
 {
     private readonly IBadgeManager _badgeManager;
     public string Key => "givebadge";
-    public string PermissionRequired => "command_give_badge";
 
     public string Parameters => "%username% %badge%";
 

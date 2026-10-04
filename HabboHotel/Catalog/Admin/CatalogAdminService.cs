@@ -75,7 +75,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
         int revision = store.Revision();
         var updatedAt = store.LastChangeAt();
         BetweenSessionReads?.Invoke();
-        var pages = store.Pages().Where(page => page.MinRank <= actor.Rank).Select(CatalogAdminMapping.ToPage).ToList();
+        var pages = store.Pages().Where(page => CatalogAdminValidation.Available(page.RequiredPermission, actor.Access)).Select(CatalogAdminMapping.ToPage).ToList();
         transaction.Commit();
         return new(revision, updatedAt, pages);
     }
@@ -107,7 +107,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
 
     public bool Publish(Habbo actor)
     {
-        if (!EditorPermissions.Allows(actor))
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true)
             return false;
         _logger.LogInformation("Catalog editor: {User} reloaded the catalog", actor.Username);
         _refresher.Schedule();
@@ -116,7 +116,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
 
     public void RecordViewedPage(Habbo habbo, int pageId)
     {
-        if (EditorPermissions.Allows(habbo))
+        if (habbo?.Access?.Can(PermissionKeys.CatalogEdit) == true)
             _viewedPages[habbo.Id] = pageId;
     }
 
@@ -124,7 +124,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
         Mutate(actor, envelope, "createPage", PageEntity, 0, store =>
         {
             var draft = page with { PageId = 0 };
-            Reject(CatalogAdminValidation.Page(draft, null, actor.Rank, store.Page));
+            Reject(CatalogAdminValidation.Page(draft, null, actor.Access, store.Page));
             var row = CatalogAdminMapping.Apply(draft, null);
             if (draft.OrderNum < 0)
                 row.OrderNum = store.NextPageOrder(row.ParentId, row.CatalogMode);
@@ -137,7 +137,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
         Mutate(actor, envelope, "savePage", PageEntity, page.PageId, store =>
         {
             var existing = store.Page(page.PageId) ?? throw NotFound("Page");
-            Reject(CatalogAdminValidation.Page(page, existing, actor.Rank, store.Page));
+            Reject(CatalogAdminValidation.Page(page, existing, actor.Access, store.Page));
             var row = CatalogAdminMapping.Apply(page, existing);
             store.UpdatePage(row);
             return PageChange("UPDATE", existing, row, "Page saved");
@@ -160,7 +160,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
         Mutate(actor, envelope, "movePage", PageEntity, pageId, store =>
         {
             var existing = RequirePage(store, pageId, actor);
-            Reject(CatalogAdminValidation.Move(pageId, parentId, CatalogAdminTypes.FromMode(existing.CatalogMode), actor.Rank, store.Page));
+            Reject(CatalogAdminValidation.Move(pageId, parentId, CatalogAdminTypes.FromMode(existing.CatalogMode), actor.Access, store.Page));
             var siblings = store.Children(parentId, existing.CatalogMode).Where(page => page.Id != pageId).ToList();
             var moved = existing.Copy();
             moved.ParentId = parentId;
@@ -168,8 +168,8 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
             moved.OrderNum = siblings.IndexOf(moved);
             var renumbered = siblings.Select((page, order) => (Page: page, Order: order))
                 .Where(entry => entry.Page.Id != pageId && entry.Page.OrderNum != entry.Order).ToList();
-            if (renumbered.Any(entry => entry.Page.MinRank > actor.Rank))
-                throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "This move would reorder pages above your rank.");
+            if (renumbered.Any(entry => !CatalogAdminValidation.Available(entry.Page.RequiredPermission, actor.Access)))
+                throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "This move would reorder pages requiring a permission you do not have.");
             store.UpdatePage(moved);
             foreach (var (page, order) in renumbered)
                 store.SetPageOrder(page.Id, order);
@@ -222,7 +222,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
     private CatalogAdminOutcome Mutate(Habbo actor, CatalogAdminEnvelope envelope, string action, string entityType, int entityId,
         Func<CatalogAdminStore, CatalogAdminMutation> apply)
     {
-        if (!EditorPermissions.Allows(actor))
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true)
             return Failure(CatalogAdminCodes.Forbidden, "No permission.", envelope.ExpectedRevision, entityType, envelope.CatalogType, entityId);
         if (envelope.OperationId.Length > CatalogAdminEnvelope.MaxOperationIdLength)
             return Failure(CatalogAdminCodes.ValidationFailed, "Operation id is too long.", envelope.ExpectedRevision, entityType, envelope.CatalogType, entityId);
@@ -269,15 +269,15 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
 
     private static void RequireEditor(Habbo actor)
     {
-        if (!EditorPermissions.Allows(actor))
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true)
             throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "No permission.");
     }
 
     private static CatalogPageRow RequirePage(CatalogAdminStore store, int pageId, Habbo actor)
     {
         var page = store.Page(pageId) ?? throw NotFound("Page");
-        if (page.MinRank > actor.Rank)
-            throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "You cannot edit a page above your rank.");
+        if (!CatalogAdminValidation.Available(page.RequiredPermission, actor.Access))
+            throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "You cannot edit a page requiring a permission you do not have.");
         return page;
     }
 

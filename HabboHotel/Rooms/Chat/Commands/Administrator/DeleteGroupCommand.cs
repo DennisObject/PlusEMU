@@ -10,7 +10,6 @@ internal class DeleteGroupCommand : IChatCommand
     private readonly IRoomManager _roomManager;
     private readonly IDatabase _database;
     public string Key => "deletegroup";
-    public string PermissionRequired => "command_delete_group";
 
     public string Parameters => "";
 

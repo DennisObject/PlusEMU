@@ -18,12 +18,12 @@ public interface IHousekeepingLookups
 public sealed class HousekeepingLookups : IHousekeepingLookups
 {
     private readonly IGameClientManager _clients;
-    private readonly IPermissionManager _permissions;
+    private readonly IAccessControl _permissions;
     private readonly IModerationManager _moderation;
     private readonly IRoomManager _rooms;
     private readonly IDatabase _database;
 
-    public HousekeepingLookups(IGameClientManager clients, IPermissionManager permissions, IModerationManager moderation, IRoomManager rooms, IDatabase database)
+    public HousekeepingLookups(IGameClientManager clients, IAccessControl permissions, IModerationManager moderation, IRoomManager rooms, IDatabase database)
     {
         _clients = clients;
         _permissions = permissions;
@@ -36,13 +36,13 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
     {
         if (record == null) return null;
         var online = _clients.Online(record.Id)?.GetHabbo();
-        var rank = online?.Rank ?? record.Rank;
+        var role = (online?.Access ?? _permissions.Resolve(record.Id)).PrimaryRole;
         // Ban and trade lock expiries are stored on the emulator's local clock (UnixTimestamp.GetNow).
         var now = UnixTimestamp.GetNow();
         // Email and IP are personal data; only ranks granted the private-data right see them.
-        var showPrivate = actor.Permissions.HasRight(HousekeepingRights.PrivateData);
-        return new(record.Id, record.Username, online?.Motto ?? record.Motto, online?.Look ?? record.Look, rank,
-            _permissions.TryGetGroup(rank, out var group) ? group.Name : string.Empty, online != null, record.LastOnline,
+        var showPrivate = actor.Access.Can(HousekeepingRights.PrivateData);
+        return new(record.Id, record.Username, online?.Motto ?? record.Motto, online?.Look ?? record.Look, role?.Id ?? 0,
+            role?.Name ?? string.Empty, online != null, record.LastOnline,
             online?.Credits ?? record.Credits, online?.Duckets ?? record.Duckets, online?.Diamonds ?? record.Diamonds,
             showPrivate ? record.Mail : string.Empty, showPrivate ? record.IpLast : string.Empty,
             _moderation.IsBanned(record.Username, out _), (online?.TimeMuted ?? record.TimeMuted) > 0,

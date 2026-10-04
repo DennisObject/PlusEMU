@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
@@ -16,7 +16,7 @@ using Plus.HabboHotel.Users.Ignores;
 using Plus.HabboHotel.Users.Inventory;
 using Plus.HabboHotel.Users.Messenger;
 using Plus.HabboHotel.Users.Messenger.FriendBar;
-using Plus.HabboHotel.Users.Permissions;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Users.Process;
 using Plus.Utilities;
 
@@ -46,7 +46,7 @@ public class Habbo
     public HabboMessenger Messenger { get; set; }
 
     public NavigatorPreferences NavigatorPreferences { get; set; }
-    public PermissionComponent Permissions { get; set; }
+    public UserAccess Access { get; set; } = UserAccess.Empty;
 
     [Obsolete("Should be deleted /refactored to standalone service")]
     private ProcessComponent Process { get; set; }
@@ -62,9 +62,7 @@ public class Habbo
 
     public string Username { get; set; } = string.Empty;
 
-    public int Rank { get; set; }
-
-    public bool IsAmbassador { get; set; }
+    public bool IsAmbassador => Access.Can(PermissionKeys.Ambassador);
 
     public string Motto { get; set; } = string.Empty;
 
@@ -99,8 +97,6 @@ public class Habbo
     public bool ChatPreference { get; set; }
 
     public bool FocusPreference { get; set; }
-
-    public int VipRank { get; set; }
 
     public bool AllowTradingRequests { get; set; } = true;
 
@@ -284,7 +280,7 @@ public class Habbo
                 using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
                 dbClient.RunQuery(
                     $"UPDATE `users` SET `online` = false, `last_online` = '{(int)UnixTimestamp.GetNow()}', `activity_points` = '{Duckets}', `credits` = '{Credits}', `vip_points` = '{Diamonds}', `home_room` = '{HomeRoom}', `gotw_points` = '{GotwPoints}', `time_muted` = '{TimeMuted}',`friend_bar_state` = '{FriendBarStateUtility.GetInt(FriendbarState)}', `bubble_id` = '{CustomBubbleId}' WHERE id = '{Id}' LIMIT 1;UPDATE `user_statistics` SET `roomvisits` = '{HabboStats.RoomVisits}', `onlineTime` = '{(int)(UnixTimestamp.GetNow() - SessionStart + HabboStats.OnlineTime)}', `respect` = '{HabboStats.Respect}', `respectGiven` = '{HabboStats.RespectGiven}', `giftsGiven` = '{HabboStats.GiftsGiven}', `giftsReceived` = '{HabboStats.GiftsReceived}', `dailyRespectPoints` = '{HabboStats.DailyRespectPoints}', `dailyPetRespectPoints` = '{HabboStats.DailyPetRespectPoints}', `AchievementScore` = '{HabboStats.AchievementPoints}', `quest_id` = '{HabboStats.QuestId}', `quest_progress` = '{HabboStats.QuestProgress}', `groupid` = '{HabboStats.FavouriteGroupId}',`forum_posts` = '{HabboStats.ForumPosts}' WHERE `id` = '{Id}' LIMIT 1;");
-                if (Permissions.HasRight("mod_tickets"))
+                if (Access.Can(PermissionKeys.ModerationTickets))
                     dbClient.RunQuery($"UPDATE `moderation_tickets` SET `status` = 'open', `moderator_id` = '0' WHERE `status` ='picked' AND `moderator_id` = '{Id}'");
             }
         }
@@ -304,8 +300,6 @@ public class Habbo
             Effects.Dispose();
         if (Clothing != null)
             Clothing.Dispose();
-        if (Permissions != null)
-            Permissions.Dispose();
     }
 
     public void CheckCreditsTimer()
@@ -325,12 +319,8 @@ public class Habbo
             {
                 var creditUpdate = Convert.ToInt32(PlusEnvironment.SettingsManager.TryGetValue("user.currency_scheduler.credit_reward"));
                 var ducketUpdate = Convert.ToInt32(PlusEnvironment.SettingsManager.TryGetValue("user.currency_scheduler.ducket_reward"));
-                SubscriptionData subData = null;
-                if (PlusEnvironment.Game.SubscriptionManager.TryGetSubscriptionData(VipRank, out subData))
-                {
-                    creditUpdate += subData.Credits;
-                    ducketUpdate += subData.Duckets;
-                }
+                creditUpdate += Access.Limit("limit.currency_credits", 0);
+                ducketUpdate += Access.Limit("limit.currency_duckets", 0);
                 Credits += creditUpdate;
                 Duckets += ducketUpdate;
                 Client.Send(new CreditBalanceComposer(Credits));
@@ -405,13 +395,13 @@ public class Habbo
             Client.Send(new CloseConnectionComposer());
             return;
         }
-        if (room.GetRoomUserManager().UserCount >= room.UsersMax && !Client.GetHabbo().Permissions.HasRight("room_enter_full") && Client.GetHabbo().Id != room.OwnerId)
+        if (room.GetRoomUserManager().UserCount >= room.UsersMax && !Access.Can(PermissionKeys.RoomEnterFull) && Client.GetHabbo().Id != room.OwnerId)
         {
             Client.Send(new CantConnectComposer(1));
             Client.Send(new CloseConnectionComposer());
             return;
         }
-        if (!Permissions.HasRight("room_ban_override") && room.GetBans().IsBanned(Id))
+        if (!Access.Can(PermissionKeys.RoomBanOverride) && room.GetBans().IsBanned(Id))
         {
             RoomAuthOk = false;
             Client.GetHabbo().RoomAuthOk = false;
@@ -422,7 +412,7 @@ public class Habbo
         Client.Send(new OpenConnectionComposer());
         if (!room.CheckRights(Client, true, true) && !Client.GetHabbo().IsTeleporting && !Client.GetHabbo().IsHopping)
         {
-            if (room.Access == RoomAccess.Doorbell && !Client.GetHabbo().Permissions.HasRight("room_enter_locked"))
+            if (room.Access == RoomAccess.Doorbell && !Access.Can(PermissionKeys.RoomEnterLocked))
             {
                 if (room.UserCount > 0)
                 {
@@ -434,7 +424,7 @@ public class Habbo
                 Client.Send(new CloseConnectionComposer());
                 return;
             }
-            if (room.Access == RoomAccess.Password && !Client.GetHabbo().Permissions.HasRight("room_enter_locked"))
+            if (room.Access == RoomAccess.Password && !Access.Can(PermissionKeys.RoomEnterLocked))
             {
                 if (password.ToLower() != room.Password.ToLower() || string.IsNullOrWhiteSpace(password))
                 {

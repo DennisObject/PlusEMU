@@ -22,12 +22,6 @@ internal class CreateFlatEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        var rooms = RoomFactory.GetRoomsDataByOwnerSortByName(session.GetHabbo().Id);
-        if (rooms.Count >= 500)
-        {
-            session.Send(new CanCreateRoomComposer(true, 500));
-            return Task.CompletedTask;
-        }
         var name = _wordFilterManager.CheckMessage(packet.ReadString());
         var description = _wordFilterManager.CheckMessage(packet.ReadString());
         var modelName = packet.ReadString();
@@ -40,9 +34,17 @@ internal class CreateFlatEvent : IPacketEvent
             return Task.CompletedTask;
         if (!_roomManager.TryGetModel(modelName, out var model))
             return Task.CompletedTask;
-        if (!_navigatorManager.TryGetSearchResultList(category, out var searchResultList))
-            category = 36;
-        if (searchResultList.CategoryType != NavigatorCategoryType.Category || searchResultList.RequiredRank > session.GetHabbo().Rank)
+        if (!model.CanCreate(session.GetHabbo().Access))
+            return Task.CompletedTask;
+        var rooms = RoomFactory.GetRoomsDataByOwnerSortByName(session.GetHabbo().Id);
+        if (rooms.Count >= 500)
+        {
+            session.Send(new CanCreateRoomComposer(true, 500));
+            return Task.CompletedTask;
+        }
+        if (!_navigatorManager.TryGetSearchResultList(category, out var searchResultList) ||
+            searchResultList.CategoryType != NavigatorCategoryType.Category ||
+            searchResultList.RequiredPermission.Length > 0 && !session.GetHabbo().Access.Can(searchResultList.RequiredPermission))
             category = 36;
         if (maxVisitors < 10 || maxVisitors > 25)
             maxVisitors = 10;

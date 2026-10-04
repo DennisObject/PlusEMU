@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.Achievements;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Action;
@@ -23,7 +24,7 @@ internal class IgnoreUserEvent : IPacketEvent
             return Task.CompletedTask;
         var username = packet.ReadString();
         var player = _gameClientManager.GetClientByUsername(username)?.GetHabbo();
-        if (player == null || player.Permissions.HasRight("mod_tool"))
+        if (player == null || player.Access.Can(PermissionKeys.ModerationTool))
             return Task.CompletedTask;
         if (session.GetHabbo().IgnoresComponent.IsIgnored(player.Id))
             return Task.CompletedTask;

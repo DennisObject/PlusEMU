@@ -1,9 +1,11 @@
+using Plus.Communication.Attributes;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Housekeeping;
 
 namespace Plus.Communication.Packets.Incoming.Housekeeping;
 
 /// <summary>The one-time password is returned only in the acting operator's action result.</summary>
+[RequiresPermission(HousekeepingRights.Access)]
 internal class HousekeepingResetUserPasswordEvent : IPacketEvent
 {
     private readonly IHousekeepingActionRunner _runner;

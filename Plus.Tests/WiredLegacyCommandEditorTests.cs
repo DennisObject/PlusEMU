@@ -7,6 +7,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
 using Plus.Communication.Revisions;
 using Plus.HabboHotel;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired;
@@ -17,7 +18,6 @@ using Plus.HabboHotel.Rooms.Chat;
 using Plus.HabboHotel.Rooms.Chat.Commands;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.Users;
-using Plus.HabboHotel.Users.Permissions;
 using Xunit;
 
 namespace Plus.Tests;
@@ -138,7 +138,7 @@ public class WiredLegacyCommandEditorTests
                 Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [ServerPacketHeader.WhisperComposer] = 100 } },
                 SendCallback = args => { packets.Add(args.MemoryBuffer.ToArray()); return true; }
             };
-            var habbo = new Habbo { Id = id, Username = "actor" + id, CurrentRoom = Room, Client = client, Permissions = new([], []) };
+            var habbo = new Habbo { Id = id, Username = "actor" + id, CurrentRoom = Room, Client = client, Access = UserAccess.Create([], [new("command.first", false), new("command.second", false)], ["command.first", "command.second"]) };
             client.SetHabbo(habbo);
             var user = new RoomUser(id, 0, virtualId, Room); Set(user, "_mClient", client);
             ((ConcurrentDictionary<int, RoomUser>)Get(users, "_users")).TryAdd(virtualId, user);
@@ -165,7 +165,6 @@ public class WiredLegacyCommandEditorTests
     private sealed class Command(string key) : IChatCommand
     {
         public string Key => key;
-        public string PermissionRequired => "";
         public string Parameters => "";
         public string Description => "Command editor regression fixture";
         public void Execute(GameClient session, Room room, string[] parameters) { }

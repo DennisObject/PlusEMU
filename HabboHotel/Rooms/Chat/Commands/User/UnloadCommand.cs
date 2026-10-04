@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 
@@ -6,7 +7,6 @@ internal class UnloadCommand : IChatCommand
 {
     private readonly IRoomManager _roomManager;
     public string Key => "unload";
-    public string PermissionRequired => "command_unload";
 
     public string Parameters => "%id%";
 
@@ -18,7 +18,7 @@ internal class UnloadCommand : IChatCommand
     }
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (room.CheckRights(session, true) || session.GetHabbo().Permissions.HasRight("room_unload_any"))
+        if (room.CheckRights(session, true) || session.GetHabbo().Access.Can(PermissionKeys.RoomUnloadAny))
             _roomManager.UnloadRoom(room.Id);
     }
 }

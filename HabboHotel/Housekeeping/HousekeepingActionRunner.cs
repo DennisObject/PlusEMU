@@ -31,7 +31,7 @@ public sealed class HousekeepingActionRunner : IHousekeepingActionRunner
         _logger = logger;
     }
 
-    public bool HasAccess(GameClient session) => session.GetHabbo()?.Permissions?.HasRight(HousekeepingRights.Access) == true;
+    public bool HasAccess(GameClient session) => session.GetHabbo()?.Access?.Can(HousekeepingRights.Access) == true;
 
     // The synchronous action completes inline, so this never blocks on pending work.
     public void Run(GameClient session, string actionKey, string right, Func<Habbo, HousekeepingOutcome> action) =>
@@ -41,7 +41,7 @@ public sealed class HousekeepingActionRunner : IHousekeepingActionRunner
     {
         if (!HasAccess(session)) return;
         var actor = session.GetHabbo();
-        var outcome = actor.Permissions.HasRight(right) ? await Execute(actor, actionKey, action) : HousekeepingOutcome.Fail(HousekeepingErrors.Forbidden, HousekeepingTarget.Hotel);
+        var outcome = actor.Access.Can(right) ? await Execute(actor, actionKey, action) : HousekeepingOutcome.Fail(HousekeepingErrors.Forbidden, HousekeepingTarget.Hotel);
         _auditLog.Write(actor.Id, actor.Username, actionKey, outcome);
         session.Send(new HousekeepingActionResultComposer(actionKey, outcome.Ok, outcome.Ok ? outcome.ActionId : 0, outcome.Message));
     }

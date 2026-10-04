@@ -5,7 +5,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 internal class IgnoreWhispersCommand : IChatCommand
 {
     public string Key => "ignorewhispers";
-    public string PermissionRequired => "command_ignore_whispers";
 
     public string Parameters => "";
 

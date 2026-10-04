@@ -1,4 +1,6 @@
-﻿using Plus.HabboHotel.Achievements;
+using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Action;
@@ -27,7 +29,7 @@ internal class KickUserEvent : IPacketEvent
             return Task.CompletedTask;
 
         //Cannot kick owner or moderators.
-        if (room.CheckRights(user.GetClient(), true) || user.GetClient().GetHabbo().Permissions.HasRight("mod_tool"))
+        if (room.OwnerId == userId || !RoomModerationPolicy.CanTarget(session.GetHabbo().Access, user.GetClient().GetHabbo().Access))
             return Task.CompletedTask;
         room.GetRoomUserManager().RemoveUserFromRoom(user.GetClient(), true, true);
         _achievementManager.ProgressAchievement(session, "ACH_SelfModKickSeen", 1);

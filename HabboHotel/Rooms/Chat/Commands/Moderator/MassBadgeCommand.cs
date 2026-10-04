@@ -8,7 +8,6 @@ internal class MassBadgeCommand : IChatCommand
     private readonly IGameClientManager _gameClientManager;
     private readonly IBadgeManager _badgeManager;
     public string Key => "massbadge";
-    public string PermissionRequired => "command_mass_badge";
 
     public string Parameters => "%badge%";
 

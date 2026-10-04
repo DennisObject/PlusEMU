@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Moderation;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.Rooms.Chat.Commands;
 using Plus.Core.Settings;
@@ -47,7 +48,7 @@ public class WhisperEvent : IPacketEvent
         var room = session.GetHabbo().CurrentRoom;
         if (room == null)
             return;
-        if (!session.GetHabbo().Permissions.HasRight("mod_tool") && room.CheckMute(session))
+        if (!session.GetHabbo().Access.Can(PermissionKeys.ModerationTool) && room.CheckMute(session))
         {
             session.SendWhisper("Oops, you're currently muted.");
             return;
@@ -69,13 +70,13 @@ public class WhisperEvent : IPacketEvent
             session.Send(new MutedComposer(session.GetHabbo().TimeMuted));
             return;
         }
-        if (!session.GetHabbo().Permissions.HasRight("word_filter_override"))
+        if (!session.GetHabbo().Access.Can(PermissionKeys.ChatFilterBypass))
             message = _wordFilterManager.CheckMessage(message);
-        if (!_chatStyleManager.TryGetStyle(colour, out var style) ||
-            style.RequiredRight.Length > 0 && !session.GetHabbo().Permissions.HasRight(style.RequiredRight))
+        if (session.GetHabbo().CustomBubbleId != 0) colour = session.GetHabbo().CustomBubbleId;
+        if (!_chatStyleManager.TryGetStyle(colour, out var style) || !style.CanUse(session.GetHabbo().Access))
             colour = 0;
-        user.LastBubble = session.GetHabbo().CustomBubbleId == 0 ? colour : session.GetHabbo().CustomBubbleId;
-        if (!session.GetHabbo().Permissions.HasRight("mod_tool"))
+        user.LastBubble = colour;
+        if (!session.GetHabbo().Access.Can(PermissionKeys.ModerationTool))
         {
             if (user.IncrementAndCheckFlood(out var muteTime))
             {
@@ -83,7 +84,7 @@ public class WhisperEvent : IPacketEvent
                 return;
             }
         }
-        if (!user2.GetClient().GetHabbo().ReceiveWhispers && !session.GetHabbo().Permissions.HasRight("room_whisper_override"))
+        if (!user2.GetClient().GetHabbo().ReceiveWhispers && !session.GetHabbo().Access.Can(PermissionKeys.RoomWhisperOverride))
         {
             session.SendWhisper("Oops, this user has their whispers disabled!");
             return;
@@ -110,7 +111,7 @@ public class WhisperEvent : IPacketEvent
             if (!user2.GetClient().GetHabbo().IgnoresComponent.IsIgnored(session.GetHabbo().Id))
                 user2.GetClient().Send(new WhisperComposer(user.VirtualId, message, 0, user.LastBubble));
         }
-        var toNotify = room.GetRoomUserManager().GetRoomUserByRank(2);
+        var toNotify = room.GetRoomUserManager().GetRoomUsersWithPermission(PermissionKeys.StaffReceiveAlerts);
         if (toNotify.Count > 0)
         {
             foreach (var notifiable in toNotify)

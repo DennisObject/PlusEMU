@@ -7,7 +7,6 @@ internal class UnFreezeCommand : ITargetChatCommand
 {
     private readonly IGameClientManager _gameClientManager;
     public string Key => "unfreeze";
-    public string PermissionRequired => "command_unfreeze";
 
     public string Parameters => "%username%";
 

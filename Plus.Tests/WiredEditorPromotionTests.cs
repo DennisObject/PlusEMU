@@ -35,7 +35,7 @@ public class WiredEditorPromotionTests
     {
         var database = new MemoryDatabase();
         var (room, wired, _) = Room();
-        var map = new Gamemap(room, new RoomModel("template-test", 0, 0, 0, 0, "000\r000\r000", false, 0, true));
+        var map = new Gamemap(room, new RoomModel("template-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true));
         Set(room, "_gamemap", map); typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
         typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);
         var item = new Item { Id = 7, ExtraData = new LegacyDataFormat { Data = "1" }, Definition = new()
@@ -118,7 +118,7 @@ public class WiredEditorPromotionTests
                 { [ServerPacketHeader.WiredValidationErrorComposer] = 156, [ServerPacketHeader.HideWiredConfigComposer] = 1155 } },
             SendCallback = args => { packets.Add((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2))); return true; }
         };
-        client.SetHabbo(new Habbo { Username = "owner", CurrentRoom = room, Permissions = new([], []) }); return client;
+        client.SetHabbo(new Habbo { Username = "owner", CurrentRoom = room, Access = EditorTestSupport.Access([]) }); return client;
     }
 
     private static FlashIncomingPacket ActionPacket(int[] parameters, uint[] selected)
@@ -144,7 +144,7 @@ public class WiredEditorPromotionTests
             Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [ServerPacketHeader.WiredValidationErrorComposer] = 156 } },
             SendCallback = args => { error = new FlashIncomingPacket { Buffer = args.MemoryBuffer[6..].ToArray() }.ReadString(); return true; }
         };
-        client.SetHabbo(new Habbo { Username = "owner", CurrentRoom = room, Permissions = new(staff ? ["mod_tool"] : [], []) });
+        client.SetHabbo(new Habbo { Username = "owner", CurrentRoom = room, Access = EditorTestSupport.Access(staff ? ["moderation.tool"] : []) });
         await new SaveWiredEffectConfigEvent(new MemoryDatabase()).Parse(client, Packet(1, [0, 0, 0, 1, 0], ""));
         Assert.Equal(staff, box.Validated);
         Assert.Equal(staff ? "Rejected by concrete reward validation." : "You do not have permission to configure Wired rewards.", error);
@@ -182,7 +182,7 @@ public class WiredEditorPromotionTests
                     { [ServerPacketHeader.WiredValidationErrorComposer] = 156, [ServerPacketHeader.HideWiredConfigComposer] = 1155 } },
                 SendCallback = args => { packets.Add((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2))); return true; }
             };
-            client.SetHabbo(new Habbo { Username = "owner", CurrentRoom = room, Permissions = new([], []) });
+            client.SetHabbo(new Habbo { Username = "owner", CurrentRoom = room, Access = EditorTestSupport.Access([]) });
             var handler = kind == 0 ? (SaveWiredConfigEvent)new SaveWiredTriggerConfigEvent(database)
                 : kind == 3 ? new SaveWiredConditionConfigEvent(database) : new SaveWiredEffectConfigEvent(database);
             var parameters = kind switch { 0 => new[] { 0, 1, 0 }, 1 => [0, 0, 34, -1], 2 => [0, 0, 0], 3 => [2, 8, 0], _ => [1, 1, 1, 1, 100] };

@@ -7,7 +7,6 @@ internal class BubbleCommand : IChatCommand
 {
     private readonly IChatStyleManager _chatStyleManager;
     public string Key => "bubble";
-    public string PermissionRequired => "command_bubble";
 
     public string Parameters => "%id%";
 
@@ -33,9 +32,9 @@ internal class BubbleCommand : IChatCommand
             session.SendWhisper("Please enter a valid number.");
             return;
         }
-        if (!_chatStyleManager.TryGetStyle(bubble, out var style) || style.RequiredRight.Length > 0 && !session.GetHabbo().Permissions.HasRight(style.RequiredRight))
+        if (!_chatStyleManager.TryGetStyle(bubble, out var style) || !style.CanUse(session.GetHabbo().Access))
         {
-            session.SendWhisper("Oops, you cannot use this bubble due to a rank requirement, sorry!");
+            session.SendWhisper("Oops, you cannot use this bubble with your current permissions or membership.");
             return;
         }
         user.LastBubble = bubble;

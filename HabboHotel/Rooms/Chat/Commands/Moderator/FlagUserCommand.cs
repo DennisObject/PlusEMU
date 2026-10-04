@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Handshake;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -7,7 +8,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 internal class FlagUserCommand : ITargetChatCommand
 {
     public string Key => "flaguser";
-    public string PermissionRequired => "command_flaguser";
 
     public string Parameters => "%username%";
 
@@ -17,7 +17,7 @@ internal class FlagUserCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (target.Permissions.HasRight("mod_tool"))
+        if (target.Access.Can(PermissionKeys.ModerationTool))
         {
             session.SendWhisper("You are not allowed to flag that user.");
             return Task.CompletedTask;

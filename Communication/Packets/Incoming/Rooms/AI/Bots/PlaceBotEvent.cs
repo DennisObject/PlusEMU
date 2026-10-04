@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using Plus.HabboHotel.Permissions;
+using System.Data;
 using Plus.Communication.Packets.Outgoing.Inventory.Bots;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -38,7 +39,7 @@ internal class PlaceBotEvent : RoomPacketEvent
                 continue;
             botCount += 1;
         }
-        if (botCount >= 5 && !session.GetHabbo().Permissions.HasRight("bot_place_any_override"))
+        if (botCount >= 5 && !session.GetHabbo().Access.Can(PermissionKeys.BotPlaceAnyOverride))
         {
             session.SendNotification("Sorry; 5 bots per room only!");
             return Task.CompletedTask;

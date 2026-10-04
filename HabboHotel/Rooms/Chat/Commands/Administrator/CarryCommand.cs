@@ -5,7 +5,6 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.Administrator;
 internal class CarryCommand : IChatCommand
 {
     public string Key => "carry";
-    public string PermissionRequired => "command_carry";
 
     public string Parameters => "%ItemId%";
 

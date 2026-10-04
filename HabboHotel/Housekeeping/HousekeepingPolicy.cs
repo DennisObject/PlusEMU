@@ -41,16 +41,3 @@ public static class HousekeepingLimits
     /// <summary>Unix second at which a duration ends, saturated at the int wire range.</summary>
     public static int UnixUntil(int now, long durationSeconds) => (int)Math.Min(int.MaxValue, now + Math.Max(0, durationSeconds));
 }
-
-/// <summary>
-/// Rank hierarchy for staff actions: a staff member only acts on strictly lower ranks and only grants ranks below their own.
-/// </summary>
-public static class HousekeepingRankPolicy
-{
-    public static bool CanTarget(int operatorRank, int targetRank) => operatorRank > 0 && targetRank > 0 && targetRank < operatorRank;
-
-    public static bool CanAssign(int operatorRank, int newRank) => operatorRank > 0 && newRank > 0 && newRank < operatorRank;
-
-    /// <summary>Rooms owned by a missing account (rank 0) are manageable; otherwise the owner must be lower ranked.</summary>
-    public static bool CanManageRoom(int operatorRank, int ownerRank) => operatorRank > 0 && ownerRank < operatorRank;
-}

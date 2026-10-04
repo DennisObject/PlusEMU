@@ -1,9 +1,11 @@
+using Plus.Communication.Attributes;
 using Plus.Communication.Packets.Outgoing.Housekeeping;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Housekeeping;
 
 namespace Plus.Communication.Packets.Incoming.Housekeeping;
 
+[RequiresPermission(HousekeepingRights.Access)]
 internal class HousekeepingSearchRoomsEvent : IPacketEvent
 {
     private readonly IHousekeepingActionRunner _runner;
@@ -17,7 +19,6 @@ internal class HousekeepingSearchRoomsEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!_runner.HasAccess(session)) return Task.CompletedTask;
         var query = HousekeepingLimits.Normalize(packet.ReadString());
         var exactMatch = packet.ReadBool();
         var limit = packet.ReadInt();

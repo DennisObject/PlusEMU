@@ -178,7 +178,7 @@ public class WiredClickPacketHookTests
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
             var items = new RoomItemHandling(Room); var users = new RoomUserManager(Room);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
-            var map = new Gamemap(Room, new RoomModel("click-test", 0, 0, 0, 0, "000\r000\r000", false, 0, true));
+            var map = new Gamemap(Room, new RoomModel("click-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true));
             Set(Room, "_gamemap", map); typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);
             _wired = new WiredComponent(Room); Set(Room, "_wiredComponent", _wired);

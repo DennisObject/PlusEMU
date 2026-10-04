@@ -1,4 +1,4 @@
-﻿using Plus.Core;
+using Plus.Core;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.Bots;
@@ -44,9 +44,8 @@ public class Game : IGame
     private readonly int _cycleSleepTime = 25;
     private IGameDataManager _gameDataManager;
     private IServerStatusUpdater _globalUpdater;
-    private IPermissionManager _permissionManager;
+    private IAccessControl _permissionManager;
     private IRewardManager _rewardManager;
-    private ISubscriptionManager _subscriptionManager;
     private ITalentTrackManager _talentTrackManager;
     private bool _cycleActive;
 
@@ -72,8 +71,7 @@ public class Game : IGame
         ICacheManager cacheManager,
         IRewardManager rewardManager,
         IBadgeManager badgeManager,
-        ISubscriptionManager subscriptionManager,
-        IPermissionManager permissionManager)
+        IAccessControl permissionManager)
     {
         _clientManager = gameClientManager;
         _moderationManager = moderationManager;
@@ -93,7 +91,6 @@ public class Game : IGame
         _cacheManager = cacheManager;
         _rewardManager = rewardManager;
         _badgeManager = badgeManager;
-        _subscriptionManager = subscriptionManager;
         _permissionManager = permissionManager;
     }
 
@@ -113,7 +110,6 @@ public class Game : IGame
         _rewardManager.Init();
         _badgeManager.Init();
         _permissionManager.Init();
-        _subscriptionManager.Init();
         _cacheManager.Init();
         return Task.CompletedTask;
     }
@@ -155,7 +151,6 @@ public class Game : IGame
 
     public IAchievementManager AchievementManager => _achievementManager;
 
-    public ISubscriptionManager SubscriptionManager => _subscriptionManager;
 
     public IQuestManager QuestManager => _questManager;
 

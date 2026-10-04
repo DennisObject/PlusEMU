@@ -120,7 +120,7 @@ public class CatalogManager : ICatalogManager, IStartable
             dealsById.Add(deal.Id, deal);
         }
 
-        var pages = await connection.QueryAsync<CatalogPage>("SELECT `id`,`parent_id`,`caption`,`page_link` as `link`,`visible`,`enabled`,`min_rank` as `minimumrank`,`min_vip` as `minimumvip`,`icon_image` as `icon`,`page_layout` as `layout`,`catalog_mode` AS `CatalogMode`,`page_strings_1`,`page_strings_2` FROM `catalog_pages` ORDER BY `order_num`, `id`");
+        var pages = await connection.QueryAsync<CatalogPage>("SELECT `id`,`parent_id`,`caption`,`page_link` as `link`,`visible`,`enabled`,`required_permission` AS `RequiredPermission`,`icon_image` as `icon`,`page_layout` as `layout`,`catalog_mode` AS `CatalogMode`,`page_strings_1`,`page_strings_2` FROM `catalog_pages` ORDER BY `order_num`, `id`");
         foreach (CatalogPage page in pages)
         {
             if (itemsByPage.ContainsKey(page.Id))

@@ -1,5 +1,7 @@
 using Dapper;
+using System.Text.Json;
 using Plus.Database;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.Users;
 
@@ -8,8 +10,13 @@ namespace Plus.HabboHotel.Subscriptions;
 public class ClubMembershipService : IClubMembershipService
 {
     private readonly IDatabase _database;
+    private readonly IAccessControl _permissions;
 
-    public ClubMembershipService(IDatabase database) => _database = database;
+    public ClubMembershipService(IDatabase database, IAccessControl permissions)
+    {
+        _database = database;
+        _permissions = permissions;
+    }
 
     public int GetExpiry(int userId)
     {
@@ -41,17 +48,22 @@ public class ClubMembershipService : IClubMembershipService
             var expiry = Math.Max(current, now) + offer.Days * 86400;
             connection.Execute("INSERT INTO `user_club_memberships` (`user_id`, `expires_at`) VALUES (@userId, @expiry) ON DUPLICATE KEY UPDATE `expires_at` = @expiry", new { userId = habbo.Id, expiry }, transaction);
             connection.Execute("UPDATE `users` SET `credits` = @credits, `activity_points` = @duckets, `vip_points` = @diamonds WHERE `id` = @userId", new { userId = habbo.Id, credits, duckets, diamonds }, transaction);
+            connection.Execute("INSERT INTO acl_audit_log (actor_id, action, target_type, target_id, payload) VALUES (NULL, 'club.purchase', 'user', @userId, @payload)",
+                new { userId = habbo.Id, payload = JsonSerializer.Serialize(new { days = offer.Days, expiry, offer.Credits, offer.Points, offer.PointsType }) }, transaction);
             transaction.Commit();
 
             habbo.Credits = credits;
             habbo.Duckets = duckets;
             habbo.Diamonds = diamonds;
+            _permissions.Refresh(habbo.Id);
             return expiry;
         }
     }
 
-    public int Grant(int userId, int days)
+    public int? Grant(Habbo actor, int userId, int days)
     {
+        if (actor.Id == userId || !actor.Access.Can(PermissionKeys.HousekeepingEconomy) || !actor.Access.Outranks(_permissions.Resolve(userId)))
+            return null;
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
@@ -59,7 +71,10 @@ public class ClubMembershipService : IClubMembershipService
         var current = connection.ExecuteScalar<int?>("SELECT `expires_at` FROM `user_club_memberships` WHERE `user_id` = @userId FOR UPDATE", new { userId }, transaction) ?? 0;
         var expiry = days <= 0 ? now : (int)Math.Min(int.MaxValue, Math.Max(current, now) + (long)days * 86400);
         connection.Execute("INSERT INTO `user_club_memberships` (`user_id`, `expires_at`) VALUES (@userId, @expiry) ON DUPLICATE KEY UPDATE `expires_at` = @expiry", new { userId, expiry }, transaction);
+        connection.Execute("INSERT INTO acl_audit_log (actor_id, action, target_type, target_id, payload) VALUES (@actorId, 'club.grant', 'user', @userId, @payload)",
+            new { actorId = actor.Id, userId, payload = JsonSerializer.Serialize(new { days, expiry }) }, transaction);
         transaction.Commit();
+        _permissions.Refresh(userId);
         return expiry;
     }
 }

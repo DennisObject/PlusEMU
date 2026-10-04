@@ -353,7 +353,7 @@ public sealed class WiredNativeLifecycleTests
         public World()
         {
             Room.Id = 1;
-            Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", false, 0, true));
+            Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true));
             var handler = new RoomItemHandling(Room);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);
             var users = new RoomUserManager(Room); Set(Room, "_roomUserManager", users);
@@ -390,7 +390,7 @@ public sealed class WiredNativeLifecycleTests
                 SendCallback = _ => true
             };
             var habbo = new Habbo { Id = 42, Username = "viewer", Motto = "", Look = "test", Gender = "M", CurrentRoom = Room, Client = client,
-                HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0), Effects = new EffectsComponent(), Permissions = new([], []) };
+                HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0), Effects = new EffectsComponent(), Access = EditorTestSupport.Access([]) };
             client.SetHabbo(habbo);
             var user = new RoomUser(42, 1, 1, Room); Set(user, "_mClient", client); _users[user.VirtualId] = user; return user;
         }

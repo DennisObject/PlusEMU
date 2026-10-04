@@ -72,7 +72,7 @@ public sealed class FurniEditorService : IFurniEditorService
         var repository = new FurniEditorRepository(connection);
         var item = repository.Item(id) ?? throw new FurniEditorRejected($"Item not found: {id}", id);
         // Only offers on pages the actor may open are shown; delete still checks every reference.
-        return new(item, repository.UsageCount(id), repository.CatalogRefs(id, actor.Rank), _furnidata.Lookup(item.ItemName, item.SpriteId));
+        return new(item, repository.UsageCount(id), repository.CatalogRefs(id, actor.Access), _furnidata.Lookup(item.ItemName, item.SpriteId));
     }
 
     public FurniEditorDetail DetailBySprite(Habbo actor, int spriteId)
@@ -94,7 +94,7 @@ public sealed class FurniEditorService : IFurniEditorService
 
     public FurniEditorResult Update(Habbo actor, uint id, string json)
     {
-        if (!EditorPermissions.Allows(actor))
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true)
             return Denied(id);
         lock (_sync)
         {
@@ -121,7 +121,7 @@ public sealed class FurniEditorService : IFurniEditorService
 
     public FurniEditorResult Delete(Habbo actor, uint id)
     {
-        if (!EditorPermissions.Allows(actor, EditorPermissions.FurniDelete))
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true || !actor.Access.Can(PermissionKeys.FurniDelete))
             return Denied(id);
         lock (_sync)
         {
@@ -145,7 +145,7 @@ public sealed class FurniEditorService : IFurniEditorService
 
     public FurniEditorResult UpdateFurnidata(Habbo actor, uint id, string json)
     {
-        if (!EditorPermissions.Allows(actor, EditorPermissions.FurnidataEdit))
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true || !actor.Access.Can(PermissionKeys.FurniEdit))
             return Denied(id);
         if (!TakeFurnidataTurn(actor))
             return new(false, "Too many requests", id);
@@ -158,7 +158,7 @@ public sealed class FurniEditorService : IFurniEditorService
 
     public FurniEditorResult RevertFurnidata(Habbo actor, uint id)
     {
-        if (!EditorPermissions.Allows(actor, EditorPermissions.FurnidataEdit))
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true || !actor.Access.Can(PermissionKeys.FurniEdit))
             return Denied(id);
         if (!TakeFurnidataTurn(actor))
             return new(false, "Too many requests", id);
@@ -297,7 +297,7 @@ public sealed class FurniEditorService : IFurniEditorService
 
     private static void RequireEditor(Habbo actor, uint itemId = 0)
     {
-        if (!EditorPermissions.Allows(actor))
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true)
             throw new FurniEditorRejected("No permission", itemId);
     }
 

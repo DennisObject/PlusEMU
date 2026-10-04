@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Settings;
@@ -21,7 +22,7 @@ internal class DeleteRoomEvent : IPacketEvent
             return Task.CompletedTask;
         if (!_roomManager.TryGetRoom(roomId, out var room))
             return Task.CompletedTask;
-        if (room.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Permissions.HasRight("room_delete_any"))
+        if (room.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Access.Can(PermissionKeys.RoomDeleteAny))
             return Task.CompletedTask;
         _roomDeletion.Delete(room);
         return Task.CompletedTask;

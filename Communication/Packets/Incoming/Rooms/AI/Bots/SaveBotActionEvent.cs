@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using Plus.HabboHotel.Permissions;
+using System.Data;
 using System.Text.RegularExpressions;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
@@ -30,7 +31,7 @@ internal class SaveBotActionEvent : IPacketEvent
             return Task.CompletedTask;
         if (!room.GetRoomUserManager().TryGetBot(botId, out var bot) || bot.BotData.IsTemporary)
             return Task.CompletedTask;
-        if (bot.BotData.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Permissions.HasRight("bot_edit_any_override"))
+        if (bot.BotData.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Access.Can(PermissionKeys.BotEditAnyOverride))
             return Task.CompletedTask;
         var roomBot = bot.BotData;
         if (roomBot == null)

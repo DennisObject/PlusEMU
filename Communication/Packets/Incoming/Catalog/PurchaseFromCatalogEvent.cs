@@ -382,7 +382,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         }
         if (!string.IsNullOrEmpty(item.Badge) &&
             _badgeManager.Badges.TryGetValue(item.Badge, out var badge) &&
-            (string.IsNullOrEmpty(badge.RequiredRight) || session.GetHabbo().Permissions.HasRight(badge.RequiredRight)))
+            (string.IsNullOrEmpty(badge.RequiredRight) || session.GetHabbo().Access.Can(badge.RequiredRight)))
             await _badgeManager.GiveBadge(session.GetHabbo(), badge.Code);
         session.Send(new PurchaseOkComposer(item, item.Definition));
         session.Send(new FurniListUpdateComposer());
@@ -409,6 +409,6 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         var membershipEnd = DateTimeOffset.FromUnixTimeSeconds(expiry.Value).UtcDateTime;
         // The client caches offers; resend them so the next confirmation shows the new end date.
         session.Send(new HabboClubOffersComposer(_catalogManager.ClubOffers, ClubWindow, membershipEnd));
-        session.Send(new ScrSendUserInfoComposer(expiry.Value - (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds(), ScrSendUserInfoComposer.PurchaseResponse));
+        session.Send(new ScrSendUserInfoComposer(habbo.Access, expiry.Value - (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds(), ScrSendUserInfoComposer.PurchaseResponse));
     }
 }

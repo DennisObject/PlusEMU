@@ -91,10 +91,10 @@ internal sealed class ProcessComponent
                 using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
                 {
                     dbClient.RunQuery(
-                        $"UPDATE `user_statistics` SET `dailyRespectPoints` = '{(_player.Rank == 1 && _player.VipRank == 0 ? 10 : _player.VipRank == 1 ? 15 : 20)}', `dailyPetRespectPoints` = '{(_player.Rank == 1 && _player.VipRank == 0 ? 10 : _player.VipRank == 1 ? 15 : 20)}', `respectsTimestamp` = '{DateTime.Today:MM/dd}' WHERE `id` = '{_player.Id}' LIMIT 1");
+                        $"UPDATE `user_statistics` SET `dailyRespectPoints` = '{_player.Access.Limit("limit.daily_respects", 10)}', `dailyPetRespectPoints` = '{_player.Access.Limit("limit.daily_pet_respects", 10)}', `respectsTimestamp` = '{DateTime.Today:MM/dd}' WHERE `id` = '{_player.Id}' LIMIT 1");
                 }
-                _player.HabboStats.DailyRespectPoints = _player.Rank == 1 && _player.VipRank == 0 ? 10 : _player.VipRank == 1 ? 15 : 20;
-                _player.HabboStats.DailyPetRespectPoints = _player.Rank == 1 && _player.VipRank == 0 ? 10 : _player.VipRank == 1 ? 15 : 20;
+                _player.HabboStats.DailyRespectPoints = _player.Access.Limit("limit.daily_respects", 10);
+                _player.HabboStats.DailyPetRespectPoints = _player.Access.Limit("limit.daily_pet_respects", 10);
                 if (_player.Client != null)
                     _player.Client.Send(new UserObjectComposer(_player));
             }

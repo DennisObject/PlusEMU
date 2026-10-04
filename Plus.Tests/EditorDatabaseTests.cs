@@ -23,7 +23,7 @@ public sealed class EditorDatabaseFactAttribute : FactAttribute
     public EditorDatabaseFactAttribute()
     {
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable)))
-            Skip = $"Set {Variable} to a disposable task_editor_tests_ schema holding the PlusEMU schema with updates 11, 14 and 17.";
+            Skip = $"Set {Variable} to a disposable task_editor_tests_ schema holding the PlusEMU schema including the role-based access-control update.";
     }
 }
 
@@ -45,7 +45,6 @@ public sealed class EditorDatabaseTests : IDisposable
         _database = new(builder.ConnectionString);
         if (Environment.GetEnvironmentVariable(EditorDatabaseFactAttribute.Variable) == null)
             return;
-        Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/21_CatalogAdminEditor.sql")));
         Cleanup();
         var catalogManager = DispatchProxy.Create<ICatalogManager, CatalogProxy>();
         ((CatalogProxy)(object)catalogManager).Pages = _cache;
@@ -60,15 +59,14 @@ public sealed class EditorDatabaseTests : IDisposable
     }
 
     [EditorDatabaseFact]
-    public void MigrationIsIdempotentAndGrantsOnlyTheTopRanks()
+    public void MigratedEditorGrantsPreserveTheirExplicitRoles()
     {
-        Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/21_CatalogAdminEditor.sql")));
         using var connection = _database.Connection();
         var granted = connection.Query<(string, int)>("""
-            SELECT p.permission, r.group_id FROM permissions_rights r JOIN permissions p ON p.id = r.permission_id
-            WHERE p.permission IN ('acc_catalogfurni', 'acc_furnidata_edit', 'acc_furni_delete')
+            SELECT p.permission_key, r.weight FROM role_permissions p JOIN roles r ON r.id = p.role_id
+            WHERE p.permission_key IN ('catalog.edit', 'furni.edit', 'furni.delete')
             """).Order().ToList();
-        Assert.Equal([("acc_catalogfurni", 8), ("acc_catalogfurni", 9), ("acc_furni_delete", 8), ("acc_furni_delete", 9), ("acc_furnidata_edit", 8), ("acc_furnidata_edit", 9)], granted);
+        Assert.Equal([("catalog.edit", 80), ("catalog.edit", 90), ("furni.delete", 80), ("furni.delete", 90), ("furni.edit", 80), ("furni.edit", 90)], granted);
     }
 
     [EditorDatabaseFact]
@@ -77,8 +75,8 @@ public sealed class EditorDatabaseTests : IDisposable
         var staff = EditorTestSupport.Staff();
         var (client, sent) = HabbiconTestSupport.Client(staff);
         int revision = Revision();
-        var packet = EditorTestSupport.Incoming($"{Tag} page", $"{Tag}_page", "default_3x3", 12, 1, true, true, -1, -1, "NORMAL", "NORMAL", 1,
-            false, false, "head", "", "", "text", "", "", "", 0, "", 1, revision, "", "Created page", "create-1");
+        var packet = EditorTestSupport.Incoming($"{Tag} page", $"{Tag}_page", "default_3x3", 12, "", true, true, -1, -1, "NORMAL", "NORMAL", 1,
+            false, "head", "", "", "text", "", "", "", 0, "", 1, revision, "", "Created page", "create-1");
 
         new CatalogAdminCreatePageEvent(_catalog).Parse(client, packet);
 
@@ -103,18 +101,18 @@ public sealed class EditorDatabaseTests : IDisposable
     }
 
     [EditorDatabaseFact]
-    public void PageEditsCheckRevisionRankAndTreeAndAuditBeforeAndAfter()
+    public void PageEditsCheckRevisionPermissionAndTreeAndAuditBeforeAndAfter()
     {
-        var staff = EditorTestSupport.Staff(rank: 7);
+        var staff = EditorTestSupport.Staff();
         var parent = CreatePage(staff, "parent", -1);
         var child = CreatePage(staff, "child", parent.PageId);
 
         var stale = _catalog.SavePage(staff, Envelope(Revision() - 1), child with { Caption = "late" });
         Assert.Equal((false, CatalogAdminCodes.StaleRevision), (stale.Success, stale.Code));
 
-        var invalid = _catalog.SavePage(staff, Envelope(Revision()), child with { Caption = "", MinRank = 9 });
+        var invalid = _catalog.SavePage(staff, Envelope(Revision()), child with { Caption = "", RequiredPermission = EditorTestSupport.RestrictedPagePermission });
         Assert.Equal((false, CatalogAdminCodes.ValidationFailed), (invalid.Success, invalid.Code));
-        Assert.Equal(["caption", "minRank"], invalid.FieldErrors.Keys.Order());
+        Assert.Equal(["caption", "requiredPermission"], invalid.FieldErrors.Keys.Order());
 
         var cycle = _catalog.MovePage(staff, Envelope(Revision()), parent.PageId, child.PageId, 0);
         Assert.False(cycle.Success);
@@ -145,7 +143,7 @@ public sealed class EditorDatabaseTests : IDisposable
         var session = _catalog.OpenSession(staff);
         Assert.Equal(Revision(), session.Revision);
         Assert.Contains(session.Pages, page => page.PageId == child.PageId);
-        Assert.DoesNotContain(session.Pages, page => page.MinRank > staff.Rank);
+        Assert.DoesNotContain(session.Pages, page => !CatalogAdminValidation.Available(page.RequiredPermission, staff.Access));
         Assert.Equal(Revision(), _catalog.History(staff, 0, 5).Groups[0].Id);
     }
 
@@ -286,19 +284,19 @@ public sealed class EditorDatabaseTests : IDisposable
     }
 
     [EditorDatabaseFact]
-    public void PageMovesAndParentsRespectRanksAndMoveUndoRestoresEverySibling()
+    public void PageMovesAndParentsRespectPermissionsAndMoveUndoRestoresEverySibling()
     {
-        var owner = EditorTestSupport.Staff(9);
-        var staff = EditorTestSupport.Staff(7);
+        var owner = EditorTestSupport.Owner();
+        var staff = EditorTestSupport.Staff();
         var parent = CreatePage(owner, "rank_parent", -1);
-        var hidden = CreatePage(owner, "rank_hidden", parent.PageId, rank: 9, order: 0);
+        var hidden = CreatePage(owner, "rank_hidden", parent.PageId, requiredPermission: EditorTestSupport.RestrictedPagePermission, order: 0);
         var ordinary = CreatePage(owner, "rank_ordinary", -1);
 
         var refused = _catalog.MovePage(staff, Envelope(Revision()), ordinary.PageId, parent.PageId, 0);
         Assert.Equal((false, CatalogAdminCodes.Forbidden), (refused.Success, refused.Code));
         Assert.Equal(0, Scalar<int>("SELECT order_num FROM catalog_pages WHERE id = @id", hidden.PageId));
         var underHidden = _catalog.CreatePage(staff, Envelope(Revision()), ordinary with { PageId = 0, ParentId = hidden.PageId, CaptionSave = $"{Tag}_under" });
-        Assert.Equal("You cannot use a page above your rank as parent.", underHidden.FieldErrors["parentId"]);
+        Assert.Equal("You cannot use a page requiring a permission you do not have as parent.", underHidden.FieldErrors["parentId"]);
 
         var a = CreatePage(owner, "move_a", parent.PageId, order: 2);
         var b = CreatePage(owner, "move_b", parent.PageId, order: 3);
@@ -321,7 +319,7 @@ public sealed class EditorDatabaseTests : IDisposable
     [EditorDatabaseFact]
     public void MoveUndoIsRefusedWhenASiblingLeftTheParentSince()
     {
-        var owner = EditorTestSupport.Staff(9);
+        var owner = EditorTestSupport.Owner();
         var p = CreatePage(owner, "left_p", -1);
         var q = CreatePage(owner, "left_q", -1);
         CreatePage(owner, "left_x", q.PageId, order: 0);
@@ -343,9 +341,9 @@ public sealed class EditorDatabaseTests : IDisposable
     [EditorDatabaseFact]
     public void FurniDetailShowsOnlyOffersOnPagesTheActorCanOpen()
     {
-        var owner = EditorTestSupport.Staff(9);
-        var staff = EditorTestSupport.Staff(7);
-        var hiddenPage = CreatePage(owner, "refs_hidden", -1, rank: 9);
+        var owner = EditorTestSupport.Owner();
+        var staff = EditorTestSupport.Staff();
+        var hiddenPage = CreatePage(owner, "refs_hidden", -1, requiredPermission: EditorTestSupport.RestrictedPagePermission);
         var visiblePage = CreatePage(owner, "refs_visible", -1);
         var furni = InsertFurniture($"{Tag}_refs", 990011);
         foreach (var page in new[] { hiddenPage, visiblePage })
@@ -469,10 +467,10 @@ public sealed class EditorDatabaseTests : IDisposable
             NullLogger<FurniEditorService>.Instance);
     }
 
-    private CatalogAdminPage CreatePage(Habbo staff, string name, int parentId, int rank = 1, int order = -1)
+    private CatalogAdminPage CreatePage(Habbo staff, string name, int parentId, string requiredPermission = "", int order = -1)
     {
-        var page = new CatalogAdminPage("NORMAL", 0, parentId, $"{Tag}_{name}", $"{Tag} {name}", "default_3x3", 1, 1, rank, order, true, true, false, "NORMAL",
-            false, "", "", "", "", "", "", "", 0, "");
+        var page = new CatalogAdminPage("NORMAL", 0, parentId, $"{Tag}_{name}", $"{Tag} {name}", "default_3x3", 1, 1, requiredPermission, order, true, true, false, "NORMAL",
+            "", "", "", "", "", "", "", 0, "");
         var outcome = _catalog.CreatePage(staff, Envelope(Revision()), page);
         Assert.True(outcome.Success, outcome.Message);
         return Assert.IsType<CatalogAdminPage>(outcome.Entity);
@@ -482,7 +480,7 @@ public sealed class EditorDatabaseTests : IDisposable
     private void Reload()
     {
         using var connection = _database.Connection();
-        var pages = connection.Query<CatalogPage>("SELECT id AS Id, parent_id AS ParentId, enabled = 1 AS Enabled, visible = 1 AS Visible, min_rank AS MinimumRank FROM catalog_pages WHERE page_link LIKE 'e3test%' ORDER BY id").ToList();
+        var pages = connection.Query<CatalogPage>("SELECT id AS Id, parent_id AS ParentId, enabled = 1 AS Enabled, visible = 1 AS Visible, required_permission AS RequiredPermission FROM catalog_pages WHERE page_link LIKE 'e3test%' ORDER BY id").ToList();
         foreach (var page in pages)
             page.Items = connection.Query<CatalogItem>("SELECT id AS Id, offer_id AS OfferId, page_id AS PageId FROM catalog_items WHERE page_id = @Id ORDER BY order_num, id", page)
                 .ToDictionary(item => item.Id);
