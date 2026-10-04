@@ -15,6 +15,8 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
     internal ClaimLedger Claims { get; } = new(navigation.Grid);
     internal SearchScheduler<RoomUser> Scheduler { get; } = new();
     internal ApproachIntentRegistry Approaches { get; } = new();
+    internal ApproachGoalResolver ApproachGoals => _approachGoals ??= new(this);
+    private ApproachGoalResolver? _approachGoals;
     private PlanningOccupancy _executionOccupancy = new(navigation.Grid.SlotCapacity);
     internal void RefreshMembership(RoomUser actor)
     {
