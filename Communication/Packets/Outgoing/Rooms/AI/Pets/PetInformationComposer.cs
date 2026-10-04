@@ -56,7 +56,8 @@ public class PetInformationComposer : IServerPacket
             packet.WriteInteger(100);
             packet.WriteInteger(_habbo.HabboStats.Respect);
             packet.WriteInteger(_habbo.Id);
-            packet.WriteInteger(Convert.ToInt32(Math.Floor((UnixTimestamp.GetNow() - _habbo.AccountCreated) / 86400))); //How?
+            var accountCreated = _habbo.AccountCreatedAt?.ToUnixTimeSeconds() ?? 0;
+            packet.WriteInteger(Convert.ToInt32(Math.Floor((UnixTimestamp.GetNow() - accountCreated) / 86400))); //How?
             packet.WriteString(_habbo.Username);
             packet.WriteInteger(1); //3 on hab
             packet.WriteBoolean(false);

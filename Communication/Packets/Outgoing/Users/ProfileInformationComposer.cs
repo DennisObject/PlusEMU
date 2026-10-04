@@ -26,7 +26,7 @@ public class ProfileInformationComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        var origin = new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(_habbo.AccountCreated);
+        var origin = _habbo.AccountCreatedAt ?? DateTimeOffset.UnixEpoch;
         packet.WriteInteger(_habbo.Id);
         packet.WriteString(_habbo.Username);
         packet.WriteString(_habbo.Look);
@@ -50,7 +50,8 @@ public class ProfileInformationComposer : IServerPacket
             packet.WriteInteger(0); //what the fuck
             packet.WriteBoolean(group?.ForumEnabled ?? true); //HabboTalk
         }
-        packet.WriteInteger(Convert.ToInt32(UnixTimestamp.GetNow() - _habbo.LastOnline)); // Last online
+        var lastOnline = _habbo.LastOnlineAt?.ToUnixTimeSeconds() ?? 0;
+        packet.WriteInteger(Convert.ToInt32(UnixTimestamp.GetNow() - lastOnline)); // Last online
         packet.WriteBoolean(true); // Show the profile
     }
 }
