@@ -10,10 +10,10 @@ public class ClubGiftsComposer(ClubGiftsSnapshot gifts) : IServerPacket
     {
         packet.WriteInteger(gifts.DaysUntilNextGift);
         packet.WriteInteger(gifts.Available);
-        packet.WriteInteger(gifts.Offers.Count);
+        packet.WriteInteger(gifts.Offers.Length);
         foreach (var offer in gifts.Offers)
             CatalogOfferWriter.Write(packet, offer);
-        packet.WriteInteger(gifts.Gifts.Count);
+        packet.WriteInteger(gifts.Gifts.Length);
         foreach (var gift in gifts.Gifts)
         {
             packet.WriteInteger(gift.WireOfferId);

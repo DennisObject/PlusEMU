@@ -32,7 +32,7 @@ public class CatalogIndexComposer : IServerPacket
         packet.WriteString("root");
         packet.WriteString(string.Empty);
         packet.WriteInteger(0);
-        packet.WriteInteger(_index.Roots.Count);
+        packet.WriteInteger(_index.Roots.Length);
     }
 
     private static void WriteNode(IOutgoingPacket packet, CatalogIndexNode node)
@@ -43,9 +43,9 @@ public class CatalogIndexComposer : IServerPacket
         packet.WriteInteger(node.ParentId);
         packet.WriteString(node.Link);
         packet.WriteString(node.Caption);
-        packet.WriteInteger(node.OfferIds.Count);
+        packet.WriteInteger(node.OfferIds.Length);
         foreach (var offerId in node.OfferIds) packet.WriteInteger(offerId);
-        packet.WriteInteger(node.Children.Count);
+        packet.WriteInteger(node.Children.Length);
         foreach (var child in node.Children)
             WriteNode(packet, child);
     }

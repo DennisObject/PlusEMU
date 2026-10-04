@@ -66,6 +66,51 @@ public class CatalogSnapshotTests
         Assert.Contains("hd-180-7.ea-1406-62.ch-210-1321.hr-831-49.ca-1813-62.sh-295-1321.lg-285-92", writes);
     }
 
+    [Fact]
+    public void CapturedPageDoesNotFollowLaterSourceMutation()
+    {
+        var page = Page(5, "default_3x3");
+        page.PageStringsList1 = ["a"];
+        page.Items[30] = new CatalogItem { Id = 30, OfferId = 30, CatalogName = "badge_x", Badge = "ADM", CostCredits = 1, Amount = 1, HaveOffer = true, Definition = Def(InteractionType.Badge, "b", name: "ADM") };
+        new CatalogOfferIndex().Build([page]);
+        var snapshot = Snapshots().CapturePage(page, -1);
+        var before = Writes(new CatalogPageComposer(snapshot));
+
+        page.PageStringsList1.Add("z");
+        page.Offers.Clear();
+        page.Items.Clear();
+
+        Assert.Equal(before, Writes(new CatalogPageComposer(snapshot)));
+        Assert.Single(snapshot.Strings1);
+        Assert.Single(snapshot.Offers);
+    }
+
+    [Fact]
+    public void CapturedDealAndClubGiftsDoNotFollowLaterSourceMutation()
+    {
+        var deal = new CatalogDeal { Id = 77, ItemDataList = [new CatalogItem { Definition = Def(InteractionType.Badge, "b", name: "ADM") }] };
+        var catalog = Proxy<ICatalogManager>((method, args) => method == "TryGetDeal" ? Out(args, 1, deal) : throw new InvalidOperationException(method));
+        var dealItem = new CatalogItem { Id = 20, OfferId = 20, CatalogName = "deal_a", CostCredits = 1, Definition = Def(InteractionType.Deal, "s", behaviour: 77) };
+        var offer = Snapshots(catalog).CaptureOffer(dealItem);
+        var dealBefore = Writes(new CatalogOfferComposer(offer));
+
+        deal.ItemDataList.Add(new CatalogItem { Definition = Def(InteractionType.None, "i") });
+
+        Assert.Equal(dealBefore, Writes(new CatalogOfferComposer(offer)));
+        Assert.Single(((DealProducts)offer.Products).Items);
+
+        var gift = new CatalogItem { Id = 70, CatalogName = "club_a", Amount = 1, PreviewImage = "p.png", Definition = Def(InteractionType.None, "i", sprite: 11, gift: true, type: ItemType.Floor) };
+        gift.WireOfferId = 700;
+        var gifts = new List<ClubGift> { new(gift, 1) };
+        var club = Snapshots().CaptureClubGifts(new ClubGiftInfo(3, 1, 5, gifts));
+        var clubBefore = Writes(new ClubGiftsComposer(club));
+
+        gifts.Add(new ClubGift(gift, 9));
+
+        Assert.Equal(clubBefore, Writes(new ClubGiftsComposer(club)));
+        Assert.Single(club.Gifts);
+    }
+
     private static List<string> GoldenPayloads()
     {
         var snapshots = Snapshots(Catalog(Promotions().ToArray()));

@@ -18,16 +18,16 @@ public class CatalogPageComposer : IServerPacket
         packet.WriteInteger(_page.Id);
         packet.WriteString(_page.Mode);
         packet.WriteString(_page.Layout);
-        packet.WriteInteger(_page.Strings1.Count);
+        packet.WriteInteger(_page.Strings1.Length);
         foreach (var s in _page.Strings1) packet.WriteString(s);
-        packet.WriteInteger(_page.Strings2.Count);
+        packet.WriteInteger(_page.Strings2.Length);
         foreach (var s in _page.Strings2) packet.WriteString(s);
-        packet.WriteInteger(_page.Offers.Count);
+        packet.WriteInteger(_page.Offers.Length);
         foreach (var offer in _page.Offers)
             CatalogOfferWriter.Write(packet, offer);
         packet.WriteInteger(_page.PreselectOfferId);
         packet.WriteBoolean(false);
-        packet.WriteInteger(_page.Promotions.Count);
+        packet.WriteInteger(_page.Promotions.Length);
         foreach (var promotion in _page.Promotions)
         {
             packet.WriteInteger(promotion.Position);

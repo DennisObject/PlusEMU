@@ -38,7 +38,7 @@ public static class CatalogOfferWriter
                 packet.WriteBoolean(false);
                 return;
             case DealProducts deal:
-                packet.WriteInteger(deal.Items.Count);
+                packet.WriteInteger(deal.Items.Length);
                 foreach (var dealItem in deal.Items)
                 {
                     packet.WriteString(dealItem.ProductType);

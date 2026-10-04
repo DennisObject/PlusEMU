@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Plus.HabboHotel.Catalog.Utilities;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Subscriptions;
@@ -27,29 +28,29 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
         var now = time.GetUtcNow().ToUnixTimeSeconds();
         var offers = page.Layout is "frontpage" or "club_buy" or "vip_buy" or "loyalty_vip_buy"
             ? []
-            : page.Offers.Values.Select(item => CaptureOffer(item, item.WireOfferId, item.CatalogName)).ToList();
+            : page.Offers.Values.Select(item => CaptureOffer(item, item.WireOfferId, item.CatalogName)).ToImmutableArray();
         var promotions = catalog.Promotions
             .Where(promotion => !promotion.HasExpired(now))
             .OrderBy(promotion => promotion.Position)
             .Select(promotion => new CatalogPromotionSnapshot(promotion.Position, promotion.Title, promotion.Image, promotion.ItemType,
                 promotion.OfferId, promotion.ProductCode, promotion.PageLink, promotion.SecondsLeft(now)))
-            .ToList();
-        return new CatalogPageSnapshot(page.Id, page.CatalogMode, page.Layout, page.PageStringsList1.ToList(), page.PageStringsList2.ToList(),
+            .ToImmutableArray();
+        return new CatalogPageSnapshot(page.Id, page.CatalogMode, page.Layout, page.PageStringsList1.ToImmutableArray(), page.PageStringsList2.ToImmutableArray(),
             offers, preselectOfferId, promotions);
     }
 
     public CatalogIndexSnapshot CaptureIndex(Habbo habbo, ICollection<CatalogPage> pages, string mode)
     {
         var children = pages.Where(page => page.CatalogMode == mode && page.IsAvailableTo(habbo)).ToLookup(page => page.ParentId);
-        return new CatalogIndexSnapshot(mode, children[-1].Select(page => IndexNode(children, page, 1)).ToList());
+        return new CatalogIndexSnapshot(mode, children[-1].Select(page => IndexNode(children, page, 1)).ToImmutableArray());
     }
 
     public ClubGiftsSnapshot CaptureClubGifts(ClubGiftInfo info) => new(
         info.DaysUntilNextGift,
         info.Available,
-        info.Gifts.Select(gift => CaptureClubGiftOffer(gift.Item)).ToList(),
+        info.Gifts.Select(gift => CaptureClubGiftOffer(gift.Item)).ToImmutableArray(),
         info.Gifts.Select(gift => new ClubGiftEntry(gift.Item.WireOfferId, gift.DaysRequired,
-            info.Available > 0 && info.PastDays >= gift.DaysRequired)).ToList());
+            info.Available > 0 && info.PastDays >= gift.DaysRequired)).ToImmutableArray());
 
     private CatalogOfferSnapshot CaptureClubGiftOffer(CatalogItem item) =>
         // Gifts are free, regardless of the ordinary catalog price of the same chair.
@@ -88,7 +89,7 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
     private DealProducts CaptureDeal(int dealId) => new(
         catalog.TryGetDeal(dealId, out var deal)
             ? deal.ItemDataList.Select(dealItem => new DealProduct(dealItem.Definition.ProductType, dealItem.Definition.ItemName,
-                dealItem.Definition.SpriteId, dealItem.Amount)).ToList()
+                dealItem.Definition.SpriteId, dealItem.Amount)).ToImmutableArray()
             : []);
 
     private ItemProducts CaptureItemProduct(CatalogItem item)
@@ -119,7 +120,7 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
 
     private static CatalogIndexNode IndexNode(ILookup<int, CatalogPage> children, CatalogPage page, int depth)
     {
-        var childPages = depth < MaximumIndexDepth ? children[page.Id].ToList() : new List<CatalogPage>();
+        var childPages = depth < MaximumIndexDepth ? children[page.Id].ToImmutableArray() : [];
         return new CatalogIndexNode(
             page.Visible,
             page.Icon,
@@ -128,7 +129,7 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
             page.ParentId,
             page.Link,
             page.Caption,
-            page.Enabled ? CatalogOfferIndex.OfficialOfferIds(page).ToList() : [],
-            childPages.Select(child => IndexNode(children, child, depth + 1)).ToList());
+            page.Enabled ? CatalogOfferIndex.OfficialOfferIds(page).ToImmutableArray() : [],
+            childPages.Select(child => IndexNode(children, child, depth + 1)).ToImmutableArray());
     }
 }

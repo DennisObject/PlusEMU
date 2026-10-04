@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace Plus.HabboHotel.Catalog;
 
 // Immutable, already-resolved catalog data. Packet composers only write these values.
@@ -18,7 +20,7 @@ public abstract record CatalogOfferProducts;
 
 public sealed record HabbiconProducts(int HabbiconId) : CatalogOfferProducts;
 
-public sealed record DealProducts(IReadOnlyList<DealProduct> Items) : CatalogOfferProducts;
+public sealed record DealProducts(ImmutableArray<DealProduct> Items) : CatalogOfferProducts;
 
 public sealed record DealProduct(string ProductType, string ItemName, int SpriteId, int Amount);
 
@@ -38,11 +40,11 @@ public sealed record CatalogPageSnapshot(
     int Id,
     string Mode,
     string Layout,
-    IReadOnlyList<string> Strings1,
-    IReadOnlyList<string> Strings2,
-    IReadOnlyList<CatalogOfferSnapshot> Offers,
+    ImmutableArray<string> Strings1,
+    ImmutableArray<string> Strings2,
+    ImmutableArray<CatalogOfferSnapshot> Offers,
     int PreselectOfferId,
-    IReadOnlyList<CatalogPromotionSnapshot> Promotions);
+    ImmutableArray<CatalogPromotionSnapshot> Promotions);
 
 public sealed record CatalogPromotionSnapshot(
     int Position,
@@ -54,7 +56,7 @@ public sealed record CatalogPromotionSnapshot(
     string? PageLink,
     int SecondsLeft);
 
-public sealed record CatalogIndexSnapshot(string Mode, IReadOnlyList<CatalogIndexNode> Roots);
+public sealed record CatalogIndexSnapshot(string Mode, ImmutableArray<CatalogIndexNode> Roots);
 
 public sealed record CatalogIndexNode(
     bool Visible,
@@ -63,9 +65,9 @@ public sealed record CatalogIndexNode(
     int ParentId,
     string? Link,
     string? Caption,
-    IReadOnlyList<int> OfferIds,
-    IReadOnlyList<CatalogIndexNode> Children);
+    ImmutableArray<int> OfferIds,
+    ImmutableArray<CatalogIndexNode> Children);
 
-public sealed record ClubGiftsSnapshot(int DaysUntilNextGift, int Available, IReadOnlyList<CatalogOfferSnapshot> Offers, IReadOnlyList<ClubGiftEntry> Gifts);
+public sealed record ClubGiftsSnapshot(int DaysUntilNextGift, int Available, ImmutableArray<CatalogOfferSnapshot> Offers, ImmutableArray<ClubGiftEntry> Gifts);
 
 public sealed record ClubGiftEntry(int WireOfferId, int DaysRequired, bool Unlocked);
