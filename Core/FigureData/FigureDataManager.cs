@@ -93,10 +93,13 @@ public class FigureDataManager : IFigureDataManager
         var figureParts = figure.Split('.');
         foreach (var part in figureParts.ToList())
         {
-            var type = part.Split('-')[0];
+            var pieces = part.Split('-');
+            var type = pieces[0];
+            // A part without a numeric set id cannot be rebuilt, so it is dropped.
+            if (pieces.Length < 2 || !int.TryParse(pieces[1], out var partId))
+                continue;
             if (_setTypes.TryGetValue(type, out var figureSet))
             {
-                var partId = Convert.ToInt32(part.Split('-')[1]);
                 var colorId = 0;
                 var secondColorId = 0;
                 if (figureSet.Sets.TryGetValue(partId, out var set))
@@ -160,9 +163,8 @@ public class FigureDataManager : IFigureDataManager
                     else
                     {
                         var ignore = new[] { "ca", "wa" };
-                        if (ignore.Contains(type))
-                            if (!string.IsNullOrEmpty(part.Split('-')[2]))
-                                colorId = Convert.ToInt32(part.Split('-')[2]);
+                        if (ignore.Contains(type) && pieces.Length > 2 && int.TryParse(pieces[2], out var keptColorId))
+                            colorId = keptColorId;
                     }
                     if (set.ClubLevel > 0 && !hasHabboClub)
                     {

@@ -122,20 +122,23 @@ public class RewardTrackLiveTests
 
     private static uint ServerHeader(TestClient client, uint internalId) => client.Revision.InternalIdToOutgoingIdMapping[internalId];
 
+    // RevisionsCache.Start rewrites example.json; a private copy keeps it from racing tests that read the shared one.
     private static async Task<Revision> Profile(string name)
     {
-        var temporary = Directory.CreateTempSubdirectory("plusemu-reward-revisions-");
+        var directory = Directory.CreateTempSubdirectory("revisions-").FullName;
         try
         {
-            foreach (var file in Directory.GetFiles(Path.Join(AppContext.BaseDirectory, "revisions")))
-                File.Copy(file, Path.Join(temporary.FullName, Path.GetFileName(file)));
+            foreach (var file in Directory.GetFiles(Path.Join(AppContext.BaseDirectory, "revisions"), "*.json"))
+                File.Copy(file, Path.Join(directory, Path.GetFileName(file)));
             var cache = new RevisionsCache();
-            typeof(RevisionsCache).GetField("_directory", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(cache, temporary.FullName);
+            typeof(RevisionsCache).GetField("_directory", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(cache, directory);
             await cache.Start();
             return cache.Revisions[name];
         }
-        finally { temporary.Delete(recursive: true); }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     private static async Task<RewardTrackManager> Manager(FakeDatabase database, IBadgeManager badges)

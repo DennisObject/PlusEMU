@@ -1,5 +1,6 @@
 ﻿using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.HabboHotel.Catalog;
+using Plus.HabboHotel.Catalog.Admin;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Catalog;
@@ -7,10 +8,12 @@ namespace Plus.Communication.Packets.Incoming.Catalog;
 public class GetCatalogPageEvent : IPacketEvent
 {
     private readonly ICatalogManager _catalogManager;
+    private readonly ICatalogAdminService _catalogAdmin;
 
-    public GetCatalogPageEvent(ICatalogManager catalogManager)
+    public GetCatalogPageEvent(ICatalogManager catalogManager, ICatalogAdminService catalogAdmin)
     {
         _catalogManager = catalogManager;
+        _catalogAdmin = catalogAdmin;
     }
 
     public Task Parse(GameClient session, IIncomingPacket packet)
@@ -22,6 +25,7 @@ public class GetCatalogPageEvent : IPacketEvent
             return Task.CompletedTask;
         if (!page.CanOpen(session.GetHabbo()))
             return Task.CompletedTask;
+        _catalogAdmin.RecordViewedPage(session.GetHabbo(), page.Id);
         session.Send(new CatalogPageComposer(page, page.CatalogMode, page.Offers.ContainsKey(offerId) ? offerId : -1));
         return Task.CompletedTask;
     }

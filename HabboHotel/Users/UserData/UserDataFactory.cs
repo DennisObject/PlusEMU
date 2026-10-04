@@ -18,12 +18,16 @@ public class UserDataFactory : IUserDataFactory
         _userDataLoadingTasks = userDataLoadingTasks;
     }
 
-    public async Task<Habbo?> Create(int userId)
+    public async Task<Habbo?> Create(int userId, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var habbo = await LoadHabboInfo(userId);
 
         foreach (var task in _userDataLoadingTasks)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             await task.Load(habbo);
+        }
 
         return habbo;
     }

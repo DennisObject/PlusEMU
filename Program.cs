@@ -4,12 +4,15 @@ using NLog;
 using NLog.Extensions.Logging;
 using Plus.Core;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Flash;
+using Plus.Communication.Http;
 using Plus.Communication.Nitro;
 using Plus.Communication.RCON;
 using Plus.Database;
 using Plus.HabboHotel.Camera;
+using Plus.HabboHotel.Items.Editor;
 using Plus.Plugins;
 using Plus.Utilities.DependencyInjection;
 using Scrutor;
@@ -45,6 +48,8 @@ public static class Program
         services.AddConfiguration<DatabaseConfiguration>(configuration.GetSection("Database"));
         services.AddConfiguration<RconConfiguration>(configuration.GetSection("Rcon"));
         services.AddConfiguration<CameraConfiguration>(configuration.GetSection("Camera"));
+        services.AddConfiguration<FurniEditorConfiguration>(configuration.GetSection("FurniEditor"));
+        services.AddConfiguration<AuthApiConfiguration>(configuration.GetSection("AuthApi"));
 
         // Dependency Injection
         services.AddDefaultRules(typeof(Program).Assembly);
@@ -79,6 +84,12 @@ public static class Program
             Environment.Exit(1);
             return;
         }
+
+        // docker stop sends SIGTERM: run the normal shutdown (save state, stop listeners, exit)
+        // instead of dying mid-write or being kept alive by a listener's signal handler.
+        using var sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, OnStopSignal);
+        using var sigint = PosixSignalRegistration.Create(PosixSignal.SIGINT, OnStopSignal);
+
         if (Console.IsInputRedirected)
         {
             await Task.Delay(Timeout.Infinite);
@@ -157,6 +168,15 @@ public static class Program
     {
         services.Configure<T>(section);
         return services;
+    }
+
+    private static int _stopRequested;
+
+    private static void OnStopSignal(PosixSignalContext context)
+    {
+        context.Cancel = true;
+        if (Interlocked.Exchange(ref _stopRequested, 1) == 0)
+            new Thread(PlusEnvironment.PerformShutDown) { Name = "Shutdown" }.Start();
     }
 
     private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs args)

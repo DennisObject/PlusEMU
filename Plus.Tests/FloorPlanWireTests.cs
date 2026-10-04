@@ -83,15 +83,18 @@ public class FloorPlanWireTests
         };
         Assert.Equal(legacy.IncomingHeaders.Keys.OrderBy(key => key), hybrid.IncomingHeaders.Keys.Where(key => key != "UpdateMagicTileAdjacentEvent").OrderBy(key => key));
         Assert.Equal(legacy.OutgoingHeaders.Keys.OrderBy(key => key), hybrid.OutgoingHeaders.Keys.Where(key => key != "HeightMapUpdateComposer").OrderBy(key => key));
+        // The catalog and furni editors exist on the Octane client only; EditorPermissionTests pins their ids.
+        static bool OctaneEditor(string name) => name.StartsWith("CatalogAdmin") || name.StartsWith("CatalogStudio") || name.StartsWith("FurniEditor") || name == "FurnitureDataReloadComposer";
         foreach (var (name, wire) in legacy.IncomingHeaders)
         {
-            if (!changedIncoming.Contains(name))
+            // Housekeeping is Octane-only and disabled (0) in the other revisions.
+            if (!changedIncoming.Contains(name) && !OctaneEditor(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal))
                 Assert.Equal(wire, hybrid.IncomingHeaders[name]);
         }
 
         foreach (var (name, wire) in legacy.OutgoingHeaders)
         {
-            if (!changedOutgoing.Contains(name))
+            if (!changedOutgoing.Contains(name) && !OctaneEditor(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal))
                 Assert.Equal(wire, hybrid.OutgoingHeaders[name]);
         }
     }

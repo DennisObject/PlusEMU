@@ -6,14 +6,18 @@ public class UserRightsComposer : IServerPacket
 {
     private readonly int _rank;
     private readonly bool _isAmbassador;
-    private readonly bool _hasCamera;
+    private readonly string _rankName;
+    private readonly string _rankBadge;
+    private readonly IReadOnlyList<string> _permissions;
     public uint MessageId => ServerPacketHeader.UserRightsComposer;
 
-    public UserRightsComposer(int rank, bool isAmbassador, bool hasCamera = false)
+    public UserRightsComposer(int rank, bool isAmbassador, string rankName, string rankBadge, IReadOnlyList<string> permissions)
     {
         _rank = rank;
         _isAmbassador = isAmbassador;
-        _hasCamera = hasCamera;
+        _rankName = rankName;
+        _rankBadge = rankBadge;
+        _permissions = permissions;
     }
 
     public void Compose(IOutgoingPacket packet)
@@ -21,14 +25,14 @@ public class UserRightsComposer : IServerPacket
         packet.WriteInteger(2); //Club level
         packet.WriteInteger(_rank);
         packet.WriteBoolean(_isAmbassador); //Is an ambassador
-        // Octane's optional rank metadata and resolved permission block.
+        // Octane's optional rank metadata and resolved permission block (1 = allowed).
         packet.WriteInteger(_rank);
-        packet.WriteString(""); // Rank name
-        packet.WriteString(""); // Rank badge
-        packet.WriteInteger(_hasCamera ? 1 : 0);
-        if (_hasCamera)
+        packet.WriteString(_rankName);
+        packet.WriteString(_rankBadge);
+        packet.WriteInteger(_permissions.Count);
+        foreach (var permission in _permissions)
         {
-            packet.WriteString("acc_camera");
+            packet.WriteString(permission);
             packet.WriteInteger(1);
         }
     }

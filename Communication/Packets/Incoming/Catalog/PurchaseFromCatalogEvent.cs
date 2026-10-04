@@ -174,37 +174,38 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         }
         if (item.IsLimited)
         {
-            if (item.LimitedEditionStack <= item.LimitedEditionSells)
+            using var connection = _database.Connection();
+            if (CatalogLimitedStock.Reserve(connection, item.Id) is not { } serial)
             {
                 session.SendNotification("This item has sold out!\n\n" + "Please note, you have not recieved another item (You have also not been charged for it!)");
                 session.Send(new CatalogUpdatedComposer());
                 session.Send(new PurchaseOkComposer());
                 return;
             }
-            item.LimitedEditionSells++;
-            using var connection = _database.Connection();
-            connection.Execute("UPDATE `catalog_items` SET `limited_sells` = @limitedSells WHERE `id` = @itemId LIMIT 1",
-                new { limitedSells = item.LimitedEditionSells, itemId = item.Id });
+            item.LimitedEditionSells = (uint)serial;
 
-            limitedEditionSells = item.LimitedEditionSells;
+            limitedEditionSells = (uint)serial;
             limitedEditionStack = item.LimitedEditionStack;
         }
         void ChargePurchase()
         {
-            if (item.CostCredits > 0)
+            lock (session.GetHabbo().WalletSync)
             {
-                session.GetHabbo().Credits -= totalCreditsCost;
-                session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
-            }
-            if (item.CostPixels > 0)
-            {
-                session.GetHabbo().Duckets -= totalPixelCost;
-                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, session.GetHabbo().Duckets)); //Love you, Tom.
-            }
-            if (item.CostDiamonds > 0)
-            {
-                session.GetHabbo().Diamonds -= totalDiamondCost;
-                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, 0, 5));
+                if (item.CostCredits > 0)
+                {
+                    session.GetHabbo().Credits -= totalCreditsCost;
+                    session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+                }
+                if (item.CostPixels > 0)
+                {
+                    session.GetHabbo().Duckets -= totalPixelCost;
+                    session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, session.GetHabbo().Duckets)); //Love you, Tom.
+                }
+                if (item.CostDiamonds > 0)
+                {
+                    session.GetHabbo().Diamonds -= totalDiamondCost;
+                    session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, 0, 5));
+                }
             }
         }
 
