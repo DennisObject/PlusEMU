@@ -240,6 +240,9 @@ public sealed class ModerationManager : IModerationManager
     // Ban work that has written its row (or is still resolving it in the background) and not finished signing out.
     private readonly ConcurrentDictionary<BanWork, byte> _pendingBans = new();
 
+    /// <summary>Test seam: runs after a ban row is inserted and before the ban is published to the cache.</summary>
+    internal Func<Task>? AfterBanInsert { get; set; }
+
     /// <summary>One ban being enforced, kept whole through retries.</summary>
     private sealed class BanWork(string mod, ModerationBanType type, string value, string reason, double expire, string account)
     {
@@ -412,7 +415,7 @@ public sealed class ModerationManager : IModerationManager
         });
     }
 
-    /// <summary>Writes the ban row and registers its work in the same turn of <see cref="_banWrites"/> that unbans use.</summary>
+    /// <summary>Writes the ban row, registers its work and publishes it to the cache in one turn of <see cref="_banWrites"/>, which unbans also take.</summary>
     private async Task WriteBan(BanWork work, CancellationToken cancellationToken)
     {
         var banType = work.Type == ModerationBanType.Ip ? "ip" : work.Type == ModerationBanType.Machine ? "machine" : "user";
@@ -428,15 +431,17 @@ public sealed class ModerationManager : IModerationManager
                     new { banType, banValue = work.Value, reason = work.Reason, expire = work.Expire, mod = work.Mod, addedDate = PlusEnvironment.GetUnixTimestamp().ToString(CultureInfo.InvariantCulture) },
                     cancellationToken: cancellationToken));
             }
+            if (AfterBanInsert != null) await AfterBanInsert();
             _pendingBans[work] = 0;
+            // Published in the same turn as the row: an unban, which clears the cache in its own turn, always comes
+            // entirely before or after. A re-ban also refreshes the cached expiry.
+            if (work.Type == ModerationBanType.Machine || work.Type == ModerationBanType.Username)
+                _bans[work.Value] = new(work.Type, work.Value, work.Reason, work.Expire);
         }
         finally
         {
             _banWrites.Release();
         }
-        // A re-ban must also refresh the cached expiry.
-        if (work.Type == ModerationBanType.Machine || work.Type == ModerationBanType.Username)
-            _bans[work.Value] = new(work.Type, work.Value, work.Reason, work.Expire);
     }
 
     /// <summary>Whether the ban row still exists and has not expired on the <see cref="BanClock"/>.</summary>

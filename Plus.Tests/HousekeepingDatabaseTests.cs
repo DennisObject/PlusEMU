@@ -22,6 +22,10 @@ using Xunit;
 
 namespace Plus.Tests;
 
+// These tests swap process-wide state (the static database) and lock shared rows, so they never run alongside others.
+[CollectionDefinition("HousekeepingDatabase", DisableParallelization = true)]
+public sealed class HousekeepingDatabaseCollection;
+
 public sealed class HousekeepingDatabaseFactAttribute : FactAttribute
 {
     public HousekeepingDatabaseFactAttribute()
@@ -33,8 +37,15 @@ public sealed class HousekeepingDatabaseFactAttribute : FactAttribute
 
 // Runs against a disposable schema built from Original Database.sql and every update, including 20_Housekeeping.sql.
 [Collection("HousekeepingDatabase")]
-public class HousekeepingDatabaseTests
+public class HousekeepingDatabaseTests : IDisposable
 {
+    // Habbo.Init reads the static database; it is swapped in for login tests and put back afterwards.
+    private static readonly System.Reflection.FieldInfo StaticDatabase =
+        typeof(PlusEnvironment).GetField("_database", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+    private readonly object? _originalStaticDatabase = StaticDatabase.GetValue(null);
+
+    public void Dispose() => StaticDatabase.SetValue(null, _originalStaticDatabase);
+
     private const int Owner = 920001, Target = 920002, Peer = 920003;
     private readonly HabbiconDatabaseTests.TestDatabase _database;
     private readonly HousekeepingUserStore _users;
@@ -323,7 +334,7 @@ public class HousekeepingDatabaseTests
     private Authenticator Authenticator(IUserDataFactory factory, IAccountSessionGate gate, Action? afterConsume = null)
     {
         // Habbo.Init loads effects and clothing through the static database.
-        typeof(PlusEnvironment).GetField("_database", BindingFlags.NonPublic | BindingFlags.Static)!.SetValue(null, _database);
+        StaticDatabase.SetValue(null, _database);
         var tickets = new SsoTicketStore(_database, TimeProvider.System, Options.Create(new AuthApiConfiguration()));
         _ticket = tickets.Issue(Target).GetAwaiter().GetResult().Value;
         return new Authenticator(Array.Empty<IAuthenticationTask>(), _clients, factory, new AfterConsume(tickets, afterConsume), gate);

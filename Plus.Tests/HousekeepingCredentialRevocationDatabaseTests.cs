@@ -15,8 +15,15 @@ namespace Plus.Tests;
 
 // Staff resets, bans and demotions against the HTTP credential paths, on the real stores.
 [Collection("HousekeepingDatabase")]
-public class HousekeepingCredentialRevocationDatabaseTests
+public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
 {
+    // Habbo.Init reads the static database; it is swapped in for login tests and put back afterwards.
+    private static readonly System.Reflection.FieldInfo StaticDatabase =
+        typeof(PlusEnvironment).GetField("_database", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+    private readonly object? _originalStaticDatabase = StaticDatabase.GetValue(null);
+
+    public void Dispose() => StaticDatabase.SetValue(null, _originalStaticDatabase);
+
     private const int Staff = 940001, Target = 940002, Moderator = 940003, Neighbour = 940004, Locked = 940005, Unbanned = 940006;
     private const string OldPassword = "old-password-1234";
     private readonly HabbiconDatabaseTests.TestDatabase _database;
@@ -365,6 +372,25 @@ public class HousekeepingCredentialRevocationDatabaseTests
         Assert.Equal("live", (await new BanLookup(_database, TimeProvider.System).Find("cr_target", "192.0.2.1"))?.Reason);
     }
 
+    // An unban that lands while a ban is being written must not be undone by the ban publishing its cache entry
+    // afterwards: the game login check trusts that cache.
+    [HousekeepingDatabaseFact]
+    public async Task AnUnbanDuringABanWriteLeavesNoCachedBan()
+    {
+        var moderation = Moderation();
+        Task<bool>? unban = null;
+        moderation.AfterBanInsert = async () =>
+        {
+            moderation.AfterBanInsert = null;
+            unban = Task.Run(() => moderation.UnbanUser("cr_unbanned"));
+            await Task.Delay(300);
+        };
+        await moderation.BanUser("cr_staff", ModerationBanType.Username, "cr_unbanned", "spam", BanClock.Now() + 3600);
+        Assert.True(await unban!);
+        Assert.False(moderation.IsBanned("cr_unbanned", out _));
+        Assert.Equal(0, Scalar<int>("SELECT COUNT(*) FROM bans WHERE value = 'cr_unbanned'"));
+    }
+
     private async Task WithLockedRow(string lockSql, Func<Task> whileLocked)
     {
         using var locker = new MySqlConnection(Environment.GetEnvironmentVariable("PLUS_HOUSEKEEPING_TEST_CONNECTION_STRING"));
@@ -411,7 +437,7 @@ public class HousekeepingCredentialRevocationDatabaseTests
     private Authenticator Authenticator(Plus.HabboHotel.Users.UserData.IUserDataFactory factory, ISsoTicketStore? tickets = null)
     {
         // Habbo.Init loads effects and clothing through the static database.
-        typeof(PlusEnvironment).GetField("_database", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.SetValue(null, _database);
+        StaticDatabase.SetValue(null, _database);
         return new(Array.Empty<IAuthenticationTask>(), _clients, factory, tickets ?? _tickets, _gate);
     }
 
