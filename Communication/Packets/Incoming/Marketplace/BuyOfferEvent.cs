@@ -82,7 +82,7 @@ internal class BuyOfferEvent : IPacketEvent
             {
                 session.GetHabbo().Inventory.Furniture.AddItem(giveItem);
                 session.Send(new FurniListNotificationComposer(giveItem.Id, 1));
-                session.Send(new PurchaseOkComposer());
+                session.Send(new PurchaseOKComposer());
                 session.Send(new FurniListAddComposer(giveItem));
                 session.Send(new FurniListUpdateComposer());
             }

@@ -313,7 +313,7 @@ public class HousekeepingDatabaseTests : IDisposable
     {
         var gate = new AccountSessionGate();
         var authenticator = Authenticator(new SlowLogin(_users, Task.CompletedTask), gate);
-        var handler = new SsoTicketEvent(authenticator, _ticket);
+        var handler = new SSOTicketEvent(authenticator, _ticket);
         var (session, _) = HabbiconTestSupport.Client(null!);
         var disconnected = false;
         session.DisconnectRequested = () =>
@@ -323,7 +323,7 @@ public class HousekeepingDatabaseTests : IDisposable
         };
         using var manager = new PacketManager([handler], NullLogger<PacketManager>.Instance);
         var held = gate.Enter(Target);
-        await manager.TryExecutePacket(session, ClientPacketHeader.SsoTicketEvent, new FlashIncomingPacket { Buffer = Array.Empty<byte>() });
+        await manager.TryExecutePacket(session, ClientPacketHeader.SSOTicketEvent, new FlashIncomingPacket { Buffer = Array.Empty<byte>() });
         Assert.True(disconnected);
         held.Dispose();
         Assert.Equal(AuthenticationError.SessionClosed, await handler.Attempt!);
@@ -332,7 +332,7 @@ public class HousekeepingDatabaseTests : IDisposable
     }
 
     [NoAuthenticationRequired]
-    private sealed class SsoTicketEvent(IAuthenticator authenticator, string ticket) : IPacketEvent
+    private sealed class SSOTicketEvent(IAuthenticator authenticator, string ticket) : IPacketEvent
     {
         public Task<AuthenticationError?>? Attempt { get; private set; }
         public Task Parse(GameClient session, IIncomingPacket packet) => Attempt = authenticator.AuthenticateUsingSSO(session, ticket);

@@ -21,7 +21,7 @@ public abstract class HabbiconRequest(IHabbiconService service, ILogger<Habbicon
             if (Action is { } action)
             {
                 HabbiconMessages.Publish(session, service.Change(session.GetHabbo(), action, id));
-                if (purchase) session.Send(new PurchaseOkComposer());
+                if (purchase) session.Send(new PurchaseOKComposer());
             }
             else if (Info) session.Send(new HabbiconInfoComposer(service.Load(session.GetHabbo().Id).RequireItem(id)));
             else

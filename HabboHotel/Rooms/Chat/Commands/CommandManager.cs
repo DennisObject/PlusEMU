@@ -54,7 +54,7 @@ public class CommandManager : ICommandManager
                     continue;
                 list.Append($":{cmdList.Key} {cmdList.Value.Parameters} - {cmdList.Value.Description}\n");
             }
-            session.Send(new MotdNotificationComposer(list.ToString()));
+            session.Send(new MOTDNotificationComposer(list.ToString()));
             return true;
         }
         message = message.Substring(1);

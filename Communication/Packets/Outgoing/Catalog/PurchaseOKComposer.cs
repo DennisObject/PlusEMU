@@ -4,17 +4,17 @@ using Plus.HabboHotel.Items;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog;
 
-public class PurchaseOkComposer : IServerPacket
+public class PurchaseOKComposer : IServerPacket
 {
     private readonly CatalogItem? _item;
     private readonly ItemDefinition? _baseItem;
-    public uint MessageId => ServerPacketHeader.PurchaseOkComposer;
+    public uint MessageId => ServerPacketHeader.PurchaseOKComposer;
 
-    public PurchaseOkComposer()
+    public PurchaseOKComposer()
     {
     }
 
-    public PurchaseOkComposer(CatalogItem item, ItemDefinition baseItem)
+    public PurchaseOKComposer(CatalogItem item, ItemDefinition baseItem)
     {
         _item = item;
         _baseItem = baseItem;

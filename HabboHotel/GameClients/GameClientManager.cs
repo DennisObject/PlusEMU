@@ -141,7 +141,7 @@ public class GameClientManager : IGameClientManager
             if (client == null || client.GetHabbo() == null)
                 continue;
             if (client.GetHabbo().Access.Can(PermissionKeys.ModerationTool) && !client.GetHabbo().Access.Can(PermissionKeys.StaffIgnoreAdvertisementReports))
-                client.Send(new MotdNotificationComposer(builder.ToString()));
+                client.Send(new MOTDNotificationComposer(builder.ToString()));
         }
     }
 

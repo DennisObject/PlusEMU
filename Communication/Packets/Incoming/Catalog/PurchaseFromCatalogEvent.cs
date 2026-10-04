@@ -92,7 +92,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                 if (amount != 1 || item.Amount != 1 || item.IsLimited) throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
                 var change = _habbicons.BuyCatalog(session.GetHabbo(), item.HabbiconId, item.CostCredits, item.CostPixels, item.CostDiamonds);
                 HabbiconMessages.Publish(session, change);
-                session.Send(new PurchaseOkComposer());
+                session.Send(new PurchaseOKComposer());
             }
             catch (HabbiconRejected rejected)
             {
@@ -194,7 +194,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                 if (soldOut)
                 {
                     session.SendNotification("This item has sold out! You have not been charged.");
-                    session.Send(new CatalogUpdatedComposer()); session.Send(new PurchaseOkComposer());
+                    session.Send(new CatalogUpdatedComposer()); session.Send(new PurchaseOKComposer());
                 }
                 return false;
             }
@@ -378,7 +378,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             _badgeManager.Badges.TryGetValue(item.Badge, out var badge) &&
             (string.IsNullOrEmpty(badge.RequiredRight) || session.GetHabbo().Access.Can(badge.RequiredRight)))
             await _badgeManager.GiveBadge(session.GetHabbo(), badge.Code);
-        session.Send(new PurchaseOkComposer(item, item.Definition));
+        session.Send(new PurchaseOKComposer(item, item.Definition));
         session.Send(new FurniListUpdateComposer());
     }
 
@@ -399,7 +399,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             session.Send(offer.PointsType == 5
                 ? new HabboActivityPointNotificationComposer(habbo.Diamonds, -offer.Points, 5)
                 : new HabboActivityPointNotificationComposer(habbo.Duckets, -offer.Points));
-        session.Send(new PurchaseOkComposer());
+        session.Send(new PurchaseOKComposer());
         var membershipEnd = DateTimeOffset.FromUnixTimeSeconds(expiry.Value).UtcDateTime;
         // The client caches offers; resend them so the next confirmation shows the new end date.
         session.Send(new HabboClubOffersComposer(_catalogManager.ClubOffers, ClubWindow, membershipEnd));

@@ -7,7 +7,7 @@ public class GetRecyclerPrizesEvent : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        session.Send(new RecyclerRewardsComposer());
+        session.Send(new RecyclerPrizesComposer());
         return Task.CompletedTask;
     }
 }

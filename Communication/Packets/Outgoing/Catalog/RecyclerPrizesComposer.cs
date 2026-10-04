@@ -3,9 +3,9 @@
 namespace Plus.Communication.Packets.Outgoing.Catalog;
 
 // TODO @80O: Implement Recycler
-public class RecyclerRewardsComposer : IServerPacket
+public class RecyclerPrizesComposer : IServerPacket
 {
-    public uint MessageId => ServerPacketHeader.RecyclerRewardsComposer;
+    public uint MessageId => ServerPacketHeader.RecyclerPrizesComposer;
 
     public void Compose(IOutgoingPacket packet) => packet.WriteInteger(0); // Count of items
 }

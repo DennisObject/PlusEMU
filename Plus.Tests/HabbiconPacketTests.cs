@@ -107,7 +107,7 @@ public class HabbiconPacketTests
         Assert.Equal((action, 61), Assert.Single(service.Actions));
         Assert.Equal(ServerPacketHeader.UserHabbiconStatusChangedComposer, sent[0].Header);
         bool purchase = action is HabboHotel.Habbicons.HabbiconAction.Buy or HabboHotel.Habbicons.HabbiconAction.BuyCollection or HabboHotel.Habbicons.HabbiconAction.Claim;
-        Assert.Equal(purchase, sent.Any(p => p.Header == ServerPacketHeader.PurchaseOkComposer));
+        Assert.Equal(purchase, sent.Any(p => p.Header == ServerPacketHeader.PurchaseOKComposer));
         sent.Clear(); service.Rejection = 3;
         await handler.Parse(client, Incoming(61));
         if (purchase)

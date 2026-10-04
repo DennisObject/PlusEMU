@@ -3,12 +3,12 @@ using Plus.HabboHotel.Users.Messenger;
 
 namespace Plus.Communication.Packets.Outgoing.FriendList;
 
-public class BuddyRequestsComposer : IServerPacket
+public class FriendRequestsComposer : IServerPacket
 {
     private readonly ICollection<MessengerRequest> _requests;
-    public uint MessageId => ServerPacketHeader.BuddyRequestsComposer;
+    public uint MessageId => ServerPacketHeader.FriendRequestsComposer;
 
-    public BuddyRequestsComposer(ICollection<MessengerRequest> requests)
+    public FriendRequestsComposer(ICollection<MessengerRequest> requests)
     {
         _requests = requests;
     }

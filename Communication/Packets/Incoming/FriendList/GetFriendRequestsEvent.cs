@@ -9,7 +9,7 @@ internal class GetFriendRequestsEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         ICollection<MessengerRequest> requests = session.GetHabbo().Messenger.Requests.Values.ToList();
-        session.Send(new BuddyRequestsComposer(requests));
+        session.Send(new FriendRequestsComposer(requests));
         return Task.CompletedTask;
     }
 }
