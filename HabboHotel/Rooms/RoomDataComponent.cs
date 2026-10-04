@@ -12,6 +12,5 @@ public sealed class RoomDataComponent : IRoomComponent
         var room = _room!;
         room.GetRoomItemHandler().LoadFurniture();
         room.GetGameMap().GenerateMaps();
-        room.LoadPromotions();
     }
 }

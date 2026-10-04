@@ -159,7 +159,6 @@ public class Room
     public RoomPromotion Promotion { get => Data.Promotion; set => Data.Promotion = value; }
     public Plus.HabboHotel.Groups.Group Group { get => Data.Group; set => Data.Group = value; }
     public bool HasActivePromotion => Data.HasActivePromotion;
-    public void LoadPromotions() => Data.LoadPromotions();
     public void EndPromotion() => Data.EndPromotion();
 
     public int IsLagging { get; set; }

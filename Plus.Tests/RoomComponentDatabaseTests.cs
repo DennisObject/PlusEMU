@@ -38,6 +38,9 @@ public sealed class RoomComponentDatabaseTests
                     experience INT NOT NULL, energy INT NOT NULL, nutrition INT NOT NULL, respect INT NOT NULL,
                     createstamp DOUBLE NOT NULL, have_saddle INT NOT NULL, anyone_ride INT NOT NULL,
                     hairdye INT NOT NULL, pethair INT NOT NULL, gnome_clothing VARCHAR(100) NOT NULL);
+                CREATE TABLE room_promotions (
+                    room_id INT UNSIGNED NOT NULL, title VARCHAR(100) NOT NULL, description VARCHAR(255) NOT NULL,
+                    timestamp_start DOUBLE NOT NULL, timestamp_expire DOUBLE NOT NULL, category_id INT NOT NULL);
                 """);
             connection.Execute("""
                 INSERT INTO bots VALUES
@@ -46,6 +49,7 @@ public sealed class RoomComponentDatabaseTests
                     (12, 9, 99, 'other', '', '', 0, 0, 0, 0, 'generic', 'freeroam', FALSE, 1, FALSE, 0);
                 INSERT INTO bots_speech VALUES (10, 'first'), (10, 'second');
                 INSERT INTO bots_petdata VALUES (11, 2, '3', 'ffffff', 4, 5, 6, 7, 8.5, 1, 0, 9, 10, 'hat');
+                INSERT INTO room_promotions VALUES (42, 'Featured', 'Actual row', UNIX_TIMESTAMP() - 10, UNIX_TIMESTAMP() + 600, 3);
                 """);
 
             var bot = Assert.Single(RoomBotsComponent.Load(connection, 42));
@@ -56,11 +60,21 @@ public sealed class RoomComponentDatabaseTests
             var data = Assert.IsType<RoomPetsComponent.PetData>(RoomPetsComponent.LoadData(connection, pet.Id));
             Assert.Equal((11, 42u, 1.5), (pet.Id, pet.RoomId, pet.Z));
             Assert.Equal((2, "3", "hat"), (data.Type, data.Race, data.GnomeClothing));
+            var databaseConnection = new MySqlConnectionStringBuilder(connection.ConnectionString) { Database = schema }.ConnectionString;
+            var promotion = Assert.IsType<RoomPromotion>(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 42));
+            Assert.Equal(("Featured", "Actual row", 3), (promotion.Name, promotion.Description, promotion.CategoryId));
         }
         finally
         {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }
+    }
+
+    private sealed class ProbeDatabase(string connectionString) : Plus.Database.IDatabase
+    {
+        public bool IsConnected() => true;
+        [Obsolete] public Plus.Database.Interfaces.IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
+        public System.Data.IDbConnection Connection() => new MySqlConnection(connectionString);
     }
 }

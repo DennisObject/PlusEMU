@@ -40,7 +40,9 @@ public static class RoomFactory
         return false;
     }
 
-    private static RoomData CreateData(RoomRow row, RoomModel model, bool fallbackOwnerName) => new(row.Id, row.Caption, row.ModelName, (fallbackOwnerName && string.IsNullOrEmpty(row.Username) ? "Habboon" : row.Username),
+    private static RoomData CreateData(RoomRow row, RoomModel model, bool fallbackOwnerName)
+    {
+        var data = new RoomData(row.Id, row.Caption, row.ModelName, (fallbackOwnerName && string.IsNullOrEmpty(row.Username) ? "Habboon" : row.Username),
                         row.Owner,
                         row.Password, row.Score, row.Roomtype, row.State, row.UsersNow,
                         row.UsersMax, row.Category, row.Description, row.Tags, row.Floor,
@@ -55,6 +57,10 @@ public static class RoomFactory
                         row.SpushEnabled, row.SpullEnabled, row.EnablesEnabled,
                         row.RespectNotificationsEnabled,
                         row.PetMorphsAllowed, row.GroupId, row.SalePrice, row.LayEnabled, model);
+        data.Promotion = RoomPromotionLoader.Load(PlusEnvironment.DatabaseManager, row.Id);
+        if (row.GroupId > 0 && PlusEnvironment.Game.GroupManager.TryGetGroup(row.GroupId, out var group)) data.Group = group;
+        return data;
+    }
 
     private sealed class RoomRow
     {
