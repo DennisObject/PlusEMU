@@ -253,7 +253,6 @@
     "ManageGroupEvent": 737,
     "PlacePetEvent": 1495,
     "EditRoomPromotionEvent": 816,
-    "GetClubOfferEvent": 362,
     "UpdateFloorPropertiesEvent": 1936,
     "MoveWallItemEvent": 1778,
     "VersionCheckEvent": 1220,
@@ -313,7 +312,8 @@
     "GetHabboClubExtendOfferEvent": 2462,
     "PurchaseBasicMembershipExtensionEvent": 6001,
     "PurchaseVipMembershipExtensionEvent": 3407,
-    "SelectClubGiftEvent": 2276
+    "SelectClubGiftEvent": 2276,
+    "GetClubOffersEvent": 362
   },
   "OutgoingHeaders": {
     "InitCryptoComposer": 3531,
@@ -614,6 +614,8 @@
     "HousekeepingRolesAuditComposer": 9213,
     "HabboClubExtendOfferComposer": 3964,
     "ClubGiftReceivedComposer": 659,
-    "PickMonthlyClubGiftComposer": 2188
+    "PickMonthlyClubGiftComposer": 2188,
+    "AllowedChatStylesComposer": 9340,
+    "CreatableRoomModelsComposer": 9341
   }
 }

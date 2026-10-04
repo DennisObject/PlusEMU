@@ -371,7 +371,6 @@
     "HousekeepingRevokeRoleEvent": 9139,
     "HousekeepingSetUserOverrideEvent": 9140,
     "HousekeepingRemoveUserOverrideEvent": 9141,
-    "HousekeepingSetUserRankEvent": 9107,
     "GetHabboClubExtendOfferEvent": 2462,
     "PurchaseBasicMembershipExtensionEvent": 6001,
     "PurchaseVipMembershipExtensionEvent": 3407,
