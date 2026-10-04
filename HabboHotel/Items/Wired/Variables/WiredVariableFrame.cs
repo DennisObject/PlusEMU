@@ -25,6 +25,9 @@ public sealed class WiredVariableFrame(uint roomId, IReadOnlyList<WiredVariableH
         ? holder.StableId == 0 && holder.EntityId == 0 : Holders.Contains(holder);
 }
 
+/// <summary>Proceed: run now. Deferred: queued whole. Stale: the target changed after reservation, before any evaluation.</summary>
+public enum WiredAdmission { Proceed, Deferred, Stale }
+
 public interface IWiredBuiltinVariables
 {
     bool HasValue(WiredVariableReference reference) => RoomWiredBuiltinVariables.HasNumericValue(reference);
@@ -36,9 +39,9 @@ public interface IWiredBuiltinVariables
     /// (if any) holds the source until the transaction, including its completion callback, has ended.
     /// </summary>
     IDisposable? Admit(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
-        Func<Func<int, int>, Action> replayWith, out bool deferred)
+        Func<Func<int, int>, Action> replayWith, Func<bool> stillTargeted, out WiredAdmission admission)
     {
-        deferred = false;
+        admission = WiredAdmission.Proceed;
         return null;
     }
     /// <summary>Returns a local notification which the module invokes only after releasing its value lock.</summary>

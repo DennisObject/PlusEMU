@@ -37,16 +37,16 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     // The gate's per-write FIFO decides: behind a pending write, or a closing from another thread, the whole
     // transaction waits for the owner. Otherwise it runs now with the transform's single, already evaluated result.
     public IDisposable? Admit(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
-        Func<Func<int, int>, Action> replayWith, out bool deferred)
+        Func<Func<int, int>, Action> replayWith, Func<bool> stillTargeted, out WiredAdmission admission)
     {
-        deferred = false;
+        admission = WiredAdmission.Proceed;
         if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state") return null;
         if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || room.GetGameMap()?.Gates is not { } gates) return null;
         var original = transform;
         string? Peek(string current) => int.TryParse(current, out var value)
             ? original(value).ToString(CultureInfo.InvariantCulture) : null;
         Action Replay(string? prepared) => replayWith(prepared is null ? original : _ => int.Parse(prepared, CultureInfo.InvariantCulture));
-        var scope = gates.AdmitVariableWrite(item, Peek, Replay, out deferred, out var evaluated);
+        var scope = gates.AdmitVariableWrite(item, Peek, Replay, stillTargeted, out admission, out var evaluated);
         if (evaluated is not null) transform = _ => int.Parse(evaluated, CultureInfo.InvariantCulture);
         return scope;
     }

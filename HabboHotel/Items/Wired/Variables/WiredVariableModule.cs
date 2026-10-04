@@ -106,22 +106,26 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             var target = admittedTarget ?? WriteTarget(reference);
             ResolutionHook?.Invoke(attempt);
             var effective = transform;
-            var deferred = false;
-            IDisposable? admission = null;
+            var admission = WiredAdmission.Proceed;
+            IDisposable? scope = null;
             if (builtins != null)
-                admission = builtins.Admit(target, holder, ref effective,
-                    replayed => () => ChangeAdmitted(reference, holder, mutation, replayed, frame, origin, target), out deferred);
+                scope = builtins.Admit(target, holder, ref effective,
+                    replayed => () => ChangeAdmitted(reference, holder, mutation, replayed, frame, origin, target),
+                    () => admittedTarget is not null || WriteTarget(reference) == target, out admission);
             // The admission, if any, is held until the completion callback has run.
-            using (admission)
+            using (scope)
             {
-                if (deferred) return true;
+                if (admission == WiredAdmission.Deferred) return true;
+                if (admission == WiredAdmission.Stale) continue;
+                // A transform already evaluated against an old target is never reused or re-run.
+                var evaluated = !ReferenceEquals(effective, transform);
                 Action? completed;
                 bool changed;
                 lock (_gate)
                 {
                     if (WriteTargetLocked(reference) != target)
                     {
-                        if (admittedTarget is not null) return false;
+                        if (admittedTarget is not null || evaluated) return false;
                         continue;
                     }
                     changed = ChangeLocked(reference, holder, mutation, effective, frame, origin, out completed);

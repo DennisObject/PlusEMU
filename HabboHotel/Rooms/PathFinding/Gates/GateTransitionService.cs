@@ -1,6 +1,7 @@
 using Plus.Core;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
+using Plus.HabboHotel.Items.Wired.Variables;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
@@ -130,15 +131,17 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
     // operation until the whole transaction ends. `deferred`: it was queued instead; `prepared`: the transform's
     // single, already evaluated result when the write must run now.
     internal IDisposable? AdmitVariableWrite(Item item, Func<string, string?> peek, Func<string?, Action> replayFor,
-        out bool deferred, out string? prepared)
+        Func<bool> stillTargeted, out WiredAdmission admission, out string? prepared)
     {
-        deferred = false; prepared = null;
+        admission = WiredAdmission.Proceed; prepared = null;
         var current = _current;
         if (current is { Entered: false } && ReferenceEquals(current.Item, item) && IsActive(current)) { current.Entered = true; return null; }
         var operation = Admit(item, run => RunReplay(replayFor(null), run));
-        if (operation == null) { deferred = true; return null; }
+        if (operation == null) { admission = WiredAdmission.Deferred; return null; }
         try
         {
+            // Validate the reserved target before the first evaluation, outside the gate lock.
+            if (!stillTargeted()) { End(operation); admission = WiredAdmission.Stale; return null; }
             if (!RoomOwnerScope.IsOwner(room))
             {
                 prepared = peek(item.LegacyDataString);
@@ -146,7 +149,7 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
                 {
                     var closing = prepared;
                     Requeue(operation, run => RunReplay(replayFor(closing), run));
-                    deferred = true;
+                    admission = WiredAdmission.Deferred;
                     return null;
                 }
             }
