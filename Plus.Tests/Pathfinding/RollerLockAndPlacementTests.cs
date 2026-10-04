@@ -129,6 +129,21 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((0, 2, 2), (helper.GetX, helper.GetY, helper.Rotation));
     }
 
+    // Under v2 the in-place setter validates a temporary item's destination under the same placement
+    // lock as its commit, so a placement that lands first is seen by the validation.
+    [Fact]
+    public void V2InPlaceSetterRevalidatesATemporaryMoveUnderThePlacementLock()
+    {
+        var temporary = PlannerTemporaryWalkable(1, 1);
+        InstallRollerChainEngine(PathfindingEngine.V2);
+        var handler = _room.GetRoomItemHandler();
+        var moved = true;
+        PlannerInterleaveRotation(() => moved = handler.SetFloorItem(temporary, 2, 2, 0),
+            () => Add(30, 2, 2, height: 1, stackable: false));
+        Assert.False(moved);
+        Assert.Equal((1, 1), (temporary.GetX, temporary.GetY));
+    }
+
     [Theory]
     [InlineData(PathfindingEngine.V2)]
     public void RollerGroupValidatesTheFootprintItCommitsUnderOnePlacementLock(PathfindingEngine engine)
