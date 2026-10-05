@@ -45,7 +45,7 @@ public sealed class RoomChatServiceTests
     [Fact]
     public async Task FloodDenialStopsLoggingCommandsAndPublication()
     {
-        var world = new World();
+        var world = new World(new ZonedClock(Now, TimeZoneInfo.Utc));
         world.Sender.GetHabbo().FloodTime = Now.ToUnixTimeSeconds() + 1;
 
         await world.Service.Chat(world.Sender, "blocked", 1);
@@ -128,12 +128,83 @@ public sealed class RoomChatServiceTests
         Assert.False(world.Sender.GetHabbo().HasSpoken);
     }
 
+    [Fact]
+    public async Task TransitionalLocalFloodDeadlinePreservesBeforeExactAndAfterBoundaries()
+    {
+        var zone = TimeZoneInfo.CreateCustomTimeZone("chat-test-plus-two", TimeSpan.FromHours(2), "test", "test");
+        var deadlineUtc = Now.AddMilliseconds(500);
+        var deadline = deadlineUtc.ToUnixTimeMilliseconds() / 1000.0 + zone.GetUtcOffset(deadlineUtc).TotalSeconds;
+
+        var before = new World(new ZonedClock(deadlineUtc.AddMilliseconds(-1), zone));
+        before.Sender.GetHabbo().FloodTime = deadline;
+        before.Commands.Handled = true;
+        await before.Service.Chat(before.Sender, ":before", 1);
+        Assert.Empty(before.Logs.Entries);
+
+        var exact = new World(new ZonedClock(deadlineUtc, zone));
+        exact.Sender.GetHabbo().FloodTime = deadline;
+        exact.Commands.Handled = true;
+        await exact.Service.Chat(exact.Sender, ":exact", 1);
+        Assert.Single(exact.Logs.Entries);
+
+        var after = new World(new ZonedClock(deadlineUtc.AddMilliseconds(1), zone));
+        after.Sender.GetHabbo().FloodTime = deadline;
+        after.Commands.Handled = true;
+        await after.Service.Chat(after.Sender, ":after", 1);
+        Assert.Single(after.Logs.Entries);
+    }
+
+    [Fact]
+    public async Task BannedThresholdUsesSameSampledLocalEpochForExpiry()
+    {
+        var zone = TimeZoneInfo.CreateCustomTimeZone("chat-test-plus-five-thirty", TimeSpan.FromHours(5.5), "test", "test");
+        var now = Now.AddMilliseconds(789);
+        var (moderation, recorder) = RecordingModeration.Create();
+        var clock = new ZonedClock(now, zone);
+        var world = new World(clock, moderation);
+        world.Filter.Banned = true;
+        world.Settings.Chances = 1;
+        clock.Calls = 0;
+
+        await world.Service.Chat(world.Sender, "threshold", 1);
+
+        var expected = now.ToUnixTimeMilliseconds() / 1000.0 + zone.GetUtcOffset(now).TotalSeconds + 78892200;
+        Assert.Equal(expected, recorder.Expiry);
+        Assert.Equal(now, Assert.Single(world.Logs.Entries).CreatedAt);
+        Assert.Equal(1, clock.Calls);
+    }
+
+    [Fact]
+    public async Task MalformedBotOrDisconnectedWhisperRecipientDoesNotPublish()
+    {
+        var world = new World();
+
+        await world.Service.Whisper(world.Sender, "Bob", 1);
+        Assert.Empty(world.Logs.Entries);
+        Assert.Empty(world.SenderPackets);
+        Assert.Empty(world.RecipientPackets);
+
+        world.RecipientUser.IsBot = true;
+        await world.Service.Whisper(world.Sender, "Bob message", 1);
+        Assert.Empty(world.Logs.Entries);
+        Assert.Empty(world.SenderPackets);
+        Assert.Empty(world.RecipientPackets);
+
+        world.RecipientUser.IsBot = false;
+        world.Clients.ByUserId.Remove(8);
+        await world.Service.Whisper(world.Sender, "Bob message", 1);
+        Assert.Empty(world.Logs.Entries);
+        Assert.Empty(world.SenderPackets);
+        Assert.Empty(world.RecipientPackets);
+    }
+
     private static string Text(byte[] packet) => Encoding.UTF8.GetString(packet);
 
     private sealed class World
     {
         public GameClient Sender { get; }
         public GameClient Recipient { get; }
+        public RoomUser RecipientUser { get; }
         public List<(uint Header, byte[] Payload)> SenderPackets { get; }
         public List<(uint Header, byte[] Payload)> RecipientPackets { get; }
         public RecordingLogs Logs { get; } = new();
@@ -141,19 +212,22 @@ public sealed class RoomChatServiceTests
         public RecordingFilter Filter { get; } = new();
         public RecordingQuests Quests { get; } = new();
         public RecordingRewards Rewards { get; } = new();
+        public Settings Settings { get; } = new();
+        public ClientDirectory Clients { get; }
         public IRoomChatService Service { get; }
         private readonly Room _room;
         private readonly WiredComponent _wired;
         private readonly ConcurrentDictionary<uint, Item> _floorItems;
         private uint _nextItemId = 1;
 
-        public World()
+        public World(TimeProvider? clock = null, IModerationManager? moderation = null)
         {
+            clock ??= new FixedClock(Now);
             _room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
             _room.Id = 42;
             _room.MutedUsers = [];
             _room.WordFilterList = [];
-            var users = new RoomUserManager(_room, TestRoomUserStore.Instance, new FixedClock(Now));
+            var users = new RoomUserManager(_room, TestRoomUserStore.Instance, clock);
             var items = new RoomItemHandling(_room, TestRoomItemStore.Instance);
             _floorItems = (ConcurrentDictionary<uint, Item>)Get(items, "_floorItems");
             _wired = new WiredComponent(_room, TestLogging.Logger);
@@ -172,10 +246,15 @@ public sealed class RoomChatServiceTests
                 IgnoresComponent = new([]), ReceiveWhispers = true
             });
             Add(users, new RoomUser(7, 1, 11, _room), Sender);
-            Add(users, new RoomUser(8, 2, 12, _room), Recipient);
+            RecipientUser = new RoomUser(8, 2, 12, _room);
+            Add(users, RecipientUser, Recipient);
+            var clientManager = ClientDirectory.Create(out var clients);
+            Clients = clients;
+            Clients.ByUserId[7] = Sender;
+            Clients.ByUserId[8] = Recipient;
 
             Service = new RoomChatService(new Styles(), Logs, Filter, Commands,
-                DefaultProxy<IModerationManager>.Create(), new Settings(), Quests, Rewards, new FixedClock(Now));
+                moderation ?? DefaultProxy<IModerationManager>.Create(), Settings, Quests, Rewards, clientManager, clock);
         }
 
         public void AddHiddenSpeechTrigger(string message)
@@ -261,7 +340,8 @@ public sealed class RoomChatServiceTests
 
     private sealed class Settings : ISettingsManager
     {
-        public string TryGetValue(string value) => "99";
+        public int Chances { get; set; } = 99;
+        public string TryGetValue(string value) => Chances.ToString();
         public string? GetOptionalValue(string key) => null;
         public Task Reload() => Task.CompletedTask;
     }
@@ -290,6 +370,50 @@ public sealed class RoomChatServiceTests
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private sealed class ZonedClock(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
+    {
+        public int Calls { get; set; }
+        public override DateTimeOffset GetUtcNow()
+        { Calls++; return now; }
+        public override TimeZoneInfo LocalTimeZone => zone;
+    }
+
+    public class ClientDirectory : DispatchProxy
+    {
+        public Dictionary<int, GameClient> ByUserId { get; } = [];
+        public static IGameClientManager Create(out ClientDirectory directory)
+        {
+            var manager = DispatchProxy.Create<IGameClientManager, ClientDirectory>();
+            directory = (ClientDirectory)(object)manager;
+            return manager;
+        }
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            if (targetMethod?.Name == nameof(IGameClientManager.GetClientByUserId))
+                return ByUserId.GetValueOrDefault((int)args![0]!);
+            return targetMethod?.ReturnType.IsValueType == true ? Activator.CreateInstance(targetMethod.ReturnType) : null;
+        }
+    }
+
+    public class RecordingModeration : DispatchProxy
+    {
+        public double? Expiry { get; private set; }
+        public static (IModerationManager Manager, RecordingModeration Recorder) Create()
+        {
+            var manager = DispatchProxy.Create<IModerationManager, RecordingModeration>();
+            return (manager, (RecordingModeration)(object)manager);
+        }
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            if (targetMethod?.Name == nameof(IModerationManager.BanUser))
+            {
+                Expiry = (double)args![4]!;
+                return Task.CompletedTask;
+            }
+            return targetMethod?.ReturnType.IsValueType == true ? Activator.CreateInstance(targetMethod.ReturnType) : null;
+        }
     }
 
     private class DefaultProxy<T> : DispatchProxy where T : class

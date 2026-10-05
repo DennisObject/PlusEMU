@@ -29,6 +29,7 @@ public sealed class RoomChatService(
     ISettingsManager settingsManager,
     IQuestManager questManager,
     IRewardTrackManager rewardTrackManager,
+    IGameClientManager clientManager,
     TimeProvider clock) : IRoomChatService
 {
     public Task Chat(GameClient session, string message, int colour) => PublicChat(session, message, colour, false);
@@ -47,6 +48,7 @@ public sealed class RoomChatService(
         if (user == null)
             return;
         var now = clock.GetUtcNow();
+        var legacyNow = LegacyLocalEpoch(now);
         message = StringCharFilter.Escape(message);
         if (message.Length > 100)
             message = message[..100];
@@ -58,7 +60,7 @@ public sealed class RoomChatService(
             user.LastBubble = colour;
         else
             user.UnIdle();
-        if (now.ToUnixTimeSeconds() < habbo.FloodTime && habbo.FloodTime != 0)
+        if (legacyNow < habbo.FloodTime && habbo.FloodTime != 0)
             return;
         if (habbo.TimeMuted > 0)
         {
@@ -87,7 +89,7 @@ public sealed class RoomChatService(
             if (habbo.BannedPhraseCount >= Convert.ToInt32(settingsManager.TryGetValue("room.chat.filter.banned_phrases.chances")))
             {
                 await moderationManager.BanUser("System", ModerationBanType.Username, habbo.Username,
-                    $"Spamming banned phrases ({message})", now.ToUnixTimeSeconds() + 78892200);
+                    $"Spamming banned phrases ({message})", legacyNow + 78892200);
                 session.Disconnect();
                 return;
             }
@@ -115,20 +117,28 @@ public sealed class RoomChatService(
         if (room == null)
             return;
         var now = clock.GetUtcNow();
+        var legacyNow = LegacyLocalEpoch(now);
         if (!habbo.Access.Can(PermissionKeys.ModerationTool) && room.CheckMute(session))
         {
             session.SendWhisper("Oops, you're currently muted.");
             return;
         }
-        if (now.ToUnixTimeSeconds() < habbo.FloodTime && habbo.FloodTime != 0)
+        if (legacyNow < habbo.FloodTime && habbo.FloodTime != 0)
             return;
-        var toUser = parameters.Split(' ')[0];
-        var message = parameters.Substring(toUser.Length + 1);
+        var separator = parameters.IndexOf(' ');
+        if (separator <= 0)
+            return;
+        var toUser = parameters[..separator];
+        var message = parameters[(separator + 1)..];
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
         if (user == null)
             return;
         var recipient = room.GetRoomUserManager().GetRoomUserByHabbo(toUser);
-        if (recipient == null)
+        if (recipient == null || recipient.IsBot)
+            return;
+        var recipientClient = clientManager.GetClientByUserId(recipient.HabboId);
+        var recipientHabbo = recipientClient?.GetHabbo();
+        if (recipientClient == null || recipientHabbo == null)
             return;
         if (habbo.TimeMuted > 0)
         {
@@ -147,7 +157,7 @@ public sealed class RoomChatService(
             session.Send(new FloodControlComposer(muteTime));
             return;
         }
-        if (!recipient.GetClient().GetHabbo().ReceiveWhispers && !habbo.Access.Can(PermissionKeys.RoomWhisperOverride))
+        if (!recipientHabbo.ReceiveWhispers && !habbo.Access.Can(PermissionKeys.RoomWhisperOverride))
         {
             session.SendWhisper("Oops, this user has their whispers disabled!");
             return;
@@ -159,7 +169,7 @@ public sealed class RoomChatService(
             if (habbo.BannedPhraseCount >= Convert.ToInt32(settingsManager.TryGetValue("room.chat.filter.banned_phrases.chances")))
             {
                 await moderationManager.BanUser("System", ModerationBanType.Username, habbo.Username,
-                    $"Spamming banned phrases ({message})", now.ToUnixTimeSeconds() + 78892200);
+                    $"Spamming banned phrases ({message})", legacyNow + 78892200);
                 session.Disconnect();
                 return;
             }
@@ -168,19 +178,24 @@ public sealed class RoomChatService(
         }
         questManager.ProgressUserQuest(session, QuestType.SocialChat);
         user.UnIdle();
-        user.GetClient().Send(new WhisperComposer(user.VirtualId, message, 0, user.LastBubble));
-        if (!recipient.IsBot && recipient.UserId != user.UserId
-            && !recipient.GetClient().GetHabbo().IgnoresComponent.IsIgnored(habbo.Id))
-            recipient.GetClient().Send(new WhisperComposer(user.VirtualId, message, 0, user.LastBubble));
+        session.Send(new WhisperComposer(user.VirtualId, message, 0, user.LastBubble));
+        if (recipient.UserId != user.UserId
+            && !recipientHabbo.IgnoresComponent.IsIgnored(habbo.Id))
+            recipientClient.Send(new WhisperComposer(user.VirtualId, message, 0, user.LastBubble));
         foreach (var notifiable in room.GetRoomUserManager().GetRoomUsersWithPermission(PermissionKeys.StaffReceiveAlerts))
         {
-            if (notifiable != null && notifiable.HabboId != recipient.HabboId && notifiable.HabboId != user.HabboId
-                && notifiable.GetClient() != null && notifiable.GetClient().GetHabbo() != null
-                && !notifiable.GetClient().GetHabbo().IgnorePublicWhispers)
-                notifiable.GetClient().Send(new WhisperComposer(user.VirtualId, $"[Whisper to {toUser}] {message}", 0,
+            if (notifiable == null || notifiable.HabboId == recipient.HabboId || notifiable.HabboId == user.HabboId)
+                continue;
+            var notifiableClient = clientManager.GetClientByUserId(notifiable.HabboId);
+            var notifiableHabbo = notifiableClient?.GetHabbo();
+            if (notifiableClient != null && notifiableHabbo != null && !notifiableHabbo.IgnorePublicWhispers)
+                notifiableClient.Send(new WhisperComposer(user.VirtualId, $"[Whisper to {toUser}] {message}", 0,
                     user.LastBubble));
         }
         if (room.GetRoomUserManager().GetRoomUsers().Count > 1)
             rewardTrackManager.Progress(session, RewardTrackActions.ChatWithSomeone);
     }
+
+    private double LegacyLocalEpoch(DateTimeOffset now) =>
+        now.ToUnixTimeMilliseconds() / 1000.0 + clock.LocalTimeZone.GetUtcOffset(now).TotalSeconds;
 }
