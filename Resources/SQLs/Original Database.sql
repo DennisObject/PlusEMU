@@ -5914,7 +5914,7 @@ CREATE TABLE `bots_petdata` (
 -- ----------------------------
 -- Records of bots_petdata
 -- ----------------------------
-INSERT INTO `bots_petdata` VALUES ('1', '15', '2', 'FFFFFF', '100', '0', '100', '0', '1487474034', '0', '1', '-1', '0', '-1');
+INSERT INTO `bots_petdata` VALUES ('1', '15', '2', 'FFFFFF', '100', '0', '100', '0', '2017-02-19 03:13:54.000000', '0', '1', '-1', '0', '-1');
 
 -- ----------------------------
 -- Table structure for `bots_pet_commands`
