@@ -34,11 +34,11 @@ internal class RegenerateMapsBox : IWiredItem
     {
         if (Instance == null)
             return false;
-        var timeSinceRegen = DateTime.Now - Instance.LastRegeneration;
-        if (timeSinceRegen.TotalMinutes > 1)
+        var now = Instance.RuntimeClock.GetUtcNow();
+        if (Instance.LastRegenerationAt is not { } lastRegeneration || now - lastRegeneration > TimeSpan.FromMinutes(1))
         {
             Instance.GetGameMap().GenerateMaps();
-            Instance.LastRegeneration = DateTime.Now;
+            Instance.LastRegenerationAt = now;
             return true;
         }
         return false;

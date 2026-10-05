@@ -44,8 +44,8 @@ public class Room
     private Soccer _soccer;
 
     public bool IsCrashed;
-    public DateTime LastRegeneration;
-    public DateTime LastTimerReset;
+    public DateTimeOffset? LastRegenerationAt;
+    public DateTimeOffset? LastTimerResetAt;
     public bool MDisposed;
     public MoodlightData MoodlightData;
 
@@ -107,7 +107,7 @@ public class Room
         _wiredComponent = wired;
         _userSnapshots = userSnapshots;
         _interactionClock = interactionClock;
-        LastRegeneration = DateTime.Now;
+        LastRegenerationAt = interactionClock.GetUtcNow();
     }
 
     internal void SetBans(BansComponent bans) => _bansComponent = bans;
@@ -118,6 +118,7 @@ public class Room
     internal ILogger WiredLogger => _wiredLogger;
     internal TimeProvider InteractionClock => _interactionClock
         ?? throw new InvalidOperationException("The room interaction clock has not been initialized.");
+    internal TimeProvider RuntimeClock => InteractionClock;
 
     public uint Id { get => Data.Id; set => Data.Id = value; }
     public string Name { get => Data.Name; set => Data.Name = value; }
@@ -212,7 +213,7 @@ public class Room
     public BattleBanzai GetBanzai()
     {
         if (_banzai == null)
-            _banzai = new(this);
+            _banzai = new(this, RuntimeClock);
         return _banzai;
     }
 
@@ -226,7 +227,7 @@ public class Room
     public GameManager GetGameManager()
     {
         if (_gameManager == null)
-            _gameManager = new(this);
+            _gameManager = new(this, RuntimeClock);
         return _gameManager;
     }
 

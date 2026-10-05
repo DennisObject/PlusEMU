@@ -353,6 +353,7 @@ public sealed class WiredNativeLifecycleTests
         public World()
         {
             Room.Id = 1;
+            Set(Room, "_interactionClock", TimeProvider.System);
             Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
             var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);

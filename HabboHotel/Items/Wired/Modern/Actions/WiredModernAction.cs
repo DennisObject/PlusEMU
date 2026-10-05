@@ -226,7 +226,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 foreach (var item in items) changed |= _clocks.Adjust(item, Param(config, 0), Param(config, 2), Param(config, 3));
                 return changed;
             case "wf_act_reset_timers":
-                context.Room.LastTimerReset = DateTime.Now;
+                context.Room.LastTimerResetAt = _clock.GetUtcNow();
                 context.Operations.ResetTimers(items); return true;
             case "wf_act_call_stacks": case "wf_act_neg_call_stacks":
                 return context.Operations.CallStacks(context, items.Where(item => item.GetX != Item.GetX || item.GetY != Item.GetY), IsNegative);

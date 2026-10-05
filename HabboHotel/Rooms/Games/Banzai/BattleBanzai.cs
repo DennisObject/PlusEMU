@@ -7,7 +7,6 @@ using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.PathFinding;
-using Plus.Utilities;
 using Plus.Utilities.Enclosure;
 
 namespace Plus.HabboHotel.Rooms.Games.Banzai;
@@ -19,13 +18,14 @@ public class BattleBanzai
     private byte[,] _floorMap;
     private ConcurrentDictionary<uint, Item> _pucks;
     private Room _room;
-    private double _timestarted;
+    private readonly TimeProvider _clock;
+    private DateTimeOffset? _startedAt;
 
-    public BattleBanzai(Room room)
+    public BattleBanzai(Room room, TimeProvider clock)
     {
         _room = room;
+        _clock = clock;
         IsBanzaiActive = false;
-        _timestarted = 0;
         _pucks = new();
         _banzaiTiles = new();
     }
@@ -171,7 +171,7 @@ public class BattleBanzai
             return;
         _floorMap = new byte[_room.GetGameMap().Model.MapSizeY, _room.GetGameMap().Model.MapSizeX];
         _field = new(_floorMap, true);
-        _timestarted = UnixTimestamp.GetNow();
+        _startedAt = _clock.GetUtcNow();
         _room.GetGameManager().LockGates();
         for (var i = 1; i < 5; i++) _room.GetGameManager().Points[i] = 0;
         foreach (var tile in _banzaiTiles.Values)
@@ -209,8 +209,10 @@ public class BattleBanzai
 
     public void BanzaiEnd(bool triggeredByUser = false)
     {
+        var now = _clock.GetUtcNow();
+        var awardsProgress = HasMinimumPlayTimeAt(now);
         IsBanzaiActive = false;
-        _room.GetGameManager().StopGame();
+        _room.GetGameManager().StopGame(now);
         _floorMap = null;
         if (!triggeredByUser)
             _room.GetWired().TriggerEvent(WiredBoxType.TriggerGameEnds, null);
@@ -236,7 +238,7 @@ public class BattleBanzai
             {
                 if (user.Team != Team.None)
                 {
-                    if (UnixTimestamp.GetNow() - _timestarted > 5)
+                    if (awardsProgress)
                     {
                         PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallTilesLocked", user.LockedTilesCount);
                         PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallPlayer", 1);
@@ -246,7 +248,7 @@ public class BattleBanzai
                 {
                     if (user.CurrentEffect == 35)
                     {
-                        if (UnixTimestamp.GetNow() - _timestarted > 5)
+                        if (awardsProgress)
                             PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
                         _room.SendPacket(new ActionComposer(user.VirtualId, 1));
                     }
@@ -255,7 +257,7 @@ public class BattleBanzai
                 {
                     if (user.CurrentEffect == 33)
                     {
-                        if (UnixTimestamp.GetNow() - _timestarted > 5)
+                        if (awardsProgress)
                             PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
                         _room.SendPacket(new ActionComposer(user.VirtualId, 1));
                     }
@@ -264,7 +266,7 @@ public class BattleBanzai
                 {
                     if (user.CurrentEffect == 34)
                     {
-                        if (UnixTimestamp.GetNow() - _timestarted > 5)
+                        if (awardsProgress)
                             PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
                         _room.SendPacket(new ActionComposer(user.VirtualId, 1));
                     }
@@ -273,7 +275,7 @@ public class BattleBanzai
                 {
                     if (user.CurrentEffect == 36)
                     {
-                        if (UnixTimestamp.GetNow() - _timestarted > 5)
+                        if (awardsProgress)
                             PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
                         _room.SendPacket(new ActionComposer(user.VirtualId, 1));
                     }
@@ -283,6 +285,9 @@ public class BattleBanzai
                 _field.Dispose();
         }
     }
+
+    internal bool HasMinimumPlayTimeAt(DateTimeOffset now) =>
+        _startedAt is { } startedAt && now - startedAt > TimeSpan.FromSeconds(5);
 
     public void MovePuck(Item item, GameClient mover, int newX, int newY, Team team)
     {

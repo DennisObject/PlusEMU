@@ -52,10 +52,10 @@ public partial class WiredComponent
         }
         else if (descriptor.Category == WiredBoxCategory.Condition && WiredConditionConfiguration.Supports(descriptor.CanonicalName))
         {
-            // Only calendar predicates use a zone; elapsed durations retain the existing local timer origin.
+            // Calendar predicates use the configured zone; elapsed durations use the shared UTC room clock.
             box = new WiredModernCondition(_room, item, descriptor, ReadCounterMilliseconds,
                 descriptor.CanonicalName is "wf_cnd_match_time" or "wf_cnd_match_date" or "wf_cnd_date_rng_active"
-                    ? () => CalendarTime : () => DateTimeOffset.Now);
+                    ? () => CalendarTime : () => _clock.GetUtcNow());
             defaults = WiredConditionConfiguration.Defaults(descriptor.CanonicalName);
         }
         else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName))

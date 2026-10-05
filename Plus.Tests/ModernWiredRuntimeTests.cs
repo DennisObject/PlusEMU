@@ -44,9 +44,41 @@ public sealed class ModernWiredDatabaseCollection;
 [Collection("Modern Wired database seam")]
 public class ModernWiredRuntimeTests
 {
-    private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null) =>
+    private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null,
+        TimeProvider? clock = null) =>
         new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger,
-            TimeProvider.System);
+            clock ?? TimeProvider.System);
+
+    [Fact]
+    public void TimerResetAndElapsedConditionsUseCapturedUtcInstantsAtExactBoundaries()
+    {
+        var (room, _, _) = World();
+        var instant = new DateTimeOffset(2040, 4, 5, 6, 7, 8, TimeSpan.Zero);
+        var clock = new CountingClock(instant, TimeZoneInfo.CreateCustomTimeZone("wired-plus-nine", TimeSpan.FromHours(9), "test", "test"));
+        var action = ActionBox(room, "wf_act_reset_timers", clock: clock);
+        action.ApplyConfiguration(WiredActionConfiguration.Defaults("wf_act_reset_timers"));
+        var operations = new ResetOperations();
+
+        Assert.True(action.Execute(new WiredRuntimeContext(room, new(WiredEventKind.Use), new(() => [], () => []), operations)));
+        Assert.Equal(instant, room.LastTimerResetAt);
+        Assert.Equal(1, clock.Calls);
+        Assert.Equal(1, operations.Resets);
+
+        AssertBoundary("wf_cnd_time_less_than", instant.AddMilliseconds(999).ToOffset(TimeSpan.FromHours(9)), true);
+        AssertBoundary("wf_cnd_time_less_than", instant.AddSeconds(1).ToOffset(TimeSpan.FromHours(9)), false);
+        AssertBoundary("wf_cnd_time_more_than", instant.AddSeconds(1).ToOffset(TimeSpan.FromHours(-7)), false);
+        AssertBoundary("wf_cnd_time_more_than", instant.AddMilliseconds(1001).ToOffset(TimeSpan.FromHours(-7)), true);
+
+        void AssertBoundary(string name, DateTimeOffset now, bool expected)
+        {
+            var reads = 0;
+            var condition = new WiredModernCondition(room, MakeItem(101, name), Descriptor(name), _ => null, () => { reads++; return now; });
+            Assert.True(condition.TryValidateConfiguration(new() { IntParams = [2] }, out var configuration, out var error), error);
+            condition.ApplyConfiguration(configuration);
+            Assert.Equal(expected, condition.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+            Assert.Equal(1, reads);
+        }
+    }
 
     [Fact]
     public void AllImplementedEditorsHaveValidatedDefaults()
@@ -1265,6 +1297,7 @@ public class ModernWiredRuntimeTests
     private static (Room Room, Gamemap Map, ConcurrentDictionary<uint, Item> Items) World(IRoomItemStore? store = null)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        typeof(Room).GetField("_interactionClock", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, TimeProvider.System);
         var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
         var handler = new RoomItemHandling(room, store ?? TestRoomItemStore.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
@@ -1292,5 +1325,18 @@ public class ModernWiredRuntimeTests
         public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => throw new NotSupportedException();
         public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => throw new NotSupportedException();
         public void ResetTimers(IEnumerable<Item> targets) => throw new NotSupportedException();
+    }
+    private sealed class ResetOperations : IWiredRuntimeOperations
+    {
+        public int Resets { get; private set; }
+        public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => throw new NotSupportedException();
+        public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => throw new NotSupportedException();
+        public void ResetTimers(IEnumerable<Item> targets) => Resets++;
+    }
+    private sealed class CountingClock(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
+    {
+        public int Calls { get; private set; }
+        public override TimeZoneInfo LocalTimeZone => zone;
+        public override DateTimeOffset GetUtcNow() { Calls++; return now; }
     }
 }
