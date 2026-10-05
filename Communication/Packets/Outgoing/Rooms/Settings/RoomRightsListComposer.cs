@@ -10,7 +10,7 @@ public class RoomRightsListComposer : IServerPacket
     public RoomRightsListComposer(uint roomId, IReadOnlyCollection<RoomRightHolder> users)
     {
         _roomId = roomId;
-        _users = users;
+        _users = users.ToArray();
     }
 
     public void Compose(IOutgoingPacket packet)

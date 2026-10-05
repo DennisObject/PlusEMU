@@ -18,7 +18,7 @@ public sealed class FurnitureDataReloadComposer : IServerPacket
     public FurnitureDataReloadComposer(int mode, IReadOnlyList<FurnidataEdit> entries)
     {
         _mode = mode;
-        _entries = entries;
+        _entries = entries.ToArray();
     }
 
     public void Compose(IOutgoingPacket packet)

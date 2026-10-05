@@ -10,7 +10,7 @@ public class PopularRoomTagsResultComposer : IServerPacket
 
     public PopularRoomTagsResultComposer(ICollection<KeyValuePair<string, int>> tags)
     {
-        _tags = tags;
+        _tags = tags.ToArray();
     }
 
     public void Compose(IOutgoingPacket packet)

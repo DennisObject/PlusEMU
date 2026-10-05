@@ -20,7 +20,7 @@ public class FloorHeightMapComposer : IServerPacket
         _map = map;
         _wallHeight = wallHeight;
         _zoomIn = zoomIn;
-        _hides = hides ?? Array.Empty<AreaHide>();
+        _hides = hides?.ToArray() ?? Array.Empty<AreaHide>();
         _cameraX = cameraX;
         _cameraY = cameraY;
         _cameraZ = cameraZ;

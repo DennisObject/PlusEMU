@@ -8,7 +8,7 @@ public class HousekeepingRoomListComposer : IServerPacket
     private readonly IReadOnlyList<HousekeepingRoom> _rooms;
     public uint MessageId => ServerPacketHeader.HousekeepingRoomListComposer;
 
-    public HousekeepingRoomListComposer(IReadOnlyList<HousekeepingRoom> rooms) => _rooms = rooms;
+    public HousekeepingRoomListComposer(IReadOnlyList<HousekeepingRoom> rooms) => _rooms = rooms.ToArray();
 
     public void Compose(IOutgoingPacket packet)
     {
