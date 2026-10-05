@@ -353,6 +353,7 @@ public partial class PlacedFurniRoomTests : IDisposable
     {
         public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => null;
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) { }
+        public void Reset(IReadOnlyCollection<uint> itemIds) { }
     }
 
     private sealed class RecordingRoomItemStore : IRoomItemStore

@@ -12,7 +12,7 @@ namespace Plus.Tests;
 public class CameraSnapshotTests
 {
     [Fact]
-    public void CaptureCopiesRoomStateAndSkipsUrlFurniture()
+    public void CaptureCopiesRoomStateKeepsCameraPhotosAndSkipsUrlFurniture()
     {
         var chair = Floor(1, 100, "2", 3, 4, 0.5, 2);
         var photo = Floor(2, 4597, "/camera/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.png", 1, 1, 0, 0);
@@ -60,9 +60,10 @@ public class CameraSnapshotTests
         Assert.Equal("i", wall.Type);
         Assert.Equal(8, wall.State);
         Assert.Equal(":w=3,3 l=1,1 l", wall.WallPosition);
-        Assert.DoesNotContain(scene.Items, item => item.Id is 2 or 3 or 4 or 6);
+        var picture = Assert.Single(scene.Items, item => item.Id == 2);
+        Assert.Equal("/camera/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.png", picture.ExtraData);
+        Assert.DoesNotContain(scene.Items, item => item.Id is 3 or 4 or 6);
         Assert.DoesNotContain(scene.Items, item => item.ExtraData.Contains("http", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(scene.Items, item => item.ExtraData.Contains("/camera/", StringComparison.Ordinal));
 
         Assert.Equal("0\rxxx\r1", scene.Heightmap);
         Assert.Equal(4u, scene.RoomId);
