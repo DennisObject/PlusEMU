@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
+﻿using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Effects;
 

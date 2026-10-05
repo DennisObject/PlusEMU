@@ -1,6 +1,6 @@
 ﻿using Plus.HabboHotel.GameClients;
 
-namespace Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
+namespace Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
 
 public class AvatarEffectAddedComposer : IServerPacket
 {

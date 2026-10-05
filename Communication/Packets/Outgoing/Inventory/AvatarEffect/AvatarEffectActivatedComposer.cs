@@ -1,14 +1,13 @@
 ﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Users.Effects;
 
-namespace Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
+namespace Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
 
 public class AvatarEffectActivatedComposer : IServerPacket
 {
-    private readonly AvatarEffect _effect;
+    private readonly Plus.HabboHotel.Users.Effects.AvatarEffect _effect;
     public uint MessageId => ServerPacketHeader.AvatarEffectActivatedComposer;
 
-    public AvatarEffectActivatedComposer(AvatarEffect effect)
+    public AvatarEffectActivatedComposer(Plus.HabboHotel.Users.Effects.AvatarEffect effect)
     {
         _effect = effect;
     }

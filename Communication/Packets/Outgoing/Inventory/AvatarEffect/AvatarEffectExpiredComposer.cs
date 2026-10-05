@@ -1,14 +1,13 @@
 ﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Users.Effects;
 
-namespace Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
+namespace Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
 
 public class AvatarEffectExpiredComposer : IServerPacket
 {
-    private readonly AvatarEffect _effect;
+    private readonly Plus.HabboHotel.Users.Effects.AvatarEffect _effect;
     public uint MessageId => ServerPacketHeader.AvatarEffectExpiredComposer;
 
-    public AvatarEffectExpiredComposer(AvatarEffect effect)
+    public AvatarEffectExpiredComposer(Plus.HabboHotel.Users.Effects.AvatarEffect effect)
     {
         _effect = effect;
     }

@@ -3,7 +3,7 @@ using Plus.Communication.Packets;
 using Plus.HabboHotel.Rooms.AI;
 using System.Globalization;
 using Plus.Communication.Packets.Outgoing.Catalog;
-using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
+using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
 using Plus.Communication.Packets.Outgoing.Inventory.Bots;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Inventory.Pets;
