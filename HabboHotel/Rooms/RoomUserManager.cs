@@ -653,14 +653,16 @@ public class RoomUserManager
         var roomUsers = GetUserList();
         if (roomUsers == null)
             return;
+        var hasViewer = false;
         foreach (var user in roomUsers)
         {
-            if (user == null || !user.UpdateNeeded)
-                continue;
+            if (user == null) continue;
+            hasViewer |= !user.IsBot && user.GetClient() != null;
+            if (!user.UpdateNeeded) continue;
             user.UpdateNeeded = false;
             users.Add(user);
         }
-        if (users.Count > 0)
+        if (users.Count > 0 && hasViewer)
             _room.SendPacket(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(users)));
     }
 

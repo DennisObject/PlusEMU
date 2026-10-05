@@ -1,4 +1,6 @@
 using System.Globalization;
+using Plus.Communication.Flash;
+using Plus.Tests.Performance;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.Rooms;
 using Xunit;
@@ -46,5 +48,38 @@ public sealed class RoomUserStatusSnapshotTests
         var packet = new HabbiconTestSupport.RecordingPacket();
         new UserUpdateComposer([]).Compose(packet);
         Assert.Equal(new object[] { 0 }, packet.Writes);
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ChangedBotStatusesAreClearedWithOrWithoutAViewer(bool withViewer)
+    {
+        var fixture = RoomPerformanceFixture.Create(2, withViewer ? 1 : 0);
+        foreach (var user in fixture.Users) user.UpdateNeeded = false;
+        foreach (var bot in fixture.Bots) bot.UpdateNeeded = true;
+        var packets = new List<byte[]>();
+        if (withViewer)
+            fixture.Clients[0].SendCallback = args =>
+            {
+                packets.Add(args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray());
+                return true;
+            };
+
+        fixture.Manager.SerializeStatusUpdates();
+
+        Assert.All(fixture.Bots, bot => Assert.False(bot.UpdateNeeded));
+        if (!withViewer) { Assert.Empty(packets); return; }
+        var incoming = new FlashIncomingPacket { Buffer = Assert.Single(packets)[6..] };
+        Assert.Equal(2, incoming.ReadInt());
+        foreach (var bot in fixture.Bots)
+        {
+            Assert.Equal(bot.VirtualId, incoming.ReadInt());
+            Assert.Equal(1, incoming.ReadInt());
+            Assert.Equal(1, incoming.ReadInt());
+            Assert.Equal("0", incoming.ReadString());
+            Assert.Equal(bot.RotHead, incoming.ReadInt());
+            Assert.Equal(bot.RotBody, incoming.ReadInt());
+            Assert.Equal("/mv 2,1,0//", incoming.ReadString());
+        }
     }
 }
