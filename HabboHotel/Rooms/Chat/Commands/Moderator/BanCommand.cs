@@ -2,6 +2,7 @@
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users;
+using System.Globalization;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 
@@ -34,9 +35,16 @@ internal class BanCommand : ITargetChatCommand
         }
         var now = _clock.GetUtcNow();
         var hours = parameters[0];
-        var expiresAt = string.IsNullOrEmpty(hours) || hours == "perm"
-            ? now.AddSeconds(78892200)
-            : now.AddHours(Convert.ToDouble(hours));
+        DateTimeOffset expiresAt;
+        if (string.IsNullOrEmpty(hours) || hours == "perm")
+            expiresAt = now.AddSeconds(78892200);
+        else
+        {
+            if (!double.TryParse(hours, NumberStyles.Float, CultureInfo.CurrentCulture, out var duration) ||
+                !double.IsFinite(duration) || duration <= 0 || duration > (DateTimeOffset.MaxValue - now).TotalHours)
+                return;
+            expiresAt = now.AddHours(duration);
+        }
         string reason;
         if (parameters.Length >= 2)
             reason = CommandManager.MergeParams(parameters, 1);

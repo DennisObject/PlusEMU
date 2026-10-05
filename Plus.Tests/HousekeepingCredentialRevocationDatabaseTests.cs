@@ -246,7 +246,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     {
         var (moderator, _) = HabbiconTestSupport.Client(new Habbo { Id = Staff, Username = "cr_staff", Access = HousekeepingPolicyTests.Access(90, PermissionKeys.ModerationBanSoft, PermissionKeys.ModerationBan, PermissionKeys.ModerationIpBan, PermissionKeys.ModerationMachineBan) });
         Online(Target, "cr_target", machineId: "cr-device-1");
-        var handler = new Plus.Communication.Packets.Incoming.Moderation.ModerationBanEvent(_clients, Moderation(), TimeProvider.System);
+        var handler = ModTool();
         await handler.Parse(moderator, HabbiconTestSupport.Incoming(Target, "spam", 2, "", "", true, false));
         Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM bans WHERE bantype = 'ip' AND value = '10.94.0.2'"));
         Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM bans WHERE bantype = 'user' AND value = 'cr_target'"));
@@ -423,7 +423,8 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         Assert.True(condition());
     }
 
-    private Plus.Communication.Packets.Incoming.Moderation.ModerationBanEvent ModTool() => new(_clients, Moderation(), TimeProvider.System);
+    private Plus.Communication.Packets.Incoming.Moderation.ModerationBanEvent ModTool() =>
+        new(new ModerationSanctionService(_clients, new ModeratorUserLookup(), Moderation(), TimeProvider.System));
 
     private static Plus.HabboHotel.GameClients.GameClient ModeratorSession() =>
         HabbiconTestSupport.Client(new Habbo { Id = Staff, Username = "cr_staff", Access = HousekeepingPolicyTests.Access(90, PermissionKeys.ModerationBanSoft, PermissionKeys.ModerationBan, PermissionKeys.ModerationIpBan, PermissionKeys.ModerationMachineBan) }).Client;
