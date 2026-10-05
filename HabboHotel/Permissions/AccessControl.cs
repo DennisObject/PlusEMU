@@ -158,7 +158,7 @@ public sealed partial class AccessControl : IAccessControl, IDisposable, IStarta
             var access = Resolve(userId);
             using (var connection = _database.Connection())
             {
-                connection.Execute("UPDATE users SET `rank` = @securityLevel WHERE id = @userId", new { userId, securityLevel = access.SecurityLevel });
+                connection.Execute("UPDATE users FORCE INDEX(PRIMARY) SET `rank` = @securityLevel WHERE id = @userId", new { userId, securityLevel = access.SecurityLevel });
                 Prune(connection, userId);
             }
             Publish(userId, access);
