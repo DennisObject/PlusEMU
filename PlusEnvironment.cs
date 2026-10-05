@@ -308,4 +308,13 @@ public class PlusEnvironment : IPlusEnvironment
     public static ICollection<Habbo> CachedUsers => _usersCached.Values;
 
     public static bool RemoveFromCache(int id, out Habbo? data) => _usersCached.TryRemove(id, out data);
+
+    internal static IReadOnlyList<Habbo> RemoveExpiredCachedUsers(DateTimeOffset now)
+    {
+        List<Habbo> removed = [];
+        foreach (var entry in _usersCached.ToArray())
+            if (entry.Value.CacheExpiredAt(now) && ((ICollection<KeyValuePair<int, Habbo>>)_usersCached).Remove(entry))
+                removed.Add(entry.Value);
+        return removed;
+    }
 }

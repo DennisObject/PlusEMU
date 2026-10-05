@@ -16,14 +16,16 @@ public class CacheManager : ICacheManager, IStartable
     private readonly IProcessComponent _process;
     private readonly IDatabase _database;
     private readonly IGameClientManager _gameClientManager;
+    private readonly TimeProvider _clock;
     private readonly ConcurrentDictionary<int, CachedUser> _usersCached;
 
-    public CacheManager(IProcessComponent processComponent, IDatabase database, IGameClientManager gameClientManager, ILogger<CacheManager> logger)
+    public CacheManager(IProcessComponent processComponent, IDatabase database, IGameClientManager gameClientManager, ILogger<CacheManager> logger, TimeProvider clock)
     {
         _process = processComponent;
         _database = database;
         _gameClientManager = gameClientManager;
         _logger = logger;
+        _clock = clock;
         _usersCached = new();
     }
 
@@ -36,7 +38,7 @@ public class CacheManager : ICacheManager, IStartable
 
     public void Init()
     {
-        _process.Init();
+        _process.Init(Sweep);
         _logger.LogInformation("Cache Manager -> LOADED");
     }
 
@@ -44,26 +46,62 @@ public class CacheManager : ICacheManager, IStartable
 
     public CachedUser? GenerateUser(int id)
     {
-        if (TryGetUser(id, out var cachedUser))
+        var now = _clock.GetUtcNow();
+        CachedUser? cachedUser;
+        while (TryGetUser(id, out cachedUser))
         {
-            cachedUser.AddedTime = DateTime.UtcNow;
-            return cachedUser;
+            var refreshed = cachedUser.RefreshAt(now);
+            if (_usersCached.TryUpdate(id, refreshed, cachedUser))
+                return refreshed;
         }
 
         var client = _gameClientManager.GetClientByUserId(id);
-        if (client?.GetHabbo() != null)
+        if (client?.GetHabbo() is { } habbo)
         {
-            cachedUser = new() { Id = id, Username = client.GetHabbo().Username, Motto = client.GetHabbo().Motto, Look = client.GetHabbo().Look};
-            _usersCached.TryAdd(id, cachedUser);
-            return cachedUser;
+            cachedUser = new() { Id = id, Username = habbo.Username, Motto = habbo.Motto, Look = habbo.Look, RefreshedAt = now };
+            return AddOrRefresh(id, cachedUser, now);
         }
 
         using var connection = _database.Connection();
-        cachedUser = connection.QuerySingleOrDefaultAsync<CachedUser>("SELECT id, `username`, `motto`, `look` FROM users WHERE id = @id LIMIT 1", new { id }).Result;
-        if (cachedUser != null)
-            _usersCached.TryAdd(id, cachedUser);
-        return cachedUser;
+        cachedUser = connection.QuerySingleOrDefault<CachedUser>("SELECT id, `username`, `motto`, `look` FROM users WHERE id = @id LIMIT 1", new { id });
+        return cachedUser == null ? null : AddOrRefresh(id, cachedUser.RefreshAt(now), now);
     }
+
+    private CachedUser AddOrRefresh(int id, CachedUser candidate, DateTimeOffset now)
+    {
+        while (true)
+        {
+            if (_usersCached.TryAdd(id, candidate))
+                return candidate;
+            if (_usersCached.TryGetValue(id, out var current))
+            {
+                var refreshed = current.RefreshAt(now);
+                if (_usersCached.TryUpdate(id, refreshed, current))
+                    return refreshed;
+            }
+        }
+    }
+
+    internal void Sweep()
+    {
+        var now = _clock.GetUtcNow();
+        foreach (var entry in _usersCached.ToArray())
+            RemoveIfExpired(entry, now);
+        foreach (var user in PlusEnvironment.RemoveExpiredCachedUsers(now))
+        {
+            try
+            {
+                user.Dispose();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Failed to dispose expired legacy cached user {UserId}", user.Id);
+            }
+        }
+    }
+
+    internal bool RemoveIfExpired(KeyValuePair<int, CachedUser> entry, DateTimeOffset now) =>
+        entry.Value.IsExpiredAt(now) && ((ICollection<KeyValuePair<int, CachedUser>>)_usersCached).Remove(entry);
 
     public bool TryRemoveUser(int id, [NotNullWhen(true)] out CachedUser? cachedUser) => _usersCached.TryRemove(id, out cachedUser);
 

@@ -34,7 +34,7 @@ public class Habbo
     internal uint WiredRoomNetworkDestination { get; set; }
     public HabboStats HabboStats { get; set; }
 
-    private readonly DateTime _timeCached;
+    private readonly DateTimeOffset? _cachedAt;
 
     public GameClient Client { get; set; }
     public ClothingComponent Clothing { get; set; }
@@ -211,11 +211,8 @@ public class Habbo
 
     internal void Save() { lock (WalletSync) { if (_habboSaved) return; Persistence.Save(this, Access.Can(PermissionKeys.ModerationTickets)); _habboSaved = true; } }
 
-    public bool CacheExpired()
-    {
-        var span = DateTime.Now - _timeCached;
-        return span.TotalMinutes >= 30;
-    }
+    public bool CacheExpiredAt(DateTimeOffset now) =>
+        _cachedAt is not { } cachedAt || now - cachedAt >= TimeSpan.FromMinutes(30);
 
     public bool InitProcess(ILogger<ProcessComponent> logger)
     {
