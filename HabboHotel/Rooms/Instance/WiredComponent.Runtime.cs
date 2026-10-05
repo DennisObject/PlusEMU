@@ -24,11 +24,11 @@ public partial class WiredComponent
     private IWiredConfigurationStore? _configurationStore;
     private Lazy<WiredRoomVariables>? _variables;
     public WiredRoomSettings Settings { get; }
-    internal DateTimeOffset CalendarTime => Settings.ExplicitTimeZone is { } zone
-        ? TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone) : DateTimeOffset.Now;
+    internal DateTimeOffset CalendarTime =>
+        TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), Settings.ExplicitTimeZone ?? _clock.LocalTimeZone);
     private IWiredConfigurationStore ConfigurationStore => _configurationStore ??= new WiredConfigurationStore(PlusEnvironment.DatabaseManager);
     public WiredRoomVariables Variables => (_variables ??= new(() => new(_room,
-        PlusEnvironment.DatabaseManager, () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged)
+        PlusEnvironment.DatabaseManager, () => _clock.GetUtcNow().ToUnixTimeMilliseconds(), builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged)
         { TimeZone = () => Settings.ExplicitTimeZone ?? TimeZoneInfo.Utc })).Value;
 
     // Returns a detached concrete candidate. Registration and persistence belong to the loader/publisher.
@@ -56,7 +56,8 @@ public partial class WiredComponent
             box = new WiredModernCondition(_room, item, descriptor, ReadCounterMilliseconds,
                 descriptor.CanonicalName is "wf_cnd_match_time" or "wf_cnd_match_date" or "wf_cnd_date_rng_active"
                     ? () => CalendarTime : () => _clock.GetUtcNow());
-            defaults = WiredConditionConfiguration.Defaults(descriptor.CanonicalName);
+            defaults = WiredConditionConfiguration.Defaults(descriptor.CanonicalName,
+                descriptor.CanonicalName == "wf_cnd_match_date" ? CalendarTime.Year : 0);
         }
         else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName))
         {
@@ -99,7 +100,7 @@ public partial class WiredComponent
         WiredEngineLimit.ExecutionBudget => WiredLogSource.ExecutionCap,
         WiredEngineLimit.PendingStacks => WiredLogSource.DelayedEventsCap,
         _ => WiredLogSource.RecursionTimeout
-    }, 0, "", reason, DateTimeOffset.UtcNow);
+    }, 0, "", reason, _clock.GetUtcNow());
 
     public void AttachRoomItem(Item item) => _engine.Mutate(() =>
     {

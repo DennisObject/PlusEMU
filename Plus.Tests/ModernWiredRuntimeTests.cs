@@ -87,7 +87,7 @@ public class ModernWiredRuntimeTests
         foreach (var name in WiredTriggerConfiguration.Events.Keys)
             Assert.True(WiredTriggerConfiguration.TryValidate(name, WiredTriggerConfiguration.Defaults(name), out _, out _), name);
         foreach (var name in WiredConditionConfiguration.PositiveNames.Concat(WiredConditionConfiguration.NegativeNames.Keys))
-            Assert.True(WiredConditionConfiguration.TryValidate(name, WiredConditionConfiguration.Defaults(name), out _, out _), name);
+            Assert.True(WiredConditionConfiguration.TryValidate(name, WiredConditionConfiguration.Defaults(name, 2040), out _, out _), name);
         foreach (var name in WiredMovementActions.Names.Concat(WiredModernAction.OtherNames).Concat(WiredBotActions.Names))
             Assert.True(ActionBox(room, name).TryValidateConfiguration(WiredActionConfiguration.Defaults(name), out _, out _), name);
     }
@@ -140,6 +140,23 @@ public class ModernWiredRuntimeTests
         log.Append(2, 100, "Second", DateTimeOffset.UtcNow); log.Append(1, 100, "Third", DateTimeOffset.UtcNow);
         Assert.Equal(2, log.Read(0, 10).Total); Assert.Equal("Third", Assert.Single(log.Read(0, 10, 1, "third").Entries).Message);
         box.ApplyConfiguration(config with { Text = "" }); Assert.False(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+    }
+
+    [Fact]
+    public void LogActionCapturesTheRequiredClockOnce()
+    {
+        var (room, _, _) = World();
+        var instant = new DateTimeOffset(2040, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var clock = new CountingClock(instant, TimeZoneInfo.Utc);
+        var log = new WiredRoomLog();
+        var box = ActionBox(room, "wf_act_log", log: log, clock: clock);
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [1, 0], Text = "Captured" }, out var config, out _));
+        box.ApplyConfiguration(config);
+
+        Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+
+        Assert.Equal(instant, Assert.Single(log.Read(0, 10).Entries).Timestamp);
+        Assert.Equal(1, clock.Calls);
     }
 
     [Fact]
