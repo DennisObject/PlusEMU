@@ -90,7 +90,7 @@ public sealed class ModeratorTicketSnapshotTests
         new ModeratorTicketChatlogComposer(new(ticket.Id, ticket.Sender.Id, ticket.Reported!.Id,
             42, "current", ticket.CreatedAt, ticket.Reported.Username, ["chat"])).Compose(expected);
         Assert.Equal(ServerPacketHeader.ModeratorTicketChatlogComposer, actual.Header);
-        Assert.Equal(expected.Buffer.Slice(6).ToArray(), actual.Payload);
+        Assert.Equal(stream.GetBuffer().AsSpan(6, checked((int)stream.Length - 6)).ToArray(), actual.Payload);
     }
 
     [Fact]
