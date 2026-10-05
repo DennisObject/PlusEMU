@@ -50,8 +50,7 @@ public class MarketplaceOfferSearchTests
         Assert.DoesNotContain(min.ToString(), query.Sql);
         Assert.Equal(min, query.Parameters["minCost"]);
         Assert.Equal(max, query.Parameters["maxCost"]);
-        var local = Now.ToLocalTime().DateTime;
-        Assert.Equal((local - new DateTime(1970, 1, 1)).TotalSeconds - 172800.0, query.Parameters["threshold"]);
+        Assert.Equal(Now.ToUnixTimeSeconds() - 172800.0, query.Parameters["threshold"]);
     }
 
     [Fact]

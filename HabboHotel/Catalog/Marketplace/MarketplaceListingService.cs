@@ -16,17 +16,25 @@ public sealed class MarketplaceListingService(IMarketplaceOfferStore store, IMar
 
     public bool TryList(Habbo habbo, uint itemId, int sellingPrice)
     {
-        var item = habbo.Inventory.Furniture.GetItem(itemId);
-        if (item == null || sellingPrice > MaximumSellingPrice || sellingPrice == 0)
-            return false;
-        var comission = marketplace.CalculateComissionPrice(sellingPrice);
-        var totalPrice = sellingPrice + comission;
-        var itemType = item.Definition.Type == ItemType.Wall ? "2" : "1";
-        // Same clock as the legacy UnixTimestamp.GetNow: local time seconds since 1970.
-        var timestamp = (time.GetLocalNow().DateTime - new DateTime(1970, 1, 1)).TotalSeconds;
-        store.ListFurni(new MarketplaceListing(itemId, item.Definition.Id, habbo.Id, sellingPrice, totalPrice, item.Definition.PublicName,
-            item.Definition.SpriteId, itemType, timestamp, item.ExtraData.Serialize(), item.UniqueNumber, item.UniqueSeries));
-        habbo.Inventory.Furniture.RemoveItem(itemId);
-        return true;
+        // One listing at a time per account: the inventory check, the committed offer and the in-memory removal stay together.
+        lock (habbo.WalletSync)
+        {
+            if (habbo.WalletClosed) return false;
+            var item = habbo.Inventory.Furniture.GetItem(itemId);
+            if (item == null || (long)item.OwnerId != habbo.Id || !item.Definition.AllowTrade || !item.Definition.AllowMarketplaceSell)
+                return false;
+            if (sellingPrice < 1 || sellingPrice > MaximumSellingPrice)
+                return false;
+            var comission = marketplace.CalculateComissionPrice(sellingPrice);
+            var totalPrice = (long)sellingPrice + comission;
+            if (totalPrice > int.MaxValue)
+                return false;
+            var itemType = item.Definition.Type == ItemType.Wall ? "2" : "1";
+            var timestamp = (double)time.GetUtcNow().ToUnixTimeSeconds();
+            store.ListFurni(new MarketplaceListing(itemId, item.Definition.Id, habbo.Id, sellingPrice, (int)totalPrice, item.Definition.PublicName,
+                item.Definition.SpriteId, itemType, timestamp, item.ExtraData.Serialize(), item.UniqueNumber, item.UniqueSeries));
+            habbo.Inventory.Furniture.RemoveItem(itemId);
+            return true;
+        }
     }
 }

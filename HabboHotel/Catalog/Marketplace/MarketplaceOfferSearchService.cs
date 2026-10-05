@@ -28,8 +28,8 @@ public sealed class MarketplaceOfferSearchService(IDatabase database, IMarketpla
     public MarketplaceOffersSnapshot Search(int minCost, int maxCost, string searchQuery, int filterMode)
     {
         var sql = filterMode == 1 ? NewestFirst : CheapestFirst;
-        // Same cutoff as the legacy FormatTimestampString: two days back on the server's local clock.
-        var threshold = (time.GetLocalNow().DateTime - new DateTime(1970, 1, 1)).TotalSeconds - 172800.0;
+        // Offers older than two days drop out of the market.
+        var threshold = (double)time.GetUtcNow().ToUnixTimeSeconds() - 172800;
         List<MarketplaceOfferRow> rows;
         using (var connection = database.Connection())
             rows = connection.Query<MarketplaceOfferRow>(sql, new { threshold, minCost, maxCost }).ToList();

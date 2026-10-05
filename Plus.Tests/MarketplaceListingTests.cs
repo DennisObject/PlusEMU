@@ -1,5 +1,6 @@
 using System.Data;
 using System.Buffers.Binary;
+using System.Reflection;
 using System.Text;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming.Marketplace;
@@ -39,7 +40,7 @@ public class MarketplaceListingTests
         Assert.Equal(101, listing.TotalPrice);
         Assert.Equal("1", listing.ItemType);
         Assert.Equal("", listing.ExtraData);
-        Assert.Equal((Now.ToLocalTime().DateTime - new DateTime(1970, 1, 1)).TotalSeconds, listing.Timestamp);
+        Assert.Equal((double)Now.ToUnixTimeSeconds(), listing.Timestamp);
     }
 
     [Fact]
@@ -55,10 +56,11 @@ public class MarketplaceListingTests
     }
 
     [Theory]
-    [InlineData("unowned", 0, 100)]
-    [InlineData("zero", 0, 0)]
-    [InlineData("over", 0, 70000001)]
-    public async Task IneligibleOffersAreRejectedBeforeAnyStoreWrite(string reason, int _, int price)
+    [InlineData("unowned", 100)]
+    [InlineData("zero", 0)]
+    [InlineData("negative", -1)]
+    [InlineData("over", 70000001)]
+    public async Task IneligibleOffersAreRejectedBeforeAnyStoreWrite(string reason, int price)
     {
         var store = new RecordingStore();
         var (habbo, item) = Owner(ItemType.Floor);
@@ -70,6 +72,38 @@ public class MarketplaceListingTests
         Assert.Empty(store.Listings);
         Assert.Equal(new[] { ServerPacketHeader.MarketplaceMakeOfferResultComposer }, sent.Select(message => message.Header));
         Assert.NotNull(habbo.Inventory.Furniture.GetItem(item.Id));
+    }
+
+    [Theory]
+    [InlineData("foreign-owner")]
+    [InlineData("trade-locked")]
+    [InlineData("not-marketable")]
+    [InlineData("closed-wallet")]
+    public void FurniThatIsNotTheSellersToMarketIsRejected(string reason)
+    {
+        var store = new RecordingStore();
+        var (habbo, item) = Owner(ItemType.Floor);
+        if (reason == "foreign-owner") item.OwnerId = 8;
+        if (reason == "trade-locked") item.Definition.AllowTrade = false;
+        if (reason == "not-marketable") item.Definition.AllowMarketplaceSell = false;
+        if (reason == "closed-wallet") typeof(Habbo).GetField("_disconnected", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(habbo, true);
+
+        Assert.False(new MarketplaceListingService(store, Manager(), new FixedClock(Now)).TryList(habbo, item.Id, 100));
+
+        Assert.Empty(store.Listings);
+        Assert.NotNull(habbo.Inventory.Furniture.GetItem(item.Id));
+    }
+
+    [Fact]
+    public void TotalPriceThatOverflowsIsRejected()
+    {
+        var store = new RecordingStore();
+        var (habbo, item) = Owner(ItemType.Floor);
+        var listing = new MarketplaceListingService(store, Manager(comission: int.MaxValue), new FixedClock(Now));
+
+        Assert.False(listing.TryList(habbo, item.Id, 100));
+
+        Assert.Empty(store.Listings);
     }
 
     [Fact]
@@ -131,9 +165,9 @@ public class MarketplaceListingTests
     private static MakeOfferEvent Offer(IMarketplaceOfferStore store) =>
         new(new MarketplaceListingService(store, Manager(), new FixedClock(Now)));
 
-    private static IMarketplaceManager Manager() => CatalogSnapshotTestSupport.Proxy<IMarketplaceManager>((method, args) => method switch
+    private static IMarketplaceManager Manager(int? comission = null) => CatalogSnapshotTestSupport.Proxy<IMarketplaceManager>((method, args) => method switch
     {
-        "CalculateComissionPrice" => Convert.ToInt32(Math.Ceiling((float)args[0]! / 100 * 1)),
+        "CalculateComissionPrice" => comission ?? Convert.ToInt32(Math.Ceiling((float)args[0]! / 100 * 1)),
         _ => throw new InvalidOperationException(method),
     });
 
@@ -142,7 +176,7 @@ public class MarketplaceListingTests
         var item = new InventoryItem
         {
             Id = 41, OwnerId = 7, ExtraData = FurniObjectData.Empty, UniqueNumber = 3, UniqueSeries = 4,
-            Definition = new ItemDefinition { Id = 900, SpriteId = 55, PublicName = "Rare Chair", ItemName = "chair", Type = type },
+            Definition = new ItemDefinition { Id = 900, SpriteId = 55, PublicName = "Rare Chair", ItemName = "chair", Type = type, AllowTrade = true, AllowMarketplaceSell = true },
         };
         var furniture = new FurnitureInventoryComponent(type == ItemType.Floor ? [item] : [], type == ItemType.Wall ? [item] : []);
         return (new Habbo { Id = 7, Username = "seller", Inventory = new InventoryComponent { Furniture = furniture } }, item);

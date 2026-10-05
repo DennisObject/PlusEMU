@@ -654,6 +654,9 @@ public class GroupManagementTests : IDisposable
             database.Writes.Add((CommandText, Parameters.Cast<RecordingParameter>().ToDictionary(parameter => parameter.ParameterName, parameter => parameter.Value)));
             if (database.FailInsert && CommandText.Contains("INSERT INTO `catalog_marketplace_offers`", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("forced insert failure");
+            // A claim delete removes one row per expanded id, as the database would for rows that exist.
+            if (CommandText.StartsWith("DELETE FROM `catalog_marketplace_offers`", StringComparison.OrdinalIgnoreCase))
+                return Parameters.Cast<RecordingParameter>().Count(parameter => parameter.ParameterName.Contains("offerIds", StringComparison.Ordinal));
             return 1;
         }
         public IDataReader ExecuteReader() => ExecuteReader(CommandBehavior.Default);
