@@ -1,5 +1,6 @@
 ﻿using Plus.Communication.Packets.Outgoing.Inventory.Trading;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Rooms.Trading;
 
 namespace Plus.Communication.Packets.Incoming.Inventory.Trading;
 
@@ -33,7 +34,7 @@ internal class TradingRemoveItemEvent : IPacketEvent
             return Task.CompletedTask;
         trade.RemoveAccepted();
         user.OfferedItems.Remove(item.Id);
-        trade.SendPacket(new TradingUpdateComposer(trade));
+        trade.SendPacket(new TradingUpdateComposer(TradeOfferSnapshot.Capture(trade)));
         return Task.CompletedTask;
     }
 }
