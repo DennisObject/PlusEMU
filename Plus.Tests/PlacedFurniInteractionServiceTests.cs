@@ -1,5 +1,6 @@
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Users.Inventory.Furniture;
@@ -13,6 +14,7 @@ public partial class PlacedFurniRoomTests
     public void DiceServiceKeepsTheInteractorDistanceAndRightsPolicy()
     {
         var item = Furni(51, InteractionType.Dice, WiredBoxType.None);
+        item.ExtraData = new LegacyDataFormat { Data = "0" };
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, item, 1, 1, 0, true, false, false));
         var actor = Recipient();
         actor.X = 1;
@@ -31,6 +33,7 @@ public partial class PlacedFurniRoomTests
     public void OneWayGateServiceUsesTheExistingGateInteraction()
     {
         var item = Furni(52, InteractionType.OneWayGate, WiredBoxType.None);
+        item.ExtraData = new LegacyDataFormat { Data = "0" };
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, item, 1, 1, 0, true, false, false));
         var actor = Recipient();
         actor.X = item.SquareInFront.X;
@@ -47,6 +50,7 @@ public partial class PlacedFurniRoomTests
     public void GateServiceDoesNotTriggerOtherFurniture()
     {
         var item = Furni(53, InteractionType.Scoreboard, WiredBoxType.None);
+        item.ExtraData = new LegacyDataFormat { Data = "0" };
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, item, 1, 1, 0, true, false, false));
         item.LegacyDataString = "9";
         _client.Packets.Clear();
@@ -61,6 +65,7 @@ public partial class PlacedFurniRoomTests
     public void WallServicePublishesTheInteractorResultBeforeQuestProgress()
     {
         var item = Furni(54, InteractionType.Scoreboard, WiredBoxType.None, ItemType.Wall);
+        item.ExtraData = new LegacyDataFormat { Data = "0" };
         Assert.True(_room.GetRoomItemHandler().SetWallItem(_client, item));
         Recipient();
         item.LegacyDataString = "0";
@@ -91,6 +96,7 @@ public partial class PlacedFurniRoomTests
     public void StaleRoomInteractionDoesNotMutateOrCallTheQuest(string action)
     {
         var item = Furni(55, InteractionType.Scoreboard, WiredBoxType.None);
+        item.ExtraData = new LegacyDataFormat { Data = "0" };
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, item, 1, 1, 0, true, false, false));
         item.LegacyDataString = "9";
         _client.GetHabbo().CurrentRoom = null;

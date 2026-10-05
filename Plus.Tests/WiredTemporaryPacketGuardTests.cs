@@ -191,7 +191,7 @@ public class WiredTemporaryPacketGuardTests
         if (name.Contains("UpdateMagicTile")) output.WriteInteger(350);
         if (name.Contains("Gnome")) output.WriteString("Pixel");
         else if (name.Contains("MoveWall")) output.WriteString(":w=1,1 l=1,1 l");
-        else if (name.Contains("UseFurniture")) output.WriteInteger(0);
+        else if (name.Contains("UseFurniture") || name.Contains("UseWallItem") || name.Contains("ThrowDice")) output.WriteInteger(0);
         else if (name.Contains("SetToner")) { output.WriteInteger(10); output.WriteInteger(20); output.WriteInteger(30); }
         else if (name.Contains("UpdateStickyNote")) { output.WriteString("FFFF33"); output.WriteString("changed"); }
         else if (name.Contains("SetMannequinName")) output.WriteString("changed");
