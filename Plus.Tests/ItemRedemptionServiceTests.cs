@@ -63,7 +63,7 @@ public sealed class ItemRedemptionServiceTests
     {
         var proxy = DispatchProxy.Create<ISettingsManager, SettingsProxy>(); return proxy;
     }
-    private sealed class SettingsProxy : DispatchProxy { protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == "TryGetValue" ? "1" : null; }
+    public class SettingsProxy : DispatchProxy { protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == "TryGetValue" ? "1" : null; }
     private sealed class Clothing(ClothingItem? item) : IClothingManager
     {
         public ICollection<ClothingItem> GetClothingAllParts => item == null ? [] : [item]; public void Init() { }
@@ -79,8 +79,8 @@ public sealed class ItemRedemptionServiceTests
     private static (Room Room, Plus.HabboHotel.GameClients.GameClient Client, List<(uint Header, byte[] Payload)> Sent, Item Item) Context(InteractionType type, int value, bool temporary = false)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
-        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room));
-        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         var item = new Item { Id = 7, RoomId = 9, OwnerId = 1, IsTemporary = temporary, Definition = new() { Type = ItemType.Wall, InteractionType = type, BehaviourData = value } };
         typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
         var walls = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!; walls[item.Id] = item;

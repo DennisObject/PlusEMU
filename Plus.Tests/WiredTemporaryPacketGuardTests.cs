@@ -58,12 +58,23 @@ public class WiredTemporaryPacketGuardTests
         room.TonerData.ItemId = 7;
         var type = typeof(MoveObjectEvent).Assembly.GetType("Plus.Communication.Packets.Incoming." + name)!;
         var constructor = type.GetConstructors().Single();
+        var database = EditorTestSupport.UntouchableDatabase();
         var arguments = constructor.GetParameters().Select(parameter => parameter.ParameterType == typeof(ISettingsManager)
             ? (object)new EnabledExchangeSettings()
-            : parameter.ParameterType == typeof(IHorseCustomizationService)
-                ? new HorseCustomizationService(null!, null!, null!, new HorseCustomizationStore(EditorTestSupport.UntouchableDatabase()),
-                    new PetInformationService(TimeProvider.System))
-                : null).ToArray();
+            : parameter.ParameterType == typeof(IFurnitureUseService)
+                ? new FurnitureUseService(new FurnitureUseStore(database), null!)
+                : parameter.ParameterType == typeof(IRoomItemMetadataService)
+                    ? new RoomItemMetadataService(new RoomItemMetadataStore(database))
+                    : parameter.ParameterType == typeof(IRoomInteractionService)
+                        ? new RoomInteractionService(new RoomInteractionStore(database))
+                        : parameter.ParameterType == typeof(ILoveLockService)
+                            ? new LoveLockService(new LoveLockStore(database), TimeProvider.System)
+                            : parameter.ParameterType == typeof(IItemRedemptionService)
+                                ? new ItemRedemptionService(new ItemRedemptionStore(database), new EnabledExchangeSettings(), null!)
+                                : parameter.ParameterType == typeof(IHorseCustomizationService)
+                                    ? new HorseCustomizationService(null!, null!, null!, new HorseCustomizationStore(database),
+                                        new PetInformationService(TimeProvider.System))
+                                    : null).ToArray();
         var handler = (IPacketEvent)constructor.Invoke(arguments);
         var packet = Packet(name);
         if (handler is RoomPacketEvent roomHandler) await roomHandler.Parse(room, client, packet);
@@ -161,6 +172,8 @@ public class WiredTemporaryPacketGuardTests
         if (name.Contains("PickupObject")) output.WriteInteger(0);
         output.WriteUInteger(7);
         if (name.Contains("MoveWall")) output.WriteString(":w=1,1 l=1,1 l");
+        else if (name.Contains("UseFurniture")) output.WriteInteger(0);
+        else if (name.Contains("SetToner")) { output.WriteInteger(10); output.WriteInteger(20); output.WriteInteger(30); }
         else if (name.Contains("SetMannequinName")) output.WriteString("changed");
         else if (name.Contains("FriendFurni")) output.WriteBoolean(true);
         else if (name.Contains("ApplyHorse")) output.WriteInteger(42);
