@@ -184,13 +184,13 @@ public sealed class RoomChatServiceTests
         Assert.Empty(world.SenderPackets);
         Assert.Empty(world.RecipientPackets);
 
-        world.RecipientUser.IsBot = true;
+        world.RecipientUser.BotData = (Plus.HabboHotel.Rooms.AI.RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(Plus.HabboHotel.Rooms.AI.RoomBot));
         await world.Service.Whisper(world.Sender, "Bob message", 1);
         Assert.Empty(world.Logs.Entries);
         Assert.Empty(world.SenderPackets);
         Assert.Empty(world.RecipientPackets);
 
-        world.RecipientUser.IsBot = false;
+        world.RecipientUser.BotData = null!;
         world.Clients.ByUserId.Remove(8);
         await world.Service.Whisper(world.Sender, "Bob message", 1);
         Assert.Empty(world.Logs.Entries);
@@ -237,12 +237,12 @@ public sealed class RoomChatServiceTests
 
             (Sender, SenderPackets) = Client(new Habbo
             {
-                Id = 7, Username = "Alice", CurrentRoom = _room, Effects = new EffectsComponent(),
+                Id = 7, Username = "Alice", CurrentRoom = _room, Effects = new EffectsComponent(clock),
                 IgnoresComponent = new([]), ReceiveWhispers = true
             });
             (Recipient, RecipientPackets) = Client(new Habbo
             {
-                Id = 8, Username = "Bob", CurrentRoom = _room, Effects = new EffectsComponent(),
+                Id = 8, Username = "Bob", CurrentRoom = _room, Effects = new EffectsComponent(clock),
                 IgnoresComponent = new([]), ReceiveWhispers = true
             });
             Add(users, new RoomUser(7, 1, 11, _room), Sender);
