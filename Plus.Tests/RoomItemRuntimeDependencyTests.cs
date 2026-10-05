@@ -166,13 +166,14 @@ public partial class PlacedFurniRoomTests
         }
     }
 
-    private static List<CapturedPacket> CaptureTransport(TestClient client, Action? beforeCapture = null)
+    private static List<CapturedPacket> CaptureTransport(GameClient client, Action? beforeCapture = null)
     {
         var sent = new List<CapturedPacket>();
         client.SendCallback = args =>
         {
             beforeCapture?.Invoke();
-            sent.Add(new(client.Sent[^1], args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray()));
+            var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
+            sent.Add(new((uint)FlashGameClient.DecodeInt16(bytes.AsMemory(4, 2)), bytes));
             return false;
         };
         return sent;
