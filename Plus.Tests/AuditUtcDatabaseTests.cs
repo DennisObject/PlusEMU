@@ -1,6 +1,7 @@
 using Dapper;
 using Microsoft.Extensions.Logging.Abstractions;
 using MySqlConnector;
+using Plus.Communication.Packets.Outgoing.Housekeeping;
 using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Housekeeping;
@@ -41,9 +42,12 @@ public class AuditUtcDatabaseTests
             var rows = audit.List(10);
             Assert.Equal(new[] { "legacy.unknown", "user.mute" }, rows.Select(row => row.Action));
             Assert.Null(rows[0].CreatedAt);
-            Assert.Equal(0, rows[0].LegacyTimestamp);
             Assert.Equal(Captured, rows[1].CreatedAt);
-            Assert.Equal(int.MaxValue, rows[1].LegacyTimestamp);
+            var composed = new HabbiconTestSupport.RecordingPacket();
+            new HousekeepingActionLogComposer(rows).Compose(composed);
+            // Count first, then each entry: id, timestamp. The second entry starts after ten writes.
+            Assert.Equal(0, (int)composed.Writes[2]);
+            Assert.Equal(int.MaxValue, (int)composed.Writes[12]);
         });
     }
 
@@ -82,6 +86,53 @@ public class AuditUtcDatabaseTests
             // Counted: the mute 1s before the instant, the mute at -4h, the trade lock at -1h, the write at the instant, and the ban at -1h.
             // Excluded: the row exactly at -24h (the cutoff is exclusive), older rows, failed rows, other actions, and the 2039 and NULL bans.
             Assert.Equal(5, lookups.Dashboard().SanctionsLast24h);
+        });
+    }
+
+    [AuditUtcDatabaseFact]
+    public async Task MigrationConvertsLegacySecondsAndKeepsTheCompoundIndex()
+    {
+        await WithSchema(async connectionString =>
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                connection.Open();
+                connection.Execute("CREATE TABLE logs_client_staff (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL DEFAULT '0', data_string TEXT NOT NULL, machine_id VARCHAR(75) NOT NULL DEFAULT '', `timestamp` DOUBLE NULL DEFAULT '0') ENGINE=InnoDB");
+                connection.Execute("CREATE TABLE housekeeping_log (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, `timestamp` INT NULL, actor_id INT NOT NULL, actor_name VARCHAR(125) NOT NULL DEFAULT '', target_type VARCHAR(16) NOT NULL DEFAULT 'user', target_id INT NOT NULL DEFAULT 0, target_label VARCHAR(255) NOT NULL DEFAULT '', action VARCHAR(64) NOT NULL, detail VARCHAR(500) NOT NULL DEFAULT '', success TINYINT(1) NOT NULL DEFAULT 1, KEY timestamp_action (`timestamp`, action), KEY actor (actor_id)) ENGINE=InnoDB");
+                connection.Execute("INSERT INTO logs_client_staff (user_id, data_string, machine_id, `timestamp`) VALUES (1, 'fraction', '', 1700000000.25), (1, 'future', '', 2500000000.5), (1, 'zero', '', 0), (1, 'negative', '', -3), (1, 'null', '', NULL)");
+                connection.Execute("INSERT INTO housekeeping_log (`timestamp`, actor_id, action) VALUES (2147483647, 1, 'max'), (0, 1, 'zero'), (-1, 1, 'negative'), (NULL, 1, 'null')");
+            }
+            RunFile(connectionString, "Database/Migrations/36_UseUtcAuditLogTimes.sql");
+
+            using var verify = new MySqlConnection(connectionString);
+            verify.Open();
+            Assert.Equal(new (string, string?)[]
+            {
+                ("fraction", "2023-11-14 22:13:20.250000"),
+                ("future", "2049-03-22 04:26:40.500000"),
+                ("zero", null),
+                ("negative", null),
+                ("null", null),
+            }, verify.Query<(string Data, string? Stamp)>("SELECT data_string AS Data, CAST(`timestamp` AS CHAR) AS Stamp FROM logs_client_staff ORDER BY id").ToList());
+            Assert.Equal(new (string, string?)[]
+            {
+                ("max", "2038-01-19 03:14:07.000000"),
+                ("zero", null),
+                ("negative", null),
+                ("null", null),
+            }, verify.Query<(string Action, string? Stamp)>("SELECT action AS Action, CAST(`timestamp` AS CHAR) AS Stamp FROM housekeeping_log ORDER BY id").ToList());
+
+            foreach (var table in new[] { "logs_client_staff", "housekeeping_log" })
+            {
+                Assert.Equal(("datetime", "YES", "NULL", 6), verify.QuerySingle<(string, string, string?, int)>(
+                    "SELECT DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, DATETIME_PRECISION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table AND COLUMN_NAME = 'timestamp'",
+                    new { table }));
+            }
+            Assert.Equal(5, verify.ExecuteScalar<int>("SELECT ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'logs_client_staff' AND COLUMN_NAME = 'timestamp'"));
+            Assert.Equal(2, verify.ExecuteScalar<int>("SELECT ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'housekeeping_log' AND COLUMN_NAME = 'timestamp'"));
+            Assert.Equal(new[] { ("timestamp", 1), ("action", 2) }, verify.Query<(string ColumnName, int Seq)>(
+                "SELECT COLUMN_NAME AS ColumnName, SEQ_IN_INDEX AS Seq FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'housekeeping_log' AND INDEX_NAME = 'timestamp_action' ORDER BY SEQ_IN_INDEX")
+                .Select(row => (row.ColumnName, row.Seq)).ToArray());
         });
     }
 

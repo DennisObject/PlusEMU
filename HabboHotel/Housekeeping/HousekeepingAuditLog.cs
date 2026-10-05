@@ -15,11 +15,6 @@ public sealed class HousekeepingAuditEntry
     public string Action { get; init; } = string.Empty;
     public string Detail { get; init; } = string.Empty;
     public bool Success { get; init; }
-
-    // The client still reads Unix seconds. Missing times send 0, pre-1970 times send 0, and times past 2038 clamp to int.MaxValue.
-    public int LegacyTimestamp => CreatedAt is { } createdAt
-        ? (int)Math.Clamp(createdAt.ToUnixTimeSeconds(), 0, int.MaxValue)
-        : 0;
 }
 
 public interface IHousekeepingAuditLog
