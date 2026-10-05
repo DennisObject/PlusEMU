@@ -1,5 +1,8 @@
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Reflection;
+using System.Text;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired;
@@ -7,6 +10,7 @@ using Plus.HabboHotel.Users.Inventory.Furniture;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
+using Plus.Communication.Packets.Outgoing;
 using Xunit;
 
 namespace Plus.Tests;
@@ -18,18 +22,21 @@ public partial class PlacedFurniRoomTests
     public void BrandingIsWrittenBeforePublicationAndTheSnapshotIsAttachedAfterCommit()
     {
         var item = PlacedBranding(20, InteractionType.Background);
+        Recipient();
         item.ExtraData = new MapDataFormat(new() { ["old"] = "value" });
         var store = new BrandingStore(() =>
         {
             Assert.Equal("old\tvalue", item.ExtraData.Serialize());
             Assert.False(MovedItems().ContainsKey(20));
-            Assert.Empty(_client.Sent);
+            Assert.Empty(ObjectUpdates());
         });
 
-        new RoomItemMetadataService(store, null!).SetBranding(_client, new(20, ["a", "1", "b", "2"]));
+        new RoomItemMetadataService(store, null!).SetBranding(_client, new(20, Pairs("a", "1", "b", "2")));
 
         Assert.Equal((1, 20u, RoomId, "state\t0\na\t1\nb\t2"), (store.Writes, store.ItemId, store.RoomId, store.Data));
         Assert.Equal("state\t0\na\t1\nb\t2", item.ExtraData.Serialize());
+        var update = Assert.Single(ObjectUpdates());
+        Assert.True(update.Body.AsSpan().IndexOf(Encode("state", "0", "a", "1", "b", "2")) >= 0);
         Assert.True(MovedItems().ContainsKey(20));
     }
 
@@ -37,14 +44,16 @@ public partial class PlacedFurniRoomTests
     public void BlockedPlacementNeverWritesOrChangesTheModel()
     {
         var item = PlacedBranding(21, InteractionType.Background);
+        Recipient();
         item.ExtraData = new MapDataFormat(new() { ["old"] = "value" });
         item.SetState(99, 99, 0, new());
         var store = new BrandingStore();
 
-        new RoomItemMetadataService(store, null!).SetBranding(_client, new(21, ["a", "1"]));
+        new RoomItemMetadataService(store, null!).SetBranding(_client, new(21, Pairs("a", "1")));
 
         Assert.Equal(0, store.Writes);
         Assert.Equal("old\tvalue", item.ExtraData.Serialize());
+        Assert.Empty(ObjectUpdates());
         Assert.Empty(_client.Sent);
         Assert.False(MovedItems().ContainsKey(21));
     }
@@ -53,15 +62,17 @@ public partial class PlacedFurniRoomTests
     public void FailingStoreLeavesStateGeometryAndPublicationUnchanged()
     {
         var item = PlacedBranding(22, InteractionType.Background);
+        Recipient();
         item.ExtraData = new MapDataFormat(new() { ["old"] = "value" });
         var before = (item.GetX, item.GetY, item.GetZ, item.Rotation);
         var store = new BrandingStore { Fail = true };
 
-        Assert.Throws<InvalidOperationException>(() => new RoomItemMetadataService(store, null!).SetBranding(_client, new(22, ["a", "1"])));
+        Assert.Throws<InvalidOperationException>(() => new RoomItemMetadataService(store, null!).SetBranding(_client, new(22, Pairs("a", "1"))));
 
         Assert.Equal(1, store.Writes);
         Assert.Equal("old\tvalue", item.ExtraData.Serialize());
         Assert.Equal(before, (item.GetX, item.GetY, item.GetZ, item.Rotation));
+        Assert.Empty(ObjectUpdates());
         Assert.Empty(_client.Sent);
         Assert.False(MovedItems().ContainsKey(22));
     }
@@ -75,14 +86,15 @@ public partial class PlacedFurniRoomTests
     public void DeniedBrandingNeverReachesTheStoreOrTheModel(string denial)
     {
         var item = denial == "temporary" ? FloorTemporary(23) : PlacedBranding(23, InteractionType.Background);
+        Recipient();
         item.ExtraData = new MapDataFormat(new() { ["old"] = "value" });
         if (denial == "right") _room.OwnerName = "someone-else";
         if (denial == "permission") _client.GetHabbo().Access = UserAccess.Empty;
         var values = denial switch
         {
-            "image" => new List<string> { "url", "https://example.invalid/x.png" },
+            "image" => Pairs("url", "https://example.invalid/x.png"),
             "missing-map" => null,
-            _ => new List<string> { "a", "1" },
+            _ => Pairs("a", "1"),
         };
         var store = new BrandingStore();
 
@@ -90,7 +102,7 @@ public partial class PlacedFurniRoomTests
 
         Assert.Equal(0, store.Writes);
         Assert.Equal("old\tvalue", item.ExtraData.Serialize());
-        Assert.Empty(_client.Sent);
+        Assert.Empty(ObjectUpdates());
     }
 
     [Theory]
@@ -99,15 +111,18 @@ public partial class PlacedFurniRoomTests
     public void IdOnlyAndNonBackgroundFramesKeepThePlacementOnlyRepublish(InteractionType type)
     {
         var item = PlacedBranding(24, type);
+        Recipient();
         item.ExtraData = new MapDataFormat(new() { ["old"] = "value" });
         var store = new BrandingStore();
         var service = new RoomItemMetadataService(store, null!);
 
         service.SetBranding(_client, new(24, null));
-        service.SetBranding(_client, new(24, ["a", "1"]));
+        Assert.Single(ObjectUpdates());
+        service.SetBranding(_client, new(24, Pairs("a", "1")));
 
         Assert.Equal(0, store.Writes);
         Assert.Equal("old\tvalue", item.ExtraData.Serialize());
+        Assert.Equal(2, ObjectUpdates().Count);
         Assert.True(MovedItems().ContainsKey(24));
     }
 
@@ -118,7 +133,38 @@ public partial class PlacedFurniRoomTests
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, item, 1, 1, 0, true, false, false));
         MovedItems().Clear();
         _client.Sent.Clear();
+        _client.Packets.Clear();
         return item;
+    }
+
+    // A registered room user bound to the fixture client receives room broadcasts like a real occupant.
+    private RoomUser Recipient()
+    {
+        var user = new RoomUser(7, RoomId, 1, _room);
+        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(user, _client);
+        var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
+        users.TryAdd(1, user);
+        return user;
+    }
+
+    private List<(uint Header, byte[] Body)> ObjectUpdates() =>
+        _client.Packets.Where(packet => packet.Header == ServerPacketHeader.ObjectUpdateComposer).ToList();
+
+    private static ImmutableArray<string>? Pairs(params string[] values) => ImmutableArray.Create(values);
+
+    // Flash string framing: a big-endian UInt16 length followed by UTF-8 bytes, in key/value order.
+    private static byte[] Encode(params string[] values)
+    {
+        using var stream = new MemoryStream();
+        foreach (var value in values)
+        {
+            var bytes = Encoding.UTF8.GetBytes(value);
+            var length = new byte[2];
+            BinaryPrimitives.WriteUInt16BigEndian(length, checked((ushort)bytes.Length));
+            stream.Write(length);
+            stream.Write(bytes);
+        }
+        return stream.ToArray();
     }
 
     private Item FloorTemporary(uint id)

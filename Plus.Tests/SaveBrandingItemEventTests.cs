@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Plus.Communication.Packets.Incoming.Rooms.Furni;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
@@ -18,7 +19,7 @@ public sealed class SaveBrandingItemEventTests
         await new SaveBrandingItemEvent(metadata).Parse(client, HabbiconTestSupport.Incoming(7));
 
         var request = Assert.Single(metadata.Requests);
-        Assert.Equal((7u, (IReadOnlyList<string>?)null), (request.ItemId, request.Values));
+        Assert.Equal((7u, (ImmutableArray<string>?)null), (request.ItemId, request.Values));
     }
 
     [Fact]
@@ -31,8 +32,8 @@ public sealed class SaveBrandingItemEventTests
         await events.Parse(client, HabbiconTestSupport.Incoming(7, 4, "a", "1", "b", "2"));
         await events.Parse(client, HabbiconTestSupport.Incoming(8, 0));
 
-        Assert.Equal(new[] { "a", "1", "b", "2" }, metadata.Requests[0].Values);
-        Assert.Equal(new string[] { }, metadata.Requests[1].Values);
+        Assert.Equal(new[] { "a", "1", "b", "2" }, metadata.Requests[0].Values!.Value.ToArray());
+        Assert.Equal(new string[] { }, metadata.Requests[1].Values!.Value.ToArray());
     }
 
     public static IEnumerable<object[]> MalformedFrames()

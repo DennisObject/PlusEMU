@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Dapper;
 using Plus.Core.FigureData;
 using Plus.HabboHotel.Items.DataFormat;
@@ -13,7 +14,7 @@ namespace Plus.HabboHotel.Items;
 public sealed record MannequinNameRequest(uint ItemId, string Name);
 public sealed record TonerSettingsRequest(uint ItemId, int Hue, int Saturation, int Lightness);
 /// <summary>Branding save request; <c>Values</c> is the flat key,value list, or null when the frame carried only the item id.</summary>
-public sealed record BrandingRequest(uint ItemId, IReadOnlyList<string>? Values);
+public sealed record BrandingRequest(uint ItemId, ImmutableArray<string>? Values);
 
 public interface IRoomItemMetadataStore
 {
@@ -45,7 +46,7 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        if (connection.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE id=@itemId AND room_id=@roomId FOR UPDATE", new { itemId, roomId }, transaction) != 1)
+        if (connection.Query<int>("SELECT id FROM items WHERE id=@itemId AND room_id=@roomId FOR UPDATE", new { itemId, roomId }, transaction).Count() != 1)
             throw new InvalidOperationException("Branding item is not in the room.");
         connection.Execute("UPDATE items SET extra_data=@data WHERE id=@itemId AND room_id=@roomId LIMIT 1", new { itemId, roomId, data }, transaction);
         transaction.Commit();
@@ -116,7 +117,7 @@ public sealed class RoomItemMetadataService(IRoomItemMetadataStore store, IFigur
         }
         if (request.Values is not { } values || FurniExtraData.RejectsClientImage(values)) return;
         var pairs = new Dictionary<string, string> { ["state"] = "0" };
-        for (var index = 0; index < values.Count; index += 2) pairs[values[index]] = values[index + 1];
+        for (var index = 0; index < values.Length; index += 2) pairs[values[index]] = values[index + 1];
         var data = new MapDataFormat(pairs);
         var serialized = data.Serialize();
         room.GetRoomItemHandler().SetFloorItemData(session, item, data, () => store.SetBrandingData(item.Id, room.Id, serialized));
