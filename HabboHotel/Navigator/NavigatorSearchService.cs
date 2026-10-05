@@ -13,7 +13,8 @@ public interface INavigatorSearchService
     NavigatorSearchSnapshot Search(GameClient session, string category, string query);
 }
 
-public sealed class NavigatorSearchService(INavigatorManager navigator, INavigatorSearchStore store, IRoomManager rooms, IGroupManager groups) : INavigatorSearchService
+public sealed class NavigatorSearchService(INavigatorManager navigator, INavigatorSearchStore store, IRoomManager rooms, IGroupManager groups,
+    IRoomDataLoader roomData) : INavigatorSearchService
 {
     public NavigatorSearchSnapshot Search(GameClient session, string category, string query)
     {
@@ -36,7 +37,7 @@ public sealed class NavigatorSearchService(INavigatorManager navigator, INavigat
             NavigatorCategoryType.Popular => rooms.GetPopularRooms(-1, limit).Select(room => room.Data),
             NavigatorCategoryType.Recommended => rooms.GetRecommendedRooms(limit).Select(room => room.Data),
             NavigatorCategoryType.Category => rooms.GetRoomsByCategory(result.Id, limit).Select(room => room.Data),
-            NavigatorCategoryType.MyRooms => RoomFactory.GetRoomsDataByOwnerSortByName(session.GetHabbo().Id).OrderByDescending(room => room.UsersNow),
+            NavigatorCategoryType.MyRooms => roomData.GetRoomsDataByOwnerSortByName(session.GetHabbo().Id).OrderByDescending(room => room.UsersNow),
             NavigatorCategoryType.MyFavourites => Resolve(session.GetHabbo().FavoriteRooms.ToArray().Select(id => (uint)id)),
             NavigatorCategoryType.MyGroups => Resolve(groups.GetGroupsForUser(session.GetHabbo().Id).Select(group => group.RoomId)).Take(limit),
             NavigatorCategoryType.MyFriendsRooms => rooms.GetRoomsByIds(session.GetHabbo().Messenger.Friends.Values
@@ -60,8 +61,8 @@ public sealed class NavigatorSearchService(INavigatorManager navigator, INavigat
         return query.Length == 0 ? [] : Resolve(store.FindByCaption(query).Where(room => room.Visible).Select(room => checked((uint)room.Id)));
     }
 
-    private static IEnumerable<RoomData> Resolve(IEnumerable<uint> ids)
+    private IEnumerable<RoomData> Resolve(IEnumerable<uint> ids)
     {
-        foreach (var id in ids) if (RoomFactory.TryGetData(id, out var room)) yield return room;
+        foreach (var id in ids) if (roomData.TryGetData(id, out var room)) yield return room;
     }
 }
