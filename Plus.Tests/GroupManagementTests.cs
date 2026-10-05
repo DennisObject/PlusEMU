@@ -52,7 +52,9 @@ public class GroupManagementTests : IDisposable
     {
         var group = NewGroup(hasForum: true);
         var packet = new HabbiconTestSupport.RecordingPacket();
-        new ManageGroupComposer(group, group.Badge.Replace("b", "").Split('s')).Compose(packet);
+        Assert.True(GroupManagementSnapshotService.TryParseBadge(group.Badge, out var pieces));
+        new ManageGroupComposer(new(true, group.RoomId, "HQ", group.Id, group.Name, group.Description,
+            group.Colour1, group.Colour2, 0, group.AdminOnlyDeco, pieces, group.Badge, group.MemberCount, group.ForumEnabled)).Compose(packet);
 
         var reader = new ValueReader(packet.Writes);
         Assert.Equal(1, reader.ReadInt());
