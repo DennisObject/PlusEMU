@@ -68,6 +68,29 @@ public sealed class RoomSettingsServiceTests
         Assert.Equal(2, request.WhoKick); Assert.Equal(50, request.ChatDistance); Assert.Equal(2, request.ExtraFlood);
     }
 
+    [Fact]
+    public async Task ReadHandlerDecodesAndDelegatesTheRoomId()
+    {
+        var target = new RecordingService();
+        await new GetRoomSettingsEvent(target).Parse(null!, HabbiconTestSupport.Incoming(42));
+        Assert.Equal((uint)42, target.RequestedRoomId);
+    }
+
+    [Theory]
+    [InlineData(7, "changed-owner-name", false, true)]
+    [InlineData(8, "owner", false, false)]
+    [InlineData(8, "moderator", true, true)]
+    public void SettingsReadUsesOwnerIdentityOrExplicitOverride(int actorId, string username, bool canOverride, bool allowed)
+    {
+        var room = Room();
+        room.Model = new RoomModel("test", 0, 0, 0, 0, "00\r00", 0, 0, false);
+        var access = Plus.HabboHotel.Permissions.UserAccess.Create([], canOverride
+            ? [new(Plus.HabboHotel.Permissions.PermissionKeys.RoomOwnerAny, false)] : []);
+        var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = actorId, Username = username, Access = access });
+        new RoomSettingsService(Rooms(room), null!, null!, null!, null!, null!).Show(client, room.Id);
+        Assert.Equal(allowed ? 1 : 0, sent.Count);
+    }
+
     private static RoomSettingsRequest Request() => new(42, "Updated", "Description", 2, "", 25, 36, ["ONE"],
         1, true, false, true, true, 1, 1, 0, 2, 0, 0, 1, 2, 50, 1);
     private static Room Room()
@@ -99,6 +122,8 @@ public sealed class RoomSettingsServiceTests
     private sealed class RecordingService : IRoomSettingsService
     {
         public RoomSettingsRequest? Request;
+        public uint? RequestedRoomId;
+        public void Show(GameClient session, uint roomId) => RequestedRoomId = roomId;
         public void Save(GameClient session, RoomSettingsRequest request) => Request = request;
     }
 }

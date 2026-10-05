@@ -52,12 +52,26 @@ public sealed class RoomSettingsStore(IDatabase database) : IRoomSettingsStore
 public interface IRoomSettingsService
 {
     void Save(GameClient session, RoomSettingsRequest request);
+    void Show(GameClient session, uint roomId);
 }
 
 public sealed class RoomSettingsService(IRoomManager _roomManager, IWordFilterManager _wordFilterManager,
     INavigatorManager _navigationManager, IAchievementManager _achievementManager, IRoomSettingsStore store,
     ISettingsManager _settings) : IRoomSettingsService
 {
+    public void Show(GameClient session, uint roomId)
+    {
+        if (!_roomManager.TryLoadRoom(roomId, out var room))
+            return;
+        var habbo = session.GetHabbo();
+        if (habbo.Id != room.OwnerId && !habbo.Access.Can(PermissionKeys.RoomOwnerAny))
+            return;
+        RoomSettingsSnapshot snapshot;
+        lock (room.Data)
+            snapshot = RoomSettingsSnapshot.Capture(room);
+        session.Send(new RoomSettingsDataComposer(snapshot));
+    }
+
     public void Save(GameClient session, RoomSettingsRequest request)
     {
         if (!_roomManager.TryLoadRoom(request.RoomId, out var room)) return;
