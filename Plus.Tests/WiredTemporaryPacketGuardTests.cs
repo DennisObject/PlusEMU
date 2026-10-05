@@ -63,6 +63,8 @@ public class WiredTemporaryPacketGuardTests
             ? (object)new EnabledExchangeSettings()
             : parameter.ParameterType == typeof(IFurnitureUseService)
                 ? new FurnitureUseService(new FurnitureUseStore(database), null!)
+                : parameter.ParameterType == typeof(IGiftOpeningService)
+                    ? new GiftOpeningService(new GiftStore(database), null!, null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<GiftOpeningService>.Instance)
                 : parameter.ParameterType == typeof(IRoomItemMetadataService)
                     ? new RoomItemMetadataService(new RoomItemMetadataStore(database))
                     : parameter.ParameterType == typeof(IRoomInteractionService)

@@ -163,6 +163,19 @@ public class GroupManager : IGroupManager, IStartable
         }
         return badges;
     }
-    private sealed record GroupRow(int Id, string Name, string Description, string Badge, uint RoomId, int OwnerId, int Created, int State,
-        int Colour1, int Colour2, int AdminDeco, bool ForumEnabled);
+    private sealed class GroupRow
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Badge { get; set; } = string.Empty;
+        public uint RoomId { get; set; }
+        public int OwnerId { get; set; }
+        public int Created { get; set; }
+        public int State { get; set; }
+        public int Colour1 { get; set; }
+        public int Colour2 { get; set; }
+        public int AdminDeco { get; set; }
+        public bool ForumEnabled { get; set; }
+    }
 }

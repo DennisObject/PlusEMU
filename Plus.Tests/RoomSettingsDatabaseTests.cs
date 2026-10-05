@@ -72,6 +72,17 @@ public sealed class RoomSettingsDatabaseTests
             Assert.Throws<InvalidOperationException>(() => metadata.SetMannequinData(92,42,"rejected"));
             Assert.Equal("original", connection.QuerySingle<string>("SELECT extra_data FROM items WHERE id=92"));
             Assert.Equal(255, connection.QuerySingle<int>("SELECT data2 FROM room_items_toner WHERE id=92"));
+            connection.Execute("ALTER TABLE items ADD COLUMN base_item INT, ADD COLUMN user_id INT; CREATE TABLE user_presents (item_id INT PRIMARY KEY,base_id INT,extra_data TEXT); INSERT INTO items (id,room_id,extra_data,base_item,user_id) VALUES (94,42,'gift',100,8); INSERT INTO user_presents VALUES (94,201,'changed')");
+            var gifts = new GiftStore(database);
+            Assert.Throws<InvalidOperationException>(() => gifts.Open(94,8,42,100,new(200,"blue")));
+            Assert.Equal(100, connection.QuerySingle<int>("SELECT base_item FROM items WHERE id=94"));
+            Assert.Equal(201, connection.QuerySingle<int>("SELECT base_id FROM user_presents WHERE item_id=94"));
+            connection.Execute("UPDATE user_presents SET base_id=200,extra_data='blue' WHERE item_id=94");
+            gifts.Open(94,8,42,100,new(200,"blue"));
+            Assert.Equal((200,0,"blue"), connection.QuerySingle<(int,int,string)>("SELECT base_item,room_id,extra_data FROM items WHERE id=94"));
+            Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_presents WHERE item_id=94"));
+            Assert.Throws<InvalidOperationException>(() => gifts.Open(94,8,42,100,new(200,"blue")));
+
         }
         finally { connection.Execute($"DROP DATABASE IF EXISTS `{schema}`"); }
     }

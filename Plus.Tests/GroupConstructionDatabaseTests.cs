@@ -2,7 +2,6 @@ using System.Data;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Users;
 using Xunit;
@@ -94,7 +93,6 @@ public sealed class GroupConstructionDatabaseTests
     private sealed class ProbeDatabase(string connectionString) : IDatabase
     {
         public bool IsConnected() => true;
-        [Obsolete] public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public IDbConnection Connection() => new MySqlConnection(connectionString);
     }
 }

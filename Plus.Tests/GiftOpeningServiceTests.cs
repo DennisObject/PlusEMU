@@ -91,11 +91,12 @@ public sealed class GiftOpeningServiceTests
     }
 
     [Fact]
-    public async Task MalformedReplacementDataDoesNotConsumeGift()
+    public async Task UnrepresentableReplacementDefinitionDoesNotConsumeGift()
     {
         var (room, client, sent, gift) = Context();
-        var store = new Store { Content = new(200, "not-a-number") };
-        var definition = Definition(200, InteractionType.CrackableEgg);
+        var store = new Store { Content = new(uint.MaxValue, "blue") };
+        var definition = Definition(200, InteractionType.None);
+        definition.Id = uint.MaxValue;
 
         await Service(store, definition).OpenAsync(client, gift.Id);
 
@@ -122,17 +123,53 @@ public sealed class GiftOpeningServiceTests
         Assert.NotEmpty(sent);
     }
 
+    [Fact]
+    public async Task PlacementPersistenceFailureRemovesAdmittedReplacementBeforeInventoryFallback()
+    {
+        var placement = new FailingPlacement();
+        var (room, client, _, gift) = Context(itemStore: placement);
+        gift.GetX = 1;
+        gift.GetY = 1;
+        var definition = Definition(200, InteractionType.None);
+        definition.Type = ItemType.Floor;
+        definition.Width = 1;
+        definition.Length = 1;
+
+        await Service(new Store(), definition).OpenAsync(client, gift.Id);
+
+        Assert.Equal(1, placement.Attempts);
+        Assert.Null(room.GetRoomItemHandler().GetItem(gift.Id));
+        var inventory = Assert.IsType<InventoryItem>(client.GetHabbo().Inventory.Furniture.GetItem(gift.Id));
+        Assert.Same(definition, inventory.Definition);
+        Assert.Empty(room.GetGameMap().GetCoordinatedItems(new(1,1)));
+    }
+
+    private sealed class FailingPlacement : IRoomItemStore
+    {
+        public int Attempts { get; private set; }
+        public void AssignOwner(uint itemId, int userId) { }
+        public void ClearRoom(uint itemId) { }
+        public void SaveWallPosition(uint itemId, string wallPosition) { }
+        public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
+        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation)
+        {
+            Attempts++;
+            throw new InvalidOperationException("Forced placement persistence failure.");
+        }
+        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) => throw new NotSupportedException();
+    }
+
     private static GiftOpeningService Service(Store store, ItemDefinition definition) =>
         new(store, new ItemCatalog(definition), new Cache(), NullLogger<GiftOpeningService>.Instance);
 
-    private static (Room Room, Plus.HabboHotel.GameClients.GameClient Client, List<(uint Header, byte[] Payload)> Sent, Item Gift) Context(string data = "a\u0005b\u00052", bool temporary = false)
+    private static (Room Room, Plus.HabboHotel.GameClients.GameClient Client, List<(uint Header, byte[] Payload)> Sent, Item Gift) Context(string data = "a\u0005b\u00052", bool temporary = false, IRoomItemStore? itemStore = null)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
-        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room));
-        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, itemStore ?? TestRoomItemStore.Instance));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room,
-            new Gamemap(room, new RoomModel("gift-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false)));
+            new Gamemap(room, new RoomModel("gift-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false), TestLogging.Navigation));
         var gift = new Item { Id = 7, RoomId = 9, OwnerId = 1, BaseItem = 100, IsTemporary = temporary, Definition = Definition(100, InteractionType.Gift), ExtraData = new LegacyDataFormat { Data = data } };
         typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(gift, room);
         var walls = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;

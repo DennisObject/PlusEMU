@@ -128,7 +128,7 @@ public class GroupInfoSnapshotTests : IDisposable
 
     private static Group NewGroup(int type, bool forum, int adminOnly, bool withRoom = true)
     {
-        var group = new Group(9, "Crew", "desc", "b01014s02024", 42, 7, 1_700_000_000, type, 3, 4, adminOnly, forum);
+        var group = new Group(9, "Crew", "desc", "b01014s02024", 42, 7, 1_700_000_000, type, 3, 4, adminOnly, forum, GroupMembershipSnapshot.Empty);
         if (withRoom)
         {
             var room = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));

@@ -56,7 +56,7 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
             habbo.Inventory.Furniture.AddItem(claim.Delivery);
             session.Send(new FurniListNotificationComposer(claim.Delivery.Id, 1));
             session.Send(new PurchaseOKComposer());
-            session.Send(new FurniListAddComposer(claim.Delivery));
+            session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(claim.Delivery)));
             session.Send(new FurniListUpdateComposer());
             outcome = MarketplacePurchaseOutcome.Bought;
         }

@@ -83,7 +83,7 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
                 replacement = new()
                 {
                     Id = gift.Id,
-                    BaseItem = (int)content.BaseId,
+                    BaseItem = checked((int)content.BaseId),
                     OwnerId = gift.OwnerId,
                     RoomId = gift.RoomId,
                     Definition = definition,
@@ -95,8 +95,9 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
                     WallCoordinates = gift.WallCoordinates
                 };
             }
-            catch (Exception)
+            catch (Exception exception)
             {
+                logger.LogWarning(exception, "Gift {GiftId} replacement could not be prepared for user {UserId}", gift.Id, habbo.Id);
                 session.SendNotification("Oops, the item inside this gift could not be prepared.");
                 return Task.CompletedTask;
             }
