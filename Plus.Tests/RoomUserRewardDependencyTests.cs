@@ -1,6 +1,7 @@
 using System.Reflection;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
@@ -43,6 +44,7 @@ public partial class PlacedFurniRoomTests
     {
         _room.OwnerId = 99;
         var tile = Furni(95, InteractionType.Teleport, WiredBoxType.None);
+        tile.ExtraData = new LegacyDataFormat();
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(_client, tile, 1, 1, 0, true, false, false));
         var habbo = _client.GetHabbo();
         habbo.IsTeleporting = true;
@@ -75,6 +77,7 @@ public partial class PlacedFurniRoomTests
     {
         var rewards = new TestRewardProgress();
         var manager = InstallRewardManager(rewards);
+        _client.GetHabbo().Effects = new(_interactionClock);
         InitializeClientEffects();
         WithUnavailableRewardManager(() =>
         {
