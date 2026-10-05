@@ -55,6 +55,36 @@ public class AchievementSnapshotTests
     }
 
     [Fact]
+    public void SparseLevelsAreNotCompletedUntilTheHighestDefinedLevel()
+    {
+        // Levels 1 and 4 only: holding level 2 is not complete, while the Levels.Count of 2 would have said so.
+        var achievement = Achievement("ACH_GAPS", "social", 0, (1, 10), (4, 40));
+
+        var midway = Assert.Single(Service.Capture(UserWith(level: 2, progress: 5, "ACH_GAPS"), [achievement]));
+        var finished = Assert.Single(Service.Capture(UserWith(level: 4, progress: 40, "ACH_GAPS"), [achievement]));
+
+        Assert.Equal(4, midway.TargetLevel);
+        Assert.False(midway.Completed);
+        Assert.True(finished.Completed);
+        Assert.Equal(2, midway.TotalLevels);
+    }
+
+    [Fact]
+    public void NullGroupNameAndCategoryFallBackToEmptyTextWithoutThrowing()
+    {
+        var achievement = Achievement("ACH_NULLS", "social", 0, (1, 5));
+        achievement.GroupName = null;
+        achievement.Category = null;
+
+        var snapshot = Assert.Single(Service.Capture(new Habbo { Id = 5, Username = "nulls" }, [achievement]));
+
+        Assert.Equal("", snapshot.Category);
+        Assert.Equal("1", snapshot.Badge);
+        Assert.Equal(1, snapshot.TargetLevel);
+        Assert.False(snapshot.Completed);
+    }
+
+    [Fact]
     public void AchievementWithoutLevelsIsLeftOutOfTheList()
     {
         var empty = Achievement("ACH_EMPTY", "social", 0);
@@ -108,7 +138,7 @@ public class AchievementSnapshotTests
             : throw new InvalidOperationException(method));
         var (client, sent) = HabbiconTestSupport.Client(UserWith(level: 0, progress: 1, "ACH_HANDLER"));
 
-        await new GetAchievementsEvent(manager, Service).Parse(client, Packet());
+        await new GetAchievementsEvent(new AchievementShowcaseService(manager, Service)).Parse(client, Packet());
 
         var message = Assert.Single(sent);
         Assert.Equal(ServerPacketHeader.AchievementsComposer, message.Header);
@@ -124,7 +154,7 @@ public class AchievementSnapshotTests
             : throw new InvalidOperationException(method));
         var (client, sent) = HabbiconTestSupport.Client(UserWith(level: 2, progress: 10, "GAME_HANDLER"));
 
-        await new GetGameAchievementsEvent(manager, Service).Parse(client, Packet(9));
+        await new GetGameAchievementsEvent(new AchievementShowcaseService(manager, Service)).Parse(client, Packet(9));
 
         Assert.Equal(new[] { ServerPacketHeader.GameAccountStatusComposer, ServerPacketHeader.PlayableGamesComposer, ServerPacketHeader.GameAchievementListComposer },
             sent.Select(message => message.Header));

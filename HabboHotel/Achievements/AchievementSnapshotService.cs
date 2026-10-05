@@ -32,8 +32,10 @@ public sealed class AchievementSnapshotService : IAchievementSnapshotService
         var group = achievement.GroupName ?? string.Empty;
         var progress = habbo.GetAchievementData(group);
         var totalLevels = achievement.Levels.Count;
+        // Levels can be sparse, so the highest defined level is the one that completes the achievement, not the count.
+        var highestLevel = achievement.Levels.Keys.Max();
         // The next level, clamped to the highest level the achievement defines; a completed achievement stays on its last level.
-        var target = (int)Math.Clamp((long)(progress?.Level ?? 0) + 1, 1, achievement.Levels.Keys.Max());
+        var target = (int)Math.Clamp((long)(progress?.Level ?? 0) + 1, 1, highestLevel);
         var (level, data) = ResolveLevel(achievement.Levels, target);
         return new AchievementProgressSnapshot(
             achievement.Id,
@@ -43,7 +45,7 @@ public sealed class AchievementSnapshotService : IAchievementSnapshotService
             data.Requirement,
             data.RewardPixels,
             progress?.Progress ?? 0,
-            progress != null && progress.Level >= totalLevels,
+            progress != null && progress.Level >= highestLevel,
             totalLevels);
     }
 
