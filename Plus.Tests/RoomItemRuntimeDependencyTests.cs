@@ -30,8 +30,8 @@ public partial class PlacedFurniRoomTests
         };
         var clients = new TestGameClientManager(id =>
         {
-            events.Add($"lookup:{id}");
             Assert.Equal(new[] { "clear:90" }, events);
+            events.Add($"lookup:{id}");
             return _client;
         });
         var handler = Handler(store, clients);

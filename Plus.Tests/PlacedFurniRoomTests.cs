@@ -390,6 +390,7 @@ public partial class PlacedFurniRoomTests : IDisposable
             (true, false, 0, 0, 0);
         public override void CreateHeader(Memory<byte> memory, uint messageId)
         {
+            base.CreateHeader(memory, messageId);
             BeforeCapture?.Invoke(messageId);
             Sent.Add(messageId);
             Packets.Add((messageId, memory[6..].ToArray()));
