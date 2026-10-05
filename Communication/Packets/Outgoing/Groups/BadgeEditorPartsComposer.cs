@@ -1,57 +1,42 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 
 namespace Plus.Communication.Packets.Outgoing.Groups;
 
-public class BadgeEditorPartsComposer : IServerPacket
+public class BadgeEditorPartsComposer(BadgeEditorPresentation presentation) : IServerPacket
 {
     public uint MessageId => ServerPacketHeader.BadgeEditorPartsComposer;
 
-    private readonly ICollection<GroupBadgeParts> _bases;
-    private readonly ICollection<GroupBadgeParts> _symbols;
-    private readonly ICollection<GroupColours> _baseColours;
-    private readonly ICollection<GroupColours> _symbolColours;
-    private readonly ICollection<GroupColours> _backgroundColours;
-
-    public BadgeEditorPartsComposer(ICollection<GroupBadgeParts> bases, ICollection<GroupBadgeParts> symbols, ICollection<GroupColours> baseColours, ICollection<GroupColours> symbolColours, ICollection<GroupColours> backgroundColours)
-    {
-        _bases = bases;
-        _symbols = symbols;
-        _baseColours = baseColours;
-        _symbolColours = symbolColours;
-        _backgroundColours = backgroundColours;
-    }
-
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_bases.Count);
-        foreach (var part in _bases)
+        packet.WriteInteger(presentation.Bases.Length);
+        foreach (var part in presentation.Bases)
         {
             packet.WriteInteger(part.Id);
             packet.WriteString(part.AssetOne);
             packet.WriteString(part.AssetTwo);
         }
-        packet.WriteInteger(_symbols.Count);
-        foreach (var part in _symbols)
+        packet.WriteInteger(presentation.Symbols.Length);
+        foreach (var part in presentation.Symbols)
         {
             packet.WriteInteger(part.Id);
             packet.WriteString(part.AssetOne);
             packet.WriteString(part.AssetTwo);
         }
-        packet.WriteInteger(_baseColours.Count);
-        foreach (var color in _baseColours)
+        packet.WriteInteger(presentation.BaseColours.Length);
+        foreach (var color in presentation.BaseColours)
         {
             packet.WriteInteger(color.Id);
             packet.WriteString(color.Colour);
         }
-        packet.WriteInteger(_symbolColours.Count);
-        foreach (var color in _symbolColours)
+        packet.WriteInteger(presentation.SymbolColours.Length);
+        foreach (var color in presentation.SymbolColours)
         {
             packet.WriteInteger(color.Id);
             packet.WriteString(color.Colour);
         }
-        packet.WriteInteger(_backgroundColours.Count);
-        foreach (var color in _backgroundColours)
+        packet.WriteInteger(presentation.BackgroundColours.Length);
+        foreach (var color in presentation.BackgroundColours)
         {
             packet.WriteInteger(color.Id);
             packet.WriteString(color.Colour);
