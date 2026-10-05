@@ -237,7 +237,7 @@ public class WiredAvatarPacketHookTests
                 { [ServerPacketHeader.ActionComposer] = 1, [ServerPacketHeader.DanceComposer] = 2,
                     [ServerPacketHeader.SleepComposer] = 3, [ServerPacketHeader.AvatarEffectComposer] = 4,
                     [ServerPacketHeader.UserTypingComposer] = 5 } },
-                SendCallback = packet => { SentPackets.Add(packet); return true; }
+                SendCallback = packet => { SentPackets.Add(packet.MemoryBuffer.Span.Slice(packet.Offset, packet.Count).ToArray()); return true; }
             };
             Client.SetHabbo(new Habbo { Id = 42, Username = "actor", CurrentRoom = Room, Client = Client, Effects = new EffectsComponent() });
             Actor = new RoomUser(42, 1, 7, Room); Set(Actor, "_mClient", Client);
