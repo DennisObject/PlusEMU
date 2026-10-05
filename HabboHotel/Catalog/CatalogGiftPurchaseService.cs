@@ -3,6 +3,7 @@ using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
+using Plus.Communication.Packets.Outgoing.Notifications;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Core.Settings;
 using Plus.HabboHotel.Achievements;

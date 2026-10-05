@@ -1,6 +1,6 @@
 ﻿using Plus.HabboHotel.GameClients;
 
-namespace Plus.Communication.Packets.Outgoing.Inventory.Purse;
+namespace Plus.Communication.Packets.Outgoing.Notifications;
 
 public class ActivityPointsComposer : IServerPacket
 {

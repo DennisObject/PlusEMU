@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Outgoing.Camera;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
+using Plus.Communication.Packets.Outgoing.Notifications;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.Camera;
 using Plus.HabboHotel.GameClients;

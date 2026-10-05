@@ -4,7 +4,7 @@ using System.Data;
 using System.Collections.Immutable;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Incoming;
-using Plus.Communication.Packets.Outgoing.Inventory.Purse;
+using Plus.Communication.Packets.Outgoing.Notifications;
 using Plus.Communication.Packets.Outgoing.Quests;
 using Plus.Database;
 using Plus.HabboHotel.Friends;

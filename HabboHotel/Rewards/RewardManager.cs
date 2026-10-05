@@ -3,6 +3,7 @@ using Plus.Core;
 using System.Collections.Concurrent;
 using System.Data;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
+using Plus.Communication.Packets.Outgoing.Notifications;
 using Plus.Database;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.GameClients;
