@@ -26,17 +26,51 @@ public sealed class RoomPetsComponent(IDatabase database) : IRoomComponent
         }
     }
 
-    internal static IEnumerable<PetLocation> Load(System.Data.IDbConnection connection, uint roomId) => connection.Query<PetLocation>(
-        "SELECT id, user_id AS UserId, room_id AS RoomId, name, x, y, z FROM bots WHERE room_id = @roomId AND ai_type = 'pet'", new { roomId });
+    internal static IEnumerable<PetLocation> Load(System.Data.IDbConnection connection, uint roomId) => connection.Query<PetLocationSqlRow>(
+        "SELECT id, user_id AS UserId, room_id AS RoomId, name, x, y, z FROM bots WHERE room_id = @roomId AND ai_type = 'pet'", new { roomId })
+        .Select(row => new PetLocation(checked((int)row.Id), checked((int)row.UserId), row.RoomId, row.Name, row.X, row.Y, row.Z)).ToArray();
 
-    internal static PetData? LoadData(System.Data.IDbConnection connection, int petId) => connection.QuerySingleOrDefault<PetData>("""
-        SELECT type, race, color, experience, energy, nutrition, respect, createstamp,
-               have_saddle AS HaveSaddle, anyone_ride AS AnyoneRide, hairdye, pethair,
-               gnome_clothing AS GnomeClothing
-        FROM bots_petdata WHERE id = @petId LIMIT 1
-        """, new { petId });
+    internal static PetData? LoadData(System.Data.IDbConnection connection, int petId)
+    {
+        var row = connection.QuerySingleOrDefault<PetDataSqlRow>("""
+            SELECT type, race, color, experience, energy, nutrition, respect, createstamp,
+                   have_saddle AS HaveSaddle, anyone_ride AS AnyoneRide, hairdye, pethair,
+                   gnome_clothing AS GnomeClothing
+            FROM bots_petdata WHERE id = @petId LIMIT 1
+            """, new { petId });
+        return row == null ? null : new(checked((int)row.Type), row.Race, row.Color, row.Experience, row.Energy,
+            row.Nutrition, row.Respect, row.Createstamp, row.HaveSaddle, row.AnyoneRide, row.Hairdye, row.Pethair, row.GnomeClothing);
+    }
 
     internal sealed record PetLocation(int Id, int UserId, uint RoomId, string Name, int X, int Y, double Z);
     internal sealed record PetData(int Type, string Race, string Color, int Experience, int Energy, int Nutrition,
         int Respect, double Createstamp, int HaveSaddle, int AnyoneRide, int Hairdye, int Pethair, string GnomeClothing);
+
+    private sealed class PetLocationSqlRow
+    {
+        public uint Id { get; set; }
+        public uint UserId { get; set; }
+        public uint RoomId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int X { get; set; }
+        public int Y { get; set; }
+        public double Z { get; set; }
+    }
+
+    private sealed class PetDataSqlRow
+    {
+        public uint Type { get; set; }
+        public string Race { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+        public int Experience { get; set; }
+        public int Energy { get; set; }
+        public int Nutrition { get; set; }
+        public int Respect { get; set; }
+        public double Createstamp { get; set; }
+        public int HaveSaddle { get; set; }
+        public int AnyoneRide { get; set; }
+        public int Hairdye { get; set; }
+        public int Pethair { get; set; }
+        public string GnomeClothing { get; set; } = string.Empty;
+    }
 }
