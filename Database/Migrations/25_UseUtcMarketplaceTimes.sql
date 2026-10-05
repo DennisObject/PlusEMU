@@ -6,7 +6,7 @@ ALTER TABLE `catalog_marketplace_offers`
 
 UPDATE `catalog_marketplace_offers`
 SET `listed_at_utc` = CASE
-        WHEN `timestamp` IS NULL OR `timestamp` <= 0 THEN NULL
+        WHEN `timestamp` IS NULL OR `timestamp` <= 0 OR CAST(`timestamp` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
         ELSE DATE_ADD(TIMESTAMP '1970-01-01 00:00:00', INTERVAL ROUND(`timestamp` * 1000000) MICROSECOND)
     END;
 
