@@ -94,6 +94,41 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(awarded ? [("ACH_BattleBallTilesLocked", 4), ("ACH_BattleBallPlayer", 1), ("ACH_BattleBallWinner", 1)] : [], calls);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void RoomEntryUsesLoadedAchievementDependencyAfterRecordedVisit(bool owner)
+    {
+        _room.OwnerId = owner ? 7 : 99;
+        var habbo = _client.GetHabbo();
+        habbo.Client = _client;
+        habbo.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
+        var events = new List<string>();
+        habbo.SetRoomVisitRecorder(new RecordingEntry(events), new TestRoomAchievements((session, group, amount) =>
+        {
+            Assert.Same(_client, session);
+            Assert.Equal("ACH_RoomEntry", group);
+            Assert.Equal(1, amount);
+            Assert.Equal(["visit"], events);
+            Assert.Equal(1, habbo.HabboStats.RoomVisits);
+            Assert.Equal(ServerPacketHeader.RoomRatingComposer, _client.Sent.Last());
+            events.Add("achievement");
+        }));
+        WithUnavailableRoomGame(() => Assert.True(habbo.EnterRoom(_room)));
+        Assert.Equal(owner ? ["visit"] : ["visit", "achievement"], events);
+        Assert.Equal(owner ? 0 : 1, habbo.HabboStats.RoomVisits);
+    }
+
+    private sealed class RecordingEntry(List<string> events) : IRoomVisitRecorder
+    {
+        public void RecordEntry(int userId, uint roomId)
+        {
+            Assert.Equal(7, userId);
+            Assert.Equal(RoomId, roomId);
+            events.Add("visit");
+        }
+    }
+
     private void WithUnavailableRoomGame(Action action)
     {
         var previous = _gameField.GetValue(null);

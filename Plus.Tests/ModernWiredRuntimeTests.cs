@@ -794,6 +794,7 @@ public class ModernWiredRuntimeTests
         public readonly WiredModernAction Action; public readonly WiredModernTrigger Trigger;
         public readonly WiredStackEngine Engine; public readonly List<Exception> Errors = [];
         public IItemDataManager? DefinitionManager;
+        public readonly TestRewardProgress HandRewards = new();
         private readonly object? _originalGame; private long _now;
         public TeleportFixture(int cap = 100, IDatabase? database = null, IGameClientManager? clientsForText = null)
         {
@@ -812,7 +813,7 @@ public class ModernWiredRuntimeTests
             Habbo = (Habbo)RuntimeHelpers.GetUninitializedObject(typeof(Habbo)); Habbo.Id = 1; Habbo.Username = "Alice"; Habbo.CurrentRoom = Room;
             Habbo.Client = client; Habbo.Effects = new(new FixedTimeProvider(FixedTimeProvider.Epoch)); typeof(EffectsComponent).GetField("_habbo", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Habbo.Effects, Habbo);
             Habbo.Effects.CurrentEffect = 8; client.SetHabbo(Habbo); clients.RegisterClient(client, 1, "Alice");
-            User = new(1, 0, 7, Room, client, TestChatEmotions.Unused, TestRewardProgress.Unused); RoomUsers(Room)[7] = User;
+            User = new(1, 0, 7, Room, client, TestChatEmotions.Unused, HandRewards); RoomUsers(Room)[7] = User;
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
             var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance,
                 database == null ? TestWiredConfigurationStore.Instance : new WiredConfigurationStore(database),

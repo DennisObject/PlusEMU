@@ -3,6 +3,7 @@ using Plus.Database;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.Users.Badges;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Achievements;
 
 namespace Plus.HabboHotel.Users.UserData;
 
@@ -16,8 +17,9 @@ public class UserDataFactory : IUserDataFactory
     private readonly IUserComponentLoader _components;
     private readonly Clothing.IClothingStore _clothingStore;
     private readonly TimeProvider _time;
+    private readonly IAchievementManager _achievements;
 
-    public UserDataFactory(BadgeManager badgeManager, IDatabase database, IEnumerable<IUserDataLoadingTask> userDataLoadingTasks, IUserPersistenceService persistence, IUserComponentLoader components, Clothing.IClothingStore clothingStore, IRoomVisitRecorder roomVisits, TimeProvider time)
+    public UserDataFactory(BadgeManager badgeManager, IDatabase database, IEnumerable<IUserDataLoadingTask> userDataLoadingTasks, IUserPersistenceService persistence, IUserComponentLoader components, Clothing.IClothingStore clothingStore, IRoomVisitRecorder roomVisits, TimeProvider time, IAchievementManager achievements)
     {
         _badgeManager = badgeManager;
         _database = database;
@@ -27,6 +29,7 @@ public class UserDataFactory : IUserDataFactory
         _clothingStore = clothingStore;
         _roomVisits = roomVisits;
         _time = time;
+        _achievements = achievements;
     }
 
     public async Task<Habbo?> Create(int userId, CancellationToken cancellationToken = default)
@@ -86,7 +89,7 @@ public class UserDataFactory : IUserDataFactory
             },
             new { userId }, splitOn: "Volume");
         var habbo = users.SingleOrDefault();
-        habbo?.SetRoomVisitRecorder(_roomVisits);
+        habbo?.SetRoomVisitRecorder(_roomVisits, _achievements);
         return habbo;
     }
 

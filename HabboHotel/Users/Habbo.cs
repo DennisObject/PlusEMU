@@ -30,6 +30,7 @@ namespace Plus.HabboHotel.Users;
 public class Habbo
 {
     private IRoomVisitRecorder _roomVisits = null!;
+    private IAchievementManager _roomAchievements = null!;
     internal uint WiredRoomNetworkDestination { get; set; }
     public HabboStats HabboStats { get; set; }
 
@@ -421,10 +422,14 @@ public class Habbo
         if (room.OwnerId != Id)
         {
             Client.GetHabbo().HabboStats.RoomVisits += 1;
-            PlusEnvironment.Game.AchievementManager.ProgressAchievement(Client, "ACH_RoomEntry", 1);
+            _roomAchievements.ProgressAchievement(Client, "ACH_RoomEntry", 1);
         }
         return true;
     }
 
-    internal void SetRoomVisitRecorder(IRoomVisitRecorder roomVisits) => _roomVisits = roomVisits;
+    internal void SetRoomVisitRecorder(IRoomVisitRecorder roomVisits, IAchievementManager achievements)
+    {
+        _roomVisits = roomVisits;
+        _roomAchievements = achievements;
+    }
 }
