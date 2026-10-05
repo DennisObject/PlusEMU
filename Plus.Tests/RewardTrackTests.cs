@@ -144,7 +144,7 @@ public class RewardTrackTests
         var state = new UserRewardTrackState(track.Id, 10, false);
         state.SetStoredCount("chat_with_users", 5);
         var packet = new RecordingPacket();
-        new RewardTracksComposer(false, new[] { new RewardTrackView(track, state) }, false).Compose(packet);
+        new RewardTracksComposer(false, [RewardTrackWireSnapshot.Capture(track, state)], false).Compose(packet);
 
         Assert.Equal(new object[]
         {

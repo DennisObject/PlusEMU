@@ -109,14 +109,14 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
         {
             if (tracks.Count > 0 && !EnsureUser(habbo.Id))
                 return;
-            var views = new List<RewardTrackView>();
+            var wire = new List<RewardTrackWireTrack>();
             foreach (var track in tracks)
             {
                 if (!track.IsActive(now))
                     continue;
-                views.Add(new RewardTrackView(track, StateFor(habbo.Id, track.Id)));
+                wire.Add(RewardTrackWireSnapshot.Capture(track, StateFor(habbo.Id, track.Id)));
             }
-            SendTrackPacket(session, new RewardTracksComposer(false, views, false));
+            SendTrackPacket(session, new RewardTracksComposer(false, System.Collections.Immutable.ImmutableArray.CreateRange(wire), false));
         }
     }
 
