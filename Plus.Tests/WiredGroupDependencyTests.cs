@@ -141,7 +141,7 @@ public sealed class WiredGroupDependencyTests
                 .SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System));
             _wired = new(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty,
                 TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance,
-                TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, groups);
+                TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, groups, TestWiredDefinitions.Unused);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Room, _wired);
             Member = new(1, 0, 101, Room, Client(1, "Member"));
             NonMember = new(2, 0, 102, Room, Client(2, "NonMember"));

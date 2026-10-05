@@ -46,9 +46,9 @@ public sealed class ModernWiredDatabaseCollection;
 public class ModernWiredRuntimeTests
 {
     private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null,
-        TimeProvider? clock = null, IWiredRewardService? rewards = null) =>
+        TimeProvider? clock = null, IWiredRewardService? rewards = null, IItemDataManager? definitions = null) =>
         new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger,
-            clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty);
+            clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, definitions ?? TestWiredDefinitions.Unused);
 
     [Fact]
     public void TimerResetAndElapsedConditionsUseCapturedUtcInstantsAtExactBoundaries()
@@ -801,7 +801,7 @@ public class ModernWiredRuntimeTests
             var gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
             _originalGame = gameField.GetValue(null);
             var clients = new GameClientManager(null!, null!); var game = DispatchProxy.Create<IGame, RecordingProxy>();
-            ((RecordingProxy)(object)game).InvokeMethod = (method, _) => method.Name == "get_ClientManager" ? clients : method.Name == "get_ItemManager" ? DefinitionManager : null;
+            ((RecordingProxy)(object)game).InvokeMethod = (method, _) => method.Name == "get_ClientManager" ? clients : method.Name == "get_ItemManager" ? throw new InvalidOperationException("Global item manager unavailable.") : null;
             gameField.SetValue(null, game);
             var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
@@ -817,7 +817,8 @@ public class ModernWiredRuntimeTests
             var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance,
                 database == null ? TestWiredConfigurationStore.Instance : new WiredConfigurationStore(database),
                 database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance,
-                clientsForText ?? TestWiredClients.Empty, TestGroupManager.Empty);
+                clientsForText ?? TestWiredClients.Empty, TestGroupManager.Empty,
+                new TestWiredDefinitions(() => DefinitionManager?.Items ?? throw new InvalidOperationException("No test definitions installed.")));
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
@@ -825,7 +826,7 @@ public class ModernWiredRuntimeTests
             Target = MakeItem(1, "test"); Target.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); Items[1] = Target;
             Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room")); Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
             Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
-                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty);
+                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused);
             Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _); Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item; Items[100] = Action.Item; Engine.Add(Trigger); Engine.Add(Action);
         }
@@ -1176,6 +1177,56 @@ public class ModernWiredRuntimeTests
         Assert.False(action.Execute(ctx));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RoomOwnedTemporaryPlacementUsesInjectedDefinitionsWithGlobalGameUnavailable(bool snapshot)
+    {
+        using var fixture = new TeleportFixture();
+        var definition = MakeItem(55, "injected-definition").Definition;
+        definition.Id = 55;
+        definition.Stackable = true;
+        var reads = 0;
+        fixture.DefinitionManager = new TestWiredDefinitions(() =>
+        {
+            reads++;
+            return new Dictionary<uint, ItemDefinition> { [55] = definition };
+        });
+        var action = Assert.IsType<WiredModernAction>(fixture.Room.GetWired().CreateConfiguredBox(
+            MakeItem(102, "wf_act_place_furni"), Descriptor("wf_act_place_furni")));
+        Assert.Equal(0, reads);
+        var proposed = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with
+        {
+            IntParams = [55, 2, 1, 2, 2, 0]
+        };
+        if (snapshot)
+            proposed = proposed with
+            {
+                TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude),
+                Snapshots = [new(900, 55, 2, 2, 1, 0, "1"), new(901, 999, 1, 2, 1, 0, "0")]
+            };
+        Assert.True(action.TryValidateConfiguration(proposed, out var configuration, out var error), error);
+        action.ApplyConfiguration(configuration);
+        var global = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var previous = global.GetValue(null);
+        try
+        {
+            global.SetValue(null, null);
+            Assert.True(action.Execute(Context(fixture.Room, new(WiredEventKind.Use), fixture.Items.Values.ToArray(), [fixture.User])));
+        }
+        finally { global.SetValue(null, previous); }
+
+        var placed = fixture.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray();
+        Assert.Equal(snapshot ? 1 : 2, placed.Length);
+        Assert.All(placed, item =>
+        {
+            Assert.Same(definition, item.Definition);
+            Assert.Equal((2, 2), (item.GetX, item.GetY));
+        });
+        Assert.Equal(snapshot ? 2 : 1, reads);
+        if (snapshot) Assert.Equal("1", Assert.Single(placed).LegacyDataString);
+    }
+
     [Fact]
     public void SnapshotPlacementCopiesDetachedTemplatesWithRelativeGeometryAndAltitude()
     {
@@ -1183,7 +1234,7 @@ public class ModernWiredRuntimeTests
         var def = MakeItem(5, "test").Definition; def.Id = 5; def.Stackable = true;
         ((RecordingProxy)(object)manager).InvokeMethod = (m, _) => m.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [5] = def } : null;
         f.DefinitionManager = manager; f.Target.Definition.Stackable = true;
-        var action = ActionBox(f.Room, "wf_act_place_furni");
+        var action = ActionBox(f.Room, "wf_act_place_furni", definitions: f.DefinitionManager);
         var proposed = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with {
             TemporaryPlacement = new(Location: WiredPlaceLocationType.CustomLocation, Altitude: WiredPlaceAltitudeType.CustomAltitude, OffsetAltitudeHundredths: 125),
             SecondarySelectedItems = [1], Snapshots = [new(900, 5, 7, 7, 3, 0, "1"), new(901, 5, 8, 7, 4, 2, "0")]
@@ -1209,7 +1260,7 @@ public class ModernWiredRuntimeTests
         using var f = new TeleportFixture(); var manager = DispatchProxy.Create<IItemDataManager, RecordingProxy>();
         var def = MakeItem(5, "test").Definition; def.Id = 5; def.Stackable = true;
         ((RecordingProxy)(object)manager).InvokeMethod = (m, _) => m.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [5] = def } : null; f.DefinitionManager = manager;
-        var action = ActionBox(f.Room, "wf_act_place_furni");
+        var action = ActionBox(f.Room, "wf_act_place_furni", definitions: f.DefinitionManager);
         Assert.True(action.TryValidateConfiguration(new() { IntParams = [5, 3, 1, 2, 1, 2] }, out var config, out _)); action.ApplyConfiguration(config);
         Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
         var copies = f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray(); Assert.Equal(3, copies.Length);
@@ -1224,7 +1275,7 @@ public class ModernWiredRuntimeTests
         var manager = DispatchProxy.Create<IItemDataManager, RecordingProxy>(); ((RecordingProxy)(object)manager).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [5] = definition } : null; f.DefinitionManager = manager;
         var firstInserted = MakeItem(10, "test"); firstInserted.Definition = definition; firstInserted.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); f.Items[10] = firstInserted;
         var firstPicked = MakeItem(20, "test"); firstPicked.Definition = definition; firstPicked.SetState(2, 1, 0, Gamemap.GetAffectedTiles(1, 1, 2, 1, 0)); f.Items[20] = firstPicked;
-        var action = ActionBox(f.Room, "wf_act_place_furni");
+        var action = ActionBox(f.Room, "wf_act_place_furni", definitions: f.DefinitionManager);
         var proposed = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with { SelectedItems = [20, 10], SecondarySelectedItems = [1], TemporaryPlacement = new(Location: WiredPlaceLocationType.CustomLocation) };
         var captured = WiredRoomOperations.PrepareSnapshots(action, proposed); Assert.Equal(new uint[] { 20, 10 }, captured.Snapshots.Select(snapshot => snapshot.ItemId));
         f.Items.TryRemove(10, out _); f.Items.TryRemove(20, out _);
@@ -1417,7 +1468,7 @@ public class ModernWiredRuntimeTests
             var loadedRows = new DataTable();
             using (var reader = admin.ExecuteReader("SELECT items.*,users.username FROM items JOIN users ON users.id=items.user_id WHERE items.id=@spawnId", new { spawnId }))
                 loadedRows.Load(reader);
-            var action = ActionBox(f.Room, "wf_act_place_furni");
+            var action = ActionBox(f.Room, "wf_act_place_furni", definitions: f.DefinitionManager);
             action.Item = ItemLoader.ReadRoomItem(Assert.Single(loadedRows.Rows.Cast<DataRow>()), roomId, action.Item.Definition);
             f.Items[spawnId] = action.Item;
             var removals = new List<byte[]>();

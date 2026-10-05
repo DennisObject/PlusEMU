@@ -14,12 +14,12 @@ public sealed class RoomRuntimeComponent(IRoomItemStore itemStore, Plus.HabboHot
     IRoomUserSnapshotService userSnapshots, TimeProvider clock, IWiredRoomSettingsFactory wiredSettings,
     IWiredConfigurationStore wiredConfigurations, IDatabase database, IWiredRewardService wiredRewards,
     AI.IBotManagementStore botStore, ISettingsManager settings, IGroupManager groups, IGameClientManager clients,
-    IRewardTrackManager rewards) : IRoomComponent
+    IRewardTrackManager rewards, Plus.HabboHotel.Items.IItemDataManager definitions) : IRoomComponent
 {
     public int Order => 0;
     public void Initiate(Room room) => room.SetRuntime(
         new(room, room.Data.Model, room.NavigationLogger, settings, groups, database, rewards), new(room, itemStore, metadata), new(room, userStore, clock),
-        new(room, room.WiredLogger, clock, settings, wiredSettings, wiredConfigurations, database, wiredRewards, botStore, clients, groups),
+        new(room, room.WiredLogger, clock, settings, wiredSettings, wiredConfigurations, database, wiredRewards, botStore, clients, groups, definitions),
         userSnapshots, clock);
     public void Initiated() { }
 }
