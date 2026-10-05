@@ -101,6 +101,39 @@ public class TelevisionPresentationTests
         Assert.Equal((7, 2, "aaa", "Title A"), (playlist.ReadInt(), playlist.ReadInt(), playlist.ReadString(), playlist.ReadString()));
     }
 
+    [Fact]
+    public async Task NextHandlerConsumesBothIntegersAndOnlyDelegates()
+    {
+        var presentation = new RecordingPresentation();
+        var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
+        var packet = HabbiconTestSupport.Incoming(42, 99);
+        await new YouTubeGetNextVideo(presentation).Parse(client, packet);
+        Assert.False(packet.HasDataRemaining());
+        Assert.Equal(new[] { 42 }, presentation.Next);
+        Assert.Empty(presentation.Shown);
+        Assert.Empty(sent);
+    }
+
+    [Fact]
+    public void NextVideoRetainsRoomAndEmptyListGatesAndOnlySendsTheVideo()
+    {
+        var televisions = Televisions(Video(1, "aaa", "Title A"));
+        var service = new TelevisionPresentationService(televisions);
+        var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
+        service.ShowNextVideo(client, 7);
+        Assert.Empty(sent);
+        client.GetHabbo().CurrentRoom = new Room(Data(1), Array.Empty<IRoomComponent>(), TestLogging.Navigation, TestLogging.Logger);
+        service.ShowNextVideo(client, 7);
+        var video = Assert.Single(sent);
+        Assert.Equal(ServerPacketHeader.GetYouTubeVideoComposer, video.Header);
+        var body = new FlashIncomingPacket { Buffer = video.Payload };
+        Assert.Equal((7, "aaa"), (body.ReadInt(), body.ReadString()));
+        sent.Clear();
+        televisions.Televisions.Clear();
+        service.ShowNextVideo(client, 7);
+        Assert.NotEqual(ServerPacketHeader.GetYouTubeVideoComposer, Assert.Single(sent).Header);
+    }
+
     private static (GameClient Client, List<(uint Header, byte[] Payload)> Sent) InRoom(Habbo habbo)
     {
         var room = new Room(Data(1), Array.Empty<IRoomComponent>(), TestLogging.Navigation, TestLogging.Logger);
@@ -136,6 +169,8 @@ public class TelevisionPresentationTests
     {
         public List<int> Shown { get; } = new();
         public void ShowPlaylist(GameClient session, int itemId) => Shown.Add(itemId);
+        public void ShowNextVideo(GameClient session, int itemId) => Next.Add(itemId);
+        public List<int> Next { get; } = new();
     }
 
     private sealed class FakeTelevisions : ITelevisionManager
