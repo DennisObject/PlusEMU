@@ -429,7 +429,9 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             UserID = db.GetProperty("Username").GetString(),
             Password = db.GetProperty("Password").GetString(),
             MinimumPoolSize = 0,
-            MaximumPoolSize = 8
+            MaximumPoolSize = 8,
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
         }.ConnectionString;
     }
 
