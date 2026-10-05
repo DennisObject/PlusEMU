@@ -1,5 +1,6 @@
 using Dapper;
 using Plus.Database;
+using Plus.Core.Settings;
 using Plus.HabboHotel.Rooms.Instance;
 
 namespace Plus.HabboHotel.Rooms;
@@ -11,12 +12,12 @@ internal interface ITradeStore
     void Log(int firstUserId, int secondUserId, string firstItems, string secondItems);
 }
 
-public sealed class RoomTradingComponent(IDatabase database, TimeProvider clock) : IRoomComponent, ITradeStore
+public sealed class RoomTradingComponent(IDatabase database, TimeProvider clock, ISettingsManager settings) : IRoomComponent, ITradeStore
 {
     public int Order => 10;
     public void Initiate(Room room)
     {
-        room.SetTrading(new TradingComponent(room, this));
+        room.SetTrading(new TradingComponent(room, this, settings));
     }
     public void Initiated() { }
 

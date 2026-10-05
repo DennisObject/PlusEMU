@@ -14,7 +14,7 @@ public sealed class TradeOfferSnapshotTests
     {
         var first = new RoomUser(7, 42, 1, null!, null) { UserId = 7 };
         var second = new RoomUser(8, 42, 2, null!, null) { UserId = 8 };
-        var trade = new Trade(1, first, second, null!, null!);
+        var trade = new Trade(1, first, second, null!, null!, TestRoomSettings.Empty);
         var floor = new InventoryItem
         {
             Id = 100,

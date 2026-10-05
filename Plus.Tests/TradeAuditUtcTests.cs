@@ -31,7 +31,7 @@ public sealed class TradeAuditUtcTests
                 AssertMetadata(connection);
                 var now = new DateTimeOffset(2040, 1, 2, 3, 4, 5, TimeSpan.FromHours(-7)).AddTicks(6_543_210);
                 var clock = new CountingClock(now);
-                ((ITradeStore)new RoomTradingComponent(database, clock)).Log(7, 8, "90;", "91;");
+                ((ITradeStore)new RoomTradingComponent(database, clock, TestRoomSettings.Empty)).Log(7, 8, "90;", "91;");
                 var written = connection.QuerySingle<AuditTimeRow>("SELECT id AS Id, `timestamp` AS CreatedAt FROM logs_client_trade WHERE `1id`=7");
                 Assert.Equal(now.ToUniversalTime(), written.CreatedAt);
                 Assert.Equal(1, clock.Reads);
@@ -48,7 +48,7 @@ public sealed class TradeAuditUtcTests
             connection.Execute(PristineTable());
             AssertMetadata(connection);
             var now = new DateTimeOffset(2040, 1, 2, 3, 4, 5, TimeSpan.Zero).AddTicks(1_234_560);
-            ((ITradeStore)new RoomTradingComponent(database, new CountingClock(now))).Log(1, 2, "", "");
+            ((ITradeStore)new RoomTradingComponent(database, new CountingClock(now), TestRoomSettings.Empty)).Log(1, 2, "", "");
             Assert.Equal(now, connection.QuerySingle<AuditTimeRow>("SELECT id AS Id, `timestamp` AS CreatedAt FROM logs_client_trade").CreatedAt);
         });
     }
