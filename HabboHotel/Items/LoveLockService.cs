@@ -1,5 +1,5 @@
 using Dapper;
-using Plus.Communication.Packets.Outgoing.Rooms.Furni.LoveLocks;
+using Plus.Communication.Packets.Outgoing.FriendFurni;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Quests;
@@ -49,7 +49,7 @@ public sealed class LoveLockService(ILoveLockStore store, TimeProvider timeProvi
         {
             if (actor == item.InteractingUser) one.LlPartner = item.InteractingUser2;
             else two.LlPartner = item.InteractingUser;
-            session.Send(new LoveLockDialogueSetLockedComposer(confirmation.ItemId));
+            session.Send(new FriendFurniOtherLockConfirmedComposer(confirmation.ItemId));
             return;
         }
 
@@ -59,8 +59,8 @@ public sealed class LoveLockService(ILoveLockStore store, TimeProvider timeProvi
         item.InteractingUser = item.InteractingUser2 = 0;
         one.LlPartner = two.LlPartner = 0;
         item.UpdateState(true, true);
-        oneClient.Send(new LoveLockDialogueCloseComposer(confirmation.ItemId));
-        twoClient.Send(new LoveLockDialogueCloseComposer(confirmation.ItemId));
+        oneClient.Send(new FriendFurniCancelLockComposer(confirmation.ItemId));
+        twoClient.Send(new FriendFurniCancelLockComposer(confirmation.ItemId));
         RewardTrackManager.Current?.Progress(oneClient, RewardTrackActions.FriendFurniLocked);
         RewardTrackManager.Current?.Progress(twoClient, RewardTrackActions.FriendFurniLocked);
         one.CanWalk = two.CanWalk = true;

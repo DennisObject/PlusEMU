@@ -76,7 +76,7 @@ public sealed class LoveLockServiceTests
 
         Assert.Equal(0, store.Writes);
         var staged = Assert.Single(oneSent);
-        Assert.Equal(ServerPacketHeader.LoveLockDialogueSetLockedComposer, staged.Header);
+        Assert.Equal(ServerPacketHeader.FriendFurniOtherLockConfirmedComposer, staged.Header);
         Assert.Equal(item.Id, BinaryPrimitives.ReadUInt32BigEndian(staged.Payload));
         Assert.Equal(2, one.LlPartner);
 
@@ -92,7 +92,7 @@ public sealed class LoveLockServiceTests
         Assert.Equal(0, two.LlPartner);
         Assert.True(one.CanWalk);
         Assert.True(two.CanWalk);
-        Assert.Contains(twoSent, packet => packet.Header == ServerPacketHeader.LoveLockDialogueCloseComposer && BinaryPrimitives.ReadUInt32BigEndian(packet.Payload) == item.Id);
+        Assert.Contains(twoSent, packet => packet.Header == ServerPacketHeader.FriendFurniCancelLockComposer && BinaryPrimitives.ReadUInt32BigEndian(packet.Payload) == item.Id);
     }
 
     [Fact]
@@ -135,6 +135,16 @@ public sealed class LoveLockServiceTests
         Assert.Empty(oneSent);
         Assert.Empty(twoSent);
         Assert.Empty(intruderSent);
+    }
+
+    [Theory]
+    [InlineData("1.6.6.json")]
+    [InlineData("3.6.0.json")]
+    [InlineData("OCTANE-3-6-0-FLOOR-20260909.json")]
+    public void FinishedPacketIsMappedForEachActiveClientRevision(string revision)
+    {
+        using var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/" + revision)));
+        Assert.Equal(770u, json.RootElement.GetProperty("OutgoingHeaders").GetProperty("FriendFurniCancelLockComposer").GetUInt32());
     }
 
     private static Room TestRoom()

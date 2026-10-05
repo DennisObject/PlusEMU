@@ -258,7 +258,7 @@ public static class ServerPacketHeader
     public const uint PetBreedingComposer = 528; //616
     public const uint SubmitBullyReportComposer = 47; //453
     public const uint UserNameChangeComposer = 574; //2587
-    public const uint LoveLockDialogueComposer = 1157; //173
+    public const uint FriendFurniStartConfirmationComposer = 1157; //173
     public const uint SendBullyReportComposer = 39; //2094
     public const uint VoucherRedeemErrorComposer = 2279; //3670
     public const uint PurchaseErrorComposer = 1331; //3016
@@ -326,8 +326,8 @@ public static class ServerPacketHeader
     public const uint GameListComposer = 1220; //2481
     public const uint RoomMuteSettingsComposer = 1117; //257
     public const uint RoomInviteComposer = 2138; //3942
-    public const uint LoveLockDialogueSetLockedComposer = 1767; //1534
-    public const uint LoveLockDialogueCloseComposer = 0; //TODO @80O: Same header defined as LoveLockDialogueSetLockedComposer 1767; //1534
+    public const uint FriendFurniOtherLockConfirmedComposer = 1767; //1534
+    public const uint FriendFurniCancelLockComposer = 770;
     public const uint BroadcastMessageAlertComposer = 1751; //1279
     public const uint MarketplaceCancelOfferResultComposer = 0; // TODO @80O: Same header defined as MarketPlaceOwnOffersComposer 1892; //202
     public const uint NavigatorSettingsComposer = 2477; //3175
