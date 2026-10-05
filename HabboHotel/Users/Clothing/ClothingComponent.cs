@@ -58,4 +58,9 @@ public sealed class ClothingComponent
         _allClothing.Clear();
     }
 
+    public void PublishCommitted(IEnumerable<ClothingParts> clothing)
+    {
+        foreach (var part in clothing) _allClothing.TryAdd(part.PartId, part);
+    }
+
 }
