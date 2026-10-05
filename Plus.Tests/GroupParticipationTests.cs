@@ -1,9 +1,11 @@
+using System.Threading;
 using Plus.Communication.Packets.Incoming;
 using Plus.Communication.Packets.Incoming.Groups;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Authentication;
 using Xunit;
 
 namespace Plus.Tests;
@@ -59,7 +61,78 @@ public class GroupParticipationTests
         var store = new FakeParticipationStore();
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 8, Username = "Bob", Look = "hr-1" });
 
-        await new GroupParticipationService(manager, Snapshots(), Clients(new()), store).Join(client, group.Id);
+        await new GroupParticipationService(manager, Snapshots(), Clients(new()), store, new AccountSessionGate()).Join(client, group.Id);
+
+        Assert.Empty(store.Joins);
+        Assert.False(group.IsMember(8));
+        Assert.Empty(sent);
+    }
+
+    [Fact]
+    public async Task OverlappingFavouritesFromOneAccountCannotOvertakeAPublication()
+    {
+        var first = NewGroup(9);
+        var second = NewGroup(10);
+        var directory = new Dictionary<int, Group> { [9] = first, [10] = second };
+        var habbo = new Habbo { Id = 8, Username = "Bob", HabboStats = Stats() };
+        var (clientA, sentA) = HabbiconTestSupport.Client(habbo);
+        var (clientB, sentB) = HabbiconTestSupport.Client(habbo);
+        var entered = new ManualResetEventSlim();
+        var release = new ManualResetEventSlim();
+        var storeEntries = new List<(int GroupId, int FavouriteSeenAtEntry)>();
+        var store = new FakeParticipationStore
+        {
+            OnFavourite = (_, groupId) =>
+            {
+                storeEntries.Add((groupId, habbo.HabboStats.FavouriteGroupId));
+                if (groupId == first.Id)
+                {
+                    entered.Set();
+                    Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
+                }
+                return true;
+            },
+        };
+        var service = new GroupParticipationService(Manager(directory, null), Snapshots(), Clients(new()), store, new AccountSessionGate());
+
+        var firstRequest = Task.Run(() => service.SetFavourite(clientA, first.Id));
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(10)));
+        var secondRequest = Task.Run(() => service.SetFavourite(clientB, second.Id));
+
+        // The second request waits at the account gate while the first is paused inside its store write.
+        Assert.False(secondRequest.Wait(TimeSpan.FromMilliseconds(300)));
+        Assert.Single(store.Favourites);
+        release.Set();
+        await Task.WhenAll(firstRequest, secondRequest).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(new[] { (9, 0), (10, 9) }, storeEntries);
+        Assert.Equal(10, habbo.HabboStats.FavouriteGroupId);
+        Assert.Equal(new[] { ServerPacketHeader.RefreshFavouriteGroupComposer }, sentA.Select(packet => packet.Header));
+        Assert.Equal(new[] { ServerPacketHeader.RefreshFavouriteGroupComposer }, sentB.Select(packet => packet.Header));
+    }
+
+    [Fact]
+    public async Task DeletionWhileJoinWaitsForTheGroupLockPublishesNothing()
+    {
+        var group = NewGroup(9);
+        var directory = new Dictionary<int, Group> { [9] = group };
+        var firstLookup = new ManualResetEventSlim();
+        var store = new FakeParticipationStore();
+        var manager = Manager(directory, null, () => firstLookup.Set());
+        var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 8, Username = "Bob", Look = "hr-1" });
+        var service = new GroupParticipationService(manager, Snapshots(), Clients(new()), store, new AccountSessionGate());
+
+        // The deletion holds the group lock while it removes the group, as the removal path does.
+        Task join;
+        lock (group)
+        {
+            join = Task.Run(() => service.Join(client, group.Id));
+            Assert.True(firstLookup.Wait(TimeSpan.FromSeconds(10)));
+            directory.Remove(group.Id);
+            Thread.Sleep(100);
+            Assert.False(join.IsCompleted);
+        }
+        await join.WaitAsync(TimeSpan.FromSeconds(10));
 
         Assert.Empty(store.Joins);
         Assert.False(group.IsMember(8));
@@ -280,23 +353,26 @@ public class GroupParticipationTests
     }
 
     private static GroupParticipationService Service(FakeParticipationStore store, Group group, List<Group>? memberships = null, List<GameClient>? clients = null) =>
-        new(Manager(group, memberships), Snapshots(), Clients(clients ?? new()), store);
+        new(Manager(group, memberships), Snapshots(), Clients(clients ?? new()), store, new AccountSessionGate());
 
     private static HabboStats Stats(int favourite = 0) =>
         new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, favourite, "", 0);
 
-    private static Group NewGroup()
+    private static Group NewGroup(int id = 9)
     {
-        return new Group(9, "Crew", "desc", "b01014s02024", 42, 7,
+        return new Group(id, "Crew", "desc", "b01014s02024", 42, 7,
             DateTimeOffset.FromUnixTimeSeconds(1_700_000_000), 0, 3, 4, 0,
             false, GroupMembershipSnapshot.Empty);
     }
 
     private static IGroupManager Manager(Group group, List<Group>? memberships) =>
+        Manager(new Dictionary<int, Group> { [group.Id] = group }, memberships);
+
+    // The directory stands in for the live group manager, so a test can remove or replace a group while a request waits.
+    private static IGroupManager Manager(Dictionary<int, Group> directory, List<Group>? memberships, Action? onLookup = null) =>
         CatalogSnapshotTestSupport.Proxy<IGroupManager>((method, args) => method switch
         {
-            "TryGetGroup" when (int)args[0]! == group.Id => SetOut(args, group),
-            "TryGetGroup" => SetOut(args, null),
+            "TryGetGroup" => Lookup(directory, args, onLookup),
             "GetGroupsForUser" => memberships ?? new List<Group>(),
             "GetColourCode" => "",
             _ => throw new NotSupportedException(method),
@@ -306,6 +382,14 @@ public class GroupParticipationTests
     {
         args[1] = group;
         return group != null;
+    }
+
+    private static bool Lookup(Dictionary<int, Group> directory, object?[] args, Action? onLookup)
+    {
+        onLookup?.Invoke();
+        var found = directory.TryGetValue((int)args[0]!, out var group);
+        args[1] = found ? group : null;
+        return found;
     }
 
     private static IGroupInfoSnapshotService Snapshots() =>
