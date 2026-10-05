@@ -45,8 +45,8 @@ public class CatalogSnapshotTests
     {
         var clock = new FixedClock(DateTimeOffset.FromUnixTimeSeconds(1_000));
         var catalog = Catalog(
-            new CatalogPromotion { Position = 1, Title = "Live", Image = "live", ItemType = CatalogPromotion.CataloguePageItem, PageLink = "page1", ExpiresAt = 1_500 },
-            new CatalogPromotion { Position = 2, Title = "Gone", Image = "gone", ItemType = CatalogPromotion.CataloguePageItem, PageLink = "page2", ExpiresAt = 1_000 });
+            new CatalogPromotion { Position = 1, Title = "Live", Image = "live", ItemType = CatalogPromotion.CataloguePageItem, PageLink = "page1", ExpiresAt = DateTimeOffset.FromUnixTimeSeconds(1_500) },
+            new CatalogPromotion { Position = 2, Title = "Gone", Image = "gone", ItemType = CatalogPromotion.CataloguePageItem, PageLink = "page2", ExpiresAt = DateTimeOffset.FromUnixTimeSeconds(1_000) });
         var page = Page(5, "default_3x3");
 
         var snapshot = new CatalogSnapshotService(catalog, clock).CapturePage(page, -1);
@@ -54,6 +54,7 @@ public class CatalogSnapshotTests
         var promotion = Assert.Single(snapshot.Promotions);
         Assert.Equal("Live", promotion.Title);
         Assert.Equal(500, promotion.SecondsLeft);
+        Assert.Equal(1, clock.Reads);
     }
 
     [Fact]
@@ -163,7 +164,7 @@ public class CatalogSnapshotTests
     [
         new() { Position = 2, Title = "T2", Image = "i2", ItemType = CatalogPromotion.ProductOfferItem, OfferId = 12 },
         new() { Position = 1, Title = "T1", Image = "i1", ItemType = CatalogPromotion.ProductCodeItem, ProductCode = "P" },
-        new() { Position = 3, Title = "T3", Image = "i3", ItemType = CatalogPromotion.CataloguePageItem, PageLink = "page5", ExpiresAt = 1 },
+        new() { Position = 3, Title = "T3", Image = "i3", ItemType = CatalogPromotion.CataloguePageItem, PageLink = "page5", ExpiresAt = DateTimeOffset.FromUnixTimeSeconds(1) },
         new() { Position = 4, Title = "T4", Image = "i4", ItemType = CatalogPromotion.CataloguePageItem, PageLink = "page6" },
     ];
 
@@ -221,7 +222,8 @@ public class CatalogSnapshotTests
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {
-        public override DateTimeOffset GetUtcNow() => now;
+        public int Reads { get; private set; }
+        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
     }
 }
 

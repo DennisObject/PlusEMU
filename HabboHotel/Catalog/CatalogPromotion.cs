@@ -17,9 +17,15 @@ public class CatalogPromotion
     public int ItemType { get; set; }
     public int OfferId { get; set; }
     public string? ProductCode { get; set; }
-    public int ExpiresAt { get; set; }
+    private DateTimeOffset? _expiresAt;
+    public DateTimeOffset? ExpiresAt
+    {
+        get => _expiresAt;
+        set => _expiresAt = value?.ToUniversalTime();
+    }
 
-    public bool HasExpired(long now) => ExpiresAt > 0 && ExpiresAt <= now;
+    public bool HasExpiredAt(DateTimeOffset now) => ExpiresAt is { } expiry && expiry <= now;
 
-    public int SecondsLeft(long now) => ExpiresAt > 0 ? (int)Math.Max(0, ExpiresAt - now) : 0;
+    public TimeSpan RemainingAt(DateTimeOffset now) =>
+        ExpiresAt is { } expiry && expiry > now ? expiry - now : TimeSpan.Zero;
 }

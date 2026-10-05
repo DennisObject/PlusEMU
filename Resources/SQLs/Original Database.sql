@@ -25287,7 +25287,7 @@ ALTER TABLE catalog_promotions
  ADD COLUMN IF NOT EXISTS item_type TINYINT NOT NULL DEFAULT 0,
  ADD COLUMN IF NOT EXISTS offer_id INT NOT NULL DEFAULT -1,
  ADD COLUMN IF NOT EXISTS product_code VARCHAR(128) NOT NULL DEFAULT '',
- ADD COLUMN IF NOT EXISTS expires_at INT NOT NULL DEFAULT 0;
+ ADD COLUMN IF NOT EXISTS expires_at DATETIME(6) NULL DEFAULT NULL;
 -- Existing promotions keep the slot they had: their id.
 UPDATE catalog_promotions SET position = id WHERE position = 0;
 

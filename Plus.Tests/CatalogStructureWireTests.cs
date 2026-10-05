@@ -95,13 +95,13 @@ public class CatalogStructureWireTests
     [Fact]
     public void FrontPagePromotionsWriteTheFieldTheirTypeNeeds()
     {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var page = new CatalogPromotion { Position = 2, Title = "Offer", Image = "a.png", ItemType = CatalogPromotion.ProductOfferItem, OfferId = 77, ExpiresAt = (int)now + 60 };
+        var now = new DateTimeOffset(2040, 1, 2, 3, 4, 5, TimeSpan.FromHours(9));
+        var page = new CatalogPromotion { Position = 2, Title = "Offer", Image = "a.png", ItemType = CatalogPromotion.ProductOfferItem, OfferId = 77, ExpiresAt = now.AddSeconds(60) };
 
-        Assert.False(page.HasExpired(now));
-        Assert.InRange(page.SecondsLeft(now), 59, 60);
-        Assert.True(new CatalogPromotion { ExpiresAt = (int)now - 1 }.HasExpired(now));
-        Assert.Equal(0, new CatalogPromotion().SecondsLeft(now));
+        Assert.False(page.HasExpiredAt(now));
+        Assert.Equal(TimeSpan.FromMinutes(1), page.RemainingAt(now));
+        Assert.True(new CatalogPromotion { ExpiresAt = now.AddSeconds(-1) }.HasExpiredAt(now));
+        Assert.Equal(TimeSpan.Zero, new CatalogPromotion().RemainingAt(now));
     }
 
     private static CatalogItem Item(int id, int offerId, int pageId) => new() { Id = id, OfferId = offerId, PageId = pageId };
