@@ -551,6 +551,8 @@ public class RoomItemHandling
                 }
                 if (newRot != 0 && newRot != 2 && newRot != 4 && newRot != 6 && newRot != 8 && !item.Definition.ExtraRot)
                     newRot = 0;
+                if (!onRoller && session != null && item.Definition.InteractionType == InteractionType.Hopper)
+                    _travelStore.RegisterHopper(item.Id, _room.RoomId);
                 if (newItem)
                 {
                     // Initialize private geometry before membership or navigation publication.
@@ -734,6 +736,8 @@ public class RoomItemHandling
             session.SendNotification(_language.TryGetValue("room.item.already_placed"));
             return true;
         }
+        if (item.Definition.InteractionType == InteractionType.Hopper)
+            _travelStore.RegisterHopper(item.Id, _room.RoomId);
         item.RoomId = _room.RoomId;
         item.Attach(_room, _interactors, _travelStore, _rewards);
         try

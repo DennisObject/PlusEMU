@@ -13,7 +13,6 @@ public class InteractorHopper(IItemTravelStore travelStore) : IFurniInteractor, 
         var itemRoom = item.GetRoom();
         if (itemRoom == null) return;
 
-        travelStore.RegisterHopper(item.Id, itemRoom.RoomId);
         itemRoom.GetRoomItemHandler().HopperCount++;
         if (item.InteractingUser != 0)
         {

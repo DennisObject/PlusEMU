@@ -64,7 +64,7 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
-    public void HopperPersistenceFailurePreservesCountAndInteractionState()
+    public void HopperPersistenceFailureLeavesAdmissionGeometryAndPublicationUnchanged()
     {
         var travel = new FailingTravelStore();
         var interactors = new ItemInteractorFactory(travel, TestItemRuntime.Profiles,
@@ -74,11 +74,19 @@ public partial class PlacedFurniRoomTests
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_room, handler);
         var item = Furni(86, InteractionType.Hopper, WiredBoxType.None);
         item.InteractingUser = 123;
+        var oldGeometry = (item.GetX, item.GetY, item.GetZ, item.Rotation, item.RoomId);
+        var sent = CaptureTransport(_client);
 
-        Assert.Throws<InvalidOperationException>(() => handler.SetFloorItem(_client, item, 1, 1, 0, true, false, false));
+        Assert.Throws<InvalidOperationException>(() => handler.SetFloorItem(_client, item, 1, 1, 0, true, false, true));
 
         Assert.Equal(0, handler.HopperCount);
         Assert.Equal(123, item.InteractingUser);
+        Assert.Null(item.GetRoom());
+        Assert.Empty(handler.GetFloor);
+        Assert.DoesNotContain(item, _room.GetGameMap().GetCoordinatedItems(new(1, 1)));
+        Assert.Equal(oldGeometry, (item.GetX, item.GetY, item.GetZ, item.Rotation, item.RoomId));
+        Assert.Empty(MovedItems());
+        Assert.Empty(sent);
     }
 
     [Fact]
