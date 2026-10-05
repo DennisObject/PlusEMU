@@ -45,7 +45,7 @@ public class WiredTemporaryPacketGuardTests
     {
         var (room, client) = Room();
         // A positive id proves the guard uses the immutable marker, independently of wire sign.
-        var item = new Item { Id = 7, IsTemporary = true, UserId = 42, RoomId = 1,
+        var item = new Item { Id = 7, IsTemporary = true, UserId = 42, OwnerId = 42, RoomId = 1,
             ExtraData = new LegacyDataFormat { Data = "original" }, Definition = new() { Type = ItemType.Floor, BehaviourData = 100,
                 InteractionType = Interaction(name) } };
         item.SetState(1, 2, 3.5, new());
