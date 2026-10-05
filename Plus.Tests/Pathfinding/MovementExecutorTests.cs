@@ -1,13 +1,16 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Reflection;
+using Plus.Database;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
+using Plus.HabboHotel.Quests;
 using Xunit;
 
 namespace Plus.Tests;
@@ -269,10 +272,13 @@ public partial class PlacedFurniRoomTests
         Assert.False(actor.HasStatus("mv"));
     }
 
-    private RoomUser ExecutorActor(int x, int y)
+    private RoomUser ExecutorActor(int x, int y, IDatabase? database = null,
+        IRewardTrackManager? rewards = null, IGroupManager? groups = null)
     {
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
+        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = PathfindingEngine.V2 },
+            TestLogging.Navigation, groups ?? new TestGroupManager(id => _groupLookup(id)),
+            database ?? _database, rewards ?? TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
         foreach (var item in _room.GetRoomItemHandler().GetFloor) navigation.Inputs.Attach(item);
