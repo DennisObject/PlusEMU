@@ -138,7 +138,7 @@ public partial class PlacedFurniRoomTests
     private RoomUser ExecutorConfiguredActor(PathfindingSettings settings)
     {
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, settings, TestLogging.Navigation);
+        var navigation = new RoomNavigation(_room, map.StaticModel, settings, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
         foreach (var item in _room.GetRoomItemHandler().GetFloor) navigation.Inputs.Attach(item);

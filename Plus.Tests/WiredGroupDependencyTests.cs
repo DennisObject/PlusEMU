@@ -133,7 +133,7 @@ public sealed class WiredGroupDependencyTests
             Room.Id = 1;
             Room.Group = roomGroup!;
             var map = new Gamemap(Room, new RoomModel("wired-group", 0, 0, 0, 0, "00\r00", 0, 0, true),
-                TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
+                TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
             typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Room, map);
             typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(Room, new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));

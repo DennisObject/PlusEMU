@@ -1,4 +1,5 @@
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Xunit;
 
@@ -7,6 +8,24 @@ namespace Plus.Tests.Pathfinding;
 public class ActorAccessResolverTests
 {
     private static ActorAccessResolver Resolver(Func<int, int, GroupStanding> source) => new(source);
+
+    [Fact]
+    public void InjectedGroupManagerDistinguishesMembersOutsidersAndMissingGroupsOnEveryRefresh()
+    {
+        var group = new Group(7, "Group", "", "", 1, 99, DateTimeOffset.UnixEpoch,
+            0, 1, 1, 0, false, new GroupMembershipSnapshot([1], [], []));
+        Group? available = group;
+        var resolver = new ActorAccessResolver(new TestGroupManager(id => id == 7 ? available : null));
+        var profile = new ActorProfile();
+
+        resolver.Refresh(profile, 1, [7]);
+        Assert.True(profile.Access.IsMember(7));
+        group.DeleteMember(1);
+        resolver.Refresh(profile, 1, [7]);
+        Assert.False(profile.Access.IsMember(7));
+        available = null;
+        Assert.Equal(GroupStanding.Unresolved, resolver.Standing(1, 7));
+    }
 
     [Fact]
     public void RefreshOwnsMembershipAndBumpsTheCapabilityVersionOnlyOnChange()

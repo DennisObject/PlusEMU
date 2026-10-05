@@ -183,7 +183,7 @@ public class StressBotTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var model = new RoomModel("test", 1, 1, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false);
-        var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
+        var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         var gameMap = new byte[4, 4];
         for (var x = 0; x < 4; x++)
         for (var y = 0; y < 4; y++)

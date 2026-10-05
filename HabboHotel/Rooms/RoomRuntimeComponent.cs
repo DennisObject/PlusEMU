@@ -8,15 +8,17 @@ using Plus.Core.Settings;
 using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.Instance;
+using Plus.HabboHotel.Quests;
 
 public sealed class RoomRuntimeComponent(IRoomItemStore itemStore, Plus.HabboHotel.Items.IRoomItemMetadataStore metadata, IRoomUserStore userStore,
     IRoomUserSnapshotService userSnapshots, TimeProvider clock, IWiredRoomSettingsFactory wiredSettings,
     IWiredConfigurationStore wiredConfigurations, IDatabase database, IWiredRewardService wiredRewards,
-    AI.IBotManagementStore botStore, ISettingsManager settings, IGroupManager groups, IGameClientManager clients) : IRoomComponent
+    AI.IBotManagementStore botStore, ISettingsManager settings, IGroupManager groups, IGameClientManager clients,
+    IRewardTrackManager rewards) : IRoomComponent
 {
     public int Order => 0;
     public void Initiate(Room room) => room.SetRuntime(
-        new(room, room.Data.Model, room.NavigationLogger, settings, groups), new(room, itemStore, metadata), new(room, userStore, clock),
+        new(room, room.Data.Model, room.NavigationLogger, settings, groups, database, rewards), new(room, itemStore, metadata), new(room, userStore, clock),
         new(room, room.WiredLogger, clock, settings, wiredSettings, wiredConfigurations, database, wiredRewards, botStore, clients, groups),
         userSnapshots, clock);
     public void Initiated() { }

@@ -185,7 +185,7 @@ public partial class PlacedFurniRoomTests
     {
         _roomSettings.Values["pathfinding.stacktool_legacy_collision"] = collision ? "1" : "0";
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = engine, StacktoolLegacyCollision = collision }, TestLogging.Navigation);
+        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = engine, StacktoolLegacyCollision = collision }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
     }

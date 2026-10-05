@@ -20,7 +20,7 @@ public class ShadowPathfindingTests
         var legacy = RoomPerformanceFixture.Create(1, 0);
         var shadow = RoomPerformanceFixture.Create(1, 0);
         var navigation = new RoomNavigation(shadow.Room, shadow.Map.StaticModel,
-            new() { Engine = PathfindingEngine.Shadow, ShadowLogSample = 1 }, TestLogging.Navigation);
+            new() { Engine = PathfindingEngine.Shadow, ShadowLogSample = 1 }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shadow.Map, navigation);
         foreach (var fixture in new[] { legacy, shadow })
         {
@@ -44,7 +44,7 @@ public class ShadowPathfindingTests
     public void V2SettingCannotActivateAnExecutorInP1()
     {
         var fixture = RoomPerformanceFixture.Create(1, 0);
-        var navigation = new RoomNavigation(fixture.Room, fixture.Map.StaticModel, new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation);
+        var navigation = new RoomNavigation(fixture.Room, fixture.Map.StaticModel, new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         Assert.False(navigation.Enabled);
     }
 
@@ -66,7 +66,7 @@ public class ShadowPathfindingTests
     {
         var fixture = RoomPerformanceFixture.Create(1, 0);
         var navigation = new RoomNavigation(fixture.Room, fixture.Map.StaticModel,
-            new() { Engine = PathfindingEngine.Shadow, ShadowLogSample = 1 }, TestLogging.Navigation);
+            new() { Engine = PathfindingEngine.Shadow, ShadowLogSample = 1 }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         navigation.Compiler.RebuildAll();
         navigation.Grid.ActiveNodeCount = -2; // Fault injection: workspace construction fails.
         var actor = fixture.Bots[0]; actor.GoalX = actor.GoalY = 3; actor.PathRecalcNeeded = true;
@@ -97,7 +97,7 @@ public class ShadowPathfindingTests
     {
         var fixture = RoomPerformanceFixture.Create(1, 0);
         var navigation = new RoomNavigation(fixture.Room, fixture.Map.StaticModel,
-            new() { Engine = PathfindingEngine.Shadow, ShadowLogSample = 0 }, TestLogging.Navigation);
+            new() { Engine = PathfindingEngine.Shadow, ShadowLogSample = 0 }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         navigation.Compiler.RebuildAll(); navigation.Grid.GroupId[1] = 7;
         var actor = fixture.Bots[0]; actor.NavigationProfile = new(); actor.NavigationProfile.SetMembership(7, true);
         actor.GoalX = actor.GoalY = 3;

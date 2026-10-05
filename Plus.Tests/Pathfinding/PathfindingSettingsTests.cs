@@ -44,7 +44,7 @@ public class PathfindingSettingsTests
     }
 
     [Fact]
-    public void GamemapCapturesNavigationSettingsAtConstruction()
+    public void GamemapCapturesNavigationSettingsWithoutOpeningLazyNavigationDependencies()
     {
         var values = new Dictionary<string, string>
         {
@@ -54,7 +54,7 @@ public class PathfindingSettingsTests
         var settings = new Settings(values);
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var map = new Gamemap(room, new RoomModel("capture", 0, 0, 0, 0, "00\r00", 0, 0, false),
-            TestLogging.Navigation, settings, TestGroupManager.Empty);
+            TestLogging.Navigation, settings, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
 
         values["pathfinding.engine"] = "legacy";
         values["pathfinding.max_step_up"] = "9";

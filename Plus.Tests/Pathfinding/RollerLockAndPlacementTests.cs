@@ -81,7 +81,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(PathfindingEngine.V2)]
     public void EarlierHookRotatingAHelperOntoAHigherFloorRejectsItsStaleGroup(PathfindingEngine engine)
     {
-        Set("_gamemap", new Gamemap(_room, new RoomModel("roller-floor", 0, 0, 0, 0, "0000\r0002\r0000\r0000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty));
+        Set("_gamemap", new Gamemap(_room, new RoomModel("roller-floor", 0, 0, 0, 0, "0000\r0002\r0000\r0000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
         _room.GetGameMap().GenerateMaps();
         PlannerRoller(5, 0, 3, 2); ExecutorFloor(40, 1, 3);
         PlannerRoller(10, 1, 1, 2);
@@ -111,6 +111,11 @@ public partial class PlacedFurniRoomTests
         {
             observe(); args[1] = group; return (int)args[0]! == group.Id;
         });
+        _groupLookup = id =>
+        {
+            observe();
+            return id == group.Id ? group : null;
+        };
         var previous = ((TestProxy)_gameField.GetValue(null)!).Call;
         _gameField.SetValue(null, Proxy<IGame>((method, args) =>
             method == "get_GroupManager" ? groups : previous(method, args)));

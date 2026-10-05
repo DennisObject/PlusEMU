@@ -1,5 +1,8 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Plus.Database;
+using Plus.HabboHotel.Groups;
+using Plus.HabboHotel.Quests;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
@@ -11,6 +14,9 @@ public sealed partial class RoomNavigation
     private readonly Route _route = new();
     private readonly PlanningOccupancy _occupancy;
     private readonly PathSearch _search;
+    private readonly ActorAccessResolver _access;
+    private readonly IDatabase _database;
+    private readonly IRewardTrackManager _rewards;
     public PathfindingSettings Settings { get; }
     public NavInputs Inputs { get; }
     public NavGrid Grid { get; }
@@ -18,10 +24,14 @@ public sealed partial class RoomNavigation
     public bool UsesExecutor => Settings.Engine == PathfindingEngine.V2;
     public bool Enabled => Settings.Engine == PathfindingEngine.Shadow;
 
-    public RoomNavigation(Room room, RoomModel model, PathfindingSettings settings, ILogger<RoomNavigation> logger)
+    public RoomNavigation(Room room, RoomModel model, PathfindingSettings settings, ILogger<RoomNavigation> logger,
+        IGroupManager groups, IDatabase database, IRewardTrackManager rewards)
     {
         _logger = logger;
         _room = room; Settings = settings;
+        _access = new(groups);
+        _database = database;
+        _rewards = rewards;
         if (UsesExecutor) room.EnableV2Movement();
         var width = model.MapSizeX; var height = model.MapSizeY;
         var z = new double[width * height]; var states = new SquareState[z.Length];
@@ -98,7 +108,7 @@ public sealed partial class RoomNavigation
         Array.Clear(_occupancy.Targets);
         var profile = ShadowProfile(actor);
         MarkLegacyOccupancy(actor);
-        ActorAccessResolver.Live.Refresh(profile, actor.GetClient()?.GetHabbo()?.Id, Grid.GroupId.Where(groupId => groupId != 0).Distinct());
+        _access.Refresh(profile, actor.GetClient()?.GetHabbo()?.Id, Grid.GroupId.Where(groupId => groupId != 0).Distinct());
         using var lease = PathWorkspacePool.Rent(Grid.SlotCapacity, profile.LegacyOverride ? Grid.SlotCapacity : Grid.ActiveNodeCount);
         var started = Stopwatch.GetTimestamp();
         var request = new SearchRequest(profile, new(actor.X, actor.Y, actor.Z), actor.GoalX, actor.GoalY, _occupancy);

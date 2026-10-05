@@ -38,7 +38,7 @@ public class LegacyContractsTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var model = new RoomModel("fixed-legacy-parity", 0, 0, 0, 0, terrain.Replace('|', '\r'), 0, 0, false);
-        var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
+        var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         Set("_gamemap", map); Set("_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance)); Set("_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         map.GenerateMaps(); NavTest.Enable(map).Compiler.RebuildAll();
         var grid = map.Navigation.Grid;

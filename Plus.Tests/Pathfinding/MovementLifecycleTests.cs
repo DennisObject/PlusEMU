@@ -24,7 +24,7 @@ public partial class PlacedFurniRoomTests
     public void RoomNavigationRetriesEveryDirtyTileAfterARejectedPublication()
     {
         var navigation = new RoomNavigation(_room, _room.GetGameMap().StaticModel,
-            new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation);
+            new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         navigation.Compiler.BeforePublish = _ => throw new InvalidOperationException("publication rejected");
         Assert.Throws<InvalidOperationException>((Action)navigation.ApplyDirty);
         var publishedTiles = 0;
@@ -39,7 +39,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(PathfindingEngine.V2)]
     public void RoomNavigationOnlyIsolatesShadowCompilerFailures(PathfindingEngine engine)
     {
-        var navigation = new RoomNavigation(_room, _room.GetGameMap().StaticModel, new() { Engine = engine }, TestLogging.Navigation);
+        var navigation = new RoomNavigation(_room, _room.GetGameMap().StaticModel, new() { Engine = engine }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         var failure = new InvalidOperationException("publication rejected");
         navigation.Compiler.BeforePublish = _ => throw failure;
         if (engine == PathfindingEngine.V2)

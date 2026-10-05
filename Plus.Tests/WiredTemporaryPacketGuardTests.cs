@@ -111,7 +111,7 @@ public class WiredTemporaryPacketGuardTests
     {
         var (room, client) = Room();
         var highId = uint.MaxValue - 1;
-        var map = new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
+        var map = new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         map.GenerateMaps();
         var item = new Item { Id = highId, Definition = new() { Type = ItemType.Floor, InteractionType = InteractionType.Stacktool }, GetZ = 1 };

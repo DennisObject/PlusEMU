@@ -84,7 +84,7 @@ public sealed class UserNameServiceTests
         var room = context.Habbo.CurrentRoom!;
         var manager = room.GetRoomUserManager();
         var map = new Gamemap(room, new RoomModel("rename", 0, 0, 0, 0, "00\r00", 0, 0, true),
-            TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
+            TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         var actor = manager.GetRoomUserByHabbo(context.Habbo.Id)!;
         map.AddUserToMap(actor, new(0, 0));

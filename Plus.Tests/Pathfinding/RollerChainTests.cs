@@ -139,7 +139,7 @@ public partial class PlacedFurniRoomTests
     private void PrepareRollerChain(int width, bool reverseIds)
     {
         var rows = string.Join('\r', Enumerable.Repeat(new string('0', width), 4));
-        Set("_gamemap", new Gamemap(_room, new RoomModel("roller-chain", 0, 0, 0, 0, rows, 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty));
+        Set("_gamemap", new Gamemap(_room, new RoomModel("roller-chain", 0, 0, 0, 0, rows, 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance));
         _room.GetGameMap().GenerateMaps();
         for (var x = 0; x < width - 1; x++) ExecutorRoller((uint)(reverseIds ? 100 - x : 10 + x), x, 1);
     }
@@ -148,7 +148,7 @@ public partial class PlacedFurniRoomTests
     {
         if (engine == PathfindingEngine.Legacy) return;
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = engine }, TestLogging.Navigation);
+        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = engine }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(map, navigation);
         foreach (var item in _room.GetRoomItemHandler().GetFloor) navigation.Inputs.Attach(item);
     }

@@ -68,7 +68,7 @@ public sealed partial class RoomNavigation
     }
     private IGateOccupancy? _gateOccupancy;
     internal IGateOccupancy GateOccupancy => _gateOccupancy ??= new ExecutorGateOccupancy(Grid, Executor.Claims);
-    internal V2MovementEngine Executor => _executor ??= new(_room, this, PlusEnvironment.DatabaseManager, PlusEnvironment.Game);
+    internal V2MovementEngine Executor => _executor ??= new(_room, this, _database, _rewards, _access);
     public void DrainCommands() { if (UsesExecutor) _commands.Drain(Executor.Handle); }
     public void RefreshPostures()
     {

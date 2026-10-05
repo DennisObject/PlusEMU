@@ -79,7 +79,7 @@ public sealed class RoomGameTimeTests
     private static Room World(TimeProvider clock)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var map = new Gamemap(room, new RoomModel("game-time", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
+        var map = new Gamemap(room, new RoomModel("game-time", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         Set(room, "_interactionClock", clock);
         Set(room, "_gamemap", map);
         Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));

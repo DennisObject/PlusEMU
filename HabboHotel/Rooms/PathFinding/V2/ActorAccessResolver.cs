@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
@@ -9,13 +10,11 @@ public class ActorAccessResolver(Func<int, int, GroupStanding> source)
 {
     public static ActorAccessResolver Cached { get; } = new((_, _) => GroupStanding.Unresolved);
 
-    // Same lookup the legacy guild-gate validation has always made, bound to the live game at call time.
-    public static ActorAccessResolver Live { get; } = new((groupId, habboId) => LookUp(PlusEnvironment.Game, groupId, habboId));
-
     public ActorAccessResolver(Func<int, int, bool> isMember)
         : this((groupId, habboId) => isMember(groupId, habboId) ? GroupStanding.Member : GroupStanding.Outsider) { }
 
-    public static ActorAccessResolver ForGame(IGame game) => new((groupId, habboId) => LookUp(game, groupId, habboId));
+    public ActorAccessResolver(IGroupManager groups)
+        : this((groupId, habboId) => LookUp(groups, groupId, habboId)) { }
 
     // Check 6 of CanStep, CanFlank and goal acceptance read the cached set refreshed by `Refresh`.
     public virtual bool CanEnterGuildGate(ActorProfile actor, int groupId) => actor.Access.IsMember(groupId);
@@ -33,7 +32,7 @@ public class ActorAccessResolver(Func<int, int, GroupStanding> source)
 
     private static int? HabboIdOf(RoomUser actor) => actor.GetClient()?.GetHabbo()?.Id;
 
-    private static GroupStanding LookUp(IGame game, int groupId, int habboId)
-        => !game.GroupManager.TryGetGroup(groupId, out var group) ? GroupStanding.Unresolved
+    private static GroupStanding LookUp(IGroupManager groups, int groupId, int habboId)
+        => !groups.TryGetGroup(groupId, out var group) ? GroupStanding.Unresolved
             : group.IsMember(habboId) ? GroupStanding.Member : GroupStanding.Outsider;
 }

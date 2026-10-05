@@ -4,11 +4,13 @@ using System.Drawing;
 using Microsoft.Extensions.Logging;
 using Plus.Core;
 using Plus.Core.Settings;
+using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.PathFinding;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Rooms;
@@ -229,7 +231,7 @@ public class Gamemap
     private ConcurrentDictionary<Point, List<RoomUser>> _userMap;
 
     public Gamemap(Room room, RoomModel model, ILogger<RoomNavigation> navigationLogger,
-        ISettingsManager settings, IGroupManager groups)
+        ISettingsManager settings, IGroupManager groups, IDatabase database, IRewardTrackManager rewards)
     {
         _room = room;
         _settings = settings;
@@ -241,7 +243,7 @@ public class Gamemap
         var pathfindingSettings = PathfindingSettings.Load(settings);
         if (pathfindingSettings.Engine is PathfindingEngine.Shadow or PathfindingEngine.V2
             && model.MapSizeX is > 0 and <= 256 && model.MapSizeY is > 0 and <= 256)
-            Navigation = new(room, model, pathfindingSettings, navigationLogger);
+            Navigation = new(room, model, pathfindingSettings, navigationLogger, groups, database, rewards);
         var legacyOccupancy = new LegacyGateOccupancy(this);
         Gates = new(room, () => Navigation is { UsesExecutor: true } navigation ? navigation.GateOccupancy : legacyOccupancy);
         DiagonalEnabled = true;
