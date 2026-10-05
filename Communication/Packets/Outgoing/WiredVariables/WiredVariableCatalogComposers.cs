@@ -71,6 +71,7 @@ public sealed class WiredVariableHoldersPageComposer(string variableId, WiredVar
     {
         var milliseconds = timestamp?.ToUnixTimeMilliseconds() ?? 0;
         packet.WriteInteger(unchecked((int)(milliseconds >> 32))); packet.WriteInteger(unchecked((int)milliseconds));
-        packet.WriteString(timestamp?.UtcDateTime.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) ?? "");
+        packet.WriteString(timestamp is not null && milliseconds > 0
+            ? timestamp.Value.UtcDateTime.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) : "");
     }
 }

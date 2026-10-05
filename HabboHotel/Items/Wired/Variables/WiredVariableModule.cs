@@ -186,7 +186,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             var next = definition.HasValue ? transform(current?.Value ?? 0) : 1;
             if (mutation == WiredVariableMutation.Set && previous is not null && previous.Value == next) return previous;
             var now = clock.GetUtcNow();
-            return new(next, previous?.CreatedAt ?? now, now);
+            return new(next, previous is null ? now : previous.CreatedAt, now);
         }, definition.IsDurable ? resolved.Authorization : null);
         if (!write.Changed) return false;
         _changes.Enqueue(new(definition.RoomId, key, write.After is null ? WiredVariableChangeKind.Removed :
@@ -214,7 +214,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             {
                 var key = new WiredVariableKey(definition.ItemId, WiredVariableTarget.Context, 0);
                 var write = frame.Context.Mutate(key, before => before?.Value == value ? before
-                    : new(value, before?.CreatedAt ?? CaptureNow(), CaptureNow()));
+                    : new(value, before is null ? CaptureNow() : before.CreatedAt, CaptureNow()));
                 if (write.Changed) _changes.Enqueue(new(roomId, key, write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
                     write.Before, write.After, 0, frame.Depth + 1));
             }
@@ -248,7 +248,8 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             var key = new WiredVariableKey(definitionId, WiredVariableTarget.Global, 0);
             DateTimeOffset? capturedAt = null;
             var write = Store(definition, new(roomId, [])).Mutate(key, before => before?.Value == value ? before
-                : new(value, before?.CreatedAt ?? (capturedAt ??= clock.GetUtcNow()), capturedAt ??= clock.GetUtcNow()),
+                : new(value, before is null ? capturedAt ??= clock.GetUtcNow() : before.CreatedAt,
+                    capturedAt ??= clock.GetUtcNow()),
                 definition.IsDurable ? resolved.Authorization : null);
             if (write.After is null) return false;
             if (write.Changed) _changes.Enqueue(new(definition.RoomId, key, write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,

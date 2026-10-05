@@ -1,8 +1,13 @@
 using System.Data;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Rooms;
 using Xunit;
 
 namespace Plus.Tests;
@@ -49,6 +54,57 @@ public sealed class WiredVariableUtcDatabaseTests
                 SELECT COLUMN_NAME FROM information_schema.statistics
                 WHERE table_schema=DATABASE() AND table_name='wired_reward_state' AND index_name='PRIMARY'
                 """));
+        }
+        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+    }
+
+    [RoomComponentDatabaseFact]
+    public void ConfigurationSaveKeepsLegacyUnknownCreationAndNoOpDoesNotReadClock()
+    {
+        var root = Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!;
+        using var server = new MySqlConnection(root); server.Open();
+        var schema = "task_wired_variable_config_" + Guid.NewGuid().ToString("N");
+        server.Execute($"CREATE DATABASE `{schema}`");
+        try
+        {
+            var connectionString = new MySqlConnectionStringBuilder(root)
+            {
+                Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true
+            }.ConnectionString;
+            using var connection = new MySqlConnection(connectionString); connection.Open();
+            var current = new WiredConfiguration { IntParams = [10, 5], Text = "legacy" };
+            connection.Execute("""
+                CREATE TABLE rooms (id INT UNSIGNED PRIMARY KEY,owner VARCHAR(32) NOT NULL) ENGINE=InnoDB;
+                CREATE TABLE items (id INT UNSIGNED PRIMARY KEY,room_id INT UNSIGNED NOT NULL) ENGINE=InnoDB;
+                CREATE TABLE wired_item_configurations (
+                    item_id INT UNSIGNED PRIMARY KEY,box_name VARCHAR(64) NOT NULL,schema_version INT NOT NULL,configuration LONGTEXT NOT NULL) ENGINE=InnoDB;
+                CREATE TABLE wired_variable_locks (
+                    definition_id INT UNSIGNED PRIMARY KEY,retired TINYINT UNSIGNED NOT NULL DEFAULT 0) ENGINE=InnoDB;
+                CREATE TABLE wired_variable_values (
+                    definition_id INT UNSIGNED NOT NULL,target_kind TINYINT UNSIGNED NOT NULL,holder_id BIGINT NOT NULL,value INT NOT NULL,
+                    created_at DATETIME(6) NULL,updated_at DATETIME(6) NULL,PRIMARY KEY(definition_id,target_kind,holder_id)) ENGINE=InnoDB;
+                INSERT INTO rooms VALUES (1,'5');
+                INSERT INTO items VALUES (10,1);
+                INSERT INTO wired_item_configurations VALUES (10,'wf_var_room',1,@configuration);
+                INSERT INTO wired_variable_values VALUES (10,3,0,5,NULL,'1970-01-01 00:00:01.000000');
+                """, new { configuration = JsonSerializer.Serialize(current) });
+            var database = new ProbeDatabase(connectionString);
+            var clock = new CountingTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(3000));
+            var module = new WiredVariableModule(1, new DatabaseWiredVariableDirectory(database),
+                new DatabaseWiredVariableStore(database), clock);
+            var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1; room.OwnerId = 5;
+            Assert.True(WiredBoxRegistry.TryGet("wf_var_room", out var descriptor));
+            var box = new WiredVariableDefinitionBox(room, new Item { Id = 10 }, descriptor,
+                new WiredVariableConfigurationPersistence(database, module, clock), new(module));
+            box.ApplyConfiguration(current);
+            var changed = current with { IntParams = [10, 6] };
+
+            Assert.True(WiredConfigurationSave.TrySave(box, changed, new RejectConfigurationStore(), out var error), error);
+            var value = new DatabaseWiredVariableStore(database).Read(new(10, WiredVariableTarget.Global, 0))!;
+            Assert.Null(value.CreatedAt); Assert.Equal(clock.Now, value.UpdatedAt); Assert.Equal(1, clock.Reads);
+            Assert.Single(module.DrainChanges());
+            Assert.True(WiredConfigurationSave.TrySave(box, changed, new RejectConfigurationStore(), out error), error);
+            Assert.Equal(1, clock.Reads); Assert.Empty(module.DrainChanges());
         }
         finally { server.Execute($"DROP DATABASE `{schema}`"); }
     }
@@ -138,5 +194,18 @@ public sealed class WiredVariableUtcDatabaseTests
     {
         public bool IsConnected() => true;
         public IDbConnection Connection() => new MySqlConnection(connectionString);
+    }
+
+    private sealed class CountingTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset Now { get; } = now;
+        public int Reads { get; private set; }
+        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+    }
+
+    private sealed class RejectConfigurationStore : IWiredConfigurationStore
+    {
+        public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => throw new NotSupportedException();
+        public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new NotSupportedException();
     }
 }

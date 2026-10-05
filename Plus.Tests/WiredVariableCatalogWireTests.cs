@@ -38,6 +38,21 @@ public sealed class WiredVariableCatalogWireTests
         Assert.Equal(new object[] { "user:10", 25, 2, 10, 1, 1, 901, "player", 25, 1, 1,
             "19/02/1970 17:02:47", 0, 0, "", 1, 0 }, packet.Values);
     }
+    [Fact]
+    public void EpochAndPreEpochKeepRawMillisecondsButOmitLegacyText()
+    {
+        var holders = new[]
+        {
+            new WiredVariableStoredHolder(new(10, WiredVariableTarget.User, 901), "epoch",
+                new(1, DateTimeOffset.UnixEpoch, null)),
+            new WiredVariableStoredHolder(new(10, WiredVariableTarget.User, 902), "before",
+                new(2, DateTimeOffset.FromUnixTimeMilliseconds(-1), null))
+        };
+        var packet = new Packet(); new WiredVariableHoldersPageComposer("user:10", new(2, 1, 10, holders), 1, 0).Compose(packet);
+        Assert.Equal(new object[] { "user:10", 2, 1, 10, 2,
+            1, 901, "epoch", 1, 0, 0, "", 0, 0, "",
+            1, 902, "before", 2, -1, -1, "", 0, 0, "", 1, 0 }, packet.Values);
+    }
     private sealed class Packet : IOutgoingPacket
     {
         public List<object> Values { get; } = [];

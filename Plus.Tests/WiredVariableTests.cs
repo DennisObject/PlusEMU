@@ -114,6 +114,48 @@ public sealed class WiredVariableTests
         Assert.Equal(2, clock.Reads);
     }
 
+    [Fact]
+    public void UpdatingLegacyUnknownCreationKeepsItUnknownAndNoOpDoesNotReadClock()
+    {
+        var directory = new Directory(); directory.Definitions[10] = User();
+        var store = new MemoryWiredVariableStore(); var holder = Holder(7, 42); var frame = Frame(holder);
+        store.Mutate(new(10, holder.Target, holder.StableId), _ => new(1, null, null));
+        var clock = new MutableTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(500));
+        var module = new WiredVariableModule(1, directory, store, clock);
+
+        Assert.True(module.Mutate(UserRef, holder, WiredVariableMutation.Set, 2, frame));
+        var updated = module.Read(UserRef, holder, frame)!;
+        Assert.Null(updated.CreatedAt); Assert.Equal(clock.UtcNow, updated.UpdatedAt); Assert.Equal(1, clock.Reads);
+        Assert.Single(module.DrainChanges());
+        Assert.False(module.Mutate(UserRef, holder, WiredVariableMutation.Set, 2, frame));
+        Assert.Equal(1, clock.Reads); Assert.Empty(module.DrainChanges());
+    }
+
+    [Fact]
+    public void ContextAndGlobalUpdatesKeepLegacyUnknownCreation()
+    {
+        var directory = new Directory();
+        directory.Definitions[10] = new(10, 1, 5, "global", WiredVariableTarget.Global,
+            WiredVariableAvailability.Persistent, true, 1);
+        directory.Definitions[11] = new(11, 1, 5, "context", WiredVariableTarget.Context,
+            WiredVariableAvailability.RoomActive, true);
+        var store = new MemoryWiredVariableStore();
+        store.Mutate(new(10, WiredVariableTarget.Global, 0), _ => new(1, null, null));
+        var frame = Frame(); frame.Context.Mutate(new(11, WiredVariableTarget.Context, 0), _ => new(1, null, null));
+        var clock = new MutableTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(600));
+        var module = new WiredVariableModule(1, directory, store, clock);
+
+        Assert.True(module.CaptureContextValues(new Dictionary<uint, int> { [11] = 2 }, frame));
+        Assert.True(new WiredVariableEditor(module).SaveGlobalValue(10, 2));
+        Assert.Null(frame.Context.Read(new(11, WiredVariableTarget.Context, 0))!.CreatedAt);
+        Assert.Null(store.Read(new(10, WiredVariableTarget.Global, 0))!.CreatedAt);
+        Assert.Equal(2, clock.Reads);
+        module.DrainChanges();
+        Assert.True(module.CaptureContextValues(new Dictionary<uint, int> { [11] = 2 }, frame));
+        Assert.True(new WiredVariableEditor(module).SaveGlobalValue(10, 2));
+        Assert.Equal(2, clock.Reads); Assert.Empty(module.DrainChanges());
+    }
+
     private sealed class MutableTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public DateTimeOffset UtcNow { get; set; } = now;

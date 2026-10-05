@@ -58,7 +58,7 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
             else
             {
                 var now = clock.GetUtcNow();
-                write = new(before, new(definition.InitialValue, before?.CreatedAt ?? now, now));
+                write = new(before, new(definition.InitialValue, before is null ? now : before.CreatedAt, now));
             }
         }
         connection.Execute("""
