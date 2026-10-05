@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using Plus.Communication.Packets.Outgoing.Groups;
+using Plus.Core.Settings;
+using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Cache;
 using Plus.HabboHotel.Cache.Type;
 using Plus.HabboHotel.GameClients;
@@ -34,14 +36,19 @@ public sealed record BadgeEditorPresentation(
     ImmutableArray<BadgeColourPresentation> SymbolColours,
     ImmutableArray<BadgeColourPresentation> BackgroundColours);
 
+public sealed record GroupCreationRoom(uint Id, string Name);
+
+public sealed record GroupCreationPresentation(int Price, ImmutableArray<GroupCreationRoom> Rooms);
+
 [Singleton]
 public interface IGroupPresentationService
 {
     void ShowMembers(GameClient session, GroupMembersRequest request);
     void ShowBadgeEditor(GameClient session);
+    void ShowCreationWindow(GameClient session);
 }
 
-public sealed class GroupPresentationService(IGroupManager groups, ICacheManager cache) : IGroupPresentationService
+public sealed class GroupPresentationService(IGroupManager groups, ICacheManager cache, IRoomDataLoader rooms, ISettingsManager settings) : IGroupPresentationService
 {
     private const int PageSize = 14;
 
@@ -89,6 +96,16 @@ public sealed class GroupPresentationService(IGroupManager groups, ICacheManager
             groups.BadgeSymbolColours.Select(CaptureColour).ToImmutableArray(),
             groups.BadgeBackColours.Select(CaptureColour).ToImmutableArray());
         session.Send(new BadgeEditorPartsComposer(presentation));
+    }
+
+    public void ShowCreationWindow(GameClient session)
+    {
+        var availableRooms = rooms.GetRoomsDataByOwnerSortByName(session.GetHabbo().Id)
+            .Where(room => room.Group == null)
+            .Select(room => new GroupCreationRoom(room.Id, room.Name))
+            .ToImmutableArray();
+        var price = Convert.ToInt32(settings.TryGetValue("catalog.group.purchase.cost"));
+        session.Send(new GroupCreationWindowComposer(new GroupCreationPresentation(price, availableRooms)));
     }
 
     private List<CachedUser> ResolveUsers(Group group, int requestType)

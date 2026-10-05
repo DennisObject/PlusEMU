@@ -11,6 +11,8 @@ using Plus.HabboHotel.Cache.Type;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Rooms;
+using Plus.Core.Settings;
 using Xunit;
 
 namespace Plus.Tests;
@@ -35,7 +37,7 @@ public sealed class GroupPresentationServiceTests
     public void MissingGroupDoesNotPublish()
     {
         var (client, sent) = Client(1);
-        var service = new GroupPresentationService(GroupSource(null), Cache());
+        var service = new GroupPresentationService(GroupSource(null), Cache(), Rooms(), Settings());
 
         service.ShowMembers(client, new GroupMembersRequest(99, 0, "", 0));
 
@@ -53,7 +55,7 @@ public sealed class GroupPresentationServiceTests
             [3] = User(3, "Member"),
             [4] = User(4, "Pending")
         };
-        var service = new GroupPresentationService(GroupSource(group), Cache(users));
+        var service = new GroupPresentationService(GroupSource(group), Cache(users), Rooms(), Settings());
         var (owner, ownerSent) = Client(1);
 
         service.ShowMembers(owner, new GroupMembersRequest(group.Id, 0, "", 0));
@@ -82,7 +84,7 @@ public sealed class GroupPresentationServiceTests
         var ids = Enumerable.Range(1, 20).ToImmutableArray();
         var group = Group(new GroupMembershipSnapshot(ids, [], []), creatorId: 99);
         var users = ids.ToDictionary(id => id, id => User(id, $"Member{id:D2}"));
-        var service = new GroupPresentationService(GroupSource(group), Cache(users));
+        var service = new GroupPresentationService(GroupSource(group), Cache(users), Rooms(), Settings());
         var (client, sent) = Client(99);
 
         service.ShowMembers(client, new GroupMembersRequest(group.Id, -1, "", 0));
@@ -140,7 +142,7 @@ public sealed class GroupPresentationServiceTests
         var symbolColours = new List<GroupColours> { new(4, "00AA00") };
         var backgrounds = new List<GroupColours> { new(5, "0000AA") };
         var groups = GroupSource(null, bases, symbols, baseColours, symbolColours, backgrounds);
-        var service = new GroupPresentationService(groups, Cache());
+        var service = new GroupPresentationService(groups, Cache(), Rooms(), Settings());
         var (client, sent) = Client(1);
 
         service.ShowBadgeEditor(client);
@@ -249,6 +251,9 @@ public sealed class GroupPresentationServiceTests
         return new MembersPayload(total, page, requestType, roles, names);
     }
 
+    private static IRoomDataLoader Rooms() => Proxy<IRoomDataLoader>((_, _) => throw new NotSupportedException());
+    private static ISettingsManager Settings() => Proxy<ISettingsManager>((_, _) => throw new NotSupportedException());
+
     private static T Proxy<T>(Func<string, object?[], object?> call) where T : class
     {
         var proxy = DispatchProxy.Create<T, TestProxy>();
@@ -276,6 +281,7 @@ public sealed class GroupPresentationServiceTests
         public bool BadgeEditorShown { get; private set; }
         public void ShowMembers(GameClient session, GroupMembersRequest request) => Request = request;
         public void ShowBadgeEditor(GameClient session) => BadgeEditorShown = true;
+        public void ShowCreationWindow(GameClient session) => throw new NotSupportedException();
     }
 
     private sealed class PacketReader(byte[] payload)
