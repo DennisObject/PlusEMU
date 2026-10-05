@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming.Rooms.Action;
+using Plus.Communication.Packets.Incoming.Rooms.Settings;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
@@ -180,6 +181,85 @@ public partial class PlacedFurniRoomTests
         Assert.Empty(_client.Sent);
     }
 
+    [Fact]
+    public async Task UnbanAndMuteHandlersOnlyDecodeAndDelegate()
+    {
+        var service = new RecordingRoomModeration();
+        await new UnbanUserFromRoomEvent(service).Parse(null!, ClientPacket(8, 999));
+        await new ToggleMuteToolEvent(service).Parse(null!, ClientPacket());
+        Assert.Equal(new[] { "unban 8 999", "mute" }, service.Calls);
+        service.Calls.Clear();
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => new UnbanUserFromRoomEvent(service).Parse(null!, ClientPacket(8)));
+        Assert.Empty(service.Calls);
+    }
+
+    [Fact]
+    public void RoomUnbanCommitsBeforeCacheAndEchoesThePacketRoomId()
+    {
+        var now = DateTimeOffset.Parse("2040-01-01T00:00:00Z");
+        var store = new RecordingModerationBans();
+        _room.SetBans(new BansComponent(_room, store, new ModerationClock(now), [new(8, now.AddDays(1))]));
+        store.BeforeDelete = () =>
+        {
+            Assert.Equal(1, _room.GetBans().Count);
+            Assert.Empty(_client.Sent);
+        };
+        var service = ModerationService(null!, _ => throw new InvalidOperationException());
+        service.Unban(_client, 8, 999);
+        Assert.Equal(0, _room.GetBans().Count);
+        Assert.Equal(new[] { 8 }, store.Deletes);
+        Assert.Equal(ServerPacketHeader.UnbanUserFromRoomComposer, Assert.Single(_client.Sent));
+        var packet = new FlashIncomingPacket { Buffer = _client.Packets.Single().Body };
+        Assert.Equal(999, packet.ReadInt());
+        Assert.Equal(8, packet.ReadInt());
+        Assert.False(packet.HasDataRemaining());
+        _client.Sent.Clear();
+        service.Unban(_client, 8, 999);
+        Assert.Empty(_client.Sent);
+    }
+
+    [Fact]
+    public void RoomUnbanFailureAndRightsDenialPublishNothing()
+    {
+        var now = DateTimeOffset.Parse("2040-01-01T00:00:00Z");
+        var store = new RecordingModerationBans { Fail = true };
+        _room.SetBans(new BansComponent(_room, store, new ModerationClock(now), [new(8, now.AddDays(1))]));
+        var service = ModerationService(null!, _ => throw new InvalidOperationException());
+        Assert.Throws<InvalidOperationException>(() => service.Unban(_client, 8, 42));
+        Assert.Equal(1, _room.GetBans().Count);
+        Assert.Empty(_client.Sent);
+        _room.OwnerName = "other";
+        _room.UsersWithRights = [];
+        service.Unban(_client, 8, 42);
+        service.ToggleMute(_client);
+        Assert.False(_room.RoomMuted);
+        Assert.Empty(store.Deletes);
+        Assert.Empty(_client.Sent);
+    }
+
+    [Fact]
+    public void RoomMuteTogglesAndWhispersBeforeBroadcastingTheCapturedStatus()
+    {
+        var target = ModerationTarget();
+        var service = ModerationService(target, _ => throw new InvalidOperationException());
+        foreach (var muted in new[] { true, false })
+        {
+            _client.BeforeCapture = id =>
+            {
+                if (id == ServerPacketHeader.RoomMuteSettingsComposer)
+                    Assert.Equal(ServerPacketHeader.WhisperComposer, target.Sent[0]);
+            };
+            service.ToggleMute(_client);
+            Assert.Equal(muted, _room.RoomMuted);
+            Assert.Equal(new[] { ServerPacketHeader.WhisperComposer, ServerPacketHeader.RoomMuteSettingsComposer }, target.Sent);
+            var status = new FlashIncomingPacket { Buffer = target.Packets.Last().Body };
+            Assert.Equal(muted, status.ReadBool());
+            Assert.False(status.HasDataRemaining());
+            target.Sent.Clear();
+            target.Packets.Clear();
+        }
+    }
+
     private TestClient ModerationTarget()
     {
         var owner = Viewer();
@@ -214,6 +294,8 @@ public partial class PlacedFurniRoomTests
         public List<string> Calls = [];
         public void Kick(GameClient session, int userId) => Calls.Add($"kick {userId}");
         public void Ban(GameClient session, RoomBanRequest request) => Calls.Add($"ban {request.UserId} {request.RoomId} {request.Duration}");
+        public void Unban(GameClient session, int userId, int roomId) => Calls.Add($"unban {userId} {roomId}");
+        public void ToggleMute(GameClient session) => Calls.Add("mute");
         public void AnswerDoor(Room room, GameClient session, string username, bool accepted) => Calls.Add($"door {username} {accepted}");
     }
 
@@ -227,6 +309,8 @@ public partial class PlacedFurniRoomTests
     {
         public Action? BeforeSave;
         public bool Fail;
+        public Action? BeforeDelete;
+        public List<int> Deletes = [];
         public List<(uint RoomId, int UserId, DateTimeOffset ExpiresAt)> Saves = [];
         public IEnumerable<RoomBan> Load(uint roomId) => throw new NotSupportedException();
         public void Save(uint roomId, int userId, DateTimeOffset expiresAt)
@@ -235,7 +319,12 @@ public partial class PlacedFurniRoomTests
             Saves.Add((roomId, userId, expiresAt));
             if (Fail) throw new InvalidOperationException("forced ban failure");
         }
-        public void Delete(uint roomId, int userId) => throw new NotSupportedException();
+        public void Delete(uint roomId, int userId)
+        {
+            BeforeDelete?.Invoke();
+            if (Fail) throw new InvalidOperationException("forced ban failure");
+            Deletes.Add(userId);
+        }
         public IEnumerable<int> ActiveUserIds(uint roomId) => throw new NotSupportedException();
     }
 }

@@ -1,4 +1,5 @@
 using Plus.Communication.Packets.Outgoing.Navigator;
+using Plus.Communication.Packets.Outgoing.Rooms.Settings;
 using Plus.Communication.Packets.Outgoing.Rooms.Session;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
@@ -12,6 +13,8 @@ public interface IRoomModerationService
 {
     void Kick(GameClient session, int userId);
     void Ban(GameClient session, RoomBanRequest request);
+    void Unban(GameClient session, int userId, int packetRoomId);
+    void ToggleMute(GameClient session);
     void AnswerDoor(Room room, GameClient session, string username, bool accepted);
 }
 
@@ -53,6 +56,30 @@ public sealed class RoomModerationService(IAchievementManager achievements, IGam
             duration = TimeSpan.FromSeconds(78892200);
         room.GetBans().Ban(user, duration);
         achievements.ProgressAchievement(session, "ACH_SelfModBanSeen", 1);
+    }
+
+    public void Unban(GameClient session, int userId, int packetRoomId)
+    {
+        var room = session.GetHabbo().CurrentRoom;
+        if (room == null || !room.CheckRights(session, true))
+            return;
+        if (room.GetBans().IsBanned(userId) && room.GetBans().Unban(userId))
+            session.Send(new UnbanUserFromRoomComposer(packetRoomId, userId));
+    }
+
+    public void ToggleMute(GameClient session)
+    {
+        var room = session.GetHabbo().CurrentRoom;
+        if (room == null || !room.CheckRights(session, true))
+            return;
+        room.RoomMuted = !room.RoomMuted;
+        foreach (var user in room.GetRoomUserManager().GetRoomUsers().ToArray())
+        {
+            var client = user?.GetClient();
+            if (client != null)
+                client.SendWhisper(room.RoomMuted ? "This room has been muted" : "This room has been unmuted");
+        }
+        room.SendPacket(new RoomMuteSettingsComposer(room.RoomMuted));
     }
 
     public void AnswerDoor(Room room, GameClient session, string username, bool accepted)
