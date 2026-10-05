@@ -47,6 +47,7 @@ public class GroupPurchaseTests
             Assert.Equal("TryCreateGroup", method);
             Assert.Equal(1000, _client.GetHabbo().Credits);
             Assert.Null(_room.Group);
+            Assert.Equal(0, _room.GroupId);
             Assert.Empty(_client.Sent);
             Assert.Equal("test", args[1]);
             Assert.Equal("description", args[2]);
@@ -77,6 +78,7 @@ public class GroupPurchaseTests
         Assert.Empty(packet.Buffer.ToArray());
         Assert.Equal("b01014" + string.Concat(Enumerable.Repeat("s02024", partCount - 1)), _createdBadge);
         Assert.Same(_group, _room.Group);
+        Assert.Equal(_group.Id, _room.GroupId);
         Assert.Equal(850, _client.GetHabbo().Credits);
         Assert.Contains(ServerPacketHeader.NewGroupInfoComposer, _client.Sent);
         Assert.Contains(ServerPacketHeader.CreditBalanceComposer, _client.Sent);
@@ -151,6 +153,7 @@ public class GroupPurchaseTests
         Assert.Equal(149, _client.GetHabbo().Credits);
         Assert.Null(_createdBadge);
         Assert.Null(_room.Group);
+        Assert.Equal(0, _room.GroupId);
     }
 
     [Fact]
@@ -162,6 +165,26 @@ public class GroupPurchaseTests
         Assert.Null(_room.Group);
         Assert.DoesNotContain(ServerPacketHeader.CreditBalanceComposer, _client.Sent);
         Assert.DoesNotContain(ServerPacketHeader.NewGroupInfoComposer, _client.Sent);
+        Assert.Equal(0, _room.GroupId);
+    }
+
+    [Fact]
+    public async Task CurrentRoomPurchaseDoesNotSendRoomForward()
+    {
+        var currentRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        typeof(Room).GetField("_data", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(currentRoom, _room);
+        _client.GetHabbo().CurrentRoom = currentRoom;
+
+        await _handler.Parse(_client, PurchasePacket(3, 1));
+
+        Assert.Equal(_group.Id, _room.GroupId);
+        Assert.Same(_group, _room.Group);
+        Assert.Equal([
+            ServerPacketHeader.CreditBalanceComposer,
+            ServerPacketHeader.PurchaseOKComposer,
+            ServerPacketHeader.NewGroupInfoComposer
+        ], _client.Sent);
     }
 
     [Fact]
@@ -184,6 +207,7 @@ public class GroupPurchaseTests
 
         Assert.Equal(1000, _client.GetHabbo().Credits);
         Assert.Null(_room.Group);
+        Assert.Equal(0, _room.GroupId);
         Assert.DoesNotContain(ServerPacketHeader.CreditBalanceComposer, _client.Sent);
         Assert.DoesNotContain(ServerPacketHeader.NewGroupInfoComposer, _client.Sent);
     }
@@ -193,6 +217,7 @@ public class GroupPurchaseTests
         Assert.Equal(1000, _client.GetHabbo().Credits);
         Assert.Null(_createdBadge);
         Assert.Null(_room.Group);
+        Assert.Equal(0, _room.GroupId);
         Assert.Empty(_client.Sent);
     }
 

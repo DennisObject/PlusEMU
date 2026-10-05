@@ -81,6 +81,7 @@ public sealed class GroupPurchaseService(
             habbo.Credits = checked(habbo.Credits - cost);
             session.Send(new CreditBalanceComposer(habbo.Credits));
             session.Send(new PurchaseOKComposer());
+            room.GroupId = group.Id;
             room.Group = group;
             if (habbo.CurrentRoom?.Data != room)
                 session.Send(new RoomForwardComposer(room.Id));
