@@ -1,6 +1,4 @@
-﻿using Dapper;
 using Plus.Core;
-using Plus.Database;
 using Plus.Communication.Packets.Outgoing.Pets;
 using Plus.Communication.Packets.Outgoing.Rooms.AI.Pets;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
@@ -116,31 +114,6 @@ public class Pet
     public string Look => $"{Type} {Race} {Color} {CustomParts}";
 
     public string OwnerName { get; set; }
-
-    public bool TrySaveRoom(IDatabase database, uint roomId, int x, int y, double z = 0)
-    {
-        try
-        {
-            using var connection = database.Connection();
-            connection.Open();
-            using var transaction = connection.BeginTransaction();
-            if (connection.Execute(
-                "UPDATE `bots` SET `room_id`=@RoomId, `x`=@X, `y`=@Y, `z`=@Z WHERE `id`=@Id AND `ai_type`='pet' AND `user_id`=@OwnerId AND `room_id`=@PreviousRoomId LIMIT 1",
-                new { Id = PetId, OwnerId, RoomId = roomId, PreviousRoomId = RoomId, X = x, Y = y, Z = z }, transaction) != 1)
-                return false;
-            if (connection.Execute(
-                "UPDATE `bots_petdata` SET `experience`=@Experience, `energy`=@Energy, `nutrition`=@Nutrition, `respect`=@Respect WHERE `id`=@Id LIMIT 1",
-                new { Experience, Energy, Nutrition, Respect, Id = PetId }, transaction) != 1)
-                return false;
-            transaction.Commit();
-            return true;
-        }
-        catch (Exception exception)
-        {
-            ExceptionLogger.LogException(exception);
-            return false;
-        }
-    }
 
     public void OnRespect()
     {
