@@ -89,7 +89,7 @@ public class GroupManager : IGroupManager, IStartable
             if (_groups.ContainsKey(id))
                 return _groups.TryGetValue(id, out group);
             using var connection = _database.Connection();
-            var row = connection.QuerySingleOrDefault<GroupRow>("SELECT id,name,`desc` AS Description,badge,room_id AS RoomId,owner_id AS OwnerId,created,state,colour1,colour2,admindeco AS AdminDeco,forum_enabled AS ForumEnabled FROM `groups` WHERE id=@id LIMIT 1", new { id });
+            var row = connection.QuerySingleOrDefault<GroupRow>("SELECT id,name,`desc` AS Description,badge,room_id AS RoomId,owner_id AS OwnerId,created,CAST(CAST(state AS CHAR) AS UNSIGNED) AS State,colour1,colour2,admindeco AS AdminDeco,forum_enabled AS ForumEnabled FROM `groups` WHERE id=@id LIMIT 1", new { id });
             if (row != null)
             {
                 group = new(row.Id, row.Name, row.Description, row.Badge, row.RoomId, row.OwnerId, row.Created, row.State, row.Colour1, row.Colour2, row.AdminDeco, row.ForumEnabled, _memberships.Load(row.Id));

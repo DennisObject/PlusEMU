@@ -25,14 +25,17 @@ public sealed class GroupConstructionDatabaseTests
                 CREATE TABLE `groups` (
                     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(50) NOT NULL, `desc` VARCHAR(255) NOT NULL,
                     badge VARCHAR(50) NOT NULL, owner_id INT UNSIGNED NOT NULL, created INT NOT NULL,
-                    room_id INT UNSIGNED NOT NULL, state INT NOT NULL DEFAULT 0, colour1 INT NOT NULL,
+                    room_id INT UNSIGNED NOT NULL, state ENUM('0','1','2') NOT NULL DEFAULT '0', colour1 INT NOT NULL,
                     colour2 INT NOT NULL, admindeco INT NOT NULL DEFAULT 0, forum_enabled BOOL NOT NULL DEFAULT FALSE);
                 CREATE TABLE group_memberships (
                     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, group_id INT UNSIGNED NOT NULL,
                     user_id INT UNSIGNED NOT NULL, `rank` BOOL NOT NULL DEFAULT FALSE);
                 CREATE TABLE group_requests (group_id INT UNSIGNED NOT NULL, user_id INT UNSIGNED NOT NULL);
                 CREATE TABLE rooms (id INT UNSIGNED PRIMARY KEY, group_id INT NOT NULL DEFAULT 0);
-                INSERT INTO `groups` VALUES (10, 'loaded', 'description', 'badge', 20, 1700000000, 41, 2, 3, 4, 1, TRUE);
+                INSERT INTO `groups` VALUES
+                    (10, 'open', 'description', 'badge', 20, 1700000000, 41, '0', 3, 4, 1, TRUE),
+                    (11, 'locked', 'description', 'badge', 20, 1700000000, 41, '1', 3, 4, 1, FALSE),
+                    (12, 'private', 'description', 'badge', 20, 1700000000, 41, '2', 3, 4, 1, FALSE);
                 INSERT INTO group_memberships (group_id, user_id, `rank`) VALUES
                     (10, 30, FALSE), (10, 20, TRUE), (10, 10, FALSE);
                 INSERT INTO group_requests VALUES (10, 40), (10, 30), (10, 25);
@@ -50,7 +53,11 @@ public sealed class GroupConstructionDatabaseTests
             Assert.Equal(0, connection.QuerySingle<int>(
                 "SELECT COUNT(*) FROM group_requests WHERE group_id = 10 AND user_id = 30"));
             Assert.True(loaded.HasForum);
-            Assert.Equal(GroupType.Private, loaded.Type);
+            Assert.Equal(GroupType.Open, loaded.Type);
+            Assert.True(groups.TryGetGroup(11, out var locked));
+            Assert.Equal(GroupType.Locked, locked.Type);
+            Assert.True(groups.TryGetGroup(12, out var privateGroup));
+            Assert.Equal(GroupType.Private, privateGroup.Type);
 
             var failedId = connection.QuerySingle<int>("""
                 SELECT AUTO_INCREMENT FROM information_schema.tables
@@ -59,7 +66,7 @@ public sealed class GroupConstructionDatabaseTests
             var owner = new Habbo { Id = 7, Username = "owner" };
             Assert.Throws<MySqlException>(() => groups.TryCreateGroup(
                 owner, "failed", "description", 42, "badge", 3, 4, out _));
-            Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM `groups` WHERE id <> 10"));
+            Assert.Equal(3, connection.QuerySingle<int>("SELECT COUNT(*) FROM `groups`"));
             Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM group_memberships WHERE group_id <> 10"));
             Assert.Equal(0, connection.QuerySingle<int>("SELECT group_id FROM rooms WHERE id = 42"));
             Assert.False(groups.TryGetGroup(failedId, out _));
