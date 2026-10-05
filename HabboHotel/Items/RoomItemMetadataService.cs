@@ -142,7 +142,7 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
         connection.Query<TonerRow>("SELECT enabled AS Enabled,data1 AS Hue,data2 AS Saturation,data3 AS Lightness FROM room_items_toner WHERE id = @itemId FOR UPDATE",
             new { itemId }, transaction).FirstOrDefault();
 
-    private sealed record SidecarRow(uint SidecarId, bool Enabled, int CurrentPreset, string PresetOne, string PresetTwo, string PresetThree);
+    private sealed record SidecarRow(int SidecarId, bool Enabled, int CurrentPreset, string PresetOne, string PresetTwo, string PresetThree);
     private sealed class TonerRow
     {
         public bool Enabled { get; init; }

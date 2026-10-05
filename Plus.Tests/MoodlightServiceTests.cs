@@ -342,7 +342,7 @@ public sealed class MoodlightMetadataDatabaseTests
 
             var loaded = store.LoadMoodlight(4_000_000_000);
             Assert.NotNull(loaded);
-            Assert.Equal((uint)10, loaded!.SidecarId);
+            Assert.Equal(10, loaded!.SidecarId);
             Assert.False(loaded.Enabled);
             store.SetMoodlightEnabled(4_000_000_000, 42, false);
             store.UpdateMoodlightPreset(4_000_000_000, 42, 1, "#0053F7,7,1");
