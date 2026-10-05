@@ -113,13 +113,20 @@ internal class MessengerDataLoader : IMessengerDataLoader
         using var transaction = connection.BeginTransaction();
         var readAt = _clock.GetUtcNow();
         // Rows are locked as they are read, then only those IDs are deleted, so messages that arrive after the read survive.
-        var rows = (await connection.QueryAsync<(int Id, int FromId, string Message, object? SentAt)>("SELECT id, from_id, message, timestamp FROM messenger_offline_messages WHERE to_id = @userId ORDER BY id FOR UPDATE", new { userId }, transaction))
-            .Select(row => (row.Id, row.FromId, row.Message, SentAt: MessengerTime.ReadUtc(row.SentAt))).ToList();
+        var rows = (await connection.QueryAsync<OfflineMessageRow>("SELECT id AS Id, from_id AS FromId, message AS Message, timestamp AS SentAt FROM messenger_offline_messages WHERE to_id = @userId ORDER BY id FOR UPDATE", new { userId }, transaction)).ToList();
         await DeleteReadOfflineMessages(connection, transaction, rows.Select(row => row.Id).ToArray());
         transaction.Commit();
         return rows.GroupBy(row => row.FromId).ToDictionary(group => group.Key, group => group
             .OrderBy(row => row.SentAt).ThenBy(row => row.Id)
             .Select(row => (row.Message, MessengerTime.SecondsBetween(readAt, row.SentAt))).ToList());
+    }
+
+    private sealed class OfflineMessageRow
+    {
+        public int Id { get; set; }
+        public int FromId { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public DateTimeOffset? SentAt { get; set; }
     }
 
     internal static async Task DeleteReadOfflineMessages(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, int[] ids)
