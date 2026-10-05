@@ -18,7 +18,7 @@ public sealed class RoomPetsComponent(IDatabase database) : IRoomComponent
             var data = LoadData(connection, row.Id);
             if (data == null) continue;
             var pet = new Pet(row.Id, row.UserId, row.RoomId, row.Name, data.Type, data.Race, data.Color,
-                data.Experience, data.Energy, data.Nutrition, data.Respect, AsUtc(data.CreatedAt), row.X, row.Y, row.Z,
+                data.Experience, data.Energy, data.Nutrition, data.Respect, data.CreatedAt, row.X, row.Y, row.Z,
                 data.HaveSaddle, data.AnyoneRide, data.Hairdye, data.Pethair, data.GnomeClothing);
             var speeches = new List<RandomSpeech>();
             _room.GetRoomUserManager().DeployBot(new(pet.PetId, _room.Id, "pet", "freeroam", pet.Name, "", pet.Look,
@@ -38,9 +38,5 @@ public sealed class RoomPetsComponent(IDatabase database) : IRoomComponent
 
     internal sealed record PetLocation(int Id, int UserId, uint RoomId, string Name, int X, int Y, double Z);
     internal sealed record PetData(int Type, string Race, string Color, int Experience, int Energy, int Nutrition,
-        int Respect, DateTime? CreatedAt, int HaveSaddle, int AnyoneRide, int Hairdye, int Pethair, string GnomeClothing);
-
-    internal static DateTimeOffset? AsUtc(DateTime? value) => value is null
-        ? null
-        : new(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc));
+        int Respect, DateTimeOffset? CreatedAt, int HaveSaddle, int AnyoneRide, int Hairdye, int Pethair, string GnomeClothing);
 }

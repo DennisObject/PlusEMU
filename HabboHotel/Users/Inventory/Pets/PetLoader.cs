@@ -1,4 +1,5 @@
 using Dapper;
+using System.Data;
 using Plus.Database;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.AI;
@@ -10,19 +11,21 @@ internal sealed class PetLoader(IDatabase database) : IPetLoader
     public List<Pet> GetPetsForUser(int userId)
     {
         using var connection = database.Connection();
-        return connection.Query<PetRow>("""
+        return Load(connection, userId).Select(row => new Pet(row.Id, row.UserId, row.RoomId, row.Name, row.Type, row.Race,
+                row.Color, row.Experience, row.Energy, row.Nutrition, row.Respect, row.CreatedAt,
+                row.X, row.Y, row.Z, row.HaveSaddle, row.AnyoneRide, row.Hairdye, row.Pethair, row.GnomeClothing)).ToList();
+    }
+
+    internal static IEnumerable<PetRow> Load(IDbConnection connection, int userId) => connection.Query<PetRow>("""
             SELECT bots.id, bots.user_id AS UserId, bots.room_id AS RoomId, bots.name, bots.x, bots.y, bots.z,
                    pet.type, pet.race, pet.color, pet.experience, pet.energy, pet.nutrition, pet.respect,
                    pet.createstamp AS CreatedAt, pet.have_saddle AS HaveSaddle, pet.anyone_ride AS AnyoneRide,
                    pet.hairdye, pet.pethair, pet.gnome_clothing AS GnomeClothing
             FROM bots JOIN bots_petdata pet ON pet.id = bots.id
             WHERE bots.user_id = @userId AND bots.room_id = 0 AND bots.ai_type = 'pet'
-            """, new { userId }).Select(row => new Pet(row.Id, row.UserId, row.RoomId, row.Name, row.Type, row.Race,
-                row.Color, row.Experience, row.Energy, row.Nutrition, row.Respect, RoomPetsComponent.AsUtc(row.CreatedAt),
-                row.X, row.Y, row.Z, row.HaveSaddle, row.AnyoneRide, row.Hairdye, row.Pethair, row.GnomeClothing)).ToList();
-    }
+            """, new { userId });
 
-    private sealed class PetRow
+    internal sealed class PetRow
     {
         public int Id { get; set; }
         public int UserId { get; set; }
@@ -38,7 +41,7 @@ internal sealed class PetLoader(IDatabase database) : IPetLoader
         public int Energy { get; set; }
         public int Nutrition { get; set; }
         public int Respect { get; set; }
-        public DateTime? CreatedAt { get; set; }
+        public DateTimeOffset? CreatedAt { get; set; }
         public int HaveSaddle { get; set; }
         public int AnyoneRide { get; set; }
         public int Hairdye { get; set; }

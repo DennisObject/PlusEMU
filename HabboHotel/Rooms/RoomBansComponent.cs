@@ -32,7 +32,7 @@ public sealed class RoomBansComponent(IDatabase database, TimeProvider clock) : 
         return connection.Query<RoomBanRow>(
                 "SELECT user_id AS UserId, expire AS ExpiresAt FROM room_bans WHERE room_id = @roomId AND expire > UTC_TIMESTAMP(6)",
                 new { roomId })
-            .Select(row => new RoomBan(checked((int)row.UserId), AsUtc(row.ExpiresAt)))
+            .Select(row => new RoomBan(checked((int)row.UserId), row.ExpiresAt))
             .ToArray();
     }
 
@@ -56,7 +56,5 @@ public sealed class RoomBansComponent(IDatabase database, TimeProvider clock) : 
             "SELECT DISTINCT user_id FROM room_bans WHERE room_id = @roomId AND expire > UTC_TIMESTAMP(6)", new { roomId }).ToArray();
     }
 
-    internal static DateTimeOffset AsUtc(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
-
-    private sealed record RoomBanRow(uint UserId, DateTime ExpiresAt);
+    private sealed record RoomBanRow(uint UserId, DateTimeOffset ExpiresAt);
 }

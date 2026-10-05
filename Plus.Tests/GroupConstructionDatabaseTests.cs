@@ -13,7 +13,8 @@ public sealed class GroupConstructionDatabaseTests
     [RoomComponentDatabaseFact]
     public void InitialRowsArePreparedAndCreationPublishesOnlyAfterCommit()
     {
-        using var connection = new MySqlConnection(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE"));
+        SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
+        using var connection = new MySqlConnection(ProductionConnection());
         connection.Open();
         var schema = "group_construction_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
@@ -42,8 +43,7 @@ public sealed class GroupConstructionDatabaseTests
                 """);
             connection.Execute(File.ReadAllText(Path.Combine(RepositoryRoot(), "Database", "Migrations",
                 "26_UseUtcGroupCreationTime.sql")));
-            var database = new ProbeDatabase(new MySqlConnectionStringBuilder(
-                Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!) { Database = schema }.ConnectionString);
+            var database = new ProbeDatabase(new MySqlConnectionStringBuilder(ProductionConnection()) { Database = schema }.ConnectionString);
             var memberships = new GroupMembershipLoader(database);
             var now = new DateTimeOffset(2041, 2, 3, 4, 5, 6, TimeSpan.Zero).AddTicks(1_234_560);
             var groups = new GroupManager(TestLogging.For<GroupManager>(), database, memberships, new FixedClock(now));
@@ -118,6 +118,13 @@ public sealed class GroupConstructionDatabaseTests
     {
         public override DateTimeOffset GetUtcNow() => now;
     }
+
+    private static string ProductionConnection() => new MySqlConnectionStringBuilder(
+        Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
+    {
+        AllowZeroDateTime = true,
+        ConvertZeroDateTime = true
+    }.ConnectionString;
 
     private static string RepositoryRoot()
     {

@@ -95,7 +95,7 @@ public class GroupManager : IGroupManager, IStartable
             if (row != null)
             {
                 group = new(row.Id, row.Name, row.Description, row.Badge, row.RoomId, row.OwnerId,
-                    AsUtc(row.CreatedAt), row.State, row.Colour1, row.Colour2, row.AdminDeco, row.ForumEnabled,
+                    row.CreatedAt, row.State, row.Colour1, row.Colour2, row.AdminDeco, row.ForumEnabled,
                     _memberships.Load(row.Id));
                 _groups.TryAdd(group.Id, group);
                 return true;
@@ -169,10 +169,6 @@ public class GroupManager : IGroupManager, IStartable
         }
         return badges;
     }
-    private static DateTimeOffset? AsUtc(DateTime? value) => value is { } date
-        ? new DateTimeOffset(DateTime.SpecifyKind(date, DateTimeKind.Utc))
-        : null;
-
     private sealed class GroupRow
     {
         public int Id { get; set; }
@@ -181,7 +177,7 @@ public class GroupManager : IGroupManager, IStartable
         public string Badge { get; set; } = string.Empty;
         public uint RoomId { get; set; }
         public int OwnerId { get; set; }
-        public DateTime? CreatedAt { get; set; }
+        public DateTimeOffset? CreatedAt { get; set; }
         public int State { get; set; }
         public int Colour1 { get; set; }
         public int Colour2 { get; set; }

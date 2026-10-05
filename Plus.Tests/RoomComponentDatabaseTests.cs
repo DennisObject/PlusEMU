@@ -1,6 +1,8 @@
 using Dapper;
 using MySqlConnector;
+using Plus.Database;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Users.Inventory.Pets;
 using Xunit;
 
 namespace Plus.Tests;
@@ -19,6 +21,7 @@ public sealed class RoomComponentDatabaseTests
     [RoomComponentDatabaseFact]
     public void NativeBoolBotAndPetRowsMaterializeThroughComponentQueries()
     {
+        SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
         using var connection = new MySqlConnection(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE"));
         connection.Open();
         var schema = "room_component_" + Guid.NewGuid().ToString("N");
@@ -67,16 +70,18 @@ public sealed class RoomComponentDatabaseTests
                 INSERT INTO bots VALUES
                     (10, 7, 42, 'guide', 'hello', 'hd-180-1', 1, 2, 0, 3, 'generic', 'freeroam', TRUE, 12, TRUE, 5),
                     (11, 8, 42, 'pet', '', '', 4, 5, 1.5, 0, 'pet', 'freeroam', FALSE, 0, FALSE, 0),
-                    (12, 9, 99, 'other', '', '', 0, 0, 0, 0, 'generic', 'freeroam', FALSE, 1, FALSE, 0);
+                    (12, 9, 99, 'other', '', '', 0, 0, 0, 0, 'generic', 'freeroam', FALSE, 1, FALSE, 0),
+                    (16, 8, 0, 'inventory pet', '', '', 0, 0, 0, 0, 'pet', 'freeroam', FALSE, 0, FALSE, 0);
                 INSERT INTO bots_speech VALUES (10, 'first'), (10, 'second');
-                INSERT INTO bots_petdata VALUES (11, 2, '3', 'ffffff', 4, 5, 6, 7, 2200000000, 1, 0, 9, 10, 'hat');
+                INSERT INTO bots_petdata VALUES (11, 2, '3', 'ffffff', 4, 5, 6, 7, 2200000000.123456, 1, 0, 9, 10, 'hat');
                 INSERT INTO bots_petdata VALUES (14, 2, '3', 'ffffff', 0, 100, 0, 0, 0, 0, 0, 1, -1, '-1');
                 INSERT INTO bots_petdata VALUES (15, 2, '3', 'ffffff', 0, 100, 0, 0, NULL, 0, 0, 1, -1, '-1');
+                INSERT INTO bots_petdata VALUES (16, 2, '3', 'ffffff', 4, 5, 6, 7, 2200000000.123456, 1, 0, 9, 10, 'hat');
                 INSERT INTO room_promotions VALUES (42, 'Featured', 'Actual row', UNIX_TIMESTAMP() - 10, UNIX_TIMESTAMP() + 600, 3);
-                INSERT INTO room_promotions VALUES (43, 'Future', 'Beyond 2038', 2200000000, 2200003600, 4);
+                INSERT INTO room_promotions VALUES (43, 'Future', 'Beyond 2038', 2200000000.123456, 2200003600.654321, 4);
                 INSERT INTO room_promotions VALUES (44, 'Unknown', 'Legacy zero', 0, 0, 5);
                 INSERT INTO room_promotions VALUES (45, 'Missing', 'Legacy null', NULL, NULL, 6);
-                INSERT INTO room_bans VALUES (20, 42, 2200000000), (21, 42, 0), (22, 42, NULL);
+                INSERT INTO room_bans VALUES (20, 42, 2200000000.123456), (21, 42, 0), (22, 42, NULL);
                 INSERT INTO items (id, user_id) VALUES (90, 1), (91, 1);
                 INSERT INTO users VALUES (7, 'owner');
                 INSERT INTO items (id, user_id, room_id, x, y, z, rot, extra_data, wall_pos, base_item, limited_number, limited_stack)
@@ -100,6 +105,7 @@ public sealed class RoomComponentDatabaseTests
                 DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT createstamp FROM bots_petdata WHERE id = 11"), DateTimeKind.Utc));
             Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT createstamp FROM bots_petdata WHERE id = 14"));
             Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT createstamp FROM bots_petdata WHERE id = 15"));
+            connection.Execute("UPDATE bots_petdata SET createstamp = '2039-09-18 23:06:40.123456' WHERE id IN (11, 16)");
 
             var promotionMigration = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory,
                 "../../../../Database/Migrations/21_UseUtcRoomPromotionTimes.sql")));
@@ -109,32 +115,44 @@ public sealed class RoomComponentDatabaseTests
                 WHERE table_schema = DATABASE() AND table_name = 'room_promotions'
                     AND column_name IN ('timestamp_start', 'timestamp_expire') AND DATA_TYPE = 'datetime' AND DATETIME_PRECISION = 6
                 """));
-            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).UtcDateTime,
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).AddTicks(1_234_560).UtcDateTime,
                 DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT timestamp_start FROM room_promotions WHERE room_id = 43"), DateTimeKind.Utc));
-            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_003_600).UtcDateTime,
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_003_600).AddTicks(6_543_210).UtcDateTime,
                 DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT timestamp_expire FROM room_promotions WHERE room_id = 43"), DateTimeKind.Utc));
             Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT timestamp_start FROM room_promotions WHERE room_id = 44"));
             Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT timestamp_expire FROM room_promotions WHERE room_id = 44"));
             Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT timestamp_start FROM room_promotions WHERE room_id = 45"));
             Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT timestamp_expire FROM room_promotions WHERE room_id = 45"));
+            connection.Execute("""
+                UPDATE room_promotions SET timestamp_start = '2039-09-18 23:06:40.123456',
+                    timestamp_expire = '2039-09-19 00:06:40.654321' WHERE room_id = 43
+                """);
 
-            var bot = Assert.Single(RoomBotsComponent.Load(connection, 42));
+            var databaseConnection = new MySqlConnectionStringBuilder(
+                Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!) { Database = schema }.ConnectionString;
+            var productionDatabaseConnection = new MySqlConnectionStringBuilder(ProductionConnection()) { Database = schema }.ConnectionString;
+            using var productionConnection = new MySqlConnection(productionDatabaseConnection);
+            productionConnection.Open();
+            var bot = Assert.Single(RoomBotsComponent.Load(productionConnection, 42));
             Assert.True(bot.AutomaticChat);
             Assert.True(bot.MixSentences);
-            Assert.Equal(["first", "second"], RoomBotsComponent.LoadSpeech(connection, bot.Id));
-            var pet = Assert.Single(RoomPetsComponent.Load(connection, 42));
-            var data = Assert.IsType<RoomPetsComponent.PetData>(RoomPetsComponent.LoadData(connection, pet.Id));
+            Assert.Equal(["first", "second"], RoomBotsComponent.LoadSpeech(productionConnection, bot.Id));
+            var pet = Assert.Single(RoomPetsComponent.Load(productionConnection, 42));
+            var data = Assert.IsType<RoomPetsComponent.PetData>(RoomPetsComponent.LoadData(productionConnection, pet.Id));
             Assert.Equal((11, 42u, 1.5), (pet.Id, pet.RoomId, pet.Z));
             Assert.Equal((2, "3", "hat"), (data.Type, data.Race, data.GnomeClothing));
-            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000), RoomPetsComponent.AsUtc(data.CreatedAt));
-            var databaseConnection = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!) { Database = schema }.ConnectionString;
-            var promotion = Assert.IsType<RoomPromotion>(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 42, TimeProvider.System));
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).AddTicks(1_234_560), data.CreatedAt);
+            Assert.Null(RoomPetsComponent.LoadData(productionConnection, 14)!.CreatedAt);
+            Assert.Null(RoomPetsComponent.LoadData(productionConnection, 15)!.CreatedAt);
+            var inventoryPet = Assert.Single(PetLoader.Load(productionConnection, 8));
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).AddTicks(1_234_560), inventoryPet.CreatedAt);
+            var promotion = Assert.IsType<RoomPromotion>(RoomPromotionLoader.Load(new ProbeDatabase(productionDatabaseConnection), 42, TimeProvider.System));
             Assert.Equal(("Featured", "Actual row", 3), (promotion.Name, promotion.Description, promotion.CategoryId));
-            var futurePromotion = Assert.IsType<RoomPromotion>(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 43, TimeProvider.System));
-            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000), futurePromotion.StartedAt);
-            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_003_600), futurePromotion.ExpiresAt);
-            Assert.Null(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 44, TimeProvider.System));
-            Assert.Null(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 45, TimeProvider.System));
+            var futurePromotion = Assert.IsType<RoomPromotion>(RoomPromotionLoader.Load(new ProbeDatabase(productionDatabaseConnection), 43, TimeProvider.System));
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).AddTicks(1_234_560), futurePromotion.StartedAt);
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_003_600).AddTicks(6_543_210), futurePromotion.ExpiresAt);
+            Assert.Null(RoomPromotionLoader.Load(new ProbeDatabase(productionDatabaseConnection), 44, TimeProvider.System));
+            Assert.Null(RoomPromotionLoader.Load(new ProbeDatabase(productionDatabaseConnection), 45, TimeProvider.System));
             var banMigration = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory,
                 "../../../../Database/Migrations/22_UseUtcRoomBanExpiry.sql")));
             connection.Execute(banMigration);
@@ -142,13 +160,14 @@ public sealed class RoomComponentDatabaseTests
                 SELECT DATA_TYPE, DATETIME_PRECISION FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'room_bans' AND column_name = 'expire'
                 """));
-            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).UtcDateTime,
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).AddTicks(1_234_560).UtcDateTime,
                 DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT expire FROM room_bans WHERE user_id = 20"), DateTimeKind.Utc));
             Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT expire FROM room_bans WHERE user_id = 21"));
             Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT expire FROM room_bans WHERE user_id = 22"));
-            var banStore = (IRoomBanStore)new RoomBansComponent(new ProbeDatabase(databaseConnection), TimeProvider.System);
+            connection.Execute("UPDATE room_bans SET expire = '2039-09-18 23:06:40.123456' WHERE user_id = 20");
+            var banStore = (IRoomBanStore)new RoomBansComponent(new ProbeDatabase(productionDatabaseConnection), TimeProvider.System);
             var loadedBan = Assert.Single(banStore.Load(42));
-            Assert.Equal((20, DateTimeOffset.FromUnixTimeSeconds(2_200_000_000)), (loadedBan.UserId, loadedBan.ExpiresAt));
+            Assert.Equal((20, DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).AddTicks(1_234_560)), (loadedBan.UserId, loadedBan.ExpiresAt));
             var savedExpiry = DateTimeOffset.FromUnixTimeSeconds(2_200_003_600);
             banStore.Save(42, 23, savedExpiry);
             Assert.Equal(savedExpiry.UtcDateTime,
@@ -274,6 +293,13 @@ public sealed class RoomComponentDatabaseTests
         public bool IsConnected() => true;
         public System.Data.IDbConnection Connection() => new MySqlConnection(connectionString);
     }
+
+    private static string ProductionConnection() => new MySqlConnectionStringBuilder(
+        Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
+    {
+        AllowZeroDateTime = true,
+        ConvertZeroDateTime = true
+    }.ConnectionString;
 
     private sealed class FailingDatabase : Plus.Database.IDatabase
     {

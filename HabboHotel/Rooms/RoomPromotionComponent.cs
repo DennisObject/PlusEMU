@@ -22,14 +22,10 @@ public sealed class RoomPromotionLoader(IDatabase database, TimeProvider clock) 
             SELECT title, description, timestamp_start AS StartsAt, timestamp_expire AS ExpiresAt, category_id AS CategoryId
             FROM room_promotions WHERE room_id = @roomId AND timestamp_expire > UTC_TIMESTAMP(6) LIMIT 1
             """, new { roomId });
-        return row == null ? null : new(row.Title, row.Description, AsUtc(row.StartsAt), AsUtc(row.ExpiresAt), row.CategoryId, clock);
+        return row == null ? null : new(row.Title, row.Description, row.StartsAt, row.ExpiresAt, row.CategoryId, clock);
     }
 
-    internal static DateTimeOffset? AsUtc(DateTime? value) => value.HasValue
-        ? new(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc))
-        : null;
-
-    private sealed record PromotionRow(string Title, string Description, DateTime? StartsAt, DateTime? ExpiresAt, int CategoryId);
+    private sealed record PromotionRow(string Title, string Description, DateTimeOffset? StartsAt, DateTimeOffset? ExpiresAt, int CategoryId);
 }
 
 public sealed class RoomPromotionComponent(IRoomPromotionLoader loader) : IRoomComponent
