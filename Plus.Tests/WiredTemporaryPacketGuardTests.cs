@@ -10,6 +10,7 @@ using Plus.Communication.Packets.Incoming.Rooms.Furni;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Core.Settings;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Data.Moodlight;
 using Plus.HabboHotel.Items.Data.Toner;
@@ -61,6 +62,10 @@ public class WiredTemporaryPacketGuardTests
         var database = EditorTestSupport.UntouchableDatabase();
         var arguments = constructor.GetParameters().Select(parameter => parameter.ParameterType == typeof(ISettingsManager)
             ? (object)new EnabledExchangeSettings()
+            : parameter.ParameterType == typeof(IRoomItemPickupService)
+                ? new RoomItemPickupService(null!, null!, new RoomItemPickupStore(database))
+            : parameter.ParameterType == typeof(IGroupPresentationService)
+                ? new GroupPresentationService(null!, null!, null!, null!, null!)
             : parameter.ParameterType == typeof(IFurnitureUseService)
                 ? new FurnitureUseService(new FurnitureUseStore(database), null!)
                 : parameter.ParameterType == typeof(IGiftOpeningService)

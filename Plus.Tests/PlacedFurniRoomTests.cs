@@ -142,7 +142,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
 
         _client.Sent.Clear();
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, 30));
 
         Assert.Null(_room.GetRoomItemHandler().GetItem(30));
@@ -230,6 +230,10 @@ public partial class PlacedFurniRoomTests : IDisposable
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 
+    private PickupObjectEvent PickupObject() => new(new RoomItemPickupService(
+        Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null),
+        new RoomItemPickupStore(_database)));
+
     private void Set(string field, object value) =>
         typeof(Room).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_room, value);
 
@@ -267,8 +271,16 @@ public partial class PlacedFurniRoomTests : IDisposable
         public override void ChangeDatabase(string databaseName) { }
         public override void Close() => _state = ConnectionState.Closed;
         public override void Open() => _state = ConnectionState.Open;
-        protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => throw new NotSupportedException();
+        protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => new NoOpTransaction(this);
         protected override DbCommand CreateDbCommand() => new NoOpCommand(read, write) { Connection = this };
+    }
+
+    private sealed class NoOpTransaction(DbConnection connection) : DbTransaction
+    {
+        public override IsolationLevel IsolationLevel => IsolationLevel.ReadCommitted;
+        protected override DbConnection DbConnection => connection;
+        public override void Commit() { }
+        public override void Rollback() { }
     }
 
     private sealed class NoOpCommand(Func<string, DataTable>? read = null, Action<string, DbParameterCollection>? write = null) : DbCommand

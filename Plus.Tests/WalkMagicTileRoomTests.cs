@@ -187,7 +187,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(map.CanRollItemHere(1, 1));
         await MoveObject().Parse(_room, _client, ClientPacket(11, 2, 2, 0));
         // The floor opened by ordinary furniture stays open, as on master.
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, 12));
         Assert.True(map.ResolvePlacement(1, 1).CanStack);
         Assert.Equal(SquareState.Open, map.Model.SqState[1, 1]);
@@ -319,12 +319,12 @@ public partial class PlacedFurniRoomTests
         var width = full.ReadInt(); var count = full.ReadInt();
         for (var index = 0; index < count; index++)
             Assert.Equal(_room.GetGameMap().PlacementHeightMap()[index % width, index / width], full.ReadShort());
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, 10));
         Assert.Equal((short)0, DeltaAt(2, 2));
         Add(11, 1, 1, height: 2, stackable: false);
         Assert.Equal((short)(512 | 0x4000), DeltaAt(1, 1));
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, 11));
         Assert.Equal((short)0, DeltaAt(1, 1));
     }
@@ -345,7 +345,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((short)(1152 | 0x4000), DeltaAt(1, 1));
         await new UpdateMagicTileEvent().Parse(_client, ClientPacket(11, 225));
         Assert.Equal((short)576, DeltaAt(2, 2));
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, 11));
         Assert.Equal((short)0, DeltaAt(2, 2));
     }
@@ -502,7 +502,7 @@ public partial class PlacedFurniRoomTests
         var support = Add(10, 1, 1, height: 3);
         var item = await Drop(11, 1, 1, InteractionType.None);
         Assert.Equal(3, item!.GetZ);
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, (int)support.Id));
         await MoveObject().Parse(_room, _client, ClientPacket(11, 1, 1, 2));
         Assert.Equal(3, item.GetZ);
