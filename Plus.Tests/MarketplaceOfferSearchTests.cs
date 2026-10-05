@@ -1,15 +1,12 @@
 using System.Data;
+using System.Buffers.Binary;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming.Marketplace;
 using Plus.Communication.Packets.Outgoing.Marketplace;
-using Plus.Database;
-using Plus.Database.Interfaces;
-using Plus.HabboHotel;
-using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.Catalog.Marketplace;
-using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 using Xunit;
 
@@ -18,85 +15,102 @@ namespace Plus.Tests;
 [Collection("Group purchase")]
 public class MarketplaceOfferSearchTests
 {
-    // SHA-256 of the pre-migration GetOffers payloads and SQL for the scenarios below.
-    private const string BaselineSha256 = "43be31a5e8b894121daf0bf7e0a7d6df0450c9842d2e13ac0fda4d19fbfc7a4a";
+    // SHA-256 of the pre-migration GetOffers payloads (hex) for the scenarios below.
+    private const string BaselinePayloadSha256 = "469dfb6d4672beb5dbf80088b825e95b5390c38fbeb7830e3c96a9e9d0165106";
+
+    private static readonly DateTimeOffset Now = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000);
 
     [Fact]
     public async Task ComposedOffersMatchPreMigrationBaseline()
     {
-        var gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
-        var previous = gameField.GetValue(null);
-        var sb = new StringBuilder();
-        try
+        var lines = new List<string>();
+        foreach (var scenario in Scenarios())
         {
-            var items = new List<MarketOffer>();
-            var keys = new List<int>();
-            var manager = Proxy<IMarketplaceManager>((m, args) => m switch
-            {
-                "get_MarketItems" => items,
-                "get_MarketItemKeys" => keys,
-                "FormatTimestampString" => "1000",
-                "AvgPriceForSprite" => (int)args[0]! * 2,
-                _ => throw new InvalidOperationException(m),
-            });
-            var catalog = Proxy<ICatalogManager>((m, _) => m == "get_Marketplace" ? manager : throw new InvalidOperationException(m));
-            gameField.SetValue(null, Proxy<IGame>((m, _) => m == "get_Catalog" ? catalog : throw new InvalidOperationException(m)));
+            var (database, manager) = Fixture(scenario.Rows);
+            var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "u" });
+            await new GetOffersEvent(new MarketplaceOfferSearchService(database, manager, new FixedClock(Now))).Parse(client, Packet(scenario.Min, scenario.Max, scenario.Query, scenario.Mode));
+            lines.Add($"{scenario.Name}: {Convert.ToHexString(sent.Single().Payload)}");
+        }
 
-            var rows = new object[][]
-            {
-                [1, 1, 100, 50, 0, 0], [2, 1, 100, 30, 0, 0], [3, 1, 100, 30, 0, 0], [4, 2, 200, 70, 0, 0],
-                [5, 1, 300, 10, 9, 4], [6, 1, 300, 5, 3, 1], [1, 1, 100, 1, 0, 0], [7, 2, 200, 20, 0, 0],
-            };
-            var scenarios = new (string Name, int Min, int Max, string Query, int Mode, object[][]? Rows)[]
-            {
-                ("mixed-asc", -1, -1, "", 0, rows),
-                ("mixed-desc-bounds", 10, 500, "x", 1, rows),
-                ("empty", -1, -1, "", 0, []),
-                ("null-table", -1, -1, "", 0, null),
-            };
-            foreach (var (name, min, max, query, mode, data) in scenarios)
-            {
-                items.Clear();
-                keys.Clear();
-                var sql = new List<string>();
-                var database = Proxy<IDatabase>((m, _) => m == "GetQueryReactor" ? Adapter(sql, data) : throw new InvalidOperationException(m));
-                var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "u" });
-                var packet = Packet(min, max, query, mode);
-                await new GetOffersEvent(new MarketplaceOfferSearchService(database, manager)).Parse(client, packet);
-                sb.AppendLine($"{name}: {string.Join(" ## ", sql)}");
-                sb.AppendLine($"{name}: {Convert.ToHexString(sent.Single().Payload)}");
-            }
-            Assert.Equal(BaselineSha256, Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()))));
-        }
-        finally
-        {
-            gameField.SetValue(null, previous);
-        }
+        Assert.Equal(BaselinePayloadSha256, Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Concat(lines.Select(line => line + "\n"))))));
+    }
+
+    [Theory]
+    [InlineData(1, "DESC", -1, -1)]
+    [InlineData(0, "ASC", 10, 500)]
+    public async Task FilterModeChoosesFixedOrderAndBindsBounds(int mode, string order, int min, int max)
+    {
+        var (database, manager) = Fixture(Rows());
+        var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "u" });
+
+        await new GetOffersEvent(new MarketplaceOfferSearchService(database, manager, new FixedClock(Now))).Parse(client, Packet(min, max, "ignored", mode));
+
+        var query = Assert.Single(database.OfferQueries);
+        Assert.Contains($"ORDER BY `asking_price` {order} LIMIT 500", query.Sql);
+        Assert.DoesNotContain(min.ToString(), query.Sql);
+        Assert.Equal(min, query.Parameters["minCost"]);
+        Assert.Equal(max, query.Parameters["maxCost"]);
+        var local = Now.ToLocalTime().DateTime;
+        Assert.Equal((local - new DateTime(1970, 1, 1)).TotalSeconds - 172800.0, query.Parameters["threshold"]);
     }
 
     [Fact]
-    public void SnapshotDoesNotFollowLaterMarketStateMutation()
+    public async Task SnapshotDoesNotFollowLaterMarketStateMutation()
     {
-        var items = new List<MarketOffer>();
-        var keys = new List<int>();
-        var manager = Proxy<IMarketplaceManager>((m, args) => m switch
-        {
-            "get_MarketItems" => items,
-            "get_MarketItemKeys" => keys,
-            "FormatTimestampString" => "1000",
-            "AvgPriceForSprite" => (int)args[0]! * 2,
-            _ => throw new InvalidOperationException(m),
-        });
-        var rows = new object[][] { [1, 1, 100, 50, 0, 0], [2, 1, 100, 30, 0, 0], [5, 1, 300, 10, 9, 4] };
-        var snapshot = new MarketplaceOfferSearchService(Database(new List<string>(), rows), manager).Search(-1, -1, "", 0);
+        var (database, manager) = Fixture(Rows());
+        var items = (List<MarketOffer>)manager.MarketItems;
+        var snapshot = new MarketplaceOfferSearchService(database, manager, new FixedClock(Now)).Search(-1, -1, "", 0);
         var before = Writes(snapshot);
 
         items.Clear();
-        keys.Clear();
+        ((List<int>)manager.MarketItemKeys).Clear();
         items.Add(new MarketOffer(9, 900, 1, 1, 0, 0));
 
         Assert.Equal(before, Writes(snapshot));
-        Assert.Equal(2, snapshot.Offers.Length);
+        Assert.Equal(4, snapshot.Offers.Length);
+    }
+
+    private static List<object[]> Rows() =>
+    [
+        [1u, "1", 100, 50, 0, 0], [2u, "1", 100, 30, 0, 0], [3u, "1", 100, 30, 0, 0], [4u, "2", 200, 70, 0, 0],
+        [5u, "1", 300, 10, 9, 4], [6u, "1", 300, 5, 3, 1], [1u, "1", 100, 1, 0, 0], [7u, "2", 200, 20, 0, 0],
+    ];
+
+    private static IEnumerable<(string Name, int Min, int Max, string Query, int Mode, List<object[]>? Rows)> Scenarios() =>
+    [
+        ("mixed-asc", -1, -1, "", 0, Rows()),
+        ("mixed-desc-bounds", 10, 500, "x", 1, Rows()),
+        ("empty", -1, -1, "", 0, []),
+        ("null-table", -1, -1, "", 0, null),
+    ];
+
+    private static (GroupManagementTests.RecordingDatabase Database, IMarketplaceManager Manager) Fixture(List<object[]>? rows)
+    {
+        var database = new GroupManagementTests.RecordingDatabase { OfferRows = Table(rows) };
+        var items = new List<MarketOffer>();
+        var keys = new List<int>();
+        var manager = Proxy<IMarketplaceManager>((method, args) => method switch
+        {
+            "get_MarketItems" => items,
+            "get_MarketItemKeys" => keys,
+            "AvgPriceForSprite" => (int)args[0]! * 2,
+            _ => throw new InvalidOperationException(method),
+        });
+        return (database, manager);
+    }
+
+    private static DataTable Table(List<object[]>? rows)
+    {
+        var table = new DataTable();
+        table.Columns.Add("OfferId", typeof(uint));
+        table.Columns.Add("ItemType", typeof(string));
+        table.Columns.Add("SpriteId", typeof(int));
+        table.Columns.Add("TotalPrice", typeof(int));
+        table.Columns.Add("LimitedNumber", typeof(int));
+        table.Columns.Add("LimitedStack", typeof(int));
+        foreach (var row in rows ?? [])
+            table.Rows.Add(row);
+        return table;
     }
 
     private static string Writes(MarketplaceOffersSnapshot snapshot)
@@ -104,34 +118,6 @@ public class MarketplaceOfferSearchTests
         var packet = new HabbiconTestSupport.RecordingPacket();
         new MarketPlaceOffersComposer(snapshot).Compose(packet);
         return string.Join("|", packet.Writes.Select(write => $"{write.GetType().Name}:{write}"));
-    }
-
-    private static IDatabase Database(List<string> sql, object[][]? data) =>
-        Proxy<IDatabase>((m, _) => m == "GetQueryReactor" ? Adapter(sql, data) : throw new InvalidOperationException(m));
-
-    private static IQueryAdapter Adapter(List<string> sql, object[][]? data) => Proxy<IQueryAdapter>((m, args) => m switch
-    {
-        "SetQuery" => Record(sql, (string)args[0]!),
-        "AddParameter" => null,
-        "GetTable" => Table(data),
-        "Dispose" => null,
-        _ => throw new InvalidOperationException(m),
-    });
-
-    private static object? Record(List<string> sql, string query)
-    {
-        sql.Add(query);
-        return null;
-    }
-
-    private static DataTable? Table(object[][]? data)
-    {
-        if (data == null) return null;
-        var table = new DataTable();
-        foreach (var column in new[] { "offer_id", "item_type", "sprite_id", "total_price", "limited_number", "limited_stack" })
-            table.Columns.Add(column, typeof(int));
-        foreach (var row in data) table.Rows.Add(row);
-        return table;
     }
 
     private static FlashIncomingPacket Packet(params object[] values)
@@ -142,14 +128,14 @@ public class MarketplaceOfferSearchTests
             if (value is int number)
             {
                 var bytes = new byte[4];
-                System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes, number);
+                BinaryPrimitives.WriteInt32BigEndian(bytes, number);
                 stream.Write(bytes);
             }
             else if (value is string text)
             {
                 var raw = Encoding.UTF8.GetBytes(text);
                 var length = new byte[2];
-                System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(length, (ushort)raw.Length);
+                BinaryPrimitives.WriteUInt16BigEndian(length, (ushort)raw.Length);
                 stream.Write(length);
                 stream.Write(raw);
             }
@@ -157,16 +143,10 @@ public class MarketplaceOfferSearchTests
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 
-    private static T Proxy<T>(Func<string, object?[], object?> call) where T : class
-    {
-        var proxy = System.Reflection.DispatchProxy.Create<T, TestProxy>();
-        ((TestProxy)(object)proxy).Call = call;
-        return proxy;
-    }
+    private static T Proxy<T>(Func<string, object?[], object?> call) where T : class => CatalogSnapshotTestSupport.Proxy<T>(call);
 
-    public class TestProxy : System.Reflection.DispatchProxy
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {
-        public Func<string, object?[], object?> Call = null!;
-        protected override object? Invoke(MethodInfo? method, object?[]? args) => Call(method!.Name, args!);
+        public override DateTimeOffset GetUtcNow() => now;
     }
 }

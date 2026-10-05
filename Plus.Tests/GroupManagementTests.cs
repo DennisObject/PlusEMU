@@ -585,6 +585,8 @@ public class GroupManagementTests : IDisposable
         public List<string> Statements { get; } = new();
         public int Scalar { get; set; }
         public string? Username { get; set; }
+        public DataTable? OfferRows { get; set; }
+        public List<(string Sql, Dictionary<string, object?> Parameters)> OfferQueries { get; } = new();
         public bool IsConnected() => true;
         public IQueryAdapter GetQueryReactor() => new EmptyAdapter();
         public IDbConnection Connection() => new RecordingConnection(this);
@@ -652,6 +654,11 @@ public class GroupManagementTests : IDisposable
         public IDataReader ExecuteReader(CommandBehavior behavior)
         {
             database.Statements.Add(CommandText);
+            if (CommandText.Contains("FROM `catalog_marketplace_offers`", StringComparison.OrdinalIgnoreCase))
+            {
+                database.OfferQueries.Add((CommandText, Parameters.Cast<RecordingParameter>().ToDictionary(parameter => parameter.ParameterName, parameter => parameter.Value)));
+                return (database.OfferRows ?? new DataTable()).CreateDataReader();
+            }
             if (CommandText.Contains("FROM group_memberships", StringComparison.OrdinalIgnoreCase))
                 return EmptyReader(("UserId", typeof(int)), ("Rank", typeof(int)));
             if (CommandText.Contains("FROM group_requests", StringComparison.OrdinalIgnoreCase))
