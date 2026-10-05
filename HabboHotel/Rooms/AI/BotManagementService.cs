@@ -2,6 +2,7 @@ using Plus.HabboHotel.Users.Inventory.Bots;
 using System.Text.RegularExpressions;
 using Dapper;
 using Plus.Communication.Packets.Outgoing.Inventory.Bots;
+using Plus.Communication.Packets.Outgoing.Rooms.AI.Bots;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Core.FigureData;
@@ -17,6 +18,7 @@ namespace Plus.HabboHotel.Rooms.AI;
 
 public enum BotAction { CopyLooks = 1, Speech = 2, Relax = 3, Dance = 4, Rename = 5 }
 public sealed record BotActionRequest(int BotId, BotAction Action, string Data);
+public readonly record struct BotActionViewSnapshot(int BotId, int ActionId, string Data);
 public sealed record BotPlacementData(string AiType, string WalkMode, bool AutomaticChat, int SpeakingInterval, bool MixSentences, int ChatBubble,
     IReadOnlyList<string> Speech);
 
@@ -74,10 +76,24 @@ public interface IBotManagementService
     void Place(Room room, GameClient session, int botId, int x, int y);
     void PickUp(GameClient session, int botId);
     void SaveAction(GameClient session, BotActionRequest request);
+    void ShowAction(GameClient session, int botId, int actionId);
 }
 
 public sealed class BotManagementService(IBotManagementStore store, IFigureDataManager figures) : IBotManagementService
 {
+    public void ShowAction(GameClient session, int botId, int actionId)
+    {
+        var room = session.GetHabbo().CurrentRoom;
+        if (room == null || actionId is not (2 or 5) ||
+            !room.GetRoomUserManager().TryGetBot(botId, out var user) || user.BotData.IsTemporary)
+            return;
+        var bot = user.BotData;
+        var data = actionId == 5 ? bot.Name :
+            string.Concat(bot.RandomSpeech.Select(speech => speech.Message + "\n")) + ";#;" +
+            bot.AutomaticChat + ";#;" + bot.SpeakingInterval.ToString(System.Globalization.CultureInfo.InvariantCulture) + ";#;" + bot.MixSentences;
+        session.Send(new OpenBotActionComposer(new(bot.Id, actionId, data)));
+    }
+
     public void Place(Room room, GameClient session, int botId, int x, int y)
     {
         if (!room.CheckRights(session, true)) return;

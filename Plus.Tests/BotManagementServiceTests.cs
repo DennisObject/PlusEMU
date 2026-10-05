@@ -1,4 +1,9 @@
 using System.Collections.Concurrent;
+using System.Buffers.Binary;
+using Plus.Communication.Flash;
+using Plus.Communication.Packets.Incoming.Rooms.AI.Bots;
+using Plus.Communication.Packets.Outgoing;
+using Plus.Communication.Packets.Outgoing.Rooms.AI.Bots;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Plus.HabboHotel.Rooms;
@@ -75,6 +80,52 @@ public sealed class BotManagementServiceTests
         Assert.True(bot.AutomaticChat);
         Assert.Equal(7, bot.SpeakingInterval);
         Assert.False(bot.MixSentences);
+    }
+
+    [Fact]
+    public async Task OpenHandlerDecodesAndActualServiceCapturesBotEditorData()
+    {
+        var (service, _, bot, client) = Fixture(ownerId: 7, actorId: 7);
+        bot.RandomSpeech.Add(new("hello", bot.Id));
+        bot.RandomSpeech.Add(new("world", bot.Id));
+        var sent = new List<byte[]>();
+        client.SendCallback = args =>
+        {
+            sent.Add(args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray());
+            return true;
+        };
+        var handler = new OpenBotActionEvent(service);
+        await handler.Parse(client, HabbiconTestSupport.Incoming(bot.Id, 2));
+        await handler.Parse(client, HabbiconTestSupport.Incoming(bot.Id, 5));
+        await handler.Parse(client, HabbiconTestSupport.Incoming(bot.Id, 4));
+        Assert.Equal(2, sent.Count);
+        var speech = new FlashIncomingPacket { Buffer = sent[0][6..] };
+        Assert.Equal(ServerPacketHeader.OpenBotActionComposer, (uint)BinaryPrimitives.ReadUInt16BigEndian(sent[0].AsSpan(4, 2)));
+        Assert.Equal(bot.Id, speech.ReadInt());
+        Assert.Equal(2, speech.ReadInt());
+        Assert.Equal("hello\nworld\n;#;False;#;7;#;False", speech.ReadString());
+        var name = new FlashIncomingPacket { Buffer = sent[1][6..] };
+        Assert.Equal(bot.Id, name.ReadInt());
+        Assert.Equal(5, name.ReadInt());
+        Assert.Equal("Helper", name.ReadString());
+        client.GetHabbo().CurrentRoom = null;
+        await handler.Parse(client, HabbiconTestSupport.Incoming(bot.Id, 5));
+        Assert.Equal(2, sent.Count);
+    }
+
+    [Fact]
+    public void BotEditorComposerReadsOnlyCapturedScalars()
+    {
+        var (service, _, bot, client) = Fixture(ownerId: 7, actorId: 7);
+        var composer = new OpenBotActionComposer(new(bot.Id, 5, bot.Name));
+        bot.Id = 99;
+        bot.Name = "changed";
+        for (var i = 0; i < 2; i++)
+        {
+            var packet = new HabbiconTestSupport.RecordingPacket();
+            composer.Compose(packet);
+            Assert.Equal(new object[] { 31, 5, "Helper" }, packet.Writes);
+        }
     }
 
     private static (BotManagementService Service, RecordingStore Store, RoomBot Bot, HabboHotel.GameClients.GameClient Client) Fixture(int ownerId, int actorId)

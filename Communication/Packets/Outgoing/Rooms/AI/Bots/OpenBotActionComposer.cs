@@ -1,31 +1,23 @@
 ﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.AI;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.AI.Bots;
 
 public class OpenBotActionComposer : IServerPacket
 {
-    private readonly RoomUser _botUser;
-    private readonly int _actionId;
-    private readonly string _botSpeech;
-
+    private readonly BotActionViewSnapshot _snapshot;
     public uint MessageId => ServerPacketHeader.OpenBotActionComposer;
 
-    public OpenBotActionComposer(RoomUser botUser, int actionId, string botSpeech)
-    {
-        _botUser = botUser;
-        _actionId = actionId;
-        _botSpeech = botSpeech;
-    }
+    public OpenBotActionComposer(BotActionViewSnapshot snapshot) => _snapshot = snapshot;
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_botUser.BotData.Id);
-        packet.WriteInteger(_actionId);
-        if (_actionId == 2)
-            packet.WriteString(_botSpeech);
-        else if (_actionId == 5)
-            packet.WriteString(_botUser.BotData.Name);
+        packet.WriteInteger(_snapshot.BotId);
+        packet.WriteInteger(_snapshot.ActionId);
+        if (_snapshot.ActionId == 2)
+            packet.WriteString(_snapshot.Data);
+        else if (_snapshot.ActionId == 5)
+            packet.WriteString(_snapshot.Data);
 
     }
 }
