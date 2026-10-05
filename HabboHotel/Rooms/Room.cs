@@ -93,7 +93,7 @@ public class Room
     }
 
     internal void SetRuntime(Gamemap gamemap, RoomItemHandling items, RoomUserManager users,
-        FilterComponent filter, WiredComponent wired, IRoomUserSnapshotService userSnapshots, TimeProvider interactionClock)
+        WiredComponent wired, IRoomUserSnapshotService userSnapshots, TimeProvider interactionClock)
     {
         IsLagging = 0;
         Unloaded = false;
@@ -104,7 +104,6 @@ public class Room
         _gamemap = gamemap;
         _roomItemHandling = items;
         _roomUserManager = users;
-        _filterComponent = filter;
         _wiredComponent = wired;
         _userSnapshots = userSnapshots;
         _interactionClock = interactionClock;
@@ -112,6 +111,7 @@ public class Room
     }
 
     internal void SetBans(BansComponent bans) => _bansComponent = bans;
+    internal void SetFilter(FilterComponent filter) => _filterComponent = filter;
     internal void SetTrading(TradingComponent trading) => _tradingComponent = trading;
 
     internal ILogger<RoomNavigation> NavigationLogger => _navigationLogger;
