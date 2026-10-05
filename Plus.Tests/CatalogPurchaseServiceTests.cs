@@ -384,7 +384,16 @@ public sealed class CatalogPurchaseServiceTests
         public Item CreateGiftItem(ItemDefinition definition, Habbo habbo, string extraData, string displayFlags,
             int itemId, uint limitedNumber = 0, uint limitedStack = 0) => throw new NotSupportedException();
         public List<Item> CreateMultipleItems(ItemDefinition definition, Habbo habbo, string extraData, int amount,
-            int groupId = 0) => throw new NotSupportedException();
+            int groupId = 0)
+        {
+            var items = new List<Item>();
+            for (var i = 0; i < amount; i++)
+            {
+                var item = CreateSingleItemNullable(definition, habbo, extraData, extraData, groupId);
+                if (item != null) items.Add(item);
+            }
+            return items;
+        }
         public List<Item> CreateMultipleItems(ItemDefinition definition, int ownerId, string extraData, int amount,
             int groupId = 0) => throw new NotSupportedException();
         public List<Item> CreateTeleporterItems(ItemDefinition definition, Habbo habbo, int groupId = 0) =>
