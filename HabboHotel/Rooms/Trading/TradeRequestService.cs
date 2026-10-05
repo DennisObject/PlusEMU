@@ -20,7 +20,7 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
         var room = session.GetHabbo().CurrentRoom;
         if (room == null)
             return;
-        
+
         var roomUser = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         if (roomUser == null)
             return;
