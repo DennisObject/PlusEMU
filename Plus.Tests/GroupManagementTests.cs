@@ -586,6 +586,9 @@ public class GroupManagementTests : IDisposable
         public int Scalar { get; set; }
         public string? Username { get; set; }
         public DataTable? OfferRows { get; set; }
+        public List<string> Transactions { get; } = new();
+        public List<(string Sql, Dictionary<string, object?> Parameters)> Writes { get; } = new();
+        public bool FailInsert { get; set; }
         public List<(string Sql, Dictionary<string, object?> Parameters)> OfferQueries { get; } = new();
         public bool IsConnected() => true;
         public IQueryAdapter GetQueryReactor() => new EmptyAdapter();
@@ -615,8 +618,8 @@ public class GroupManagementTests : IDisposable
         public int ConnectionTimeout => 1;
         public string Database => "";
         public ConnectionState State { get; private set; } = ConnectionState.Open;
-        public IDbTransaction BeginTransaction() => new RecordingTransaction(this);
-        public IDbTransaction BeginTransaction(IsolationLevel il) => new RecordingTransaction(this, il);
+        public IDbTransaction BeginTransaction() => new RecordingTransaction(this, database);
+        public IDbTransaction BeginTransaction(IsolationLevel il) => new RecordingTransaction(this, database, il);
         public void ChangeDatabase(string databaseName) { }
         public void Close() => State = ConnectionState.Closed;
         public IDbCommand CreateCommand() => new RecordingCommand(database);
@@ -624,13 +627,13 @@ public class GroupManagementTests : IDisposable
         public void Dispose() { }
     }
 
-    private sealed class RecordingTransaction(IDbConnection connection, IsolationLevel isolationLevel = IsolationLevel.Unspecified) : IDbTransaction
+    private sealed class RecordingTransaction(IDbConnection connection, RecordingDatabase database, IsolationLevel isolationLevel = IsolationLevel.Unspecified) : IDbTransaction
     {
         public IDbConnection Connection { get; } = connection;
         public IsolationLevel IsolationLevel { get; } = isolationLevel;
-        public void Commit() { }
-        public void Rollback() { }
-        public void Dispose() { }
+        public void Commit() => database.Transactions.Add("commit");
+        public void Rollback() => database.Transactions.Add("rollback");
+        public void Dispose() => database.Transactions.Add("dispose");
     }
 
     private sealed class RecordingCommand(RecordingDatabase database) : IDbCommand
@@ -648,6 +651,9 @@ public class GroupManagementTests : IDisposable
         public int ExecuteNonQuery()
         {
             database.Statements.Add(CommandText);
+            database.Writes.Add((CommandText, Parameters.Cast<RecordingParameter>().ToDictionary(parameter => parameter.ParameterName, parameter => parameter.Value)));
+            if (database.FailInsert && CommandText.Contains("INSERT INTO `catalog_marketplace_offers`", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("forced insert failure");
             return 1;
         }
         public IDataReader ExecuteReader() => ExecuteReader(CommandBehavior.Default);
