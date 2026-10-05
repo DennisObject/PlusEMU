@@ -1,30 +1,22 @@
-﻿using Plus.Utilities;
-
 namespace Plus.HabboHotel.Rewards;
 
-public class Reward
+public sealed class Reward
 {
-    public Reward(double start, double end, string type, string rewardData, string message)
+    public Reward(DateTimeOffset? startsAt, DateTimeOffset? endsAt, string type, string rewardData, string message)
     {
-        RewardStart = start;
-        RewardEnd = end;
+        StartsAt = startsAt?.ToUniversalTime();
+        EndsAt = endsAt?.ToUniversalTime();
         Type = RewardTypeUtility.GetType(type);
         RewardData = rewardData;
         Message = message;
     }
 
-    public double RewardStart { get; set; }
-    public double RewardEnd { get; set; }
-    public RewardType Type { get; set; }
-    public string RewardData { get; set; }
-    public string Message { get; set; }
+    public DateTimeOffset? StartsAt { get; }
+    public DateTimeOffset? EndsAt { get; }
+    public RewardType Type { get; }
+    public string RewardData { get; }
+    public string Message { get; }
 
-    public bool Active
-    {
-        get
-        {
-            var now = UnixTimestamp.GetNow();
-            return now >= RewardStart && now <= RewardEnd;
-        }
-    }
+    public bool IsActiveAt(DateTimeOffset utcNow) =>
+        StartsAt is { } start && EndsAt is { } end && utcNow.ToUniversalTime() >= start && utcNow.ToUniversalTime() <= end;
 }

@@ -25526,8 +25526,8 @@ INSERT INTO `server_locale` VALUES ('user.not_found', 'Oops, this user could not
 DROP TABLE IF EXISTS `server_rewards`;
 CREATE TABLE `server_rewards` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `reward_start` int(11) NOT NULL DEFAULT '0',
-  `reward_end` int(11) NOT NULL DEFAULT '0',
+  `reward_start` datetime(6) DEFAULT NULL,
+  `reward_end` datetime(6) DEFAULT NULL,
   `reward_type` enum('credits','badge','diamonds','duckets','none') NOT NULL DEFAULT 'none',
   `reward_data` varchar(255) NOT NULL,
   `message` varchar(255) NOT NULL,

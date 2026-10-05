@@ -13,13 +13,15 @@ public class RewardManager : IRewardManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly IBadgeManager _badgeManager;
+    private readonly TimeProvider _clock;
     private readonly ConcurrentDictionary<int, List<int>> _rewardLogs;
     private readonly ConcurrentDictionary<int, Reward> _rewards;
 
-    public RewardManager(IDatabase database, IBadgeManager badgeManager)
+    public RewardManager(IDatabase database, IBadgeManager badgeManager, TimeProvider clock)
     {
         _database = database;
         _badgeManager = badgeManager;
+        _clock = clock;
         _rewards = new();
         _rewardLogs = new();
     }
@@ -37,7 +39,7 @@ public class RewardManager : IRewardManager, IStartable
         _rewards.Clear();
         _rewardLogs.Clear();
         foreach (var reward in rewards)
-            _rewards.TryAdd(reward.Id, new(reward.Start, reward.End, reward.Type, reward.Data, reward.Message));
+            _rewards.TryAdd(reward.Id, new(AsUtc(reward.Start), AsUtc(reward.End), reward.Type, reward.Data, reward.Message));
         foreach (var log in logs)
         {
             var userLogs = _rewardLogs.GetOrAdd(log.UserId, _ => new());
@@ -49,12 +51,16 @@ public class RewardManager : IRewardManager, IStartable
     private sealed class RewardRow
     {
         public int Id { get; set; }
-        public double Start { get; set; }
-        public double End { get; set; }
+        public DateTime? Start { get; set; }
+        public DateTime? End { get; set; }
         public string Type { get; set; } = string.Empty;
         public string Data { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
     }
+
+    private static DateTimeOffset? AsUtc(DateTime? value) => value is { } date
+        ? new DateTimeOffset(DateTime.SpecifyKind(date, DateTimeKind.Utc))
+        : null;
 
     private bool HasReward(int id, int rewardId)
     {
@@ -79,13 +85,14 @@ public class RewardManager : IRewardManager, IStartable
     {
         if (session == null || session.GetHabbo() == null)
             return;
+        var now = _clock.GetUtcNow();
         foreach (var entry in _rewards)
         {
             var id = entry.Key;
             var reward = entry.Value;
             if (HasReward(session.GetHabbo().Id, id))
                 continue;
-            if (reward.Active)
+            if (reward.IsActiveAt(now))
             {
                 switch (reward.Type)
                 {
