@@ -536,11 +536,11 @@ public class Room
             if (userSnapshot != null)
                 session.Send(new UsersComposer(userSnapshot));
             if (user.IsBot && user.BotData.DanceId > 0)
-                session.Send(new DanceComposer(user, user.BotData.DanceId));
+                session.Send(new DanceComposer(user.VirtualId, user.BotData.DanceId));
             else if (!user.IsBot && !user.IsPet && user.IsDancing)
-                session.Send(new DanceComposer(user, user.DanceId));
+                session.Send(new DanceComposer(user.VirtualId, user.DanceId));
             if (user.IsAsleep)
-                session.Send(new SleepComposer(user, true));
+                session.Send(new SleepComposer(user.VirtualId, true));
             if (user.CarryItemId > 0 && user.CarryTimer > 0)
                 session.Send(new CarryObjectComposer(user.VirtualId, user.CarryItemId));
             if (!user.IsBot && !user.IsPet && user.CurrentEffect > 0)

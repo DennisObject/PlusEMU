@@ -125,7 +125,7 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
                 store.SaveWalkingMode(bot.BotData.Id, room.RoomId, mode); bot.BotData.WalkingMode = mode; break;
             case BotAction.Dance:
                 bot.BotData.DanceId = bot.BotData.DanceId > 0 ? 0 : Random.Shared.Next(1, 4);
-                room.SendPacket(new DanceComposer(bot, bot.BotData.DanceId)); break;
+                room.SendPacket(new DanceComposer(bot.VirtualId, bot.BotData.DanceId)); break;
             case BotAction.Rename:
                 if (!ValidName(session, request.Data)) return;
                 store.SaveName(bot.BotData.Id, room.RoomId, request.Data); bot.BotData.Name = request.Data; room.SendUser(bot); break;

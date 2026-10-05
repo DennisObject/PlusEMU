@@ -6,6 +6,7 @@ using Plus.Communication.Packets.Incoming;
 using Plus.Communication.Packets.Incoming.Rooms.Avatar;
 using Plus.Communication.Packets.Incoming.Rooms.Chat;
 using Plus.Communication.Packets.Outgoing;
+using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
@@ -159,8 +160,11 @@ public class WiredAvatarPacketHookTests
         world.Actions.SetPosture(world.Client, 1);
         Assert.False(world.Actor.IsSitting);
         world.Actor.IsWalking = false;
+        world.Actor.RotBody = 3;
         world.Actions.SetPosture(world.Client, 1);
         Assert.True(world.Actor.IsSitting);
+        Assert.Equal(2, world.Actor.RotBody);
+        Assert.Equal(-0.35, world.Actor.Z);
 
         world.Actor.UpdateNeeded = false;
         world.Actor.IsAsleep = true;
@@ -203,6 +207,30 @@ public class WiredAvatarPacketHookTests
         Assert.Equal(new[] { true, false }, actions.Typing);
     }
 
+    [Fact]
+    public void DanceAndSleepComposersCaptureVirtualIdAndRecomposeDeterministically()
+    {
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        var actor = new RoomUser(42, 1, 7, room);
+        var dance = new DanceComposer(actor.VirtualId, 4);
+        var sleep = new SleepComposer(actor.VirtualId, true);
+        actor.VirtualId = 99;
+
+        var danceFirst = new HabbiconTestSupport.RecordingPacket();
+        var danceSecond = new HabbiconTestSupport.RecordingPacket();
+        dance.Compose(danceFirst);
+        dance.Compose(danceSecond);
+        Assert.Equal(new object[] { 7, 4 }, danceFirst.Writes);
+        Assert.Equal(danceFirst.Writes, danceSecond.Writes);
+
+        var sleepFirst = new HabbiconTestSupport.RecordingPacket();
+        var sleepSecond = new HabbiconTestSupport.RecordingPacket();
+        sleep.Compose(sleepFirst);
+        sleep.Compose(sleepSecond);
+        Assert.Equal(new object[] { 7, true }, sleepFirst.Writes);
+        Assert.Equal(sleepFirst.Writes, sleepSecond.Writes);
+    }
+
     private static FlashIncomingPacket Packet(params int[] values)
     {
         using var stream = PlusMemoryStream.GetStream(); var packet = new FlashOutgoingPacket(stream);
@@ -237,7 +265,11 @@ public class WiredAvatarPacketHookTests
                 { [ServerPacketHeader.ActionComposer] = 1, [ServerPacketHeader.DanceComposer] = 2,
                     [ServerPacketHeader.SleepComposer] = 3, [ServerPacketHeader.AvatarEffectComposer] = 4,
                     [ServerPacketHeader.UserTypingComposer] = 5 } },
-                SendCallback = packet => { SentPackets.Add(packet.MemoryBuffer.Span.Slice(packet.Offset, packet.Count).ToArray()); return true; }
+                SendCallback = packet =>
+                {
+                    SentPackets.Add(packet.MemoryBuffer.Span.Slice(packet.Offset, packet.Count).ToArray());
+                    return true;
+                }
             };
             Client.SetHabbo(new Habbo { Id = 42, Username = "actor", CurrentRoom = Room, Client = Client, Effects = new EffectsComponent() });
             Actor = new RoomUser(42, 1, 7, Room); Set(Actor, "_mClient", Client);

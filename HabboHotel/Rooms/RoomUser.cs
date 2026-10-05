@@ -278,7 +278,7 @@ public class RoomUser
         if (IsAsleep)
         {
             IsAsleep = false;
-            GetRoom().SendPacket(new SleepComposer(this, false));
+            GetRoom().SendPacket(new SleepComposer(VirtualId, false));
             GetRoom().GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = this, Action = (int)WiredAvatarAction.Awake });
         }
     }

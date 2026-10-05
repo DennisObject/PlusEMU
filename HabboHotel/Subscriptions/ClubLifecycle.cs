@@ -94,7 +94,7 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
             room.SendPacket(new RoomVisualizationSettingsComposer(room.WallThickness, room.FloorThickness, room.Hidewall));
         }
         if (level == 0 && habbo.CurrentRoom?.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id) is { DanceId: > 1 } dancer)
-        { dancer.DanceId = 0; habbo.CurrentRoom.SendPacket(new DanceComposer(dancer, 0)); }
+        { dancer.DanceId = 0; habbo.CurrentRoom.SendPacket(new DanceComposer(dancer.VirtualId, 0)); }
         AnnounceGifts(habbo);
     }
 

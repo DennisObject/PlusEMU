@@ -36,7 +36,7 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
         if (action == 5)
         {
             user.IsAsleep = true;
-            room.SendPacket(new SleepComposer(user, true));
+            room.SendPacket(new SleepComposer(user.VirtualId, true));
         }
         var wiredAction = action switch
         {
@@ -65,7 +65,7 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
             room.SendPacket(new AvatarEffectComposer(user.VirtualId, 0));
         var previousDance = user.DanceId;
         user.DanceId = danceId;
-        room.SendPacket(new DanceComposer(user, danceId));
+        room.SendPacket(new DanceComposer(user.VirtualId, danceId));
         if (danceId > 0)
             room.GetWired().Dispatch(new(WiredEventKind.AvatarAction)
                 { Actor = user, Action = (int)WiredAvatarAction.Dance, Code = danceId });
@@ -87,28 +87,12 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
         var wasSitting = user.IsSitting;
         if (posture == 1 && !user.Statusses.ContainsKey("sit"))
         {
-            if (user.RotBody % 2 == 0)
-            {
-                try
-                {
-                    user.Statusses.Add("sit", "1.0");
-                    user.Z -= 0.35;
-                    user.IsSitting = true;
-                    user.UpdateNeeded = true;
-                }
-                catch
-                {
-                    // ignored
-                }
-            }
-            else
-            {
+            if (user.RotBody % 2 != 0)
                 user.RotBody--;
-                user.Statusses.Add("sit", "1.0");
-                user.Z -= 0.35;
-                user.IsSitting = true;
-                user.UpdateNeeded = true;
-            }
+            user.Statusses.Add("sit", "1.0");
+            user.Z -= 0.35;
+            user.IsSitting = true;
+            user.UpdateNeeded = true;
         }
         else if (posture == 0 && user.IsSitting)
         {
@@ -134,15 +118,6 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
         var rot = Rotation.Calculate(user.X, user.Y, x, y);
         user.SetRot(rot, false);
         user.UpdateNeeded = true;
-        if (user.RidingHorse)
-        {
-            var horse = session.GetHabbo().CurrentRoom.GetRoomUserManager().GetRoomUserByVirtualId(user.HorseId);
-            if (horse != null)
-            {
-                horse.SetRot(rot, false);
-                horse.UpdateNeeded = true;
-            }
-        }
     }
 
     public void SetTyping(GameClient session, bool typing)

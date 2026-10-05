@@ -28,7 +28,7 @@ internal class DanceCommand : IChatCommand
                 session.SendWhisper("The dance ID must be between 0 and 4!");
                 return;
             }
-            session.GetHabbo().CurrentRoom.SendPacket(new DanceComposer(thisUser, danceId));
+            session.GetHabbo().CurrentRoom.SendPacket(new DanceComposer(thisUser.VirtualId, danceId));
         }
         else
             session.SendWhisper("Please enter a valid dance ID.");

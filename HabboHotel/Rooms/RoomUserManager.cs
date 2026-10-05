@@ -173,7 +173,7 @@ public class RoomUserManager
                 _bots[user.BotData.BotId] = user;
             else
                 _bots.TryAdd(user.BotData.Id, user);
-            _room.SendPacket(new DanceComposer(user, user.BotData.DanceId));
+            _room.SendPacket(new DanceComposer(user.VirtualId, user.BotData.DanceId));
         }
         return user;
     }
@@ -679,7 +679,7 @@ public class RoomUserManager
                 if (!user.IsBot && !user.IsAsleep && user.IdleTime >= 600)
                 {
                     user.IsAsleep = true;
-                    _room.SendPacket(new SleepComposer(user, true));
+                    _room.SendPacket(new SleepComposer(user.VirtualId, true));
                 }
                 if (user.CarryItemId > 0)
                 {

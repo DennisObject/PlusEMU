@@ -1,23 +1,22 @@
 ﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 
 public class SleepComposer : IServerPacket
 {
-    private readonly RoomUser _user;
+    private readonly int _virtualId;
     private readonly bool _isSleeping;
     public uint MessageId => ServerPacketHeader.SleepComposer;
 
-    public SleepComposer(RoomUser user, bool isSleeping)
+    public SleepComposer(int virtualId, bool isSleeping)
     {
-        _user = user;
+        _virtualId = virtualId;
         _isSleeping = isSleeping;
     }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_user.VirtualId);
+        packet.WriteInteger(_virtualId);
         packet.WriteBoolean(_isSleeping);
     }
 }

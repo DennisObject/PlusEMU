@@ -82,7 +82,7 @@ public sealed class EffectsComponent
             return;
         CurrentEffect = effectId;
         if (user.IsDancing)
-            _habbo.CurrentRoom.SendPacket(new DanceComposer(user, 0));
+            _habbo.CurrentRoom.SendPacket(new DanceComposer(user.VirtualId, 0));
         _habbo.CurrentRoom.SendPacket(new AvatarEffectComposer(user.VirtualId, effectId));
     }
 
