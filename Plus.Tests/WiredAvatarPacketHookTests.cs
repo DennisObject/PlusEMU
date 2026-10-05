@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming;
 using Plus.Communication.Packets.Incoming.Rooms.Avatar;
+using Plus.Communication.Packets.Incoming.Rooms.Chat;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
@@ -27,7 +28,7 @@ public class WiredAvatarPacketHookTests
     public async Task ExpressionPacketRunsActualConfiguredTriggerOnceWithActorIdentity(int expression, int editorAction)
     {
         var world = new World(editorAction);
-        await new ActionEvent(new NoQuests()).Parse(world.Room, world.Client, Packet(expression));
+        await new ActionEvent(world.Actions).Parse(world.Room, world.Client, Packet(expression));
         var observed = Assert.Single(world.Capture.Events);
         Assert.Same(world.Actor, observed.Actor); Assert.Equal(editorAction, observed.Action); Assert.Equal(-1, observed.Code);
     }
@@ -126,7 +127,7 @@ public class WiredAvatarPacketHookTests
     {
         var world = new World(10, dance);
         world.Client.GetHabbo().Access = Plus.HabboHotel.Permissions.UserAccess.Create([], [new(Plus.HabboHotel.Permissions.PermissionKeys.ClubAccess, false)]);
-        var handler = new DanceEvent(new NoQuests());
+        var handler = new DanceEvent(world.Actions);
         await handler.Parse(world.Room, world.Client, Packet(dance));
         var observed = Assert.Single(world.Capture.Events);
         Assert.Same(world.Actor, observed.Actor); Assert.Equal(dance, observed.Code);
@@ -139,7 +140,7 @@ public class WiredAvatarPacketHookTests
     {
         var world = new World(6);
         world.AddTrigger(7);
-        var handler = new SitEvent();
+        var handler = new SitEvent(world.Actions);
         await handler.Parse(world.Client, Packet(1)); await handler.Parse(world.Client, Packet(1));
         Assert.True(world.Actor.IsSitting); Assert.Single(world.Capture.Events);
         await handler.Parse(world.Client, Packet(0)); await handler.Parse(world.Client, Packet(0));
@@ -148,10 +149,66 @@ public class WiredAvatarPacketHookTests
         Assert.All(world.Capture.Events, evt => Assert.Same(world.Actor, evt.Actor));
     }
 
-    private static FlashIncomingPacket Packet(int value)
+    [Fact]
+    public void PostureAndLookRequestsPreserveDenialsAndStateTransitions()
+    {
+        var world = new World(6);
+        world.Actions.SetPosture(world.Client, 2);
+        Assert.False(world.Actor.IsSitting);
+        world.Actor.IsWalking = true;
+        world.Actions.SetPosture(world.Client, 1);
+        Assert.False(world.Actor.IsSitting);
+        world.Actor.IsWalking = false;
+        world.Actions.SetPosture(world.Client, 1);
+        Assert.True(world.Actor.IsSitting);
+
+        world.Actor.UpdateNeeded = false;
+        world.Actor.IsAsleep = true;
+        world.Actions.LookTo(world.Room, world.Client, 4, 4);
+        Assert.False(world.Actor.UpdateNeeded);
+        world.Actor.IsAsleep = false;
+        world.Actions.LookTo(world.Room, world.Client, 4, 4);
+        Assert.True(world.Actor.UpdateNeeded);
+    }
+
+    [Fact]
+    public void TypingRequestsPreserveRepeatedPublicationAndMissingActorNoOp()
+    {
+        var world = new World(6);
+        world.Actions.SetTyping(world.Client, true);
+        world.Actions.SetTyping(world.Client, true);
+        world.Actions.SetTyping(world.Client, false);
+        Assert.Equal(3, world.SentPackets.Count);
+
+        world.RemoveActor();
+        world.Actions.SetTyping(world.Client, true);
+        Assert.Equal(3, world.SentPackets.Count);
+    }
+
+    [Fact]
+    public async Task AvatarHandlersDecodePrimitivesAndDelegateOnly()
+    {
+        var actions = new RecordingAvatarActions();
+        await new ActionEvent(actions).Parse(null!, null!, Packet(7));
+        await new DanceEvent(actions).Parse(null!, null!, Packet(4));
+        await new SitEvent(actions).Parse(null!, Packet(1));
+        await new LookToEvent(actions).Parse(null!, null!, Packet(8, 9));
+        await new StartTypingEvent(actions).Parse(null!, Packet());
+        await new CancelTypingEvent(actions).Parse(null!, Packet());
+
+        Assert.Equal(7, actions.Action);
+        Assert.Equal(4, actions.DanceId);
+        Assert.Equal(1, actions.Posture);
+        Assert.Equal((8, 9), actions.LookTarget);
+        Assert.Equal(new[] { true, false }, actions.Typing);
+    }
+
+    private static FlashIncomingPacket Packet(params int[] values)
     {
         using var stream = PlusMemoryStream.GetStream(); var packet = new FlashOutgoingPacket(stream);
-        packet.WriteInteger(value); return new() { Buffer = stream.ToArray().AsMemory(6) };
+        foreach (var value in values)
+            packet.WriteInteger(value);
+        return new() { Buffer = stream.ToArray().AsMemory(6) };
     }
 
     private sealed class World
@@ -162,6 +219,7 @@ public class WiredAvatarPacketHookTests
         public CaptureAction Capture { get; }
         public RoomUserManager Users { get; }
         public IRoomAvatarActionService Actions { get; }
+        public List<byte[]> SentPackets { get; } = [];
         private readonly WiredComponent _wired;
         private readonly ConcurrentDictionary<int, RoomUser> _users;
         private uint _next = 10;
@@ -170,15 +228,16 @@ public class WiredAvatarPacketHookTests
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
             var items = new RoomItemHandling(Room, TestRoomItemStore.Instance);
             Users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock ?? TimeProvider.System);
-            Actions = new RoomAvatarActionService(clock ?? TimeProvider.System);
+            Actions = new RoomAvatarActionService(clock ?? TimeProvider.System, new NoQuests());
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", Users);
             _wired = new WiredComponent(Room, TestLogging.Logger); Set(Room, "_wiredComponent", _wired);
             Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
                 Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
                 { [ServerPacketHeader.ActionComposer] = 1, [ServerPacketHeader.DanceComposer] = 2,
-                    [ServerPacketHeader.SleepComposer] = 3, [ServerPacketHeader.AvatarEffectComposer] = 4 } },
-                SendCallback = _ => true
+                    [ServerPacketHeader.SleepComposer] = 3, [ServerPacketHeader.AvatarEffectComposer] = 4,
+                    [ServerPacketHeader.UserTypingComposer] = 5 } },
+                SendCallback = packet => { SentPackets.Add(packet); return true; }
             };
             Client.SetHabbo(new Habbo { Id = 42, Username = "actor", CurrentRoom = Room, Client = Client, Effects = new EffectsComponent() });
             Actor = new RoomUser(42, 1, 7, Room); Set(Actor, "_mClient", Client);
@@ -221,6 +280,16 @@ public class WiredAvatarPacketHookTests
         public Room? Room { get; private set; }
         public GameClient? Session { get; private set; }
         public int SignId { get; private set; }
+        public int Action { get; private set; }
+        public int DanceId { get; private set; }
+        public int Posture { get; private set; }
+        public (int X, int Y) LookTarget { get; private set; }
+        public List<bool> Typing { get; } = [];
+        public void PerformAction(Room room, GameClient session, int action) => Action = action;
+        public void Dance(Room room, GameClient session, int danceId) => DanceId = danceId;
+        public void SetPosture(GameClient session, int posture) => Posture = posture;
+        public void LookTo(Room room, GameClient session, int x, int y) => LookTarget = (x, y);
+        public void SetTyping(GameClient session, bool typing) => Typing.Add(typing);
         public void ApplySign(Room room, GameClient session, int signId)
             => (Room, Session, SignId) = (room, session, signId);
     }
