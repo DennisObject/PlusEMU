@@ -661,7 +661,7 @@ public class WiredStackEngineTests
         actor.Player.CurrentRoom = null;
         actor.Users.Clear();
         actor.Player.CurrentRoom = actor.Room;
-        var newVisit = new RoomUser(actor.Player.Id, 0, 1, actor.Room, actor.Player.Client);
+        var newVisit = new RoomUser(actor.Player.Id, 0, 1, actor.Room, actor.Player.Client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         actor.Users.TryAdd(1, newVisit);
         Assert.NotSame(previousVisit, wired.CaptureActorVisit([actor.Player]));
 
@@ -788,7 +788,7 @@ public class WiredStackEngineTests
     private static (Room Room, Habbo Player, ConcurrentDictionary<int, RoomUser> Users, List<uint> Packets) ActorRoom(bool protectedActor = false)
     {
         var room = EmptyRoom();
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
         SetPrivate(room, "_roomUserManager", manager);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
@@ -808,7 +808,7 @@ public class WiredStackEngineTests
             Access = EditorTestSupport.Access(protectedActor ? [PermissionKeys.ModerationTool] : []), Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)) };
         client.SetHabbo(player);
         SetPrivate(player.Effects, "_habbo", player);
-        var visit = new RoomUser(player.Id, 0, 0, room, client);
+        var visit = new RoomUser(player.Id, 0, 0, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         users.TryAdd(0, visit);
         return (room, player, users, packets);
     }

@@ -140,7 +140,7 @@ public partial class PlacedFurniRoomTests
     // A registered room user bound to the fixture client receives room broadcasts like a real occupant.
     private RoomUser Recipient()
     {
-        var user = new RoomUser(7, RoomId, 1, _room, _client);
+        var user = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         users.TryAdd(1, user);
         return user;

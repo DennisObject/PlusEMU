@@ -282,7 +282,7 @@ public sealed class TradeConfirmationServiceTests
         public TradeFixture(ISettingsManager? settings = null)
         {
             typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()));
+                .SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused));
             TestRoomUserSnapshots.Install(Room);
             Trading = new TradingComponent(Room, Store, settings ?? TestRoomSettings.Empty);
             Room.SetTrading(Trading);
@@ -312,7 +312,7 @@ public sealed class TradeConfirmationServiceTests
             session.SetHabbo(habbo);
             habbo.Client = session;
             _clients.RegisterClient(session, habboId, habbo.Username);
-            var roomUser = new RoomUser(habboId, 42, virtualId, Room, session) { UserId = habboId };
+            var roomUser = new RoomUser(habboId, 42, virtualId, Room, session, TestChatEmotions.Unused, TestRewardProgress.Unused) { UserId = habboId };
             var users = (System.Collections.Concurrent.ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Room.GetRoomUserManager())!;
             users[virtualId] = roomUser;
             return new(habbo, session, packets, roomUser);

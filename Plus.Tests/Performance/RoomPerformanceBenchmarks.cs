@@ -83,7 +83,7 @@ internal sealed class RoomPerformanceFixture
         var grid = new byte[mapSize, mapSize];
         for (var x = 0; x < mapSize; x++) for (var y = 0; y < mapSize; y++) grid[x, y] = 1;
         typeof(Gamemap).GetProperty(nameof(Gamemap.GameMap))!.SetValue(map, grid);
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
         SetField(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
         SetField(room, "_gamemap", map);
         SetField(room, "_roomUserManager", manager);
@@ -101,7 +101,7 @@ internal sealed class RoomPerformanceFixture
             RoomUser user;
             if (i < botCount)
             {
-                user = new RoomUser(i + 1, 0, i, room, null) { X = 1, Y = 1, InternalRoomId = i, AllowOverride = true };
+                user = new RoomUser(i + 1, 0, i, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 1, Y = 1, InternalRoomId = i, AllowOverride = true };
                 user.BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot));
                 typeof(RoomBot).GetProperty(nameof(RoomBot.IsTemporary))!.SetValue(user.BotData, true);
                 user.Path.AddRange(new[] { new Vector2D(3, 1), new Vector2D(2, 1), new Vector2D(1, 1) });
@@ -113,7 +113,7 @@ internal sealed class RoomPerformanceFixture
                 var habbo = (Habbo)RuntimeHelpers.GetUninitializedObject(typeof(Habbo));
                 habbo.CurrentRoom = room;
                 client.SetHabbo(habbo);
-                user = new RoomUser(i + 1, 0, i, room, client) { X = 1, Y = 1, InternalRoomId = i, AllowOverride = true };
+                user = new RoomUser(i + 1, 0, i, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 1, Y = 1, InternalRoomId = i, AllowOverride = true };
                 fixture.Clients.Add(client);
                 fixture.Users.Add(user);
             }

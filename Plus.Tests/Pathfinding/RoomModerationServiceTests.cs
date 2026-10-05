@@ -268,7 +268,7 @@ public partial class PlacedFurniRoomTests
         _room.UsersWithRights = [];
         var client = new TestClient();
         client.SetHabbo(new Habbo { Id = 8, Username = "target", CurrentRoom = _room, Access = UserAccess.Empty });
-        var user = new RoomUser(8, RoomId, 2, _room, client) { UserId = 8, InternalRoomId = 2, X = 1, Y = 1 };
+        var user = new RoomUser(8, RoomId, 2, _room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { UserId = 8, InternalRoomId = 2, X = 1, Y = 1 };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         users[2] = user;
         return client;

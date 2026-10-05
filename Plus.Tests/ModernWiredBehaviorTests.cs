@@ -142,7 +142,7 @@ public class ModernWiredBehaviorTests
         Assert.False(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0));
         blocker.Definition.Stackable = true;
         Assert.True(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0));
-        map.AddUserToMap(new RoomUser(5, 1, 5, room, null), new(1, 1));
+        map.AddUserToMap(new RoomUser(5, 1, 5, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused), new(1, 1));
         Assert.False(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0));
     }
 

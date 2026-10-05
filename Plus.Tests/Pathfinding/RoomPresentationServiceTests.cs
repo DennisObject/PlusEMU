@@ -78,7 +78,7 @@ public partial class PlacedFurniRoomTests
         var values = Enumerable.Range(0, 19).Select(_ => packet.ReadInt()).ToArray();
         Assert.Equal(new[] { 50, 8, 46, 0, 1, 2, 3, 4, 5, 6, 2, 46, 0, 1, 2, 3, 4, 5, 6 }, values);
         _client.Sent.Clear(); _client.Packets.Clear();
-        var foreign = new RoomUser(0, 99, 2, _room, null) { BotData = horse.BotData, PetData = horse.PetData };
+        var foreign = new RoomUser(0, 99, 2, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { BotData = horse.BotData, PetData = horse.PetData };
         LegacyPets()[50] = foreign;
         service.SendTrainingPanel(_client, 50);
         horse.PetData = null!;

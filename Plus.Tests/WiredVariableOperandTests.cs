@@ -17,7 +17,7 @@ public sealed class WiredVariableOperandTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1; room.OwnerId = 5;
         var items = new[] { new Item { Id = 301, OwnerId = 5 }, new Item { Id = 302, OwnerId = 5 } };
-        var users = new[] { new RoomUser(901, 1, 1, room, null), new RoomUser(902, 1, 2, room, null) };
+        var users = new[] { new RoomUser(901, 1, 1, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused), new RoomUser(902, 1, 2, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) };
         var context = new WiredRuntimeContext(room, new(WiredEventKind.Enter), new(() => items, () => users), new UnusedOperations());
         context.SelectorPool.FurniIds.UnionWith(items.Select(x => x.Id)); context.SelectorPool.UserIds.UnionWith(users.Select(x => x.VirtualId));
         var frame = WiredVariableRuntimeFrames.Create(context);

@@ -302,10 +302,10 @@ public class AvatarEffectServiceTests
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 42;
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, new FixedTimeProvider(Now), new TestRewardProgress()));
+            .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, new FixedTimeProvider(Now), new TestRewardProgress(), TestChatEmotions.Unused));
         var (client, _) = HabbiconTestSupport.Client(habbo);
         habbo.CurrentRoom = room;
-        var user = new RoomUser(7, room.Id, 1, room, client);
+        var user = new RoomUser(7, room.Id, 1, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(room.GetRoomUserManager())!;
         users.TryAdd(7, user);

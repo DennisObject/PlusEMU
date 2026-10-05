@@ -189,7 +189,7 @@ public partial class PlacedFurniRoomTests
 
     private RoomUser AcceptanceBot(int x, int y, int id, bool admit = true, bool temporary = false)
     {
-        var actor = new RoomUser(0, RoomId, id, _room, null)
+        var actor = new RoomUser(0, RoomId, id, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)
         { X = x, Y = y, InternalRoomId = id, BotData = ProfileBot(temporary), AllowOverride = temporary };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
@@ -211,7 +211,7 @@ public partial class PlacedFurniRoomTests
         client.SetHabbo(new Habbo { Id = id, Username = $"member{id}", CurrentRoom = _room, Client = client,
             Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)), Access = Plus.HabboHotel.Permissions.UserAccess.Empty,
             HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) });
-        var actor = new RoomUser(id, RoomId, id, _room, client) { X = 3, Y = 3, Team = Team.Blue, InternalRoomId = id };
+        var actor = new RoomUser(id, RoomId, id, _room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 3, Y = 3, Team = Team.Blue, InternalRoomId = id };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         Assert.True(users.TryAdd(id, actor)); _room.GetGameMap().Navigation!.Admit(actor);

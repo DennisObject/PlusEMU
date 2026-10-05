@@ -55,7 +55,7 @@ public class MagicTileParityTests
                 Assert.Equal((uint)11, grid.SupportItem[tile]); Assert.Equal(NavFlags.Transit, grid.Flags[tile]);
                 Assert.False(grid.TileVoid[tile]); Assert.Same(handler.GetItem(11), map.WalkMagicAt(1, 1));
             }
-            var actor = new RoomUser(0, 0, 1, fixture.Room, null) { X = 0, Y = 1 };
+            var actor = new RoomUser(0, 0, 1, fixture.Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 0, Y = 1 };
             var legacy = PathFinder.FindPath(actor, true, map, new(0, 1), new(1, 1));
             var route = new Route();
             var outcome = new PathSearch(grid, navigation.Settings).Find(new(new(), grid.Position(4), 1, 1),

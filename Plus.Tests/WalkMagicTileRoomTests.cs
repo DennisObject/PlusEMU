@@ -46,7 +46,7 @@ public partial class PlacedFurniRoomTests
         _client.GetHabbo().Effects = new Plus.HabboHotel.Users.Effects.EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch));
         _client.GetHabbo().HabboStats = new Plus.HabboHotel.Users.HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
         _client.GetHabbo().Inventory ??= new Plus.HabboHotel.Users.Inventory.InventoryComponent { Furniture = new Plus.HabboHotel.Users.Inventory.Furniture.FurnitureInventoryComponent([], []) };
-        var user = new RoomUser(7, RoomId, 1, _room, _client) { X = x, Y = y };
+        var user = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, new TestRewardProgress()) { X = x, Y = y };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         users.TryAdd(1, user);
         return user;
@@ -549,7 +549,7 @@ public partial class PlacedFurniRoomTests
             _room.GetGameMap().UpdateMapForItem(support);
         }
         var rider = Viewer(1, 0);
-        var horse = new RoomUser(0, RoomId, 0, _room, null)
+        var horse = new RoomUser(0, RoomId, 0, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)
         {
             X = 1, Y = 0, RidingHorse = true,
             BotData = (Plus.HabboHotel.Rooms.AI.RoomBot)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Plus.HabboHotel.Rooms.AI.RoomBot))
@@ -874,7 +874,7 @@ public partial class PlacedFurniRoomTests
         var map = _room.GetGameMap();
         var existingClient = new TestClient();
         existingClient.SetHabbo(new Plus.HabboHotel.Users.Habbo { Id = 8, CurrentRoom = _room });
-        var existingVisit = new RoomUser(8, RoomId, 0, _room, existingClient); // Bind this visit to its admitted client.
+        var existingVisit = new RoomUser(8, RoomId, 0, _room, existingClient, TestChatEmotions.Unused, TestRewardProgress.Unused); // Bind this visit to its admitted client.
         var roster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         roster[0] = existingVisit;
@@ -928,7 +928,7 @@ public partial class PlacedFurniRoomTests
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         var blocker = new TestClient();
         blocker.SetHabbo(new Plus.HabboHotel.Users.Habbo { Id = 8, CurrentRoom = _room });
-        var blockingVisit = new RoomUser(8, RoomId, 0, _room, blocker);
+        var blockingVisit = new RoomUser(8, RoomId, 0, _room, blocker, TestChatEmotions.Unused, TestRewardProgress.Unused);
         roster[0] = blockingVisit;
         using var sending = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
@@ -960,7 +960,7 @@ public partial class PlacedFurniRoomTests
                 {
                     _client.GetHabbo().CurrentRoom = null;
                     roster.TryRemove(1, out _);
-                    var nextVisit = new RoomUser(7, RoomId, 1, _room, _client); // Same virtual ID, different visit identity.
+                    var nextVisit = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused); // Same virtual ID, different visit identity.
                     roster[1] = nextVisit;
                     _client.GetHabbo().CurrentRoom = _room;
                     table.Definition.Height = 3;
@@ -997,14 +997,14 @@ public partial class PlacedFurniRoomTests
     {
         var nextRoom = (Room)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Room));
         nextRoom.Id = RoomId + 1;
-        var nextUsers = new RoomUserManager(nextRoom, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
+        var nextUsers = new RoomUserManager(nextRoom, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
         var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextUsers);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextMap);
         nextMap.GenerateMaps();
         _client.GetHabbo().CurrentRoom = nextRoom;
-        var nextVisit = new RoomUser(7, nextRoom.Id, 1, nextRoom, _client);
+        var nextVisit = new RoomUser(7, nextRoom.Id, 1, nextRoom, _client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var nextRoster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(nextUsers)!;
         nextRoster[1] = nextVisit;

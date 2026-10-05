@@ -223,7 +223,7 @@ public partial class PlacedFurniRoomTests
             Access = Plus.HabboHotel.Permissions.UserAccess.Empty });
         var habbo = client.GetHabbo(); habbo.Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch));
         habbo.HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
-        var actor = new RoomUser(habbo.Id, RoomId, id, _room, client) { UserId = habbo.Id, InternalRoomId = id, X = x, Y = y, Z = z };
+        var actor = new RoomUser(habbo.Id, RoomId, id, _room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { UserId = habbo.Id, InternalRoomId = id, X = x, Y = y, Z = z };
         var roster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(_room.GetRoomUserManager())!;
         Assert.True(roster.TryAdd(id, actor));

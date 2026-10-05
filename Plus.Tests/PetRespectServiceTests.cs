@@ -98,7 +98,7 @@ public partial class PlacedFurniRoomTests
         var targetClient = new TestClient();
         var target = new Habbo { Id = 9, Username = "target", CurrentRoom = _room, HabboStats = RespectStats(0) };
         targetClient.SetHabbo(target);
-        Assert.True(LegacyUsers().TryAdd(9, new RoomUser(9, RoomId, 9, _room, targetClient)));
+        Assert.True(LegacyUsers().TryAdd(9, new RoomUser(9, RoomId, 9, _room, targetClient, TestChatEmotions.Unused, TestRewardProgress.Unused)));
         _room.RespectNotificationsEnabled = true;
         _gameField.SetValue(null, Proxy<IGame>((method, _) => method == "get_ClientManager"
             ? Proxy<IGameClientManager>((_, args) => (int)args[0] == 9 ? targetClient : _client) : null));

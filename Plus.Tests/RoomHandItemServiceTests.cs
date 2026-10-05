@@ -51,7 +51,7 @@ public partial class PlacedFurniRoomTests
     {
         var client = new TestClient();
         client.SetHabbo(new Plus.HabboHotel.Users.Habbo { Id = 9, Username = "target", CurrentRoom = _room });
-        var target = new RoomUser(9, RoomId, 9, _room, client) { X = x, Y = y, DanceId = danceId };
+        var target = new RoomUser(9, RoomId, 9, _room, client, TestChatEmotions.Unused, new TestRewardProgress()) { X = x, Y = y, DanceId = danceId };
         Assert.True(LegacyUsers().TryAdd(9, target));
         return target;
     }

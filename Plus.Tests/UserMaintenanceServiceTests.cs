@@ -354,14 +354,14 @@ public sealed class UserMaintenanceServiceTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
-        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused));
         habbo.CurrentRoom = room;
         return room;
     }
 
     private static RoomUser AddRoomUser(Room room, Plus.Communication.Flash.FlashGameClient client)
     {
-        var user = new RoomUser(7, room.Id, 1, room, client);
+        var user = new RoomUser(7, room.Id, 1, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomUserManager())!;
         users.TryAdd(1, user);
         return user;

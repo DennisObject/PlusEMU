@@ -224,7 +224,7 @@ public sealed class MoodlightServiceTests
         var handling = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handling);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()));
+            .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused));
         var item = new Item
         {
             Id = 4_000_000_000,
@@ -251,7 +251,7 @@ public sealed class MoodlightServiceTests
             }
         };
         client.SetHabbo(new Habbo { Id = 1, Username = "owner", CurrentRoom = room, Access = EditorTestSupport.Access([]) });
-        var user = new RoomUser(1, room.Id, 1, room, client);
+        var user = new RoomUser(1, room.Id, 1, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(room.GetRoomUserManager())!;
         users.TryAdd(1, user);

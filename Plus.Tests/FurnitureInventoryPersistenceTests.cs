@@ -248,7 +248,7 @@ public sealed class FurnitureInventoryPersistenceTests
         room.OwnerName = "owner";
         room.Type = "private";
         room.UsersWithRights = [];
-        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
+        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, users);
         var definition = new ItemDefinition { Id = 100, Type = ItemType.Floor };
         var inventoryItem = new InventoryItem { Id = itemId, OwnerId = (uint)userId, Definition = definition };
@@ -261,7 +261,7 @@ public sealed class FurnitureInventoryPersistenceTests
         };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
-        var roomUser = new RoomUser(habbo.Id, room.Id, 1, room, client) { UserId = habbo.Id };
+        var roomUser = new RoomUser(habbo.Id, room.Id, 1, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { UserId = habbo.Id };
         var entries = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(users)!;
         entries[roomUser.VirtualId] = roomUser;

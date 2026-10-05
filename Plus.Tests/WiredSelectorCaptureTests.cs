@@ -177,7 +177,7 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         }
         public RoomUser User(int id)
         {
-            var user = new RoomUser(id + 100, 1, id, Room, null); Users.Add(user); return user;
+            var user = new RoomUser(id + 100, 1, id, Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused); Users.Add(user); return user;
         }
         public void Trigger() => Add(new Trigger { Item = Furni(), Instance = Room });
         public void Action(Func<WiredRuntimeContext, bool> body, int delay = 0) => Add(new Box(WiredBoxCategory.Action)

@@ -68,7 +68,7 @@ public partial class PlacedFurniRoomTests : IDisposable
             TestLogging.Navigation, _roomSettings, new TestGroupManager(id => _groupLookup(id)),
             TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
         Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
-        Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()));
+        Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused));
         TestRoomUserSnapshots.Install(_room);
         _room.GetGameMap().GenerateMaps();
         _client.SetHabbo(new Habbo { Id = 7, Username = "owner", CurrentRoom = _room, Access = UserAccess.Empty });
@@ -106,7 +106,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, item, 1, 1, 0, true, false, false));
         Assert.Same(_room, item.GetRoom());
 
-        var user = new RoomUser(7, RoomId, 1, _room, _client);
+        var user = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         item.UserWalksOnFurni(user);
         item.UserWalksOffFurni(user);
         Assert.Same(item, user.LastItem);

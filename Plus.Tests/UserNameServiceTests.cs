@@ -92,7 +92,7 @@ public sealed class UserNameServiceTests
         {
             Id = 43, Username = "Observer", CurrentRoom = room
         });
-        var observerVisit = new RoomUser(43, room.Id, 4, room, observer) { InternalRoomId = 4 };
+        var observerVisit = new RoomUser(43, room.Id, 4, room, observer, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 4 };
         var visits = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         visits[4] = observerVisit;
@@ -257,7 +257,7 @@ public sealed class UserNameServiceTests
     {
         var room = (Room)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 7;
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
         var habbo = new Habbo
         {
@@ -268,7 +268,7 @@ public sealed class UserNameServiceTests
         };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
-        var roomUser = new RoomUser(habbo.Id, room.Id, 3, room, client) { InternalRoomId = 3, UserId = habbo.Id };
+        var roomUser = new RoomUser(habbo.Id, room.Id, 3, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 3, UserId = habbo.Id };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         users[3] = roomUser;

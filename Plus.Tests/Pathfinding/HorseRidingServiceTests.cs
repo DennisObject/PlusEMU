@@ -114,14 +114,14 @@ public partial class PlacedFurniRoomTests
 
     private RoomUser LegacyRider()
     {
-        var rider = new RoomUser(7, RoomId, 7, _room, _client) { X = 0, Y = 1, InternalRoomId = 7, UserId = 7 };
+        var rider = new RoomUser(7, RoomId, 7, _room, _client, TestChatEmotions.Unused, new TestRewardProgress()) { X = 0, Y = 1, InternalRoomId = 7, UserId = 7 };
         Assert.True(LegacyUsers().TryAdd(7, rider));
         return rider;
     }
 
     private RoomUser LegacyHorse(int x, int y)
     {
-        var horse = new RoomUser(0, RoomId, 2, _room, null) { X = x, Y = y, InternalRoomId = 2 };
+        var horse = new RoomUser(0, RoomId, 2, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = x, Y = y, InternalRoomId = 2 };
         horse.BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot));
         horse.BotData.AiType = BotAiType.Pet;
         horse.PetData = (Pet)RuntimeHelpers.GetUninitializedObject(typeof(Pet));

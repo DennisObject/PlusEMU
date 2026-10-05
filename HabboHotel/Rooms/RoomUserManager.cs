@@ -14,6 +14,7 @@ using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Rooms.AI.Speech;
+using Plus.HabboHotel.Rooms.Chat.Emotions;
 using Plus.Core.FigureData;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.PathFinding;
@@ -38,17 +39,20 @@ public class RoomUserManager
     private readonly IRoomUserStore _store;
     private readonly TimeProvider _clock;
     private readonly IRewardTrackManager _rewards;
+    private readonly IChatEmotionsManager _chatEmotions;
     private ConcurrentDictionary<int, RoomUser> _users;
 
     public int UserCount;
 
 
-    public RoomUserManager(Room room, IRoomUserStore store, TimeProvider clock, IRewardTrackManager rewards)
+    public RoomUserManager(Room room, IRoomUserStore store, TimeProvider clock, IRewardTrackManager rewards,
+        IChatEmotionsManager chatEmotions)
     {
         _room = room;
         _store = store;
         _clock = clock;
         _rewards = rewards;
+        _chatEmotions = chatEmotions;
         _users = new();
         _pets = new();
         _bots = new();
@@ -128,7 +132,7 @@ public class RoomUserManager
 
     public RoomUser DeployBot(RoomBot bot, Pet pet)
     {
-        var user = new RoomUser(0, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room, null);
+        var user = new RoomUser(0, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room, null, _chatEmotions, _rewards);
         bot.VirtualId = user.VirtualId;
         var personalId = user.VirtualId;
         user.InternalRoomId = personalId;
@@ -221,7 +225,7 @@ public class RoomUserManager
             return false;
         if (_users.Any(u => u.Value.UserId == session.GetHabbo().Id))
             return false;
-        var user = new RoomUser(session.GetHabbo().Id, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room, session);
+        var user = new RoomUser(session.GetHabbo().Id, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room, session, _chatEmotions, _rewards);
         user.UserId = session.GetHabbo().Id;
         session.GetHabbo().TentId = 0;
         var personalId = user.VirtualId;

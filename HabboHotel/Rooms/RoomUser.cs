@@ -9,6 +9,7 @@ using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.Rooms.Chat.Emotions;
 using Plus.HabboHotel.Rooms.Games.Freeze;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.PathFinding;
@@ -25,6 +26,8 @@ public class RoomUser
     public WiredRoomEntrySnapshot WiredRoomEntry { get; internal set; }
     private GameClient? _mClient;
     private Room? _mRoom;
+    private readonly IChatEmotionsManager _chatEmotions;
+    private readonly IRewardTrackManager _rewards;
 
     public bool AllowOverride;
 
@@ -101,7 +104,8 @@ public class RoomUser
     public int Y; //byte
     public double Z;
 
-    public RoomUser(int habboId, uint roomId, int virtualId, Room room, GameClient? client)
+    public RoomUser(int habboId, uint roomId, int virtualId, Room room, GameClient? client,
+        IChatEmotionsManager chatEmotions, IRewardTrackManager rewards)
     {
         Freezed = false;
         HabboId = habboId;
@@ -119,6 +123,8 @@ public class RoomUser
         TeleDelay = -1;
         _mRoom = room;
         _mClient = client;
+        _chatEmotions = chatEmotions;
+        _rewards = rewards;
         AllowOverride = false;
         CanWalk = true;
         SqState = 3;
@@ -352,9 +358,9 @@ public class RoomUser
         if (room.WordFilterList.Count > 0 && !habbo.Access.Can(PermissionKeys.ChatFilterBypass)) message = room.GetFilter().CheckMessage(message);
         IServerPacket? packet = null;
         if (shout)
-            packet = new ShoutComposer(VirtualId, message, PlusEnvironment.Game.ChatManager.GetEmotions().GetEmotionsForText(message), colour);
+            packet = new ShoutComposer(VirtualId, message, _chatEmotions.GetEmotionsForText(message), colour);
         else
-            packet = new ChatComposer(VirtualId, message, PlusEnvironment.Game.ChatManager.GetEmotions().GetEmotionsForText(message), colour);
+            packet = new ChatComposer(VirtualId, message, _chatEmotions.GetEmotionsForText(message), colour);
         if (habbo.TentId > 0)
         {
             room.SendToTent(habbo.Id, habbo.TentId, packet);
@@ -526,8 +532,9 @@ public class RoomUser
         else
             CarryTimer = 0;
         room.SendPacket(new CarryObjectComposer(VirtualId, item));
-        if (item > 0 && item != previous && !IsBot)
-            RewardTrackManager.Current?.Progress(GetClient(), RewardTrackActions.FindHandItem);
+        var client = GetClient();
+        if (item > 0 && item != previous && !IsBot && client != null)
+            _rewards.Progress(client, RewardTrackActions.FindHandItem);
     }
 
 

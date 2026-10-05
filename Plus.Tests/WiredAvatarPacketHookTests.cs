@@ -241,7 +241,7 @@ public class WiredAvatarPacketHookTests
     public void DanceAndSleepComposersCaptureVirtualIdAndRecomposeDeterministically()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var actor = new RoomUser(42, 1, 7, room, null);
+        var actor = new RoomUser(42, 1, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var dance = new DanceComposer(actor.VirtualId, 4);
         var sleep = new SleepComposer(actor.VirtualId, true);
         actor.VirtualId = 99;
@@ -286,7 +286,7 @@ public class WiredAvatarPacketHookTests
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
             var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
-            Users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock ?? TimeProvider.System, new TestRewardProgress());
+            Users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock ?? TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
             Actions = new RoomAvatarActionService(clock ?? TimeProvider.System, new NoQuests(), Rewards);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", Users);
             _wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused); Set(Room, "_wiredComponent", _wired);
@@ -303,7 +303,7 @@ public class WiredAvatarPacketHookTests
                 }
             };
             Client.SetHabbo(new Habbo { Id = 42, Username = "actor", CurrentRoom = Room, Client = Client, Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)) });
-            Actor = new RoomUser(42, 1, 7, Room, Client);
+            Actor = new RoomUser(42, 1, 7, Room, Client, TestChatEmotions.Unused, TestRewardProgress.Unused);
             _users = (ConcurrentDictionary<int, RoomUser>)Get(Users, "_users");
             AddActor();
             var captureItem = Item("wf_act_toggle_state");

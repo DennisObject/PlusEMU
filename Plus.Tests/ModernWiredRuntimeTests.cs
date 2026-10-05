@@ -99,7 +99,7 @@ public class ModernWiredRuntimeTests
     {
         var (room, _, _) = World();
         var antenna = MakeItem(1, "antenna"); var forwarded = MakeItem(2, "forwarded");
-        var clicked = new RoomUser(1, 0, 7, room, null);
+        var clicked = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var operations = new RecordingOperations();
         var context = new WiredRuntimeContext(room, new(WiredEventKind.ClickUser) { TargetUser = clicked },
             new(() => new[] { antenna, forwarded }, () => new[] { clicked }), operations);
@@ -523,7 +523,7 @@ public class ModernWiredRuntimeTests
     [Fact]
     public void TemporaryEffectLeasesPreserveNewEffectsOverlapsAndRoomVisitIdentity()
     {
-        var (room, _, _) = World(); var user = new RoomUser(1, 0, 7, room, null);
+        var (room, _, _) = World(); var user = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var effects = new WiredTemporaryEffects(); var current = 8; var attached = true;
         var first = effects.Acquire(user, () => current, value => current = value, () => attached);
         var second = effects.Acquire(user, () => current, value => current = value, () => attached);
@@ -539,7 +539,7 @@ public class ModernWiredRuntimeTests
     [Fact]
     public void TemporaryEffectsLifecycleReleasesOnlyAttachedUnchangedVisits()
     {
-        var (room, _, _) = World(); var user = new RoomUser(1, 0, 7, room, null);
+        var (room, _, _) = World(); var user = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var effects = new WiredTemporaryEffects(); var current = 8; var attached = true;
         var restore = effects.Acquire(user, () => current, value => current = value, () => attached);
         effects.Forget(user); Assert.Equal(8, current); current = 12; restore(); Assert.Equal(12, current);
@@ -567,7 +567,7 @@ public class ModernWiredRuntimeTests
     public void ChaseQueriesNearestWithinThreeAndOrdersLongAxisFirst()
     {
         var (room, _, _) = World(); var item = MakeItem(1, "test");
-        var near = new RoomUser(1, 0, 7, room, null) { X = 2, Y = 1 }; var far = new RoomUser(2, 0, 8, room, null) { X = 4, Y = 0 };
+        var near = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 2, Y = 1 }; var far = new RoomUser(2, 0, 8, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 4, Y = 0 };
         Assert.Same(near, WiredDirectionalActions.Nearest(item, [far, near])); Assert.Null(WiredDirectionalActions.Nearest(item, [far]));
         Assert.Equal(new[] { new Point(1, 0), new Point(0, 1) }, WiredDirectionalActions.Steps(item, near, false));
         Assert.Equal(new[] { new Point(-1, 0), new Point(0, -1) }, WiredDirectionalActions.Steps(item, near, true));
@@ -576,7 +576,7 @@ public class ModernWiredRuntimeTests
     [Fact]
     public void WiredFreezePreservesExistingGameFreezeAndConsumesTeleportCancelFlag()
     {
-        var (room, _, _) = World(); var user = new RoomUser(1, 0, 7, room, null); var state = new WiredAvatarState();
+        var (room, _, _) = World(); var user = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused); var state = new WiredAvatarState();
         user.SetStatus("mv", "1,1,0"); user.IsWalking = true;
         Assert.True(state.FreezeUser(user, 0, false)); Assert.True(user.Frozen); Assert.False(user.CanWalk); Assert.False(user.IsWalking); Assert.False(user.HasStatus("mv"));
         Assert.False(state.Thaw(user, teleport: true)); Assert.True(user.Frozen);
@@ -621,7 +621,7 @@ public class ModernWiredRuntimeTests
     public void CurrentMoveCollisionFlagOverridesScopedThroughUsersInActualRoom()
     {
         var (room, map, items) = World(); var mover = MakeItem(1, "test"); items[1] = mover; map.AddToMap(mover);
-        var occupant = new RoomUser(1, 0, 7, room, null) { X = 1, Y = 1 }; map.AddUserToMap(occupant, new(1, 1));
+        var occupant = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 1, Y = 1 }; map.AddUserToMap(occupant, new(1, 1));
         var context = Context(room, new(WiredEventKind.Enter), [mover], [occupant]);
         context.Policy.Addons.Physics = new(false, new HashSet<uint>(), new HashSet<int> { 7 }, new HashSet<uint>());
         Assert.False(new WiredRoomMovement((_, _, _) => { }).MoveFurniture(context, mover, 1, 1, 0, null, blockOnUserCollision: true));
@@ -715,9 +715,9 @@ public class ModernWiredRuntimeTests
         Assert.Empty(targets.Poll(room)); Assert.False(targets.HasTargets);
         targets.Walk(bot, target); items[1] = MakeItem(1, "replacement");
         Assert.Empty(targets.Poll(room)); Assert.False(targets.HasTargets);
-        var user = new RoomUser(1, 0, 8, room, null) { X = 1, Y = 0 }; RoomUsers(room)[8] = user;
+        var user = new RoomUser(1, 0, 8, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 1, Y = 0 }; RoomUsers(room)[8] = user;
         targets.Follow(bot, user); Assert.Same(user, Assert.Single(targets.Poll(room)).TargetUser); Assert.Empty(targets.Poll(room));
-        RoomUsers(room)[8] = new RoomUser(1, 0, 8, room, null); Assert.Empty(targets.Poll(room)); Assert.False(targets.HasTargets);
+        RoomUsers(room)[8] = new RoomUser(1, 0, 8, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused); Assert.Empty(targets.Poll(room)); Assert.False(targets.HasTargets);
     }
 
     [Fact]
@@ -744,7 +744,7 @@ public class ModernWiredRuntimeTests
         if (change == "target") f.Items.TryRemove(f.Target.Id, out _);
         if (change == "source") f.Engine.Remove(f.Trigger.Item.Id);
         if (change == "save") Assert.True(f.Engine.PublishConfigured(f.Action, f.Action.Configuration with { IntParams = [1, 100, 0] }, () => { }));
-        if (change == "visit") { RoomUsers(f.Room)[7] = new RoomUser(1, 0, 7, f.Room, null); f.Habbo.Effects.CurrentEffect = -1; }
+        if (change == "visit") { RoomUsers(f.Room)[7] = new RoomUser(1, 0, 7, f.Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused); f.Habbo.Effects.CurrentEffect = -1; }
         f.Advance(1500); Assert.Equal(new Point(0, 0), f.User.Coordinate);
         Assert.Equal(change == "visit" ? -1 : 8, f.Habbo.Effects.CurrentEffect); Assert.Empty(f.Errors);
     }
@@ -784,7 +784,7 @@ public class ModernWiredRuntimeTests
         (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomUserManager())!;
     private static RoomUser Bot(Room room, int virtualId)
     {
-        var bot = new RoomUser(0, 0, virtualId, room, null) { BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot)) };
+        var bot = new RoomUser(0, 0, virtualId, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot)) };
         bot.BotData.Name = "Alice"; bot.BotData.Look = "hd-180-1"; bot.BotData.Gender = "M"; return bot;
     }
     private sealed class TeleportFixture : IDisposable
@@ -812,7 +812,7 @@ public class ModernWiredRuntimeTests
             Habbo = (Habbo)RuntimeHelpers.GetUninitializedObject(typeof(Habbo)); Habbo.Id = 1; Habbo.Username = "Alice"; Habbo.CurrentRoom = Room;
             Habbo.Client = client; Habbo.Effects = new(new FixedTimeProvider(FixedTimeProvider.Epoch)); typeof(EffectsComponent).GetField("_habbo", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Habbo.Effects, Habbo);
             Habbo.Effects.CurrentEffect = 8; client.SetHabbo(Habbo); clients.RegisterClient(client, 1, "Alice");
-            User = new(1, 0, 7, Room, client); RoomUsers(Room)[7] = User;
+            User = new(1, 0, 7, Room, client, TestChatEmotions.Unused, TestRewardProgress.Unused); RoomUsers(Room)[7] = User;
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
             var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance,
                 database == null ? TestWiredConfigurationStore.Instance : new WiredConfigurationStore(database),
@@ -927,7 +927,7 @@ public class ModernWiredRuntimeTests
     public void ConditionUsesClickedAvatarSourceAndPolarisActionNumbers()
     {
         var (room, _, _) = World();
-        var user = new RoomUser(1, 0, 7, room, null);
+        var user = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
         user.SetStatus("sit");
         var context = Context(room, new(WiredEventKind.ClickUser) { TargetUser = user }, [], [user]);
         var box = new WiredModernCondition(room, MakeItem(100, "wf_cnd_user_performs_action"), Descriptor("wf_cnd_user_performs_action"),
@@ -1006,7 +1006,7 @@ public class ModernWiredRuntimeTests
         mover.SetState(0, 0, 0, Gamemap.GetAffectedTiles(1, 1, 0, 0, 0));
         items[1] = mover;
         map.AddToMap(mover);
-        var occupant = new RoomUser(1, 0, 7, room, null) { X = 1, Y = 1 };
+        var occupant = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 1, Y = 1 };
         map.AddUserToMap(occupant, new(1, 1));
         Assert.False(room.GetRoomItemHandler().SetFloorItem(null!, mover, 1, 1, 0, false, false, false));
         Assert.False(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0, collision: new(new HashSet<uint>(), new HashSet<int> { 8 }, new HashSet<uint>())));
@@ -1040,7 +1040,7 @@ public class ModernWiredRuntimeTests
     public void AvatarMovementHonoursScopedThroughUsersAndExplicitBlockingItems()
     {
         using var fixture = new TeleportFixture(); var room = fixture.Room; var actor = fixture.User;
-        var occupant = new RoomUser(2, 0, 8, room, null); occupant.SetPos(1, 0, 0); RoomUsers(room)[8] = occupant;
+        var occupant = new RoomUser(2, 0, 8, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused); occupant.SetPos(1, 0, 0); RoomUsers(room)[8] = occupant;
         room.GetGameMap().AddUserToMap(occupant, new(1, 0));
         var action = ActionBox(room, "wf_act_move_rotate_user");
         Assert.True(action.TryValidateConfiguration(new() { IntParams = [2, -1, 0] }, out var config, out _)); action.ApplyConfiguration(config);
@@ -1598,7 +1598,7 @@ public class ModernWiredRuntimeTests
         var handler = new RoomItemHandling(room, store ?? TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
-        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused));
         TestRoomUserSnapshots.Install(room);
         typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
         typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);

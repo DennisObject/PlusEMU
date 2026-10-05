@@ -140,10 +140,10 @@ public sealed class RoomMuteServiceTests
             (TargetClient, TargetPackets) = HabbiconTestSupport.Client(Target);
             Owner.Client = OwnerClient;
             Target.Client = TargetClient;
-            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock, new TestRewardProgress());
+            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock, new TestRewardProgress(), TestChatEmotions.Unused);
             Set(Room, "_roomUserManager", users);
-            Add(users, new RoomUser(Owner.Id, 1, 11, Room, OwnerClient));
-            TargetUser = new RoomUser(Target.Id, 2, 12, Room, TargetClient);
+            Add(users, new RoomUser(Owner.Id, 1, 11, Room, OwnerClient, TestChatEmotions.Unused, TestRewardProgress.Unused));
+            TargetUser = new RoomUser(Target.Id, 2, 12, Room, TargetClient, TestChatEmotions.Unused, TestRewardProgress.Unused);
             Add(users, TargetUser);
         }
 

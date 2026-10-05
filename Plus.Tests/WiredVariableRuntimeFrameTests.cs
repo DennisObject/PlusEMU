@@ -16,7 +16,7 @@ public sealed class WiredVariableRuntimeFrameTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var items = Enumerable.Range(1, 3).Select(id => new Item { Id = (uint)id, OwnerId = 5 }).ToList();
-        var users = Enumerable.Range(1, 3).Select(id => new RoomUser(100 + id, 0, id, room, null)).ToList();
+        var users = Enumerable.Range(1, 3).Select(id => new RoomUser(100 + id, 0, id, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)).ToList();
         var context = new WiredRuntimeContext(room, new(WiredEventKind.Enter), new(() => items, () => users), new UnusedOperations());
         context.Policy.Addons.FurniLimit = 1; context.Policy.Addons.UserLimit = 1;
 
@@ -29,7 +29,7 @@ public sealed class WiredVariableRuntimeFrameTests
 
         // Raw still enforces captured object identities; a replacement cannot inherit the former occupant's membership.
         items[0] = new Item { Id = 1, OwnerId = 5 };
-        users[0] = new RoomUser(999, 0, 1, room, null);
+        users[0] = new RoomUser(999, 0, 1, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var refreshed = WiredVariableRuntimeFrames.Create(context, frame);
         Assert.DoesNotContain(refreshed.Holders, x => x.EntityId == 1);
         Assert.Same(frame.Context, refreshed.Context);

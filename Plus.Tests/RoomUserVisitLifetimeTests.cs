@@ -39,7 +39,7 @@ public partial class PlacedFurniRoomTests
     public void CapturedVisitFollowsLiveNameAndNeverRebindsAfterDetach()
     {
         _gameField.SetValue(null, Proxy<IGame>((method, _) => throw new InvalidOperationException(method)));
-        var user = new RoomUser(7, RoomId, 17, _room, _client);
+        var user = new RoomUser(7, RoomId, 17, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused);
 
         Assert.Same(_client, user.GetClient());
         _client.GetHabbo().Username = "renamed";
@@ -65,7 +65,7 @@ public partial class PlacedFurniRoomTests
         oldClient.SetHabbo(new Habbo { Id = 7, Username = "old", CurrentRoom = _room });
         var replacementClient = new TestClient();
         replacementClient.SetHabbo(new Habbo { Id = 7, Username = "replacement", CurrentRoom = _room });
-        var replacement = new RoomUser(7, RoomId, 19, _room, replacementClient) { InternalRoomId = 19 };
+        var replacement = new RoomUser(7, RoomId, 19, _room, replacementClient, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 19 };
         Users(manager)[19] = replacement;
 
         manager.RemoveUserFromRoom(oldClient, true, true);
@@ -82,9 +82,9 @@ public partial class PlacedFurniRoomTests
     public void ExitFailureDetachesOnlyAfterRemovedVisitCallbacks()
     {
         var store = new ThrowingExitStore();
-        var manager = new RoomUserManager(_room, store, TimeProvider.System, new TestRewardProgress());
+        var manager = new RoomUserManager(_room, store, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
         Set("_roomUserManager", manager);
-        var user = new RoomUser(7, RoomId, 23, _room, _client) { InternalRoomId = 23, UserId = 7 };
+        var user = new RoomUser(7, RoomId, 23, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 23, UserId = 7 };
         store.User = user;
         store.Room = _room;
         store.Client = _client;
@@ -103,13 +103,13 @@ public partial class PlacedFurniRoomTests
     public void ManagerDisposalDetachesHumanBotAndPetAndIsRepeatable()
     {
         var manager = _room.GetRoomUserManager();
-        var human = new RoomUser(7, RoomId, 1, _room, _client) { InternalRoomId = 1 };
-        var bot = new RoomUser(0, RoomId, 2, _room, null)
+        var human = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 1 };
+        var bot = new RoomUser(0, RoomId, 2, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)
         {
             InternalRoomId = 2,
             BotData = Bot(BotAiType.Generic, 2)
         };
-        var pet = new RoomUser(0, RoomId, 3, _room, null)
+        var pet = new RoomUser(0, RoomId, 3, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)
         {
             InternalRoomId = 3,
             BotData = Bot(BotAiType.Pet, 3),
@@ -134,8 +134,8 @@ public partial class PlacedFurniRoomTests
         var manager = _room.GetRoomUserManager();
         var abandonedClient = new TestClient();
         abandonedClient.SetHabbo(new Habbo { Id = 7, Username = "abandoned", CurrentRoom = null });
-        var abandoned = new RoomUser(7, RoomId, 31, _room, abandonedClient) { InternalRoomId = 31 };
-        var replacement = new RoomUser(8, RoomId, 31, _room, _client) { InternalRoomId = 31 };
+        var abandoned = new RoomUser(7, RoomId, 31, _room, abandonedClient, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 31 };
+        var replacement = new RoomUser(8, RoomId, 31, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 31 };
         Users(manager)[31] = replacement;
         _client.Sent.Clear();
 
@@ -151,7 +151,7 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public void HumanChatRejectsACapturedClientAfterItLeavesTheCanonicalRoom()
     {
-        var user = new RoomUser(7, RoomId, 41, _room, _client);
+        var user = new RoomUser(7, RoomId, 41, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         _client.GetHabbo().CurrentRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         _client.GetHabbo().HasSpoken = false;
         _client.Sent.Clear();
@@ -167,9 +167,9 @@ public partial class PlacedFurniRoomTests
     public void DisposalStoreFailureStillDetachesTheOwnedVisits()
     {
         var store = new ThrowingExitStore { ThrowOnUserCount = true };
-        var manager = new RoomUserManager(_room, store, TimeProvider.System, new TestRewardProgress());
+        var manager = new RoomUserManager(_room, store, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
         Set("_roomUserManager", manager);
-        var user = new RoomUser(7, RoomId, 51, _room, _client) { InternalRoomId = 51 };
+        var user = new RoomUser(7, RoomId, 51, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 51 };
         store.User = user;
         store.Room = _room;
         store.Client = _client;
@@ -187,7 +187,7 @@ public partial class PlacedFurniRoomTests
     public void ThrowingBotLeaveCallbackSeesTheVisitBeforeTerminalDetach()
     {
         var manager = _room.GetRoomUserManager();
-        var bot = new RoomUser(0, RoomId, 61, _room, null)
+        var bot = new RoomUser(0, RoomId, 61, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)
         {
             InternalRoomId = 61,
             BotData = Bot(BotAiType.Generic, 61)
@@ -207,7 +207,7 @@ public partial class PlacedFurniRoomTests
     public void DetachedAndDisposedManagerBotsAreNeverAdmittedForMovement()
     {
         var manager = _room.GetRoomUserManager();
-        var detached = new RoomUser(0, RoomId, 71, _room, null)
+        var detached = new RoomUser(0, RoomId, 71, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)
         {
             InternalRoomId = 71,
             BotData = Bot(BotAiType.Generic, 71)
@@ -218,7 +218,7 @@ public partial class PlacedFurniRoomTests
         Assert.False(manager.ValidateMovementActor(detached));
         Assert.Empty(_client.Sent);
 
-        var oldBot = new RoomUser(0, RoomId, 72, _room, null)
+        var oldBot = new RoomUser(0, RoomId, 72, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)
         {
             InternalRoomId = 72,
             BotData = Bot(BotAiType.Generic, 72)

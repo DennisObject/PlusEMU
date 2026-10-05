@@ -353,7 +353,7 @@ public sealed class RoomChatServiceTests
             _room.Id = 42;
             _room.MutedUsers = [];
             _room.WordFilterList = [];
-            var users = new RoomUserManager(_room, TestRoomUserStore.Instance, clock, new TestRewardProgress());
+            var users = new RoomUserManager(_room, TestRoomUserStore.Instance, clock, new TestRewardProgress(), TestChatEmotions.Unused);
             var items = new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
             _floorItems = (ConcurrentDictionary<uint, Item>)Get(items, "_floorItems");
             _wired = new WiredComponent(_room, TestLogging.Logger, clock, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused);
@@ -371,9 +371,9 @@ public sealed class RoomChatServiceTests
                 Id = 8, Username = "Bob", CurrentRoom = _room, Effects = new EffectsComponent(clock),
                 IgnoresComponent = new([]), ReceiveWhispers = true
             });
-            SenderUser = new RoomUser(7, 1, 11, _room, Sender);
+            SenderUser = new RoomUser(7, 1, 11, _room, Sender, TestChatEmotions.Unused, TestRewardProgress.Unused);
             Add(users, SenderUser);
-            RecipientUser = new RoomUser(8, 2, 12, _room, Recipient);
+            RecipientUser = new RoomUser(8, 2, 12, _room, Recipient, TestChatEmotions.Unused, TestRewardProgress.Unused);
             Add(users, RecipientUser);
             var clientManager = ClientDirectory.Create(out var clients);
             Clients = clients;

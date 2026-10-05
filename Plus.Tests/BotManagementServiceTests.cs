@@ -132,13 +132,13 @@ public sealed class BotManagementServiceTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 42;
-        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
+        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, users);
 
         List<RandomSpeech> speech = [];
         var bot = new RoomBot(31, room.Id, "generic", "stand", "Helper", "", "hr-100", 0, 0, 0, 0, 0, 0, 0, 0,
             ref speech, "M", 0, ownerId, false, 7, false, 0);
-        var botUser = new RoomUser(0, room.Id, 3, room, null) { BotData = bot };
+        var botUser = new RoomUser(0, room.Id, 3, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { BotData = bot };
         var bots = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_bots", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(users)!;
         bots[bot.Id] = botUser;
 

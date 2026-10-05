@@ -83,7 +83,7 @@ public sealed class WiredVariableWallBuiltinTests
         {
             Room.Id = 1; Room.OwnerId = 5;
             var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems); typeof(Room).GetField("_roomItemHandling", Private)!.SetValue(Room, handler);
-            typeof(Room).GetField("_roomUserManager", Private)!.SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()));
+            typeof(Room).GetField("_roomUserManager", Private)!.SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused));
             var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused); typeof(Room).GetField("_wiredComponent", Private)!.SetValue(Room, wired);
             Walls = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", Private)!.GetValue(handler)!;
             Floors = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", Private)!.GetValue(handler)!;

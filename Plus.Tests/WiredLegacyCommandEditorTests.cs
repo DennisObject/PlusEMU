@@ -114,7 +114,7 @@ public class WiredLegacyCommandEditorTests
         {
             _previousGame = _gameField.GetValue(null);
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.OwnerId = 42;
-            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
             Wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused); Set(Room, "_wiredComponent", Wired);
             _commands = new CommandManager([new Command("first"), new Command("second")], null!, null!, new FixedTimeProvider(FixedTimeProvider.Epoch));
@@ -140,7 +140,7 @@ public class WiredLegacyCommandEditorTests
             };
             var habbo = new Habbo { Id = id, Username = "actor" + id, CurrentRoom = Room, Client = client, Access = UserAccess.Create([], [new("command.first", false), new("command.second", false)], ["command.first", "command.second"]) };
             client.SetHabbo(habbo);
-            var user = new RoomUser(id, 0, virtualId, Room, client);
+            var user = new RoomUser(id, 0, virtualId, Room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
             ((ConcurrentDictionary<int, RoomUser>)Get(users, "_users")).TryAdd(virtualId, user);
             return habbo;
         }

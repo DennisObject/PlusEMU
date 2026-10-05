@@ -317,9 +317,9 @@ public class GroupManagementTests : IDisposable
         var targetHabbo = new Habbo { Id = 8, Username = "Target", Access = Rights(), HabboStats = stats };
         var (targetClient, targetSent) = Client(targetHabbo);
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
-        var roomUser = new RoomUser(8, group.RoomId, 3, room, targetClient);
+        var roomUser = new RoomUser(8, group.RoomId, 3, room, targetClient, TestChatEmotions.Unused, TestRewardProgress.Unused);
         roomUser.SetStatus("flatctrl 1", "");
         roomUser.SetStatus("flatctrl 3", "");
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)

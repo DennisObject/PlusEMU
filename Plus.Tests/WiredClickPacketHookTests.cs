@@ -148,7 +148,7 @@ public class WiredClickPacketHookTests
         world.Capture.ApplyConfiguration(new() { Delay = 1 });
         await new ClickUserEvent().Parse(world.Room, world.Client, Packet(world.Target.VirtualId));
         Assert.Empty(world.Capture.Events);
-        var replacement = new RoomUser(world.Actor.HabboId, 1, world.Actor.VirtualId, world.Room, world.Client);
+        var replacement = new RoomUser(world.Actor.HabboId, 1, world.Actor.VirtualId, world.Room, world.Client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         ((ConcurrentDictionary<int, RoomUser>)Get(world.Room.GetRoomUserManager(), "_users"))[world.Actor.VirtualId] = replacement;
         world.Clock = 1000; world.Room.GetWired().OnCycle();
         Assert.Empty(world.Capture.Events);
@@ -207,7 +207,7 @@ public class WiredClickPacketHookTests
         public World(string trigger, int[] parameters)
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
-            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
             var map = new Gamemap(Room, new RoomModel("click-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
             Set(Room, "_gamemap", map); typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
@@ -231,7 +231,7 @@ public class WiredClickPacketHookTests
         private RoomUser AddUser(int habboId, int virtualId, FlashGameClient client)
         {
             client.SetHabbo(new Habbo { Id = habboId, Username = "actor" + habboId, CurrentRoom = Room, Client = client });
-            var user = new RoomUser(habboId, 1, virtualId, Room, client);
+            var user = new RoomUser(habboId, 1, virtualId, Room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
             ((ConcurrentDictionary<int, RoomUser>)Get(Room.GetRoomUserManager(), "_users")).TryAdd(virtualId, user); return user;
         }
         public IWiredConfiguredItem AddBox(string name, int[] parameters, uint[]? selected = null)

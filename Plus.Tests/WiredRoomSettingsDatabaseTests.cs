@@ -55,7 +55,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             var database = new PreviewDatabase(connectionString);
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
             room.Id = roomId; room.Name = "Settings menu probe"; room.OwnerId = (int)ownerId; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
-            var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()); Set(room, "_roomUserManager", manager);
+            var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused); Set(room, "_roomUserManager", manager);
             var owner = Client(room, (int)ownerId, "owner", manager, 1);
             var guest = Client(room, (int)guestId, "guest", manager, 2);
             var settingsStore = new DatabaseWiredRoomSettingsStore(database);
@@ -206,7 +206,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             SendCallback = args => { packets.Add(((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2)), new() { Buffer = args.MemoryBuffer[6..].ToArray() })); return true; }
         };
         client.SetHabbo(new Habbo { Id = id, Username = name, CurrentRoom = room, Client = client, Access = EditorTestSupport.Access([]) });
-        var actor = new RoomUser(id, roomId: room.Id, virtualId: virtualId, room: room, client: client);
+        var actor = new RoomUser(id, roomId: room.Id, virtualId: virtualId, room: room, client: client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         ((ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!).TryAdd(virtualId, actor);
         return (client, packets);
     }

@@ -359,7 +359,7 @@ public sealed class WiredNativeLifecycleTests
                 TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
             var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);
-            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()); Set(Room, "_roomUserManager", users);
+            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused); Set(Room, "_roomUserManager", users);
             TestRoomUserSnapshots.Install(Room);
             typeof(Gamemap).GetProperty("GameMap")!.SetValue(Map, new byte[3, 3]);
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(Map, new byte[3, 3]);
@@ -396,11 +396,11 @@ public sealed class WiredNativeLifecycleTests
             var habbo = new Habbo { Id = 42, Username = "viewer", Motto = "", Look = "test", Gender = "M", CurrentRoom = Room, Client = client,
                 HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0), Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)), Access = EditorTestSupport.Access([]) };
             client.SetHabbo(habbo);
-            var user = new RoomUser(42, 1, 1, Room, client); _users[user.VirtualId] = user; return user;
+            var user = new RoomUser(42, 1, 1, Room, client, TestChatEmotions.Unused, TestRewardProgress.Unused); _users[user.VirtualId] = user; return user;
         }
         public RoomUser Bot()
         {
-            var user = new RoomUser(0, 1, 7, Room, null) { BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot)), InternalRoomId = 7 };
+            var user = new RoomUser(0, 1, 7, Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot)), InternalRoomId = 7 };
             _users[user.VirtualId] = user; return user;
         }
         public Item Wall(uint id)
