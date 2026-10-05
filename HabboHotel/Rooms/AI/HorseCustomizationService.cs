@@ -79,7 +79,7 @@ public sealed class HorseCustomizationService(
             }
         }
         room.SendUser(petUser);
-        room.SendPacket(new PetHorseFigureInformationComposer(petUser));
+        room.SendPacket(new PetHorseFigureInformationComposer(PetAppearanceSnapshots.Horse(petUser)));
     }
 
     public void ToggleRiding(Room room, GameClient session, int petId)
@@ -104,7 +104,7 @@ public sealed class HorseCustomizationService(
             room.GetRoomItemHandler().RemoveFurniture(session, item.Id);
         }
         room.SendUser(petUser);
-        room.SendPacket(new PetHorseFigureInformationComposer(petUser));
+        room.SendPacket(new PetHorseFigureInformationComposer(PetAppearanceSnapshots.Horse(petUser)));
     }
 
     private static HorseChange? GetChange(Item item) => item.Definition.InteractionType switch

@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Inventory.Pets;
+﻿using Plus.HabboHotel.Rooms.AI;
+using Plus.Communication.Packets.Outgoing.Inventory.Pets;
 using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -59,7 +60,7 @@ internal class KickPetsCommand : IChatCommand
             room.GetRoomUserManager().RemoveBot(bot.VirtualId, false);
             var ownerClient = _gameClientManager.GetClientByUserId(pet.OwnerId);
             if (ownerClient?.GetHabbo() != null && ownerClient.GetHabbo().Inventory.Pets.AddPet(pet))
-                ownerClient.Send(new PetInventoryComposer(ownerClient.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
+                ownerClient.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(ownerClient.GetHabbo().Inventory.Pets.Pets.Values.ToList())));
         }
         session.SendWhisper("All pets have been kicked from the room.");
     }

@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.AI.Pets;
+﻿using Plus.HabboHotel.Rooms.AI;
+using Plus.Communication.Packets.Outgoing.Rooms.AI.Pets;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Chat.Pets.Locale;
@@ -84,7 +85,7 @@ internal class RideHorseEvent : RoomPacketEvent
             else
                 session.SendNotification("Could not dismount this horse - You are not riding it!");
         }
-        room.SendPacket(new PetHorseFigureInformationComposer(pet));
+        room.SendPacket(new PetHorseFigureInformationComposer(PetAppearanceSnapshots.Horse(pet)));
         return Task.CompletedTask;
     }
     private Task ParseExecutor(Room room, GameClient session, IIncomingPacket packet)

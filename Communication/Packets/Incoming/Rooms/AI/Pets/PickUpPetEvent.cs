@@ -72,7 +72,7 @@ internal class PickUpPetEvent : RoomPacketEvent
         data.DbState = PetDatabaseUpdateState.Updated;
         var owner = data.OwnerId == session.GetHabbo().Id ? session : _clientManager.GetClientByUserId(data.OwnerId);
         if (owner != null && owner.GetHabbo().Inventory.Pets.AddPet(data))
-            owner.Send(new PetInventoryComposer(owner.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
+            owner.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(owner.GetHabbo().Inventory.Pets.Pets.Values.ToList())));
 
         room.GetRoomUserManager().RemoveBot(pet.VirtualId, false);
         return Task.CompletedTask;
@@ -120,6 +120,6 @@ internal class PickUpPetEvent : RoomPacketEvent
         data.RoomId = 0; data.PlacedInRoom = false; data.DbState = PetDatabaseUpdateState.Updated;
         var owner = data.OwnerId == session.GetHabbo().Id ? session : _clientManager.GetClientByUserId(data.OwnerId);
         if (owner != null && owner.GetHabbo().Inventory.Pets.AddPet(data))
-            owner.Send(new PetInventoryComposer(owner.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
+            owner.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(owner.GetHabbo().Inventory.Pets.Pets.Values.ToList())));
     }
 }

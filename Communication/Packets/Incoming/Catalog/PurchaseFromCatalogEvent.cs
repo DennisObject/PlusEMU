@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using Plus.HabboHotel.Rooms.AI;
+using System.Globalization;
 using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
 using Plus.Communication.Packets.Outgoing.Inventory.Bots;
@@ -368,7 +369,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                 pet.RoomId = 0;
                 pet.PlacedInRoom = false;
                 session.Send(new FurniListNotificationComposer((uint)pet.PetId, 3));
-                session.Send(new PetInventoryComposer(session.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
+                session.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(session.GetHabbo().Inventory.Pets.Pets.Values.ToList())));
                 if (_itemManager.Items.TryGetValue(320, out var petFood))
                 {
                     var food = _itemFactory.CreateSingleItemNullable(petFood, session.GetHabbo(), "", "").ToInventoryItem();

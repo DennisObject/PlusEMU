@@ -65,7 +65,7 @@ internal class PlacePetEvent : RoomPacketEvent
         room.GetRoomUserManager().DeployBot(roomBot, pet);
         pet.DbState = PetDatabaseUpdateState.Updated;
         session.GetHabbo().Inventory.Pets.RemovePet(pet.PetId);
-        session.Send(new PetInventoryComposer(session.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
+        session.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(session.GetHabbo().Inventory.Pets.Pets.Values.ToList())));
         return Task.CompletedTask;
     }
 }
