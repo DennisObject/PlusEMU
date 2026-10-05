@@ -25,8 +25,8 @@ public sealed class NavigatorPresentationService(INavigatorManager navigator) : 
 
     public void ShowUserFlatCategories(GameClient session)
     {
-        var access = session.GetHabbo().Access;
-        var rows = navigator.FlatCategories.Select(category => NavigatorCategoryRow.CaptureForUser(category, access)).ToImmutableArray();
+        var permissions = session.GetHabbo().Access.Keys;
+        var rows = navigator.FlatCategories.Select(category => NavigatorCategoryRow.CaptureForUser(category, permissions)).ToImmutableArray();
         session.Send(new UserFlatCatsComposer(rows));
     }
 

@@ -88,11 +88,40 @@ public class NavigatorPresentationTests
     }
 
     [Fact]
+    public void ProtectedCategoriesShareOneObservationOfAnExpiringGrant()
+    {
+        var expiry = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var clock = new ExpiringClock(expiry);
+        var role = new AccessRole(9, "editor", "Editor", 0, 1, "", true, ["navigator.allowed"], new Dictionary<string, int>());
+        var access = UserAccess.Create([new RoleAssignment(role, expiry)], registry: PermissionKeys.All.Select(permission => permission.Key).Append("navigator.allowed"), clock: clock);
+        var categories = new List<SearchResultList> { Category(1, "Public", ""), Category(2, "First", Allowed), Category(3, "Second", Allowed), Category(4, "Third", Allowed) };
+        var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7, Access = access });
+        var readsBefore = clock.Reads;
+
+        new NavigatorPresentationService(Manager([], categories, [])).ShowUserFlatCategories(client);
+
+        Assert.Equal(new[] { (1, "Public", true), (2, "First", true), (3, "Second", true), (4, "Third", true) }, Categories(Assert.Single(sent).Payload));
+        Assert.Equal(1, clock.Reads - readsBefore);
+    }
+
+    // The first two reads are before the grant expires and later reads are after it, so per-row checks would see the grant lapse mid-batch.
+    private sealed class ExpiringClock(DateTimeOffset expiry) : TimeProvider
+    {
+        public int Reads { get; private set; }
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+            return Reads <= 2 ? expiry.AddHours(-1) : expiry.AddHours(1);
+        }
+    }
+
+    [Fact]
     public void CapturedRowsSurviveSourceMutationAndRecomposeIdentically()
     {
         var category = Category(1, "Public", "");
         var categories = new List<SearchResultList> { category };
-        var rows = categories.Select(item => NavigatorCategoryRow.CaptureForUser(item, Access())).ToImmutableArray();
+        var rows = categories.Select(item => NavigatorCategoryRow.CaptureForUser(item, Access().Keys)).ToImmutableArray();
         var first = Write(new UserFlatCatsComposer(rows));
 
         category.PublicName = "Changed";
