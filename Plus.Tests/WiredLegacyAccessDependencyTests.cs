@@ -36,12 +36,12 @@ public sealed class WiredLegacyAccessDependencyTests
         });
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.OwnerId = 42;
-        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
+        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         Set(room, "_roomUserManager", users);
         var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty,
             TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance,
             TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty,
-            TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, access);
+            TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, access, TestItemRuntime.Travel);
         Set(room, "_wiredComponent", wired);
         var habbo = new Habbo
         {

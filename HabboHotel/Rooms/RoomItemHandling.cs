@@ -161,6 +161,7 @@ public class RoomItemHandling
 
     public void LoadFurniture(IReadOnlyList<Item> items)
     {
+        var detached = new HashSet<Item>(ReferenceEqualityComparer.Instance);
         if (_floorItems.Count > 0)
         {
             foreach (var previous in _floorItems.Values)
@@ -168,6 +169,7 @@ public class RoomItemHandling
                 _room.GetGameMap().Navigation?.Inputs.Remove(previous);
                 _room.GetWired()?.DetachRoomItem(previous);
                 previous.Detach(_room);
+                detached.Add(previous);
             }
             _floorItems.Clear();
         }
@@ -176,7 +178,8 @@ public class RoomItemHandling
             foreach (var previous in _wallItems.Values) previous.Detach(_room);
             _wallItems.Clear();
         }
-        foreach (var previous in _temporaryItems.Values) previous.Detach(_room);
+        foreach (var previous in _temporaryItems.Values)
+            if (detached.Add(previous)) previous.Detach(_room);
         _temporaryItems.Clear();
         foreach (var item in items.ToList())
         {
@@ -816,18 +819,26 @@ public class RoomItemHandling
     // that transaction shares NavSync; callbacks do not.
     internal bool AdmitFloorItem(Item item)
     {
+        if (_floorItems.TryGetValue(item.Id, out var admitted))
+            return ReferenceEquals(admitted, item) && ReferenceEquals(item.GetRoom(), _room);
         item.Attach(_room, _interactors, _travelStore, _rewards);
         var inputs = _room.GetGameMap().Navigation?.Inputs;
         if (inputs == null)
         {
             if (_floorItems.TryAdd(item.Id, item)) return true;
+            if (_floorItems.TryGetValue(item.Id, out admitted) && ReferenceEquals(admitted, item)) return true;
             item.Detach(_room);
             return false;
         }
         item.EnableNavigationSynchronization();
         lock (item.NavSync)
         {
-            if (!_floorItems.TryAdd(item.Id, item)) { item.Detach(_room); return false; }
+            if (!_floorItems.TryAdd(item.Id, item))
+            {
+                if (_floorItems.TryGetValue(item.Id, out admitted) && ReferenceEquals(admitted, item)) return true;
+                item.Detach(_room);
+                return false;
+            }
             inputs.Attach(item);
             return true;
         }

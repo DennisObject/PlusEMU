@@ -274,6 +274,33 @@ public partial class PlacedFurniRoomTests
         public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) => WallPlacements++;
     }
 
+    [Fact]
+    public void ReloadDetachesTemporaryFloorItemExactlyOnce()
+    {
+        var handler = Handler(new());
+        var definition = Furni(85, InteractionType.None, WiredBoxType.None).Definition;
+        var temporary = Assert.IsType<Item>(handler.PlaceTemporaryFloorItem(definition, 7, 1, 1, 0));
+
+        handler.LoadFurniture([]);
+
+        Assert.Null(temporary.GetRoom());
+        Assert.Empty(handler.GetFloor);
+    }
+
+    [Fact]
+    public void RepeatingExactPublicAdmissionKeepsTheRegisteredItemBound()
+    {
+        var item = Furni(84, InteractionType.None, WiredBoxType.None);
+        var handler = Handler(new());
+        Assert.True(handler.SetFloorItem(_client, item, 1, 1, 0, true, false, false));
+
+        Assert.True(handler.SetFloorItem(_client, item, 2, 2, 0, true, false, false));
+
+        Assert.Same(_room, item.GetRoom());
+        Assert.Same(item, Assert.Single(handler.GetFloor));
+        Assert.Equal((1, 1), (item.GetX, item.GetY));
+    }
+
     private sealed class FailingTravelStore : IItemTravelStore
     {
         public uint FindOtherHopperRoom(uint roomId) => 0;
