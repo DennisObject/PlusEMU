@@ -188,7 +188,7 @@ public sealed class RoomModelAccessTests
         foreach (var name in new[] { "Id", "DoorX", "DoorY", "DoorZ", "DoorDir", "Heightmap", "WallHeight", "RequiredClubLevel", "RequiredPermission" })
             data.Columns.Add(name, name == "DoorZ" ? typeof(double) : name is "Id" or "Heightmap" or "RequiredPermission" ? typeof(string) : typeof(int));
         data.Rows.Add("test_model", 0, 0, 0d, 0, "00\r00", 0, -1, ExtraPermission);
-        var manager = new RoomManager(NullLogger<RoomManager>.Instance, ReaderDatabase(data), null!, TimeProvider.System, new TestRoomFactory());
+        var manager = new RoomManager(NullLogger<RoomManager>.Instance, ReaderDatabase(data), null!, TimeProvider.System, new TestRoomFactory(), new TestRoomDataLoaderFactory());
         if (custom)
             Assert.True(manager.LoadModel("test_model"));
         else

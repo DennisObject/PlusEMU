@@ -51,7 +51,7 @@ public interface IModeratorTicketService
 }
 
 public sealed class ModeratorTicketService(IModerationManager moderation, IGameClientManager clients,
-    IModeratorUserLookup users, IModeratorTicketStore store, TimeProvider clock) : IModeratorTicketService
+    IModeratorUserLookup users, IModeratorTicketStore store, TimeProvider clock, IRoomDataLoader rooms) : IModeratorTicketService
 {
     private readonly object _submissionLock = new();
 
@@ -132,7 +132,7 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
     public void SendChatlogs(GameClient client, int ticketId)
     {
         if (!moderation.TryGetTicket(ticketId, out var ticket) || ticket.Room == null ||
-            !RoomFactory.TryGetData(ticket.Room.Id, out var room)) return;
+            !rooms.TryGetData(ticket.Room.Id, out var room)) return;
         client.Send(new ModeratorTicketChatlogComposer(new(ticket.Id, ticket.Sender.Id, ticket.Reported?.Id ?? 0,
             room.Id, room.Name, ticket.CreatedAt, ticket.Reported?.Username ?? "No username", ticket.ReportedChats.ToImmutableArray())));
     }

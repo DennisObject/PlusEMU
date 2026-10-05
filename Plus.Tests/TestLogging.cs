@@ -50,3 +50,9 @@ internal sealed class TestRoomUserStore : IRoomUserStore
     public void SaveBot(RoomBotSave bot) { }
     public void RecordExit(uint roomId, int userId, DateTimeOffset exitedAt, int usersNow) { }
 }
+
+internal sealed class TestRoomDataLoaderFactory : IRoomDataLoaderFactory
+{
+    public IRoomDataLoader Create(IRoomManager rooms) => new RoomDataLoader(
+        EditorTestSupport.UntouchableDatabase(), rooms, null!, null!);
+}

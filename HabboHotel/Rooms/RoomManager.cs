@@ -19,6 +19,7 @@ public class RoomManager : IRoomManager, IStartable
     private readonly object _roomLoadingSync;
     private readonly TimeProvider _clock;
     private readonly IRoomFactory _roomFactory;
+    private readonly IRoomDataLoader _roomData;
 
     private readonly Dictionary<string, RoomModel> _roomModels;
 
@@ -29,7 +30,7 @@ public class RoomManager : IRoomManager, IStartable
     private readonly ConcurrentDictionary<uint, Room> _fastWiredRooms = new();
 
 
-    public RoomManager(ILogger<RoomManager> logger, IDatabase database, ILanguageManager languageManager, TimeProvider clock, IRoomFactory roomFactory)
+    public RoomManager(ILogger<RoomManager> logger, IDatabase database, ILanguageManager languageManager, TimeProvider clock, IRoomFactory roomFactory, IRoomDataLoaderFactory roomDataFactory)
     {
         _logger = logger;
         _database = database;
@@ -39,6 +40,7 @@ public class RoomManager : IRoomManager, IStartable
         _roomModels = new();
         _rooms = new();
         _roomLoadingSync = new();
+        _roomData = roomDataFactory.Create(this);
     }
 
     public int Count => _rooms.Count;
@@ -201,7 +203,7 @@ public class RoomManager : IRoomManager, IStartable
                 room = null;
                 return false;
             }
-            if (!RoomFactory.TryGetData(roomId, out var data))
+            if (!_roomData.TryGetData(roomId, out var data))
             {
                 room = null;
                 return false;

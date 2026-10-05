@@ -25,12 +25,48 @@ public sealed class RoomDataLoaderTests
             args[1] = room;
             return true;
         });
-        var loader = new RoomDataLoader(EditorTestSupport.UntouchableDatabase(), manager,
+        var loader = new RoomDataLoaderFactory(EditorTestSupport.UntouchableDatabase(),
             Proxy<IGroupManager>((method, _) => throw new InvalidOperationException(method)),
-            Proxy<IRoomPromotionLoader>((method, _) => throw new InvalidOperationException(method)));
+            Proxy<IRoomPromotionLoader>((method, _) => throw new InvalidOperationException(method))).Create(manager);
 
         Assert.True(loader.TryGetData(42, out var actual));
         Assert.Same(expected, actual);
+    }
+
+    [Fact]
+    public void ManagerUsesItsRequiredLoaderBeforeConstructingAnUnloadedRoom()
+    {
+        var expected = new RoomData { Id = 42, Name = "canonical" };
+        var reads = 0;
+        var loader = Proxy<IRoomDataLoader>((method, args) =>
+        {
+            Assert.Equal("TryGetData", method);
+            reads++;
+            args[1] = (uint)args[0]! == 42 ? expected : null;
+            return (uint)args[0]! == 42;
+        });
+        IRoomManager? boundManager = null;
+        var dataFactory = Proxy<IRoomDataLoaderFactory>((method, args) =>
+        {
+            Assert.Equal("Create", method);
+            boundManager = (IRoomManager)args[0]!;
+            return loader;
+        });
+        var construction = new InvalidOperationException("room construction reached");
+        var roomFactory = Proxy<IRoomFactory>((method, args) =>
+        {
+            Assert.Equal("Create", method);
+            Assert.Same(expected, args[0]);
+            throw construction;
+        });
+        var manager = new RoomManager(NullLogger<RoomManager>.Instance,
+            EditorTestSupport.UntouchableDatabase(), null!, TimeProvider.System, roomFactory, dataFactory);
+
+        Assert.Same(manager, boundManager);
+        Assert.False(manager.TryLoadRoom(404, out var missing));
+        Assert.Null(missing);
+        Assert.Same(construction, Assert.Throws<InvalidOperationException>(() => manager.TryLoadRoom(42, out _)));
+        Assert.Equal(2, reads);
     }
 
     [RoomComponentDatabaseFact]
