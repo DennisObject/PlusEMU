@@ -12,7 +12,7 @@ public sealed record TonerSettingsRequest(uint ItemId, int Hue, int Saturation, 
 public interface IRoomItemMetadataStore
 {
     void SetMannequinData(uint itemId, uint roomId, string data);
-    void SetToner(uint itemId, int hue, int saturation, int lightness);
+    void SetToner(uint itemId, uint roomId, int hue, int saturation, int lightness);
 }
 
 public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadataStore
@@ -24,11 +24,11 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
             throw new InvalidOperationException("Mannequin data was not persisted.");
     }
 
-    public void SetToner(uint itemId, int hue, int saturation, int lightness)
+    public void SetToner(uint itemId, uint roomId, int hue, int saturation, int lightness)
     {
         using var connection = database.Connection();
-        if (connection.Execute("UPDATE room_items_toner SET enabled=TRUE,data1=@hue,data2=@saturation,data3=@lightness WHERE id=@itemId LIMIT 1",
-                new { itemId, hue, saturation, lightness }) != 1)
+        if (connection.Execute("UPDATE room_items_toner toner JOIN items item ON item.id=toner.id SET toner.enabled=TRUE,toner.data1=@hue,toner.data2=@saturation,toner.data3=@lightness WHERE toner.id=@itemId AND item.room_id=@roomId",
+                new { itemId, roomId, hue, saturation, lightness }) != 1)
             throw new InvalidOperationException("Toner data was not persisted.");
     }
 }
@@ -64,7 +64,7 @@ public sealed class RoomItemMetadataService(IRoomItemMetadataStore store) : IRoo
         var item = room.GetRoomItemHandler().GetItem(request.ItemId);
         if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Toner) return;
 
-        store.SetToner(item.Id, request.Hue, request.Saturation, request.Lightness);
+        store.SetToner(item.Id, room.Id, request.Hue, request.Saturation, request.Lightness);
         room.TonerData.Hue = request.Hue;
         room.TonerData.Saturation = request.Saturation;
         room.TonerData.Lightness = request.Lightness;

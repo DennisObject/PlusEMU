@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Data.Toner;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -102,8 +103,9 @@ public sealed class RoomItemMetadataServiceTests
 
     private static Item AddItem(Room room, InteractionType type)
     {
-        var item = new Item { Id = 7, RoomId = room.Id, OwnerId = 1, Definition = new() { InteractionType = type }, LegacyDataString = "original" };
+        var item = new Item { Id = 7, RoomId = room.Id, OwnerId = 1, Definition = new() { InteractionType = type }, ExtraData = new LegacyDataFormat { Data = "original" } };
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
         floor[item.Id] = item;
         return item;
     }
@@ -120,7 +122,7 @@ public sealed class RoomItemMetadataServiceTests
         public bool Fail { get; init; }
         public int Writes { get; private set; }
         public void SetMannequinData(uint itemId, uint roomId, string data) => Write();
-        public void SetToner(uint itemId, int hue, int saturation, int lightness) => Write();
+        public void SetToner(uint itemId, uint roomId, int hue, int saturation, int lightness) => Write();
         private void Write() { beforeWrite?.Invoke(); Writes++; if (Fail) throw new InvalidOperationException("forced failure"); }
     }
 }
