@@ -29,7 +29,8 @@ public class CatalogStructureWireTests
         var (client, sent) = HabbiconTestSupport.Client(EditorTestSupport.Player());
         var packet = HabbiconTestSupport.Incoming("BUILDERS_CLUB");
 
-        await new GetCatalogIndexEvent(catalog, CatalogSnapshotTestSupport.Snapshots()).Parse(client, packet);
+        var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, null!, CatalogSnapshotTestSupport.Snapshots());
+        await new GetCatalogIndexEvent(service).Parse(client, packet);
 
         Assert.False(packet.HasDataRemaining());
         Assert.Equal([ServerPacketHeader.CatalogIndexComposer, ServerPacketHeader.CatalogItemDiscountComposer], sent.Select(value => value.Header));

@@ -1,10 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using Plus.Communication.Packets.Incoming.Catalog;
+using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.HabboHotel.Catalog;
+using Plus.HabboHotel.Catalog.Admin;
 using Plus.HabboHotel.Catalog.Pets;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Subscriptions;
+using Plus.HabboHotel.Users;
 using Xunit;
 
 namespace Plus.Tests;
@@ -39,7 +43,7 @@ public sealed class CatalogBrowsingSnapshotTests
             Data = [new() { Id = 1, Name = "available" }, exact,
                 new() { Id = 3, Name = "active", Promotion = new("p", "d", 0, now, now.AddMinutes(1), new ThrowingClock()) }]
         };
-        var service = new CatalogBrowsingService(null!, null!, loader, clock);
+        var service = new CatalogBrowsingService(null!, null!, loader, clock, null!, null!, null!);
         var composer = new PromotableRoomsComposer(service.CapturePromotableRooms(42));
         var before = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(before);
@@ -59,8 +63,115 @@ public sealed class CatalogBrowsingSnapshotTests
         var service = new RecordingBrowsing();
         await new GetSellablePetPalettesEvent(service).Parse(null!, HabbiconTestSupport.Incoming("pet"));
         await new GetPromotableRoomsEvent(service).Parse(null!, null!);
+        var page = HabbiconTestSupport.Incoming(12, 34, "BUILDERS_CLUB");
+        var index = HabbiconTestSupport.Incoming("BUILDERS_CLUB");
+        var mode = HabbiconTestSupport.Incoming("BUILDERS_CLUB");
+        await new GetCatalogPageEvent(service).Parse(null!, page);
+        await new GetCatalogIndexEvent(service).Parse(null!, index);
+        await new GetCatalogModeEvent(service).Parse(null!, mode);
         Assert.Equal("pet", service.Type);
         Assert.True(service.PromotableRequested);
+        Assert.Equal(new CatalogPageRequest(12, 34, "BUILDERS_CLUB"), service.PageRequest);
+        Assert.Equal(["index:BUILDERS_CLUB", "mode:BUILDERS_CLUB"], service.Modes);
+        Assert.False(page.HasDataRemaining());
+        Assert.False(index.HasDataRemaining());
+        Assert.False(mode.HasDataRemaining());
+    }
+
+    [Fact]
+    public async Task PageHandlerDoesNotDelegateATruncatedFrame()
+    {
+        var service = new RecordingBrowsing();
+
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            new GetCatalogPageEvent(service).Parse(null!, HabbiconTestSupport.Incoming(12, 34)));
+
+        Assert.Null(service.PageRequest);
+    }
+
+    [Fact]
+    public void PageBrowsingValidatesBeforeAdminSnapshotAndPublication()
+    {
+        var page = new CatalogPage
+        {
+            Id = 7, Enabled = true, Visible = false, Layout = "frontpage",
+            Offers = { [44] = new CatalogItem { Id = 1, OfferId = 44, PageId = 7 } }
+        };
+        var found = true;
+        var pages = new List<CatalogPage> { page };
+        var catalog = CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, args) => method switch
+        {
+            nameof(ICatalogManager.TryGetPage) => TryPage(args, found ? page : null),
+            "get_Pages" => pages,
+            "get_Promotions" => Array.Empty<CatalogPromotion>(),
+            _ => throw new InvalidOperationException(method)
+        });
+        var viewed = new List<int>();
+        var admin = CatalogSnapshotTestSupport.Proxy<ICatalogAdminService>((method, args) =>
+        {
+            if (method == nameof(ICatalogAdminService.RecordViewedPage))
+            {
+                viewed.Add((int)args[1]!);
+                return null;
+            }
+            throw new InvalidOperationException(method);
+        });
+        var snapshots = new RecordingSnapshots(new CatalogSnapshotService(catalog, TimeProvider.System));
+        var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, admin, snapshots);
+        var (client, sent) = HabbiconTestSupport.Client(EditorTestSupport.Player());
+
+        service.ShowPage(client, new(7, 44, "IGNORED"));
+
+        Assert.Equal([7], viewed);
+        Assert.Equal([44], snapshots.PageOffers);
+        Assert.Single(sent);
+        Assert.Equal(ServerPacketHeader.CatalogPageComposer, sent[0].Header);
+        var (expectedClient, expectedSent) = HabbiconTestSupport.Client(EditorTestSupport.Player());
+        expectedClient.Send(new CatalogPageComposer(new CatalogSnapshotService(catalog, TimeProvider.System).CapturePage(page, 44)));
+        Assert.Equal(expectedSent[0].Payload, sent[0].Payload);
+
+        service.ShowPage(client, new(7, 999, "NORMAL"));
+        Assert.Equal([44, -1], snapshots.PageOffers);
+
+        page.Enabled = false;
+        service.ShowPage(client, new(7, 44, "NORMAL"));
+        page.Enabled = true;
+        page.RequiredPermission = EditorTestSupport.RestrictedPagePermission;
+        service.ShowPage(client, new(7, 44, "NORMAL"));
+        found = false;
+        service.ShowPage(client, new(7, 44, "NORMAL"));
+
+        Assert.Equal(2, viewed.Count);
+        Assert.Equal(2, snapshots.PageOffers.Count);
+        Assert.Equal(2, sent.Count);
+    }
+
+    [Fact]
+    public void IndexAndModeUseNormalSnapshotWithLegacyPublicationOrder()
+    {
+        var pages = new List<CatalogPage>();
+        var catalog = CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, _) => method switch
+        {
+            "get_Pages" => pages,
+            _ => throw new InvalidOperationException(method)
+        });
+        var snapshots = new RecordingSnapshots(CatalogSnapshotTestSupport.Snapshots());
+        var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, null!, snapshots);
+        var (client, sent) = HabbiconTestSupport.Client(EditorTestSupport.Player());
+
+        service.ShowIndex(client, "BUILDERS_CLUB");
+        service.ShowMode(client, "UNKNOWN");
+
+        Assert.Equal(2, snapshots.IndexCaptures);
+        Assert.Equal(
+            [ServerPacketHeader.CatalogIndexComposer, ServerPacketHeader.CatalogItemDiscountComposer, ServerPacketHeader.CatalogIndexComposer],
+            sent.Select(packet => packet.Header));
+    }
+
+    private static bool TryPage(object?[] args, CatalogPage? page)
+    {
+        args[1] = page;
+        return page != null;
     }
 
     private sealed class Rooms : IRoomDataLoader
@@ -83,7 +194,30 @@ public sealed class CatalogBrowsingSnapshotTests
     {
         public string? Type { get; private set; }
         public bool PromotableRequested { get; private set; }
+        public CatalogPageRequest? PageRequest { get; private set; }
+        public List<string> Modes { get; } = [];
         public void ShowPetPalettes(GameClient session, string type) => Type = type;
         public void ShowPromotableRooms(GameClient session) => PromotableRequested = true;
+        public void ShowPage(GameClient session, CatalogPageRequest request) => PageRequest = request;
+        public void ShowIndex(GameClient session, string mode) => Modes.Add("index:" + mode);
+        public void ShowMode(GameClient session, string mode) => Modes.Add("mode:" + mode);
+    }
+
+    private sealed class RecordingSnapshots(ICatalogSnapshotService inner) : ICatalogSnapshotService
+    {
+        public List<int> PageOffers { get; } = [];
+        public int IndexCaptures { get; private set; }
+        public CatalogOfferSnapshot CaptureOffer(CatalogItem item) => inner.CaptureOffer(item);
+        public CatalogPageSnapshot CapturePage(CatalogPage page, int preselectOfferId)
+        {
+            PageOffers.Add(preselectOfferId);
+            return inner.CapturePage(page, preselectOfferId);
+        }
+        public CatalogIndexSnapshot CaptureIndex(Habbo habbo, ICollection<CatalogPage> pages)
+        {
+            IndexCaptures++;
+            return inner.CaptureIndex(habbo, pages);
+        }
+        public ClubGiftsSnapshot CaptureClubGifts(ClubGiftInfo info) => inner.CaptureClubGifts(info);
     }
 }
