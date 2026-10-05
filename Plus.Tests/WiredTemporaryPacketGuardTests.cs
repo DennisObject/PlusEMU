@@ -85,7 +85,7 @@ public class WiredTemporaryPacketGuardTests
                     : parameter.ParameterType == typeof(IRoomInteractionService)
                         ? new RoomInteractionService(new RoomInteractionStore(database))
                         : parameter.ParameterType == typeof(ILoveLockService)
-                            ? new LoveLockService(new LoveLockStore(database), TimeProvider.System)
+                            ? new LoveLockService(new LoveLockStore(database), TimeProvider.System, TestRewardProgress.Unused)
                             : parameter.ParameterType == typeof(IItemRedemptionService)
                                 ? new ItemRedemptionService(new ItemRedemptionStore(database), new EnabledExchangeSettings(), null!)
                                 : parameter.ParameterType == typeof(IHorseCustomizationService)

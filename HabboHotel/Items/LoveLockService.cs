@@ -23,7 +23,7 @@ public sealed class LoveLockStore(IDatabase database) : ILoveLockStore
 
 public interface ILoveLockService { void Confirm(GameClient session, LoveLockConfirmation confirmation); }
 
-public sealed class LoveLockService(ILoveLockStore store, TimeProvider timeProvider) : ILoveLockService
+public sealed class LoveLockService(ILoveLockStore store, TimeProvider timeProvider, IRewardTrackManager rewards) : ILoveLockService
 {
     public void Confirm(GameClient session, LoveLockConfirmation confirmation)
     {
@@ -61,8 +61,8 @@ public sealed class LoveLockService(ILoveLockStore store, TimeProvider timeProvi
         item.UpdateState(true, true);
         oneClient.Send(new FriendFurniCancelLockComposer(confirmation.ItemId));
         twoClient.Send(new FriendFurniCancelLockComposer(confirmation.ItemId));
-        RewardTrackManager.Current?.Progress(oneClient, RewardTrackActions.FriendFurniLocked);
-        RewardTrackManager.Current?.Progress(twoClient, RewardTrackActions.FriendFurniLocked);
+        rewards.Progress(oneClient, RewardTrackActions.FriendFurniLocked);
+        rewards.Progress(twoClient, RewardTrackActions.FriendFurniLocked);
         one.CanWalk = two.CanWalk = true;
     }
 

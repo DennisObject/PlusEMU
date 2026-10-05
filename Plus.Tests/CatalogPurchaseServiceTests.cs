@@ -47,6 +47,7 @@ public sealed class CatalogPurchaseServiceTests
         Assert.Equal(0, context.Rewards.Charges);
         Assert.Equal(0, context.Factory.Creates);
         Assert.Empty(context.Habbo.Inventory.Furniture.AllItems);
+        Assert.Empty(context.Tracks.Calls);
     }
 
     [Fact]
@@ -59,6 +60,7 @@ public sealed class CatalogPurchaseServiceTests
         Assert.Equal(1, context.Rewards.Charges);
         Assert.Equal(0, context.Factory.Creates);
         Assert.Empty(context.Habbo.Inventory.Furniture.AllItems);
+        Assert.Empty(context.Tracks.Calls);
         Assert.DoesNotContain(context.Sent, packet => packet.Header == ServerPacketHeader.PurchaseOKComposer);
     }
 
@@ -72,8 +74,24 @@ public sealed class CatalogPurchaseServiceTests
         Assert.Equal(90, context.Habbo.Credits);
         Assert.Equal(1, context.Factory.Creates);
         Assert.NotNull(context.Habbo.Inventory.Furniture.GetItem(700));
+        Assert.Equal((context.Client, Plus.HabboHotel.Quests.RewardTrackActions.BuyFromCatalogue, 1),
+            Assert.Single(context.Tracks.Calls));
         Assert.Contains(context.Sent, packet => packet.Header == ServerPacketHeader.PurchaseOKComposer);
         Assert.Contains(context.Sent, packet => packet.Header == ServerPacketHeader.FurniListUpdateComposer);
+    }
+
+    [Fact]
+    public async Task FurnitureBatchRewardsOnceAfterChargeAndInventoryPublication()
+    {
+        var context = Context();
+
+        await context.Service.Purchase(context.Client, new(1, 2, "ignored", 3));
+
+        Assert.Equal(70, context.Habbo.Credits);
+        Assert.Equal(3, context.Factory.Creates);
+        Assert.Equal(3, context.Habbo.Inventory.Furniture.AllItems.Count());
+        Assert.Equal((context.Client, Plus.HabboHotel.Quests.RewardTrackActions.BuyFromCatalogue, 1),
+            Assert.Single(context.Tracks.Calls));
     }
 
     [Fact]
@@ -86,6 +104,7 @@ public sealed class CatalogPurchaseServiceTests
         Assert.Equal(1, context.Factory.Creates);
         Assert.Empty(context.Habbo.Inventory.Furniture.AllItems);
         Assert.DoesNotContain(context.Sent, packet => packet.Header == ServerPacketHeader.FurniListNotificationComposer);
+        Assert.Empty(context.Tracks.Calls);
     }
 
     [Fact]
@@ -103,6 +122,7 @@ public sealed class CatalogPurchaseServiceTests
 
         Assert.Equal(1, context.Rewards.Charges);
         Assert.Same(context.Rewards.Connection, context.BotStore.Connection);
+        Assert.Empty(context.Tracks.Calls);
         Assert.Same(context.Rewards.Transaction, context.BotStore.Transaction);
         Assert.Equal((50u, 42), (context.BotStore.Preset!.Id, context.BotStore.OwnerId));
         Assert.Equal(90, context.Habbo.Credits);
@@ -235,6 +255,17 @@ public sealed class CatalogPurchaseServiceTests
         var botStore = new RecordingBotStore(botStoreFails);
         var habbo = Habbo();
         var (client, sent) = HabbiconTestSupport.Client(habbo);
+        var tracks = new TestRewardProgress((target, action, amount) =>
+        {
+            Assert.Same(client, target);
+            Assert.Equal(Plus.HabboHotel.Quests.RewardTrackActions.BuyFromCatalogue, action);
+            Assert.Equal(1, amount);
+            Assert.Equal(1, rewards.Charges);
+            Assert.True(habbo.Credits < 100);
+            Assert.NotEmpty(habbo.Inventory.Furniture.AllItems);
+            Assert.Contains(sent, packet => packet.Header == ServerPacketHeader.FurniListNotificationComposer);
+            Assert.DoesNotContain(sent, packet => packet.Header == ServerPacketHeader.PurchaseOKComposer);
+        });
         var service = new CatalogPurchaseService(
             catalog,
             new Settings(enabled),
@@ -246,10 +277,11 @@ public sealed class CatalogPurchaseServiceTests
             Proxy<IHabbiconService, EmptyProxy>(),
             new RecordingMembership(),
             rewards,
+            tracks,
             Proxy<IAvatarEffectStore, EmptyProxy>(),
             new FixedClock(new DateTimeOffset(2040, 2, 3, 4, 5, 6, TimeSpan.Zero)),
             NullLogger<CatalogPurchaseService>.Instance);
-        return new(service, client, habbo, sent, rewards, factory, botStore);
+        return new(service, client, habbo, sent, rewards, factory, botStore, tracks);
     }
 
     private static Habbo Habbo() => new()
@@ -277,7 +309,8 @@ public sealed class CatalogPurchaseServiceTests
         List<(uint Header, byte[] Payload)> Sent,
         RecordingRewards Rewards,
         RecordingFactory Factory,
-        RecordingBotStore BotStore);
+        RecordingBotStore BotStore,
+        TestRewardProgress Tracks);
 
     private sealed class RecordingPurchaseService : ICatalogPurchaseService
     {
@@ -344,7 +377,7 @@ public sealed class CatalogPurchaseServiceTests
         {
             Creates++;
             if (!succeeds) return null!;
-            return new Item { Id = 700, OwnerId = (uint)habbo.Id, Definition = definition };
+            return new Item { Id = (uint)(699 + Creates), OwnerId = (uint)habbo.Id, Definition = definition };
         }
         public Item CreateSingleItem(ItemDefinition definition, Habbo habbo, string extraData, string displayFlags,
             uint itemId, uint limitedNumber = 0, uint limitedStack = 0) => throw new NotSupportedException();

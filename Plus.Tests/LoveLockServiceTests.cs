@@ -27,7 +27,7 @@ public sealed class LoveLockServiceTests
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 1, CurrentRoom = room });
         var store = new RecordingStore();
 
-        new LoveLockService(store, TimeProvider.System).Confirm(client, new(item.Id, true));
+        new LoveLockService(store, TimeProvider.System, TestRewardProgress.Unused).Confirm(client, new(item.Id, true));
 
         Assert.Equal(0, item.InteractingUser);
         Assert.Equal(0, item.InteractingUser2);
@@ -45,8 +45,12 @@ public sealed class LoveLockServiceTests
         one.LlPartner = 2;
         var item = AddItem(room, 1, 2);
         var store = new RecordingStore { Fail = true };
+        var rewards = new TestRewardProgress();
 
-        Assert.Throws<InvalidOperationException>(() => new LoveLockService(store, TimeProvider.System).Confirm(twoClient, new(item.Id, true)));
+        var failure = Assert.Throws<InvalidOperationException>(() =>
+            new LoveLockService(store, TimeProvider.System, rewards).Confirm(twoClient, new(item.Id, true)));
+        Assert.Equal("forced failure", failure.Message);
+        Assert.Empty(rewards.Calls);
 
         Assert.Equal(1, item.InteractingUser);
         Assert.Equal(2, item.InteractingUser2);
@@ -70,11 +74,20 @@ public sealed class LoveLockServiceTests
             Assert.Equal("", item.ExtraData.Serialize());
             Assert.Empty(twoSent);
         });
-        var service = new LoveLockService(store, new FixedTimeProvider(new DateTimeOffset(2040, 12, 31, 23, 0, 0, TimeSpan.Zero)));
+        var rewards = new TestRewardProgress((_, _, _) =>
+        {
+            Assert.Equal(1, store.Writes);
+            Assert.Equal(item.ExtraData.Serialize(), store.Data);
+            Assert.Contains(oneSent, packet => packet.Header == ServerPacketHeader.FriendFurniCancelLockComposer);
+            Assert.Contains(twoSent, packet => packet.Header == ServerPacketHeader.FriendFurniCancelLockComposer);
+        });
+        var service = new LoveLockService(store,
+            new FixedTimeProvider(new DateTimeOffset(2040, 12, 31, 23, 0, 0, TimeSpan.Zero)), rewards);
 
         service.Confirm(oneClient, new(item.Id, true));
 
         Assert.Equal(0, store.Writes);
+        Assert.Empty(rewards.Calls);
         var staged = Assert.Single(oneSent);
         Assert.Equal(ServerPacketHeader.FriendFurniOtherLockConfirmedComposer, staged.Header);
         Assert.Equal(item.Id, BinaryPrimitives.ReadUInt32BigEndian(staged.Payload));
@@ -92,6 +105,11 @@ public sealed class LoveLockServiceTests
         Assert.Equal(0, two.LlPartner);
         Assert.True(one.CanWalk);
         Assert.True(two.CanWalk);
+        Assert.Equal(new[]
+        {
+            ((GameClient)oneClient, Plus.HabboHotel.Quests.RewardTrackActions.FriendFurniLocked, 1),
+            ((GameClient)twoClient, Plus.HabboHotel.Quests.RewardTrackActions.FriendFurniLocked, 1)
+        }, rewards.Calls);
         Assert.Contains(twoSent, packet => packet.Header == ServerPacketHeader.FriendFurniCancelLockComposer && BinaryPrimitives.ReadUInt32BigEndian(packet.Payload) == item.Id);
     }
 
@@ -105,7 +123,7 @@ public sealed class LoveLockServiceTests
         var item = AddItem(room, 1, 2, ownerId: 99);
         var store = new RecordingStore();
 
-        new LoveLockService(store, TimeProvider.System).Confirm(oneClient, new(item.Id, true));
+        new LoveLockService(store, TimeProvider.System, TestRewardProgress.Unused).Confirm(oneClient, new(item.Id, true));
 
         Assert.Equal(1, item.InteractingUser);
         Assert.Equal(2, item.InteractingUser2);
@@ -125,7 +143,7 @@ public sealed class LoveLockServiceTests
         var item = AddItem(room, 1, 2);
         var store = new RecordingStore();
 
-        new LoveLockService(store, TimeProvider.System).Confirm(intruderClient, new(item.Id, false));
+        new LoveLockService(store, TimeProvider.System, TestRewardProgress.Unused).Confirm(intruderClient, new(item.Id, false));
 
         Assert.Equal(1, item.InteractingUser);
         Assert.Equal(2, item.InteractingUser2);

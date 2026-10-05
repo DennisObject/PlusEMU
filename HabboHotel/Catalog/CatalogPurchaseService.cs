@@ -48,6 +48,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
     private readonly ICatalogBotPurchaseStore _botPurchases;
     private readonly IClubMembershipService _clubMemberships;
     private readonly IClubRewards _clubRewards;
+    private readonly IRewardTrackManager _rewardTracks;
     private readonly IAvatarEffectStore _avatarEffects;
     private readonly TimeProvider _clock;
     private readonly ILogger<CatalogPurchaseService> _logger;
@@ -62,7 +63,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
         IItemFactory itemFactory,
         ICatalogBotPurchaseStore botPurchases,
         IHabbiconService habbicons,
-        IClubMembershipService clubMemberships, IClubRewards clubRewards, IAvatarEffectStore avatarEffects,
+        IClubMembershipService clubMemberships, IClubRewards clubRewards, IRewardTrackManager rewardTracks, IAvatarEffectStore avatarEffects,
         TimeProvider clock, ILogger<CatalogPurchaseService> logger)
     {
         _catalogManager = catalogManager;
@@ -75,6 +76,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
         _botPurchases = botPurchases;
         _clubMemberships = clubMemberships;
         _clubRewards = clubRewards;
+        _rewardTracks = rewardTracks;
         _avatarEffects = avatarEffects;
         _clock = clock;
         _logger = logger;
@@ -346,7 +348,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                     }
                 }
                 if (generatedGenericItems.Count > 0)
-                    RewardTrackManager.Current?.Progress(session, RewardTrackActions.BuyFromCatalogue);
+                    _rewardTracks.Progress(session, RewardTrackActions.BuyFromCatalogue);
                 break;
             case "e":
                 AvatarEffect effect;
