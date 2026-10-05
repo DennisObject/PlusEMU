@@ -4,7 +4,6 @@ using System.Text.Json;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Variables;
@@ -209,7 +208,6 @@ public class WiredResetDatabaseTests
     private sealed class TestDatabase : IDatabase
     {
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public IDbConnection Connection() => new MySqlConnection(ConnectionString);
     }
 }
