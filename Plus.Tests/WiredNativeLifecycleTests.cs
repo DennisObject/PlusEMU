@@ -71,7 +71,7 @@ public sealed class WiredNativeLifecycleTests
         var effectItem = f.Item(2); effectItem.Definition.InteractionType = InteractionType.WiredEffect;
         var effect = new CounterAction(f.Room, effectItem); Assert.True(f.Wired.AddBox(effect));
         typeof(RoomUserManager).GetMethod("RemoveRoomUser", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(f.Room.GetRoomUserManager(), [actor]);
+            .Invoke(f.Room.GetRoomUserManager(), [actor, false, false]);
         Assert.Null(f.Room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId));
         f.Wired.OnFastCycle(); Assert.Equal(1, effect.Calls);
     }

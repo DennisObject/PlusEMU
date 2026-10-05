@@ -103,7 +103,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, item, 1, 1, 0, true, false, false));
         Assert.Same(_room, item.GetRoom());
 
-        var user = new RoomUser(7, RoomId, 1, _room, null);
+        var user = new RoomUser(7, RoomId, 1, _room, _client);
         item.UserWalksOnFurni(user);
         item.UserWalksOffFurni(user);
         Assert.Same(item, user.LastItem);

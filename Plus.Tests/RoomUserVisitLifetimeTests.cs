@@ -183,6 +183,26 @@ public partial class PlacedFurniRoomTests
         Assert.Null(RoomOf(user));
     }
 
+    [Fact]
+    public void ThrowingBotLeaveCallbackSeesTheVisitBeforeTerminalDetach()
+    {
+        var manager = _room.GetRoomUserManager();
+        var bot = new RoomUser(0, RoomId, 61, _room, null)
+        {
+            InternalRoomId = 61,
+            BotData = Bot(BotAiType.Generic, 61)
+        };
+        var sawCapturedRoom = false;
+        bot.BotAi = new ThrowingLeaveBotAi(() => sawCapturedRoom = ReferenceEquals(_room, RoomOf(bot)));
+        Users(manager)[61] = bot;
+
+        Assert.Throws<InvalidOperationException>(() => manager.RemoveBot(61, false));
+
+        Assert.True(sawCapturedRoom);
+        Assert.Null(manager.GetRoomUserByVirtualId(61));
+        Assert.Null(RoomOf(bot));
+    }
+
     private static ConcurrentDictionary<int, RoomUser> Users(RoomUserManager manager) =>
         (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
@@ -223,5 +243,20 @@ public partial class PlacedFurniRoomTests
             SawCapturedVisit = ReferenceEquals(Client, User.GetClient()) && ReferenceEquals(Room, RoomOf(User));
             throw new InvalidOperationException("forced exit failure");
         }
+    }
+
+    private sealed class ThrowingLeaveBotAi(Action beforeThrow) : BotAi
+    {
+        public override void OnSelfEnterRoom() { }
+        public override void OnSelfLeaveRoom(bool kicked)
+        {
+            beforeThrow();
+            throw new InvalidOperationException("forced bot leave failure");
+        }
+        public override void OnUserEnterRoom(RoomUser user) { }
+        public override void OnUserLeaveRoom(GameClient client) { }
+        public override void OnUserSay(RoomUser user, string message) { }
+        public override void OnUserShout(RoomUser user, string message) { }
+        public override void OnTimerTick() { }
     }
 }

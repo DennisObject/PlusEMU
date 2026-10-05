@@ -880,27 +880,17 @@ public partial class PlacedFurniRoomTests
         roster[0] = existingVisit;
         using var resolving = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
-        var lookups = 0;
-        var lookupUnderLock = false;
-        var game = PlusEnvironment.Game;
-        var clients = Proxy<IGameClientManager>((method, args) =>
+        var sends = 0;
+        var sendUnderLock = false;
+        existingClient.BeforeCapture = _ =>
         {
-            Assert.Equal("GetClientByUserId", method);
-            if ((int)args[0]! != 8) return _client;
-            if (Interlocked.Increment(ref lookups) == 1)
+            if (Interlocked.Increment(ref sends) == 1)
             {
-                lookupUnderLock = Monitor.IsEntered(map.PlacementSync);
+                sendUnderLock = Monitor.IsEntered(map.PlacementSync);
                 resolving.Set();
                 Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
             }
-            return existingClient;
-        });
-        _gameField.SetValue(null, Proxy<Plus.HabboHotel.IGame>((method, _) => method switch
-        {
-            "get_ClientManager" => clients,
-            "get_RoomManager" => game.RoomManager,
-            _ => throw new InvalidOperationException(method)
-        }));
+        };
         table.Definition.Height = 2;
         map.AddItemToMap(table, false); // Like a furniture commit, dirty the footprint before the flush.
         var flush = Task.Run(map.FlushPlacementUpdates);
@@ -915,7 +905,7 @@ public partial class PlacedFurniRoomTests
         finally { release.Set(); }
         await flush.WaitAsync(TimeSpan.FromSeconds(15));
         map.FlushPlacementUpdates();
-        Assert.False(lookupUnderLock);
+        Assert.False(sendUnderLock);
         var entry = Assert.Single(_client.Packets.Where(packet => packet.Header == ServerPacketHeader.HeightMapComposer));
         var full = new FlashIncomingPacket { Buffer = entry.Body.ToArray() };
         Assert.Equal(4, full.ReadInt()); Assert.Equal(16, full.ReadInt());

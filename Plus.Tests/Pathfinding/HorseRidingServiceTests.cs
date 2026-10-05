@@ -114,7 +114,7 @@ public partial class PlacedFurniRoomTests
 
     private RoomUser LegacyRider()
     {
-        var rider = new RoomUser(7, RoomId, 7, _room, null) { X = 0, Y = 1, InternalRoomId = 7, UserId = 7 };
+        var rider = new RoomUser(7, RoomId, 7, _room, _client) { X = 0, Y = 1, InternalRoomId = 7, UserId = 7 };
         Assert.True(LegacyUsers().TryAdd(7, rider));
         return rider;
     }

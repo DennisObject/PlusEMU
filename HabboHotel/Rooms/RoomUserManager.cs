@@ -183,23 +183,28 @@ public class RoomUserManager
         var user = GetRoomUserByVirtualId(virtualId);
         if (user == null || !user.IsBot)
             return;
-        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) navigation.Remove(user);
-        if (user.IsPet)
+        if (_users == null || !_users.TryRemove(new KeyValuePair<int, RoomUser>(user.InternalRoomId, user)))
+            return;
+        try
         {
-            _pets.TryRemove(user.PetData.PetId, out var pet);
-            PetCount--;
-        }
-        else
-            _bots.TryRemove(user.BotData.Id, out var bot);
-        _room.GetWired()?.BeforeActorLeaves(user);
-        user.BotAi.OnSelfLeaveRoom(kicked);
-        if (_users != null && _users.TryRemove(new KeyValuePair<int, RoomUser>(user.InternalRoomId, user)))
-        {
+            if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) navigation.Remove(user);
+            if (user.IsPet)
+            {
+                if (_pets.TryRemove(new KeyValuePair<int, RoomUser>(user.PetData.PetId, user)))
+                    PetCount--;
+            }
+            else
+                _bots.TryRemove(new KeyValuePair<int, RoomUser>(user.BotData.Id, user));
+            _room.GetWired()?.BeforeActorLeaves(user);
+            user.BotAi.OnSelfLeaveRoom(kicked);
             _room.SendPacket(new UserRemoveComposer(user.VirtualId));
             _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
+            OnRemove(user);
         }
-        OnRemove(user);
-        user.Dispose();
+        finally
+        {
+            user.Dispose();
+        }
     }
 
     public RoomUser? GetUserForSquare(int x, int y) => _room.GetGameMap().GetRoomUsers(new(x, y)).FirstOrDefault();
@@ -376,7 +381,7 @@ public class RoomUserManager
                     }
                 }
                 removedUser = user;
-                RemoveRoomUser(user);
+                RemoveRoomUser(user, actorLeavePrepared: true);
                 if (user.CurrentItemEffect != ItemEffectType.None)
                 {
                     if (session.GetHabbo().Effects != null)
@@ -459,24 +464,53 @@ public class RoomUserManager
         }
     }
 
-    private void RemoveRoomUser(RoomUser user)
+    private bool RemoveRoomUser(RoomUser user, bool detachAfterRemoval = false, bool actorLeavePrepared = false)
     {
+        if (!_users.TryGetValue(user.InternalRoomId, out var registered) || !ReferenceEquals(registered, user))
+            return false;
+        var recipients = GetRoomUsers().Select(roomUser => roomUser.GetClient()).Where(client => client != null)
+            .Cast<GameClient>().ToArray();
         if (!_users.TryRemove(new KeyValuePair<int, RoomUser>(user.InternalRoomId, user)))
-            return;
-        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) navigation.Remove(user);
-        _room.GetWired()?.BeforeActorLeaves(user);
-        if (!user.IsBot || !user.BotData.IsTemporary)
+            return false;
+        try
         {
-            if (user.SetStep)
-                _room.GetGameMap().GameMap[user.SetX, user.SetY] = user.SqState;
-            else
-                _room.GetGameMap().GameMap[user.X, user.Y] = user.SqState;
+            if (!actorLeavePrepared && _room.GetGameMap().Navigation is { UsesExecutor: true } navigation) navigation.Remove(user);
+            if (!actorLeavePrepared)
+                _room.GetWired()?.BeforeActorLeaves(user);
+            if (!user.IsBot || !user.BotData.IsTemporary)
+            {
+                if (user.SetStep)
+                    _room.GetGameMap().GameMap[user.SetX, user.SetY] = user.SqState;
+                else
+                    _room.GetGameMap().GameMap[user.X, user.Y] = user.SqState;
+            }
+            _room.GetGameMap().RemoveUserFromMap(user, new(user.X, user.Y));
+            try
+            {
+                GameClient.SendBroadcast(new UserRemoveComposer(user.VirtualId), recipients);
+            }
+            catch (Exception error)
+            {
+                ExceptionLogger.LogException(error);
+            }
+            _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
+            user.InternalRoomId = -1;
+            OnRemove(user);
+            return true;
         }
-        _room.GetGameMap().RemoveUserFromMap(user, new(user.X, user.Y));
-        _room.SendPacket(new UserRemoveComposer(user.VirtualId));
-        _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
-        user.InternalRoomId = -1;
-        OnRemove(user);
+        finally
+        {
+            if (detachAfterRemoval)
+                user.Dispose();
+        }
+    }
+
+    private void RemoveAbandonedRoomUser(RoomUser user)
+    {
+        if (RemoveRoomUser(user, true))
+            return;
+        if (!_users.Values.Any(candidate => ReferenceEquals(candidate, user)))
+            user.Dispose();
     }
 
     public bool TryGetPet(int petId, [NotNullWhen(true)] out RoomUser? pet) => _pets.TryGetValue(petId, out pet);
@@ -644,8 +678,7 @@ public class RoomUserManager
         if (client?.GetHabbo()?.CurrentRoom == _room) RemoveUserFromRoom(client, true);
         else
         {
-            RemoveRoomUser(actor);
-            actor.Dispose();
+            RemoveAbandonedRoomUser(actor);
         }
         return false;
     }
@@ -678,8 +711,7 @@ public class RoomUserManager
                         RemoveUserFromRoom(user.GetClient(), false);
                     else
                     {
-                        RemoveRoomUser(user);
-                        user.Dispose();
+                        RemoveAbandonedRoomUser(user);
                     }
                 }
                 if (user.NeedsAutokick && !toRemove.Contains(user))
@@ -958,8 +990,7 @@ public class RoomUserManager
                     RemoveUserFromRoom(client, true);
                 else
                 {
-                    RemoveRoomUser(userToRemove);
-                    userToRemove.Dispose();
+                    RemoveAbandonedRoomUser(userToRemove);
                 }
             }
             if (UserCount != userCounter)
