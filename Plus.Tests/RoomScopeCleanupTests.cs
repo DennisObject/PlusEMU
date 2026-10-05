@@ -74,7 +74,7 @@ public sealed class RoomScopeCleanupTests
             services.AddScoped<Probe>(_ => new Probe(() => { Disposed++; dispose?.Invoke(); }));
             services.AddScoped<IRoomComponent, MinimalComponent>();
             _provider = services.BuildServiceProvider();
-            _factory = new ScopedRoomFactory(_provider.GetRequiredService<IServiceScopeFactory>());
+            _factory = new ScopedRoomFactory(_provider.GetRequiredService<IServiceScopeFactory>(), TestLogging.Navigation, TestLogging.Factory);
             Manager = new RoomManager(NullLogger<RoomManager>.Instance, null!, null!, TimeProvider.System, _factory);
         }
         public Room Create(uint id)
@@ -101,7 +101,7 @@ public sealed class RoomScopeCleanupTests
             room.UsersWithRights = [];
             room.WordFilterList = [];
             Set(room, "_tents", new Dictionary<uint, List<RoomUser>>());
-            Set(room, "_wiredComponent", new WiredComponent(room));
+            Set(room, "_wiredComponent", new WiredComponent(room, TestLogging.Logger));
         }
         public void Initiated() { }
     }
