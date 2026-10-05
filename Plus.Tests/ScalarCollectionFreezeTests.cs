@@ -36,6 +36,16 @@ public sealed class ScalarCollectionFreezeTests
     }
 
     [Fact]
+    public void FavouriteIdsAreFrozenAtConstruction()
+    {
+        var ids = new System.Collections.ArrayList { 7, 42 };
+        var composer = new FavouritesComposer(ids);
+        ids[0] = 99;
+        ids.Clear();
+        Recompose(composer, new object[] { 50, 2, 7, 42 });
+    }
+
+    [Fact]
     public void HousekeepingRoomListIsFrozenWhileKeepingRoomFieldOrder()
     {
         var room = new HousekeepingRoom(42, "room", "description", 7, "owner", 3, 25, true, false, false, 123);
