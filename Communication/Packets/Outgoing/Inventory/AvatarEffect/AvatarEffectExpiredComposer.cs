@@ -1,16 +1,11 @@
 ﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users.Effects;
 
 namespace Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
 
-public class AvatarEffectExpiredComposer : IServerPacket
+public class AvatarEffectExpiredComposer(AvatarEffectExpiry expiry) : IServerPacket
 {
-    private readonly Plus.HabboHotel.Users.Effects.AvatarEffect _effect;
     public uint MessageId => ServerPacketHeader.AvatarEffectExpiredComposer;
 
-    public AvatarEffectExpiredComposer(Plus.HabboHotel.Users.Effects.AvatarEffect effect)
-    {
-        _effect = effect;
-    }
-
-    public void Compose(IOutgoingPacket packet) => packet.WriteInteger(_effect.SpriteId);
+    public void Compose(IOutgoingPacket packet) => packet.WriteInteger(expiry.SpriteId);
 }

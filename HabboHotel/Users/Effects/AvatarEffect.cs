@@ -64,7 +64,7 @@ public sealed class AvatarEffect
         Activated = false;
         ActivatedAt = null;
         Store.SaveQuantity(Id, Quantity, false, null);
-        habbo.Client.Send(new AvatarEffectExpiredComposer(this));
+        habbo.Client.Send(new AvatarEffectExpiredComposer(new AvatarEffectExpiry(SpriteId)));
         // reset fx if in room?
     }
 

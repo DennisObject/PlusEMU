@@ -21,6 +21,7 @@ using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rewards;
 using Plus.HabboHotel.Users.Authentication;
+using Plus.HabboHotel.Users.Effects;
 using Plus.HabboHotel.Users.Messenger.FriendBar;
 using Plus.HabboHotel.Users.Process;
 using Microsoft.Extensions.Logging;
@@ -43,6 +44,7 @@ public class SSOTicketEvent : IPacketEvent
     private readonly IRewardManager _rewardManager;
     private readonly ClubLifecycle _clubLifecycle;
     private readonly ILogger<ProcessComponent> _processLogger;
+    private readonly IAvatarEffectService _avatarEffects;
 
     public SSOTicketEvent(IAuthenticator authenticate,
         IBadgeManager badgeManager,
@@ -53,9 +55,10 @@ public class SSOTicketEvent : IPacketEvent
         ILanguageManager languageManager,
         ISettingsManager settingsManager,
         IRewardManager rewardManager, ClubLifecycle clubLifecycle, ClientAccessLists clientAccessLists,
-        ILogger<ProcessComponent> processLogger, IModeratorTicketService tickets)
+        ILogger<ProcessComponent> processLogger, IModeratorTicketService tickets, IAvatarEffectService avatarEffects)
     {
         _authenticate = authenticate;
+        _avatarEffects = avatarEffects;
         _badgeManager = badgeManager;
         _moderationManager = moderationManager;
         _tickets = tickets;
@@ -79,7 +82,7 @@ public class SSOTicketEvent : IPacketEvent
             session.Send(new AuthenticationOkComposer());
 
             // TODO @80O: Move to individual incoming message handlers.
-            session.Send(new AvatarEffectsComposer(session.GetHabbo().Effects.GetAllEffects));
+            session.Send(new AvatarEffectsComposer(_avatarEffects.Capture(session.GetHabbo())));
             session.Send(new NavigatorSettingsComposer(session.GetHabbo().HomeRoom));
             session.Send(new FavouritesComposer(session.GetHabbo().FavoriteRooms));
             session.Send(new FigureSetIdsComposer(session.GetHabbo().Clothing.GetClothingParts));
