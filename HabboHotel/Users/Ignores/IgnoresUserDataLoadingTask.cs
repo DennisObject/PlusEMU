@@ -16,7 +16,7 @@ internal class IgnoresUserDataLoadingTask : IUserDataLoadingTask
     public async Task Load(Habbo habbo)
     {
         using var connection = _database.Connection();
-        var ignoredUsers = (await connection.QueryAsync<int>("SELECT * FROM `user_ignores` WHERE `user_id` = @userId", new { userId = habbo.Id })).ToList();
+        var ignoredUsers = (await connection.QueryAsync<int>("SELECT ignore_id FROM `user_ignores` WHERE `user_id` = @userId", new { userId = habbo.Id })).ToList();
         habbo.IgnoresComponent = new(ignoredUsers);
     }
 }
