@@ -47,7 +47,11 @@ public partial class PlacedFurniRoomTests
             var effects = _room.GetGameMap().EffectMap;
             effects[1, 1] = effects[2, 1] = 1;
 
-            actor.MoveTo(1, 1); ExecutorTick(); ExecutorTick();
+            actor.MoveTo(1, 1); ExecutorTick();
+            Assert.True(actor.HasStatus("mv"));
+            Assert.Equal(29, _client.GetHabbo().Effects.CurrentEffect);
+            Assert.Equal([(_client, RewardTrackActions.Swim, 1)], rewards.Calls);
+            ExecutorTick();
             actor.MoveTo(2, 1); ExecutorTick(); ExecutorTick();
             Assert.Equal([(_client, RewardTrackActions.Swim, 1)], rewards.Calls);
 
