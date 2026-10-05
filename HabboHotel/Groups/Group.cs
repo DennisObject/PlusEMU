@@ -77,8 +77,6 @@ public class Group
     {
         if (_members.Contains(id))
             _members.Remove(id);
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        connection.Execute("UPDATE group_memberships SET `rank`=1 WHERE user_id=@id AND group_id=@groupId LIMIT 1", new { id, groupId = Id });
         if (!_administrators.Contains(id))
             _administrators.Add(id);
     }
@@ -87,10 +85,9 @@ public class Group
     {
         if (!_administrators.Contains(userId))
             return;
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        connection.Execute("UPDATE group_memberships SET `rank`=0 WHERE user_id=@userId AND group_id=@groupId", new { userId, groupId = Id });
         _administrators.Remove(userId);
-        _members.Add(userId);
+        if (!_members.Contains(userId))
+            _members.Add(userId);
     }
 
     public void AddMember(int id)
@@ -136,19 +133,11 @@ public class Group
 
     public void HandleRequest(int id, bool accepted)
     {
-        using (var connection = PlusEnvironment.DatabaseManager.Connection())
-        {
-            connection.Open();
-            using var transaction = connection.BeginTransaction();
-            if (accepted)
-            {
-                connection.Execute("INSERT INTO group_memberships (user_id,group_id) VALUES (@id,@groupId)", new { id, groupId = Id }, transaction);
-            }
-            connection.Execute("DELETE FROM group_requests WHERE user_id=@id AND group_id=@groupId LIMIT 1", new { id, groupId = Id }, transaction);
-            transaction.Commit();
-        }
         if (accepted)
-            _members.Add(id);
+        {
+            if (!_members.Contains(id))
+                _members.Add(id);
+        }
         if (_requests.Contains(id))
             _requests.Remove(id);
     }

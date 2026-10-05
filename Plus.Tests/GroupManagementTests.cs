@@ -244,7 +244,7 @@ public class GroupManagementTests : IDisposable
         group.AddMember(8);
         var (target, _) = Client(new Habbo { Id = 8, Username = "Bob", Look = "hr-1", Access = Rights() });
         var (owner, sent) = Client(Owner());
-        await new AcceptGroupMembershipEvent(GroupSource(group)).Parse(owner, Packet(group.Id, 8));
+        await new AcceptGroupMembershipEvent(Mutations(group, UnloadedRooms())).Parse(owner, Packet(group.Id, 8));
 
         Assert.True(group.IsMember(8));
         Assert.False(group.HasRequest(8));
@@ -422,13 +422,14 @@ public class GroupManagementTests : IDisposable
         group.Type = GroupType.Locked;
         group.AddMember(8);
         var (owner, sent) = Client(Owner());
-        var groups = GroupSource(group);
-        await new AcceptGroupMembershipEvent(groups).Parse(owner, Packet(group.Id, 8));
+        var rooms = UnloadedRooms();
+        var mutations = Mutations(group, rooms, identities: false);
+        await new AcceptGroupMembershipEvent(mutations).Parse(owner, Packet(group.Id, 8));
         Assert.True(group.IsMember(8));
         Assert.False(group.HasRequest(8));
-        await new GiveAdminRightsEvent(groups, UnloadedRooms()).Parse(owner, Packet(group.Id, 8));
+        await new GiveAdminRightsEvent(mutations).Parse(owner, Packet(group.Id, 8));
         Assert.True(group.IsAdmin(8));
-        await new TakeAdminRightsEvent(groups, UnloadedRooms()).Parse(owner, Packet(group.Id, 8));
+        await new TakeAdminRightsEvent(mutations).Parse(owner, Packet(group.Id, 8));
         Assert.False(group.IsAdmin(8));
         Assert.Equal(3, sent.Count(item => item.Header == ServerPacketHeader.UnknownGroupComposer));
     }
@@ -470,6 +471,15 @@ public class GroupManagementTests : IDisposable
         args[1] = group;
         return true;
     });
+
+    private IGroupMembershipMutationService Mutations(Group group, IRoomManager rooms, bool identities = true) =>
+        new GroupMembershipMutationService(
+            GroupSource(group),
+            rooms,
+            Proxy<IGroupMemberIdentityLookup>((method, args) => method == nameof(IGroupMemberIdentityLookup.Find) && identities && _clients.TryGetValue((int)args[0]!, out var client)
+                ? new GroupMemberIdentity(client.GetHabbo().Id, client.GetHabbo().Username, client.GetHabbo().Look)
+                : null),
+            new SuccessfulMutationStore());
 
     private IGroupInfoSnapshotService GroupInfo()
     {
@@ -553,6 +563,12 @@ public class GroupManagementTests : IDisposable
     }
 
     private sealed record MembersPage(int Total, int Count, int PageSize, int Page, int Level, List<string> Names);
+
+    private sealed class SuccessfulMutationStore : IGroupMembershipMutationStore
+    {
+        public bool Accept(int groupId, int userId) => true;
+        public bool SetAdmin(int groupId, int userId, bool isAdmin) => true;
+    }
 
     private sealed class ValueReader(List<object> values)
     {
