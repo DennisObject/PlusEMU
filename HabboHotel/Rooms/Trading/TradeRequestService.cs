@@ -146,6 +146,7 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
             session.Send(new TradingClosedComposer(habbo.Id));
             return;
         }
+        if (!TryGetTradeUser(trade, roomUser, out _)) return;
         trade.EndTrade(habbo.Id);
     }
 
@@ -153,6 +154,7 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
     {
         if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) return;
         if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade)) return;
+        if (!TryGetTradeUser(trade, roomUser, out _)) return;
         trade.EndTrade(habbo.Id);
     }
 

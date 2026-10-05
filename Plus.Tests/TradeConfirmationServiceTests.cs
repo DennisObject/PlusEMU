@@ -173,6 +173,36 @@ public sealed class TradeConfirmationServiceTests
         Assert.Empty(alice.Sent); Assert.Empty(bob.Sent);
         Assert.True(trade.Users[1].HasAccepted);
         Assert.False(trade.Users[0].HasAccepted);
+        Assert.True(f.Trading.TryGetTrade(trade.Id, out _));
+        Assert.True(alice.RoomUser.HasStatus("trd")); Assert.True(bob.RoomUser.HasStatus("trd"));
+    }
+
+    [Fact]
+    public void StaleNonParticipantCannotCancelOrLeaveTheTradeChanged()
+    {
+        using var f = new TradeFixture();
+        var (alice, bob) = (f.Join(1, 7), f.Join(2, 8));
+        var stranger = f.Join(3, 9);
+        var trade = f.Start(alice, bob);
+        stranger.RoomUser.TradeId = trade.Id;
+        stranger.RoomUser.IsTrading = true;
+        f.Trades.Accept(alice.Session);
+        alice.Packets.Clear(); bob.Packets.Clear();
+
+        f.Trades.Cancel(stranger.Session);
+        Assert.True(f.Trading.TryGetTrade(trade.Id, out _));
+        Assert.Empty(alice.Sent); Assert.Empty(bob.Sent); Assert.Empty(stranger.Sent);
+        Assert.True(trade.Users[0].HasAccepted);
+        Assert.True(alice.RoomUser.IsTrading); Assert.True(bob.RoomUser.IsTrading);
+        Assert.Equal(trade.Id, alice.RoomUser.TradeId); Assert.Equal(trade.Id, bob.RoomUser.TradeId);
+        Assert.True(alice.RoomUser.HasStatus("trd")); Assert.True(bob.RoomUser.HasStatus("trd"));
+
+        f.Trades.CancelConfirmation(stranger.Session);
+        Assert.True(f.Trading.TryGetTrade(trade.Id, out _));
+        Assert.Empty(alice.Sent); Assert.Empty(bob.Sent); Assert.Empty(stranger.Sent);
+        Assert.True(trade.Users[0].HasAccepted);
+        Assert.True(alice.RoomUser.IsTrading); Assert.True(bob.RoomUser.IsTrading);
+        Assert.True(alice.RoomUser.HasStatus("trd")); Assert.True(bob.RoomUser.HasStatus("trd"));
     }
 
     [Fact]
