@@ -2,6 +2,9 @@ using System.Collections.Immutable;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets;
 using Plus.Communication.Packets.Incoming.Navigator;
+using Plus.Communication.Packets.Incoming.FriendList;
+using Plus.HabboHotel.Rooms;
+using System.Runtime.CompilerServices;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Packets.Outgoing.Navigator;
 using Plus.Communication.Packets.Outgoing.Navigator.New;
@@ -37,7 +40,7 @@ public class NavigatorPresentationTests
     {
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
 
-        new NavigatorPresentationService(Manager([new TopLevelItem(1, "hotel_view", "", "")], [], [])).InitializeNewNavigator(client);
+        new NavigatorPresentationService(Manager([new TopLevelItem(1, "hotel_view", "", "")], [], []), null!).InitializeNewNavigator(client);
 
         Assert.Equal(new[]
         {
@@ -98,7 +101,7 @@ public class NavigatorPresentationTests
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7, Access = access });
         var readsBefore = clock.Reads;
 
-        new NavigatorPresentationService(Manager([], categories, [])).ShowUserFlatCategories(client);
+        new NavigatorPresentationService(Manager([], categories, []), null!).ShowUserFlatCategories(client);
 
         Assert.Equal(new[] { (1, "Public", true), (2, "First", true), (3, "Second", true), (4, "Third", true) }, Categories(Assert.Single(sent).Payload));
         Assert.Equal(1, clock.Reads - readsBefore);
@@ -146,6 +149,56 @@ public class NavigatorPresentationTests
         Assert.Equal(first, Write(new NavigatorMetaDataParserComposer(codes)));
     }
 
+    [Fact]
+    public async Task FindFriendsHandlerDelegatesWithoutReadingAPacketOrRoom()
+    {
+        var presentation = new RecordingPresentation();
+        await new FindNewFriendsEvent(presentation).Parse(null!, null!);
+        Assert.Equal(new[] { "find" }, presentation.Calls);
+    }
+
+    [Fact]
+    public void FriendSearchPublishesResultBeforeForwardWithOneCapturedRoomId()
+    {
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        room.Id = 42;
+        var lookups = 0;
+        var rooms = CatalogSnapshotTestSupport.Proxy<IRoomManager>((method, _) =>
+        {
+            Assert.Equal(nameof(IRoomManager.TryGetRandomLoadedRoom), method);
+            lookups++;
+            return room;
+        });
+        var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
+        var send = client.SendCallback;
+        client.SendCallback = packet => { var result = send!(packet); room.Id = 99; return result; };
+
+        new NavigatorPresentationService(null!, rooms).FindFriends(client);
+
+        Assert.Equal(1, lookups);
+        Assert.Equal(new[] { ServerPacketHeader.FindFriendsProcessResultComposer, ServerPacketHeader.RoomForwardComposer },
+            sent.Select(packet => packet.Header));
+        var result = new FlashIncomingPacket { Buffer = sent[0].Payload };
+        Assert.True(result.ReadBool()); Assert.False(result.HasDataRemaining());
+        var forward = new FlashIncomingPacket { Buffer = sent[1].Payload };
+        Assert.Equal(42, forward.ReadInt()); Assert.False(forward.HasDataRemaining());
+    }
+
+    [Fact]
+    public void FriendSearchWithoutALoadedRoomOnlyPublishesTheFalseResult()
+    {
+        var rooms = CatalogSnapshotTestSupport.Proxy<IRoomManager>((method, _) =>
+            method == nameof(IRoomManager.TryGetRandomLoadedRoom) ? null : throw new NotSupportedException(method));
+        var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
+
+        new NavigatorPresentationService(null!, rooms).FindFriends(client);
+
+        var response = Assert.Single(sent);
+        Assert.Equal(ServerPacketHeader.FindFriendsProcessResultComposer, response.Header);
+        var body = new FlashIncomingPacket { Buffer = response.Payload };
+        Assert.False(body.ReadBool()); Assert.False(body.HasDataRemaining());
+    }
+
     private static List<object> Write(IServerPacket composer)
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
@@ -178,7 +231,7 @@ public class NavigatorPresentationTests
     private static byte[] Payload(Habbo habbo, List<SearchResultList> categories)
     {
         var (client, sent) = HabbiconTestSupport.Client(habbo);
-        new NavigatorPresentationService(Manager([], categories, [])).ShowUserFlatCategories(client);
+        new NavigatorPresentationService(Manager([], categories, []), null!).ShowUserFlatCategories(client);
         return Assert.Single(sent).Payload;
     }
 
@@ -197,5 +250,6 @@ public class NavigatorPresentationTests
         public void InitializeNewNavigator(GameClient session) => Calls.Add("initialize");
         public void ShowUserFlatCategories(GameClient session) => Calls.Add("user");
         public void ShowEventCategories(GameClient session) => Calls.Add("events");
+        public void FindFriends(GameClient session) => Calls.Add("find");
     }
 }
