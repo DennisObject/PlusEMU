@@ -3,6 +3,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Quests;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Subscriptions;
 
@@ -10,6 +11,8 @@ namespace Plus.HabboHotel.Rooms;
 
 public interface IRoomAvatarActionService
 {
+    void Move(GameClient session, int x, int y);
+    void GiveHandItem(Room room, GameClient session, int userId);
     void PerformAction(Room room, GameClient session, int action);
     void Dance(Room room, GameClient session, int danceId);
     void SetPosture(GameClient session, int posture);
@@ -18,9 +21,58 @@ public interface IRoomAvatarActionService
     void ApplySign(Room room, GameClient session, int signId);
 }
 
-public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager questManager) : IRoomAvatarActionService
+public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager questManager, IRewardTrackManager rewards) : IRoomAvatarActionService
 {
     private static readonly TimeSpan SignDuration = TimeSpan.FromSeconds(5);
+
+    public void Move(GameClient session, int x, int y)
+    {
+        var habbo = session.GetHabbo();
+        var room = habbo.CurrentRoom;
+        if (!habbo.InRoom || room == null)
+            return;
+        var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
+        if (user == null || !room.GetGameMap().ValidTile(x, y))
+            return;
+        if (!user.IsBot)
+            room.GetWired().Dispatch(new(WiredEventKind.ClickTile) { Actor = user, X = x, Y = y });
+        if (!user.CanWalk || x == user.X && y == user.Y)
+            return;
+        if (room.UsesV2Movement)
+        {
+            user.MoveTo(x, y);
+            return;
+        }
+        if (user.RidingHorse)
+        {
+            var horse = room.GetRoomUserManager().GetRoomUserByVirtualId(user.HorseId);
+            if (horse != null)
+                horse.MoveTo(x, y);
+        }
+        user.MoveTo(x, y);
+    }
+
+    public void GiveHandItem(Room room, GameClient session, int userId)
+    {
+        var habbo = session.GetHabbo();
+        if (!ReferenceEquals(habbo.CurrentRoom, room))
+            return;
+        var users = room.GetRoomUserManager();
+        var actor = users.GetRoomUserByHabbo(habbo.Id);
+        var target = users.GetRoomUserByHabbo(userId);
+        if (actor == null || target == null)
+            return;
+        if ((Math.Abs(actor.X - target.X) >= 3 || Math.Abs(actor.Y - target.Y) >= 3)
+            && !habbo.Access.Can(PermissionKeys.ModerationTool))
+            return;
+        if (actor.CarryItemId <= 0 || actor.CarryTimer <= 0)
+            return;
+        if (actor.CarryItemId == 8)
+            questManager.ProgressUserQuest(session, QuestType.GiveCoffee);
+        target.CarryItem(actor.CarryItemId);
+        actor.CarryItem(0);
+        target.DanceId = 0;
+    }
 
     public void PerformAction(Room room, GameClient session, int action)
     {
@@ -47,7 +99,7 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
             room.GetWired().Dispatch(new(WiredEventKind.AvatarAction)
                 { Actor = user, Action = (int)wiredAction, Code = -1 });
         if (action == 1)
-            RewardTrackManager.Current?.Progress(session, RewardTrackActions.Wave);
+            rewards.Progress(session, RewardTrackActions.Wave);
         questManager.ProgressUserQuest(session, QuestType.SocialWave);
     }
 
@@ -70,7 +122,7 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
             room.GetWired().Dispatch(new(WiredEventKind.AvatarAction)
                 { Actor = user, Action = (int)WiredAvatarAction.Dance, Code = danceId });
         if (danceId >= 1 && danceId <= 4 && danceId != previousDance)
-            RewardTrackManager.Current?.Progress(session, RewardTrackActions.Dance);
+            rewards.Progress(session, RewardTrackActions.Dance);
         questManager.ProgressUserQuest(session, QuestType.SocialDance);
         if (room.GetRoomUserManager().GetRoomUsers().Count > 19)
             questManager.ProgressUserQuest(session, QuestType.MassDance);

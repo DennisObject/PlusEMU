@@ -24,6 +24,36 @@ namespace Plus.Tests;
 
 public class WiredAvatarPacketHookTests
 {
+    [Fact]
+    public async Task MovementAndHandHandlersDecodeAllFieldsBeforeDelegating()
+    {
+        var service = new RecordingAvatarActions();
+        var world = new World(1);
+        var movement = Packet(3, 4);
+        await new Plus.Communication.Packets.Incoming.Rooms.Engine.MoveAvatarEvent(service)
+            .Parse(world.Client, movement);
+        Assert.Equal((3, 4), service.MoveTarget);
+        Assert.False(movement.HasDataRemaining());
+        var hand = Packet(17);
+        await new Plus.Communication.Packets.Incoming.Rooms.Action.GiveHandItemEvent(service)
+            .Parse(world.Room, world.Client, hand);
+        Assert.Equal(17, service.HandTarget);
+        Assert.False(hand.HasDataRemaining());
+        Assert.Empty(world.SentPackets);
+    }
+
+    [Fact]
+    public void WaveAndChangedDanceProgressTheInjectedRewardManager()
+    {
+        var world = new World(1);
+        world.Actions.PerformAction(world.Room, world.Client, 1);
+        world.Actions.PerformAction(world.Room, world.Client, 2);
+        world.Actions.Dance(world.Room, world.Client, 1);
+        world.Actions.Dance(world.Room, world.Client, 1);
+        world.Actions.Dance(world.Room, world.Client, 0);
+        Assert.Equal(new[] { RewardTrackActions.Wave, RewardTrackActions.Dance }, world.Rewards.Progresses);
+    }
+
     [Theory]
     [InlineData(1, 1)] [InlineData(2, 2)] [InlineData(3, 3)] [InlineData(5, 5)] [InlineData(7, 11)]
     public async Task ExpressionPacketRunsActualConfiguredTriggerOnceWithActorIdentity(int expression, int editorAction)
@@ -247,6 +277,7 @@ public class WiredAvatarPacketHookTests
         public CaptureAction Capture { get; }
         public RoomUserManager Users { get; }
         public IRoomAvatarActionService Actions { get; }
+        public RecordingActionRewards Rewards { get; } = new();
         public List<byte[]> SentPackets { get; } = [];
         private readonly WiredComponent _wired;
         private readonly ConcurrentDictionary<int, RoomUser> _users;
@@ -256,7 +287,7 @@ public class WiredAvatarPacketHookTests
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
             var items = new RoomItemHandling(Room, TestRoomItemStore.Instance);
             Users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock ?? TimeProvider.System);
-            Actions = new RoomAvatarActionService(clock ?? TimeProvider.System, new NoQuests());
+            Actions = new RoomAvatarActionService(clock ?? TimeProvider.System, new NoQuests(), Rewards);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", Users);
             _wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance); Set(Room, "_wiredComponent", _wired);
             Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
@@ -317,6 +348,10 @@ public class WiredAvatarPacketHookTests
         public int Posture { get; private set; }
         public (int X, int Y) LookTarget { get; private set; }
         public List<bool> Typing { get; } = [];
+        public (int X, int Y) MoveTarget;
+        public int HandTarget;
+        public void Move(GameClient session, int x, int y) => MoveTarget = (x, y);
+        public void GiveHandItem(Room room, GameClient session, int userId) => HandTarget = userId;
         public void PerformAction(Room room, GameClient session, int action) => Action = action;
         public void Dance(Room room, GameClient session, int danceId) => DanceId = danceId;
         public void SetPosture(GameClient session, int posture) => Posture = posture;
@@ -341,6 +376,15 @@ public class WiredAvatarPacketHookTests
                 SignStatusAtDispatch = context.Event.Actor?.Statusses.GetValueOrDefault("sign");
             return true;
         }
+    }
+
+    private sealed class RecordingActionRewards : IRewardTrackManager
+    {
+        public List<string> Progresses { get; } = [];
+        public void Progress(GameClient session, string actionType, int amount = 1) => Progresses.Add(actionType);
+        public void SendTracks(GameClient session) => throw new NotSupportedException();
+        public Task Claim(GameClient session, string trackId, string prizeId) => throw new NotSupportedException();
+        public void PurchasePremium(GameClient session, string trackId) => throw new NotSupportedException();
     }
 
     private sealed class NoQuests : IQuestManager

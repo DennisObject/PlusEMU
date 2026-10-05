@@ -110,11 +110,11 @@ public class WiredClickPacketHookTests
         // The background click trigger's selected furnishing defines its tile.
         world.AddBox("wf_trg_click_tile", [100], [5]);
         world.Actor.CanWalk = false;
-        await new MoveAvatarEvent().Parse(world.Client, Packet(1, 1));
+        await new MoveAvatarEvent(new RoomAvatarActionService(TimeProvider.System, null!, null!)).Parse(world.Client, Packet(1, 1));
         Assert.Equal((0, 0), (world.Actor.X, world.Actor.Y));
         Assert.Equal((1, 1), (Assert.Single(world.Capture.Events).X, world.Capture.Events[0].Y));
         world.Capture.Events.Clear();
-        await new MoveAvatarEvent().Parse(world.Client, Packet(-1, 1)); Assert.Empty(world.Capture.Events);
+        await new MoveAvatarEvent(new RoomAvatarActionService(TimeProvider.System, null!, null!)).Parse(world.Client, Packet(-1, 1)); Assert.Empty(world.Capture.Events);
         await new ClickFurniEvent().Parse(world.Room, world.Client, Packet(5, 10));
         Assert.All(world.Capture.Events, evt => Assert.Equal(WiredEventKind.ClickTile, evt.Kind));
         Assert.NotEmpty(world.Capture.Events); Assert.Same(item, world.Capture.Events[0].EventItem);
