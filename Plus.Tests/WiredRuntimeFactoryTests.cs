@@ -119,6 +119,7 @@ public sealed class WiredRuntimeFactoryTests
         public WiredConfiguration? Load(uint id, WiredBoxDescriptor descriptor)
         { Reads++; throw new InvalidDataException("Saved bytes are unreadable."); }
         public void Save(uint id, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new NotSupportedException();
+        public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
     }
 
     private sealed class SidecarStore(string name, WiredConfiguration config) : IWiredConfigurationStore

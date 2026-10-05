@@ -207,5 +207,6 @@ public sealed class WiredVariableUtcDatabaseTests
     {
         public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => throw new NotSupportedException();
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new NotSupportedException();
+        public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
     }
 }
