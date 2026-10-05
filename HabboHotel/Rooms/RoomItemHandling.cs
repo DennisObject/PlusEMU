@@ -448,7 +448,14 @@ public class RoomItemHandling
         }
     }
 
-    public bool SetFloorItem(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses = false, double height = -1, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision = null)
+    public bool SetFloorItem(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses = false, double height = -1, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision = null) =>
+        PlaceFloor(session, item, newX, newY, newRot, newItem, onRoller, sendMessage, updateRoomUserStatuses, height, wiredCollision, null);
+
+    // Prepared data is persisted inside the placement lock after every denial, then attached and published through the same path.
+    public bool SetFloorItemData(GameClient session, Item item, Plus.HabboHotel.Items.DataFormat.IFurniObjectData data, Action persist) =>
+        PlaceFloor(session, item, item.GetX, item.GetY, item.Rotation, false, false, true, false, -1, null, (data, persist));
+
+    private bool PlaceFloor(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses, double height, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision, (Plus.HabboHotel.Items.DataFormat.IFurniObjectData Data, Action Persist)? commit)
     {
         if (item.IsTemporary && (!OwnsTemporary(item) || session != null
             || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanPlaceItem(_room, item, newX, newY, newRot,
@@ -515,6 +522,12 @@ public class RoomItemHandling
                     item.RoomId = _room.RoomId;
                     if (item.IsFloorItem) duplicate = !AdmitFloorItem(item);
                     else if (item.IsWallItem) duplicate = !_wallItems.TryAdd(item.Id, item);
+                }
+                // Prepared data is written after every denial above and before any geometry, data, model or packet change below.
+                if (commit is { } prepared && !duplicate)
+                {
+                    prepared.Persist();
+                    item.ExtraData = prepared.Data;
                 }
                 if (!duplicate)
                 {

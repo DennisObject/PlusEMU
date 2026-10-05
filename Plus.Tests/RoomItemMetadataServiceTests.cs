@@ -33,6 +33,7 @@ public sealed class RoomItemMetadataServiceTests
         public void SetMannequinFigure(GameClient session, uint itemId) => (Session, ItemId) = (session, itemId);
         public void SetMannequinName(GameClient session, MannequinNameRequest request) => throw new NotSupportedException();
         public void SetToner(Room room, GameClient session, TonerSettingsRequest request) => throw new NotSupportedException();
+        public void SetBranding(GameClient session, BrandingRequest request) => throw new NotSupportedException();
     }
 
     [Theory]
@@ -214,6 +215,7 @@ public sealed class RoomItemMetadataServiceTests
         public string? Data;
         public void SetMannequinData(uint itemId, uint roomId, string data) { Data = data; Write(); }
         public void SetToner(uint itemId, uint roomId, int hue, int saturation, int lightness) => Write();
+        public void SetBrandingData(uint itemId, uint roomId, string data) { Data = data; Write(); }
         private void Write() { beforeWrite?.Invoke(); Writes++; if (Fail) throw new InvalidOperationException("forced failure"); }
     }
 }
