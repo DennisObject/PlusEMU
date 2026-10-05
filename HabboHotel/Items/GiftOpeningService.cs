@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Rooms.Furni;
 using Plus.Database;
@@ -51,7 +52,7 @@ public sealed class GiftStore(IDatabase database) : IGiftStore
 
 public interface IGiftOpeningService { Task OpenAsync(GameClient session, uint itemId); }
 
-public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items, ICacheManager cache) : IGiftOpeningService
+public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items, ICacheManager cache, ILogger<GiftOpeningService> logger) : IGiftOpeningService
 {
     public Task OpenAsync(GameClient session, uint itemId)
     {
@@ -82,6 +83,7 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
                 replacement = new()
                 {
                     Id = gift.Id,
+                    BaseItem = (int)content.BaseId,
                     OwnerId = gift.OwnerId,
                     RoomId = gift.RoomId,
                     Definition = definition,
@@ -99,6 +101,20 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
                 return Task.CompletedTask;
             }
 
+            string wireExtraData;
+            InventoryItem inventoryFallback;
+            try
+            {
+                wireExtraData = replacement.ExtraData.Serialize();
+                inventoryFallback = replacement.ToInventoryItem();
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "Gift {GiftId} replacement could not be serialized for user {UserId}", gift.Id, habbo.Id);
+                session.SendNotification("Oops, the item inside this gift could not be prepared.");
+                return Task.CompletedTask;
+            }
+
             store.Open(gift.Id, habbo.Id, room.RoomId, gift.Definition.Id, content);
             room.GetRoomItemHandler().RemoveFurniture(session, gift.Id);
             var inRoom = false;
@@ -108,18 +124,21 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
                 {
                     inRoom = room.GetRoomItemHandler().SetFloorItem(session, replacement, replacement.GetX, replacement.GetY, replacement.Rotation, true, false, true);
                 }
-                catch (Exception)
+                catch (Exception exception)
                 {
+                    logger.LogError(exception, "Gift {GiftId} replacement placement failed for user {UserId} in room {RoomId}", gift.Id, habbo.Id, room.RoomId);
+                    if (ReferenceEquals(room.GetRoomItemHandler().GetItem(replacement.Id), replacement))
+                        room.GetRoomItemHandler().RemoveFurniture(session, replacement.Id);
                     inRoom = false;
                 }
             }
             if (!inRoom)
             {
-                habbo.Inventory.Furniture.AddItem(replacement.ToInventoryItem());
+                habbo.Inventory.Furniture.AddItem(inventoryFallback);
                 if (definition.Type == ItemType.Floor)
                     session.SendNotification("The opened gift could not be placed, so it was moved to your inventory.");
             }
-            var wire = new OpenGiftWireData(definition.Type.ToString(), definition.SpriteId, definition.ItemName, replacement.Id, inRoom, replacement.ExtraData.Serialize());
+            var wire = new OpenGiftWireData(definition.Type.ToString(), definition.SpriteId, definition.ItemName, replacement.Id, inRoom, wireExtraData);
             session.Send(new OpenGiftComposer(wire));
             session.Send(new FurniListUpdateComposer());
             return Task.CompletedTask;

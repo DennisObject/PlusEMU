@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging.Abstractions;
 using Plus.HabboHotel.Cache;
 using Plus.HabboHotel.Cache.Type;
 using Plus.HabboHotel.Items;
@@ -106,7 +107,7 @@ public sealed class GiftOpeningServiceTests
     [Fact]
     public async Task FailedFloorPlacementDeliversPreparedInventoryFallback()
     {
-        var (_, client, sent, gift) = Context();
+        var (room, client, sent, gift) = Context();
         var store = new Store();
         var definition = Definition(200, InteractionType.None);
         definition.Type = ItemType.Floor;
@@ -117,11 +118,12 @@ public sealed class GiftOpeningServiceTests
 
         var delivered = Assert.IsType<InventoryItem>(client.GetHabbo().Inventory.Furniture.GetItem(gift.Id));
         Assert.Same(definition, delivered.Definition);
+        Assert.Null(room.GetRoomItemHandler().GetItem(gift.Id));
         Assert.NotEmpty(sent);
     }
 
     private static GiftOpeningService Service(Store store, ItemDefinition definition) =>
-        new(store, new ItemCatalog(definition), new Cache());
+        new(store, new ItemCatalog(definition), new Cache(), NullLogger<GiftOpeningService>.Instance);
 
     private static (Room Room, Plus.HabboHotel.GameClients.GameClient Client, List<(uint Header, byte[] Payload)> Sent, Item Gift) Context(string data = "a\u0005b\u00052", bool temporary = false)
     {
