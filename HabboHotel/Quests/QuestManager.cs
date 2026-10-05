@@ -41,12 +41,14 @@ public class QuestManager : IQuestManager, IStartable
     private async Task Load()
     {
         using var connection = _database.Connection();
-        var quests = await connection.QueryAsync<QuestRow>("SELECT id, type AS Category, level_num AS Number, goal_type AS GoalType, goal_data AS GoalData, action AS Name, pixel_reward AS Reward, data_bit AS DataBit, reward_type AS RewardType, timestamp_unlock AS TimeUnlock, timestamp_lock AS TimeLock FROM quests");
+        var quests = await connection.QueryAsync<QuestRow>("SELECT id, type AS Category, level_num AS Number, goal_type AS GoalType, goal_data AS GoalData, action AS Name, pixel_reward AS Reward, data_bit AS DataBit, reward_type AS RewardType, timestamp_unlock AS UnlocksAt, timestamp_lock AS LocksAt FROM quests");
         _quests.Clear();
         _questCount.Clear();
         foreach (var quest in quests)
         {
-            _quests.Add(quest.Id, new(quest.Id, quest.Category, quest.Number, (QuestType)quest.GoalType, quest.GoalData, quest.Name, quest.Reward, quest.DataBit, quest.RewardType, quest.TimeUnlock, quest.TimeLock));
+            _quests.Add(quest.Id, new(quest.Id, quest.Category, quest.Number, (QuestType)quest.GoalType,
+                quest.GoalData, quest.Name, quest.Reward, quest.DataBit, quest.RewardType,
+                AsUtc(quest.UnlocksAt), AsUtc(quest.LocksAt)));
             AddToCounter(quest.Category);
         }
         _logger.LogInformation("Quest Manager -> LOADED");
@@ -63,9 +65,13 @@ public class QuestManager : IQuestManager, IStartable
         public int Reward { get; set; }
         public string DataBit { get; set; } = string.Empty;
         public int RewardType { get; set; }
-        public int TimeUnlock { get; set; }
-        public int TimeLock { get; set; }
+        public DateTime? UnlocksAt { get; set; }
+        public DateTime? LocksAt { get; set; }
     }
+
+    private static DateTimeOffset? AsUtc(DateTime? value) => value is { } date
+        ? new DateTimeOffset(DateTime.SpecifyKind(date, DateTimeKind.Utc))
+        : null;
 
     private void AddToCounter(string category)
     {

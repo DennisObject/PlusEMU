@@ -25048,71 +25048,71 @@ CREATE TABLE `quests` (
   `pixel_reward` int(11) NOT NULL DEFAULT '10',
   `data_bit` varchar(2) NOT NULL DEFAULT '',
   `reward_type` enum('0','1','2','3','4','5') NOT NULL DEFAULT '0',
-  `timestamp_unlock` int(11) NOT NULL DEFAULT '0',
-  `timestamp_lock` int(11) NOT NULL,
+  `timestamp_unlock` datetime(6) NULL DEFAULT NULL,
+  `timestamp_lock` datetime(6) NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=182 DEFAULT CHARSET=utf8;
 
 -- ----------------------------
 -- Records of quests
 -- ----------------------------
-INSERT INTO `quests` VALUES ('2', 'identity', '1', '14', '1', 'CHANGEFIGURE', '10', '_2', '0', '0', '0');
-INSERT INTO `quests` VALUES ('3', 'social', '2', '9', '1', 'CHATWITHSOMEONE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('6', 'social', '5', '12', '1', 'DANCE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('15', 'social', '1', '8', '1', 'ENTEROTHERSROOM', '10', '_2', '0', '0', '0');
-INSERT INTO `quests` VALUES ('17', 'identity', '2', '15', '1', 'CHANGEMOTTO', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('101', 'room_builder', '1', '0', '3', 'MOVEITEM', '10', '_2', '0', '0', '0');
-INSERT INTO `quests` VALUES ('104', 'explore', '1', '17', '1936', 'FINDLIFEGUARDTOWER', '10', '_2', '0', '0', '0');
-INSERT INTO `quests` VALUES ('105', 'room_builder', '2', '1', '3', 'ROTATEITEM', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('106', 'room_builder', '3', '2', '1', 'PLACEITEM', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('107', 'room_builder', '4', '3', '1', 'PICKUPITEM', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('108', 'room_builder', '5', '4', '2', 'SWITCHSTATE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('109', 'room_builder', '6', '5', '1', 'STACKITEM', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('110', 'room_builder', '7', '6', '1', 'PLACEFLOOR', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('111', 'room_builder', '8', '7', '1', 'PLACEWALLPAPER', '10', '_1', '0', '0', '0');
-INSERT INTO `quests` VALUES ('113', 'identity', '3', '16', '1', 'WEARBADGE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('115', 'social', '3', '10', '1', 'REQUESTFRIEND', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('116', 'social', '4', '11', '1', 'GIVERESPECT', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('118', 'social', '6', '13', '1', 'WAVE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('119', 'explore', '2', '17', '1948', 'SWIM', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('120', 'explore', '3', '17', '1969', 'FINDSURFBOARD', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('121', 'explore', '4', '17', '1956', 'FINDBEETLE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('122', 'explore', '5', '17', '1369', 'FINDNEONFLOOR', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('123', 'explore', '6', '17', '1375', 'FINDDISCOBALL', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('124', 'explore', '7', '17', '1019', 'FINDJUKEBOX', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('125', 'explore', '8', '17', '2050', 'FINDBBGATE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('126', 'explore', '9', '17', '2040', 'FINDBBTILE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('127', 'explore', '10', '17', '2049', 'FINDBBTELEPORT', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('128', 'explore', '11', '17', '2167', 'FINDFREEZEGATE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('129', 'explore', '12', '17', '2172', 'FINDFREEZESCOREBOARD', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('130', 'explore', '13', '17', '2166', 'FINDFREEZEEXITTILE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('131', 'explore', '14', '17', '1413', 'ICESKATE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('132', 'explore', '15', '17', '2148', 'FINDTAGPOLE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('133', 'explore', '16', '17', '2199', 'ROLLERSKATE', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('142', 'xmas2012_30', '0', '19', '4', 'add_25_friends', '0', '', '0', '0', '1354514400');
-INSERT INTO `quests` VALUES ('143', 'xmas2012_1', '1', '20', '10', 'wave_10_users', '0', '', '0', '1354514400', '1354600800');
-INSERT INTO `quests` VALUES ('144', 'xmas2012_2', '2', '21', '10', 'blow_kiss', '0', '', '0', '1354600800', '1354687200');
-INSERT INTO `quests` VALUES ('145', 'xmas2012_3', '3', '22', '1', 'wear_hat', '0', '', '0', '1354687200', '1354773600');
-INSERT INTO `quests` VALUES ('146', 'xmas2012_4', '4', '23', '1', 'dance_with_others', '0', '', '0', '1354773600', '1354860000');
-INSERT INTO `quests` VALUES ('147', 'xmas2012_5', '5', '24', '5', 'gift_others', '0', '', '0', '1354860000', '1354946400');
-INSERT INTO `quests` VALUES ('148', 'xmas2012_6', '6', '25', '1378', 'its_snowing', '0', '', '0', '1354946400', '1355032800');
-INSERT INTO `quests` VALUES ('149', 'xmas2012_7', '7', '27', '5', 'pass_coffee', '0', '', '0', '1355032800', '1355032800');
-INSERT INTO `quests` VALUES ('150', 'xmas2012_8', '8', '28', '5', 'wave_reindeer', '0', '', '0', '1355119200', '1355205600');
-INSERT INTO `quests` VALUES ('151', 'xmas2012_9', '9', '23', '1', 'place_tree', '0', '', '0', '1355205600', '1355292000');
-INSERT INTO `quests` VALUES ('152', 'xmas2012_10', '10', '23', '100', 'dance', '0', '', '0', '1355292000', '1356328800');
-INSERT INTO `quests` VALUES ('156', 'xmas2012_11', '11', '0', '0', 'placeholder', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('157', 'xmas2012_12', '12', '0', '0', 'placeholder', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('158', 'xmas2012_13', '13', '0', '0', 'placeholder', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('159', 'xmas2012_14', '14', '0', '0', 'placeholder', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('160', 'xmas2012_15', '15', '0', '0', 'placeholder', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('161', 'xmas2012_16', '16', '0', '0', 'placeholder', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('162', 'xmas2012_17', '17', '0', '0', 'placeholder', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('163', 'xmas2012_18', '18', '0', '0', 'placeholder', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('164', 'xmas2012_19', '19', '0', '0', 'placeholder', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('165', 'xmas2012_20', '20', '0', '0', 'placeholder', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('166', 'xmas2012_21', '0', '0', '0', '', '10', '', '0', '0', '0');
-INSERT INTO `quests` VALUES ('180', 'xmas2012_22', '22', '17', '45207', 'find_fire', '0', '', '0', '1356328800', '1356328800');
-INSERT INTO `quests` VALUES ('181', 'xmas2012_23', '23', '29', '300', 'party', '0', '', '0', '0', '0');
+INSERT INTO `quests` VALUES ('2', 'identity', '1', '14', '1', 'CHANGEFIGURE', '10', '_2', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('3', 'social', '2', '9', '1', 'CHATWITHSOMEONE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('6', 'social', '5', '12', '1', 'DANCE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('15', 'social', '1', '8', '1', 'ENTEROTHERSROOM', '10', '_2', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('17', 'identity', '2', '15', '1', 'CHANGEMOTTO', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('101', 'room_builder', '1', '0', '3', 'MOVEITEM', '10', '_2', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('104', 'explore', '1', '17', '1936', 'FINDLIFEGUARDTOWER', '10', '_2', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('105', 'room_builder', '2', '1', '3', 'ROTATEITEM', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('106', 'room_builder', '3', '2', '1', 'PLACEITEM', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('107', 'room_builder', '4', '3', '1', 'PICKUPITEM', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('108', 'room_builder', '5', '4', '2', 'SWITCHSTATE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('109', 'room_builder', '6', '5', '1', 'STACKITEM', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('110', 'room_builder', '7', '6', '1', 'PLACEFLOOR', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('111', 'room_builder', '8', '7', '1', 'PLACEWALLPAPER', '10', '_1', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('113', 'identity', '3', '16', '1', 'WEARBADGE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('115', 'social', '3', '10', '1', 'REQUESTFRIEND', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('116', 'social', '4', '11', '1', 'GIVERESPECT', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('118', 'social', '6', '13', '1', 'WAVE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('119', 'explore', '2', '17', '1948', 'SWIM', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('120', 'explore', '3', '17', '1969', 'FINDSURFBOARD', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('121', 'explore', '4', '17', '1956', 'FINDBEETLE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('122', 'explore', '5', '17', '1369', 'FINDNEONFLOOR', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('123', 'explore', '6', '17', '1375', 'FINDDISCOBALL', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('124', 'explore', '7', '17', '1019', 'FINDJUKEBOX', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('125', 'explore', '8', '17', '2050', 'FINDBBGATE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('126', 'explore', '9', '17', '2040', 'FINDBBTILE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('127', 'explore', '10', '17', '2049', 'FINDBBTELEPORT', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('128', 'explore', '11', '17', '2167', 'FINDFREEZEGATE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('129', 'explore', '12', '17', '2172', 'FINDFREEZESCOREBOARD', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('130', 'explore', '13', '17', '2166', 'FINDFREEZEEXITTILE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('131', 'explore', '14', '17', '1413', 'ICESKATE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('132', 'explore', '15', '17', '2148', 'FINDTAGPOLE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('133', 'explore', '16', '17', '2199', 'ROLLERSKATE', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('142', 'xmas2012_30', '0', '19', '4', 'add_25_friends', '0', '', '0', NULL, '2012-12-03 06:00:00');
+INSERT INTO `quests` VALUES ('143', 'xmas2012_1', '1', '20', '10', 'wave_10_users', '0', '', '0', '2012-12-03 06:00:00', '2012-12-04 06:00:00');
+INSERT INTO `quests` VALUES ('144', 'xmas2012_2', '2', '21', '10', 'blow_kiss', '0', '', '0', '2012-12-04 06:00:00', '2012-12-05 06:00:00');
+INSERT INTO `quests` VALUES ('145', 'xmas2012_3', '3', '22', '1', 'wear_hat', '0', '', '0', '2012-12-05 06:00:00', '2012-12-06 06:00:00');
+INSERT INTO `quests` VALUES ('146', 'xmas2012_4', '4', '23', '1', 'dance_with_others', '0', '', '0', '2012-12-06 06:00:00', '2012-12-07 06:00:00');
+INSERT INTO `quests` VALUES ('147', 'xmas2012_5', '5', '24', '5', 'gift_others', '0', '', '0', '2012-12-07 06:00:00', '2012-12-08 06:00:00');
+INSERT INTO `quests` VALUES ('148', 'xmas2012_6', '6', '25', '1378', 'its_snowing', '0', '', '0', '2012-12-08 06:00:00', '2012-12-09 06:00:00');
+INSERT INTO `quests` VALUES ('149', 'xmas2012_7', '7', '27', '5', 'pass_coffee', '0', '', '0', '2012-12-09 06:00:00', '2012-12-09 06:00:00');
+INSERT INTO `quests` VALUES ('150', 'xmas2012_8', '8', '28', '5', 'wave_reindeer', '0', '', '0', '2012-12-10 06:00:00', '2012-12-11 06:00:00');
+INSERT INTO `quests` VALUES ('151', 'xmas2012_9', '9', '23', '1', 'place_tree', '0', '', '0', '2012-12-11 06:00:00', '2012-12-12 06:00:00');
+INSERT INTO `quests` VALUES ('152', 'xmas2012_10', '10', '23', '100', 'dance', '0', '', '0', '2012-12-12 06:00:00', '2012-12-24 06:00:00');
+INSERT INTO `quests` VALUES ('156', 'xmas2012_11', '11', '0', '0', 'placeholder', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('157', 'xmas2012_12', '12', '0', '0', 'placeholder', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('158', 'xmas2012_13', '13', '0', '0', 'placeholder', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('159', 'xmas2012_14', '14', '0', '0', 'placeholder', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('160', 'xmas2012_15', '15', '0', '0', 'placeholder', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('161', 'xmas2012_16', '16', '0', '0', 'placeholder', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('162', 'xmas2012_17', '17', '0', '0', 'placeholder', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('163', 'xmas2012_18', '18', '0', '0', 'placeholder', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('164', 'xmas2012_19', '19', '0', '0', 'placeholder', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('165', 'xmas2012_20', '20', '0', '0', 'placeholder', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('166', 'xmas2012_21', '0', '0', '0', '', '10', '', '0', NULL, NULL);
+INSERT INTO `quests` VALUES ('180', 'xmas2012_22', '22', '17', '45207', 'find_fire', '0', '', '0', '2012-12-24 06:00:00', '2012-12-24 06:00:00');
+INSERT INTO `quests` VALUES ('181', 'xmas2012_23', '23', '29', '300', 'party', '0', '', '0', NULL, NULL);
 
 -- ----------------------------
 -- Table structure for `rooms`

@@ -1,10 +1,9 @@
-﻿using Plus.Utilities;
-
-namespace Plus.HabboHotel.Quests;
+﻿namespace Plus.HabboHotel.Quests;
 
 public class Quest
 {
-    public Quest(int id, string category, int number, QuestType goalType, int goalData, string name, int reward, string dataBit, int rewardType, int timeUnlock, int timeLock)
+    public Quest(int id, string category, int number, QuestType goalType, int goalData, string name,
+        int reward, string dataBit, int rewardType, DateTimeOffset? unlocksAt, DateTimeOffset? locksAt)
     {
         Id = id;
         Category = category;
@@ -15,8 +14,8 @@ public class Quest
         Reward = reward;
         DataBit = dataBit;
         RewardType = rewardType;
-        TimeUnlock = timeUnlock;
-        HasEnded = timeLock >= UnixTimestamp.GetNow() && timeLock > 0 ? true : false;
+        UnlocksAt = unlocksAt?.ToUniversalTime();
+        LocksAt = locksAt?.ToUniversalTime();
     }
 
     public int Id { get; }
@@ -24,14 +23,16 @@ public class Quest
     public string DataBit { get; }
     public int GoalData { get; }
     public QuestType GoalType { get; }
-    public bool HasEnded { get; }
     public string Name { get; }
     public int Number { get; }
     public int Reward { get; }
     public int RewardType { get; }
-    public int TimeUnlock { get; }
+    public DateTimeOffset? UnlocksAt { get; }
+    public DateTimeOffset? LocksAt { get; }
 
     public string ActionName => QuestTypeUtillity.GetString(GoalType);
+
+    public bool IsEndedAt(DateTimeOffset now) => LocksAt is { } locksAt && now >= locksAt;
 
     public bool IsCompleted(int progress)
     {

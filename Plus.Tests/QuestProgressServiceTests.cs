@@ -81,7 +81,7 @@ public sealed class QuestProgressServiceTests
     [Fact]
     public void ProgressPersistenceFailureLeavesMemoryAndPacketsUnchanged()
     {
-        var quest = new Quest(3, "social", 1, QuestType.SocialChat, 5, "chat", 5, "", 3, 0, 0);
+        var quest = new Quest(3, "social", 1, QuestType.SocialChat, 5, "chat", 5, "", 3, null, null);
         var store = new RecordingStore { Fail = true };
         var manager = new QuestManager(null!, null!, NullLogger<QuestManager>.Instance, store);
         var loaded = (Dictionary<int, Quest>)typeof(QuestManager).GetField("_quests", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
@@ -102,7 +102,8 @@ public sealed class QuestProgressServiceTests
         return HabbiconTestSupport.Client(new() { Id = userId, HabboStats = stats });
     }
 
-    private static Quest TestQuest(int id, string category, int number) => new(id, category, number, QuestType.SocialChat, 1, "chat", 5, "", 3, 0, 0);
+    private static Quest TestQuest(int id, string category, int number) =>
+        new(id, category, number, QuestType.SocialChat, 1, "chat", 5, "", 3, null, null);
 
     private sealed class RecordingStore(Action? beforeStart = null) : IQuestProgressStore
     {
