@@ -143,11 +143,9 @@ public sealed class WiredGroupDependencyTests
                 TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance,
                 TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, groups);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Room, _wired);
-            Member = new(1, 0, 101, Room);
-            NonMember = new(2, 0, 102, Room);
-            Bind(Member, 1, "Member");
-            Bind(NonMember, 2, "NonMember");
-            Bot = new(0, 0, 103, Room)
+            Member = new(1, 0, 101, Room, Client(1, "Member"));
+            NonMember = new(2, 0, 102, Room, Client(2, "NonMember"));
+            Bot = new(0, 0, 103, Room, null)
             {
                 BotData = (Plus.HabboHotel.Rooms.AI.RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(Plus.HabboHotel.Rooms.AI.RoomBot))
             };
@@ -194,7 +192,7 @@ public sealed class WiredGroupDependencyTests
             return context;
         }
 
-        private static void Bind(RoomUser user, int id, string name)
+        private static GameClient Client(int id, string name)
         {
             var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
             var habbo = (Habbo)RuntimeHelpers.GetUninitializedObject(typeof(Habbo));
@@ -202,7 +200,7 @@ public sealed class WiredGroupDependencyTests
             habbo.Username = name;
             habbo.Client = client;
             client.SetHabbo(habbo);
-            typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(user, client);
+            return client;
         }
 
         private static Item Item(uint id, string name) => new()
