@@ -4,6 +4,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Plus.Communication.Flash;
+using Plus.Communication.Packets.Incoming.Camera;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Camera;
 using Xunit;
 
@@ -97,7 +99,7 @@ public class CameraRequestTests
     [Fact]
     public void RejectsLegacyPngBytes()
     {
-        var result = CameraRequestParser.Parse(new FlashIncomingPacket
+        var result = ParsePacket(new FlashIncomingPacket
         {
             Buffer = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0 }
         }, CameraChannel.Photo, Catalogue, 6);
@@ -171,8 +173,8 @@ public class CameraRequestTests
         var bareGuid = Parse(Capture(320).Replace(RequestId, "11111111111141118111111111111111", StringComparison.Ordinal));
         var badDraft = Parse(Render("[]").Replace(DraftId, "forged", StringComparison.Ordinal));
         var badDelete = Parse(Delete().Replace(DraftId, "{22222222-2222-4222-8222-222222222222}", StringComparison.Ordinal));
-        var oversized = CameraRequestParser.Parse(Framed(new byte[8193]), CameraChannel.Photo, Catalogue, 6);
-        var trailing = CameraRequestParser.Parse(HabbiconTestSupport.Incoming(Capture(320), 1), CameraChannel.Photo, Catalogue, 6);
+        var oversized = ParsePacket(Framed(new byte[8193]), CameraChannel.Photo, Catalogue, 6);
+        var trailing = ParsePacket(HabbiconTestSupport.Incoming(Capture(320), 1), CameraChannel.Photo, Catalogue, 6);
         var comment = Parse("{\"v\":1 /*no*/}");
 
         Assert.Equal((CameraParseStatus.Malformed, CameraRejectReason.Guid, ""), (badRequest.Status, badRequest.Reason, badRequest.RequestId));
@@ -206,7 +208,40 @@ public class CameraRequestTests
     }
 
     private static CameraParseResult Parse(string json, CameraChannel channel = CameraChannel.Photo, int level = 6) =>
-        CameraRequestParser.Parse(HabbiconTestSupport.Incoming(json), channel, Catalogue, level);
+        ParsePacket(HabbiconTestSupport.Incoming(json), channel, Catalogue, level);
+
+    private static CameraParseResult ParsePacket(IIncomingPacket packet, CameraChannel channel,
+        IReadOnlyDictionary<string, int> catalogue, int level) =>
+        CameraRequestParser.Parse(CameraPacketDecoder.Decode(packet), channel, catalogue, level);
+
+    [Fact]
+    public async Task RenderHandlersDecodeImmutablePayloadBeforeCallingService()
+    {
+        var service = new RecordingCamera();
+        var photo = HabbiconTestSupport.Incoming(Capture(320));
+        var source = photo.Buffer;
+        await new RenderRoomEvent(service).Parse(null!, photo);
+        await new RenderRoomThumbnailEvent(service).Parse(null!, HabbiconTestSupport.Incoming(Capture(110)));
+        Assert.Equal(Capture(320), service.Requests[0].Payload.Json);
+        Assert.False(service.Requests[0].Thumbnail);
+        Assert.Equal(Capture(110), service.Requests[1].Payload.Json);
+        Assert.True(service.Requests[1].Thumbnail);
+        source.Span.Clear();
+        Assert.Equal(Capture(320), service.Requests[0].Payload.Json);
+        Assert.Equal(CameraRejectReason.None, service.Requests[0].Payload.FrameError);
+    }
+
+    private sealed class RecordingCamera : ICameraService
+    {
+        public List<(CameraRequestPayload Payload, bool Thumbnail)> Requests { get; } = [];
+        public Task Handle(GameClient session, CameraRequestPayload payload, bool thumbnail)
+        {
+            Requests.Add((payload, thumbnail));
+            return Task.CompletedTask;
+        }
+        public CameraCheckoutResult Checkout(GameClient session, Guid mediaId,
+            Func<CameraCheckoutMedia, CameraCheckoutResult> operation) => throw new InvalidOperationException();
+    }
 
     private static string Capture(int crop, string extra = "") =>
         "{\"v\":1,\"action\":\"capture\",\"requestId\":\"" + RequestId + "\"" + (extra.Length == 0 ? "" : "," + extra) +
