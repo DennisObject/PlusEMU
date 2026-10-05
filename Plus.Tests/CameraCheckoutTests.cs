@@ -45,7 +45,7 @@ public class CameraCheckoutTests
         _habbo = new() { Id = UserId, Username = "Camera transaction", Credits = 100, Duckets = 20, Diamonds = 3, CurrentRoom = room };
         _media = new(Guid.NewGuid(), 42, _clock.GetUtcNow());
         Execute("DROP TRIGGER IF EXISTS camera_test_failure; DELETE FROM camera_quota; DELETE FROM camera_purchases; DELETE FROM camera_publications; DELETE FROM camera_accounts; DELETE FROM camera_competition_entries; DELETE FROM camera_media; DELETE FROM items; DELETE FROM users");
-        Execute("INSERT INTO users (id,username,credits,activity_points,vip_points) VALUES (910001,'camera_tests',100,20,3)");
+        Execute("INSERT INTO users (id,username,auth_ticket,credits,activity_points,vip_points) VALUES (910001,'camera_tests','',100,20,3)");
         Mint(_media);
     }
 

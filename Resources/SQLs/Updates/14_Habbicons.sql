@@ -102,9 +102,18 @@ PREPARE habbicon_ddl FROM @ddl;
 EXECUTE habbicon_ddl;
 DEALLOCATE PREPARE habbicon_ddl;
 
-INSERT INTO catalog_pages (parent_id, caption, page_link, page_layout, icon_image, min_rank, order_num, page_strings_1, page_strings_2)
-SELECT -1, 'Habbicons', 'habbicons', 'default_3x3', 107, 1, 6, '', ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM catalog_pages WHERE page_link = 'habbicons');
+SET @habbicon_legacy_rank = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'catalog_pages' AND COLUMN_NAME = 'min_rank');
+SET @habbicon_page_sql = IF(@habbicon_legacy_rank > 0,
+    'INSERT INTO catalog_pages (parent_id, caption, page_link, page_layout, icon_image, min_rank, order_num, page_strings_1, page_strings_2)
+SELECT -1, ''Habbicons'', ''habbicons'', ''default_3x3'', 107, 1, 6, '''', ''''
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM catalog_pages WHERE page_link = ''habbicons'')',
+    'INSERT INTO catalog_pages (parent_id, caption, page_link, page_layout, icon_image, order_num, page_strings_1, page_strings_2)
+SELECT -1, ''Habbicons'', ''habbicons'', ''default_3x3'', 107, 6, '''', ''''
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM catalog_pages WHERE page_link = ''habbicons'')');
+PREPARE habbicon_page_insert FROM @habbicon_page_sql;
+EXECUTE habbicon_page_insert;
+DEALLOCATE PREPARE habbicon_page_insert;
 SET @habbicon_page = (SELECT MIN(id) FROM catalog_pages WHERE page_link = 'habbicons');
 
 INSERT INTO catalog_items (item_id, page_id, catalog_name, cost_credits, cost_pixels, cost_diamonds, amount, offer_id, offer_active, habbicon_id)

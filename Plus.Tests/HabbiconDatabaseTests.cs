@@ -289,8 +289,8 @@ public class HabbiconDatabaseTests
     [HabbiconDatabaseFact]
     public void ClosedWalletTransfersTradedVoucherIntactInsteadOfDeletingItsValue()
     {
-        Execute("CREATE TABLE IF NOT EXISTS items (id INT PRIMARY KEY, user_id INT NOT NULL) ENGINE=InnoDB");
-        Execute("DELETE FROM items WHERE id IN (910005,910006); INSERT INTO items (id,user_id) VALUES (910005,910002),(910006,910002)");
+        Execute("CREATE TABLE IF NOT EXISTS items (id INT PRIMARY KEY, user_id INT NOT NULL, base_item INT NOT NULL, extra_data TEXT NOT NULL) ENGINE=InnoDB");
+        Execute("DELETE FROM items WHERE id IN (910005,910006); INSERT INTO items (id,user_id,base_item,extra_data) VALUES (910005,910002,1,''),(910006,910002,1,'')");
         var habbo = new Habbo { Id = UserId, Credits = 100,
             HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0),
             Inventory = new Plus.HabboHotel.Users.Inventory.InventoryComponent
