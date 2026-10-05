@@ -57,11 +57,14 @@ public sealed class TradeConfirmationServiceTests
 
         trades.Confirm(alice.Session);
         Assert.True(trade.Users[0].HasAccepted);
+        var confirmation = new FlashIncomingPacket { Buffer = alice.Packets.Last().Payload };
+        Assert.Equal((1, 1), (confirmation.ReadInt(), confirmation.ReadInt()));
+        Assert.False(confirmation.HasDataRemaining());
         Assert.True(f.Trading.TryGetTrade(trade.Id, out _));
 
         trades.Confirm(bob.Session);
         Assert.False(f.Trading.TryGetTrade(trade.Id, out _));
-        Assert.Equal(new uint[] { ServerPacketHeader.TradingAcceptComposer, ServerPacketHeader.TradingAcceptComposer, ServerPacketHeader.TradingCompleteComposer, ServerPacketHeader.TradingConfirmedComposer, ServerPacketHeader.TradingConfirmedComposer, ServerPacketHeader.TradingFinishComposer }, alice.Sent);
+        Assert.Equal(new uint[] { ServerPacketHeader.TradingAcceptComposer, ServerPacketHeader.TradingAcceptComposer, ServerPacketHeader.TradingCompleteComposer, ServerPacketHeader.TradingAcceptComposer, ServerPacketHeader.TradingAcceptComposer, ServerPacketHeader.TradingFinishComposer }, alice.Sent);
         Assert.Equal(alice.Sent, bob.Sent);
         Assert.Equal(new[] { (1, 2, "", "") }, f.Store.Logged);
         Assert.False(alice.RoomUser.IsTrading);
@@ -289,14 +292,14 @@ public sealed class TradeConfirmationServiceTests
         {
             var habbo = new Habbo { Id = habboId, Username = $"user{habboId}", CurrentRoom = Room, Inventory = new() { Furniture = new([], []), Badges = new(new()) } };
             var packets = new List<(uint Header, byte[] Payload)>();
-            // Every header maps, including TradingConfirmedComposer, whose id is currently 0.
+            // Production revisions exclude zero IDs from their outgoing map.
             var session = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
                 Revision = new Revision { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
-                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id) },
+                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Where(id => id > 0).Distinct().ToDictionary(id => id, id => id) },
                 SendCallback = args =>
                 {
-                    var bytes = args.MemoryBuffer.ToArray();
+                    var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
                     packets.Add((BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
                     return true;
                 }

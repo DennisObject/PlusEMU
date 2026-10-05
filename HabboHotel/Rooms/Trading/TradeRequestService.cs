@@ -119,7 +119,7 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
         if (!TryGetTradeUser(trade, roomUser, out var tradeUser)) return;
         if (trade.CanChange) return;
         tradeUser.HasAccepted = true;
-        trade.SendPacket(new TradingConfirmedComposer(habbo.Id, true));
+        trade.SendPacket(new TradingAcceptComposer(habbo.Id, true));
         if (trade.AllAccepted)
             trade.Finish();
     }

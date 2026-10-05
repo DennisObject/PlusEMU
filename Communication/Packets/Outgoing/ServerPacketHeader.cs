@@ -154,7 +154,6 @@ public static class ServerPacketHeader
     public const uint TradingUpdateComposer = 2088; //2277
     public const uint TradingClosedComposer = 1436; //2068
     public const uint TradingCompleteComposer = 2288; //1959
-    public const uint TradingConfirmedComposer = 0; // TODO @80O: Same as TradingAcceptComposer. Incorrect? 969; //1367
     public const uint TradingFinishComposer = 3443; //2369
 
     // Inventory Achievements
