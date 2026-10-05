@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Data;
 using System.Reflection;
@@ -70,6 +71,12 @@ public sealed class MoodlightServiceTests
         service.UpdatePreset(room, client, new(0, "#0053F7", 1, 2));
         service.UpdatePreset(room, client, new(1, "invalid", 1, 2));
         service.UpdatePreset(room, client, new(1, "#0053F7", 256, 2));
+        room.OwnerName = "another-owner";
+        service.Toggle(room, client);
+        room.OwnerName = "owner";
+        typeof(Item).GetProperty(nameof(Item.IsTemporary))!.SetValue(item, true);
+        service.Toggle(room, client);
+        typeof(Item).GetProperty(nameof(Item.IsTemporary))!.SetValue(item, false);
         client.GetHabbo().CurrentRoom = null;
         service.Toggle(room, client);
 
@@ -138,7 +145,9 @@ public sealed class MoodlightServiceTests
         Assert.Equal(3, room.MoodlightData.CurrentPreset);
         Assert.False(room.MoodlightData.Presets[2].BackgroundOnly);
         Assert.Equal("2,3,1,#82F349,0", item.LegacyDataString);
-        Assert.Equal(Payload(new ItemUpdateComposer(RoomItemSnapshot.Capture(item))), Assert.Single(sent).Payload);
+        var update = Assert.Single(sent);
+        Assert.Equal(ServerPacketHeader.ItemUpdateComposer, update.Header);
+        Assert.Equal(Payload(new ItemUpdateComposer(RoomItemSnapshot.Capture(item))), update.Payload);
     }
 
     [Fact]
@@ -156,10 +165,33 @@ public sealed class MoodlightServiceTests
 
         Assert.Equal((item.Id, room.Id, true), store.EnabledWrite);
         Assert.True(room.MoodlightData!.Enabled);
-        Assert.Equal(Payload(new ItemUpdateComposer(RoomItemSnapshot.Capture(item))), Assert.Single(sent).Payload);
+        var update = Assert.Single(sent);
+        Assert.Equal(ServerPacketHeader.ItemUpdateComposer, update.Header);
+        Assert.Equal(Payload(new ItemUpdateComposer(RoomItemSnapshot.Capture(item))), update.Payload);
         sent.Clear();
         service.ShowConfig(room, client);
-        Assert.Equal(Payload(new MoodlightConfigComposer(MoodlightConfigSnapshot.Capture(room.MoodlightData))), Assert.Single(sent).Payload);
+        var config = Assert.Single(sent);
+        Assert.Equal(ServerPacketHeader.MoodlightConfigComposer, config.Header);
+        Assert.Equal(Payload(new MoodlightConfigComposer(MoodlightConfigSnapshot.Capture(room.MoodlightData))), config.Payload);
+    }
+
+    [Fact]
+    public void TogglePersistenceFailureLeavesStateAndPacketsUntouched()
+    {
+        var (room, client, item, sent) = Context();
+        var original = item.LegacyDataString;
+        var store = new RecordingStore(() =>
+        {
+            Assert.False(room.MoodlightData!.Enabled);
+            Assert.Equal(original, item.LegacyDataString);
+            Assert.Empty(sent);
+        }) { Fail = true };
+
+        Assert.Throws<InvalidOperationException>(() => new MoodlightService(store).Toggle(room, client));
+
+        Assert.False(room.MoodlightData!.Enabled);
+        Assert.Equal(original, item.LegacyDataString);
+        Assert.Empty(sent);
     }
 
     [Fact]
@@ -176,10 +208,12 @@ public sealed class MoodlightServiceTests
 
         Assert.Equal(item.Id, store.LoadedItem);
         Assert.Equal(2, room.MoodlightData!.CurrentPreset);
-        Assert.Equal(Payload(new MoodlightConfigComposer(MoodlightConfigSnapshot.Capture(room.MoodlightData))), Assert.Single(sent).Payload);
+        var config = Assert.Single(sent);
+        Assert.Equal(ServerPacketHeader.MoodlightConfigComposer, config.Header);
+        Assert.Equal(Payload(new MoodlightConfigComposer(MoodlightConfigSnapshot.Capture(room.MoodlightData))), config.Payload);
     }
 
-    private static (Room Room, TestClient Client, Item Item, List<(uint Header, byte[] Payload)> Sent) Context()
+    private static (Room Room, FlashGameClient Client, Item Item, List<(uint Header, byte[] Payload)> Sent) Context()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 42;
@@ -202,14 +236,26 @@ public sealed class MoodlightServiceTests
         ((ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(handling)!)[item.Id] = item;
         room.MoodlightData = new(item.Id, new(1, false, 1, "#000000,255,0", "#000000,255,0", "#000000,255,0"));
-        var client = new TestClient();
-        client.SetHabbo(new Habbo { Id = 1, Username = "owner", CurrentRoom = room });
+        var sent = new List<(uint Header, byte[] Payload)>();
+        var headers = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Select(field => (uint)field.GetRawConstantValue()!).Where(id => id > 0).ToDictionary(id => id, id => id);
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
+        {
+            Revision = new Revision { InternalIdToOutgoingIdMapping = headers },
+            SendCallback = args =>
+            {
+                var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
+                sent.Add((BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
+                return true;
+            }
+        };
+        client.SetHabbo(new Habbo { Id = 1, Username = "owner", CurrentRoom = room, Access = EditorTestSupport.Access([]) });
         var user = new RoomUser(1, room.Id, 1, room);
         typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(user, client);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(room.GetRoomUserManager())!;
         users.TryAdd(1, user);
-        return (room, client, item, client.Packets);
+        return (room, client, item, sent);
     }
 
     private static byte[] Payload(IServerPacket composer)
@@ -217,27 +263,6 @@ public sealed class MoodlightServiceTests
         using var stream = PlusMemoryStream.GetStream();
         composer.Compose(new FlashOutgoingPacket(stream));
         return stream.ToArray()[6..];
-    }
-
-    private sealed class TestClient : GameClient
-    {
-        public List<(uint Header, byte[] Payload)> Packets { get; } = [];
-
-        public TestClient() : base(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
-        {
-            Revision = new Revision
-            {
-                InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields()
-                    .Where(field => field.IsLiteral && field.FieldType == typeof(uint))
-                    .Select(field => (uint)field.GetRawConstantValue()!).Distinct().ToDictionary(id => id)
-            };
-            SendCallback = _ => false;
-        }
-
-        internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer) =>
-            (true, false, 0, 0, 0);
-
-        public override void CreateHeader(Memory<byte> memory, uint messageId) => Packets.Add((messageId, memory[6..].ToArray()));
     }
 
     private sealed class RecordingService : IMoodlightService
