@@ -4,6 +4,7 @@ using Plus.Core.Settings;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Users.Authentication;
 using Plus.Utilities.DependencyInjection;
 
 namespace Plus.HabboHotel.Groups;
@@ -22,7 +23,8 @@ public sealed class GroupRemovalService(
     ISettingsManager _settingsManager,
     IGameClientManager _clients,
     IGroupInfoSnapshotService _groupInfo,
-    IGroupRemovalStore _store) : IGroupRemovalService
+    IGroupRemovalStore _store,
+    IAccountSessionGate _sessions) : IGroupRemovalService
 {
     public Task Delete(GameClient session, int groupId)
     {
@@ -36,8 +38,11 @@ public sealed class GroupRemovalService(
             session.SendNotification("Oops, only the group owner can delete a group!");
             return Task.CompletedTask;
         }
+        List<int> memberIds;
         lock (group)
         {
+            if (!_groupManager.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group))
+                return Task.CompletedTask;
             if (group.MemberCount >= Convert.ToInt32(_settingsManager.TryGetValue("group.delete.member.limit")) &&
                 !session.GetHabbo().Access.Can(PermissionKeys.GroupDeleteLimitOverride))
             {
@@ -45,7 +50,7 @@ public sealed class GroupRemovalService(
                     $"Oops, your group exceeds the maximum amount of members ({Convert.ToInt32(_settingsManager.TryGetValue("group.delete.member.limit"))}) a group can exceed before being eligible for deletion. Seek assistance from a staff member.");
                 return Task.CompletedTask;
             }
-            var memberIds = group.GetAllMembers.Append(session.GetHabbo().Id).Distinct().ToList();
+            memberIds = group.GetAllMembers.Append(session.GetHabbo().Id).Distinct().ToList();
             if (!_store.Delete(group.Id))
                 return Task.CompletedTask;
             _roomManager.TryGetRoom(group.RoomId, out var room);
@@ -56,18 +61,20 @@ public sealed class GroupRemovalService(
 
             if (room != null)
                 _roomManager.UnloadRoom(room.Id);
-
-            foreach (var memberId in memberIds)
-            {
-                var client = _clients.GetClientByUserId(memberId);
-                if (client == null) continue;
-                var stats = client.GetHabbo().HabboStats;
-                if (stats != null && stats.FavouriteGroupId == group.Id) stats.FavouriteGroupId = 0;
-                client.Send(new GroupDeactivatedComposer(group.Id));
-            }
-            session.SendNotification("You have successfully deleted your group.");
-            return Task.CompletedTask;
         }
+        foreach (var memberId in memberIds)
+        {
+            using var lease = _sessions.Enter(memberId);
+            var client = _clients.GetClientByUserId(memberId);
+            if (client == null)
+                continue;
+            var stats = client.GetHabbo().HabboStats;
+            if (stats != null && stats.FavouriteGroupId == group.Id)
+                stats.FavouriteGroupId = 0;
+            client.Send(new GroupDeactivatedComposer(group.Id));
+        }
+        session.SendNotification("You have successfully deleted your group.");
+        return Task.CompletedTask;
     }
 
     public Task ConfirmRemove(GameClient session, int groupId, int userId)
@@ -92,8 +99,11 @@ public sealed class GroupRemovalService(
     {
         if (!_groupManager.TryGetGroup(groupId, out var group))
             return Task.CompletedTask;
+        using var lease = _sessions.Enter(userId);
         lock (group)
         {
+            if (!_groupManager.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group))
+                return Task.CompletedTask;
             if (userId == group.CreatorId)
                 return Task.CompletedTask;
             if (userId == session.GetHabbo().Id)

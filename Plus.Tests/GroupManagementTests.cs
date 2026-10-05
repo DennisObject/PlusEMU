@@ -19,6 +19,7 @@ using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Permissions;
 using Xunit;
 
@@ -31,7 +32,7 @@ public class GroupManagementTests : IDisposable
         new(groups, rooms, settings ?? Proxy<ISettingsManager>((_, _) => "50"),
             Proxy<IGameClientManager>((method, args) => method == "GetClientByUserId"
                 ? _clients.GetValueOrDefault((int)args[0]!) : throw new InvalidOperationException(method)),
-            GroupInfo(), new GroupRemovalStore(_database));
+            GroupInfo(), new GroupRemovalStore(_database), new AccountSessionGate());
 
     private readonly FieldInfo _gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
     private readonly FieldInfo _databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;

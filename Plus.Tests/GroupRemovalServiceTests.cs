@@ -12,6 +12,7 @@ using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Authentication;
 using Xunit;
 
 namespace Plus.Tests;
@@ -123,6 +124,81 @@ public sealed class GroupRemovalServiceTests
         Assert.Empty(ownerSent);
     }
 
+    [Fact]
+    public async Task RemovalWaitsForAccountPublicationBeforeClearingFavourite()
+    {
+        var group = Group();
+        var (owner, _) = Client(7, 0);
+        var (member, _) = Client(8, group.Id);
+        var gate = new AccountSessionGate();
+        using var entering = new ManualResetEventSlim();
+        var sessions = Proxy<IAccountSessionGate>((method, args) =>
+        {
+            Assert.Equal(nameof(IAccountSessionGate.Enter), method);
+            Assert.Equal(8, (int)args[0]!);
+            entering.Set();
+            return gate.Enter(8);
+        });
+        var store = new Store
+        {
+            BeforeRemove = () => Assert.Equal(11, member.GetHabbo().HabboStats.FavouriteGroupId)
+        };
+        var lease = gate.Enter(8);
+        Task removal;
+        try
+        {
+            removal = Task.Run(() => Service(group, store, member, sessions: sessions).Remove(owner, group.Id, 8));
+            Assert.True(entering.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Equal(0, store.Removes);
+            member.GetHabbo().HabboStats.FavouriteGroupId = 11;
+        }
+        finally
+        {
+            lease.Dispose();
+        }
+        await removal.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(group.IsMember(8));
+        Assert.Equal(11, member.GetHabbo().HabboStats.FavouriteGroupId);
+    }
+
+    [Fact]
+    public async Task DeletionReleasesGroupBeforeAccountCleanupAndKeepsNewFavourite()
+    {
+        var group = Group();
+        var (owner, _) = Client(7, group.Id);
+        var gate = new AccountSessionGate();
+        using var entering = new ManualResetEventSlim();
+        var sessions = Proxy<IAccountSessionGate>((method, args) =>
+        {
+            var id = (int)args[0]!;
+            if (id == 7)
+                entering.Set();
+            return gate.Enter(id);
+        });
+        var lease = gate.Enter(7);
+        Task deletion;
+        try
+        {
+            deletion = Task.Run(() => Service(group, new Store(), owner, sessions: sessions).Delete(owner, group.Id));
+            Assert.True(entering.Wait(TimeSpan.FromSeconds(5)));
+            Assert.True(Monitor.TryEnter(group), "Deleted-group lock was held while waiting for account publication");
+            try
+            {
+                owner.GetHabbo().HabboStats.FavouriteGroupId = 11;
+            }
+            finally
+            {
+                Monitor.Exit(group);
+            }
+        }
+        finally
+        {
+            lease.Dispose();
+        }
+        await deletion.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(11, owner.GetHabbo().HabboStats.FavouriteGroupId);
+    }
+
     [RoomComponentDatabaseFact]
     public void StoreRollsBackAllDependentDeletesAndMembershipFavouritePair()
     {
@@ -192,7 +268,7 @@ public sealed class GroupRemovalServiceTests
             HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, favourite, "", 0)
         });
 
-    private static GroupRemovalService Service(Group group, Store store, GameClient online, Action? deleted = null) => new(
+    private static GroupRemovalService Service(Group group, Store store, GameClient online, Action? deleted = null, IAccountSessionGate? sessions = null) => new(
         Proxy<IGroupManager>((method, args) =>
         {
             if (method == nameof(IGroupManager.TryGetGroup)) { args[1] = group; return true; }
@@ -205,7 +281,7 @@ public sealed class GroupRemovalServiceTests
         Proxy<IGroupInfoSnapshotService>((_, args) => new GroupInfoSnapshot(group.Id, group.Type, group.Name,
             group.Description, group.Badge, group.RoomId, "HQ", group.MemberCount, "1-1-1970", "Owner",
             false, false, group.IsMember((int)args[1]!), false, 0, true, false)),
-        store);
+        store, sessions ?? new AccountSessionGate());
 
     private static T Proxy<T>(Func<string, object?[], object?> invoke) where T : class
     {
