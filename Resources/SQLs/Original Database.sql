@@ -13484,7 +13484,7 @@ CREATE TABLE `chatlogs_console` (
   `from_id` int(11) unsigned NOT NULL,
   `to_id` int(11) unsigned NOT NULL,
   `message` text NOT NULL,
-  `timestamp` double NOT NULL,
+  `timestamp` datetime(6) NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `from_id` (`from_id`),
   KEY `to_id` (`to_id`),
@@ -22054,7 +22054,7 @@ CREATE TABLE `messenger_offline_messages` (
   `to_id` int(11) unsigned NOT NULL DEFAULT '0',
   `from_id` int(11) unsigned NOT NULL DEFAULT '0',
   `message` varchar(255) NOT NULL,
-  `timestamp` double NOT NULL DEFAULT '0',
+  `timestamp` datetime(6) NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

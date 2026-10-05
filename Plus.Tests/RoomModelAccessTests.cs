@@ -148,7 +148,7 @@ public sealed class RoomModelAccessTests
         });
         var navigator = Proxy<INavigatorManager>((method, _) => method == "TryGetSearchResultList" ? false : throw new InvalidOperationException(method));
         var database = ReaderDatabase(new DataTable(), () => databaseReads++);
-        var habbo = new Habbo { Id = 7001, Access = Access(staffModels), Messenger = new HabboMessenger(new(), new(), new()) };
+        var habbo = new Habbo { Id = 7001, Access = Access(staffModels), Messenger = new HabboMessenger(new(), new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch)) };
         habbo.Messenger.StatusUpdated += (_, _) => friendUpdates++;
         var previousDatabase = DatabaseField.GetValue(null);
         DatabaseField.SetValue(null, database);

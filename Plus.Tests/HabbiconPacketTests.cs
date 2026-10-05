@@ -175,11 +175,11 @@ public class HabbiconPacketTests
     public async Task InvalidDirectMessengerRequestsFailWithoutRecentUse(int conversation, int recipient, int type, string text, string metadata, int error)
     {
         var service = new Service();
-        var habbo = new Habbo { Id = 1, Messenger = new HabboHotel.Users.Messenger.HabboMessenger(new(), new(), new()) };
+        var habbo = new Habbo { Id = 1, Messenger = new HabboHotel.Users.Messenger.HabboMessenger(new(), new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch)) };
         var (client, sent) = Client(habbo);
-        var handler = new Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent(service, null!, null!,
-            NullLogger<Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent>.Instance,
-            new FixedTimeProvider(FixedTimeProvider.Epoch));
+        var handler = new Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent(new Plus.HabboHotel.Friends.HabbiconMessengerService(service, null!,
+            new Plus.HabboHotel.Friends.HabbiconMessengerStore(null!), NullLogger<Plus.HabboHotel.Friends.HabbiconMessengerService>.Instance,
+            new FixedTimeProvider(FixedTimeProvider.Epoch)));
         await handler.Parse(client, Incoming(conversation, recipient, 7, type, text, metadata));
         Assert.Equal(ServerPacketHeader.MessengerMessageFailedComposer, Assert.Single(sent).Header);
         var payload = new Communication.Flash.FlashIncomingPacket { Buffer = sent[0].Payload };

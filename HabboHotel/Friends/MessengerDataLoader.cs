@@ -12,12 +12,14 @@ internal class MessengerDataLoader : IMessengerDataLoader
     private readonly IGameClientManager _gameClientManager;
     private readonly Plus.HabboHotel.Permissions.IAccessControl _permissions;
     private readonly Plus.Core.Settings.ISettingsManager _settings;
+    private readonly TimeProvider _clock;
 
-    public MessengerDataLoader(IDatabase database, IGameClientManager gameClientManager, Plus.HabboHotel.Permissions.IAccessControl permissions, Plus.Core.Settings.ISettingsManager settings)
+    public MessengerDataLoader(IDatabase database, IGameClientManager gameClientManager, Plus.HabboHotel.Permissions.IAccessControl permissions, Plus.Core.Settings.ISettingsManager settings, TimeProvider clock)
     {
         _database = database;
         _gameClientManager = gameClientManager;
         _permissions = permissions; _settings = settings;
+        _clock = clock;
     }
 
     public async Task<List<MessengerBuddy>> GetBuddiesForUser(int userId)
@@ -93,22 +95,38 @@ internal class MessengerDataLoader : IMessengerDataLoader
     public async Task LogPrivateMessage(int fromId, int toId, string message)
     {
         using var connection = _database.Connection();
-        await connection.ExecuteAsync("INSERT INTO chatlogs_console VALUES (NULL, @fromId, @toId, @message, UNIX_TIMESTAMP())", new { fromId, toId, message });
+        await connection.ExecuteAsync("INSERT INTO chatlogs_console (from_id, to_id, message, timestamp) VALUES (@fromId, @toId, @message, @createdAtUtc)",
+            new { fromId, toId, message, createdAtUtc = _clock.GetUtcNow().UtcDateTime });
     }
 
     public async Task LogPrivateOfflineMessage(int fromId, int toId, string message)
     {
         using var connection = _database.Connection();
-        await connection.ExecuteAsync("INSERT INTO `messenger_offline_messages` (`to_id`, `from_id`, `message`, `timestamp`) VALUES (@toId, @fromId, @message, UNIX_TIMESTAMP())", new { toId, fromId, message });
+        await connection.ExecuteAsync("INSERT INTO `messenger_offline_messages` (`to_id`, `from_id`, `message`, `timestamp`) VALUES (@toId, @fromId, @message, @createdAtUtc)",
+            new { toId, fromId, message, createdAtUtc = _clock.GetUtcNow().UtcDateTime });
     }
 
     public async Task<Dictionary<int, List<(string Message, int SecondsAgo)>>> GetAndDeleteOfflineMessages(int userId)
     {
         using var connection = _database.Connection();
-        var messages = (await connection.QueryAsync<(int, string, int)>("SELECT from_id, message, timestamp FROM messenger_offline_messages WHERE to_id = @userId", new { userId })).GroupBy(r => r.Item1).ToDictionary(r => r.Key, r => r.OrderBy(r => r.Item3).Select(g => (g.Item2, (int)(PlusEnvironment.Now() - g.Item3))).ToList());
-        await connection.ExecuteAsync("DELETE FROM messenger_offline_messages WHERE to_id = @userId", new { userId });
-        return messages;
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        var readAtUtc = _clock.GetUtcNow().UtcDateTime;
+        // Rows are locked as they are read, then only those IDs are deleted, so messages that arrive after the read survive.
+        var rows = (await connection.QueryAsync<(int Id, int FromId, string Message, DateTime? SentAt)>("SELECT id, from_id, message, timestamp FROM messenger_offline_messages WHERE to_id = @userId ORDER BY id FOR UPDATE", new { userId }, transaction)).ToList();
+        await DeleteReadOfflineMessages(connection, transaction, rows.Select(row => row.Id).ToArray());
+        transaction.Commit();
+        return rows.GroupBy(row => row.FromId).ToDictionary(group => group.Key, group => group
+            .OrderBy(row => row.SentAt).ThenBy(row => row.Id)
+            .Select(row => (row.Message, MessengerTime.SecondsBetween(readAtUtc, row.SentAt))).ToList());
     }
+
+    internal static async Task DeleteReadOfflineMessages(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, int[] ids)
+    {
+        if (ids.Length == 0) return;
+        await connection.ExecuteAsync("DELETE FROM messenger_offline_messages WHERE id IN @ids", new { ids }, transaction);
+    }
+
 
     public async Task<int> GetFriendCount(int userId)
     {

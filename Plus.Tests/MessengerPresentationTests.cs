@@ -204,7 +204,7 @@ public class MessengerPresentationTests
     }
 
     private static Habbo HabboWith(Dictionary<int, MessengerBuddy> friends, Dictionary<int, MessengerRequest> requests) =>
-        new() { Id = 1, Username = "Owner", Messenger = new HabboMessenger(friends, requests, new List<int>()) };
+        new() { Id = 1, Username = "Owner", Messenger = new HabboMessenger(friends, requests, new List<int>(), new FixedTimeProvider(FixedTimeProvider.Epoch)) };
 
     private static MessengerPresentationService Service(Dictionary<int, List<(string, int)>> offline) =>
         new(new RecordingLoader(offline), CatalogSnapshotTestSupport.Proxy<ICacheManager>((_, _) => null), Settings);

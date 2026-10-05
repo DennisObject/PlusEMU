@@ -23,9 +23,9 @@ public class HabboMessenger
 
     public event EventHandler? StatusUpdated;
 
-    public HabboMessenger(Dictionary<int, MessengerBuddy> friends, Dictionary<int, MessengerRequest> requests, List<int> outstandingFriendRequests, TimeProvider? timeProvider = null)
+    public HabboMessenger(Dictionary<int, MessengerBuddy> friends, Dictionary<int, MessengerRequest> requests, List<int> outstandingFriendRequests, TimeProvider timeProvider)
     {
-        _timeProvider = timeProvider ?? TimeProvider.System;
+        _timeProvider = timeProvider;
         _lastMessage = _timeProvider.GetUtcNow().UtcDateTime;
         _requests = new(requests);
         _friends = new(friends);
@@ -78,9 +78,9 @@ public class HabboMessenger
     private DateTime? _messengerSpamTime = null;
     private DateTime _lastMessage;
 
-    private bool IncrementFloodCounter()
+    private bool IncrementFloodCounter(DateTimeOffset at)
     {
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var now = at.UtcDateTime;
         // A pause cannot bypass an active cooldown, even after the burst counter resets.
         if (_messengerSpamTime is { } cooldown)
         {
@@ -102,18 +102,20 @@ public class HabboMessenger
         return false;
     }
 
-    internal bool TrySendHabbicon()
+    // The caller passes the operation's single captured time so the rate check never samples the clock again.
+    internal bool TrySendHabbicon(DateTimeOffset now)
     {
-        if (IncrementFloodCounter()) return false;
-        _lastMessage = _timeProvider.GetUtcNow().UtcDateTime;
+        if (IncrementFloodCounter(now)) return false;
+        _lastMessage = now.UtcDateTime;
         return true;
     }
 
     public MessageError? SendMessage(MessengerBuddy friend, string message)
     {
         if (string.IsNullOrWhiteSpace(message)) return MessageError.EmptyMessage;
-        if (IncrementFloodCounter()) return MessageError.Flooding;
-        _lastMessage = _timeProvider.GetUtcNow().UtcDateTime;
+        var sentAt = _timeProvider.GetUtcNow();
+        if (IncrementFloodCounter(sentAt)) return MessageError.Flooding;
+        _lastMessage = sentAt.UtcDateTime;
         MessageSend?.Invoke(this, new(friend, message));
         return null;
     }

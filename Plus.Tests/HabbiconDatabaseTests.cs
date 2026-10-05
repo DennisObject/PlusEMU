@@ -24,6 +24,22 @@ public class HabbiconDatabaseTests
     private readonly HabbiconService _service;
     private const int UserId = 910001;
 
+    private static readonly object PristineImportLock = new();
+    private static string? _importedConnectionString;
+
+    // The pristine dump takes minutes to load, so each disposable schema gets it once per process before any fixture state is written.
+    private static void ImportPristineSchemaOnce(string connectionString)
+    {
+        lock (PristineImportLock)
+        {
+            if (_importedConnectionString == connectionString) return;
+            using var connection = new MySqlConnection(connectionString);
+            connection.Open();
+            connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql")), commandTimeout: 900);
+            _importedConnectionString = connectionString;
+        }
+    }
+
     public HabbiconDatabaseTests()
     {
         string connectionString = Environment.GetEnvironmentVariable("PLUS_HABBICONS_TEST_CONNECTION_STRING")!;
@@ -31,6 +47,7 @@ public class HabbiconDatabaseTests
         var builder = new MySqlConnectionStringBuilder(connectionString);
         if (!builder.Database.StartsWith("task_habicons_tests_", StringComparison.Ordinal))
             throw new InvalidOperationException("Habicon database tests require a disposable task_habicons_tests_ schema.");
+        ImportPristineSchemaOnce(connectionString);
         Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/14_Habbicons.sql")));
         Execute("DELETE FROM users_habbicons; DELETE FROM users WHERE id = 910001");
         using (var connection = _database.Connection())
@@ -218,21 +235,22 @@ public class HabbiconDatabaseTests
     [HabbiconDatabaseFact]
     public async Task DirectFriendHabiconSendsOneTypedOnlineMessageAndUsesExistingOfflineFallback()
     {
-        Execute("CREATE TABLE IF NOT EXISTS chatlogs_console (id INT PRIMARY KEY AUTO_INCREMENT, from_id INT NOT NULL, to_id INT NOT NULL, message TEXT NOT NULL, timestamp DOUBLE NOT NULL) ENGINE=InnoDB");
-        Execute("CREATE TABLE IF NOT EXISTS messenger_offline_messages (id INT PRIMARY KEY AUTO_INCREMENT, from_id INT NOT NULL, to_id INT NOT NULL, message VARCHAR(255) NOT NULL, timestamp DOUBLE NOT NULL) ENGINE=InnoDB");
+        Execute("CREATE TABLE IF NOT EXISTS chatlogs_console (id INT PRIMARY KEY AUTO_INCREMENT, from_id INT NOT NULL, to_id INT NOT NULL, message TEXT NOT NULL, timestamp DATETIME(6) NOT NULL) ENGINE=InnoDB");
+        Execute("CREATE TABLE IF NOT EXISTS messenger_offline_messages (id INT PRIMARY KEY AUTO_INCREMENT, from_id INT NOT NULL, to_id INT NOT NULL, message VARCHAR(255) NOT NULL, timestamp DATETIME(6) NOT NULL) ENGINE=InnoDB");
         Execute("DELETE FROM chatlogs_console WHERE from_id = 910001; DELETE FROM messenger_offline_messages WHERE from_id = 910001");
         var sender = new Habbo { Id = UserId, Messenger = new Plus.HabboHotel.Users.Messenger.HabboMessenger(
-            new() { [910002] = new() { Id = 910002 } }, new(), new()) };
+            new() { [910002] = new() { Id = 910002 } }, new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch)) };
         var recipient = new Habbo { Id = 910002, AllowConsoleMessages = true,
             IgnoresComponent = new Plus.HabboHotel.Users.Ignores.IgnoresComponent(new()),
-            Messenger = new Plus.HabboHotel.Users.Messenger.HabboMessenger(new() { [UserId] = new() { Id = UserId } }, new(), new()) };
+            Messenger = new Plus.HabboHotel.Users.Messenger.HabboMessenger(new() { [UserId] = new() { Id = UserId } }, new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch)) };
         var (client, sent) = HabbiconTestSupport.Client(sender);
         var (target, received) = HabbiconTestSupport.Client(recipient);
         var clients = new Plus.HabboHotel.GameClients.GameClientManager(null!, null!);
         clients.RegisterClient(target, recipient.Id, "habicon_recipient");
-        var handler = new Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent(_service, _database, clients,
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent>.Instance,
-            new FixedTimeProvider(FixedTimeProvider.Epoch));
+        var handler = new Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent(new Plus.HabboHotel.Friends.HabbiconMessengerService(_service, clients,
+            new Plus.HabboHotel.Friends.HabbiconMessengerStore(_database),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<Plus.HabboHotel.Friends.HabbiconMessengerService>.Instance,
+            new FixedTimeProvider(FixedTimeProvider.Epoch)));
         await handler.Parse(client, HabbiconTestSupport.Incoming(0, 910002, 7, 4, "28", ""));
         Assert.Equal(Plus.Communication.Packets.Outgoing.ServerPacketHeader.MessengerMessageComposer, Assert.Single(received).Header);
         Assert.Single(sent, p => p.Header == Plus.Communication.Packets.Outgoing.ServerPacketHeader.MessengerMessageAckComposer);
