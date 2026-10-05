@@ -86,6 +86,7 @@ internal sealed class RoomPerformanceFixture
         var manager = new RoomUserManager(room);
         SetField(room, "_gamemap", map);
         SetField(room, "_roomUserManager", manager);
+        SetField(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance));
         var fixture = new RoomPerformanceFixture { Room = room, Manager = manager, Map = map };
         var dictionary = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         var revision = new Revision { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
