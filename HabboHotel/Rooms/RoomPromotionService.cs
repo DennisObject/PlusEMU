@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Dapper;
 using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
@@ -11,6 +12,8 @@ using Plus.HabboHotel.Users.Messenger;
 using Plus.Utilities.DependencyInjection;
 
 namespace Plus.HabboHotel.Rooms;
+
+public readonly record struct PromotionRoomSnapshot(uint Id, string Name);
 
 public sealed record PurchaseRoomPromotionRequest(uint RoomId, string Name, string Description, int CategoryId);
 public sealed record EditRoomPromotionRequest(uint RoomId, string Name, string Description);
@@ -52,6 +55,7 @@ public sealed class RoomPromotionStore(IDatabase database) : IRoomPromotionStore
 [Singleton]
 public interface IRoomPromotionService
 {
+    void ShowCatalogRooms(GameClient session);
     Task Purchase(GameClient session, PurchaseRoomPromotionRequest request);
     void Edit(GameClient session, EditRoomPromotionRequest request);
 }
@@ -61,6 +65,10 @@ public sealed class RoomPromotionService(IRoomDataLoader dataLoader, IRoomManage
     TimeProvider clock) : IRoomPromotionService
 {
     private readonly object _sync = new();
+
+    public void ShowCatalogRooms(GameClient session) =>
+        session.Send(new GetCatalogRoomPromotionComposer(dataLoader.GetRoomsDataByOwnerSortByName(session.GetHabbo().Id)
+            .Select(room => new PromotionRoomSnapshot(room.Id, room.Name)).ToImmutableArray()));
 
     public async Task Purchase(GameClient session, PurchaseRoomPromotionRequest request)
     {

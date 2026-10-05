@@ -1,15 +1,13 @@
-﻿using Plus.Communication.Packets.Outgoing.Catalog;
-using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Catalog;
 
-internal class GetCatalogRoomPromotionEvent : IPacketEvent
+internal class GetCatalogRoomPromotionEvent(IRoomPromotionService promotions) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        var rooms = RoomFactory.GetRoomsDataByOwnerSortByName(session.GetHabbo().Id);
-        session.Send(new GetCatalogRoomPromotionComposer(rooms));
+        promotions.ShowCatalogRooms(session);
         return Task.CompletedTask;
     }
 }

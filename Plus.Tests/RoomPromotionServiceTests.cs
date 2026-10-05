@@ -1,4 +1,6 @@
+using System.Collections.Immutable;
 using System.Reflection;
+using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.Communication.Packets.Incoming.Catalog;
 using Plus.Communication.Packets.Incoming.Navigator;
 using Plus.Core.Settings;
@@ -16,6 +18,26 @@ namespace Plus.Tests;
 public sealed class RoomPromotionServiceTests
 {
     private static readonly DateTimeOffset Now = new(2040, 12, 31, 23, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public void CatalogRoomsUseCanonicalOwnerLookupAndFreezeTheWireData()
+    {
+        var context = new Context();
+        context.Data.Name = "captured";
+        context.Service.ShowCatalogRooms(context.Client);
+        Assert.Equal(7, context.Loader.LastOwnerId);
+        Assert.Single(context.Sent);
+        Assert.Equal(0, context.Store.Writes);
+        var composer = new GetCatalogRoomPromotionComposer(
+            ImmutableArray.Create(new PromotionRoomSnapshot(context.Data.Id, context.Data.Name)));
+        var first = new HabbiconTestSupport.RecordingPacket();
+        composer.Compose(first);
+        Assert.Equal(new List<object> { true, 1, 42u, "captured", true }, first.Writes);
+        context.Data.Name = "changed";
+        var repeated = new HabbiconTestSupport.RecordingPacket();
+        composer.Compose(repeated);
+        Assert.Equal(first.Writes, repeated.Writes);
+    }
 
     [Fact]
     public async Task NonOwnerAndMissingRoomDoNotPersistOrSend()
@@ -91,6 +113,8 @@ public sealed class RoomPromotionServiceTests
     {
         var context = new Context();
         var capture = new CaptureService();
+        await new GetCatalogRoomPromotionEvent(capture).Parse(context.Client, HabbiconTestSupport.Incoming());
+        Assert.True(capture.CatalogRequested);
         await new PurchaseRoomAdEvent(capture).Parse(context.Client,
             HabbiconTestSupport.Incoming(7, 8, 42, "title", false, "details", 9));
         await new EditRoomPromotionEvent(capture).Parse(context.Client,
@@ -132,7 +156,12 @@ public sealed class RoomPromotionServiceTests
     {
         public RoomData? Data { get; set; }
         public bool TryGetData(uint roomId, out RoomData? data) { data = Data; return data != null; }
-        public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId) => throw new NotSupportedException();
+        public int? LastOwnerId { get; private set; }
+        public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId)
+        {
+            LastOwnerId = ownerId;
+            return Data == null ? [] : [Data];
+        }
     }
 
     private sealed class Store : IRoomPromotionStore
@@ -158,6 +187,8 @@ public sealed class RoomPromotionServiceTests
 
     private sealed class CaptureService : IRoomPromotionService
     {
+        public bool CatalogRequested { get; private set; }
+        public void ShowCatalogRooms(Plus.HabboHotel.GameClients.GameClient session) => CatalogRequested = true;
         public PurchaseRoomPromotionRequest? PurchaseRequest { get; private set; }
         public EditRoomPromotionRequest? EditRequest { get; private set; }
         public Task Purchase(Plus.HabboHotel.GameClients.GameClient session, PurchaseRoomPromotionRequest request)
