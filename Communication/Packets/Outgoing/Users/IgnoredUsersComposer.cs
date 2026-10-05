@@ -10,7 +10,7 @@ public class IgnoredUsersComposer : IServerPacket
 
     public IgnoredUsersComposer(IReadOnlyCollection<string> ignoredUsers)
     {
-        _ignoredUsers = ignoredUsers;
+        _ignoredUsers = ignoredUsers.ToArray();
     }
 
     public void Compose(IOutgoingPacket packet)

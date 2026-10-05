@@ -14,7 +14,7 @@ public class NameChangeUpdateComposer : IServerPacket
     {
         _name = name;
         _error = error;
-        _tags = tags;
+        _tags = tags.ToArray();
     }
 
     public NameChangeUpdateComposer(string name, NameChangeError error)

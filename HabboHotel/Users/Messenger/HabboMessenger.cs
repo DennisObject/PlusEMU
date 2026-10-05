@@ -1,5 +1,3 @@
-using Plus.HabboHotel.Friends;
-using Plus.HabboHotel.GameClients;
 using System.Collections.Concurrent;
 
 namespace Plus.HabboHotel.Users.Messenger;
@@ -157,18 +155,4 @@ public class HabboMessenger
             .ToDictionary(g => g.Key, g => (g.First(), g.Count()));
     }
 
-    internal async Task<Dictionary<int, (MessengerBuddy buddy, int count)>> GetRelationshipsForUserAsync(int userId, GameClientManager gameClientManager, MessengerDataLoader messengerDataLoader)
-    {
-        var client = gameClientManager.GetClientByUserId(userId);
-
-        if (client != null)
-        {
-            var concurrentFriends = new ConcurrentDictionary<int, MessengerBuddy>(client.GetHabbo().Messenger.Friends);
-            return GetRelationships(concurrentFriends);
-        }
-        else
-        {
-            return await messengerDataLoader.GetRelationshipsForUserAsync(userId);
-        }
-    }
 }
