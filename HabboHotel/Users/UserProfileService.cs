@@ -179,17 +179,22 @@ public sealed class UserProfileService(
         room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
     }
 
-    public async Task SetChatStylePreference(GameClient session, int bubbleId)
+    public Task SetChatStylePreference(GameClient session, int bubbleId)
     {
         var habbo = session.GetHabbo();
         if (bubbleId != 0 && (!styles.TryGetStyle(bubbleId, out var style) || !style.CanUse(habbo.Access)))
-            return;
-        using var connection = database.Connection();
-        var updated = await connection.ExecuteAsync("UPDATE users SET bubble_id=@bubbleId WHERE id=@userId LIMIT 1",
-            new { bubbleId, userId = habbo.Id });
-        if (updated != 1)
-            throw new DBConcurrencyException($"User {habbo.Id} no longer exists.");
-        habbo.CustomBubbleId = bubbleId;
+            return Task.CompletedTask;
+        lock (habbo.WalletSync)
+        {
+            if (habbo.WalletClosed) return Task.CompletedTask;
+            using var connection = database.Connection();
+            var updated = connection.Execute("UPDATE users SET bubble_id=@bubbleId WHERE id=@userId LIMIT 1",
+                new { bubbleId, userId = habbo.Id });
+            if (updated != 1)
+                throw new DBConcurrencyException($"User {habbo.Id} no longer exists.");
+            habbo.CustomBubbleId = bubbleId;
+        }
+        return Task.CompletedTask;
     }
 
     public void SetFriendBarState(GameClient session, int state)

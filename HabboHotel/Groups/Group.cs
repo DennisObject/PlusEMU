@@ -134,5 +134,4 @@ public class Group
         _administrators.Clear();
     }
 
-    private sealed record GroupMemberRow(int UserId, int Rank);
 }

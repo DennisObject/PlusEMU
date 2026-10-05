@@ -69,6 +69,93 @@ public sealed class UserPreferencePersistenceTests
         Assert.Empty(sent);
     }
 
+    [Fact]
+    public async Task SavedWalletRejectsChatStyleWithoutOpeningAConnection()
+    {
+        var user = new Habbo { Id = 7, CustomBubbleId = 3, Access = UserAccess.Empty,
+            Persistence = CatalogSnapshotTestSupport.Proxy<IUserPersistenceService>((_, _) => null) };
+        var (session, sent) = HabbiconTestSupport.Client(user);
+        user.Save();
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!);
+
+        await profiles.SetChatStylePreference(session, 0);
+
+        Assert.Equal(3, user.CustomBubbleId);
+        Assert.Empty(sent);
+    }
+
+    [RoomComponentDatabaseFact]
+    public async Task FinalSaveWaitsForChatStylePersistenceAndIncludesTheNewStyle()
+    {
+        var root = Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!;
+        var schema = "task_preferences_style_shutdown_" + Guid.NewGuid().ToString("N");
+        using var server = new MySqlConnection(root);
+        server.Execute($"CREATE DATABASE `{schema}`");
+        try
+        {
+            var database = new HabbiconDatabaseTests.TestDatabase(new MySqlConnectionStringBuilder(root)
+            {
+                Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true
+            }.ConnectionString);
+            using var connection = database.Connection();
+            var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+            foreach (var table in new[] { "users", "users_settings", "user_stats" })
+            {
+                var definition = System.Text.RegularExpressions.Regex.Match(pristine,
+                    $@"CREATE TABLE `{table}` \([\s\S]*?\) ENGINE=[^;]+;").Value;
+                Assert.NotEmpty(definition);
+                connection.Execute(definition);
+            }
+            connection.Execute("ALTER TABLE users ADD bubble_id TINYINT NOT NULL DEFAULT 0; " +
+                "ALTER TABLE user_stats RENAME TO user_statistics; " +
+                "INSERT INTO users(id,username,auth_ticket,bubble_id) VALUES(7,'user','ticket',3); " +
+                "INSERT INTO users_settings(user_id) VALUES(7); INSERT INTO user_statistics(id) VALUES(7)");
+            var user = new Habbo { Id = 7, CustomBubbleId = 3, Access = UserAccess.Empty, SessionStartedAt = DateTimeOffset.UtcNow,
+                HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "old", 0),
+                Persistence = new UserPersistenceService(database, TimeProvider.System) };
+            var (session, sent) = HabbiconTestSupport.Client(user);
+            var profiles = new UserProfileService(null!, null!, null!, null!, database, TimeProvider.System,
+                new Styles(new ChatStyle(5, "Public", "")));
+            using var enteredWrite = new ManualResetEventSlim();
+            using var releaseWrite = new ManualResetEventSlim();
+            using var startedSave = new ManualResetEventSlim();
+            var connections = 0;
+            database.BeforeConnection = () =>
+            {
+                if (Interlocked.Increment(ref connections) != 1) return;
+                enteredWrite.Set();
+                Assert.True(releaseWrite.Wait(TimeSpan.FromSeconds(5)));
+            };
+            var update = Task.Run(() => profiles.SetChatStylePreference(session, 5));
+            Task? save = null;
+            bool savedWhileWritePaused;
+            try
+            {
+                Assert.True(enteredWrite.Wait(TimeSpan.FromSeconds(5)));
+                save = Task.Run(() => { startedSave.Set(); user.Save(); });
+                Assert.True(startedSave.Wait(TimeSpan.FromSeconds(5)));
+                savedWhileWritePaused = await Task.WhenAny(save, Task.Delay(100)) == save;
+            }
+            finally
+            {
+                releaseWrite.Set();
+                await update.WaitAsync(TimeSpan.FromSeconds(5));
+                if (save != null) await save.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            Assert.False(savedWhileWritePaused);
+            Assert.Equal(5, user.CustomBubbleId);
+            Assert.Equal(5, connection.QuerySingle<int>("SELECT bubble_id FROM users WHERE id=7"));
+            Assert.True(user.WalletClosed);
+            database.BeforeConnection = () => throw new InvalidOperationException("Closed wallet opened a connection.");
+            await profiles.SetChatStylePreference(session, 0);
+            Assert.Equal(5, user.CustomBubbleId);
+            Assert.Equal(5, connection.QuerySingle<int>("SELECT bubble_id FROM users WHERE id=7"));
+            Assert.Empty(sent);
+        }
+        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+    }
+
     [Theory]
     [InlineData(1, 1)]
     [InlineData(0, 0)]

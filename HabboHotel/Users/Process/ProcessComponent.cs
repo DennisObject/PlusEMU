@@ -47,16 +47,20 @@ public sealed class ProcessComponent(ILogger<ProcessComponent> logger, TimeProvi
             if (player.MessengerSpamTime > 0) player.MessengerSpamTime -= 60;
             if (player.MessengerSpamTime <= 0) player.MessengerSpamCount = 0;
             player.TimeAfk += 1;
-            if (player.HabboStats.RespectsTimestamp != day)
+            // Keep the reset and its live counts atomic with the final logout save.
+            lock (player.WalletSync)
             {
-                var respects = player.Access.Limit("limit.daily_respects", 10);
-                var petRespects = player.Access.Limit("limit.daily_pet_respects", 10);
-                store.ResetDailyRespects(player.Id, respects, petRespects, day);
-                player.HabboStats.RespectsTimestamp = day;
-                player.HabboStats.DailyRespectPoints = respects;
-                player.HabboStats.DailyPetRespectPoints = petRespects;
-                if (player.Client != null)
-                    player.Client.Send(new UserObjectComposer(UserObjectSnapshot.Capture(player)));
+                if (!player.WalletClosed && player.HabboStats.RespectsTimestamp != day)
+                {
+                    var respects = player.Access.Limit("limit.daily_respects", 10);
+                    var petRespects = player.Access.Limit("limit.daily_pet_respects", 10);
+                    store.ResetDailyRespects(player.Id, respects, petRespects, day);
+                    player.HabboStats.RespectsTimestamp = day;
+                    player.HabboStats.DailyRespectPoints = respects;
+                    player.HabboStats.DailyPetRespectPoints = petRespects;
+                    if (player.Client != null)
+                        player.Client.Send(new UserObjectComposer(UserObjectSnapshot.Capture(player)));
+                }
             }
             if (player.GiftPurchasingWarnings < 15) player.GiftPurchasingWarnings = 0;
             if (player.MottoUpdateWarnings < 15) player.MottoUpdateWarnings = 0;

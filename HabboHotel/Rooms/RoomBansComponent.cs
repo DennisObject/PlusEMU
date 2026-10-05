@@ -52,9 +52,13 @@ public sealed class RoomBansComponent(IDatabase database, TimeProvider clock) : 
     IEnumerable<int> IRoomBanStore.ActiveUserIds(uint roomId)
     {
         using var connection = database.Connection();
-        return connection.Query<int>(
-            "SELECT DISTINCT user_id FROM room_bans WHERE room_id = @roomId AND expire > UTC_TIMESTAMP(6)", new { roomId }).ToArray();
+        return connection.Query<uint>(
+            "SELECT DISTINCT user_id FROM room_bans WHERE room_id = @roomId AND expire > UTC_TIMESTAMP(6)", new { roomId }).Select(userId => checked((int)userId)).ToArray();
     }
 
-    private sealed record RoomBanRow(uint UserId, DateTimeOffset ExpiresAt);
+    private sealed class RoomBanRow
+    {
+        public uint UserId { get; set; }
+        public DateTimeOffset ExpiresAt { get; set; }
+    }
 }
