@@ -1,35 +1,51 @@
 using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
+using Plus.Communication.Packets.Outgoing.Marketplace;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Catalog.Marketplace;
 
-public enum MarketplacePurchaseOutcome { Bought, NotFound, Sold, Expired, UnknownItem, OwnOffer, InsufficientCredits, WalletClosed }
+public enum MarketplacePurchaseOutcome { Bought, NotFound, Sold, Expired, UnknownItem, OwnOffer, InsufficientCredits, InvalidOffer, WalletClosed }
 
 public interface IMarketplacePurchaseService
 {
     MarketplacePurchaseOutcome Buy(GameClient session, int offerId);
 }
 
-public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, IItemDataManager items, IMarketplaceManager marketplace, TimeProvider time) : IMarketplacePurchaseService
+public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, IItemDataManager items, IMarketplaceManager marketplace,
+    IMarketplaceOfferSearchService offers, TimeProvider time) : IMarketplacePurchaseService
 {
     private const double OfferLifetimeSeconds = 172800;
+
+    // One lock for every buyer's sale record: the averages and the sale-stat rows (which have no unique sprite key) update here only.
+    // Lock order is always buyer WalletSync, then this lock.
+    private readonly object _sales = new();
 
     public MarketplacePurchaseOutcome Buy(GameClient session, int offerId)
     {
         var habbo = session.GetHabbo();
-        // Charging, delivery and the in-memory averages stay under the buyer's wallet lock, so one wallet cannot be charged twice concurrently.
+        MarketplacePurchaseOutcome outcome;
         lock (habbo.WalletSync)
         {
             if (habbo.WalletClosed) return MarketplacePurchaseOutcome.WalletClosed;
             var expiredBefore = time.GetUtcNow().ToUnixTimeSeconds() - OfferLifetimeSeconds;
-            var result = store.Claim(new MarketplacePurchaseRequest(offerId, habbo.Id, habbo.Credits, expiredBefore,
-                itemId => items.Items.TryGetValue(itemId, out var definition) ? definition : null));
+            MarketplacePurchaseResult result;
+            lock (_sales)
+            {
+                result = store.Claim(new MarketplacePurchaseRequest(offerId, habbo.Id, habbo.Credits, expiredBefore,
+                    itemId => items.Items.TryGetValue(itemId, out var definition) ? definition : null));
+                if (result.Offer is { } sale)
+                    RecordAverage(sale.Definition.SpriteId, sale.TotalPrice);
+            }
             if (result.Refusal is { } refusal)
-                return Outcome(refusal);
+            {
+                outcome = Outcome(refusal);
+                Publish(session, outcome);
+                return outcome;
+            }
             var claim = result.Offer!;
 
             habbo.Credits -= claim.TotalPrice;
@@ -48,9 +64,10 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
                 session.Send(new FurniListAddComposer(giveItem));
                 session.Send(new FurniListUpdateComposer());
             }
-            RecordAverage(claim.Definition.SpriteId, claim.TotalPrice);
-            return MarketplacePurchaseOutcome.Bought;
+            outcome = MarketplacePurchaseOutcome.Bought;
         }
+        Publish(session, outcome);
+        return outcome;
     }
 
     private void RecordAverage(int spriteId, int totalPrice)
@@ -71,6 +88,32 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
             marketplace.MarketCounts.Add(spriteId, 1);
     }
 
+    // Notices and the refreshed list the buyer sees, per outcome.
+    private void Publish(GameClient session, MarketplacePurchaseOutcome outcome)
+    {
+        switch (outcome)
+        {
+            case MarketplacePurchaseOutcome.WalletClosed:
+                return;
+            case MarketplacePurchaseOutcome.OwnOffer:
+                session.SendNotification("To prevent average boosting you cannot purchase your own marketplace offers.");
+                return;
+            case MarketplacePurchaseOutcome.InsufficientCredits:
+                session.SendNotification("Oops, you do not have enough credits for this.");
+                return;
+            case MarketplacePurchaseOutcome.Sold:
+                session.SendNotification("Oops, this offer is no longer available.");
+                break;
+            case MarketplacePurchaseOutcome.Expired:
+                session.SendNotification("Oops, this offer has expired..");
+                break;
+            case MarketplacePurchaseOutcome.UnknownItem:
+                session.SendNotification("Item isn't in the hotel anymore.");
+                break;
+        }
+        session.Send(new MarketPlaceOffersComposer(offers.Search(-1, -1, "", 1)));
+    }
+
     private static MarketplacePurchaseOutcome Outcome(MarketplacePurchaseRefusal refusal) => refusal switch
     {
         MarketplacePurchaseRefusal.NotFound => MarketplacePurchaseOutcome.NotFound,
@@ -78,6 +121,7 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
         MarketplacePurchaseRefusal.Expired => MarketplacePurchaseOutcome.Expired,
         MarketplacePurchaseRefusal.UnknownItem => MarketplacePurchaseOutcome.UnknownItem,
         MarketplacePurchaseRefusal.OwnOffer => MarketplacePurchaseOutcome.OwnOffer,
+        MarketplacePurchaseRefusal.InvalidOffer => MarketplacePurchaseOutcome.InvalidOffer,
         _ => MarketplacePurchaseOutcome.InsufficientCredits,
     };
 }

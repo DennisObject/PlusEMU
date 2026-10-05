@@ -45,6 +45,7 @@ public class MarketplacePurchaseTests
     [InlineData(MarketplacePurchaseRefusal.NotFound, true)]
     [InlineData(MarketplacePurchaseRefusal.OwnOffer, false)]
     [InlineData(MarketplacePurchaseRefusal.InsufficientCredits, false)]
+    [InlineData(MarketplacePurchaseRefusal.InvalidOffer, true)]
     public async Task RefusedOffersChangeNothingAndReloadOnlyWhenTheOfferMayHaveMoved(MarketplacePurchaseRefusal refusal, bool reloads)
     {
         var store = new ClaimStore(refusal);
@@ -99,7 +100,7 @@ public class MarketplacePurchaseTests
     }
 
     private static BuyOfferEvent Buy(IMarketplacePurchaseStore store, Dictionary<int, int> averages, Dictionary<int, int> counts) =>
-        new(Service(store, averages, counts), Search());
+        new(Service(store, averages, counts));
 
     private static MarketplacePurchaseService Service(IMarketplacePurchaseStore store, Dictionary<int, int> averages, Dictionary<int, int> counts)
     {
@@ -111,7 +112,7 @@ public class MarketplacePurchaseTests
             "get_MarketCounts" => counts,
             _ => throw new InvalidOperationException(method),
         });
-        return new MarketplacePurchaseService(store, items, marketplace, new FixedClock(Now));
+        return new MarketplacePurchaseService(store, items, marketplace, Search(), new FixedClock(Now));
     }
 
     private static IMarketplaceOfferSearchService Search() => CatalogSnapshotTestSupport.Proxy<IMarketplaceOfferSearchService>((method, _) =>

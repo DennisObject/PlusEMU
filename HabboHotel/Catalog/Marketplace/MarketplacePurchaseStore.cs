@@ -4,7 +4,7 @@ using Plus.HabboHotel.Items;
 
 namespace Plus.HabboHotel.Catalog.Marketplace;
 
-public enum MarketplacePurchaseRefusal { NotFound, Sold, Expired, UnknownItem, OwnOffer, InsufficientCredits }
+public enum MarketplacePurchaseRefusal { NotFound, Sold, Expired, UnknownItem, OwnOffer, InsufficientCredits, InvalidOffer }
 
 public sealed record MarketplacePurchaseRequest(int OfferId, int BuyerId, int BuyerCredits, double ExpiredBefore, Func<uint, ItemDefinition?> DefinitionOf);
 
@@ -45,12 +45,18 @@ public sealed class MarketplacePurchaseStore(IDatabase database) : IMarketplaceP
                 "`item_id` AS ItemId, `furni_id` AS FurniId, `user_id` AS UserId, `limited_number` AS LimitedNumber, `limited_stack` AS LimitedStack " +
                 "FROM `catalog_marketplace_offers` WHERE `offer_id` = @OfferId LIMIT 1 FOR UPDATE", new { request.OfferId }, transaction);
             if (offer == null) return Refuse(transaction, MarketplacePurchaseRefusal.NotFound);
-            if (offer.State == "2") return Refuse(transaction, MarketplacePurchaseRefusal.Sold);
+            // Only a listed offer ('1') can be bought; any other state is treated as no longer available.
+            if (offer.State != "1") return Refuse(transaction, MarketplacePurchaseRefusal.Sold);
             if (request.ExpiredBefore > offer.Timestamp) return Refuse(transaction, MarketplacePurchaseRefusal.Expired);
             var definition = request.DefinitionOf(offer.ItemId);
             if (definition == null) return Refuse(transaction, MarketplacePurchaseRefusal.UnknownItem);
             if (offer.UserId == (uint)request.BuyerId) return Refuse(transaction, MarketplacePurchaseRefusal.OwnOffer);
+            // A negative price would credit the buyer, and the limited columns are unsigned in the delivered item.
+            if (offer.TotalPrice <= 0 || offer.LimitedNumber < 0 || offer.LimitedStack < 0) return Refuse(transaction, MarketplacePurchaseRefusal.InvalidOffer);
             if (offer.TotalPrice > request.BuyerCredits) return Refuse(transaction, MarketplacePurchaseRefusal.InsufficientCredits);
+            // Everything that can fail on the way to delivery is prepared before the first write.
+            var claim = new MarketplaceClaimedOffer(offer.TotalPrice, offer.FurniId, offer.ItemId, offer.ExtraData,
+                Convert.ToUInt32(offer.LimitedNumber), Convert.ToUInt32(offer.LimitedStack), definition);
 
             var sold = connection.Execute("UPDATE `catalog_marketplace_offers` SET `state` = '2' WHERE `offer_id` = @OfferId AND `state` = '1' LIMIT 1",
                 new { request.OfferId }, transaction);
@@ -64,8 +70,7 @@ public sealed class MarketplacePurchaseStore(IDatabase database) : IMarketplaceP
 
             RecordSale(connection, transaction, definition.SpriteId, offer.TotalPrice);
             transaction.Commit();
-            return new MarketplacePurchaseResult(null, new MarketplaceClaimedOffer(offer.TotalPrice, offer.FurniId, offer.ItemId, offer.ExtraData,
-                Convert.ToUInt32(offer.LimitedNumber), Convert.ToUInt32(offer.LimitedStack), definition));
+            return new MarketplacePurchaseResult(null, claim);
         }
         catch
         {
