@@ -6,6 +6,7 @@ using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Boxes.Conditions;
 using Plus.HabboHotel.Items.Wired.Boxes.Effects;
+using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Xunit;
 
@@ -13,6 +14,25 @@ namespace Plus.Tests;
 
 public class WiredLegacySaveTests
 {
+    [Fact]
+    public void TypedRepeaterPreparationMatchesPacketDelayAndTickCount()
+    {
+        var item = new Item { Id = 7, Definition = new() };
+        var original = new RepeaterBox(null!, item) { Delay = 3, TickCount = 500 };
+        Assert.True(WiredLegacySave.TryPrepare(original, Incoming(1, 9, "", 0, 0), WiredBoxCategory.Trigger,
+            source => new RepeaterBox(null!, source.Item), out var packetCandidate, out var packetError));
+        Assert.True(WiredLegacyProtocol.TryRead(Incoming(1, 9, "", 0, 0), WiredBoxCategory.Trigger, out var proposed));
+        Assert.True(WiredLegacySave.TryPrepare(original, proposed, WiredBoxCategory.Trigger,
+            source => new RepeaterBox(null!, source.Item), out var typedCandidate, out var typedError));
+
+        Assert.Empty(packetError);
+        Assert.Empty(typedError);
+        var packetCycle = Assert.IsAssignableFrom<IWiredCycle>(packetCandidate);
+        var typedCycle = Assert.IsAssignableFrom<IWiredCycle>(typedCandidate);
+        Assert.Equal((9, 9), (packetCycle.Delay, packetCycle.TickCount));
+        Assert.Equal((packetCycle.Delay, packetCycle.TickCount), (typedCycle.Delay, typedCycle.TickCount));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
