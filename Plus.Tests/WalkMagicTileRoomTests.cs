@@ -363,7 +363,7 @@ public partial class PlacedFurniRoomTests
         _room.GetRoomUserManager().OnCycle();
         Assert.Equal("1,1,0.75", user.Statusses["mv"]);
         Assert.Equal(0.75, user.SetZ);
-        var status = Body(new UserUpdateComposer([user]));
+        var status = Body(new UserUpdateComposer(RoomUserStatusSnapshot.Capture([user])));
         Assert.Equal(1, status.ReadInt());
         status.ReadInt(); status.ReadInt(); status.ReadInt(); status.ReadString(); status.ReadInt(); status.ReadInt();
         Assert.Contains("/mv 1,1,0.75/", status.ReadString());

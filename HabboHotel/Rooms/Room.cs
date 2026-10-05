@@ -546,7 +546,7 @@ public class Room
             if (!user.IsBot && !user.IsPet && user.CurrentEffect > 0)
                 session.Send(new AvatarEffectComposer(user.VirtualId, user.CurrentEffect));
         }
-        session.Send(new UserUpdateComposer(_roomUserManager.GetUserList().ToList()));
+        session.Send(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(_roomUserManager.GetUserList())));
         var snapshotFurniture = GetRoomItemHandler().GetFloor.ToArray();
         session.Send(new ObjectsComposer(RoomFurnitureSnapshot.Capture(snapshotFurniture, OwnerId, OwnerName)));
         var snapshotWalls = GetRoomItemHandler().GetWall.ToArray();

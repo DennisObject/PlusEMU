@@ -605,7 +605,7 @@ public class RoomUserManager
             users.Add(user);
         }
         if (users.Count > 0)
-            _room.SendPacket(new UserUpdateComposer(users));
+            _room.SendPacket(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(users)));
     }
 
     public void UpdateUserStatusses()

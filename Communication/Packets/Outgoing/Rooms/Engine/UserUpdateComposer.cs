@@ -1,45 +1,25 @@
-﻿using System.Globalization;
-using System.Text;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Engine;
 
-public class UserUpdateComposer : IServerPacket
+public sealed class UserUpdateComposer(ImmutableArray<RoomUserStatusSnapshot> users) : IServerPacket
 {
-    private readonly ICollection<RoomUser> _users;
     public uint MessageId => ServerPacketHeader.UserUpdateComposer;
-
-    public UserUpdateComposer(ICollection<RoomUser> users)
-    {
-        _users = users;
-    }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_users.Count);
-        foreach (var user in _users.ToList())
+        packet.WriteInteger(users.Length);
+        foreach (var user in users)
         {
             packet.WriteInteger(user.VirtualId);
             packet.WriteInteger(user.X);
             packet.WriteInteger(user.Y);
-            packet.WriteString(user.Z.ToString(CultureInfo.InvariantCulture));
-            packet.WriteInteger(user.RotHead);
-            packet.WriteInteger(user.RotBody);
-            var statusComposer = new StringBuilder();
-            statusComposer.Append("/");
-            foreach (var status in user.Statusses.ToList())
-            {
-                statusComposer.Append(status.Key);
-                if (!string.IsNullOrEmpty(status.Value))
-                {
-                    statusComposer.Append(" ");
-                    statusComposer.Append(status.Value);
-                }
-                statusComposer.Append("/");
-            }
-            statusComposer.Append("/");
-            packet.WriteString(statusComposer.ToString());
+            packet.WriteString(user.Z);
+            packet.WriteInteger(user.HeadRotation);
+            packet.WriteInteger(user.BodyRotation);
+            packet.WriteString(user.Status);
         }
     }
 }

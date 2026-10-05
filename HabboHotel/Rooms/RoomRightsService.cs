@@ -97,7 +97,7 @@ public sealed class RoomRightsService(IRoomRightsStore store, ILanguageManager l
             PublishRemoval(room, userId, false);
             session.Send(new FlatControllerRemovedComposer(room, userId));
             session.Send(new RoomRightsListComposer(room.Id, room.UsersWithRights.Select(id => new RoomRightHolder(id, cacheManager.GenerateUser(id)?.Username ?? "Unknown Error")).ToArray()));
-            session.Send(new UserUpdateComposer(room.GetRoomUserManager().GetUserList().ToList()));
+            session.Send(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(room.GetRoomUserManager().GetUserList())));
         }
         room.UsersWithRights.Clear();
     }

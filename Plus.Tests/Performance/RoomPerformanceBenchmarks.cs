@@ -47,9 +47,9 @@ public class RoomPerformanceBenchmarks
         Measure("500 bot chat messages to observer", 100, () => { foreach (var bot in bots.Bots) bot.Chat("Stress bot checking room traffic."); });
         Measure("500 avatar status updates to observer", 1000, () => { foreach (var bot in bots.Bots) bot.UpdateNeeded = true; bots.Manager.SerializeStatusUpdates(); });
         Measure("500 changed-avatar collection, no recipients", 1000, () => { foreach (var bot in noRecipients.Bots) bot.UpdateNeeded = true; noRecipients.Manager.SerializeStatusUpdates(); });
-        Measure("500-avatar single GameClient.Send", 1000, () => users.Clients[0].Send(new UserUpdateComposer(users.Users)));
+        Measure("500-avatar single GameClient.Send", 1000, () => users.Clients[0].Send(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(users.Users))));
         Measure("500 small GameClient.Send calls", 1000, () => { for (var i = 0; i < 500; i++) users.Clients[0].Send(new ChatComposer(i, "test", 0, 2)); });
-        Measure("500 avatar packet to 500 recipients", 30, () => users.Room.SendPacket(new UserUpdateComposer(users.Users)));
+        Measure("500 avatar packet to 500 recipients", 30, () => users.Room.SendPacket(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(users.Users))));
         Measure("500 avatar status updates to 500 recipients", 30, () => { foreach (var user in users.Users) user.UpdateNeeded = true; users.Manager.SerializeStatusUpdates(); });
         File.WriteAllLines(output, results);
 

@@ -29,7 +29,7 @@ public class RoomBroadcastTests
         fixture.Clients[^1].Revision = changedRevision;
         foreach (var client in fixture.Clients)
             client.SendCallback = args => { received.Add(args.MemoryBuffer); return true; };
-        var composer = new CountingPacket(new UserUpdateComposer(fixture.Users));
+        var composer = new CountingPacket(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(fixture.Users)));
         var expected = Encode(fixture.Clients[0], composer);
         composer.Count = 0;
 
@@ -49,7 +49,13 @@ public class RoomBroadcastTests
         fixture.Room.SendPacket(composer);
         Assert.Equal(4, composer.Count);
         Assert.Equal(expected, received[0].ToArray());
-        Assert.NotEqual(expected, received[500].ToArray());
+        Assert.Equal(expected, received[500].ToArray());
+
+        var nextComposer = new CountingPacket(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(fixture.Users)));
+        fixture.Room.SendPacket(nextComposer);
+        Assert.Equal(2, nextComposer.Count);
+        Assert.Equal(1500, received.Count);
+        Assert.NotEqual(expected, received[1000].ToArray());
     }
 
     [Fact]
@@ -164,7 +170,7 @@ public class RoomBroadcastTests
         var ownerPackets = 0;
         fixture.Clients[0].SendCallback = _ => { ownerPackets++; return false; };
         fixture.Clients[1].SendCallback = _ => throw new InvalidOperationException("Visitor received a rights-only packet");
-        fixture.Room.SendPacket(new UserUpdateComposer(fixture.Bots), withRightsOnly: true);
+        fixture.Room.SendPacket(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(fixture.Bots)), withRightsOnly: true);
         Assert.Equal(1, ownerPackets);
         Assert.Null(fixture.Bots[0].GetClient());
         Assert.Same(fixture.Clients[0], fixture.Users[0].GetClient());
