@@ -184,7 +184,7 @@ public class HabbiconDatabaseTests
 
         Assert.Equal(1, _clock.Calls);
         using var connection = _database.Connection();
-        Assert.Equal(now.ToUnixTimeSeconds(), connection.QuerySingle<long>(
+        Assert.Equal(now, connection.QuerySingle<DateTimeOffset>(
             "SELECT spent_at FROM club_credit_spending WHERE user_id = 910001"));
     }
 

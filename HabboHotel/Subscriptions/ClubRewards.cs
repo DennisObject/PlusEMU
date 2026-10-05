@@ -16,7 +16,12 @@ namespace Plus.HabboHotel.Subscriptions;
 public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClientManager clients,
     ISettingsManager settings, IAccountSessionGate sessionGate, TimeProvider clock, Plus.HabboHotel.Permissions.IAccessControl permissions) : IClubRewards
 {
-    internal static DateTimeOffset NextPayday(DateTimeOffset now) => new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(1);
+    // Paydays and month windows follow the UTC calendar, whatever offset the captured instant carries.
+    internal static DateTimeOffset NextPayday(DateTimeOffset now)
+    {
+        var utc = now.ToUniversalTime();
+        return new DateTimeOffset(utc.Year, utc.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(1);
+    }
     internal static int StreakBonus(int days) => days >= 365 ? 30 : days >= 180 ? 25 : days >= 90 ? 20 : days >= 60 ? 15 : days >= 30 ? 10 : days >= 7 ? 5 : 0;
     internal static int SpendingBonus(long spent, double percentage) => (int)Math.Clamp(Math.Floor(spent * percentage), 0, int.MaxValue);
     // Polaris excludes redeemable credit furniture from its shop-spending query.
@@ -109,7 +114,7 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
 
     public ClubKickback Kickback(Habbo habbo)
     {
-        var now = clock.GetUtcNow();
+        var now = clock.GetUtcNow().ToUniversalTime();
         var start = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero).UtcDateTime;
         var membership = habbo.Access.Membership;
         var streak = membership.Active(now) && membership.StartedAt is { } running ? (int)(ClubMembership.WholeSeconds(now - running) / ClubMembership.Day) : 0;

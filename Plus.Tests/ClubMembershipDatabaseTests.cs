@@ -312,6 +312,40 @@ public class ClubMembershipDatabaseTests : IDisposable
     }
     private void Sql(string sql) { using var connection = _database.Connection(); connection.Execute(sql); }
     private long Scalar(string sql) { using var connection = _database.Connection(); return connection.ExecuteScalar<long>(sql); }
+    [ClubDatabaseFact]
+    public void FractionalPurchaseAndSpendingKeepMicrosecondsThroughStorageAndAccessResolution()
+    {
+        var instant = new DateTimeOffset(2026, 10, 4, 10, 0, 0, TimeSpan.Zero).AddTicks(1_234_560);
+        _clock.Now = instant;
+        var expiry = _memberships.Purchase(_habbo, Month);
+        Assert.Equal(instant.AddDays(31), expiry);
+        Assert.Equal(instant.AddDays(31), _memberships.GetExpiry(User));
+
+        _access.Refresh(User); _habbo.Access = _access.Resolve(User);
+        Assert.Equal(instant.AddDays(31), _habbo.Access.Membership.ExpiresAt);
+        Assert.Equal(instant, _habbo.Access.Membership.FirstStartedAt);
+
+        var spent = instant.AddSeconds(5).AddTicks(670);
+        _clock.Now = spent;
+        Assert.True(_rewards.Charge(_habbo, 99));
+        using var connection = _database.Connection();
+        Assert.Equal(spent, connection.ExecuteScalar<DateTimeOffset?>("SELECT spent_at FROM club_credit_spending WHERE user_id = 957001 ORDER BY id DESC LIMIT 1"));
+    }
+
+    [ClubDatabaseFact]
+    public void KickbackUsesTheUtcMonthForANonUtcCapturedInstant()
+    {
+        // 02:00 on 1 November at +05:00 is 21:00 UTC on 31 October; the spend below belongs to October.
+        _clock.Now = new DateTimeOffset(2026, 10, 4, 10, 0, 0, TimeSpan.Zero);
+        Assert.NotNull(_memberships.Purchase(_habbo, Month));
+        _access.Refresh(User); _habbo.Access = _access.Resolve(User);
+
+        _clock.Now = new DateTimeOffset(2026, 10, 31, 22, 0, 0, TimeSpan.Zero);
+        Assert.True(_rewards.Charge(_habbo, 40));
+        _clock.Now = new DateTimeOffset(2026, 11, 1, 2, 0, 0, TimeSpan.FromHours(5));
+        Assert.Equal(40, _rewards.Kickback(_habbo).Spent);
+    }
+
     private DateTime? ScalarTime(string sql) { using var connection = _database.Connection(); return connection.ExecuteScalar<DateTime?>(sql); }
     private void Clean() => Sql("DROP TRIGGER IF EXISTS club_test_gift_failure; DELETE FROM user_club_memberships WHERE user_id = 957001; DELETE FROM club_membership_intervals WHERE user_id = 957001; " +
         "DELETE FROM club_credit_spending WHERE user_id = 957001; DELETE FROM club_paydays WHERE user_id = 957001; DELETE FROM club_gift_claims WHERE user_id = 957001; " +

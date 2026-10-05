@@ -175,6 +175,10 @@ public class ClubMembershipTests
         Assert.Null(ClubMembership.Extend(DateTimeOffset.MaxValue, null, 1));
         Assert.Null(ClubMembership.Extend(At(1000), null, -1));
         Assert.Null(ClubMembership.Extend(At(1000), null, int.MaxValue));
+        Assert.Equal(DateTimeOffset.MinValue.AddDays(3_651_000), ClubMembership.Extend(DateTimeOffset.MinValue, null, 3_651_000));
+        Assert.Equal(DateTimeOffset.MaxValue, ClubMembership.Extend(DateTimeOffset.MaxValue.AddDays(-1), null, 1));
+        Assert.Null(ClubMembership.Extend(DateTimeOffset.MaxValue.AddDays(-1), null, 2));
+        Assert.Null(ClubMembership.Extend(DateTimeOffset.MinValue, null, int.MaxValue));
 
         var fractional = At(1000).AddMilliseconds(500);
         Assert.Equal(fractional.AddDays(1), ClubMembership.Extend(fractional, null, 1));
