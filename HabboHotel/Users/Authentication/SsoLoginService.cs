@@ -20,7 +20,6 @@ using Plus.HabboHotel.Rewards;
 using Plus.HabboHotel.Users.Effects;
 using Plus.HabboHotel.Users.Messenger.FriendBar;
 using Plus.HabboHotel.Users.Process;
-using Microsoft.Extensions.Logging;
 
 namespace Plus.HabboHotel.Users.Authentication;
 
@@ -43,7 +42,7 @@ public sealed class SsoLoginService : ISsoLoginService
     private readonly IRewardManager _rewardManager;
     private readonly IRewardTrackManager _rewardTracks;
     private readonly ClubLifecycle _clubLifecycle;
-    private readonly ILogger<ProcessComponent> _processLogger;
+    private readonly IUserProcessFactory _processFactory;
     private readonly IAvatarEffectService _avatarEffects;
 
     public SsoLoginService(IAuthenticator authenticate,
@@ -54,7 +53,7 @@ public sealed class SsoLoginService : ISsoLoginService
         ILanguageManager languageManager,
         ISettingsManager settingsManager,
         IRewardManager rewardManager, ClubLifecycle clubLifecycle, ClientAccessLists clientAccessLists,
-        ILogger<ProcessComponent> processLogger, IModeratorTicketService tickets, IAvatarEffectService avatarEffects, IRewardTrackManager rewardTracks)
+        IUserProcessFactory processFactory, IModeratorTicketService tickets, IAvatarEffectService avatarEffects, IRewardTrackManager rewardTracks)
     {
         _authenticate = authenticate;
         _rewardTracks = rewardTracks;
@@ -69,7 +68,7 @@ public sealed class SsoLoginService : ISsoLoginService
         _rewardManager = rewardManager;
         _clubLifecycle = clubLifecycle;
         _clientAccessLists = clientAccessLists;
-        _processLogger = processLogger;
+        _processFactory = processFactory;
     }
 
     public async Task Login(GameClient session, string sso)
@@ -104,7 +103,7 @@ public sealed class SsoLoginService : ISsoLoginService
             if (!_cacheManager.ContainsUser(session.GetHabbo().Id))
                 _cacheManager.GenerateUser(session.GetHabbo().Id);
             _clubLifecycle.Normalize(session.GetHabbo());
-            session.GetHabbo().InitProcess(_processLogger);
+            session.GetHabbo().InitProcess(_processFactory);
             if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTickets))
             {
                 _tickets.SendInitialization(session);

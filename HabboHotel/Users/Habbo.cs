@@ -23,7 +23,6 @@ using Plus.HabboHotel.Users.Process;
 using Plus.Utilities;
 
 using Dapper;
-using Microsoft.Extensions.Logging;
 using Plus.HabboHotel.Users.Navigator;
 
 namespace Plus.HabboHotel.Users;
@@ -214,9 +213,9 @@ public class Habbo
     public bool CacheExpiredAt(DateTimeOffset now) =>
         _cachedAt is not { } cachedAt || now - cachedAt >= TimeSpan.FromMinutes(30);
 
-    public bool InitProcess(ILogger<ProcessComponent> logger)
+    public bool InitProcess(IUserProcessFactory factory)
     {
-        Process = new(logger);
+        Process = factory.Create();
         return Process.Init(this);
     }
 
@@ -280,30 +279,30 @@ public class Habbo
             Clothing.Dispose();
     }
 
-    public void CheckCreditsTimer()
+    public void CheckCreditsTimer(Plus.Core.Settings.ISettingsManager settings)
     {
         lock (WalletSync)
         {
-            if (!WalletClosed) CheckCreditsTimerCore();
+            if (!WalletClosed) CheckCreditsTimerCore(settings);
         }
     }
 
-    private void CheckCreditsTimerCore()
+    private void CheckCreditsTimerCore(Plus.Core.Settings.ISettingsManager settings)
     {
         try
         {
             CreditsUpdateTick--;
             if (CreditsUpdateTick <= 0)
             {
-                var creditUpdate = Convert.ToInt32(PlusEnvironment.SettingsManager.TryGetValue("user.currency_scheduler.credit_reward"));
-                var ducketUpdate = Convert.ToInt32(PlusEnvironment.SettingsManager.TryGetValue("user.currency_scheduler.ducket_reward"));
+                var creditUpdate = Convert.ToInt32(settings.TryGetValue("user.currency_scheduler.credit_reward"));
+                var ducketUpdate = Convert.ToInt32(settings.TryGetValue("user.currency_scheduler.ducket_reward"));
                 creditUpdate += Access.Limit("limit.currency_credits", 0);
                 ducketUpdate += Access.Limit("limit.currency_duckets", 0);
                 Credits += creditUpdate;
                 Duckets += ducketUpdate;
                 Client.Send(new CreditBalanceComposer(Credits));
                 Client.Send(new HabboActivityPointNotificationComposer(Duckets, ducketUpdate));
-                CreditsUpdateTick = Convert.ToInt32(PlusEnvironment.SettingsManager.TryGetValue("user.currency_scheduler.tick"));
+                CreditsUpdateTick = Convert.ToInt32(settings.TryGetValue("user.currency_scheduler.tick"));
             }
         }
         catch { }

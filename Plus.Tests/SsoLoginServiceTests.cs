@@ -81,7 +81,8 @@ public class SsoLoginServiceTests
             Proxy<ICacheManager>((method, _) => { calls.Add("cache"); return method == "ContainsUser" ? true : throw new NotSupportedException(method); }),
             Proxy<ILanguageManager>((method, _) => throw new NotSupportedException(method)), settings,
             Proxy<IRewardManager>((_, _) => { calls.Add("rewards"); return rewardCompletion.Task; }), lifecycle,
-            new ClientAccessLists(permissions, styles, rooms), TestLogging.For<ProcessComponent>(),
+            new ClientAccessLists(permissions, styles, rooms), new UserProcessFactory(TestLogging.For<ProcessComponent>(), new FixedTimeProvider(FixedTimeProvider.Epoch),
+                Proxy<IUserProcessStore>((_, _) => null), Proxy<IAchievementManager>((_, _) => null), settings),
             Proxy<IModeratorTicketService>((method, _) => throw new NotSupportedException(method)),
             Proxy<IAvatarEffectService>((_, _) => ImmutableArray<AvatarEffectEntry>.Empty),
             Proxy<IRewardTrackManager>((_, _) => { calls.Add("tracks"); return null; }));
