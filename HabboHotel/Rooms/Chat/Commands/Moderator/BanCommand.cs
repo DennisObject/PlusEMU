@@ -37,13 +37,15 @@ internal class BanCommand : ITargetChatCommand
         var hours = parameters[0];
         DateTimeOffset expiresAt;
         if (string.IsNullOrEmpty(hours) || hours == "perm")
-            expiresAt = now.AddSeconds(78892200);
+        {
+            if (!ModerationBanDuration.TryGetExpiry(now, TimeSpan.FromSeconds(78892200), out expiresAt))
+                return;
+        }
         else
         {
             if (!double.TryParse(hours, NumberStyles.Float, CultureInfo.CurrentCulture, out var duration) ||
-                !double.IsFinite(duration) || duration <= 0 || duration > (DateTimeOffset.MaxValue - now).TotalHours)
+                !ModerationBanDuration.TryGetExpiry(now, duration, out expiresAt))
                 return;
-            expiresAt = now.AddHours(duration);
         }
         string reason;
         if (parameters.Length >= 2)

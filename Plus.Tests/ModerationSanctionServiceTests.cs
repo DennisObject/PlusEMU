@@ -75,6 +75,25 @@ public sealed class ModerationSanctionServiceTests
         Assert.Empty(manager.Calls);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(int.MaxValue)]
+    public async Task ModToolNearMaximumDateRejectsExtremeHoursWithoutSideEffects(int hours)
+    {
+        var target = Target();
+        var (targetClient, _) = HabbiconTestSupport.Client(target);
+        var disconnected = false;
+        targetClient.DisconnectRequested = () => disconnected = true;
+        var manager = new RecordingModeration();
+        var clock = new CountingClock(DateTimeOffset.MaxValue.AddTicks(-1));
+
+        await Service(targetClient, target, manager, clock).Ban(Actor(), new(2, "bad", hours, false, false));
+
+        Assert.Equal(1, clock.Reads);
+        Assert.False(disconnected);
+        Assert.Empty(manager.Calls);
+    }
+
     [Fact]
     public async Task MissingAndNonOutrankedTargetsNeverReachCoordinator()
     {
@@ -98,6 +117,7 @@ public sealed class ModerationSanctionServiceTests
     [InlineData("NaN")]
     [InlineData("Infinity")]
     [InlineData("1e999")]
+    [InlineData("1.7976931348623157E+308")]
     [InlineData("-1")]
     public async Task BanCommandRejectsMalformedOrOverflowingDurations(string duration)
     {
@@ -111,6 +131,28 @@ public sealed class ModerationSanctionServiceTests
         await new Plus.HabboHotel.Rooms.Chat.Commands.Moderator.BanCommand(manager.Proxy, new CountingClock(Now))
             .Execute(Actor(), null!, target, [duration, "reason"]);
 
+        Assert.False(disconnected);
+        Assert.Empty(manager.Calls);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("perm")]
+    [InlineData("0.0000001")]
+    public async Task BanCommandNearMaximumDateRejectsDurationsWithoutThrowingOrSideEffects(string duration)
+    {
+        var target = Target();
+        var (targetClient, _) = HabbiconTestSupport.Client(target);
+        target.Client = targetClient;
+        var disconnected = false;
+        targetClient.DisconnectRequested = () => disconnected = true;
+        var manager = new RecordingModeration();
+        var clock = new CountingClock(DateTimeOffset.MaxValue.AddTicks(-1));
+
+        await new Plus.HabboHotel.Rooms.Chat.Commands.Moderator.BanCommand(manager.Proxy, clock)
+            .Execute(Actor(), null!, target, [duration, "reason"]);
+
+        Assert.Equal(1, clock.Reads);
         Assert.False(disconnected);
         Assert.Empty(manager.Calls);
     }
