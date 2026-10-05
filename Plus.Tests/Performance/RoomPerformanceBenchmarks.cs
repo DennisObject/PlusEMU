@@ -79,6 +79,7 @@ internal sealed class RoomPerformanceFixture
     public static RoomPerformanceFixture Create(int botCount, int userCount, int mapSize = 4)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        SetField(room, "_interactionClock", TimeProvider.System);
         var map = new Gamemap(room, new RoomModel("benchmark", 0, 0, 0, 0, string.Join('\r', Enumerable.Repeat(new string('0', mapSize), mapSize)), 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         var grid = new byte[mapSize, mapSize];
         for (var x = 0; x < mapSize; x++) for (var y = 0; y < mapSize; y++) grid[x, y] = 1;

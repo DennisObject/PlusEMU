@@ -115,11 +115,12 @@ public sealed class ItemRedemptionServiceTests
     private static (Room Room, Plus.HabboHotel.GameClients.GameClient Client, List<(uint Header, byte[] Payload)> Sent, Item Item) Context(InteractionType type, int value, bool temporary = false)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
+        typeof(Room).GetField("_interactionClock", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, TimeProvider.System);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "00\r00", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
         var item = new Item { Id = 7, RoomId = 9, OwnerId = 1, IsTemporary = temporary, Definition = new() { Type = ItemType.Wall, InteractionType = type, BehaviourData = value } };
-        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
+        item.Attach(room, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
         var walls = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!; walls[item.Id] = item;
         var inventoryItem = new InventoryItem { Id = item.Id, OwnerId = 1, Definition = item.Definition };
         var habbo = new Habbo { Id = 1, Username = "owner", CurrentRoom = room, Clothing = new(), Inventory = new InventoryComponent { Furniture = new([], [inventoryItem]) } };
