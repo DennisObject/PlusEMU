@@ -65,6 +65,21 @@ public sealed class TradingLockDatabaseTests : IDisposable
     }
 
     [TradingLockDatabaseFact]
+    public void LockExpiryFloorsToNativeUtcSecondsAndReadsTheClockOnce()
+    {
+        var habbo = Online();
+        _clock.Now = _clock.Now.AddTicks(1_234_567);
+        int before = _clock.Reads;
+        var expiry = Locks().Set(UserId, TimeSpan.FromSeconds(2.5));
+        Assert.Equal(before + 1, _clock.Reads);
+        Assert.Equal(new DateTimeOffset(2042, 1, 1, 10, 0, 2, TimeSpan.Zero), expiry);
+        Assert.Equal(expiry, habbo.TradingLockExpiresAt);
+        using var connection = _database.Connection();
+        Assert.Equal(expiry, connection.QuerySingle<DateTimeOffset>(
+            "SELECT trading_locked FROM user_info WHERE user_id=@UserId", new { UserId }));
+    }
+
+    [TradingLockDatabaseFact]
     public void OldExpiredSessionCannotClearNewerSanctionAndExpiryUsesNull()
     {
         var habbo = Online();
@@ -93,6 +108,7 @@ public sealed class TradingLockDatabaseTests : IDisposable
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now = new(2042, 1, 1, 12, 0, 0, TimeSpan.FromHours(2));
-        public override DateTimeOffset GetUtcNow() => Now;
+        public int Reads { get; private set; }
+        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
     }
 }

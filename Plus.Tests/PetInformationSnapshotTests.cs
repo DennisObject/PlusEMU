@@ -55,6 +55,18 @@ public sealed class PetInformationSnapshotTests
         Assert.Equal((7, "Owner", 8, false, 0), (snapshot.OwnerId, snapshot.OwnerName, snapshot.Respect, snapshot.HasSaddle, snapshot.AnyoneCanRide));
     }
 
+    [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(0, 1)]
+    [InlineData(1, 1)]
+    public void AccountAgeCountsCompleteDaysAcrossOffsetsAndFractionalSeconds(int ticksFromDay, int expected)
+    {
+        var createdAt = new DateTimeOffset(2040, 1, 2, 0, 0, 0, TimeSpan.FromHours(9)).AddTicks(9_000_000);
+        var habbo = new Habbo { AccountCreatedAt = createdAt, HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
+        var now = createdAt.ToOffset(TimeSpan.FromHours(-7)).AddDays(1).AddTicks(ticksFromDay);
+        Assert.Equal(expected, PetInformationService.Capture(habbo, now).AgeInDays);
+    }
+
     [Fact]
     public async Task IncomingPetRequestOnlyDecodesAndDelegates()
     {

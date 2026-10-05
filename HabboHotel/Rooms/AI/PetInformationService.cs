@@ -43,8 +43,8 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
 
     internal static PetInformationSnapshot Capture(Habbo habbo, DateTimeOffset now)
     {
-        var created = habbo.AccountCreatedAt?.ToUnixTimeSeconds() ?? now.ToUnixTimeSeconds();
-        var age = (int)Math.Clamp((now.ToUnixTimeSeconds() - created) / 86400, 0, int.MaxValue);
+        var days = habbo.AccountCreatedAt is { } createdAt ? Math.Floor((now - createdAt).TotalDays) : 0;
+        var age = (int)Math.Clamp(days, 0, int.MaxValue);
         return new(habbo.Id, habbo.Username, habbo.Access.SecurityLevel, 10, 0, 0, 100, 100, 100, 100,
             habbo.HabboStats.Respect, habbo.Id, age, habbo.Username, false, 0);
     }
