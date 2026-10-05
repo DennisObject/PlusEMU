@@ -79,7 +79,7 @@ public class WiredTemporaryPacketGuardTests
                 : parameter.ParameterType == typeof(IGiftOpeningService)
                     ? new GiftOpeningService(new GiftStore(database), null!, null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<GiftOpeningService>.Instance)
                 : parameter.ParameterType == typeof(IRoomItemMetadataService)
-                    ? new RoomItemMetadataService(new RoomItemMetadataStore(database))
+                    ? new RoomItemMetadataService(new RoomItemMetadataStore(database), null!)
                     : parameter.ParameterType == typeof(IRoomInteractionService)
                         ? new RoomInteractionService(new RoomInteractionStore(database))
                         : parameter.ParameterType == typeof(ILoveLockService)

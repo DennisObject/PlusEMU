@@ -1,4 +1,6 @@
 using Dapper;
+using Plus.Core.FigureData;
+using Plus.HabboHotel.Subscriptions;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -36,11 +38,35 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
 public interface IRoomItemMetadataService
 {
     void SetMannequinName(GameClient session, MannequinNameRequest request);
+    void SetMannequinFigure(GameClient session, uint itemId);
     void SetToner(Room room, GameClient session, TonerSettingsRequest request);
 }
 
-public sealed class RoomItemMetadataService(IRoomItemMetadataStore store) : IRoomItemMetadataService
+public sealed class RoomItemMetadataService(IRoomItemMetadataStore store, IFigureDataManager figures) : IRoomItemMetadataService
 {
+    public void SetMannequinFigure(GameClient session, uint itemId)
+    {
+        var habbo = session.GetHabbo();
+        var room = habbo.CurrentRoom;
+        if (room == null || !room.CheckRights(session, true))
+            return;
+        var item = room.GetRoomItemHandler().GetItem(itemId);
+        if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Mannequin)
+            return;
+        var fields = item.LegacyDataString.Split((char)5);
+        if (fields.Length == 2)
+            return;
+        var name = fields.Length >= 3 ? fields[2] : "Default";
+        var figure = string.Join('.', figures.ProcessFigure(habbo.Look, habbo.Gender,
+                habbo.Clothing.GetClothingParts, ClubAccess.LevelFor(habbo.Access))
+            .Split('.').Where(part => !part.Contains("hr") && !part.Contains("hd") && !part.Contains("he")
+                && !part.Contains("ea") && !part.Contains("ha")));
+        var data = $"{habbo.Gender.ToLowerInvariant()}{(char)5}{figure}{(char)5}{name}";
+        store.SetMannequinData(item.Id, room.Id, data);
+        item.LegacyDataString = data;
+        item.UpdateState(true, true);
+    }
+
     public void SetMannequinName(GameClient session, MannequinNameRequest request)
     {
         var room = session.GetHabbo().CurrentRoom;
