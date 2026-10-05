@@ -12,7 +12,6 @@ using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Revisions;
 using Plus.Database;
 using Plus.Core.Settings;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
@@ -82,10 +81,8 @@ public partial class PlacedFurniRoomTests : IDisposable
             "get_ClientManager" => clients,
             _ => throw new InvalidOperationException(method)
         }));
-        var query = Proxy<IQueryAdapter>((_, _) => null);
         _database = Proxy<IDatabase>((method, _) => method switch
         {
-            "GetQueryReactor" => query,
             "Connection" => new NoOpConnection(),
             _ => throw new InvalidOperationException(method)
         });

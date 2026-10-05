@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Boxes.Effects;
@@ -538,8 +537,7 @@ public class ModernWiredRuntimeTests
         var databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
         var original = databaseField.GetValue(null);
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
-        var adapter = DispatchProxy.Create<IQueryAdapter, RecordingProxy>();
-        ((RecordingProxy)(object)database).InvokeMethod = (method, _) => method.Name == "GetQueryReactor" ? adapter : null;
+        ((RecordingProxy)(object)database).InvokeMethod = (method, _) => throw new NotSupportedException(method.Name);
         try
         {
             databaseField.SetValue(null, database);
@@ -885,9 +883,8 @@ public class ModernWiredRuntimeTests
         f.Habbo.Client.SendCallback = _ => enqueue ? true : throw new IOException("placement enqueue failed");
         var databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
         var original = databaseField.GetValue(null);
-        var query = DispatchProxy.Create<IQueryAdapter, RecordingProxy>();
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
-        ((RecordingProxy)(object)database).InvokeMethod = (method, _) => method.Name == "GetQueryReactor" ? query : null;
+        ((RecordingProxy)(object)database).InvokeMethod = (method, _) => throw new NotSupportedException(method.Name);
         try
         {
             databaseField.SetValue(null, database);

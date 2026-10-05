@@ -9,7 +9,6 @@ using Plus.Communication.Flash;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Revisions;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Quests;
@@ -214,7 +213,6 @@ public class RewardTrackLiveTests
         public int RolledBack { get; set; }
         public string? FailOn { get; set; }
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public IDbConnection Connection() => new FakeConnection(this);
 
         public DataTable Select(string sql) => Tables.FirstOrDefault(entry => sql.Contains(entry.Key)).Value?.Copy() ?? new DataTable();

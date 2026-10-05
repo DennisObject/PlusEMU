@@ -272,14 +272,12 @@ public sealed class RoomComponentDatabaseTests
     private sealed class ProbeDatabase(string connectionString) : Plus.Database.IDatabase
     {
         public bool IsConnected() => true;
-        [Obsolete] public Plus.Database.Interfaces.IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public System.Data.IDbConnection Connection() => new MySqlConnection(connectionString);
     }
 
     private sealed class FailingDatabase : Plus.Database.IDatabase
     {
         public bool IsConnected() => false;
-        [Obsolete] public Plus.Database.Interfaces.IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public System.Data.IDbConnection Connection() => throw new InvalidOperationException("injected persistence failure");
     }
 

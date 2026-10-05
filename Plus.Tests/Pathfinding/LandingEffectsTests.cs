@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Data;
 using System.Runtime.CompilerServices;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
@@ -290,17 +289,8 @@ public partial class PlacedFurniRoomTests
 
     private IDatabase LandingDatabase(uint linkedId, uint targetRoom)
     {
-        string sql = "";
-        var table = new DataTable(); table.Columns.Add("value", typeof(uint));
-        var link = table.Rows.Add(linkedId); var room = table.Rows.Add(targetRoom);
-        var query = Proxy<IQueryAdapter>((method, args) =>
-        {
-            if (method == "SetQuery") sql = (string)args[0]!;
-            return method == "GetRow" ? sql.Contains("room_items_tele_links") ? link : room : null;
-        });
         return Proxy<IDatabase>((method, _) => method switch
         {
-            "GetQueryReactor" => query,
             "Connection" => new NoOpConnection(command =>
             {
                 var result = new DataTable(); result.Columns.Add("value", typeof(uint));

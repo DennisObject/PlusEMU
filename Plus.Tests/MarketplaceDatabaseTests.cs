@@ -434,7 +434,6 @@ public sealed class MarketplaceDatabaseTests
     private sealed class MySqlDatabase(string connectionString) : Plus.Database.IDatabase
     {
         public bool IsConnected() => true;
-        public Plus.Database.Interfaces.IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public System.Data.IDbConnection Connection() => new MySqlConnection(connectionString);
     }
 

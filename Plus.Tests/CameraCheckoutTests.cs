@@ -4,7 +4,6 @@ using Dapper;
 using MySqlConnector;
 using Plus.Core.Settings;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Camera;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms;
@@ -226,7 +225,6 @@ public class CameraCheckoutTests
     {
         public IDbConnection Connection() => new MySqlConnection(value);
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
     }
     private sealed class TestSettings : ISettingsManager
     {

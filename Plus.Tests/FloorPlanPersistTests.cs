@@ -1,6 +1,4 @@
-using MySqlConnector;
 using Plus.Communication.Packets.Incoming.Rooms.FloorPlan;
-using Plus.Database.Adapter;
 using Xunit;
 
 namespace Plus.Tests;
@@ -63,29 +61,4 @@ public class FloorPlanPersistTests
         Assert.True(UpdateFloorPropertiesEvent.TryPersist(() => 1, () => true, () => 1));
     }
 
-    [Fact]
-    public void RunQueryRequiredPropagatesExecutionFailures()
-    {
-        var adapter = new OpenlessQuery();
-        adapter.SetQuery("UPDATE `rooms` SET `model_name` = 'model_bc_1' WHERE `id` = 1");
-
-        var swallowed = Record.Exception(() => adapter.RunQuery());
-        var required = Record.Exception(() => adapter.RunQueryRequired());
-
-        Assert.Null(swallowed);
-        Assert.NotNull(required);
-
-        adapter.DbEnabled = false;
-        adapter.SetQuery("UPDATE `room_models` SET `heightmap` = '00' WHERE `id` = 'model_bc_1'");
-        Assert.Null(Record.Exception(() => adapter.RunQuery()));
-        Assert.Throws<InvalidOperationException>(() => adapter.RunQueryRequired());
-    }
-
-    private sealed class OpenlessQuery : QueryAdapter
-    {
-        public OpenlessQuery() : base(null!)
-        {
-            Command = new MySqlCommand();
-        }
-    }
 }

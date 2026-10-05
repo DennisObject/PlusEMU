@@ -67,7 +67,6 @@ public sealed class UserProfileEventTests
     {
         public bool IsConnected() => true;
         public System.Data.IDbConnection Connection() => throw new InvalidOperationException("Persistence failed");
-        [Obsolete] public Plus.Database.Interfaces.IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
     }
 
     private sealed class RecordingProfiles : IUserProfileService

@@ -11,7 +11,6 @@ using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Packets.Outgoing.Groups;
 using Plus.Core.Settings;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Cache;
 using Plus.HabboHotel.Cache.Type;
@@ -591,25 +590,9 @@ public class GroupManagementTests : IDisposable
         public bool FailInsert { get; set; }
         public List<(string Sql, Dictionary<string, object?> Parameters)> OfferQueries { get; } = new();
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => new EmptyAdapter();
         public IDbConnection Connection() => new RecordingConnection(this);
 
-        private sealed class EmptyAdapter : IQueryAdapter
-        {
-            public void AddParameter(string name, object query) { }
-            public bool FindsResult() => false;
-            public int GetInteger() => 0;
-            public DataRow? GetRow() => null;
-            public string GetString() => "";
-            public DataTable GetTable() => new();
-            public void RunQuery(string query) { }
-            public void SetQuery(string query) { }
-            public long InsertQuery() => 1;
-            public void RunQuery() { }
-            public int RunQueryRequired() => 1;
-            public bool RunTransaction(Func<bool> operation) => operation();
-            public void Dispose() { }
-        }
+
     }
 
     private sealed class RecordingConnection(RecordingDatabase database) : IDbConnection

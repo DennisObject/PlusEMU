@@ -80,7 +80,6 @@ public sealed class RoomBanTimeTests
     private sealed class FailingDatabase : Plus.Database.IDatabase
     {
         public bool IsConnected() => false;
-        [Obsolete] public Plus.Database.Interfaces.IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public System.Data.IDbConnection Connection() => throw new InvalidOperationException("First phase must not query persistence.");
     }
 }

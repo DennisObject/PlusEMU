@@ -129,7 +129,7 @@ public partial class PlacedFurniRoomTests
         rider.MoveTo(2, 1); ExecutorTick();
         var inventory = _client.GetHabbo().Inventory;
         _client.GetHabbo().Inventory = new InventoryComponent { Furniture = inventory.Furniture, Pets = new([]) };
-        var database = Proxy<IDatabase>((method, _) => method == "Connection" ? new PetPickupConnection() : _database.GetQueryReactor());
+        var database = Proxy<IDatabase>((method, _) => method == "Connection" ? new PetPickupConnection() : throw new NotSupportedException(method));
         new PickUpPetEvent(Proxy<IGameClientManager>((_, _) => _client), database)
             .Parse(_room, _client, ClientPacket(horse.PetData.PetId)).GetAwaiter().GetResult();
         Assert.Equal(NavState.Removing, horse.Movement.State);

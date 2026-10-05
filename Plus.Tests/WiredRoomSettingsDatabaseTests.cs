@@ -12,7 +12,6 @@ using Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
 using Plus.Communication.Packets.Incoming.WiredVariables;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
@@ -305,7 +304,6 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
     private sealed class PreviewDatabase(string connectionString) : IDatabase
     {
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public IDbConnection Connection() => new MySqlConnection(connectionString);
     }
 }

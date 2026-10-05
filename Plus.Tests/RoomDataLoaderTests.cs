@@ -5,7 +5,6 @@ using Dapper;
 using Microsoft.Extensions.Logging.Abstractions;
 using MySqlConnector;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
@@ -156,7 +155,6 @@ public sealed class RoomDataLoaderTests
     private sealed class ProbeDatabase(string connectionString) : IDatabase
     {
         public bool IsConnected() => true;
-        [Obsolete] public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public IDbConnection Connection() => new MySqlConnection(connectionString);
     }
 

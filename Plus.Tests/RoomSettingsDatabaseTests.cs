@@ -2,7 +2,6 @@ using System.Data;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms;
 using Xunit;
@@ -80,6 +79,5 @@ public sealed class RoomSettingsDatabaseTests
     {
         public IDbConnection Connection() => new MySqlConnection(connectionString);
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
     }
 }

@@ -2,7 +2,6 @@ using System.Data;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Habbicons;
 using Plus.HabboHotel.Users;
 using Xunit;
@@ -332,12 +331,6 @@ public class HabbiconDatabaseTests
     {
         public bool IsConnected() => true;
         public Action? BeforeConnection { get; set; }
-        public IQueryAdapter GetQueryReactor()
-        {
-            var connection = new DatabaseConnection(connectionString);
-            connection.Connect();
-            return connection.GetQueryReactor();
-        }
         public IDbConnection Connection()
         {
             BeforeConnection?.Invoke();

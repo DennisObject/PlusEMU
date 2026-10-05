@@ -2,7 +2,6 @@ using System.Data;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Moderation;
 using Xunit;
 
@@ -68,6 +67,5 @@ public sealed class ModeratorActionDatabaseTests
     {
         public IDbConnection Connection() => new MySqlConnection(connectionString);
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
     }
 }

@@ -10,7 +10,6 @@ using Plus.Communication.Revisions;
 using Plus.Database;
 using Plus.Core.FigureData;
 using Plus.HabboHotel.Permissions;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
@@ -286,7 +285,6 @@ public class WiredEditorPromotionTests
         public Dictionary<uint, (string Name, int Version, string Json)> Rows = [];
         public List<string> Writes = [];
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => throw new Exception("Promoted reload must use the companion row.");
         public IDbConnection Connection()
         {
             var state = ConnectionState.Closed;

@@ -12,7 +12,6 @@ using Plus.HabboHotel.Users;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Runtime;
@@ -467,7 +466,6 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
         public Action? BeforeConnection;
         public string? FailSqlPrefix;
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public IDbConnection Connection()
         {
             var action = BeforeConnection; BeforeConnection = null; action?.Invoke();

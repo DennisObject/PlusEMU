@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Data;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Users.Permissions;
 using Microsoft.Extensions.Options;
@@ -470,7 +469,6 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         public int Connections { get; set; }
         public bool IsConnected() => inner.IsConnected();
 #pragma warning disable CS0612
-        public IQueryAdapter GetQueryReactor() => inner.GetQueryReactor();
 #pragma warning restore CS0612
         public IDbConnection Connection()
         {
