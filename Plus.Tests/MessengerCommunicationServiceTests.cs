@@ -327,7 +327,9 @@ public sealed class MessengerCommunicationServiceTests
             public async Task<FriendRequestOutcome> SendRequestAsync(Habbo habbo, int toId)
             {
                 if (habbo.Messenger.Requests.ContainsKey(toId)) return new(await AcceptRequestAsync(habbo, toId), Accepted: true);
-                return new(habbo.Messenger.SendFriendRequest(toId));
+                if (habbo.Messenger.OutstandingFriendRequests.Contains(toId)) return new(FriendRequestError.AlreadyOutstandingFriendRequest);
+                habbo.Messenger.RecordOutgoingFriendRequest(toId);
+                return new(null);
             }
             public Task RemoveFriendsAsync(Habbo habbo, IReadOnlyList<int> friendIds) => throw new NotSupportedException();
         }

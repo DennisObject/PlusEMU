@@ -58,8 +58,8 @@ public sealed class MessengerFriendMutationService(IMessengerDataLoader messenge
         if (habbo.Messenger.Requests.ContainsKey(toId)) return new(await AcceptLockedAsync(habbo, toId), Accepted: true);
         if (habbo.Messenger.OutstandingFriendRequests.Contains(toId)) return new(FriendRequestError.AlreadyOutstandingFriendRequest);
         if (!await messengerData.RegisterFriendRequest(habbo.Id, toId)) return new(FriendRequestError.AlreadyOutstandingFriendRequest);
-        habbo.Messenger.RecordOutstandingFriendRequest(toId);
-        return new(habbo.Messenger.SendFriendRequest(toId));
+        habbo.Messenger.RecordOutgoingFriendRequest(toId);
+        return new(null);
     }
 
     public async Task RemoveFriendsAsync(Habbo habbo, IReadOnlyList<int> friendIds)
