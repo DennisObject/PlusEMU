@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Plus.Core.Settings;
+using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
 using Plus.HabboHotel.Catalog.Clothing;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms;
@@ -56,6 +57,40 @@ public sealed class ItemRedemptionServiceTests
         var store = new Store { Fail = true };
         Assert.Throws<InvalidOperationException>(() => Service(store, new ClothingItem(12, "shirt", "10,11")).RedeemClothing(client, item.Id));
         Assert.Empty(client.GetHabbo().Clothing.GetClothingParts); Assert.Same(item, room.GetRoomItemHandler().GetItem(item.Id)); Assert.Empty(sent);
+    }
+
+    [Fact]
+    public void ClothingSuccessPublishesCommittedPartsAfterStoreReturns()
+    {
+        var (room, client, sent, item) = Context(InteractionType.PurchasableClothing, 12);
+        var store = new Store(() =>
+        {
+            Assert.Empty(client.GetHabbo().Clothing.GetClothingParts);
+            Assert.Same(item, room.GetRoomItemHandler().GetItem(item.Id));
+            Assert.Empty(sent);
+        });
+
+        Service(store, new ClothingItem(12, "shirt", "10,11")).RedeemClothing(client, item.Id);
+
+        Assert.Equal(new[] { 10, 11 }, client.GetHabbo().Clothing.GetClothingParts.Select(part => part.PartId).OrderBy(id => id));
+        Assert.Null(room.GetRoomItemHandler().GetItem(item.Id));
+        Assert.NotEmpty(sent);
+    }
+
+    [Fact]
+    public void FigureSetComposerIsStableAfterSourceMutation()
+    {
+        var (_, client, sent, _) = Context(InteractionType.Exchange, 10);
+        var source = new List<ClothingParts> { new(1, 10, "shirt") };
+        var composer = new FigureSetIdsComposer(source);
+        client.Send(composer);
+        source[0].PartId = 99;
+        source[0].Part = "changed";
+        source.Add(new(2, 20, "trousers"));
+        client.Send(composer);
+
+        Assert.Equal(2, sent.Count);
+        Assert.Equal(sent[0].Payload, sent[1].Payload);
     }
 
     private static ItemRedemptionService Service(Store store, ClothingItem? clothing = null) => new(store, Settings(), new Clothing(clothing));
