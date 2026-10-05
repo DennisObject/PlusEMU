@@ -1,25 +1,13 @@
-﻿using Plus.Communication.Packets.Outgoing.Catalog;
-using Plus.HabboHotel.Catalog;
+﻿using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Catalog;
 
-internal class GetClubOffersEvent : IPacketEvent
+internal sealed class GetClubOffersEvent(ICatalogBrowsingService catalog) : IPacketEvent
 {
-    private readonly ICatalogManager _catalogManager;
-    private readonly ICatalogSnapshotService _snapshots;
-
-    public GetClubOffersEvent(ICatalogManager catalogManager, ICatalogSnapshotService snapshots)
-    {
-        _catalogManager = catalogManager;
-        _snapshots = snapshots;
-    }
-
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        var offerId = packet.ReadInt();
-        if (_catalogManager.TryGetOffer(offerId, session.GetHabbo(), out _, out var item))
-            session.Send(new CatalogOfferComposer(_snapshots.CaptureOffer(item)));
+        catalog.ShowOffer(session, packet.ReadInt());
         return Task.CompletedTask;
     }
 }
