@@ -129,7 +129,8 @@ public class GroupManagementTests : IDisposable
             args[1] = null;
             return false;
         });
-        await new UpdateGroupSettingsEvent(GroupSource(group), rooms, _database, GroupInfo()).Parse(client, Packet(group.Id, 1, 0, true));
+        var settings = new GroupSettingsService(GroupSource(group), rooms, GroupInfo(), new GroupSettingsStore(_database));
+        await new UpdateGroupSettingsEvent(settings).Parse(client, Packet(group.Id, 1, 0, true));
 
         Assert.Equal(GroupType.Locked, group.Type);
         Assert.Equal(0, group.AdminOnlyDeco);
@@ -567,6 +568,7 @@ public class GroupManagementTests : IDisposable
     private sealed class SuccessfulMutationStore : IGroupMembershipMutationStore
     {
         public bool Accept(int groupId, int userId) => true;
+        public bool Decline(int groupId, int userId) => true;
         public bool SetAdmin(int groupId, int userId, bool isAdmin) => true;
     }
 

@@ -8,6 +8,7 @@ namespace Plus.HabboHotel.Groups;
 public interface IGroupMembershipMutationStore
 {
     bool Accept(int groupId, int userId);
+    bool Decline(int groupId, int userId);
     bool SetAdmin(int groupId, int userId, bool isAdmin);
 }
 
@@ -44,5 +45,13 @@ public sealed class GroupMembershipMutationStore(IDatabase database) : IGroupMem
             return false;
         transaction.Commit();
         return true;
+    }
+
+    public bool Decline(int groupId, int userId)
+    {
+        using var connection = database.Connection();
+        return connection.Execute(
+            "DELETE FROM group_requests WHERE user_id = @userId AND group_id = @groupId LIMIT 1",
+            new { userId, groupId }) == 1;
     }
 }

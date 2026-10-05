@@ -27,10 +27,21 @@ public sealed class GroupMembershipMutationServiceTests
         var mutations = new RecordingService();
 
         await new AcceptGroupMembershipEvent(mutations).Parse(null!, HabbiconTestSupport.Incoming(7, 8));
+        await new DeclineGroupMembershipEvent(mutations).Parse(null!, HabbiconTestSupport.Incoming(8, 9));
         await new GiveAdminRightsEvent(mutations).Parse(null!, HabbiconTestSupport.Incoming(9, 10));
         await new TakeAdminRightsEvent(mutations).Parse(null!, HabbiconTestSupport.Incoming(11, 12));
 
-        Assert.Equal(new[] { ("accept", 7, 8), ("give", 9, 10), ("take", 11, 12) }, mutations.Calls);
+        Assert.Equal(new[] { ("accept", 7, 8), ("decline", 8, 9), ("give", 9, 10), ("take", 11, 12) }, mutations.Calls);
+    }
+
+    [Fact]
+    public async Task SettingsHandlerDecodesPrimitiveRequestAndDelegates()
+    {
+        var settings = new RecordingSettingsService();
+
+        await new UpdateGroupSettingsEvent(settings).Parse(null!, HabbiconTestSupport.Incoming(9, 2, 1, true));
+
+        Assert.Equal(new(9, 2, 1, true), settings.Request);
     }
 
     [Theory]
@@ -69,6 +80,33 @@ public sealed class GroupMembershipMutationServiceTests
         await Service(failedGroup, failedStore, new(8, "Target", "hr-1")).GiveAdmin(owner, failedGroup.Id, 8);
         Assert.False(failedGroup.IsAdmin(8));
         Assert.Empty(failedPackets);
+
+        var declineGroup = Group(requests: [8]);
+        var failedDecline = new RecordingStore(false);
+        await Service(declineGroup, failedDecline, null).Decline(owner, declineGroup.Id, 8);
+        Assert.True(declineGroup.HasRequest(8));
+        Assert.Empty(failedPackets);
+    }
+
+    [Fact]
+    public async Task SettingsStoreFailureLeavesRequestsAndSettingsUnpublished()
+    {
+        var group = Group(requests: [8]);
+        group.Type = GroupType.Locked;
+        var (owner, sent) = Client(7, false);
+        var service = new GroupSettingsService(
+            Proxy<IGroupManager>((method, args) => { args[1] = group; return true; }),
+            Proxy<IRoomManager>((method, args) => { args[1] = null; return false; }),
+            Proxy<IGroupInfoSnapshotService>((method, _) => throw new NotSupportedException(method)),
+            new RecordingSettingsStore(false));
+
+        await service.Update(owner, new(group.Id, 2, 1, true));
+
+        Assert.Equal(GroupType.Locked, group.Type);
+        Assert.True(group.HasRequest(8));
+        Assert.Equal(0, group.AdminOnlyDeco);
+        Assert.False(group.ForumEnabled);
+        Assert.Empty(sent);
     }
 
     [Fact]
@@ -118,7 +156,7 @@ public sealed class GroupMembershipMutationServiceTests
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root) { Database = schema }.ConnectionString);
             using (var connection = database.Connection())
             {
-                connection.Execute("CREATE TABLE group_memberships(user_id INT NOT NULL,group_id INT NOT NULL,`rank` INT NOT NULL DEFAULT 0,PRIMARY KEY(user_id,group_id)); CREATE TABLE group_requests(user_id INT NOT NULL,group_id INT NOT NULL,PRIMARY KEY(user_id,group_id)); INSERT INTO group_requests VALUES(8,9)");
+                connection.Execute("CREATE TABLE group_memberships(user_id INT NOT NULL,group_id INT NOT NULL,`rank` INT NOT NULL DEFAULT 0,PRIMARY KEY(user_id,group_id)); CREATE TABLE group_requests(user_id INT NOT NULL,group_id INT NOT NULL,PRIMARY KEY(user_id,group_id)); CREATE TABLE groups(id INT PRIMARY KEY,`state` INT NOT NULL,admindeco BOOL NOT NULL,forum_enabled BOOL NOT NULL); INSERT INTO groups VALUES(9,1,0,0); INSERT INTO group_requests VALUES(8,9),(11,9),(12,9),(13,9),(14,10)");
             }
             var store = new GroupMembershipMutationStore(database);
             Assert.True(store.Accept(9, 8));
@@ -127,8 +165,15 @@ public sealed class GroupMembershipMutationServiceTests
                 Assert.Equal(1, verify.ExecuteScalar<int>("SELECT `rank` FROM group_memberships WHERE user_id=8 AND group_id=9"));
 
             Assert.False(store.Accept(9, 10));
+            Assert.True(store.Decline(9, 13));
+            var settings = new GroupSettingsStore(database);
+            Assert.True(settings.Update(9, GroupType.Private, true, true, [11, 12]));
+            Assert.False(settings.Update(10, GroupType.Open, false, false, [14]));
             using var rollback = database.Connection();
             Assert.Equal(0, rollback.ExecuteScalar<int>("SELECT COUNT(*) FROM group_memberships WHERE user_id=10 AND group_id=9"));
+            Assert.Equal(0, rollback.ExecuteScalar<int>("SELECT COUNT(*) FROM group_requests WHERE group_id=9"));
+            Assert.Equal(1, rollback.ExecuteScalar<int>("SELECT COUNT(*) FROM group_requests WHERE group_id=10 AND user_id=14"));
+            Assert.Equal((2, true, true), rollback.QuerySingle<(int, bool, bool)>("SELECT `state`,admindeco,forum_enabled FROM groups WHERE id=9"));
         }
         finally
         {
@@ -188,6 +233,7 @@ public sealed class GroupMembershipMutationServiceTests
     {
         public List<(int GroupId, int UserId)> Accepts { get; } = [];
         public bool Accept(int groupId, int userId) { Accepts.Add((groupId, userId)); return succeeds; }
+        public bool Decline(int groupId, int userId) => succeeds;
         public bool SetAdmin(int groupId, int userId, bool isAdmin) => succeeds;
     }
 
@@ -195,8 +241,20 @@ public sealed class GroupMembershipMutationServiceTests
     {
         public List<(string Operation, int GroupId, int UserId)> Calls { get; } = [];
         public Task Accept(GameClient session, int groupId, int userId) { Calls.Add(("accept", groupId, userId)); return Task.CompletedTask; }
+        public Task Decline(GameClient session, int groupId, int userId) { Calls.Add(("decline", groupId, userId)); return Task.CompletedTask; }
         public Task GiveAdmin(GameClient session, int groupId, int userId) { Calls.Add(("give", groupId, userId)); return Task.CompletedTask; }
         public Task TakeAdmin(GameClient session, int groupId, int userId) { Calls.Add(("take", groupId, userId)); return Task.CompletedTask; }
+    }
+
+    private sealed class RecordingSettingsService : IGroupSettingsService
+    {
+        public GroupSettingsRequest? Request { get; private set; }
+        public Task Update(GameClient session, GroupSettingsRequest request) { Request = request; return Task.CompletedTask; }
+    }
+
+    private sealed class RecordingSettingsStore(bool succeeds) : IGroupSettingsStore
+    {
+        public bool Update(int groupId, GroupType type, bool adminOnlyDeco, bool forumEnabled, ImmutableArray<int> requestsToRemove) => succeeds;
     }
 
     private sealed class ProbeDatabase(string connectionString) : IDatabase

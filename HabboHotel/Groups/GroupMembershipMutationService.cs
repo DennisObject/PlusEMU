@@ -34,6 +34,7 @@ public sealed class GroupMemberIdentityLookup(IGameClientManager clients, ICache
 public interface IGroupMembershipMutationService
 {
     Task Accept(GameClient session, int groupId, int userId);
+    Task Decline(GameClient session, int groupId, int userId);
     Task GiveAdmin(GameClient session, int groupId, int userId);
     Task TakeAdmin(GameClient session, int groupId, int userId);
 }
@@ -63,6 +64,19 @@ public sealed class GroupMembershipMutationService(
 
     public Task GiveAdmin(GameClient session, int groupId, int userId) =>
         SetAdmin(session, groupId, userId, true);
+
+    public Task Decline(GameClient session, int groupId, int userId)
+    {
+        if (!groups.TryGetGroup(groupId, out var group))
+            return Task.CompletedTask;
+        var actor = session.GetHabbo();
+        if ((actor.Id != group.CreatorId && !group.IsAdmin(actor.Id)) ||
+            !group.HasRequest(userId) || !store.Decline(group.Id, userId))
+            return Task.CompletedTask;
+        group.HandleRequest(userId, false);
+        session.Send(new UnknownGroupComposer(group.Id, userId));
+        return Task.CompletedTask;
+    }
 
     public Task TakeAdmin(GameClient session, int groupId, int userId) =>
         SetAdmin(session, groupId, userId, false);
