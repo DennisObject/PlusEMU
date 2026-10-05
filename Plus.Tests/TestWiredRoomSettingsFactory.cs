@@ -63,7 +63,6 @@ internal sealed class TestWiredConfigurationStore : IWiredConfigurationStore
     public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => null;
     public void Reset(IReadOnlyCollection<uint> itemIds) { }
     public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) { }
-    public void Reset(IReadOnlyCollection<uint> itemIds) { }
 }
 
 internal sealed class TestWiredRewardService : IWiredRewardService
