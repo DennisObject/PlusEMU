@@ -187,7 +187,7 @@ public class WiredRoomSettingsTests
     {
         var settings = new WiredRoomSettings(room, store);
         Set(room, "_wiredComponent", new Plus.HabboHotel.Rooms.Instance.WiredComponent(room, TestLogging.Logger,
-            TimeProvider.System, new FixedFactory(settings)));
+            TimeProvider.System, new FixedFactory(settings), TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance));
         return settings;
     }
     private static IWiredRoomSettingsService Service() => new WiredRoomSettingsService(TestLogging.For<WiredRoomSettingsService>());

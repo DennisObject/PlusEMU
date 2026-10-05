@@ -64,9 +64,6 @@ public partial class PlacedFurniRoomTests : IDisposable
         Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance));
         Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System));
         TestRoomUserSnapshots.Install(_room);
-        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
-        typeof(WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, new EmptyConfigurationStore());
-        Set("_wiredComponent", wired);
         _room.GetGameMap().GenerateMaps();
         _client.SetHabbo(new Habbo { Id = 7, Username = "owner", CurrentRoom = _room, Access = UserAccess.Empty });
 
@@ -91,6 +88,8 @@ public partial class PlacedFurniRoomTests : IDisposable
             _ => throw new InvalidOperationException(method)
         });
         _databaseField.SetValue(null, _database);
+        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, new EmptyConfigurationStore(), _database);
+        Set("_wiredComponent", wired);
     }
 
     [Fact]

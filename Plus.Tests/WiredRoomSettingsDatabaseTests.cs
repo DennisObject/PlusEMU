@@ -59,7 +59,8 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             var owner = Client(room, (int)ownerId, "owner", manager, 1);
             var guest = Client(room, (int)guestId, "guest", manager, 2);
             var settingsStore = new DatabaseWiredRoomSettingsStore(database);
-            var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, new WiredRoomSettingsFactory(settingsStore));
+            var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, new WiredRoomSettingsFactory(settingsStore),
+                new WiredConfigurationStore(database), database);
             Set(room, "_wiredComponent", wired);
             var settings = wired.Settings;
             var settingsService = new WiredRoomSettingsService(TestLogging.For<WiredRoomSettingsService>());

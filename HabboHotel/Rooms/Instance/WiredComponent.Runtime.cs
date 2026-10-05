@@ -10,6 +10,7 @@ using Plus.HabboHotel.Items.Wired.Modern.Triggers;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Settings;
+using Plus.Database;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -21,14 +22,15 @@ public partial class WiredComponent
     // The monitor polls several times a second; the full log stays on the paged log request.
     private const int MonitorHistory = 100;
     private readonly Dictionary<uint, Item> _counterItems = [];
-    private IWiredConfigurationStore? _configurationStore;
+    private readonly IWiredConfigurationStore _configurationStore;
+    private readonly IDatabase _database;
     private Lazy<WiredRoomVariables>? _variables;
     public WiredRoomSettings Settings { get; }
     internal DateTimeOffset CalendarTime =>
         TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), Settings.ExplicitTimeZone ?? _clock.LocalTimeZone);
-    private IWiredConfigurationStore ConfigurationStore => _configurationStore ??= new WiredConfigurationStore(PlusEnvironment.DatabaseManager);
+    private IWiredConfigurationStore ConfigurationStore => _configurationStore;
     public WiredRoomVariables Variables => (_variables ??= new(() => new(_room,
-        PlusEnvironment.DatabaseManager, () => _clock.GetUtcNow().ToUnixTimeMilliseconds(), builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged)
+        _database, () => _clock.GetUtcNow().ToUnixTimeMilliseconds(), builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged)
         { TimeZone = () => Settings.ExplicitTimeZone ?? TimeZoneInfo.Utc })).Value;
 
     // Returns a detached concrete candidate. Registration and persistence belong to the loader/publisher.
