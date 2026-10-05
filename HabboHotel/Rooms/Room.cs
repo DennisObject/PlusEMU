@@ -39,7 +39,7 @@ public class Room
     private RoomItemHandling _roomItemHandling;
 
     private RoomUserManager _roomUserManager;
-    private TimeProvider _interactionClock;
+    private TimeProvider? _interactionClock;
     private IRoomUserSnapshotService _userSnapshots;
     private Soccer _soccer;
 

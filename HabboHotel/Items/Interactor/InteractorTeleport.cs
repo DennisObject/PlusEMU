@@ -100,7 +100,7 @@ public class InteractorTeleport(TimeProvider clock) : IFurniInteractor, IApproac
     }
 
     internal static bool IsInteractionCurrent(DateTimeOffset? interactionAt, DateTimeOffset now)
-        => interactionAt is { } timestamp && now <= timestamp.AddSeconds(2);
+        => interactionAt is { } timestamp && now - timestamp <= TimeSpan.FromSeconds(2);
 
     public void OnWiredTrigger(Item item) { }
 }

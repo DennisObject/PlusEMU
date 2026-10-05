@@ -37,6 +37,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(InteractorTeleport.IsInteractionCurrent(interactionAt, interactionAt.AddSeconds(2).AddTicks(-1)));
         Assert.True(InteractorTeleport.IsInteractionCurrent(interactionAt, interactionAt.AddSeconds(2)));
         Assert.False(InteractorTeleport.IsInteractionCurrent(interactionAt, interactionAt.AddSeconds(2).AddTicks(1)));
+        Assert.True(InteractorTeleport.IsInteractionCurrent(DateTimeOffset.MaxValue, interactionAt));
         Assert.False(InteractorTeleport.IsInteractionCurrent(null, interactionAt));
     }
 
