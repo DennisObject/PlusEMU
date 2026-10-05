@@ -450,7 +450,12 @@ public class ModernWiredRuntimeTests
             Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 0, 34, -1], Text = text },
                 out var configuration, out var error), error);
             action.ApplyConfiguration(configuration);
-            execute = () => action.Execute(Context(fixture.Room, new(WiredEventKind.Use) { Actor = fixture.User }, [], [fixture.User]));
+            execute = () =>
+            {
+                var context = Context(fixture.Room, new(WiredEventKind.Use) { Actor = fixture.User }, [], [fixture.User]);
+                context.Triggering.UserIds.Add(fixture.User.VirtualId);
+                return action.Execute(context);
+            };
         }
         var field = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
         var original = (IGame)field.GetValue(null)!;
