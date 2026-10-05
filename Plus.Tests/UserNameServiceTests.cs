@@ -78,9 +78,35 @@ public sealed class UserNameServiceTests
     }
 
     [Fact]
-    public async Task SuccessfulChangeCommitsBeforePublishingLegacyClientOrder()
+    public async Task SuccessfulChangeCommitsBeforePublishingToTheDepartingActorAndRemainingObserver()
     {
         var context = Context();
+        var room = context.Habbo.CurrentRoom!;
+        var manager = room.GetRoomUserManager();
+        var map = new Gamemap(room, new RoomModel("rename", 0, 0, 0, 0, "00\r00", 0, 0, true),
+            TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
+        typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
+        var actor = manager.GetRoomUserByHabbo(context.Habbo.Id)!;
+        map.AddUserToMap(actor, new(0, 0));
+        var (observer, observerSent) = HabbiconTestSupport.Client(new Habbo
+        {
+            Id = 43, Username = "Observer", CurrentRoom = room
+        });
+        var observerVisit = new RoomUser(43, room.Id, 4, room, observer) { InternalRoomId = 4 };
+        var visits = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
+            .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
+        visits[4] = observerVisit;
+        map.AddUserToMap(observerVisit, new(1, 0));
+        foreach (var recipient in new[] { (Plus.Communication.Flash.FlashGameClient)context.Client, observer })
+        {
+            var capture = recipient.SendCallback;
+            recipient.SendCallback = args =>
+            {
+                Assert.Single(context.Store.Changes);
+                Assert.Equal(new[] { ("Dennis", "Renamed") }, context.ClientNames.Updates);
+                return capture!(args);
+            };
+        }
 
         await context.Service.Change(context.Client, "Renamed");
 
@@ -91,10 +117,23 @@ public sealed class UserNameServiceTests
         Assert.Equal(new uint[]
         {
             ServerPacketHeader.CloseConnectionComposer,
+            ServerPacketHeader.UserRemoveComposer,
             ServerPacketHeader.UpdateUsernameComposer,
-            ServerPacketHeader.UserNameChangeComposer,
             ServerPacketHeader.RoomForwardComposer
         }, context.Sent.Select(packet => packet.Header));
+        Assert.Equal(new uint[]
+        {
+            ServerPacketHeader.UserRemoveComposer,
+            ServerPacketHeader.UserNameChangeComposer
+        }, observerSent.Select(packet => packet.Header));
+        var renamed = observerSent[1].Payload;
+        Assert.Equal(room.Id, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(renamed));
+        Assert.Equal(actor.VirtualId, System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(renamed.AsSpan(4)));
+        Assert.Equal("Renamed", System.Text.Encoding.UTF8.GetString(renamed.AsSpan(10)));
+        Assert.Null(manager.GetRoomUserByHabbo(context.Habbo.Id));
+        Assert.Null(actor.GetClient());
+        Assert.False(actor.IsAttachedTo(room));
+        Assert.Same(observer, observerVisit.GetClient());
     }
 
     [Fact]
