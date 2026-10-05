@@ -443,6 +443,45 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         Assert.Equal(2, Scalar("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'messenger_friendships' AND INDEX_NAME = 'PRIMARY'"));
     }
 
+    [MessengerFriendDatabaseFact]
+    public async Task StagedGapWriteFromAnotherPairCompletesWithoutDeadlock()
+    {
+        // A repeatable-read gap held on a missing pair past every existing friendship must not deadlock an unrelated accept whose insert lands in that gap.
+        Account(9961); Account(9962); Account(9971); Account(9972);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9972, 9971)");
+        var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(TimeSpan.FromSeconds(20)), new GameClientManager(null!, null!));
+        var acceptor = Habbo(9971, MessengerFor(requests: [new MessengerRequest { FromId = 9972, ToId = 9971 }]));
+        using var holder = new MySqlConnection(schema.ConnectionString);
+        holder.Open();
+        using var held = holder.BeginTransaction();
+        Task<FriendRequestError?>? accept = null;
+        try
+        {
+            holder.Execute("SELECT 1 FROM messenger_friendships WHERE user_one_id = 9961 AND user_two_id = 9962 FOR UPDATE", transaction: held);
+            accept = service.AcceptRequestAsync(acceptor, 9972);
+            await WaitForFriendshipLockWait();
+            holder.Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9961, 9962)", transaction: held);
+            held.Commit();
+            Assert.Null(await accept.WaitAsync(TimeSpan.FromSeconds(30)));
+        }
+        finally
+        {
+            try { held.Rollback(); } catch (Exception) { }
+            if (accept != null) { try { await accept.WaitAsync(TimeSpan.FromSeconds(30)); } catch (Exception) { } }
+        }
+        Assert.Equal(2, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE (user_one_id = 9971 AND user_two_id = 9972) OR (user_one_id = 9972 AND user_two_id = 9971)"));
+    }
+
+    private async Task WaitForFriendshipLockWait()
+    {
+        for (var attempt = 0; attempt < 500; attempt++)
+        {
+            if (Scalar("SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS w JOIN information_schema.INNODB_LOCKS l ON l.lock_id = w.requested_lock_id WHERE l.lock_table LIKE CONCAT('%', DATABASE(), '%') AND l.lock_table LIKE '%messenger_friendships%'") > 0) return;
+            await Task.Delay(20);
+        }
+        throw new TimeoutException("The accept never waited on the held friendship gap.");
+    }
+
     public class Forwarder : DispatchProxy
     {
         public Func<MethodInfo, object?[]?, object?> Handler { get; set; } = (method, args) => method.Invoke(null, args);
