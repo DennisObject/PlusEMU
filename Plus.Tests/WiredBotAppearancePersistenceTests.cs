@@ -132,7 +132,7 @@ public sealed class WiredBotAppearancePersistenceTests
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
             Room.Id = 42;
-            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System);
+            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
             Set(Room, "_roomUserManager", users);
             var botData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot));
             botData.Id = 31;

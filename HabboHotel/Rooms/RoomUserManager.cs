@@ -37,16 +37,18 @@ public class RoomUserManager
     private Room _room;
     private readonly IRoomUserStore _store;
     private readonly TimeProvider _clock;
+    private readonly IRewardTrackManager _rewards;
     private ConcurrentDictionary<int, RoomUser> _users;
 
     public int UserCount;
 
 
-    public RoomUserManager(Room room, IRoomUserStore store, TimeProvider clock)
+    public RoomUserManager(Room room, IRoomUserStore store, TimeProvider clock, IRewardTrackManager rewards)
     {
         _room = room;
         _store = store;
         _clock = clock;
+        _rewards = rewards;
         _users = new();
         _pets = new();
         _bots = new();
@@ -263,7 +265,7 @@ public class RoomUserManager
                     else user.SetPos(item.GetX, item.GetY, item.GetZ);
                     user.SetRot(item.Rotation, false);
                     if (session.GetHabbo().TeleporterId != 0)
-                        RewardTrackManager.Current?.Progress(session, RewardTrackActions.Teleport);
+                        _rewards.Progress(session, RewardTrackActions.Teleport);
                     item.InteractingUser2 = session.GetHabbo().Id;
                     item.LegacyDataString = "0";
                     item.UpdateState(false, true);
@@ -321,13 +323,13 @@ public class RoomUserManager
             bot.BotAi.OnUserEnterRoom(user);
         }
         if (session.GetHabbo().Id != _room.OwnerId)
-            RewardTrackManager.Current?.Progress(session, RewardTrackActions.EnterOtherUsersRoom);
+            _rewards.Progress(session, RewardTrackActions.EnterOtherUsersRoom);
         var pendingFollow = session.GetHabbo().PendingFollowRoomId;
         if (pendingFollow != 0)
         {
             session.GetHabbo().PendingFollowRoomId = 0;
             if (pendingFollow == _room.RoomId)
-                RewardTrackManager.Current?.Progress(session, RewardTrackActions.FollowFriend);
+                _rewards.Progress(session, RewardTrackActions.FollowFriend);
         }
         return true;
     }
@@ -1324,7 +1326,7 @@ public class RoomUserManager
                             {
                                 habbo.Effects.ApplyEffect(29);
                                 user.CurrentItemEffect = type;
-                                RewardTrackManager.Current?.Progress(client, RewardTrackActions.Swim);
+                                _rewards.Progress(client, RewardTrackActions.Swim);
                                 break;
                             }
                         case ItemEffectType.SwimLow:

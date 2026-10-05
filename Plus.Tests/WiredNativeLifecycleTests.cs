@@ -359,7 +359,7 @@ public sealed class WiredNativeLifecycleTests
                 TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
             var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);
-            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System); Set(Room, "_roomUserManager", users);
+            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()); Set(Room, "_roomUserManager", users);
             TestRoomUserSnapshots.Install(Room);
             typeof(Gamemap).GetProperty("GameMap")!.SetValue(Map, new byte[3, 3]);
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(Map, new byte[3, 3]);

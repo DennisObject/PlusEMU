@@ -83,7 +83,7 @@ internal sealed class RoomPerformanceFixture
         var grid = new byte[mapSize, mapSize];
         for (var x = 0; x < mapSize; x++) for (var y = 0; y < mapSize; y++) grid[x, y] = 1;
         typeof(Gamemap).GetProperty(nameof(Gamemap.GameMap))!.SetValue(map, grid);
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
         SetField(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
         SetField(room, "_gamemap", map);
         SetField(room, "_roomUserManager", manager);

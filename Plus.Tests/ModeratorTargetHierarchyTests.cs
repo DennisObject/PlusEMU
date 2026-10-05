@@ -71,7 +71,7 @@ public sealed class ModeratorTargetHierarchyTests
         var target = new Habbo { Id = 2, Access = EditorTestSupport.Access([PermissionKeys.ModerationMakeSayAny], 50), CurrentRoom = room };
         var (session, _) = HabbiconTestSupport.Client(actor);
         var (targetSession, sent) = HabbiconTestSupport.Client(target);
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
         typeof(Room).GetField("_roomUserManager", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(room, manager);
         var user = new RoomUser(2, 1, 2, room, targetSession);
         ((ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!)[2] = user;

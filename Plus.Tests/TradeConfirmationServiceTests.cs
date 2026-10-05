@@ -281,7 +281,7 @@ public sealed class TradeConfirmationServiceTests
         public TradeFixture()
         {
             typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System));
+                .SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()));
             TestRoomUserSnapshots.Install(Room);
             Trading = new TradingComponent(Room, Store);
             Room.SetTrading(Trading);

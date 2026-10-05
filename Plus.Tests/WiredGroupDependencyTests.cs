@@ -138,7 +138,7 @@ public sealed class WiredGroupDependencyTests
             typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(Room, new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
             typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System));
+                .SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()));
             _wired = new(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty,
                 TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance,
                 TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, groups, TestWiredDefinitions.Unused);

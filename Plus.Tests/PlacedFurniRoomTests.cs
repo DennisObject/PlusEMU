@@ -66,7 +66,7 @@ public partial class PlacedFurniRoomTests : IDisposable
             TestLogging.Navigation, _roomSettings, new TestGroupManager(id => _groupLookup(id)),
             TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
         Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
-        Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System));
+        Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress()));
         TestRoomUserSnapshots.Install(_room);
         _room.GetGameMap().GenerateMaps();
         _client.SetHabbo(new Habbo { Id = 7, Username = "owner", CurrentRoom = _room, Access = UserAccess.Empty });
