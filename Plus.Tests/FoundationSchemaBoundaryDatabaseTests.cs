@@ -82,6 +82,44 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
         finally { admin.Execute($"DROP DATABASE IF EXISTS `{schema}`"); }
     }
     [FoundationSchemaDatabaseFact]
+    public void TonerLoadsExistingAndDefaultRowsFromNativeBooleans()
+    {
+        var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
+        { Database = "mysql", Pooling = false, AllowZeroDateTime = true, ConvertZeroDateTime = true };
+        using var admin = new MySqlConnection(options.ConnectionString);
+        admin.Open();
+        var schema = "task_foundation_toner_" + Guid.NewGuid().ToString("N");
+        admin.Execute($"CREATE DATABASE `{schema}`");
+        var field = typeof(PlusEnvironment).GetField("_database", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var previous = field.GetValue(null);
+        try
+        {
+            options.Database = schema;
+            using var connection = new MySqlConnection(options.ConnectionString);
+            connection.Open();
+            var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+            connection.Execute(Regex.Match(pristine, @"CREATE TABLE `room_items_toner` \([\s\S]*?\) ENGINE=[^;]+;").Value);
+            field.SetValue(null, new HabbiconDatabaseTests.TestDatabase(options.ConnectionString));
+            connection.Execute("INSERT INTO room_items_toner VALUES (7, FALSE, 12, 34, 56), (8, TRUE, 21, 43, 65)");
+
+            var disabled = new Plus.HabboHotel.Items.Data.Toner.TonerData(7);
+            var enabled = new Plus.HabboHotel.Items.Data.Toner.TonerData(8);
+            var defaults = new Plus.HabboHotel.Items.Data.Toner.TonerData(9);
+
+            Assert.Equal((0, 12, 34, 56), (disabled.Enabled, disabled.Hue, disabled.Saturation, disabled.Lightness));
+            Assert.Equal((1, 21, 43, 65), (enabled.Enabled, enabled.Hue, enabled.Saturation, enabled.Lightness));
+            Assert.Equal((0, 0, 0, 0), (defaults.Enabled, defaults.Hue, defaults.Saturation, defaults.Lightness));
+            Assert.Equal(3, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM room_items_toner"));
+            Assert.False(connection.QuerySingle<bool>("SELECT enabled FROM room_items_toner WHERE id=9"));
+        }
+        finally
+        {
+            field.SetValue(null, previous);
+            admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
+        }
+    }
+
+    [FoundationSchemaDatabaseFact]
     public async Task HomeRoomUsesTheSettingsKeyAndPublishesOnlyAfterPersistence()
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
