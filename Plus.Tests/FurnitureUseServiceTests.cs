@@ -33,7 +33,7 @@ public sealed class FurnitureUseServiceTests
         var store = new Store { Fail = true };
         Assert.Throws<InvalidOperationException>(() => new FurnitureUseService(store, null!).Use(room, client, new(item.Id, 0)));
         Assert.Equal(0, room.TonerData.Enabled);
-        Assert.Equal(1, Assert.Single(store.Values).Item1);
+        Assert.Equal(1u, Assert.Single(store.Values).Item1);
     }
 
     [Theory]
