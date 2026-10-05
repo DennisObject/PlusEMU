@@ -197,7 +197,7 @@ public partial class PlacedFurniRoomTests : IDisposable
 
     private static PlaceObjectEvent PlaceObject() =>
         new(new RoomItemPlacementService(Proxy<ISettingsManager>((_, _) => "500"),
-            Proxy<IAchievementManager>((_, _) => null), Proxy<IRewardTrackManager>((_, _) => null),
+            Proxy<IAchievementManager>((_, _) => null), Proxy<IRewardTrackManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null),
             TestLogging.For<RoomItemPlacementService>()));
 
     private void Inventory(InventoryItem item) =>

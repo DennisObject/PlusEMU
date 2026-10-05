@@ -83,13 +83,58 @@ public partial class PlacedFurniRoomTests
                 Assert.Equal(RewardTrackActions.PlaceItem, args[1]);
                 progress.Add("reward");
                 return null;
-            }), TestLogging.For<RoomItemPlacementService>()).Place(_room, _client, placement);
+            }), Proxy<IQuestManager>((_, _) => null), TestLogging.For<RoomItemPlacementService>()).Place(_room, _client, placement);
         Assert.Equal(new[] { "achievement", "reward" }, progress);
         Assert.NotNull(_room.GetRoomItemHandler().GetItem(30));
         Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
     }
 
+    [Fact]
+    public async Task MoveHandlerConsumesAllFourPrimitivesBeforeDelegation()
+    {
+        var calls = 0;
+        var placement = Proxy<IRoomItemPlacementService>((method, args) =>
+        {
+            Assert.Equal("Move", method);
+            Assert.Same(_room, args[0]);
+            Assert.Same(_client, args[1]);
+            Assert.Equal(new object[] { 30u, 2, 3, 4 }, args.Skip(2));
+            calls++;
+            return null;
+        });
+        var packet = ClientPacket(30, 2, 3, 4);
+        await new MoveObjectEvent(placement).Parse(_room, _client, packet);
+        Assert.False(packet.HasDataRemaining());
+        Assert.Equal(1, calls);
+        Assert.Empty(_client.Sent);
+    }
+
+    [Fact]
+    public void MoveRetainsQuestBeforePlacementAndRewardAfterPlacementOrder()
+    {
+        var item = Add(30, 1, 1);
+        var calls = new List<string>();
+        var quests = Proxy<IQuestManager>((_, args) =>
+        {
+            var kind = (QuestType)args[1]!;
+            if (kind == QuestType.FurniMove || kind == QuestType.FurniRotate)
+                Assert.Equal((1, 1, 0), (item.GetX, item.GetY, item.Rotation));
+            calls.Add(kind.ToString());
+            return null;
+        });
+        var rewards = Proxy<IRewardTrackManager>((_, args) =>
+        {
+            Assert.Equal((2, 2, 2), (item.GetX, item.GetY, item.Rotation));
+            calls.Add((string)args[1]!);
+            return null;
+        });
+        new RoomItemPlacementService(Proxy<ISettingsManager>((_, _) => "500"),
+            Proxy<IAchievementManager>((_, _) => null), rewards, quests,
+            TestLogging.For<RoomItemPlacementService>()).Move(_room, _client, item.Id, 2, 2, 2);
+        Assert.Equal(new[] { "FurniMove", "FurniRotate", RewardTrackActions.MoveItem, RewardTrackActions.RotateItem }, calls);
+    }
+
     private static RoomItemPlacementService PlacementService(Action reward) => new(
         Proxy<ISettingsManager>((_, _) => "500"), Proxy<IAchievementManager>((_, _) => null),
-        Proxy<IRewardTrackManager>((_, _) => { reward(); return null; }), TestLogging.For<RoomItemPlacementService>());
+        Proxy<IRewardTrackManager>((_, _) => { reward(); return null; }), Proxy<IQuestManager>((_, _) => null), TestLogging.For<RoomItemPlacementService>());
 }

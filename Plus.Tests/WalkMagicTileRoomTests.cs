@@ -53,7 +53,7 @@ public partial class PlacedFurniRoomTests
         return user;
     }
 
-    private MoveObjectEvent MoveObject() => new(Proxy<IRoomManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null));
+    private MoveObjectEvent MoveObject() => new(PlacementService(() => { }));
 
     private async Task<Item?> Drop(uint id, int x, int y, InteractionType type, int width = 1, int length = 1)
     {

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Rooms.Notifications;
+using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Core.Settings;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
@@ -13,10 +14,11 @@ namespace Plus.HabboHotel.Rooms;
 public interface IRoomItemPlacementService
 {
     void Place(Room room, GameClient session, string rawData);
+    void Move(Room room, GameClient session, uint itemId, int x, int y, int rotation);
 }
 
 public sealed class RoomItemPlacementService(ISettingsManager settings, IAchievementManager achievements,
-    IRewardTrackManager rewardTracks, ILogger<RoomItemPlacementService> logger) : IRoomItemPlacementService
+    IRewardTrackManager rewardTracks, IQuestManager quests, ILogger<RoomItemPlacementService> logger) : IRoomItemPlacementService
 {
     public void Place(Room room, GameClient session, string rawData)
     {
@@ -142,4 +144,46 @@ public sealed class RoomItemPlacementService(ISettingsManager settings, IAchieve
                 session.Send(new RoomNotificationComposer("furni_placement_error", "message", "${room.error.cant_set_item}"));
         }
     }
+    public void Move(Room room, GameClient session, uint itemId, int x, int y, int rotation)
+    {
+        if (itemId == 0)
+            return;
+        Item item;
+        if (room.Group != null)
+        {
+            if (!room.CheckRights(session, false, true))
+            {
+                item = room.GetRoomItemHandler().GetItem(itemId);
+                if (item == null || item.IsTemporary)
+                    return;
+                session.Send(new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)));
+                return;
+            }
+        }
+        else
+        {
+            if (!room.CheckRights(session)) return;
+        }
+        item = room.GetRoomItemHandler().GetItem(itemId);
+        if (item == null || item.IsTemporary)
+            return;
+        var moved = x != item.GetX || y != item.GetY;
+        var rotated = rotation != item.Rotation;
+        if (moved)
+            quests.ProgressUserQuest(session, QuestType.FurniMove);
+        if (rotated)
+            quests.ProgressUserQuest(session, QuestType.FurniRotate);
+        if (!room.GetRoomItemHandler().SetFloorItem(session, item, x, y, rotation, false, false, true))
+        {
+            room.SendPacket(new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)));
+            return;
+        }
+        if (moved)
+            rewardTracks.Progress(session, RewardTrackActions.MoveItem);
+        if (rotated)
+            rewardTracks.Progress(session, RewardTrackActions.RotateItem);
+        if (item.GetZ >= 0.1)
+            quests.ProgressUserQuest(session, QuestType.FurniStack);
+    }
+
 }
