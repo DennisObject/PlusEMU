@@ -4,7 +4,7 @@ namespace Plus.Communication.Packets.Outgoing.Sound;
 
 public class SoundSettingsComposer : IServerPacket
 {
-    private readonly IEnumerable<int> _volumes;
+    private readonly int[] _volumes;
     private readonly bool _chatPreference;
     private readonly bool _invitesStatus;
     private readonly bool _focusPreference;
@@ -14,7 +14,7 @@ public class SoundSettingsComposer : IServerPacket
 
     public SoundSettingsComposer(IEnumerable<int> volumes, bool chatPreference, bool invitesStatus, bool focusPreference, int friendBarState)
     {
-        _volumes = volumes;
+        _volumes = volumes.ToArray();
         _chatPreference = chatPreference;
         _invitesStatus = invitesStatus;
         _focusPreference = focusPreference;
@@ -26,9 +26,8 @@ public class SoundSettingsComposer : IServerPacket
         // UserSettingsParser reads three volumes, three preference bytes, two ints
         // and three bools before its optional tail. One leftover byte makes that
         // tail throw, and the client drops the whole packet.
-        var volumes = _volumes as int[] ?? _volumes.ToArray();
         for (var index = 0; index < 3; index++)
-            packet.WriteInteger(index < volumes.Length ? volumes[index] : 0);
+            packet.WriteInteger(index < _volumes.Length ? _volumes[index] : 0);
         packet.WriteBoolean(_chatPreference);
         packet.WriteBoolean(_invitesStatus);
         packet.WriteBoolean(_focusPreference);
