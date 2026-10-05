@@ -354,7 +354,8 @@ public sealed class WiredNativeLifecycleTests
         {
             Room.Id = 1;
             Set(Room, "_interactionClock", TimeProvider.System);
-            Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
+            Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true),
+                TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
             var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);
             var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System); Set(Room, "_roomUserManager", users);
@@ -363,7 +364,7 @@ public sealed class WiredNativeLifecycleTests
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(Map, new byte[3, 3]);
             _items = (ConcurrentDictionary<uint, Item>)Get(handler, "_floorItems");
             _users = (ConcurrentDictionary<int, RoomUser>)Get(users, "_users");
-            Wired = new(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance); Set(Room, "_wiredComponent", Wired);
+            Wired = new(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance); Set(Room, "_wiredComponent", Wired);
         }
         public void PrepareVariables()
         {

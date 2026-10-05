@@ -180,12 +180,12 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             // Exercise production readiness and cycle entry with the same actual SQL module, not FlushFx directly.
             TestRoomUserSnapshots.Install(liveRoom);
             roomVariables.Fx.RemoveViewer(fxPlayer.Id); // End the preceding module-only simulated viewer session.
-            var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+            var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, nativeWired);
             typeof(WiredComponent).GetField("_variables", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nativeWired, new Lazy<WiredRoomVariables>(() => roomVariables));
             Assert.Same(roomVariables, nativeWired.Variables);
             typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom,
-                new Gamemap(liveRoom, new RoomModel("wired-sql-probe", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation));
+                new Gamemap(liveRoom, new RoomModel("wired-sql-probe", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty));
             fxPlayer.Username = "probe-viewer"; fxPlayer.Motto = ""; fxPlayer.Look = "test"; fxPlayer.Gender = "M";
             fxPlayer.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
             fxPlayer.Effects = new(new FixedTimeProvider(FixedTimeProvider.Epoch)); fxPlayer.Access = EditorTestSupport.Access([]);

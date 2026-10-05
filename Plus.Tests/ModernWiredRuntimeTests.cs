@@ -744,7 +744,7 @@ public class ModernWiredRuntimeTests
             Habbo.Effects.CurrentEffect = 8; client.SetHabbo(Habbo); clients.RegisterClient(client, 1, "Alice");
             User = new(1, 0, 7, Room); RoomUsers(Room)[7] = User;
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
-            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance,
+            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance,
                 database == null ? TestWiredConfigurationStore.Instance : new WiredConfigurationStore(database),
                 database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
@@ -1470,7 +1470,7 @@ public class ModernWiredRuntimeTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         typeof(Room).GetField("_interactionClock", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, TimeProvider.System);
-        var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
+        var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
         var handler = new RoomItemHandling(room, store ?? TestRoomItemStore.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);

@@ -50,6 +50,8 @@ public partial class PlacedFurniRoomTests : IDisposable
     private readonly InteractionTimeProvider _interactionClock = new(
         new DateTimeOffset(2040, 2, 3, 4, 5, 6, TimeSpan.Zero),
         TimeZoneInfo.CreateCustomTimeZone("interaction-plus-nine", TimeSpan.FromHours(9), "test", "test"));
+    private readonly TestRoomSettings _roomSettings = new();
+    private Func<int, Plus.HabboHotel.Groups.Group?> _groupLookup = _ => null;
 
     public PlacedFurniRoomTests()
     {
@@ -60,7 +62,8 @@ public partial class PlacedFurniRoomTests : IDisposable
         _room.OwnerName = "owner";
         _room.Type = "private";
         Set("_interactionClock", _interactionClock);
-        Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false), TestLogging.Navigation));
+        Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false),
+            TestLogging.Navigation, _roomSettings, new TestGroupManager(id => _groupLookup(id))));
         Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance));
         Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System));
         TestRoomUserSnapshots.Install(_room);
@@ -88,7 +91,7 @@ public partial class PlacedFurniRoomTests : IDisposable
             _ => throw new InvalidOperationException(method)
         });
         _databaseField.SetValue(null, _database);
-        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, new EmptyConfigurationStore(), _database, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, new EmptyConfigurationStore(), _database, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
         Set("_wiredComponent", wired);
     }
 

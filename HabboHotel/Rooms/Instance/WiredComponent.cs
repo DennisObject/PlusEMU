@@ -3,6 +3,7 @@ using Dapper;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Plus.Core;
+using Plus.Core.Settings;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
@@ -29,7 +30,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly TimeProvider _clock;
     private readonly IBotManagementStore _botStore;
 
-    public WiredComponent(Room instance, ILogger logger, TimeProvider clock, IWiredRoomSettingsFactory settingsFactory,
+    public WiredComponent(Room instance, ILogger logger, TimeProvider clock, ISettingsManager settings, IWiredRoomSettingsFactory settingsFactory,
         IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService,
         IBotManagementStore botStore) //, RoomItem Items)
     {
@@ -46,7 +47,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
             box => ReferenceEquals(_room.GetRoomItemHandler().GetItem(box.Item.Id), box.Item),
             IsActorPresent,
             OnEvent, ExceptionLogger.LogWiredException,
-            WiredEngineLimits.FromSettings(key => PlusEnvironment.SettingsManager?.TryGetValue(key) ?? "0"),
+            WiredEngineLimits.FromSettings(settings.TryGetValue),
             CaptureActorVisit);
         _targets = new(
             () => _room.GetRoomItemHandler().GetFloor,

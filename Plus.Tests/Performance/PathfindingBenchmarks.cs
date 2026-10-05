@@ -44,7 +44,7 @@ public class PathfindingBenchmarks
         {
             var model = new RoomModel("benchmark", 0, 0, 0, 0, string.Join('\r', rows.Select(r => new string(r))), 0, 0, false);
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-            var map = new Gamemap(room, model, TestLogging.Navigation);
+            var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
             Set(room, "_gamemap", map); Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance)); Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
             map.GenerateMaps();
             var navigation = map.Navigation ?? new RoomNavigation(room, model, new() { Engine = PathfindingEngine.Shadow }, TestLogging.Navigation); navigation.Compiler.RebuildAll();

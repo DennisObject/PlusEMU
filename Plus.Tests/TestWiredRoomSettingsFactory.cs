@@ -8,8 +8,41 @@ using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using System.Data;
 using Plus.HabboHotel.Rooms.AI;
+using Plus.Core.Settings;
+using Plus.HabboHotel.Groups;
+using Plus.HabboHotel.Users;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Plus.Tests;
+
+internal sealed class TestRoomSettings(Dictionary<string, string>? values = null) : ISettingsManager
+{
+    public static TestRoomSettings Empty { get; } = new();
+    public Dictionary<string, string> Values { get; } = values ?? [];
+    public string TryGetValue(string value) => Values.TryGetValue(value, out var setting) ? setting : "0";
+    public string TryGetValue(string value, string defaultValue) => Values.TryGetValue(value, out var setting) ? setting : defaultValue;
+    public string? GetOptionalValue(string key) => Values.GetValueOrDefault(key);
+    public Task Reload() => throw new InvalidOperationException("Room fixture settings cannot reload.");
+}
+
+internal sealed class TestGroupManager(Func<int, Group?>? lookup = null) : IGroupManager
+{
+    public static TestGroupManager Empty { get; } = new();
+    public ICollection<GroupBadgeParts> BadgeBases => throw Unused();
+    public ICollection<GroupBadgeParts> BadgeSymbols => throw Unused();
+    public ICollection<GroupColours> BadgeBaseColours => throw Unused();
+    public ICollection<GroupColours> BadgeSymbolColours => throw Unused();
+    public ICollection<GroupColours> BadgeBackColours => throw Unused();
+    public void Init() => throw Unused();
+    public bool TryGetGroup(int id, [NotNullWhen(true)] out Group? group) { group = lookup?.Invoke(id); return group != null; }
+    public bool TryCreateGroup(Habbo player, string name, string description, uint roomId, string badge, int colour1,
+        int colour2, [NotNullWhen(true)] out Group? group) { group = null; throw Unused(); }
+    public string GetColourCode(int id, bool colourOne) => throw Unused();
+    public void DeleteGroup(int id) => throw Unused();
+    public List<Group> GetGroupsForUser(int userId) => throw Unused();
+    public Dictionary<int, string> GetAllBadgesInRoom(Room room) => throw Unused();
+    private static InvalidOperationException Unused() => new("Unused room fixture group operation must remain lazy.");
+}
 
 internal sealed class TestWiredRoomSettingsFactory : IWiredRoomSettingsFactory
 {

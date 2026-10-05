@@ -41,7 +41,7 @@ public sealed class WiredRoomSettingsFactoryDatabaseTests
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
             room.Id = roomId; room.OwnerId = userId; room.OwnerName = username; room.Type = "private"; room.UsersWithRights = [];
             var factory = new WiredRoomSettingsFactory(new DatabaseWiredRoomSettingsStore(database));
-            var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, factory,
+            var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, factory,
                 new Plus.HabboHotel.Items.Wired.Configuration.WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, wired);
             var client = new FlashGameClient(TestGameServer.Instance, new Plus.Communication.Flash.FlashPacketFactory(), TestLogging.GameClient);

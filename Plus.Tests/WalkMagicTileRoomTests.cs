@@ -108,17 +108,27 @@ public partial class PlacedFurniRoomTests
     [InlineData(1, 0, 3)]
     public void StacktoolCompatibilityControlsCollisionAndHeight(int setting, int state, double height)
     {
-        var field = typeof(PlusEnvironment).GetField("_settingsManager", BindingFlags.NonPublic | BindingFlags.Static)!;
-        var previous = field.GetValue(null);
-        try
-        {
-            field.SetValue(null, Proxy<ISettingsManager>((_, _) => setting.ToString()));
-            Add(10, 1, 1, z: 2, height: 1, type: InteractionType.Stacktool);
-            Assert.Equal((byte)state, _room.GetGameMap().GameMap[1, 1]);
-            Assert.Equal(height, _room.GetGameMap().SqAbsoluteHeight(1, 1));
-            Assert.Equal(2, _room.GetGameMap().ResolvePlacement(1, 1).PlacementZ);
-        }
-        finally { field.SetValue(null, previous); }
+        _roomSettings.Values["pathfinding.stacktool_legacy_collision"] = setting.ToString();
+        Add(10, 1, 1, z: 2, height: 1, type: InteractionType.Stacktool);
+        Assert.Equal((byte)state, _room.GetGameMap().GameMap[1, 1]);
+        Assert.Equal(height, _room.GetGameMap().SqAbsoluteHeight(1, 1));
+        Assert.Equal(2, _room.GetGameMap().ResolvePlacement(1, 1).PlacementZ);
+    }
+
+    [Fact]
+    public void StacktoolCompatibilitySettingRemainsLiveForAnExistingMap()
+    {
+        _roomSettings.Values["pathfinding.stacktool_legacy_collision"] = "1";
+        var stacktool = Add(10, 1, 1, z: 2, height: 1, type: InteractionType.Stacktool);
+        Assert.Equal((byte)0, _room.GetGameMap().GameMap[1, 1]);
+
+        _roomSettings.Values["pathfinding.stacktool_legacy_collision"] = "0";
+        _room.GetGameMap().UpdateMapForItem(stacktool);
+        Assert.Equal((byte)1, _room.GetGameMap().GameMap[1, 1]);
+
+        _roomSettings.Values["pathfinding.stacktool_legacy_collision"] = "1";
+        _room.GetGameMap().UpdateMapForItem(stacktool);
+        Assert.Equal((byte)0, _room.GetGameMap().GameMap[1, 1]);
     }
 
     [Theory]
@@ -126,19 +136,13 @@ public partial class PlacedFurniRoomTests
     [InlineData(1, 0, 2)]
     public void StacktoolCompatibilityKeepsUnderlyingSupportWhenHelpersAreIgnored(int setting, int state, double height)
     {
-        var field = typeof(PlusEnvironment).GetField("_settingsManager", BindingFlags.NonPublic | BindingFlags.Static)!;
-        var previous = field.GetValue(null);
-        try
-        {
-            field.SetValue(null, Proxy<ISettingsManager>((_, _) => setting.ToString()));
-            var support = Add(10, 1, 1, height: 1);
-            support.Definition.Walkable = true;
-            _room.GetGameMap().UpdateMapForItem(support);
-            Add(11, 1, 1, z: 2, type: InteractionType.Stacktool);
-            Assert.Equal((byte)state, _room.GetGameMap().GameMap[1, 1]);
-            Assert.Equal(height, _room.GetGameMap().SqAbsoluteHeight(1, 1));
-        }
-        finally { field.SetValue(null, previous); }
+        _roomSettings.Values["pathfinding.stacktool_legacy_collision"] = setting.ToString();
+        var support = Add(10, 1, 1, height: 1);
+        support.Definition.Walkable = true;
+        _room.GetGameMap().UpdateMapForItem(support);
+        Add(11, 1, 1, z: 2, type: InteractionType.Stacktool);
+        Assert.Equal((byte)state, _room.GetGameMap().GameMap[1, 1]);
+        Assert.Equal(height, _room.GetGameMap().SqAbsoluteHeight(1, 1));
     }
 
     [Fact]
@@ -170,7 +174,7 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public async Task MagicPlacementOnVoidIsStandableButNeverChangesFloorRendering()
     {
-        var map = new Gamemap(_room, new RoomModel("void", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false), TestLogging.Navigation);
+        var map = new Gamemap(_room, new RoomModel("void", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
         Set("_gamemap", map);
         map.GenerateMaps();
         var floor = map.Model.GetRelativeHeightmap();
@@ -468,7 +472,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(2.0)]
     public void WalkMagicFlanksProvideAnOpenSurfaceAtTheirOwnHeight(double flankHeight)
     {
-        var map = new Gamemap(_room, new RoomModel("flanks", 0, 0, 0, 0, "0000\r00x0\r0000\r0000", 0, 0, false), TestLogging.Navigation);
+        var map = new Gamemap(_room, new RoomModel("flanks", 0, 0, 0, 0, "0000\r00x0\r0000\r0000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
         Set("_gamemap", map); map.GenerateMaps();
         Add(10, 1, 2, height: 5, stackable: false);
         Add(11, 1, 2, z: 0.5, type: InteractionType.WalkMagicTile);
@@ -480,7 +484,7 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public void OrdinaryFurnitureKeepsLegacyRollerSupportOverModelVoid()
     {
-        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false), TestLogging.Navigation);
+        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
         Set("_gamemap", map); map.GenerateMaps();
         Assert.False(map.CanRollItemHere(1, 1));
         var bridge = Add(10, 1, 1, z: 2, height: 0.5);
@@ -619,7 +623,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(true)]
     public async Task QueuedProjectionDeliveryAllowsBridgeConstructionAndMapRebuild(bool rebuild)
     {
-        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false), TestLogging.Navigation);
+        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
         Set("_gamemap", map); map.GenerateMaps();
         var bridge = Add(10, 2, 1, z: 2, height: 0.5);
         var table = Add(11, 3, 2);
@@ -1007,7 +1011,7 @@ public partial class PlacedFurniRoomTests
         var nextRoom = (Room)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Room));
         nextRoom.Id = RoomId + 1;
         var nextUsers = new RoomUserManager(nextRoom, TestRoomUserStore.Instance, TimeProvider.System);
-        var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", 0, 0, false), TestLogging.Navigation);
+        var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextUsers);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom, TestRoomItemStore.Instance));
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextMap);

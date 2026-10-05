@@ -139,7 +139,7 @@ public partial class PlacedFurniRoomTests
     private void PrepareRollerChain(int width, bool reverseIds)
     {
         var rows = string.Join('\r', Enumerable.Repeat(new string('0', width), 4));
-        Set("_gamemap", new Gamemap(_room, new RoomModel("roller-chain", 0, 0, 0, 0, rows, 0, 0, false), TestLogging.Navigation));
+        Set("_gamemap", new Gamemap(_room, new RoomModel("roller-chain", 0, 0, 0, 0, rows, 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty));
         _room.GetGameMap().GenerateMaps();
         for (var x = 0; x < width - 1; x++) ExecutorRoller((uint)(reverseIds ? 100 - x : 10 + x), x, 1);
     }

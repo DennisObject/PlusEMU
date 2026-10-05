@@ -3,7 +3,9 @@ using System.Collections.Concurrent;
 using System.Drawing;
 using Microsoft.Extensions.Logging;
 using Plus.Core;
+using Plus.Core.Settings;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.PathFinding;
@@ -217,24 +219,29 @@ public class Gamemap
             .OrderByDescending(item => item.GetZ).ThenByDescending(item => item.Id).FirstOrDefault();
 
     private bool IgnoreStacktool(Item item) => item.Definition.InteractionType == InteractionType.Stacktool
-        && PlusEnvironment.SettingsManager?.TryGetValue("pathfinding.stacktool_legacy_collision", "1") == "0";
+        && _settings.TryGetValue("pathfinding.stacktool_legacy_collision", "1") == "0";
 
     private Room _room;
+    private readonly ISettingsManager _settings;
+    private readonly IGroupManager _groups;
     private byte[,] _structuralMap;
     private Point[] _roamTargets;
     private ConcurrentDictionary<Point, List<RoomUser>> _userMap;
 
-    public Gamemap(Room room, RoomModel model, ILogger<RoomNavigation> navigationLogger)
+    public Gamemap(Room room, RoomModel model, ILogger<RoomNavigation> navigationLogger,
+        ISettingsManager settings, IGroupManager groups)
     {
         _room = room;
+        _settings = settings;
+        _groups = groups;
         _placementRoom = room;
         StaticModel = model;
         // Settings are fixed at room load. Legacy never allocates navigation state or
         // attaches items, so its setters and update cycles take the original fast path.
-        if (PlusEnvironment.SettingsManager is { } settings
-            && settings.GetOptionalValue("pathfinding.engine") is "shadow" or "v2"
+        var pathfindingSettings = PathfindingSettings.Load(settings);
+        if (pathfindingSettings.Engine is PathfindingEngine.Shadow or PathfindingEngine.V2
             && model.MapSizeX is > 0 and <= 256 && model.MapSizeY is > 0 and <= 256)
-            Navigation = new(room, model, PathfindingSettings.Load(settings), navigationLogger);
+            Navigation = new(room, model, pathfindingSettings, navigationLogger);
         var legacyOccupancy = new LegacyGateOccupancy(this);
         Gates = new(room, () => Navigation is { UsesExecutor: true } navigation ? navigation.GateOccupancy : legacyOccupancy);
         DiagonalEnabled = true;
@@ -1236,7 +1243,7 @@ public class Gamemap
                 var I = items.FirstOrDefault(x => x.Definition.InteractionType == InteractionType.GuildGate);
                 if (I != null)
                 {
-                    if (!PlusEnvironment.Game.GroupManager.TryGetGroup(I.GroupId, out var group))
+                    if (!_groups.TryGetGroup(I.GroupId, out var group))
                         return false;
                     if (user.GetClient() == null || user.GetClient().GetHabbo() == null)
                         return false;

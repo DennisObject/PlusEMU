@@ -25,12 +25,12 @@ public class MagicTileParityTests
     public void WalkMagicAndRaisedStacktoolAgreeWithLegacyHeightStateAndSearch(
         InteractionType underlyingInteraction, bool voidTile, bool collision, bool walkMagic)
     {
-        WithSettings(collision, () =>
+        WithSettings(collision, settings =>
         {
             var fixture = RoomPerformanceFixture.Create(0, 0);
             var model = new RoomModel("magic-parity", 0, 0, 0, 0,
                 voidTile ? "0000\r0x00\r0000\r0000" : "0000\r0000\r0000\r0000", 0, 0, false);
-            var map = new Gamemap(fixture.Room, model, TestLogging.Navigation);
+            var map = new Gamemap(fixture.Room, model, TestLogging.Navigation, settings, TestGroupManager.Empty);
             typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(fixture.Room, map);
             var handler = fixture.Room.GetRoomItemHandler();
             var underlying = NavTest.Item(1); underlying.Definition.Height = walkMagic ? 6 : 1;
@@ -74,11 +74,11 @@ public class MagicTileParityTests
     [Fact]
     public void WalkMagicOnVoidFlankFollowsOfficialCornerRuleAfterRemoval()
     {
-        WithSettings(true, () =>
+        WithSettings(true, settings =>
         {
             var fixture = RoomPerformanceFixture.Create(0, 0);
             var map = new Gamemap(fixture.Room, new RoomModel("magic-corner", 0, 0, 0, 0,
-                "0000\r00x0\r0000\r0000", 0, 0, false), TestLogging.Navigation);
+                "0000\r00x0\r0000\r0000", 0, 0, false), TestLogging.Navigation, settings, TestGroupManager.Empty);
             typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(fixture.Room, map);
             var item = Helper(1, InteractionType.WalkMagicTile);
             item.SetState(2, 1, 0.75, Gamemap.GetAffectedTiles(1, 1, 2, 1, 0));
@@ -108,13 +108,8 @@ public class MagicTileParityTests
         item.Definition.Walkable = false; return item;
     }
 
-    private static void WithSettings(bool collision, Action test)
-    {
-        var field = typeof(PlusEnvironment).GetField("_settingsManager", BindingFlags.Static | BindingFlags.NonPublic)!;
-        var previous = field.GetValue(null);
-        try { field.SetValue(null, new Settings(collision)); test(); }
-        finally { field.SetValue(null, previous); }
-    }
+    private static void WithSettings(bool collision, Action<ISettingsManager> test)
+        => test(new Settings(collision));
 
     private sealed class Settings(bool collision) : ISettingsManager
     {

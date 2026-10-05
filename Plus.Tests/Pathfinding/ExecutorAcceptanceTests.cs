@@ -37,7 +37,7 @@ public partial class PlacedFurniRoomTests
     public void ExecutorHeadOnCorridorWaitsReplansAndStopsWithoutOverlapping()
     {
         Set("_gamemap", new Gamemap(_room, new RoomModel("corridor", 0, 0, 0, 0,
-            "xxxx\r0000\rxxxx\rxxxx", 0, 0, false), TestLogging.Navigation));
+            "xxxx\r0000\rxxxx\rxxxx", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty));
         _room.GetGameMap().GenerateMaps();
         var first = ExecutorActor(0, 1); var second = AcceptanceBot(3, 1, 2); ExecutorTick();
         first.MoveTo(2, 1); second.MoveTo(1, 1); ExecutorTick();

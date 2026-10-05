@@ -227,7 +227,7 @@ public sealed class PetPlacementServiceTests
         var model = new RoomModel("pets-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false);
         var room = new Room(new RoomData { Id = 42, AllowPets = true, Model = model }, [],
             TestLogging.Navigation, TestLogging.Logger);
-        Set(room, "_gamemap", new Gamemap(room, model, TestLogging.Navigation));
+        Set(room, "_gamemap", new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty));
         Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         Set(room, "_userSnapshots", CatalogSnapshotTestSupport.Proxy<IRoomUserSnapshotService>((_, _) => null));
         return room;
