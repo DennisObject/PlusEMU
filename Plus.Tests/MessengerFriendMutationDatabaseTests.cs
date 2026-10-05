@@ -487,8 +487,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         }
         using var inspector = new MySqlConnection(schema.ConnectionString);
         inspector.Open();
-        var transactions = inspector.Query<string>("SELECT CONCAT(trx_state, ' | ', LEFT(trx_query, 160)) FROM information_schema.INNODB_TRX WHERE trx_query LIKE '%messenger_friendships%'");
-        throw new TimeoutException("The accept never waited on the held friendship gap. Open friendship transactions: " + string.Join("; ", transactions));
+        var transactions = inspector.Query<string>("SELECT CONCAT(trx_id, ' ', trx_state, ' ', trx_mysql_thread_id, ' | ', LEFT(IFNULL(trx_query, ''), 140)) FROM information_schema.INNODB_TRX");
+        throw new TimeoutException("The accept never waited on the held friendship gap. Open InnoDB transactions: " + string.Join("; ", transactions));
     }
 
     public class Forwarder : DispatchProxy
