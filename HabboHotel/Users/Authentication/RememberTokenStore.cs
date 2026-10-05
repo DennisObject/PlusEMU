@@ -61,7 +61,7 @@ public class RememberTokenStore : IRememberTokenStore
 
         // Revoked (incl. an earlier reuse) or expired tokens change nothing, so replaying an old
         // token cannot keep signing the account out.
-        if (row.RevokedAt != null || row.ExpiresAt <= now || generation < 0)
+        if (row.RevokedAt != null || row.ExpiresAt is not { } expiresAt || expiresAt <= now || generation < 0)
             return new(RememberRotationStatus.Invalid);
         if (row.UsedAt != null && now - row.UsedAt < _grace && row.GraceUses < MaxGraceRetries)
         {
@@ -75,7 +75,7 @@ public class RememberTokenStore : IRememberTokenStore
         {
             // A live token that was already traded in: someone else holds it.
             var scope = new CredentialScope(connection, transaction);
-            await RevokeSession(row.FamilyId, scope);
+            await RevokeSessionAt(row.FamilyId, scope, now);
             if (onReuse != null)
                 await onReuse(userId.Value, scope);
             transaction.Commit();
@@ -113,9 +113,11 @@ public class RememberTokenStore : IRememberTokenStore
             "SELECT `user_id` AS UserId, `family_id` AS SessionId FROM `user_remember_tokens` WHERE `token_hash` = @hash", new { hash = SecureToken.Hash(token) });
     }
 
-    public Task RevokeSession(string sessionId, CredentialScope scope) =>
+    public Task RevokeSession(string sessionId, CredentialScope scope) => RevokeSessionAt(sessionId, scope, _time.GetUtcNow());
+
+    private static Task RevokeSessionAt(string sessionId, CredentialScope scope, DateTimeOffset now) =>
         scope.Connection.ExecuteAsync("UPDATE `user_remember_tokens` SET `revoked_at` = @now WHERE `family_id` = @sessionId AND `revoked_at` IS NULL",
-            new { now = _time.GetUtcNow().UtcDateTime, sessionId }, scope.Transaction);
+            new { now = now.UtcDateTime, sessionId }, scope.Transaction);
 
     public async Task RevokeAll(int userId, CredentialScope? scope = null)
     {
@@ -133,7 +135,7 @@ public class RememberTokenStore : IRememberTokenStore
     private sealed class RememberRow
     {
         public string FamilyId { get; set; } = "";
-        public DateTimeOffset ExpiresAt { get; set; }
+        public DateTimeOffset? ExpiresAt { get; set; }
         public DateTimeOffset? UsedAt { get; set; }
         public int GraceUses { get; set; }
         public DateTimeOffset? RevokedAt { get; set; }

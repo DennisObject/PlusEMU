@@ -57,8 +57,14 @@ internal sealed class AuthTestDatabase : IDatabase
 internal sealed class ManualTime(DateTimeOffset start) : TimeProvider
 {
     public DateTimeOffset Now { get; set; } = start;
-    public override DateTimeOffset GetUtcNow() => Now;
+    public int Reads { get; private set; }
+    public override DateTimeOffset GetUtcNow()
+    {
+        Reads++;
+        return Now;
+    }
     public void Advance(TimeSpan by) => Now += by;
+    public void ResetReads() => Reads = 0;
 }
 
 internal static class AuthTestConfig
