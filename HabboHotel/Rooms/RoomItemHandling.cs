@@ -167,11 +167,16 @@ public class RoomItemHandling
             {
                 _room.GetGameMap().Navigation?.Inputs.Remove(previous);
                 _room.GetWired()?.DetachRoomItem(previous);
+                previous.Detach(_room);
             }
             _floorItems.Clear();
         }
         if (_wallItems.Count > 0)
+        {
+            foreach (var previous in _wallItems.Values) previous.Detach(_room);
             _wallItems.Clear();
+        }
+        foreach (var previous in _temporaryItems.Values) previous.Detach(_room);
         _temporaryItems.Clear();
         foreach (var item in items.ToList())
         {
@@ -863,6 +868,7 @@ public class RoomItemHandling
                 _room.SendPacket(new ItemRemoveComposer(item.Id, item.UserId));
             }
             session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item.ToInventoryItem())));
+            item.Detach(_room);
         }
         _rollers.Clear();
         _room.GetGameMap().GenerateMaps();
