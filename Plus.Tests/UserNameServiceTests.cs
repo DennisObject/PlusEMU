@@ -58,7 +58,7 @@ public sealed class UserNameServiceTests
 
         Assert.Equal("Dennis", context.Habbo.Username);
         Assert.Equal(previous, context.Habbo.LastNameChangedAt);
-        Assert.Equal(new[] { ("Dennis", "Renamed"), ("Renamed", "Dennis") }, context.ClientNames.Updates);
+        Assert.Equal(new[] { ("Dennis", "Renamed") }, context.ClientNames.Updates);
         Assert.Empty(context.Sent);
         Assert.Equal(1, context.Clock.Reads);
     }
@@ -106,15 +106,15 @@ public sealed class UserNameServiceTests
         manager.RegisterClient(first, 1, "Alpha");
         manager.RegisterClient(second, 2, "Taken");
 
-        Assert.False(manager.UpdateClientUsername(first, "Alpha", "Taken"));
+        Assert.False(manager.TryChangeClientUsername(first, "Alpha", "Taken", () => true));
         Assert.Same(first, manager.GetClientByUsername("ALPHA"));
         Assert.Same(second, manager.GetClientByUsername("taken"));
 
-        Assert.True(manager.UpdateClientUsername(first, "Alpha", "Available"));
+        Assert.True(manager.TryChangeClientUsername(first, "Alpha", "Available", () => true));
         Assert.Null(manager.GetClientByUsername("Alpha"));
         Assert.Same(first, manager.GetClientByUsername("available"));
 
-        Assert.True(manager.UpdateClientUsername(first, "Available", "Alpha"));
+        Assert.True(manager.TryChangeClientUsername(first, "Available", "Alpha", () => true));
         Assert.Same(first, manager.GetClientByUsername("alpha"));
         Assert.Null(manager.GetClientByUsername("available"));
         Assert.Same(second, manager.GetClientByUsername("taken"));
@@ -130,14 +130,48 @@ public sealed class UserNameServiceTests
         manager.RegisterClient(second, 2, "Beta");
 
         var results = await Task.WhenAll(
-            Task.Run(() => manager.UpdateClientUsername(first, "Alpha", "Target")),
-            Task.Run(() => manager.UpdateClientUsername(second, "Beta", "Target")));
+            Task.Run(() => manager.TryChangeClientUsername(first, "Alpha", "Target", () => true)),
+            Task.Run(() => manager.TryChangeClientUsername(second, "Beta", "Target", () => true)));
 
         Assert.Single(results.Where(result => result));
         var winner = manager.GetClientByUsername("target");
         Assert.True(ReferenceEquals(winner, first) || ReferenceEquals(winner, second));
         Assert.Equal(ReferenceEquals(winner, second), ReferenceEquals(manager.GetClientByUsername("alpha"), first));
         Assert.Equal(ReferenceEquals(winner, first), ReferenceEquals(manager.GetClientByUsername("beta"), second));
+    }
+
+    [Fact]
+    public async Task FailedPersistenceRetainsRegistrationAgainstConcurrentRegistration()
+    {
+        var manager = ClientManager();
+        var original = Client("Alpha");
+        var competing = Client("Alpha");
+        manager.RegisterClient(original, 1, "Alpha");
+        using var persistenceEntered = new ManualResetEventSlim();
+        using var finishPersistence = new ManualResetEventSlim();
+        using var registrationEntered = new ManualResetEventSlim();
+
+        var change = Task.Run(() => manager.TryChangeClientUsername(original, "Alpha", "Target", () =>
+        {
+            persistenceEntered.Set();
+            finishPersistence.Wait();
+            return false;
+        }));
+        Assert.True(persistenceEntered.Wait(TimeSpan.FromSeconds(5)));
+        var registration = Task.Run(() =>
+        {
+            registrationEntered.Set();
+            manager.RegisterClient(competing, 2, "Alpha");
+        });
+        Assert.True(registrationEntered.Wait(TimeSpan.FromSeconds(5)));
+        Assert.False(registration.IsCompleted);
+
+        finishPersistence.Set();
+        Assert.False(await change);
+        await registration;
+
+        Assert.Same(original, manager.GetClientByUsername("Alpha"));
+        Assert.Null(manager.GetClientByUsername("Target"));
     }
 
     [RoomComponentDatabaseFact]
@@ -276,10 +310,10 @@ public sealed class UserNameServiceTests
     private sealed class RecordingClientManager : IGameClientManager
     {
         public List<(string Old, string New)> Updates { get; } = [];
-        public bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername)
+        public bool TryChangeClientUsername(GameClient client, string oldUsername, string newUsername, Func<bool> persist)
         {
             Updates.Add((oldUsername, newUsername));
-            return true;
+            return persist();
         }
         public int Count => 0;
         public ICollection<GameClient> GetClients => [];

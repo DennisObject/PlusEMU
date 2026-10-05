@@ -260,7 +260,7 @@ public class HousekeepingActionTests
         public void SendPacket(IServerPacket packet, PermissionDefinition? permission = null) => Broadcasts.Add(packet);
         public void OnCycle() { }
         public bool TryGetClient(Guid clientId, out GameClient client) => throw new NotSupportedException();
-        public bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername) => throw new NotSupportedException();
+        public bool TryChangeClientUsername(GameClient client, string oldUsername, string newUsername, Func<bool> persist) => throw new NotSupportedException();
         public Task<string> GetNameById(int id) => throw new NotSupportedException();
         public IEnumerable<GameClient> GetClientsById(Dictionary<int, MessengerBuddy>.KeyCollection users) => throw new NotSupportedException();
         public void StaffAlert(IServerPacket message, int exclude = 0) => throw new NotSupportedException();

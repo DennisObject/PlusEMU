@@ -98,15 +98,15 @@ public sealed class UserNameService(
         if (!ReferenceEquals(habbo.CurrentRoom, room) ||
             room.GetRoomUserManager().GetRoomUserByHabbo(oldName) != roomUser)
             return;
-        if (!clients.UpdateClientUsername(session, oldName, newName))
+        var persistenceAttempted = false;
+        if (!clients.TryChangeClientUsername(session, oldName, newName, () =>
+            {
+                persistenceAttempted = true;
+                return Persist(habbo.Id, oldName, newName, changedAt, true);
+            }))
         {
-            session.SendNotification("Oops! An issue occoured whilst updating your username.");
-            return;
-        }
-        if (!Persist(habbo.Id, oldName, newName, changedAt, true))
-        {
-            if (!clients.UpdateClientUsername(session, newName, oldName))
-                logger.LogCritical("Failed to roll back client username reservation for user {UserId}", habbo.Id);
+            if (!persistenceAttempted)
+                session.SendNotification("Oops! An issue occoured whilst updating your username.");
             return;
         }
 

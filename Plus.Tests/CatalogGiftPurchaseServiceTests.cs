@@ -245,7 +245,7 @@ public sealed class CatalogGiftPurchaseServiceTests
         public ICollection<GameClient> GetClients => new[] { sender, recipient };
         public void OnCycle() { }
         public bool TryGetClient(Guid clientId, out GameClient? client) { client = null; return false; }
-        public bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername) => false;
+        public bool TryChangeClientUsername(GameClient client, string oldUsername, string newUsername, Func<bool> persist) => false;
         public Task<string> GetNameById(int id) => Task.FromResult(string.Empty);
         public IEnumerable<GameClient> GetClientsById(Dictionary<int, Plus.HabboHotel.Users.Messenger.MessengerBuddy>.KeyCollection users) => Array.Empty<GameClient>();
         public void StaffAlert(Plus.Communication.Packets.IServerPacket message, int exclude = 0) { }
