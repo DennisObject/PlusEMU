@@ -238,9 +238,16 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         var acceptor = Habbo(9901, MessengerFor(requests: [new MessengerRequest { FromId = 9902, ToId = 9901 }]));
 
         var accept = service.AcceptRequestAsync(acceptor, 9902);
-        await Task.Delay(200);
-        Assert.False(accept.IsCompleted);
-        held.Dispose();
+        try
+        {
+            await Task.Delay(200);
+            Assert.False(accept.IsCompleted);
+        }
+        finally
+        {
+            held.Dispose();
+            try { await accept.WaitAsync(TimeSpan.FromSeconds(30)); } catch (Exception) { }
+        }
 
         Assert.Null(await accept.WaitAsync(TimeSpan.FromSeconds(30)));
     }
