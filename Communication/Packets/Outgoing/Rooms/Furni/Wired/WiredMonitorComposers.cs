@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Plus.Communication.Packets.Outgoing.WiredVariables;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
@@ -12,20 +13,21 @@ namespace Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
 /// </summary>
 public sealed class WiredMonitorDataComposer(WiredMonitorSnapshot snapshot) : IServerPacket
 {
+    private readonly WiredMonitorSnapshot _captured = snapshot with { Logs = snapshot.Logs with { Tallies = snapshot.Logs.Tallies.ToImmutableArray(), Recent = snapshot.Logs.Recent.ToImmutableArray() } };
     public uint MessageId => ServerPacketHeader.WiredMonitorDataComposer;
     public void Compose(IOutgoingPacket packet)
     {
-        var engine = snapshot.Engine;
-        packet.WriteInteger(engine.PeakExecutions); packet.WriteInteger(snapshot.ExecutionsPerPass);
+        var engine = _captured.Engine;
+        packet.WriteInteger(engine.PeakExecutions); packet.WriteInteger(_captured.ExecutionsPerPass);
         packet.WriteBoolean(false);
-        packet.WriteInteger(engine.Pending); packet.WriteInteger(snapshot.PendingLimit);
+        packet.WriteInteger(engine.Pending); packet.WriteInteger(_captured.PendingLimit);
         packet.WriteInteger(engine.AverageMs); packet.WriteInteger(engine.PeakMs);
-        packet.WriteInteger(engine.PeakDepth); packet.WriteInteger(snapshot.DepthLimit);
+        packet.WriteInteger(engine.PeakDepth); packet.WriteInteger(_captured.DepthLimit);
         packet.WriteInteger(0);
         packet.WriteInteger(engine.WindowMs);
         for (var threshold = 0; threshold < 6; threshold++) packet.WriteInteger(0);
-        packet.WriteInteger(snapshot.Logs.Tallies.Count);
-        foreach (var tally in snapshot.Logs.Tallies)
+        packet.WriteInteger(_captured.Logs.Tallies.Count);
+        foreach (var tally in _captured.Logs.Tallies)
         {
             var latest = tally.Latest;
             packet.WriteString(WiredRoomLogEntry.TypeName(tally.Source));
@@ -35,8 +37,8 @@ public sealed class WiredMonitorDataComposer(WiredMonitorSnapshot snapshot) : IS
             packet.WriteString(latest?.Reason ?? ""); packet.WriteString(latest?.Label ?? "");
             packet.WriteInteger(unchecked((int)(latest?.BoxId ?? 0)));
         }
-        packet.WriteInteger(snapshot.Logs.Recent.Count);
-        foreach (var entry in snapshot.Logs.Recent)
+        packet.WriteInteger(_captured.Logs.Recent.Count);
+        foreach (var entry in _captured.Logs.Recent)
         {
             packet.WriteString(WiredRoomLogEntry.TypeName(entry.Source)); packet.WriteString(WiredRoomLogEntry.LevelName(entry.Level));
             packet.WriteInteger(Seconds(entry));
@@ -49,12 +51,13 @@ public sealed class WiredMonitorDataComposer(WiredMonitorSnapshot snapshot) : IS
 /// <summary>Official AIR <c>WiredLogPage</c>: a 1-based page of the room log and the filters that produced it.</summary>
 public sealed class WiredRoomLogPageComposer(WiredRoomLogPage page, int levelFilter, int sourceFilter, string query) : IServerPacket
 {
+    private readonly WiredRoomLogPage _captured = page with { Entries = page.Entries.ToImmutableArray() };
     public uint MessageId => ServerPacketHeader.WiredRoomLogPageComposer;
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(page.Total); packet.WriteInteger(page.Page + 1); packet.WriteInteger(page.Amount);
-        packet.WriteInteger(page.Entries.Count);
-        foreach (var entry in page.Entries)
+        packet.WriteInteger(_captured.Total); packet.WriteInteger(_captured.Page + 1); packet.WriteInteger(_captured.Amount);
+        packet.WriteInteger(_captured.Entries.Count);
+        foreach (var entry in _captured.Entries)
         {
             packet.WriteInteger(unchecked((int)(entry.Id >> 32))); packet.WriteInteger(unchecked((int)entry.Id));
             packet.WriteByte((byte)entry.Level); packet.WriteByte((byte)entry.Source);

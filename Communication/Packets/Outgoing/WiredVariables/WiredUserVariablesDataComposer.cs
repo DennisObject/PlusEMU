@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Variables;
 
@@ -7,18 +8,23 @@ namespace Plus.Communication.Packets.Outgoing.WiredVariables;
 /// <summary>Legacy editor snapshot of live room assignments; offline holders are available through the paged protocol.</summary>
 public sealed class WiredUserVariablesDataComposer(WiredVariableMenuSnapshot snapshot) : IServerPacket
 {
+    private readonly WiredVariableMenuSnapshot _captured = snapshot with
+    {
+        Definitions = snapshot.Definitions.Select(WiredVariableWireCapture.Capture).ToImmutableArray(),
+        Assignments = snapshot.Assignments.ToImmutableArray()
+    };
     public uint MessageId => ServerPacketHeader.WiredUserVariablesDataComposer;
     public void Compose(IOutgoingPacket packet)
     {
-        var definitions = snapshot.Definitions.ToDictionary(x => x.Definition.ItemId);
-        packet.WriteUInteger(snapshot.RoomId);
+        var definitions = _captured.Definitions.ToDictionary(x => x.Definition.ItemId);
+        packet.WriteUInteger(_captured.RoomId);
         WriteDefinitions(WiredVariableTarget.User); WriteHolders(WiredVariableTarget.User);
         WriteDefinitions(WiredVariableTarget.Furni); WriteHolders(WiredVariableTarget.Furni);
         WriteDefinitions(WiredVariableTarget.Global);
-        var globals = snapshot.Assignments.Where(x => x.Key.Target == WiredVariableTarget.Global).ToArray();
+        var globals = _captured.Assignments.Where(x => x.Key.Target == WiredVariableTarget.Global).ToArray();
         packet.WriteInteger(globals.Length); foreach (var value in globals) WriteAssignment(value);
         WriteDefinitions(WiredVariableTarget.Context);
-        var connectors = snapshot.Definitions.Where(x => x.TextConnector.Count > 0).Select(x => new
+        var connectors = _captured.Definitions.Where(x => x.TextConnector.Count > 0).Select(x => new
         {
             itemId = x.Definition.ItemId,
             variableType = x.Definition.Target switch { WiredVariableTarget.Furni => 0, WiredVariableTarget.Global => 1, WiredVariableTarget.User => 2, _ => 3 },
@@ -28,7 +34,7 @@ public sealed class WiredUserVariablesDataComposer(WiredVariableMenuSnapshot sna
 
         void WriteDefinitions(WiredVariableTarget target)
         {
-            var selected = snapshot.Definitions.Where(x => x.Definition.Target == target).ToArray();
+            var selected = _captured.Definitions.Where(x => x.Definition.Target == target).ToArray();
             packet.WriteInteger(selected.Length);
             foreach (var variable in selected)
             {
@@ -38,7 +44,7 @@ public sealed class WiredUserVariablesDataComposer(WiredVariableMenuSnapshot sna
         }
         void WriteHolders(WiredVariableTarget target)
         {
-            var groups = snapshot.Assignments.Where(x => x.Key.Target == target).GroupBy(x => x.Key.HolderId).OrderBy(x => x.Key).ToArray();
+            var groups = _captured.Assignments.Where(x => x.Key.Target == target).GroupBy(x => x.Key.HolderId).OrderBy(x => x.Key).ToArray();
             packet.WriteInteger(groups.Length);
             foreach (var group in groups)
             {
