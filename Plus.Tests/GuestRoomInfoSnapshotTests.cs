@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Plus.Communication.Packets.Incoming.Navigator;
 using Plus.Communication.Packets.Outgoing;
@@ -102,6 +103,18 @@ public sealed class GuestRoomInfoSnapshotTests
         Assert.Single(sent);
     }
 
+    [Fact]
+    public void GuestServiceReturnsNoSnapshotWhenInjectedRoomLookupMisses()
+    {
+        var rooms = new MissingRoomDataLoader();
+
+        var snapshot = new GuestRoomInfoService(rooms, TimeProvider.System)
+            .Capture(404, new Habbo { Id = 7, Username = "viewer" }, true, true);
+
+        Assert.Null(snapshot);
+        Assert.Equal(404u, rooms.RequestedRoomId);
+    }
+
     private static RoomData RoomData(bool hasGroup, bool hasPromotion)
     {
         var data = new RoomData
@@ -164,5 +177,19 @@ public sealed class GuestRoomInfoSnapshotTests
             Reads++;
             return now;
         }
+    }
+
+    private sealed class MissingRoomDataLoader : IRoomDataLoader
+    {
+        public uint RequestedRoomId { get; private set; }
+
+        public bool TryGetData(uint roomId, [NotNullWhen(true)] out RoomData? data)
+        {
+            RequestedRoomId = roomId;
+            data = null;
+            return false;
+        }
+
+        public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId) => throw new NotSupportedException();
     }
 }

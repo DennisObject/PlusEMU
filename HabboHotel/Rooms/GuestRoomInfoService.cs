@@ -40,11 +40,11 @@ public interface IGuestRoomInfoService
     GuestRoomInfoSnapshot? Capture(uint roomId, Habbo viewer, bool isLoading, bool checkEntry);
 }
 
-public sealed class GuestRoomInfoService(TimeProvider clock) : IGuestRoomInfoService
+public sealed class GuestRoomInfoService(IRoomDataLoader rooms, TimeProvider clock) : IGuestRoomInfoService
 {
     public GuestRoomInfoSnapshot? Capture(uint roomId, Habbo viewer, bool isLoading, bool checkEntry)
     {
-        if (!RoomFactory.TryGetData(roomId, out var data))
+        if (!rooms.TryGetData(roomId, out var data))
             return null;
 
         return Capture(data, viewer, isLoading, checkEntry, clock);
