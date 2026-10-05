@@ -1,22 +1,23 @@
-﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.LandingView.Promotions;
+﻿using System.Collections.Immutable;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.LandingView;
 
 namespace Plus.Communication.Packets.Outgoing.LandingView;
 
 public class PromoArticlesComposer : IServerPacket
 {
-    private readonly ICollection<Promotion> _landingPromotions;
+    private readonly ImmutableArray<LandingPromotionSnapshot> _landingPromotions;
     public uint MessageId => ServerPacketHeader.PromoArticlesComposer;
 
-    public PromoArticlesComposer(ICollection<Promotion> landingPromotions)
+    public PromoArticlesComposer(ImmutableArray<LandingPromotionSnapshot> landingPromotions)
     {
         _landingPromotions = landingPromotions;
     }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_landingPromotions.Count); //Count
-        foreach (var promotion in _landingPromotions.ToList())
+        packet.WriteInteger(_landingPromotions.Length); //Count
+        foreach (var promotion in _landingPromotions)
         {
             packet.WriteInteger(promotion.Id); //ID
             packet.WriteString(promotion.Title); //Title
