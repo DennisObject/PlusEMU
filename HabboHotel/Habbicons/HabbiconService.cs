@@ -188,11 +188,11 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
         {
             var item = Load(connection, userId, transaction).Items.GetValueOrDefault(id);
             if (item == null || !item.Owned) return false;
-            Save(connection, transaction, userId, id, item.State, false);
             var previous = connection.QuerySingle<DateTimeOffset?>(
                 "SELECT MAX(last_used) FROM users_habbicons WHERE user_id = @userId",
                 new { userId }, transaction);
             var lastUsed = NextUsageTime(now, previous);
+            Save(connection, transaction, userId, id, item.State, false);
             connection.Execute(
                 "UPDATE users_habbicons SET last_used = @lastUsed WHERE user_id = @userId AND habbicon_id = @id",
                 new { lastUsed = lastUsed.UtcDateTime, userId, id }, transaction);
