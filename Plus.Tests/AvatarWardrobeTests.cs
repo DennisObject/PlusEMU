@@ -186,6 +186,59 @@ public class AvatarWardrobeTests
         });
     }
 
+    [WardrobeDatabaseFact]
+    public async Task MissingAccountSaveWritesNothingThroughTheProductionStore()
+    {
+        await WithSchema(async connectionString =>
+        {
+            var store = new AvatarWardrobeStore(new HabbiconDatabaseTests.TestDatabase(connectionString));
+
+            Assert.Throws<InvalidOperationException>(() => store.SaveSlot(99, 1, "orphan", "m"));
+
+            using var connection = new MySqlConnection(connectionString);
+            connection.Open();
+            Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_wardrobe"));
+        });
+    }
+
+    [WardrobeDatabaseFact]
+    public async Task ConcurrentSameSlotSavesYieldOneRowWithoutAUniqueKey()
+    {
+        await WithSchema(async connectionString =>
+        {
+            var database = new HabbiconDatabaseTests.TestDatabase(connectionString);
+            var store = new AvatarWardrobeStore(database);
+
+            await Task.WhenAll(Enumerable.Range(0, 8).Select(index => Task.Run(() => store.SaveSlot(7, 5, $"look{index}", "m"))));
+
+            using var connection = new MySqlConnection(connectionString);
+            connection.Open();
+            Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_wardrobe WHERE user_id = 7 AND slot_id = 5"));
+            Assert.Equal("M", connection.ExecuteScalar<string>("SELECT gender FROM user_wardrobe WHERE user_id = 7 AND slot_id = 5"));
+        });
+    }
+
+    [WardrobeDatabaseFact]
+    public async Task ExistingDuplicateRowsAreUpdatedTogetherAndNotMerged()
+    {
+        await WithSchema(async connectionString =>
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                connection.Open();
+                connection.Execute("INSERT INTO user_wardrobe (user_id, slot_id, look, gender) VALUES (7, 6, 'old-a', 'M'), (7, 6, 'old-b', 'M')");
+            }
+            var store = new AvatarWardrobeStore(new HabbiconDatabaseTests.TestDatabase(connectionString));
+
+            store.SaveSlot(7, 6, "new", "f");
+
+            using var verify = new MySqlConnection(connectionString);
+            verify.Open();
+            Assert.Equal(2, verify.ExecuteScalar<int>("SELECT COUNT(*) FROM user_wardrobe WHERE user_id = 7 AND slot_id = 6"));
+            Assert.Equal(2, verify.ExecuteScalar<int>("SELECT COUNT(*) FROM user_wardrobe WHERE user_id = 7 AND slot_id = 6 AND look = 'new' AND gender = 'F'"));
+        });
+    }
+
     private static IUserDataFactory UserDataExists(bool exists) =>
         CatalogSnapshotTestSupport.Proxy<IUserDataFactory>((_, _) => Task.FromResult(exists));
 

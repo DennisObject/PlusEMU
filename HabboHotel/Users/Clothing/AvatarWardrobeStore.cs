@@ -25,7 +25,10 @@ public sealed class AvatarWardrobeStore(IDatabase database) : IAvatarWardrobeSto
         connection.Open();
         using var transaction = connection.BeginTransaction();
         // The account row lock serializes saves for one user. user_wardrobe has no unique key, so the existence check is only safe under this lock.
-        connection.Query<int>("SELECT `id` FROM `users` WHERE `id` = @userId FOR UPDATE", new { userId }, transaction);
+        // A missing account is refused before any slot is read or written, so no orphan wardrobe row can be created.
+        var accounts = connection.Query<int>("SELECT `id` FROM `users` WHERE `id` = @userId FOR UPDATE", new { userId }, transaction).ToList();
+        if (accounts.Count != 1)
+            throw new InvalidOperationException($"Wardrobe save requires exactly one account row for user {userId}.");
         bool exists = connection.Query<int>("SELECT `id` FROM `user_wardrobe` WHERE `user_id` = @userId AND `slot_id` = @slotId FOR UPDATE", new { userId, slotId }, transaction).Any();
         if (exists)
             connection.Execute("UPDATE `user_wardrobe` SET `look` = @look, `gender` = @gender WHERE `user_id` = @userId AND `slot_id` = @slotId", new { userId, slotId, look, gender }, transaction);
