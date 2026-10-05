@@ -203,6 +203,35 @@ public partial class PlacedFurniRoomTests
         Assert.Null(RoomOf(bot));
     }
 
+    [Fact]
+    public void DetachedAndDisposedManagerBotsAreNeverAdmittedForMovement()
+    {
+        var manager = _room.GetRoomUserManager();
+        var detached = new RoomUser(0, RoomId, 71, _room, null)
+        {
+            InternalRoomId = 71,
+            BotData = Bot(BotAiType.Generic, 71)
+        };
+        detached.Dispose();
+        _client.Sent.Clear();
+
+        Assert.False(manager.ValidateMovementActor(detached));
+        Assert.Empty(_client.Sent);
+
+        var oldBot = new RoomUser(0, RoomId, 72, _room, null)
+        {
+            InternalRoomId = 72,
+            BotData = Bot(BotAiType.Generic, 72)
+        };
+        Users(manager)[72] = oldBot;
+        manager.Dispose();
+        _client.Sent.Clear();
+
+        Assert.False(manager.ValidateMovementActor(oldBot));
+        Assert.Empty(_client.Sent);
+        Assert.Null(RoomOf(oldBot));
+    }
+
     private static ConcurrentDictionary<int, RoomUser> Users(RoomUserManager manager) =>
         (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;

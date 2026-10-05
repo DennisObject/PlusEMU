@@ -666,13 +666,15 @@ public class RoomUserManager
 
     private bool IsValid(RoomUser? user)
     {
-        if (user == null) return false;
+        if (user == null || _disposed || !user.IsAttachedTo(_room)) return false;
         if (user.IsBot) return true;
         return user.GetClient()?.GetHabbo()?.CurrentRoom == _room;
     }
 
     internal bool ValidateMovementActor(RoomUser actor)
     {
+        if (_disposed)
+            return false;
         if (IsValid(actor) && !actor.NeedsAutokick) return true;
         var client = actor.GetClient();
         if (client?.GetHabbo()?.CurrentRoom == _room) RemoveUserFromRoom(client, true);

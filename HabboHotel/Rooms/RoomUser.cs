@@ -598,5 +598,7 @@ public class RoomUser
 
     public GameClient? GetClient() => IsBot ? null : _mClient;
 
+    internal bool IsAttachedTo(Room room) => ReferenceEquals(_mRoom, room);
+
     private Room? GetRoom() => _mRoom;
 }
