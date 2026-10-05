@@ -206,7 +206,7 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
                 _questManager.ProgressUserQuest(session, QuestType.GiftOthers);
             }
         }
-        session.Send(new PurchaseOKComposer(item, presentData));
+        session.Send(new PurchaseOKComposer(CatalogPurchaseConfirmation.Capture(item, presentData)));
         if (item.CostCredits > 0) session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
         if (item.CostPixels > 0) session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, -item.CostPixels));
         if (item.CostDiamonds > 0) session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, -item.CostDiamonds, 5));

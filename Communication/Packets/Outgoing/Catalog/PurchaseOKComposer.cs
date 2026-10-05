@@ -1,48 +1,41 @@
 ﻿using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Items;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog;
 
 public class PurchaseOKComposer : IServerPacket
 {
-    private readonly CatalogItem? _item;
-    private readonly ItemDefinition? _baseItem;
+    private readonly CatalogPurchaseConfirmation? _confirmation;
     public uint MessageId => ServerPacketHeader.PurchaseOKComposer;
 
-    public PurchaseOKComposer()
+    public PurchaseOKComposer(CatalogPurchaseConfirmation? confirmation = null)
     {
-    }
-
-    public PurchaseOKComposer(CatalogItem item, ItemDefinition baseItem)
-    {
-        _item = item;
-        _baseItem = baseItem;
+        _confirmation = confirmation;
     }
 
     public void Compose(IOutgoingPacket packet)
     {
-        if (_item != null && _baseItem != null)
+        if (_confirmation != null)
         {
 
-            packet.WriteUInteger(_baseItem.Id);
-            packet.WriteString(_baseItem.ItemName);
+            packet.WriteUInteger(_confirmation.Id);
+            packet.WriteString(_confirmation.Name);
             packet.WriteBoolean(false);
-            packet.WriteInteger(_item.CostCredits);
-            packet.WriteInteger(_item.CostPixels);
+            packet.WriteInteger(_confirmation.Credits);
+            packet.WriteInteger(_confirmation.Points);
             packet.WriteInteger(0);
             packet.WriteBoolean(true);
             packet.WriteInteger(1);
-            packet.WriteString(_baseItem.ProductType);
-            if (_baseItem.ProductType == "b")
+            packet.WriteString(_confirmation.ProductType);
+            if (_confirmation.ProductType == "b")
             {
-                packet.WriteString(_baseItem.ItemName);
+                packet.WriteString(_confirmation.Name);
                 packet.WriteInteger(0);
                 packet.WriteBoolean(false);
             }
             else
             {
-                packet.WriteInteger(_baseItem.SpriteId);
+                packet.WriteInteger(_confirmation.SpriteId);
                 packet.WriteString("");
                 packet.WriteInteger(1);
                 packet.WriteInteger(0);

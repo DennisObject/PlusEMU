@@ -382,7 +382,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                     session.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(session.GetHabbo().Inventory.Pets.Pets.Values.ToList())));
                     if (_itemManager.Items.TryGetValue(320, out var petFood))
                     {
-                        var food = _itemFactory.CreateSingleItemNullable(petFood, session.GetHabbo(), "", "").ToInventoryItem();
+                        var food = _itemFactory.CreateSingleItemNullable(petFood, session.GetHabbo(), "", "")?.ToInventoryItem();
                         if (food != null)
                         {
                             session.GetHabbo().Inventory.Furniture.AddItem(food);
@@ -398,7 +398,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
             _badgeManager.Badges.TryGetValue(item.Badge, out var badge) &&
             (string.IsNullOrEmpty(badge.RequiredRight) || session.GetHabbo().Access.Can(badge.RequiredRight)))
             await _badgeManager.GiveBadge(session.GetHabbo(), badge.Code);
-        session.Send(new PurchaseOKComposer(item, item.Definition));
+        session.Send(new PurchaseOKComposer(CatalogPurchaseConfirmation.Capture(item, item.Definition)));
         session.Send(new FurniListUpdateComposer());
     }
 
