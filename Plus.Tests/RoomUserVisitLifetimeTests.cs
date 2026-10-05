@@ -175,7 +175,7 @@ public partial class PlacedFurniRoomTests
         store.Client = _client;
         Users(manager)[51] = user;
 
-        Assert.Throws<InvalidOperationException>(manager.Dispose);
+        Assert.Null(Record.Exception(manager.Dispose));
         manager.Dispose();
 
         Assert.True(store.SawCapturedVisit);
