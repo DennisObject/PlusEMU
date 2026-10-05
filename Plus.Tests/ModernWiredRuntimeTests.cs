@@ -725,7 +725,7 @@ public class ModernWiredRuntimeTests
         public readonly WiredStackEngine Engine; public readonly List<Exception> Errors = [];
         public IItemDataManager? DefinitionManager;
         private readonly object? _originalGame; private long _now;
-        public TeleportFixture(int cap = 100)
+        public TeleportFixture(int cap = 100, IDatabase? database = null)
         {
             (Room, _, Items) = World();
             var gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
@@ -744,7 +744,9 @@ public class ModernWiredRuntimeTests
             Habbo.Effects.CurrentEffect = 8; client.SetHabbo(Habbo); clients.RegisterClient(client, 1, "Alice");
             User = new(1, 0, 7, Room); RoomUsers(Room)[7] = User;
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
-            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance);
+            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance,
+                database == null ? TestWiredConfigurationStore.Instance : new WiredConfigurationStore(database),
+                database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
@@ -1322,10 +1324,10 @@ public class ModernWiredRuntimeTests
     [WiredVariableDatabaseFact]
     public void ActualSnapshotSpawnGivesTwoEphemeralVariablesAndDetachesWithoutDurableValues()
     {
-        using var f = new TeleportFixture();
-        var connectionString = ModernWiredDatabaseProbe.GuardedConnectionString(); using var admin = new MySqlConnection(connectionString); admin.Open();
+        var connectionString = ModernWiredDatabaseProbe.GuardedConnectionString();
+        using var f = new TeleportFixture(database: new ModernWiredDatabaseProbe.ProbeDatabase(connectionString));
+        using var admin = new MySqlConnection(connectionString); admin.Open();
         var userId = 0u; var roomId = 0u; var variableId = 0u; var operandId = 0u;
-        var dbField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!; var original = dbField.GetValue(null);
         try
         {
             var suffix = "WT" + Guid.NewGuid().ToString("N")[..10];
@@ -1338,7 +1340,6 @@ public class ModernWiredRuntimeTests
             f.Target.Definition.Stackable = true;
             var definition = MakeItem(baseId, "probe").Definition; definition.Id = baseId; definition.Stackable = true;
             var definitions = DispatchProxy.Create<IItemDataManager, RecordingProxy>(); ((RecordingProxy)(object)definitions).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [baseId] = definition } : null; f.DefinitionManager = definitions;
-            dbField.SetValue(null, new ModernWiredDatabaseProbe.ProbeDatabase(connectionString));
             var spawnId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
             var loadedRows = new DataTable();
             using (var reader = admin.ExecuteReader("SELECT items.*,users.username FROM items JOIN users ON users.id=items.user_id WHERE items.id=@spawnId", new { spawnId }))
@@ -1349,7 +1350,7 @@ public class ModernWiredRuntimeTests
             var removals = new List<byte[]>();
             f.Habbo.Client.SendCallback = args =>
             {
-                var packet = args.MemoryBuffer.ToArray();
+                var packet = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
                 if (FlashGameClient.DecodeInt16(packet.AsMemory(4, 2)) == ServerPacketHeader.ObjectRemoveComposer) removals.Add(packet);
                 return true;
             };
@@ -1394,7 +1395,7 @@ public class ModernWiredRuntimeTests
         }
         finally
         {
-            f.Engine.Clear(); dbField.SetValue(null, original);
+            f.Engine.Clear();
             admin.Execute("DELETE FROM wired_variable_values WHERE definition_id=@variableId", new { variableId });
             admin.Execute("DELETE FROM wired_item_configurations WHERE item_id IN (@variableId,@operandId)", new { variableId, operandId });
             admin.Execute("DELETE FROM items WHERE user_id=@userId", new { userId });

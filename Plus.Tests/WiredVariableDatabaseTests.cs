@@ -178,6 +178,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             Assert.Equal(new uint[] { 9476 }, sentFx);
             output.WriteLine("Actual room FX binding/composition: initial configs/status, unchanged flush zero SQL, enqueue-failure retry, and moved-off-variable removal passed.");
             // Exercise production readiness and cycle entry with the same actual SQL module, not FlushFx directly.
+            TestRoomUserSnapshots.Install(liveRoom);
             roomVariables.Fx.RemoveViewer(fxPlayer.Id); // End the preceding module-only simulated viewer session.
             var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, nativeWired);
