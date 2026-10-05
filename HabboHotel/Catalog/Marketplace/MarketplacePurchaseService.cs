@@ -4,6 +4,7 @@ using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.Communication.Packets.Outgoing.Marketplace;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Catalog.Marketplace;
@@ -21,8 +22,8 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
     private const double OfferLifetimeSeconds = 172800;
 
     // One lock for every buyer's sale record: the averages and the sale-stat rows (which have no unique sprite key) update here only.
-    // Lock order is always buyer WalletSync, then this lock.
-    private readonly object _sales = new();
+    // Static so every instance shares it, whatever the DI lifetime. Lock order is always buyer WalletSync, then this lock.
+    private static readonly object Sales = new();
 
     public MarketplacePurchaseOutcome Buy(GameClient session, int offerId)
     {
@@ -33,12 +34,13 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
             if (habbo.WalletClosed) return MarketplacePurchaseOutcome.WalletClosed;
             var listedBefore = time.GetUtcNow().UtcDateTime.AddSeconds(-OfferLifetimeSeconds);
             MarketplacePurchaseResult result;
-            lock (_sales)
+            lock (Sales)
             {
                 result = store.Claim(new MarketplacePurchaseRequest(offerId, habbo.Id, habbo.Credits, listedBefore,
-                    itemId => items.Items.TryGetValue(itemId, out var definition) ? definition : null));
+                    itemId => items.Items.TryGetValue(itemId, out var definition) ? definition : null,
+                    delivery => PrepareDelivery(habbo, delivery)));
                 if (result.Offer is { } sale)
-                    RecordAverage(sale.Definition.SpriteId, sale.TotalPrice);
+                    RecordAverage(sale.SpriteId, sale.TotalPrice);
             }
             if (result.Refusal is { } refusal)
             {
@@ -48,26 +50,30 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
             }
             var claim = result.Offer!;
 
+            // The item was built before the commit; charging and handing it over cannot fail.
             habbo.Credits -= claim.TotalPrice;
             session.Send(new CreditBalanceComposer(habbo.Credits));
-            var giveItem = new Item
-            {
-                Id = claim.FurniId, OwnerId = (uint)habbo.Id, Definition = claim.Definition,
-                ExtraData = FurniExtraData.Load(claim.Definition, claim.ExtraData, keepLegacy: true),
-                UniqueNumber = claim.LimitedNumber, UniqueSeries = claim.LimitedStack,
-            }.ToInventoryItem();
-            if (giveItem != null)
-            {
-                habbo.Inventory.Furniture.AddItem(giveItem);
-                session.Send(new FurniListNotificationComposer(giveItem.Id, 1));
-                session.Send(new PurchaseOKComposer());
-                session.Send(new FurniListAddComposer(giveItem));
-                session.Send(new FurniListUpdateComposer());
-            }
+            habbo.Inventory.Furniture.AddItem(claim.Delivery);
+            session.Send(new FurniListNotificationComposer(claim.Delivery.Id, 1));
+            session.Send(new PurchaseOKComposer());
+            session.Send(new FurniListAddComposer(claim.Delivery));
+            session.Send(new FurniListUpdateComposer());
             outcome = MarketplacePurchaseOutcome.Bought;
         }
         Publish(session, outcome);
         return outcome;
+    }
+
+    // Runs inside the claim, before its first write: a furni that cannot be built aborts the purchase with nothing charged or sold.
+    private static InventoryItem PrepareDelivery(Habbo habbo, MarketplaceDelivery delivery)
+    {
+        var item = new Item
+        {
+            Id = delivery.FurniId, OwnerId = (uint)habbo.Id, Definition = delivery.Definition,
+            ExtraData = FurniExtraData.Load(delivery.Definition, delivery.ExtraData, keepLegacy: true),
+            UniqueNumber = delivery.LimitedNumber, UniqueSeries = delivery.LimitedStack,
+        };
+        return item.ToInventoryItem() ?? throw new InvalidOperationException($"Furni {delivery.FurniId} could not be built for delivery; nothing was charged.");
     }
 
     private void RecordAverage(int spriteId, int totalPrice)

@@ -4,6 +4,7 @@ using Plus.Communication.Packets.Incoming.Marketplace;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Catalog.Marketplace;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Inventory;
 using Plus.HabboHotel.Users.Inventory.Furniture;
@@ -118,7 +119,7 @@ public class MarketplacePurchaseTests
     private static IMarketplaceOfferSearchService Search() => CatalogSnapshotTestSupport.Proxy<IMarketplaceOfferSearchService>((method, _) =>
         method == "Search" ? new MarketplaceOffersSnapshot([]) : throw new InvalidOperationException(method));
 
-    private static MarketplaceClaimedOffer Claim() => new(101, 77, 900, "", 0, 0, Definition());
+    private static MarketplaceClaimedOffer Claim() => new(101, 55, new InventoryItem { Id = 77, OwnerId = 8, Definition = Definition(), ExtraData = FurniObjectData.Empty });
 
     private static ItemDefinition Definition() => new() { Id = 900, SpriteId = 55, PublicName = "Probe", ItemName = "probe", Type = ItemType.Floor, AllowTrade = true, AllowMarketplaceSell = true };
 

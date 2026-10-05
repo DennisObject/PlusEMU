@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using System.Text.RegularExpressions;
 using System.Reflection;
 using System.Text;
 using Dapper;
@@ -104,17 +103,33 @@ public sealed class MarketplaceDatabaseTests
     }
 
     [MarketplaceDatabaseFact]
+    public void OwnOffersClampFarFutureMinutesToTheWireRange()
+    {
+        Insert(1, sprite: 100, asking: 50, total: 55, state: "1", timestamp: DateTimeOffset.FromUnixTimeSeconds(253402300799).ToUnixTimeSeconds(), seller: SellerId);
+        var manager = new MarketplaceManager(new MySqlDatabase(_connectionString), ItemData(), CatalogSnapshotTestSupport.Proxy<IItemFactory>((method, _) => throw new InvalidOperationException(method)), new FixedClock(Now));
+
+        var own = manager.OwnOffers(SellerId);
+
+        Assert.Equal(int.MaxValue, Assert.Single(own.Offers).MinutesRemaining);
+        Assert.Equal(1, Assert.Single(own.Offers).State);
+    }
+
+    [MarketplaceDatabaseFact]
     public void StagedMigrationConvertsLegacyEpochsAndKeepsZeroAndNegativeUnknown()
     {
         var table = "probe_legacy_offers";
-        var ddl = Regex.Match(File.ReadAllText(Path.Combine(RepositoryRoot(), "Resources", "SQLs", "Original Database.sql")),
-            "CREATE TABLE `catalog_marketplace_offers`.*?ENGINE=[^;]*;", RegexOptions.Singleline).Value.Replace("`catalog_marketplace_offers`", $"`{table}`");
+        // The table as it was before migration 25; the pristine schema now already has listed_at.
+        var ddl = $"CREATE TABLE `{table}` (`offer_id` int(10) unsigned NOT NULL AUTO_INCREMENT, `item_id` int(10) unsigned NOT NULL, `user_id` int(10) unsigned NOT NULL, " +
+            "`asking_price` int(11) NOT NULL, `total_price` int(11) NOT NULL DEFAULT '0', `public_name` text NOT NULL, `sprite_id` int(11) NOT NULL, " +
+            "`item_type` enum('1','2') NOT NULL DEFAULT '1', `timestamp` double NOT NULL, `state` enum('1','2') NOT NULL DEFAULT '1', `extra_data` text NOT NULL, " +
+            "`furni_id` int(10) unsigned NOT NULL, `limited_number` int(11) NOT NULL DEFAULT '0', `limited_stack` int(11) NOT NULL DEFAULT '0', PRIMARY KEY (`offer_id`)) ENGINE=InnoDB DEFAULT CHARSET=latin1";
         using (var connection = new MySqlConnection(_connectionString))
         {
             connection.Execute($"DROP TABLE IF EXISTS `{table}`");
             connection.Execute(ddl);
             connection.Execute($"INSERT INTO `{table}` (`offer_id`,`item_id`,`user_id`,`asking_price`,`total_price`,`public_name`,`sprite_id`,`item_type`,`timestamp`,`extra_data`,`limited_number`,`limited_stack`,`furni_id`,`state`) VALUES " +
-                "(1,900,7,1,1,'p',1,'1',0,'',0,0,1,'1'), (2,900,7,1,1,'p',1,'1',-1,'',0,0,2,'1'), (3,900,7,1,1,'p',1,'1',1700000000,'',0,0,3,'1'), (4,900,7,1,1,'p',1,'1',2200000000,'',0,0,4,'1')");
+                "(1,900,7,1,1,'p',1,'1',0,'',0,0,1,'1'), (2,900,7,1,1,'p',1,'1',-1,'',0,0,2,'1'), (3,900,7,1,1,'p',1,'1',1700000000,'',0,0,3,'1'), (4,900,7,1,1,'p',1,'1',2200000000,'',0,0,4,'1'), " +
+                "(5,900,7,1,1,'p',1,'1',2200000000.25,'',0,0,5,'1')");
             foreach (var statement in File.ReadAllText(Path.Combine(RepositoryRoot(), "Database", "Migrations", "25_UseUtcMarketplaceTimes.sql"))
                          .Replace("`catalog_marketplace_offers`", $"`{table}`").Split(";\n", StringSplitOptions.RemoveEmptyEntries))
                 connection.Execute(statement);
@@ -123,11 +138,12 @@ public sealed class MarketplaceDatabaseTests
             var dropped = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = @table AND column_name = 'timestamp'", new { table });
             connection.Execute($"DROP TABLE `{table}`");
 
-            Assert.Equal(new uint[] { 1, 2, 3, 4 }, rows.Select(row => row.Id).ToArray());
+            Assert.Equal(new uint[] { 1, 2, 3, 4, 5 }, rows.Select(row => row.Id).ToArray());
             Assert.Null(rows[0].ListedAt);
             Assert.Null(rows[1].ListedAt);
             Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1_700_000_000).UtcDateTime, rows[2].ListedAt);
             Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).UtcDateTime, rows[3].ListedAt);
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).UtcDateTime.AddTicks(2_500_000), rows[4].ListedAt);
             Assert.Equal(0, dropped);
         }
     }
@@ -370,14 +386,33 @@ public sealed class MarketplaceDatabaseTests
     }
 
     [MarketplaceDatabaseFact]
-    public void PreparationFailureBeforeTheFirstWriteRollsBackWithNothingChanged()
+    public void DeliveryParsingFailureBeforeTheFirstWriteRollsBackWithNothingChanged()
+    {
+        Insert(1, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 77);
+        var store = new MarketplacePurchaseStore(new MySqlDatabase(_connectionString));
+        var definition = new ItemDefinition { Id = 900, SpriteId = 55, PublicName = "probe", ItemName = "probe", Type = ItemType.Floor };
+
+        // The definition resolves and the claim is valid; only building the delivered furni fails, as on unparsable extra data.
+        Assert.Throws<InvalidOperationException>(() => store.Claim(new MarketplacePurchaseRequest(1, BuyerId, 1000, Now.UtcDateTime.AddSeconds(-172800),
+            _ => definition, _ => throw new InvalidOperationException("forced delivery parsing failure"))));
+
+        AssertNothingChanged();
+    }
+
+    [MarketplaceDatabaseFact]
+    public void DefinitionLookupFailureBeforeTheFirstWriteRollsBackWithNothingChanged()
     {
         Insert(1, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 77);
         var store = new MarketplacePurchaseStore(new MySqlDatabase(_connectionString));
 
         Assert.Throws<InvalidOperationException>(() => store.Claim(new MarketplacePurchaseRequest(1, BuyerId, 1000, Now.UtcDateTime.AddSeconds(-172800),
-            _ => throw new InvalidOperationException("forced preparation failure"))));
+            _ => throw new InvalidOperationException("forced definition failure"), _ => throw new InvalidOperationException("unreached"))));
 
+        AssertNothingChanged();
+    }
+
+    private void AssertNothingChanged()
+    {
         Assert.Equal(new[] { "1" }, States());
         Assert.Equal(0, CountItems("`id` = 77"));
         using var connection = new MySqlConnection(_connectionString);

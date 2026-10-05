@@ -93,10 +93,7 @@ public class MarketplaceManager : IMarketplaceManager
         var now = _time.GetUtcNow();
         var offers = rows.Select(row =>
         {
-            // A NULL listing time is unknown, so the offer counts as already expired.
-            var minutes = row.ListedAt is { } listedAt
-                ? Convert.ToInt32(Math.Floor((new DateTimeOffset(DateTime.SpecifyKind(listedAt, DateTimeKind.Utc)).AddSeconds(172800) - now).TotalSeconds / 60.0))
-                : 0;
+            var minutes = MinutesRemaining(row.ListedAt, now);
             // The state column is an enum of '1' (listed) and '2' (sold); an unsold offer past its lifetime is shown as expired.
             var state = int.Parse(row.State);
             if (minutes <= 0 && state != 2) { state = 3; minutes = 0; }
@@ -115,6 +112,16 @@ public class MarketplaceManager : IMarketplaceManager
         public int TotalPrice { get; set; }
         public int LimitedNumber { get; set; }
         public int LimitedStack { get; set; }
+    }
+
+    // A NULL listing time is unknown and counts as expired; far-future listings clamp to the int wire range instead of overflowing.
+    private static int MinutesRemaining(DateTime? listedAt, DateTimeOffset now)
+    {
+        if (listedAt is not { } listed) return 0;
+        // Epoch arithmetic instead of DateTimeOffset: a listing in the last days of year 9999 would overflow adding its lifetime.
+        var expiresAt = (listed - DateTime.UnixEpoch).TotalSeconds + 172800;
+        var minutes = Math.Floor((expiresAt - (now.UtcDateTime - DateTime.UnixEpoch).TotalSeconds) / 60.0);
+        return (int)Math.Clamp(minutes, int.MinValue, int.MaxValue);
     }
 
     public int CalculateComissionPrice(float price) => Convert.ToInt32(Math.Ceiling(price / 100 * 1));
