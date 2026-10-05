@@ -85,7 +85,7 @@ public sealed class ModeratorTicketSnapshotTests
 
         if (!exists) { Assert.Empty(sent); return; }
         var actual = Assert.Single(sent);
-        using var stream = new RecyclableMemoryStreamManager().GetStream();
+        using var stream = (RecyclableMemoryStream)new RecyclableMemoryStreamManager().GetStream();
         var expected = new FlashOutgoingPacket(stream);
         new ModeratorTicketChatlogComposer(new(ticket.Id, ticket.Sender.Id, ticket.Reported!.Id,
             42, "current", ticket.CreatedAt, ticket.Reported.Username, ["chat"])).Compose(expected);
