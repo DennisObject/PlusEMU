@@ -60,7 +60,7 @@ public sealed class RoomItemMetadataService(IRoomItemMetadataStore store, IFigur
         var figure = string.Join('.', figures.ProcessFigure(habbo.Look, habbo.Gender,
                 habbo.Clothing.GetClothingParts, ClubAccess.LevelFor(habbo.Access))
             .Split('.').Where(part => !part.Contains("hr") && !part.Contains("hd") && !part.Contains("he")
-                && !part.Contains("ea") && !part.Contains("ha")));
+                && !part.Contains("ea") && !part.Contains("ha"))).TrimEnd('.');
         var data = $"{habbo.Gender.ToLowerInvariant()}{(char)5}{figure}{(char)5}{name}";
         store.SetMannequinData(item.Id, room.Id, data);
         item.LegacyDataString = data;

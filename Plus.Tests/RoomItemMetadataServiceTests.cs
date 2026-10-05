@@ -45,7 +45,7 @@ public sealed class RoomItemMetadataServiceTests
         var original = $"m{(char)5}old{(char)5}display name";
         item.LegacyDataString = original;
         client.GetHabbo().Gender = "F";
-        client.GetHabbo().Look = "hd-1.hr-2.ch-3.lg-4.ea-5";
+        client.GetHabbo().Look = "hd-1.hr-2.ch-3.lg-4.ea-5.";
         client.GetHabbo().Clothing = new();
         var store = new RecordingStore(() => Assert.Equal(original, item.LegacyDataString)) { Fail = fail };
         var service = new RoomItemMetadataService(store, Figures());
