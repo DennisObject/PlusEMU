@@ -269,6 +269,8 @@ public class RoomItemHandling
         var item = GetItem(id);
         if (item == null || item.IsTemporary)
             return;
+        // Before anything else changes: if the saved wired settings cannot be dropped, the box stays placed.
+        _room.GetWired()?.ResetRoomItems([item]);
         if (item.Definition.InteractionType == InteractionType.FootballGate)
             _room.GetSoccer().UnRegisterGate(item);
         if (item.Definition.InteractionType != InteractionType.Gift)
@@ -804,10 +806,11 @@ public class RoomItemHandling
     public List<Item> RemoveItems(GameClient session)
     {
         var items = new List<Item>();
-        foreach (var item in GetWallAndFloor.ToList())
+        var owned = GetWallAndFloor.Where(item => item != null && !item.IsTemporary && item.UserId == session.GetHabbo().Id).ToList();
+        // All boxes at once, before any item moves: a failure leaves every one placed with its settings.
+        _room.GetWired()?.ResetRoomItems(owned);
+        foreach (var item in owned)
         {
-            if (item == null || item.IsTemporary || item.UserId != session.GetHabbo().Id)
-                continue;
             if (item.IsFloorItem)
             {
                 Item I;
@@ -822,6 +825,7 @@ public class RoomItemHandling
                         I = item;
                     }
                 }
+                _room.GetWired()?.DetachRoomItem(item);
                 // TODO @80O: Items refactor
                 session.GetHabbo().Inventory.Furniture.AddItem(I.ToInventoryItem());
                 _room.SendPacket(new ObjectRemoveComposer(item.Id, item.IsTemporary, item.UserId));

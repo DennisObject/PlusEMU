@@ -453,6 +453,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
     {
         public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => throw new InvalidOperationException("Combined provider must own persistence.");
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new InvalidOperationException("Combined provider must own persistence.");
+        public void Reset(IReadOnlyCollection<uint> itemIds) => throw new InvalidOperationException("Combined provider must own persistence.");
     }
     private sealed class UnusedOperations : IWiredRuntimeOperations
     {

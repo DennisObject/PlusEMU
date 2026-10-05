@@ -108,13 +108,15 @@ public static class CameraSnapshotBuilder
             room.WallThickness,
             room.FloorThickness,
             room.Hidewall,
-            room.Floor,
-            room.Wallpaper,
+            // Clients never receive the "0.0" defaults and keep their own planes (Habbo.cs).
+            room.Floor == "0.0" ? null : room.Floor,
+            room.Wallpaper == "0.0" ? null : room.Wallpaper,
             room.Landscape);
         var items = room.GetRoomItemHandler().GetFloor.ToArray()
             .Concat(room.GetRoomItemHandler().GetWall.ToArray())
             .ToArray();
-        var users = room.GetRoomUserManager().GetRoomUsers().ToArray();
+        // GetRoomUsers() leaves out bots and pets, which clients still see.
+        var users = room.GetRoomUserManager().GetUserList().ToArray();
         return Compose(shell, items, users);
     }
 
@@ -162,7 +164,7 @@ public static class CameraSnapshotBuilder
         sceneItem = null!;
         if (item?.Definition == null || item.Id < 1 || !double.IsFinite(item.GetZ) || item.Rotation is < 0 or > 7)
             return false;
-        if (item.Definition.InteractionType is InteractionType.CameraPicture or InteractionType.Background)
+        if (item.Definition.InteractionType is InteractionType.Background)
             return false;
         string extra;
         try

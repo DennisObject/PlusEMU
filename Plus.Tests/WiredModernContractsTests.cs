@@ -360,6 +360,7 @@ public class WiredModernContractsTests
             if (Throw) throw new InvalidOperationException("Database unavailable.");
             Saved.Add(configuration);
         }
+        public void Reset(IReadOnlyCollection<uint> itemIds) => Saved.Clear();
     }
 
     private class ConfiguredBox : IWiredConfiguredItem, IWiredEditorConfigurationProvider
