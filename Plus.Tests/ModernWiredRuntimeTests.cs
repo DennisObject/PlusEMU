@@ -793,7 +793,6 @@ public class ModernWiredRuntimeTests
         public readonly RoomUser User; public readonly Habbo Habbo; public readonly Item Target;
         public readonly WiredModernAction Action; public readonly WiredModernTrigger Trigger;
         public readonly WiredStackEngine Engine; public readonly List<Exception> Errors = [];
-        public readonly TestRewardProgress HandRewards = new();
         public IItemDataManager? DefinitionManager;
         public readonly TestRewardProgress HandRewards = new();
         private readonly object? _originalGame; private long _now;
