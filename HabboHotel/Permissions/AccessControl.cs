@@ -19,7 +19,6 @@ public sealed partial class AccessControl : IAccessControl, IDisposable, IStarta
     private readonly ILogger<AccessControl> _logger;
     private readonly TimeProvider _clock;
     private readonly object _sync = new();
-    private readonly SemaphoreSlim _reload = new(1, 1);
     private FrozenDictionary<int, AccessRole> _roles = new Dictionary<int, AccessRole>().ToFrozenDictionary();
     private string[] _registry = Array.Empty<string>();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<int, DateTimeOffset> _refreshAt = new();
@@ -36,51 +35,73 @@ public sealed partial class AccessControl : IAccessControl, IDisposable, IStarta
     }
 
     public int StartOrder => 20;
-    public Task Start() => Load();
+    private const string RolesSql = "SELECT id, slug, name, weight, security_level AS SecurityLevel, badge_code AS BadgeCode, is_staff AS IsStaff FROM roles";
+    private const string RolePermissionsSql = "SELECT role_id AS RoleId, permission_key AS PermissionKey FROM role_permissions";
+    private const string RoleLimitsSql = "SELECT role_id AS RoleId, limit_key AS LimitKey, value FROM role_limits";
+    private const string RegisterPermissionSql = "INSERT INTO acl_permissions (`key`, category, description, is_orphan) VALUES (@Key, @Category, @Description, 0) " +
+        "ON DUPLICATE KEY UPDATE category = @Category, description = @Description, is_orphan = 0";
 
-    public void Init() => Load().GetAwaiter().GetResult();
-
-    private async Task Load()
+    public async Task Start()
     {
-        await _reload.WaitAsync();
-        try
+        using var connection = _database.Connection();
+        var rows = (await connection.QueryAsync<RoleRow>(RolesSql).ConfigureAwait(false)).ToArray();
+        var permissions = (await connection.QueryAsync<RolePermissionRow>(RolePermissionsSql).ConfigureAwait(false)).ToArray();
+        var limits = (await connection.QueryAsync<RoleLimitRow>(RoleLimitsSql).ConfigureAwait(false)).ToArray();
+        var definitions = Definitions(rows);
+        if (connection is System.Data.Common.DbConnection asyncConnection)
+            await asyncConnection.OpenAsync().ConfigureAwait(false);
+        else
+            connection.Open();
+        using var transaction = connection.BeginTransaction();
+        await connection.ExecuteAsync("UPDATE acl_permissions SET is_orphan = 1", transaction: transaction).ConfigureAwait(false);
+        foreach (var permission in definitions)
+            await connection.ExecuteAsync(RegisterPermissionSql, permission, transaction).ConfigureAwait(false);
+        transaction.Commit();
+        Publish(connection, rows, permissions, limits, definitions);
+    }
+
+    public void Init()
+    {
+        // Runtime mutations already hold this lock. Reload synchronously so publication stays on that thread.
+        lock (_sync)
         {
             using var connection = _database.Connection();
-            var rows = (await connection.QueryAsync<RoleRow>("SELECT id, slug, name, weight, security_level AS SecurityLevel, badge_code AS BadgeCode, is_staff AS IsStaff FROM roles")).ToArray();
-            var permissions = (await connection.QueryAsync<RolePermissionRow>("SELECT role_id AS RoleId, permission_key AS PermissionKey FROM role_permissions")).ToArray();
-            var limits = (await connection.QueryAsync<RoleLimitRow>("SELECT role_id AS RoleId, limit_key AS LimitKey, value FROM role_limits")).ToArray();
-            var definitions = PermissionKeys.All.Concat(PermissionKeys.ForRoles(rows.Select(role => role.Slug))).DistinctBy(permission => permission.Key).ToArray();
-            if (connection is System.Data.Common.DbConnection asyncConnection)
-                await asyncConnection.OpenAsync();
-            else
-                connection.Open();
+            var rows = connection.Query<RoleRow>(RolesSql).ToArray();
+            var permissions = connection.Query<RolePermissionRow>(RolePermissionsSql).ToArray();
+            var limits = connection.Query<RoleLimitRow>(RoleLimitsSql).ToArray();
+            var definitions = Definitions(rows);
+            connection.Open();
             using var transaction = connection.BeginTransaction();
-            await connection.ExecuteAsync("UPDATE acl_permissions SET is_orphan = 1", transaction: transaction);
+            connection.Execute("UPDATE acl_permissions SET is_orphan = 1", transaction: transaction);
             foreach (var permission in definitions)
-                await connection.ExecuteAsync("INSERT INTO acl_permissions (`key`, category, description, is_orphan) VALUES (@Key, @Category, @Description, 0) " +
-                    "ON DUPLICATE KEY UPDATE category = @Category, description = @Description, is_orphan = 0", permission, transaction);
+                connection.Execute(RegisterPermissionSql, permission, transaction);
             transaction.Commit();
-            var registry = definitions.Select(permission => permission.Key).ToArray();
-            var roles = rows.ToFrozenDictionary(role => role.Id, role => new AccessRole(role.Id, role.Slug, role.Name, role.Weight,
-                role.SecurityLevel, role.BadgeCode, role.IsStaff, permissions.Where(p => p.RoleId == role.Id).Select(p => p.PermissionKey).ToArray(),
-                limits.Where(limit => limit.RoleId == role.Id).ToFrozenDictionary(limit => limit.LimitKey, limit => limit.Value, StringComparer.Ordinal)));
-            if (!roles.Values.Any(role => role.Slug == "default")) throw new InvalidOperationException("The default access role is missing. Apply the RBAC migration.");
-            lock (_sync)
-            {
-                _registry = registry;
-                _roles = roles;
-                foreach (var entry in _resolved.Values.ToArray())
-                    if (!ReferenceEquals(GetOnlineHabbo(entry.Habbo.Id), entry.Habbo)) Evict(entry);
-                Prune(connection);
-                foreach (var client in _clients.GetClients.ToArray())
-                    if (client.GetHabbo() is { AccessClosed: false } habbo) Resolve(habbo.Id);
-                _expiryTimer ??= _clock.CreateTimer(_ => RefreshExpired(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-                _logger.LogInformation("Loaded {Roles} access roles and {Permissions} permission keys", _roles.Count, _registry.Length);
-            }
+            Publish(connection, rows, permissions, limits, definitions);
         }
-        finally
+    }
+
+    private static PermissionDefinition[] Definitions(IEnumerable<RoleRow> rows) =>
+        PermissionKeys.All.Concat(PermissionKeys.ForRoles(rows.Select(role => role.Slug))).DistinctBy(permission => permission.Key).ToArray();
+
+    private void Publish(IDbConnection connection, RoleRow[] rows, RolePermissionRow[] permissions,
+        RoleLimitRow[] limits, PermissionDefinition[] definitions)
+    {
+        var registry = definitions.Select(permission => permission.Key).ToArray();
+        var roles = rows.ToFrozenDictionary(role => role.Id, role => new AccessRole(role.Id, role.Slug, role.Name, role.Weight,
+            role.SecurityLevel, role.BadgeCode, role.IsStaff, permissions.Where(p => p.RoleId == role.Id).Select(p => p.PermissionKey).ToArray(),
+            limits.Where(limit => limit.RoleId == role.Id).ToFrozenDictionary(limit => limit.LimitKey, limit => limit.Value, StringComparer.Ordinal)));
+        if (!roles.Values.Any(role => role.Slug == "default")) throw new InvalidOperationException("The default access role is missing. Apply the RBAC migration.");
+        lock (_sync)
         {
-            _reload.Release();
+            _registry = registry;
+            _roles = roles;
+            foreach (var entry in _resolved.Values.ToArray())
+                if (!ReferenceEquals(GetOnlineHabbo(entry.Habbo.Id), entry.Habbo)) Evict(entry);
+            Prune(connection);
+            foreach (var client in _clients.GetClients.ToArray())
+                if (client.GetHabbo() is { AccessClosed: false } habbo) Resolve(habbo.Id);
+            _expiryTimer ??= _clock.CreateTimer(_ => RefreshExpired(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+            _logger.LogInformation("Loaded {Roles} access roles and {Permissions} permission keys", _roles.Count, _registry.Length);
         }
     }
 
@@ -250,11 +271,11 @@ public sealed partial class AccessControl : IAccessControl, IDisposable, IStarta
     private UserAccess Read(IDbConnection connection, int userId, IDbTransaction? transaction = null)
     {
         var assignments = new List<RoleAssignment> { new(_roles.Values.Single(role => role.Slug == "default")) };
-        foreach (var row in connection.Query<AssignmentRow>("SELECT role_id AS RoleId, UNIX_TIMESTAMP(expires_at) AS ExpiresAt FROM user_roles WHERE user_id = @userId", new { userId }, transaction))
+        foreach (var row in connection.Query<AssignmentRow>("SELECT role_id AS RoleId, expires_at AS ExpiresAt FROM user_roles WHERE user_id = @userId", new { userId }, transaction))
             if (_roles.TryGetValue(row.RoleId, out var role) && role.Slug != "default")
-                assignments.Add(new(role, Utc(row.ExpiresAt)));
-        var overrides = connection.Query<OverrideRow>("SELECT permission_key AS PermissionKey, effect, UNIX_TIMESTAMP(expires_at) AS ExpiresAt FROM user_permissions WHERE user_id = @userId", new { userId }, transaction)
-            .Select(row => new UserPermissionOverride(row.PermissionKey, row.Effect == "deny", Utc(row.ExpiresAt)));
+                assignments.Add(new(role, row.ExpiresAt));
+        var overrides = connection.Query<OverrideRow>("SELECT permission_key AS PermissionKey, effect, expires_at AS ExpiresAt FROM user_permissions WHERE user_id = @userId", new { userId }, transaction)
+            .Select(row => new UserPermissionOverride(row.PermissionKey, row.Effect == "deny", row.ExpiresAt));
         var membership = connection.QuerySingleOrDefault<ClubMembership>("SELECT " + ClubMembership.Columns + " FROM user_club_memberships WHERE user_id = @userId", new { userId }, transaction);
         return UserAccess.Create(assignments, overrides, _registry, _clock, membership);
     }
@@ -291,7 +312,6 @@ public sealed partial class AccessControl : IAccessControl, IDisposable, IStarta
         catch (Exception exception) { _logger.LogError(exception, "Refreshing expired access failed"); }
     }
 
-    private static DateTimeOffset? Utc(long? value) => value.HasValue ? DateTimeOffset.FromUnixTimeSeconds(value.Value) : null;
     public void Dispose()
     {
         _expiryTimer?.Dispose();
@@ -302,6 +322,6 @@ public sealed partial class AccessControl : IAccessControl, IDisposable, IStarta
     private sealed class RoleRow { public int Id { get; set; } public string Slug { get; set; } = ""; public string Name { get; set; } = ""; public int Weight { get; set; } public int SecurityLevel { get; set; } public string BadgeCode { get; set; } = ""; public bool IsStaff { get; set; } }
     private sealed class RolePermissionRow { public int RoleId { get; set; } public string PermissionKey { get; set; } = ""; }
     private sealed class RoleLimitRow { public int RoleId { get; set; } public string LimitKey { get; set; } = ""; public int Value { get; set; } }
-    private sealed class AssignmentRow { public int RoleId { get; set; } public long? ExpiresAt { get; set; } }
-    private sealed class OverrideRow { public string PermissionKey { get; set; } = ""; public string Effect { get; set; } = ""; public long? ExpiresAt { get; set; } }
+    private sealed class AssignmentRow { public int RoleId { get; set; } public DateTimeOffset? ExpiresAt { get; set; } }
+    private sealed class OverrideRow { public string PermissionKey { get; set; } = ""; public string Effect { get; set; } = ""; public DateTimeOffset? ExpiresAt { get; set; } }
 }

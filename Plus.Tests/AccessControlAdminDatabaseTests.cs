@@ -77,8 +77,8 @@ public sealed partial class AccessControlDatabaseTests
         Assert.NotEqual("{}", audit.Payload);
         Assert.Contains(_sent, packet => packet.Header == ServerPacketHeader.UserRightsComposer);
         Assert.True(_access.AdminSnapshot(_actor).Revision > revision);
-        if (action == "role.assign") Assert.Equal(2000000000, _access.Members(_actor, LimitedRole, 0).Members.Single(member => member.Id == Target).ExpiresAt);
-        if (action == "permission.deny") Assert.Equal(2000000000, _access.Overrides(_actor, "acl_target").Overrides.Single(row => row.Key == "camera.*").ExpiresAt);
+        if (action == "role.assign") Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2000000000), _access.Members(_actor, LimitedRole, 0).Members.Single(member => member.Id == Target).ExpiresAt);
+        if (action == "permission.deny") Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2000000000), _access.Overrides(_actor, "acl_target").Overrides.Single(row => row.Key == "camera.*").ExpiresAt);
         Assert.NotEmpty(_access.Audit(_actor, 0).Entries);
         if (action == "role.delete") Assert.Equal("ACL limited", _access.Audit(_actor, 0).Entries.Single(row => row.Action == action && row.TargetId == LimitedRole).TargetName);
         if (action == "role.update") Assert.Equal("acl_limited", _access.AdminSnapshot(_actor).Roles.Single(role => role.Id == LimitedRole).Slug);

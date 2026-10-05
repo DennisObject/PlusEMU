@@ -80,6 +80,21 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
     }
 
     [AccessControlDatabaseFact]
+    public async Task AwaitedStartupAndAdministrativeReloadPublishWithoutHoldingAnAsyncContinuation()
+    {
+        await _access.Start().WaitAsync(TimeSpan.FromSeconds(10));
+        var revision = _access.AdminSnapshot(_actor).Revision;
+        var result = await Task.Run(() => _access.Apply(_actor, revision,
+            new SaveAccessRole(LimitedRole, "acl_limited", "Reloaded role", "", 20, 2, "", false, false)))
+            .WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.True(result.Ok);
+        Assert.True(_access.TryGetRole(LimitedRole, out var role));
+        Assert.Equal("Reloaded role", role.Name);
+        Assert.Contains(_sent, packet => packet.Header == ServerPacketHeader.UserRightsComposer);
+    }
+
+    [AccessControlDatabaseFact]
     public void RoleAndOverrideChangesAreAuditedAndPushTheirResolvedWireLive()
     {
         Assert.True(_access.AssignRole(_actor, Target, LimitedRole));

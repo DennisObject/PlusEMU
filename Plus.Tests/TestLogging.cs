@@ -11,6 +11,7 @@ internal static class TestLogging
     [System.Runtime.CompilerServices.ModuleInitializer]
     internal static void Configure()
     {
+        Dapper.SqlMapper.AddTypeHandler(new Plus.Database.UtcDateTimeOffsetHandler());
         Plus.Core.ExceptionLogger.Configure(Factory);
         Plus.Core.ConsoleCommands.Configure(Factory);
     }

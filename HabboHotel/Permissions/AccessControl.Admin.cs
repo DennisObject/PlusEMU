@@ -149,7 +149,7 @@ public sealed partial class AccessControl
             var from = implicitRole ? "FROM users u" : "FROM user_roles ur JOIN users u ON u.id = ur.user_id WHERE ur.role_id = @roleId AND (ur.expires_at IS NULL OR ur.expires_at > @now)";
             var parameters = new { roleId, offset, limit = AdminPageSize, now = _clock.GetUtcNow().UtcDateTime };
             return new(roleId, offset, connection.ExecuteScalar<int>("SELECT COUNT(*) " + from, parameters),
-                connection.Query<AccessMember>("SELECT u.id, u.username, " + (implicitRole ? "NULL" : "UNIX_TIMESTAMP(ur.expires_at)") + " AS ExpiresAt " + from + " ORDER BY u.username, u.id LIMIT @limit OFFSET @offset", parameters).ToArray());
+                connection.Query<AccessMember>("SELECT u.id, u.username, " + (implicitRole ? "NULL" : "ur.expires_at") + " AS ExpiresAt " + from + " ORDER BY u.username, u.id LIMIT @limit OFFSET @offset", parameters).ToArray());
         }
     }
 
@@ -161,7 +161,7 @@ public sealed partial class AccessControl
             RequireAdmin(connection, actor);
             var user = ValidUsername(username) ? connection.QuerySingleOrDefault<AccessMember>("SELECT id, username FROM users WHERE username = @username", new { username }) : null;
             return user == null ? new(0, "", []) : new(user.Id, user.Username, connection.Query<AccessOverride>(
-                "SELECT permission_key AS `Key`, effect, reason, UNIX_TIMESTAMP(expires_at) AS ExpiresAt FROM user_permissions WHERE user_id = @id AND (expires_at IS NULL OR expires_at > @now) ORDER BY permission_key",
+                "SELECT permission_key AS `Key`, effect, reason, expires_at AS ExpiresAt FROM user_permissions WHERE user_id = @id AND (expires_at IS NULL OR expires_at > @now) ORDER BY permission_key",
                 new { id = user.Id, now = _clock.GetUtcNow().UtcDateTime }).ToArray());
         }
     }
