@@ -89,7 +89,7 @@ public class SSOTicketEvent : IPacketEvent
             _clientAccessLists.Send(session.GetHabbo());
             session.Send(new AvailabilityStatusComposer());
             session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats.AchievementPoints));
-            session.Send(new CfhTopicsInitComposer(_moderationManager.UserActionPresets));
+            session.Send(new CfhTopicsInitComposer(CfhTopicCategorySnapshot.Capture(_moderationManager.UserActionPresets)));
             _achievementShowcase.ShowDefinitions(session);
             session.Send(new SoundSettingsComposer(session.GetHabbo().ClientVolume, session.GetHabbo().ChatPreference, session.GetHabbo().AllowMessengerInvites,
                 session.GetHabbo().FocusPreference,

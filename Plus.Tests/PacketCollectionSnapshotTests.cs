@@ -1,4 +1,8 @@
 using Plus.Communication.Packets;
+using Plus.Communication.Packets.Outgoing.Moderation;
+using Plus.Communication.Packets.Outgoing.Inventory.Achievements;
+using Plus.HabboHotel.Moderation;
+using Plus.HabboHotel.Achievements;
 using Plus.Communication.Packets.Outgoing.FriendList;
 using Plus.Communication.Packets.Outgoing.Sound;
 using Plus.Communication.Packets.Outgoing.Housekeeping;
@@ -87,6 +91,48 @@ public sealed class PacketCollectionSnapshotTests
         volumes.Add(99);
         Assert.Equal(expected, Writes(composer));
         Assert.Equal(expected, Writes(composer));
+    }
+
+    [Fact]
+    public void ModerationTopicsFreezeNestedPresetsAndKeepWireOrdering()
+    {
+        var preset = new ModerationPresetActions(7, 0, "type", "caption", "text", 0, 0, 0, 0, "none");
+        var presets = new Dictionary<string, List<ModerationPresetActions>> { ["category"] = [preset] };
+        var composer = new CfhTopicsInitComposer(CfhTopicCategorySnapshot.Capture(presets));
+        object[] expected = [1, "category", 1, "caption", 7, "type"];
+        Assert.Equal(expected, Writes(composer));
+        preset.Id = 9;
+        preset.Caption = "changed";
+        preset.Type = "changed";
+        presets["category"].Clear();
+        presets.Clear();
+        Assert.Equal(expected, Writes(composer));
+        Assert.Equal(expected, Writes(composer));
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(3, true)]
+    public void AchievementNotificationsFreezeDefinitionAndUserProgress(int userLevel, bool completed)
+    {
+        var achievement = new Achievement { Id = 7, GroupName = "ACH_TEST", Category = "social" };
+        var user = new UserAchievement("ACH_TEST", userLevel, 12);
+        var level = new AchievementLevel(2, 5, 10, 20);
+        var progressed = new AchievementProgressedComposer(AchievementNotificationSnapshot.CaptureProgress(achievement, 2, level, 3, user));
+        var unlocked = new AchievementUnlockedComposer(AchievementUnlockSnapshot.Capture(achievement, 2, 10, 5));
+        object[] expectedProgress = [7, 2, "ACH_TEST2", 1, 20, 5, 0, 12, completed, "social", "", 3, 0];
+        object[] expectedUnlock = [7, 2, 144, "ACH_TEST2", 10, 5, 0, 10, 21, "ACH_TEST1", "social", true];
+        Assert.Equal(expectedProgress, Writes(progressed));
+        Assert.Equal(expectedUnlock, Writes(unlocked));
+        achievement.Id = 9;
+        achievement.GroupName = "ACH_CHANGED";
+        achievement.Category = "changed";
+        user.Level = 99;
+        user.Progress = 99;
+        Assert.Equal(expectedProgress, Writes(progressed));
+        Assert.Equal(expectedUnlock, Writes(unlocked));
+        Assert.Equal(expectedProgress, Writes(progressed));
+        Assert.Equal(expectedUnlock, Writes(unlocked));
     }
 
     private static List<object> Writes(IServerPacket composer)
