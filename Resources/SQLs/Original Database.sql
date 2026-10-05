@@ -24885,7 +24885,7 @@ CREATE TABLE IF NOT EXISTS users_habbicons (
     habbicon_id INT NOT NULL,
     state TINYINT NOT NULL DEFAULT 2,
     unseen BOOLEAN NOT NULL DEFAULT FALSE,
-    last_used BIGINT NOT NULL DEFAULT 0,
+    last_used DATETIME(6) NULL DEFAULT NULL,
     PRIMARY KEY (user_id, habbicon_id),
     KEY recent (user_id, last_used),
     FOREIGN KEY (habbicon_id) REFERENCES habbicons(id),
