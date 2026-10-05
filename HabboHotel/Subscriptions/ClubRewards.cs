@@ -35,7 +35,7 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
 
     public ClubGiftInfo Gifts(Habbo habbo)
     {
-        var now = clock.GetUtcNow().ToUnixTimeSeconds();
+        var now = clock.GetUtcNow();
         var membership = habbo.Access.Membership;
         var elapsed = membership.Elapsed(now);
         var next = (int)((ClubMembership.Period - elapsed % ClubMembership.Period + ClubMembership.Day - 1) / ClubMembership.Day);
@@ -56,15 +56,16 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
         connection.Open();
         using var transaction = connection.BeginTransaction();
         connection.ExecuteScalar<int>("SELECT id FROM users WHERE id = @id FOR UPDATE", new { id = habbo.Id }, transaction);
-        var membership = connection.QuerySingleOrDefault<ClubMembership>("SELECT " + ClubMembership.Columns + " FROM user_club_memberships WHERE user_id = @id FOR UPDATE", new { id = habbo.Id }, transaction);
-        var now = clock.GetUtcNow().ToUnixTimeSeconds();
+        var row = connection.QuerySingleOrDefault<ClubMembershipRow>("SELECT " + ClubMembership.Columns + " FROM user_club_memberships WHERE user_id = @id FOR UPDATE", new { id = habbo.Id }, transaction);
+        var membership = row?.ToMembership();
+        var now = clock.GetUtcNow();
         if (membership == null || !membership.Active(now) ||
             membership.AvailableGifts(now) < 1 || membership.Elapsed(now) / ClubMembership.Day < gift.DaysRequired) return null;
         // Recheck enabled state under the transaction as well as the catalog snapshot.
         var required = connection.ExecuteScalar<int?>("SELECT days_required FROM club_gift_offers WHERE catalog_item_id = @id AND enabled = 1 FOR UPDATE", new { id = gift.Item.Id }, transaction);
         if (required == null || required < 0 || membership.Elapsed(now) / ClubMembership.Day < required) return null;
         connection.Execute("INSERT INTO club_gift_claims (user_id, gift_number, catalog_item_id, claimed_at) VALUES (@id, @number, @item, @now)",
-            new { id = habbo.Id, number = membership.GiftsClaimed + 1, item = gift.Item.Id, now }, transaction);
+            new { id = habbo.Id, number = membership.GiftsClaimed + 1, item = gift.Item.Id, now = now.UtcDateTime }, transaction);
         for (var i = 0; i < gift.Item.Amount; i++)
         {
             var id = connection.ExecuteScalar<uint>("INSERT INTO items (user_id, base_item, extra_data) VALUES (@user, @item, ''); SELECT LAST_INSERT_ID()",
@@ -79,10 +80,10 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
         return new(gift, received);
     }
 
-    internal static void RecordSpending(IDbConnection connection, IDbTransaction? transaction, int userId, int credits, long now, bool member)
+    internal static void RecordSpending(IDbConnection connection, IDbTransaction? transaction, int userId, int credits, DateTimeOffset now, bool member)
     {
         if (member && credits > 0)
-            connection.Execute("INSERT INTO club_credit_spending (user_id, credits, spent_at) VALUES (@userId, @credits, @now)", new { userId, credits, now }, transaction);
+            connection.Execute("INSERT INTO club_credit_spending (user_id, credits, spent_at) VALUES (@userId, @credits, @now)", new { userId, credits, now = now.UtcDateTime }, transaction);
     }
     public bool Charge(Habbo habbo, int credits, int duckets = 0, int diamonds = 0, Func<IDbConnection, IDbTransaction, bool>? deliver = null, bool kickbackEligible = true)
     {
@@ -95,7 +96,7 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
             using var transaction = connection.BeginTransaction();
             if (connection.ExecuteScalar<int?>("SELECT id FROM users WHERE id = @id FOR UPDATE", new { id = habbo.Id }, transaction) == null) return false;
             var remainingCredits = habbo.Credits - credits; var remainingDuckets = habbo.Duckets - duckets; var remainingDiamonds = habbo.Diamonds - diamonds;
-            var now = clock.GetUtcNow().ToUnixTimeSeconds();
+            var now = clock.GetUtcNow();
             connection.Execute("UPDATE users SET credits = @remainingCredits, activity_points = @remainingDuckets, vip_points = @remainingDiamonds WHERE id = @id",
                 new { id = habbo.Id, remainingCredits, remainingDuckets, remainingDiamonds }, transaction);
             RecordSpending(connection, transaction, habbo.Id, credits, now, kickbackEligible && habbo.Access.Membership.Active(now));
@@ -109,14 +110,14 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
     public ClubKickback Kickback(Habbo habbo)
     {
         var now = clock.GetUtcNow();
-        var start = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds();
+        var start = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero).UtcDateTime;
         var membership = habbo.Access.Membership;
-        var streak = membership.Active(now.ToUnixTimeSeconds()) && membership.StartedAt > 0 ? (int)((now.ToUnixTimeSeconds() - membership.StartedAt) / ClubMembership.Day) : 0;
+        var streak = membership.Active(now) && membership.StartedAt is { } running ? (int)(ClubMembership.WholeSeconds(now - running) / ClubMembership.Day) : 0;
         using var connection = database.Connection();
-        var spent = connection.ExecuteScalar<long>("SELECT COALESCE(SUM(credits), 0) FROM club_credit_spending WHERE user_id = @id AND spent_at >= @start AND spent_at < @end", new { id = habbo.Id, start, end = NextPayday(now).ToUnixTimeSeconds() });
+        var spent = connection.ExecuteScalar<long>("SELECT COALESCE(SUM(credits), 0) FROM club_credit_spending WHERE user_id = @id AND spent_at >= @start AND spent_at < @end", new { id = habbo.Id, start, end = NextPayday(now).UtcDateTime });
         var rewarded = connection.ExecuteScalar<long>("SELECT COALESCE(SUM(streak_bonus + spending_bonus), 0) FROM club_paydays WHERE user_id = @id AND paid = 1", new { id = habbo.Id });
         var missed = connection.ExecuteScalar<long>("SELECT COALESCE(SUM(streak_bonus + spending_bonus), 0) FROM club_paydays WHERE user_id = @id AND paid = 0", new { id = habbo.Id });
-        return new(streak, membership.FirstStartedAt > 0 ? DateTimeOffset.FromUnixTimeSeconds(membership.FirstStartedAt).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture) : "", Percentage,
+        return new(streak, membership.FirstStartedAt is { } first ? first.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture) : "", Percentage,
             (int)Math.Min(int.MaxValue, missed), (int)Math.Min(int.MaxValue, rewarded), (int)Math.Min(int.MaxValue, spent), StreakBonus(streak), SpendingBonus(spent, Percentage), (int)((NextPayday(now) - now).TotalMinutes));
     }
 
@@ -124,18 +125,24 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
     {
         var now = clock.GetUtcNow();
         using var connection = database.Connection();
-        var members = connection.Query<(int Id, long Started)>("SELECT user_id, MIN(started_at) FROM club_membership_intervals GROUP BY user_id").ToArray();
+        var members = connection.Query<IntervalStartRow>("SELECT user_id AS UserId, MIN(started_at) AS Started FROM club_membership_intervals GROUP BY user_id").ToArray();
         foreach (var member in members)
         {
-            var due = NextPayday(DateTimeOffset.FromUnixTimeSeconds(member.Started));
-            var last = connection.ExecuteScalar<long?>("SELECT MAX(payday) FROM club_paydays WHERE user_id = @id", new { id = member.Id });
-            if (last.HasValue) due = DateTimeOffset.FromUnixTimeSeconds(last.Value).AddMonths(1);
+            var due = NextPayday(member.Started);
+            var last = connection.ExecuteScalar<DateTimeOffset?>("SELECT MAX(payday) FROM club_paydays WHERE user_id = @id", new { id = member.UserId });
+            if (last is { } previous) due = previous.AddMonths(1);
             while (due <= now)
             {
-                Pay(member.Id, due);
+                Pay(member.UserId, due);
                 due = due.AddMonths(1);
             }
         }
+    }
+
+    private sealed class IntervalStartRow
+    {
+        public int UserId { get; set; }
+        public DateTimeOffset Started { get; set; }
     }
 
     private void Pay(int userId, DateTimeOffset payday)
@@ -149,11 +156,11 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
             connection.Open();
             using var transaction = connection.BeginTransaction();
             var balance = connection.ExecuteScalar<int?>("SELECT credits FROM users WHERE id = @userId FOR UPDATE", new { userId }, transaction);
-            if (balance == null || connection.ExecuteScalar<int>("SELECT COUNT(*) FROM club_paydays WHERE user_id = @userId AND payday = @due", new { userId, due = payday.ToUnixTimeSeconds() }, transaction) > 0) return;
-            var due = payday.ToUnixTimeSeconds();
-            var interval = connection.ExecuteScalar<long?>("SELECT MIN(started_at) FROM club_membership_intervals WHERE user_id = @userId AND started_at <= @due AND expires_at > @due", new { userId, due }, transaction);
-            var spent = connection.ExecuteScalar<long>("SELECT COALESCE(SUM(credits), 0) FROM club_credit_spending WHERE user_id = @userId AND spent_at >= @start AND spent_at < @due", new { userId, start = payday.AddMonths(-1).ToUnixTimeSeconds(), due }, transaction);
-            var streak = interval.HasValue ? (int)((due - interval.Value) / ClubMembership.Day) : 0;
+            var due = payday.UtcDateTime;
+            if (balance == null || connection.ExecuteScalar<int>("SELECT COUNT(*) FROM club_paydays WHERE user_id = @userId AND payday = @due", new { userId, due }, transaction) > 0) return;
+            var interval = connection.ExecuteScalar<DateTimeOffset?>("SELECT MIN(started_at) FROM club_membership_intervals WHERE user_id = @userId AND started_at <= @due AND expires_at > @due", new { userId, due }, transaction);
+            var spent = connection.ExecuteScalar<long>("SELECT COALESCE(SUM(credits), 0) FROM club_credit_spending WHERE user_id = @userId AND spent_at >= @start AND spent_at < @due", new { userId, start = payday.AddMonths(-1).UtcDateTime, due }, transaction);
+            var streak = interval is { } started ? (int)(ClubMembership.WholeSeconds(payday - started) / ClubMembership.Day) : 0;
             var streakBonus = StreakBonus(streak);
             var spendingBonus = SpendingBonus(spent, Percentage);
             var paid = interval.HasValue;

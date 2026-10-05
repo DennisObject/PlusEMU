@@ -177,8 +177,8 @@ public class HabbiconDatabaseTests
         var now = _clock.GetUtcNow();
         _clock.ResetCalls();
         var membership = new Plus.HabboHotel.Subscriptions.ClubMembership(
-            now.AddDays(1).ToUnixTimeSeconds(), now.AddDays(-1).ToUnixTimeSeconds(),
-            now.AddDays(-1).ToUnixTimeSeconds());
+            now.AddDays(1), now.AddDays(-1),
+            now.AddDays(-1));
 
         _service.Change(UserId, HabbiconAction.Buy, 61, membership: membership);
 

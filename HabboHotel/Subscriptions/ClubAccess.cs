@@ -7,8 +7,8 @@ internal static class ClubAccess
     public static int LevelFor(UserAccess access)
     {
         var snapshot = access.Capture(out var now);
-        return LevelFor(snapshot, now.ToUnixTimeSeconds());
+        return LevelFor(snapshot, now);
     }
-    internal static int LevelFor(UserAccess.Snapshot snapshot, long now) =>
+    internal static int LevelFor(UserAccess.Snapshot snapshot, DateTimeOffset now) =>
         snapshot.Keys.Contains(PermissionKeys.ClubAccess) || snapshot.Membership.Active(now) ? 2 : 0;
 }

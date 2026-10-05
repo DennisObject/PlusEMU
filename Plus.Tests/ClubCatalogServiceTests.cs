@@ -237,19 +237,19 @@ public sealed class ClubCatalogServiceTests
     private sealed class RecordingMembership(bool succeeds) : IClubMembershipService
     {
         public int Purchases { get; private set; }
-        public long GetExpiry(int userId) => 0;
+        public DateTimeOffset? GetExpiry(int userId) => null;
 
-        public long? Purchase(Habbo habbo, ClubOffer offer, int? recipientId = null)
+        public DateTimeOffset? Purchase(Habbo habbo, ClubOffer offer, int? recipientId = null)
         {
             Purchases++;
             if (!succeeds)
                 return null;
             habbo.Credits -= offer.Credits;
             habbo.Diamonds -= offer.Points;
-            return 1;
+            return new DateTimeOffset(2040, 3, 5, 4, 5, 6, TimeSpan.Zero);
         }
 
-        public long? Grant(Habbo actor, int userId, int days) => throw new NotSupportedException();
+        public DateTimeOffset? Grant(Habbo actor, int userId, int days) => throw new NotSupportedException();
     }
 
     public class CatalogProxy : DispatchProxy

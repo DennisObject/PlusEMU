@@ -172,10 +172,11 @@ public class HousekeepingDatabaseTests : IDisposable
     public void ClubGrantsExtendRunningMembershipsAndZeroEndsThem()
     {
         var clubs = new ClubMembershipService(_database, _permissions, TimeProvider.System);
-        var now = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        Execute("INSERT INTO user_club_memberships (user_id, expires_at) VALUES (@Target, @expires)", new { Target, expires = now + 86400 });
-        Assert.InRange(clubs.Grant(Staff(), Target, 2)!.Value, now + 86400 * 3, now + 86400 * 3 + 5);
-        Assert.InRange(clubs.Grant(Staff(), Target, 0)!.Value, now, now + 5);
+        // DATETIME(6) keeps microseconds, so the fixture instant is truncated the same way the stored expiry is.
+        var now = DateTimeOffset.UtcNow; now = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMicrosecond));
+        Execute("INSERT INTO user_club_memberships (user_id, expires_at) VALUES (@Target, @expires)", new { Target, expires = now.AddDays(1).UtcDateTime });
+        Assert.InRange(clubs.Grant(Staff(), Target, 2)!.Value, now.AddDays(3), now.AddDays(3).AddSeconds(5));
+        Assert.InRange(clubs.Grant(Staff(), Target, 0)!.Value, now, now.AddSeconds(5));
         Assert.Null(clubs.Grant(Staff(), Owner, 1));
     }
 

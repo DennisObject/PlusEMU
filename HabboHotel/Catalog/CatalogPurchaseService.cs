@@ -406,7 +406,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
     private void PurchaseClubOffer(GameClient session, int offerId, DateTimeOffset utcNow)
     {
         var habbo = session.GetHabbo();
-        long? expiry = null;
+        DateTimeOffset? expiry = null;
         if (_catalogManager.TryGetClubOffer(offerId, out var offer))
             expiry = _clubMemberships.Purchase(habbo, offer);
         if (expiry == null)
@@ -421,7 +421,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                 ? new HabboActivityPointNotificationComposer(habbo.Diamonds, -offer.Points, 5)
                 : new HabboActivityPointNotificationComposer(habbo.Duckets, -offer.Points));
         session.Send(new PurchaseOKComposer());
-        var membershipEnd = DateTimeOffset.FromUnixTimeSeconds(expiry.Value);
+        var membershipEnd = expiry.Value;
         // The client caches offers; resend them so the next confirmation shows the new end date.
         session.Send(new HabboClubOffersComposer(ClubOfferSnapshotFactory.Capture(_catalogManager.ClubOffers, ClubWindow, membershipEnd, utcNow)));
         session.Send(new ScrSendUserInfoComposer(habbo.Access, ScrSendUserInfoComposer.PurchaseResponse));

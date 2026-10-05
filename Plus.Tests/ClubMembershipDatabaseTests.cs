@@ -71,9 +71,9 @@ public class ClubMembershipDatabaseTests : IDisposable
     [ClubDatabaseFact]
     public void KickbackCarriesFirstPurchaseDateAndStreakDaysAcrossReloadAndRenewal()
     {
-        var first = _clock.Now.ToUnixTimeSeconds();
+        var first = _clock.Now;
         Assert.NotNull(_memberships.Purchase(_habbo, Month));
-        Assert.Equal(first, Scalar("SELECT first_started_at FROM user_club_memberships WHERE user_id = 957001"));
+        Assert.Equal(first.UtcDateTime, ScalarTime("SELECT first_started_at FROM user_club_memberships WHERE user_id = 957001"));
         var initial = _rewards.Kickback(_habbo);
         Assert.Equal("04-10-2026", initial.FirstDate);
         Assert.Equal(0, initial.Streak);
@@ -90,7 +90,7 @@ public class ClubMembershipDatabaseTests : IDisposable
 
         Assert.NotNull(_memberships.Purchase(_habbo, Month));
         Assert.Equal(12, _rewards.Kickback(_habbo).Streak);
-        _clock.Now = DateTimeOffset.FromUnixTimeSeconds(_memberships.GetExpiry(User));
+        _clock.Now = _memberships.GetExpiry(User)!.Value;
         Assert.Equal(0, _rewards.Kickback(_habbo).Streak);
         Assert.Equal("04-10-2026", _rewards.Kickback(_habbo).FirstDate);
         _clock.Now = _clock.Now.AddDays(7);
@@ -121,13 +121,13 @@ public class ClubMembershipDatabaseTests : IDisposable
     [ClubDatabaseFact]
     public void PurchaseLoadsTheSnapshotAndInsufficientFundsCommitNothing()
     {
-        var now = _clock.Now.ToUnixTimeSeconds();
-        Assert.Equal(now + 31 * ClubMembership.Day, _memberships.Purchase(_habbo, Month));
+        var now = _clock.Now;
+        Assert.Equal(now.AddDays(31), _memberships.Purchase(_habbo, Month));
         Assert.Equal(900, _habbo.Credits); Assert.Equal(2, ClubAccess.LevelFor(_habbo.Access));
         Sql("UPDATE catalog_club_offers SET credits = 10000 WHERE id = 957101");
         Assert.Null(_memberships.Purchase(_habbo, Month));
         Assert.Equal(900, Scalar("SELECT credits FROM users WHERE id = 957001"));
-        Assert.Equal(now + 31 * ClubMembership.Day, Scalar("SELECT expires_at FROM user_club_memberships WHERE user_id = 957001"));
+        Assert.Equal(now.AddDays(31).UtcDateTime, ScalarTime("SELECT expires_at FROM user_club_memberships WHERE user_id = 957001"));
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM acl_audit_log WHERE action = 'club.purchase' AND target_id = 957001"));
     }
     [ClubDatabaseFact]
@@ -137,7 +137,7 @@ public class ClubMembershipDatabaseTests : IDisposable
         await lists.Start();
         Assert.NotNull(_memberships.Purchase(_habbo, Month));
         AssertLists(2, 3);
-        _clock.Now = DateTimeOffset.FromUnixTimeSeconds(_habbo.Access.Membership.ExpiresAt);
+        _clock.Now = _habbo.Access.Membership.ExpiresAt!.Value;
         _clock.Tick();
         AssertLists(1, 1);
 
@@ -200,14 +200,14 @@ public class ClubMembershipDatabaseTests : IDisposable
         var results = await Task.WhenAll(Enumerable.Range(0, 10).Select(_ => Task.Run(() => _memberships.Purchase(_habbo, Month))));
         Assert.All(results, result => Assert.NotNull(result));
         Assert.Equal(0, _habbo.Credits); Assert.Equal(0, Scalar("SELECT credits FROM users WHERE id = 957001"));
-        Assert.Equal(_clock.Now.ToUnixTimeSeconds() + 310 * ClubMembership.Day, _memberships.GetExpiry(User));
+        Assert.Equal(_clock.Now.AddDays(310), _memberships.GetExpiry(User));
         Assert.Null(_memberships.Purchase(_habbo, Month));
     }
     [ClubDatabaseFact]
     public void CatalogOfferMetadataComesFromTheServerAndDisabledOffersAreRefused()
     {
         var forged = new ClubOffer { Id = Offer, Days = 186, Credits = 0 };
-        Assert.Equal(_clock.Now.ToUnixTimeSeconds() + 31 * ClubMembership.Day, _memberships.Purchase(_habbo, forged));
+        Assert.Equal(_clock.Now.AddDays(31), _memberships.Purchase(_habbo, forged));
         Assert.Equal(900, _habbo.Credits);
         Sql("UPDATE catalog_club_offers SET enabled = 0 WHERE id = 957101");
         Assert.Null(_memberships.Purchase(_habbo, Month));
@@ -241,7 +241,7 @@ public class ClubMembershipDatabaseTests : IDisposable
         try { Assert.Null(_rewards.Claim(_habbo, "hc_arab_chair")); }
         finally { Sql("UPDATE club_gift_offers SET days_required = 0 WHERE catalog_item_id = 65398"); }
         _gift.ClubLevel = 3; Assert.Null(_rewards.Claim(_habbo, "hc_arab_chair")); _gift.ClubLevel = 0;
-        _clock.Now = DateTimeOffset.FromUnixTimeSeconds(_memberships.GetExpiry(User));
+        _clock.Now = _memberships.GetExpiry(User)!.Value;
         Assert.Equal(0, ClubAccess.LevelFor(_habbo.Access));
         Assert.Null(_rewards.Claim(_habbo, "hc_arab_chair"));
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM items WHERE user_id = 957001"));
@@ -304,7 +304,7 @@ public class ClubMembershipDatabaseTests : IDisposable
     {
         _memberships.Purchase(_habbo, Month); Assert.True(_rewards.Charge(_habbo, 99));
         var due = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
-        Sql($"UPDATE club_membership_intervals SET expires_at = {due.ToUnixTimeSeconds()} WHERE user_id = 957001");
+        Sql($"UPDATE club_membership_intervals SET expires_at = '{due.UtcDateTime:yyyy-MM-dd HH:mm:ss}' WHERE user_id = 957001");
         _clock.Now = due; _clients.Registered = false;
         _rewards.RunPaydays();
         Assert.Equal(801, Scalar("SELECT credits FROM users WHERE id = 957001"));
@@ -312,6 +312,7 @@ public class ClubMembershipDatabaseTests : IDisposable
     }
     private void Sql(string sql) { using var connection = _database.Connection(); connection.Execute(sql); }
     private long Scalar(string sql) { using var connection = _database.Connection(); return connection.ExecuteScalar<long>(sql); }
+    private DateTime? ScalarTime(string sql) { using var connection = _database.Connection(); return connection.ExecuteScalar<DateTime?>(sql); }
     private void Clean() => Sql("DROP TRIGGER IF EXISTS club_test_gift_failure; DELETE FROM user_club_memberships WHERE user_id = 957001; DELETE FROM club_membership_intervals WHERE user_id = 957001; " +
         "DELETE FROM club_credit_spending WHERE user_id = 957001; DELETE FROM club_paydays WHERE user_id = 957001; DELETE FROM club_gift_claims WHERE user_id = 957001; " +
         "DELETE FROM items WHERE user_id = 957001; DELETE FROM acl_audit_log WHERE target_id = 957001; DELETE FROM user_permissions WHERE user_id = 957001; DELETE FROM users WHERE id = 957001; DELETE FROM catalog_club_offers WHERE id = 957101");

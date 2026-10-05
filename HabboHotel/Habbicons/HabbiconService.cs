@@ -228,9 +228,8 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
         var after = new HabbiconBalances(balances.Credits - credits, balances.Duckets - duckets, balances.Diamonds - diamonds);
         connection.Execute("UPDATE users SET credits = @Credits, activity_points = @Duckets, vip_points = @Diamonds WHERE id = @userId",
             new { after.Credits, after.Duckets, after.Diamonds, userId }, transaction);
-        var nowEpoch = now.ToUnixTimeSeconds();
-        ClubRewards.RecordSpending(connection, transaction, userId, credits, nowEpoch,
-            membership?.Active(nowEpoch) == true);
+        ClubRewards.RecordSpending(connection, transaction, userId, credits, now,
+            membership?.Active(now) == true);
         return after;
     }
 

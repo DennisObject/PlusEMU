@@ -96,7 +96,7 @@ public sealed class UserAccess
             .ToFrozenDictionary(group => group.Key, group => group.Max(limit => limit.Value), StringComparer.Ordinal);
         var primary = roles.OrderByDescending(role => role.Weight).ThenBy(role => role.Id).FirstOrDefault();
         var expiries = _assignments.Select(role => role.ExpiresAt).Concat(_overrides.Select(permission => permission.ExpiresAt))
-            .Append(_membership.ExpiresAt > now.ToUnixTimeSeconds() ? DateTimeOffset.FromUnixTimeSeconds(_membership.ExpiresAt) : null)
+            .Append(_membership.ExpiresAt is { } membershipEnd && membershipEnd > now ? membershipEnd : null)
             .Where(expiry => expiry > now).ToArray();
         return new(keys, limits, roles, primary, roles.Select(role => role.SecurityLevel).DefaultIfEmpty(1).Max(),
             roles.Select(role => role.Weight).DefaultIfEmpty(0).Max(), expiries.Length == 0 ? null : expiries.Min(), _membership);
