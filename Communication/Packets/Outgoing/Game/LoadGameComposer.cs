@@ -8,10 +8,10 @@ public class LoadGameComposer : IServerPacket
 {
     public uint MessageId => ServerPacketHeader.LoadGameComposer;
 
-    private readonly GameData _gameData;
+    private readonly GameLoadSnapshot _gameData;
     private readonly string _ssoTicket;
 
-    public LoadGameComposer(GameData gameData, string ssoTicket)
+    public LoadGameComposer(GameLoadSnapshot gameData, string ssoTicket)
     {
         _gameData = gameData;
         _ssoTicket = ssoTicket;
@@ -21,7 +21,7 @@ public class LoadGameComposer : IServerPacket
     {
         packet.WriteInteger(_gameData.Id);
         packet.WriteString("1365260055982");
-        packet.WriteString(_gameData.ResourcePath + _gameData.Swf);
+        packet.WriteString(_gameData.SwfUrl);
         packet.WriteString("best");
         packet.WriteString("showAll");
         packet.WriteInteger(60); //FPS?
@@ -29,7 +29,7 @@ public class LoadGameComposer : IServerPacket
         packet.WriteInteger(8);
         packet.WriteInteger(6); //Asset count
         packet.WriteString("assetUrl");
-        packet.WriteString(_gameData.ResourcePath + _gameData.Assets);
+        packet.WriteString(_gameData.AssetsUrl);
         packet.WriteString("habboHost");
         packet.WriteString("http://fuseus-private-httpd-fe-1");
         packet.WriteString("accessToken");
