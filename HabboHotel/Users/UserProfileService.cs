@@ -19,11 +19,14 @@ using Plus.HabboHotel.Rooms;
 namespace Plus.HabboHotel.Users;
 
 public sealed record FigureUpdateRequest(string Gender, string Figure);
+public sealed record SoundVolumeRequest(int System, int Furni, int Music);
 
 public interface IUserProfileService
 {
     void ShowUserObject(GameClient session);
     Task SetChatPreference(GameClient session, bool enabled);
+    Task SetMessengerInvitePreference(GameClient session, bool enabled);
+    Task SetSoundVolumes(GameClient session, SoundVolumeRequest request);
     void UpdateFigure(GameClient session, FigureUpdateRequest request);
     void ChangeMotto(GameClient session, string motto);
     void SetFocusPreference(GameClient session, bool enabled);
@@ -53,6 +56,33 @@ public sealed class UserProfileService(
             throw new DBConcurrencyException($"Settings for user {habbo.Id} no longer exist.");
         habbo.ChatPreference = enabled;
     }
+
+    public async Task SetMessengerInvitePreference(GameClient session, bool enabled)
+    {
+        var habbo = session.GetHabbo();
+        using var connection = database.Connection();
+        var updated = await connection.ExecuteAsync(
+            "UPDATE users_settings SET ignore_invites = @enabled WHERE user_id = @userId LIMIT 1",
+            new { enabled, userId = habbo.Id });
+        if (updated != 1)
+            throw new DBConcurrencyException($"Settings for user {habbo.Id} no longer exist.");
+        habbo.AllowMessengerInvites = enabled;
+    }
+
+    public async Task SetSoundVolumes(GameClient session, SoundVolumeRequest request)
+    {
+        var habbo = session.GetHabbo();
+        var volumes = new[] { NormalizeVolume(request.System), NormalizeVolume(request.Furni), NormalizeVolume(request.Music) };
+        using var connection = database.Connection();
+        var updated = await connection.ExecuteAsync(
+            "UPDATE users_settings SET volume = @volume WHERE user_id = @userId LIMIT 1",
+            new { volume = string.Join(",", volumes), userId = habbo.Id });
+        if (updated != 1)
+            throw new DBConcurrencyException($"Settings for user {habbo.Id} no longer exist.");
+        habbo.ClientVolume = volumes.ToList();
+    }
+
+    private static int NormalizeVolume(int value) => value is >= 0 and <= 100 ? value : 100;
 
     public void UpdateFigure(GameClient session, FigureUpdateRequest request)
     {
