@@ -371,7 +371,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
 
                     Plus.HabboHotel.Rooms.AI.Pet? pet = null;
                     if (!ChargePurchase((connection, transaction) => (pet = PetUtility.CreatePet(connection, transaction,
-                            utcNow, session.GetHabbo().Id, petName, item.Definition.BehaviourData, race, color)) != null))
+                            utcNow, session.GetHabbo().Username, session.GetHabbo().Id, petName, item.Definition.BehaviourData, race, color)) != null))
                     {
                         session.SendNotification("Oops! There was an error whilst purchasing this pet.");
                         return;

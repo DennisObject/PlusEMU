@@ -1,9 +1,5 @@
 ﻿using Dapper;
 using System.Data;
-using Plus.Core;
-using Plus.Database;
-using Plus.HabboHotel.Items;
-using Plus.HabboHotel.Users.Inventory.Pets;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.Utilities;
 
@@ -52,44 +48,15 @@ public static class PetUtility
     /// Inserts the bot and its pet row together. <c>bots.name</c>, <c>motto</c> and <c>look</c> are required;
     /// a failed insert returns no pet instead of id 0.
     /// </summary>
-    public static Pet? CreatePet(IDatabase database, TimeProvider clock, int userId, string name, int type, string race,
-        string colour, Item? gnomeBox = null, string gnomeClothing = "-1", PetsInventoryComponent? inventory = null)
-    {
-        Pet? pet = null;
-        var addedToInventory = false;
-        try
-        {
-            using var connection = database.Connection();
-            connection.Open();
-            using var transaction = connection.BeginTransaction();
-            pet = CreatePet(connection, transaction, clock.GetUtcNow(), userId, name, type, race, colour, gnomeBox, gnomeClothing);
-            if (pet == null) return null;
-            if (inventory != null)
-            {
-                if (!inventory.AddPet(pet))
-                    return null;
-                addedToInventory = true;
-            }
-            transaction.Commit();
-            return pet;
-        }
-        catch (Exception exception)
-        {
-            if (addedToInventory)
-                inventory!.RemovePet(pet!.PetId);
-            ExceptionLogger.LogException(exception);
-            return null;
-        }
-    }
     internal static Pet? CreatePet(IDbConnection connection, IDbTransaction transaction, DateTimeOffset createdAt,
-        int userId, string name,
-        int type, string race, string colour, Item? gnomeBox = null, string gnomeClothing = "-1")
+        string ownerName, int userId, string name,
+        int type, string race, string colour, PetBoxLocation? gnomeBox = null, string gnomeClothing = "-1")
     {
         createdAt = createdAt.ToUniversalTime();
         var roomId = gnomeBox?.RoomId ?? 0;
-        var x = gnomeBox?.GetX ?? 0;
-        var y = gnomeBox?.GetY ?? 0;
-        var z = gnomeBox?.GetZ ?? 0;
+        var x = gnomeBox?.X ?? 0;
+        var y = gnomeBox?.Y ?? 0;
+        var z = gnomeBox?.Z ?? 0;
         var parts = gnomeBox == null ? "2 2 -1 0 3 -1 0" : gnomeClothing;
         var look = $"{type} {race} {colour} {parts}";
         var inserted = connection.Execute(
@@ -106,10 +73,12 @@ public static class PetUtility
             new { Id = id, Type = type, Race = race, Color = colour, Created = createdAt.UtcDateTime, GnomeClothing = gnomeClothing },
             transaction);
         if (gnomeBox != null && connection.Execute(
-            "DELETE FROM `items` WHERE `id`=@Id AND `user_id`=@OwnerId AND `room_id`=@RoomId LIMIT 1",
-            new { gnomeBox.Id, OwnerId = userId, RoomId = roomId }, transaction) != 1)
+            "DELETE FROM `items` WHERE `id`=@Id AND `user_id`=@OwnerId AND `room_id`=@RoomId AND `base_item`=@BaseItem LIMIT 1",
+            new { Id = gnomeBox.Value.ItemId, OwnerId = userId, RoomId = roomId, BaseItem = gnomeBox.Value.BaseItem }, transaction) != 1)
             return null;
-        return new Pet(id, userId, roomId, name, type, race, colour, 0, 100, 100, 0, createdAt, x, y, z, 0, 0, 0, -1, gnomeClothing);
+        return new Pet(id, userId, roomId, name, type, race, colour, 0, 100, 100, 0, createdAt, x, y, z, 0, 0, 0, -1, gnomeClothing, ownerName);
     }
 
 }
+
+internal readonly record struct PetBoxLocation(uint ItemId, uint BaseItem, uint RoomId, int X, int Y, double Z);

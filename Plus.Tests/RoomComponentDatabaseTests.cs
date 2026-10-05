@@ -83,7 +83,7 @@ public sealed class RoomComponentDatabaseTests
                 INSERT INTO room_promotions VALUES (45, 'Missing', 'Legacy null', NULL, NULL, 6);
                 INSERT INTO room_bans VALUES (20, 42, 2200000000.123456), (21, 42, 0), (22, 42, NULL);
                 INSERT INTO items (id, user_id) VALUES (90, 1), (91, 1);
-                INSERT INTO users VALUES (7, 'owner');
+                INSERT INTO users VALUES (7, 'owner'), (8, 'pet owner');
                 INSERT INTO items (id, user_id, room_id, x, y, z, rot, extra_data, wall_pos, base_item, limited_number, limited_stack)
                     VALUES (92, 7, 42, 2, 3, 2, 4, '100;1', '', 500, 6, 7), (93, 7, 42, 0, 0, 0, 0, '', '', 999, 0, 0);
                 INSERT INTO items_groups VALUES (92, 123);
@@ -144,7 +144,12 @@ public sealed class RoomComponentDatabaseTests
             Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).AddTicks(1_234_560), data.CreatedAt);
             Assert.Null(RoomPetsComponent.LoadData(productionConnection, 14)!.CreatedAt);
             Assert.Null(RoomPetsComponent.LoadData(productionConnection, 15)!.CreatedAt);
+            Assert.Equal("pet owner", pet.OwnerName);
             var inventoryPet = Assert.Single(PetLoader.Load(productionConnection, 8));
+            var loadedInventoryPet = Assert.Single(new PetLoader(new ProbeDatabase(productionDatabaseConnection)).GetPetsForUser(8));
+            Assert.Equal("pet owner", loadedInventoryPet.OwnerName);
+            connection.Execute("DELETE FROM users WHERE id = 8");
+            Assert.Equal("", Assert.Single(new PetLoader(new ProbeDatabase(productionDatabaseConnection)).GetPetsForUser(8)).OwnerName);
             Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).AddTicks(1_234_560), inventoryPet.CreatedAt);
             var promotion = Assert.IsType<RoomPromotion>(RoomPromotionLoader.Load(new ProbeDatabase(productionDatabaseConnection), 42, TimeProvider.System));
             Assert.Equal(("Featured", "Actual row", 3), (promotion.Name, promotion.Description, promotion.CategoryId));

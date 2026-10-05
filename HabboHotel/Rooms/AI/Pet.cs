@@ -39,7 +39,7 @@ public class Pet
     public double Z;
 
     public Pet(int petId, int ownerId, uint roomId, string name, int type, string race, string color, int experience, int energy, int nutrition, int respect, DateTimeOffset? createdAt, int x, int y,
-        double z, int saddle, int anyonecanride, int dye, int petHer, string gnomeClothing)
+        double z, int saddle, int anyonecanride, int dye, int petHer, string gnomeClothing, string ownerName)
     {
         PetId = petId;
         OwnerId = ownerId;
@@ -64,8 +64,7 @@ public class Pet
         HairDye = dye;
         GnomeClothing = gnomeClothing;
 
-        /// TODO: pass by constructor
-        OwnerName = PlusEnvironment.Game.ClientManager.GetNameById(OwnerId).Result;
+        OwnerName = ownerName;
     }
 
     public Room? Room

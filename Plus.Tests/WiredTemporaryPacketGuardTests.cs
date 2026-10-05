@@ -62,6 +62,8 @@ public class WiredTemporaryPacketGuardTests
         var database = EditorTestSupport.UntouchableDatabase();
         var arguments = constructor.GetParameters().Select(parameter => parameter.ParameterType == typeof(ISettingsManager)
             ? (object)new EnabledExchangeSettings()
+            : parameter.ParameterType == typeof(Plus.HabboHotel.Catalog.IGnomePackageService)
+                ? new Plus.HabboHotel.Catalog.GnomePackageService(new Plus.HabboHotel.Catalog.GnomePackageStore(database, Microsoft.Extensions.Logging.Abstractions.NullLogger<Plus.HabboHotel.Catalog.GnomePackageStore>.Instance), null!, null!, TimeProvider.System)
             : parameter.ParameterType == typeof(IRoomItemPickupService)
                 ? new RoomItemPickupService(null!, null!, new RoomItemPickupStore(database))
             : parameter.ParameterType == typeof(IGroupPresentationService)
@@ -178,7 +180,8 @@ public class WiredTemporaryPacketGuardTests
         using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
         if (name.Contains("PickupObject")) output.WriteInteger(0);
         output.WriteUInteger(7);
-        if (name.Contains("MoveWall")) output.WriteString(":w=1,1 l=1,1 l");
+        if (name.Contains("Gnome")) output.WriteString("Pixel");
+        else if (name.Contains("MoveWall")) output.WriteString(":w=1,1 l=1,1 l");
         else if (name.Contains("UseFurniture")) output.WriteInteger(0);
         else if (name.Contains("SetToner")) { output.WriteInteger(10); output.WriteInteger(20); output.WriteInteger(30); }
         else if (name.Contains("SetMannequinName")) output.WriteString("changed");
