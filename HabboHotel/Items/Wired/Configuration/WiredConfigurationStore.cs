@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.Json;
 using Dapper;
 using Plus.Database;
@@ -36,6 +37,26 @@ public sealed class WiredConfigurationStore(IDatabase database) : IWiredConfigur
                 Id = itemId, Name = descriptor.CanonicalName, configuration.Version,
                 Configuration = JsonSerializer.Serialize(configuration)
             });
+    }
+
+    public void Reset(IReadOnlyCollection<uint> itemIds)
+    {
+        if (itemIds.Count == 0)
+            return;
+        var ids = new { Ids = itemIds.Distinct().Order().ToArray() };
+        using var connection = database.Connection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+        // Same order as the variable value writers: items/configuration, definition guard, values. Every value writer
+        // holds the item row, so a box without a guard row cannot gain values before this commits. The guard stays
+        // unretired: the same box placed again defines its variable afresh.
+        connection.Execute("SELECT id FROM items WHERE id IN @Ids ORDER BY id FOR UPDATE", ids, transaction);
+        connection.Execute("DELETE FROM wired_item_configurations WHERE item_id IN @Ids", ids, transaction);
+        connection.Execute("SELECT definition_id FROM wired_variable_locks WHERE definition_id IN @Ids ORDER BY definition_id FOR UPDATE", ids, transaction);
+        connection.Execute("DELETE FROM wired_variable_values WHERE definition_id IN @Ids", ids, transaction);
+        connection.Execute("DELETE FROM wired_items WHERE id IN @Ids", ids, transaction);
+        connection.Execute("DELETE FROM wired_reward_state WHERE item_id IN @Ids", ids, transaction);
+        transaction.Commit();
     }
 
     private sealed class StoredConfiguration
