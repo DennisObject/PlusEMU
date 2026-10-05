@@ -217,6 +217,7 @@ public class MessengerPresentationTests
     {
         public Task<Dictionary<int, List<(string Message, int SecondsAgo)>>> GetAndDeleteOfflineMessages(int userId) =>
             Task.FromResult(offline?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? new Dictionary<int, List<(string Message, int SecondsAgo)>>());
+        public Task<Dictionary<int, (MessengerBuddy buddy, int count)>> GetRelationshipsForUserAsync(int userId) => throw new NotSupportedException();
         public Task<List<MessengerBuddy>> GetBuddiesForUser(int userId) => throw new NotSupportedException();
         public Task<List<MessengerRequest>> GetRequestsForUser(int userId) => throw new NotSupportedException();
         public Task<List<int>> GetOutstandingRequestsForUser(int userId) => throw new NotSupportedException();
