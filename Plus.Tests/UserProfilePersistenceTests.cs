@@ -42,6 +42,35 @@ public sealed class UserProfilePersistenceTests
         Assert.Equal(admitted ? 0 : 1, habbo.MottoUpdateWarnings);
     }
 
+    [Theory]
+    [InlineData(-1, false)]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    public void FigureThrottleUsesExactTicksAndOneNonUtcClockSample(int ticksAfterBoundary, bool admitted)
+    {
+        var now = new DateTimeOffset(2042, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var clock = new CountingClock(now);
+        var previous = now.AddSeconds(-2).AddTicks(-ticksAfterBoundary).ToOffset(TimeSpan.FromHours(-9));
+        var habbo = new Habbo
+        {
+            Id = 7, Look = "old", Gender = "m", Clothing = new(), Access = UserAccess.Empty,
+            LastClothingUpdatedAt = previous
+        };
+        var (session, _) = HabbiconTestSupport.Client(habbo);
+        var service = Service(new FailingDatabase(), clock);
+
+        if (admitted)
+            Assert.Throws<InvalidOperationException>(() => service.UpdateFigure(session, new("m", "new")));
+        else
+            service.UpdateFigure(session, new("m", "new"));
+
+        Assert.Equal(1, clock.Reads);
+        Assert.Equal("old", habbo.Look);
+        Assert.Equal("m", habbo.Gender);
+        Assert.Equal(previous, habbo.LastClothingUpdatedAt);
+        Assert.Equal(admitted ? 0 : 1, habbo.ClothingUpdateWarnings);
+    }
+
     [Fact]
     public void InvalidGenderPreservesDenialTimestampAndPublishesOnlyTheAlert()
     {
@@ -75,12 +104,20 @@ public sealed class UserProfilePersistenceTests
             attempted.SetResult();
             return Record.Exception(() => service.ChangeMotto(session, "new"));
         });
-        await attempted.Task;
-        await Task.Delay(50);
-        Assert.False(write.IsCompleted);
+        Exception? outcome = null;
+        try
+        {
+            await attempted.Task;
+            await Task.Delay(50);
+            Assert.False(write.IsCompleted);
+        }
+        finally
+        {
+            held.Dispose();
+            outcome = await write;
+        }
 
-        held.Dispose();
-        Assert.IsType<InvalidOperationException>(await write);
+        Assert.IsType<InvalidOperationException>(outcome);
         Assert.Equal("old", habbo.Motto);
     }
 
