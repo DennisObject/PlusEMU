@@ -1,3 +1,4 @@
+using System.Data;
 using Dapper;
 using Plus.Database;
 
@@ -18,7 +19,7 @@ public sealed class AvatarEffectStore(IDatabase database) : IAvatarEffectStore
         using var connection = database.Connection();
         var rows = connection.Query<EffectRow>("SELECT `id`, `user_id` AS UserId, `effect_id` AS SpriteId, `total_duration` AS Duration, " +
             "`is_activated` AS Activated, `activated_stamp` AS TimestampActivated, `quantity` FROM `user_effects` WHERE `user_id` = @userId", new { userId });
-        return rows.Select(row => new AvatarEffect(row.Id, row.UserId, row.SpriteId, row.Duration, row.Activated,
+        return rows.Select(row => new AvatarEffect(row.Id, checked((int)row.UserId), row.SpriteId, row.Duration, row.Activated,
             row.TimestampActivated, row.Quantity, this)).ToList();
     }
 
@@ -33,16 +34,35 @@ public sealed class AvatarEffectStore(IDatabase database) : IAvatarEffectStore
     public void Activate(int id, DateTimeOffset timestamp)
     {
         using var connection = database.Connection();
-        connection.Execute("UPDATE `user_effects` SET `is_activated` = true, `activated_stamp` = @timestamp WHERE `id` = @id", new { timestamp, id });
+        var affected = connection.Execute("UPDATE `user_effects` SET `is_activated` = true, `activated_stamp` = @timestamp WHERE `id` = @id",
+            new { timestamp = timestamp.UtcDateTime, id });
+        RequireUpdatedRow(affected, id);
     }
 
     public void SaveQuantity(int id, int quantity, bool activated, DateTimeOffset? activatedAt)
     {
         using var connection = database.Connection();
-        if (quantity < 1) connection.Execute("DELETE FROM `user_effects` WHERE `id` = @id", new { id });
-        else connection.Execute("UPDATE `user_effects` SET `quantity` = @quantity, `is_activated` = @activated, `activated_stamp` = @activatedStamp WHERE `id` = @id",
-            new { quantity, activated, activatedStamp = activatedAt?.UtcDateTime, id });
+        var affected = quantity < 1
+            ? connection.Execute("DELETE FROM `user_effects` WHERE `id` = @id", new { id })
+            : connection.Execute("UPDATE `user_effects` SET `quantity` = @quantity, `is_activated` = @activated, `activated_stamp` = @activatedStamp WHERE `id` = @id",
+                new { quantity, activated, activatedStamp = activatedAt?.UtcDateTime, id });
+        RequireUpdatedRow(affected, id);
     }
 
-    private sealed record EffectRow(int Id, int UserId, int SpriteId, double Duration, bool Activated, DateTimeOffset? TimestampActivated, int Quantity);
+    private static void RequireUpdatedRow(int affected, int id)
+    {
+        if (affected != 1)
+            throw new DBConcurrencyException($"Avatar effect {id} no longer exists.");
+    }
+
+    private sealed class EffectRow
+    {
+        public int Id { get; set; }
+        public uint UserId { get; set; }
+        public int SpriteId { get; set; }
+        public int Duration { get; set; }
+        public bool Activated { get; set; }
+        public DateTimeOffset? TimestampActivated { get; set; }
+        public int Quantity { get; set; }
+    }
 }
