@@ -26,7 +26,7 @@ public class HabboMessenger
     public HabboMessenger(Dictionary<int, MessengerBuddy> friends, Dictionary<int, MessengerRequest> requests, List<int> outstandingFriendRequests, TimeProvider timeProvider)
     {
         _timeProvider = timeProvider;
-        _lastMessage = _timeProvider.GetUtcNow().UtcDateTime;
+        _lastMessageAt = _timeProvider.GetUtcNow().ToUniversalTime();
         _requests = new(requests);
         _friends = new(friends);
         _outstandingFriendRequests = outstandingFriendRequests;
@@ -58,27 +58,27 @@ public class HabboMessenger
     }
 
     private int _messengerSpamCount = 0;
-    private DateTime? _messengerSpamTime = null;
-    private DateTime _lastMessage;
+    private DateTimeOffset? _floodStartedAt;
+    private DateTimeOffset _lastMessageAt;
 
     private bool IncrementFloodCounter(DateTimeOffset at)
     {
-        var now = at.UtcDateTime;
+        var now = at.ToUniversalTime();
         // A pause cannot bypass an active cooldown, even after the burst counter resets.
-        if (_messengerSpamTime is { } cooldown)
+        if (_floodStartedAt is { } startedAt)
         {
-            if (now < cooldown) return true;
-            _messengerSpamTime = null;
+            if (now - startedAt < TimeSpan.FromMinutes(1)) return true;
+            _floodStartedAt = null;
             _messengerSpamCount = 0;
         }
-        var timeSinceLastMessage = now - _lastMessage;
+        var timeSinceLastMessage = now - _lastMessageAt;
         if (timeSinceLastMessage > TimeSpan.FromSeconds(20))
             _messengerSpamCount = 0;
         if (timeSinceLastMessage <= TimeSpan.FromSeconds(5))
             _messengerSpamCount++;
         if (_messengerSpamCount >= 12)
         {
-            _messengerSpamTime = now.AddMinutes(1);
+            _floodStartedAt = now;
             _messengerSpamCount = 0;
             return true;
         }
@@ -89,7 +89,7 @@ public class HabboMessenger
     internal bool TrySendHabbicon(DateTimeOffset now)
     {
         if (IncrementFloodCounter(now)) return false;
-        _lastMessage = now.UtcDateTime;
+        _lastMessageAt = now.ToUniversalTime();
         return true;
     }
 
@@ -98,7 +98,7 @@ public class HabboMessenger
         if (string.IsNullOrWhiteSpace(message)) return MessageError.EmptyMessage;
         var sentAt = _timeProvider.GetUtcNow();
         if (IncrementFloodCounter(sentAt)) return MessageError.Flooding;
-        _lastMessage = sentAt.UtcDateTime;
+        _lastMessageAt = sentAt.ToUniversalTime();
         MessageSend?.Invoke(this, new(friend, message));
         return null;
     }
