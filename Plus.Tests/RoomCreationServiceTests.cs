@@ -100,7 +100,7 @@ public sealed class RoomCreationServiceTests
         {
             Id = 42,
             Username = "Dennis",
-            Messenger = new HabboMessenger([], [], [])
+            Messenger = new HabboMessenger([], [], [], new FixedTimeProvider(FixedTimeProvider.Epoch))
         };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
