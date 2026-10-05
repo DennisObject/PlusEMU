@@ -1,36 +1,36 @@
 using Plus.Communication.Packets.Outgoing.Rooms.Notifications;
 using Plus.Communication.Packets.Outgoing.Rooms.Session;
-using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.FloorPlan;
 
-internal class UpdateFloorPropertiesEvent : RoomPacketEvent
+internal interface IFloorPlanUpdateService { void Update(Room room, GameClient session, FloorPlanRequest.Body body); }
+
+internal sealed class FloorPlanUpdateService : IFloorPlanUpdateService
 {
     private readonly IRoomManager _roomManager;
-    private readonly IDatabase _database;
+    private readonly IFloorPlanStore _store;
 
-    public UpdateFloorPropertiesEvent(IRoomManager roomManager, IDatabase database)
+    public FloorPlanUpdateService(IRoomManager roomManager, IFloorPlanStore store)
     {
         _roomManager = roomManager;
-        _database = database;
+        _store = store;
     }
 
-    public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
+    public void Update(Room room, GameClient session, FloorPlanRequest.Body body)
     {
         if (!room.CheckRights(session, true))
-            return Task.CompletedTask;
+            return;
 
         var model = room.GetGameMap().Model;
         if (model?.SqState == null || model.SqFloorHeight == null)
         {
             Notify(session, FloorPlanSave.ErrorTitle);
-            return Task.CompletedTask;
+            return;
         }
 
-        var body = FloorPlanRequest.Read(packet);
         var existing = new FloorPlanSave.Layout(
             model.DoorX,
             model.DoorY,
@@ -40,70 +40,24 @@ internal class UpdateFloorPropertiesEvent : RoomPacketEvent
             room.GetGameMap().StaticModel.WallHeight);
         var layout = FloorPlanSave.Resolve(body.DoorFieldsPresent, body.WallHeightPresent, body.Requested, existing);
         if (Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access) == 0 && (layout.WallThickness != 0 || layout.FloorThickness != 0))
-            return Task.CompletedTask;
+            return;
 
         var decision = FloorPlanSave.Evaluate(body.Map, layout.DoorX, layout.DoorY, layout.DoorDirection, layout.WallThickness, layout.FloorThickness, layout.WallHeight, FloorItems(room), CurrentTiles(model));
         if (decision.Error != null)
         {
             Notify(session, decision.Error);
-            return Task.CompletedTask;
+            return;
         }
 
         var modelName = $"model_bc_{room.Id}";
-        using (var dbClient = _database.GetQueryReactor())
+        try
         {
-            dbClient.SetQuery("SELECT `id` FROM `room_models` WHERE `id` = @model AND `custom` = '1' LIMIT 1");
-            dbClient.AddParameter("model", modelName);
-            var row = dbClient.GetRow();
-            if (row == null)
-            {
-                dbClient.SetQuery(
-                    "INSERT INTO `room_models` (`id`,`door_x`,`door_y`, `door_z`, `door_dir`,`heightmap`,`public_items`,`custom`,`wall_height`) VALUES (@ModelName, @DoorX, @DoorY, @DoorZ, @DoorDirection, @Map, '', '1', @WallHeight)");
-            }
-            else
-            {
-                dbClient.SetQuery(
-                    "UPDATE `room_models` SET `heightmap` = @Map, `door_x` = @DoorX, `door_y` = @DoorY, `door_z` = @DoorZ, `door_dir` = @DoorDirection, `wall_height` = @WallHeight WHERE `id` = @ModelName LIMIT 1");
-            }
-
-            dbClient.AddParameter("ModelName", modelName);
-            dbClient.AddParameter("DoorX", decision.DoorX);
-            dbClient.AddParameter("DoorY", decision.DoorY);
-            dbClient.AddParameter("DoorZ", decision.DoorZ);
-            dbClient.AddParameter("DoorDirection", decision.DoorDirection);
-            dbClient.AddParameter("Map", decision.Map);
-            dbClient.AddParameter("WallHeight", decision.WallHeight);
-            bool persisted;
-            try
-            {
-                persisted = dbClient.RunTransaction(() => TryPersist(
-                    () => dbClient.RunQueryRequired(),
-                    () =>
-                    {
-                        dbClient.SetQuery("SELECT `id` FROM `room_models` WHERE `id` = @model AND `custom` = '1' LIMIT 1");
-                        dbClient.AddParameter("model", modelName);
-                        return dbClient.GetRow() != null;
-                    },
-                    () =>
-                    {
-                        dbClient.SetQuery("UPDATE `rooms` SET `model_name` = @ModelName, `wallthick` = @WallThick, `floorthick` = @FloorThick WHERE `id` = @roomId LIMIT 1");
-                        dbClient.AddParameter("roomId", room.Id);
-                        dbClient.AddParameter("ModelName", modelName);
-                        dbClient.AddParameter("WallThick", decision.WallThickness);
-                        dbClient.AddParameter("FloorThick", decision.FloorThickness);
-                        return dbClient.RunQueryRequired();
-                    }));
-            }
-            catch (Exception)
-            {
-                Notify(session, FloorPlanSave.ErrorTitle);
-                return Task.CompletedTask;
-            }
-            if (!persisted)
-            {
-                Notify(session, FloorPlanSave.ErrorTitle);
-                return Task.CompletedTask;
-            }
+            _store.Save(room.Id, modelName, decision);
+        }
+        catch (Exception)
+        {
+            Notify(session, FloorPlanSave.ErrorTitle);
+            return;
         }
 
         room.ModelName = modelName;
@@ -127,7 +81,7 @@ internal class UpdateFloorPropertiesEvent : RoomPacketEvent
             () => _roomManager.ReloadModel(modelName),
             () => _roomManager.UnloadRoom(roomId),
             client => client.Send(new RoomForwardComposer(roomId)));
-        return Task.CompletedTask;
+        return;
     }
 
     internal static bool TryPersist(Func<int> writeModel, Func<bool> modelVisible, Func<int> writeRoom)
@@ -221,4 +175,19 @@ internal class UpdateFloorPropertiesEvent : RoomPacketEvent
         }
         return tiles;
     }
+}
+
+internal sealed class UpdateFloorPropertiesEvent(IFloorPlanUpdateService service) : RoomPacketEvent
+{
+    public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
+    {
+        service.Update(room, session, FloorPlanRequest.Read(packet));
+        return Task.CompletedTask;
+    }
+
+    internal static bool TryPersist(Func<int> writeModel, Func<bool> modelVisible, Func<int> writeRoom) =>
+        FloorPlanUpdateService.TryPersist(writeModel, modelVisible, writeRoom);
+
+    internal static void ReturnConnectedClients(IReadOnlyList<GameClient> clients, System.Action<GameClient, bool> remove, System.Action reload, System.Action unload, System.Action<GameClient> forward) =>
+        FloorPlanUpdateService.ReturnConnectedClients(clients, remove, reload, unload, forward);
 }
