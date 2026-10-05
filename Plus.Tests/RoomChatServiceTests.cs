@@ -6,6 +6,8 @@ using Plus.Communication.Packets.Incoming.Habbicons;
 using Plus.Communication.Packets.Incoming.Rooms.Chat;
 using Plus.Core.Settings;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Habbicons;
+using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired.Configuration;
@@ -178,15 +180,97 @@ public sealed class RoomChatServiceTests
         var clock = new ZonedClock(now, TimeZoneInfo.CreateCustomTimeZone("habbicon-plus-nine", TimeSpan.FromHours(9), "test", "test"));
         var world = new World(clock);
         world.SenderUser.ChatSpamCount = 5;
-        world.Sender.GetHabbo().LastHabbiconTrigger = Environment.TickCount64 - 2000;
+        world.Sender.GetHabbo().LastHabbiconTriggeredAt = now.AddSeconds(-2);
         clock.Calls = 0;
 
-        await new TriggerHabbiconEvent(new HabbiconTestSupport.Service(), clock)
+        await new TriggerHabbiconEvent(new RoomHabbiconService(new HabbiconTestSupport.Service(), world.Rewards, clock))
             .Parse(world.Sender, HabbiconTestSupport.Incoming(61));
 
         Assert.Equal(1, clock.Calls);
         Assert.NotNull(world.Sender.GetHabbo().FloodUntil);
         Assert.Equal(now, world.Sender.GetHabbo().FloodUntil!.Value.AddSeconds(-20));
+    }
+
+    [Theory]
+    [InlineData(999, false)]
+    [InlineData(1000, true)]
+    [InlineData(1001, true)]
+    public async Task RoomHabbiconCooldownUsesOneUtcInstantAtTheExactDeadline(int elapsed, bool allowed)
+    {
+        var clock = new ZonedClock(Now.ToOffset(TimeSpan.FromHours(9)), TimeZoneInfo.Utc);
+        var world = new World(clock);
+        var habbo = world.Sender.GetHabbo();
+        habbo.LastHabbiconTriggeredAt = Now.AddMilliseconds(-elapsed);
+        var store = new HabbiconTestSupport.Service();
+        clock.Calls = 0;
+        var packet = HabbiconTestSupport.Incoming(61);
+        await new TriggerHabbiconEvent(new RoomHabbiconService(store, world.Rewards, clock)).Parse(world.Sender, packet);
+        Assert.False(packet.HasDataRemaining());
+        Assert.Equal(1, clock.Calls);
+        if (allowed)
+        {
+            Assert.Equal(new[] { 61 }, store.Used);
+            Assert.Equal(new[] { RewardTrackActions.UseHabbicon }, world.Rewards.Progresses);
+            Assert.Equal(Now, habbo.LastHabbiconTriggeredAt);
+            Assert.Equal(new[] { ServerPacketHeader.RoomUseHabbiconComposer, ServerPacketHeader.UserHabbiconsComposer }, world.SenderPackets.Select(p => p.Header));
+        }
+        else
+        {
+            Assert.Empty(store.Used);
+            Assert.Empty(world.Rewards.Progresses);
+            Assert.Empty(world.SenderPackets);
+        }
+    }
+
+    [Fact]
+    public async Task MissingTriggerTimeAllowsFirstUseAndUnownedUseDoesNotPublishOrStamp()
+    {
+        var clock = new ZonedClock(Now, TimeZoneInfo.Utc);
+        var world = new World(clock);
+        var habbo = world.Sender.GetHabbo();
+        var store = new HabbiconTestSupport.Service();
+        var handler = new TriggerHabbiconEvent(new RoomHabbiconService(store, world.Rewards, clock));
+        await handler.Parse(world.Sender, HabbiconTestSupport.Incoming(999));
+        Assert.Null(habbo.LastHabbiconTriggeredAt);
+        Assert.Empty(world.SenderPackets);
+        Assert.Empty(world.Rewards.Progresses);
+        store.Used.Clear();
+        await handler.Parse(world.Sender, HabbiconTestSupport.Incoming(61));
+        Assert.Equal(new[] { 61 }, store.Used);
+        Assert.Equal(Now, habbo.LastHabbiconTriggeredAt);
+        Assert.Equal(TimeSpan.Zero, habbo.LastHabbiconTriggeredAt!.Value.Offset);
+    }
+
+    [Fact]
+    public async Task FutureTriggerTimeAndMaxValueRemainOnCooldownWithoutOverflow()
+    {
+        var clock = new ZonedClock(Now, TimeZoneInfo.Utc);
+        var world = new World(clock);
+        world.Sender.GetHabbo().LastHabbiconTriggeredAt = DateTimeOffset.MaxValue;
+        var store = new HabbiconTestSupport.Service();
+        await new TriggerHabbiconEvent(new RoomHabbiconService(store, world.Rewards, clock))
+            .Parse(world.Sender, HabbiconTestSupport.Incoming(61));
+        Assert.Empty(store.Used);
+        Assert.Empty(world.SenderPackets);
+        Assert.Empty(world.Rewards.Progresses);
+    }
+
+    [Fact]
+    public async Task TriggerHandlerOnlyDecodesAndDelegates()
+    {
+        var recorder = new RecordingRoomHabbicons();
+        var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
+        var packet = HabbiconTestSupport.Incoming(61);
+        await new TriggerHabbiconEvent(recorder).Parse(client, packet);
+        Assert.Equal(61, recorder.Id);
+        Assert.False(packet.HasDataRemaining());
+        Assert.Empty(sent);
+    }
+
+    private sealed class RecordingRoomHabbicons : IRoomHabbiconService
+    {
+        public int Id;
+        public void Trigger(GameClient session, int id) => Id = id;
     }
 
     [Fact]

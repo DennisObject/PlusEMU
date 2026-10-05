@@ -76,7 +76,7 @@ public class Habbo
 
     public string Gender { get; set; } = string.Empty;
 
-    internal long LastHabbiconTrigger { get; set; }
+    internal DateTimeOffset? LastHabbiconTriggeredAt { get; set; }
     internal object WalletSync { get; } = new();
     internal bool WalletClosed => _habboSaved || _disconnected;
 
