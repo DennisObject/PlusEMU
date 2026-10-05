@@ -290,7 +290,7 @@ public class HabbiconDatabaseTests
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         var clients = new Plus.HabboHotel.GameClients.GameClientManager(null!, null!);
         clients.RegisterClient(client, habbo.Id, "habicon_tests");
-        var give = new Plus.Communication.RCON.Commands.User.GiveUserCurrencyCommand(_database, clients);
+        var give = new Plus.Communication.RCON.Commands.User.GiveUserCurrencyCommand(new Plus.HabboHotel.Users.UserMaintenanceService(new Plus.HabboHotel.Users.UserMaintenanceStore(_database), new Plus.HabboHotel.Users.Authentication.AccountSessionGate(), clients));
         using var enteredPurchase = new ManualResetEventSlim();
         using var releasePurchase = new ManualResetEventSlim();
         using var startedAward = new ManualResetEventSlim();
@@ -370,7 +370,7 @@ public class HabbiconDatabaseTests
         var (client, _) = HabbiconTestSupport.Client(habbo);
         var clients = new Plus.HabboHotel.GameClients.GameClientManager(null!, null!);
         clients.RegisterClient(client, habbo.Id, "habicon_tests");
-        var sync = new Plus.Communication.RCON.Commands.User.SyncUserCurrencyCommand(_database, clients);
+        var sync = new Plus.Communication.RCON.Commands.User.SyncUserCurrencyCommand(new Plus.HabboHotel.Users.UserMaintenanceService(new Plus.HabboHotel.Users.UserMaintenanceStore(_database), new Plus.HabboHotel.Users.Authentication.AccountSessionGate(), clients));
         using var enteredPurchase = new ManualResetEventSlim();
         using var releasePurchase = new ManualResetEventSlim();
         using var startedSync = new ManualResetEventSlim();
