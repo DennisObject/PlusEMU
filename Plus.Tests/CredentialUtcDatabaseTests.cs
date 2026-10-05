@@ -14,7 +14,7 @@ public sealed class CredentialUtcDatabaseTests
     {
         var root = Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!;
         var schema = "task_refactor_tests_auth_" + Guid.NewGuid().ToString("N");
-        var builder = new MySqlConnectionStringBuilder(root) { Database = "" };
+        var builder = new MySqlConnectionStringBuilder(root) { Database = "", Pooling = false };
         await using var server = new MySqlConnection(builder.ConnectionString);
         await server.OpenAsync();
         await server.ExecuteAsync($"CREATE DATABASE `{schema}` CHARACTER SET latin1");
@@ -159,7 +159,7 @@ public sealed class CredentialUtcDatabaseTests
     private static async Task WithSchema(string root, Func<MySqlConnectionStringBuilder, MySqlConnection, Task> action)
     {
         var schema = "task_refactor_tests_auth_" + Guid.NewGuid().ToString("N");
-        var builder = new MySqlConnectionStringBuilder(root) { Database = "" };
+        var builder = new MySqlConnectionStringBuilder(root) { Database = "", Pooling = false };
         await using var server = new MySqlConnection(builder.ConnectionString);
         await server.OpenAsync();
         await server.ExecuteAsync($"CREATE DATABASE `{schema}` CHARACTER SET latin1");
