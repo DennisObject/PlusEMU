@@ -399,7 +399,7 @@ public partial class PlacedFurniRoomTests
         definition.Width = definition.Length = 1;
         definition.Height = 0;
         var store = new RecordingRoomItemStore();
-        Set("_roomItemHandling", new RoomItemHandling(_room, store, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
+        Set("_roomItemHandling", new RoomItemHandling(_room, store, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         _room.GetRoomItemHandler().LoadFurniture([ItemLoader.ReadRoomItem(row, RoomId, definition)]);
         var tile = _room.GetRoomItemHandler().GetItem(10);
         Assert.Equal("200;1", tile.LegacyDataString);
@@ -997,10 +997,10 @@ public partial class PlacedFurniRoomTests
     {
         var nextRoom = (Room)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Room));
         nextRoom.Id = RoomId + 1;
-        var nextUsers = new RoomUserManager(nextRoom, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
+        var nextUsers = new RoomUserManager(nextRoom, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextUsers);
-        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextMap);
         nextMap.GenerateMaps();
         _client.GetHabbo().CurrentRoom = nextRoom;

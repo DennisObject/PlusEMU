@@ -11,6 +11,11 @@ using Plus.Core.Language;
 using Plus.Communication.Packets;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Users.Messenger;
+using System.Reflection;
+using Plus.HabboHotel.Achievements;
+using Plus.HabboHotel.Items.Interactor;
+using Plus.HabboHotel.Quests;
+using Plus.HabboHotel.Users;
 
 namespace Plus.Tests;
 
@@ -30,6 +35,44 @@ internal static class TestLogging
     internal static ILogger<WiredRewardService> Rewards => NullLogger<WiredRewardService>.Instance;
     internal static ILoggerFactory Factory => NullLoggerFactory.Instance;
     internal static ILogger<T> For<T>() => NullLogger<T>.Instance;
+}
+
+internal static class TestItemRuntime
+{
+    internal static IItemTravelStore Travel { get; } = new EmptyTravelStore();
+    internal static IQuestManager Quests { get; } = Empty<IQuestManager>();
+    internal static IRewardTrackManager Rewards { get; } = Empty<IRewardTrackManager>();
+    internal static IAchievementManager Achievements { get; } = Empty<IAchievementManager>();
+    internal static IUserProfileService Profiles { get; } = Empty<IUserProfileService>();
+    internal static IItemInteractorFactory Interactors { get; } =
+        new ItemInteractorFactory(Travel, Profiles, Quests, Rewards, Achievements);
+
+    private static T Empty<T>() where T : class => DispatchProxy.Create<T, EmptyProxy>();
+
+    public class EmptyProxy : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            var type = targetMethod?.ReturnType;
+            if (type == null || type == typeof(void)) return null;
+            if (type == typeof(Task)) return Task.CompletedTask;
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))
+                return typeof(Task).GetMethod(nameof(Task.FromResult))!
+                    .MakeGenericMethod(type.GenericTypeArguments[0])
+                    .Invoke(null, [type.GenericTypeArguments[0].IsValueType ? Activator.CreateInstance(type.GenericTypeArguments[0]) : null]);
+            return type.IsValueType ? Activator.CreateInstance(type) : null;
+        }
+    }
+
+    private sealed class EmptyTravelStore : IItemTravelStore
+    {
+        public uint FindOtherHopperRoom(uint roomId) => 0;
+        public uint FindHopper(uint roomId) => 0;
+        public uint FindLinkedTeleporter(uint itemId) => 0;
+        public uint FindItemRoom(uint itemId) => 0;
+        public void RegisterHopper(uint itemId, uint roomId) { }
+        public void RemoveHopper(uint itemId, uint roomId) { }
+    }
 }
 
 internal sealed class TestRoomFactory : IRoomFactory

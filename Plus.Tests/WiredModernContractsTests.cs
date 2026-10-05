@@ -182,12 +182,12 @@ public class WiredModernContractsTests
         var item = new Item { Id = 7, Definition = definition };
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
+            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         var handling = room.GetRoomItemHandler();
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling)
             .GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handling)!;
         Assert.True(floor.TryAdd(item.Id, item));
-        var legacy = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
+        var legacy = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         var loaded = legacy.GenerateNewBox(item);
         Assert.NotNull(loaded);
         Assert.Equal(WiredBoxType.AddonRandomEffect, loaded.Type);

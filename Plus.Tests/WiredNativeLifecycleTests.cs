@@ -357,9 +357,9 @@ public sealed class WiredNativeLifecycleTests
             Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true),
                 TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty,
                 TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
-            var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
+            var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);
-            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty); Set(Room, "_roomUserManager", users);
+            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel); Set(Room, "_roomUserManager", users);
             TestRoomUserSnapshots.Install(Room);
             typeof(Gamemap).GetProperty("GameMap")!.SetValue(Map, new byte[3, 3]);
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(Map, new byte[3, 3]);

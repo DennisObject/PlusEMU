@@ -48,7 +48,7 @@ public class ModernWiredRuntimeTests
     private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null,
         TimeProvider? clock = null, IWiredRewardService? rewards = null, IItemDataManager? definitions = null) =>
         new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger,
-            clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, definitions ?? TestWiredDefinitions.Unused);
+            clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, definitions ?? TestWiredDefinitions.Unused, TestItemRuntime.Travel);
 
     [Fact]
     public void TimerResetAndElapsedConditionsUseCapturedUtcInstantsAtExactBoundaries()
@@ -820,7 +820,7 @@ public class ModernWiredRuntimeTests
                 database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance,
                 clientsForText ?? TestWiredClients.Empty, TestGroupManager.Empty,
                 new TestWiredDefinitions(() => DefinitionManager?.Items ?? throw new InvalidOperationException("No test definitions installed.")),
-                TestWiredCommands.Unused, TestWiredAccess.Unused);
+                TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
@@ -828,7 +828,7 @@ public class ModernWiredRuntimeTests
             Target = MakeItem(1, "test"); Target.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); Items[1] = Target;
             Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room")); Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
             Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
-                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused);
+                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
             Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _); Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item; Items[100] = Action.Item; Engine.Add(Trigger); Engine.Add(Action);
         }
@@ -1600,10 +1600,10 @@ public class ModernWiredRuntimeTests
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         typeof(Room).GetField("_interactionClock", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, TimeProvider.System);
         var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
-        var handler = new RoomItemHandling(room, store ?? TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
+        var handler = new RoomItemHandling(room, store ?? TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
-        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         TestRoomUserSnapshots.Install(room);
         typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
         typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);

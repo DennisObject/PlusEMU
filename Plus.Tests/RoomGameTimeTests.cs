@@ -82,10 +82,10 @@ public sealed class RoomGameTimeTests
         var map = new Gamemap(room, new RoomModel("game-time", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         Set(room, "_interactionClock", clock);
         Set(room, "_gamemap", map);
-        Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
-        Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, clock, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty));
+        Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
+        Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, clock, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         TestRoomUserSnapshots.Install(room);
-        Set(room, "_wiredComponent", new WiredComponent(room, TestLogging.Logger, clock, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused));
+        Set(room, "_wiredComponent", new WiredComponent(room, TestLogging.Logger, clock, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel));
         Set(room, "_gameManager", new GameManager(room, clock));
         Set(room, "_banzai", new BattleBanzai(room, clock, TestRoomAchievements.Unused));
         room.GetGameMap().GenerateMaps();

@@ -27,7 +27,7 @@ public sealed class WiredRuntimeFactoryTests
     [Fact]
     public void RegistryProbeReportsOnlyConcreteFactorySupport()
     {
-        var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
+        var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         var boxes = WiredBoxRegistry.All.OrderBy(x => x.CanonicalName).Select((descriptor, index) =>
         {
             var item = new Item { Id = (uint)index + 1, Definition = new() { InteractionName = descriptor.CanonicalName } };
@@ -66,7 +66,7 @@ public sealed class WiredRuntimeFactoryTests
     [InlineData("wf_act_teleport_to")]
     public void DetachedPromotionCandidateAcceptsDescriptorOverride(string name)
     {
-        var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
+        var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
         var definition = new ItemDefinition { ItemName = "legacy_custom_name" };
         var candidate = facade.CreateConfiguredBox(new() { Id = 1, Definition = definition }, descriptor);
@@ -82,14 +82,14 @@ public sealed class WiredRuntimeFactoryTests
     public void CustomNameLoadsCanonicalSidecarThroughLegacyDescriptor(WiredBoxType type, string name, string text, int count)
     {
         var room = Room();
-        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
+        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handler)!;
         var item = new Item { Id = 10, Definition = new() { ItemName = "legacy_custom_name", WiredType = type } };
         floor[item.Id] = item;
         var config = new WiredConfiguration { Text = text, IntParams = Enumerable.Repeat(0, count).ToImmutableArray() };
         var store = new SidecarStore(name, config);
-        var facade = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, store, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
+        var facade = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, store, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         var loaded = Assert.IsAssignableFrom<IWiredConfiguredItem>(facade.LoadWiredBox(item));
         Assert.Equal(name, loaded.Descriptor.CanonicalName);
         Assert.Equal(text, loaded.Configuration.Text);
@@ -103,11 +103,11 @@ public sealed class WiredRuntimeFactoryTests
     public void InjectedStoreFailureLeavesSavedBytesUnregisteredAndUnpublished()
     {
         var room = Room();
-        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
+        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         var item = new Item { Id = 11, Definition = new() { ItemName = "legacy_custom_name", WiredType = WiredBoxType.TriggerUserSays } };
         var store = new FailingLoadStore();
-        var facade = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, store, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
+        var facade = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, store, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         Assert.Null(facade.LoadWiredBox(item));
         Assert.Equal(1, store.Reads);
         Assert.False(facade.TryGet(item.Id, out _));
@@ -134,7 +134,7 @@ public sealed class WiredRuntimeFactoryTests
     [Fact]
     public void CustomCommandCannotBePromotedToGenericSpeech()
     {
-        var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
+        var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         Assert.True(WiredBoxRegistry.TryGet("wf_trg_says_something", out var descriptor));
         var item = new Item { Id = 1, Definition = new() { WiredType = WiredBoxType.TriggerUserSaysCommand } };
         var legacy = facade.GenerateNewBox(item);
@@ -150,7 +150,7 @@ public sealed class WiredRuntimeFactoryTests
     public void UnsavedLoadedDefinitionFirstPublishesOnlyAfterDurability(string name, string text, int first, int second)
     {
         var room = Room();
-        var facade = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
+        var facade = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         var item = new Item { Id = 10, Definition = new() { InteractionName = name } };
         var box = Assert.IsType<WiredVariableDefinitionBox>(WiredBoxLoading.Select(null, facade.CreateConfiguredBox(item), null));
         Assert.False(box.HasPersistedConfiguration);

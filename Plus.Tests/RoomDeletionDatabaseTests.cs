@@ -38,7 +38,7 @@ public sealed class RoomDeletionDatabaseTests : IDisposable
             """, Values);
         _room = new Room(new RoomData { Id = RoomId }, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(_room, new RoomItemHandling(_room, new RoomItemStore(_database), TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
+            .SetValue(_room, new RoomItemHandling(_room, new RoomItemStore(_database), TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         var manager = DispatchProxy.Create<IRoomManager, ManagerProxy>();
         _manager = (ManagerProxy)(object)manager;
         _service = new(new HousekeepingActionTests.FakeClients(), manager, _database);

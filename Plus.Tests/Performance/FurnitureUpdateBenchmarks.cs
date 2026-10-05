@@ -36,7 +36,7 @@ public class FurnitureUpdateBenchmarks
             }).ToArray();
             foreach (var item in items)
             {
-                item.BindTemporaryRoom(fixture.Room); item.GetX = item.GetY = 2; floor[item.Id] = item;
+                item.Attach(fixture.Room, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards); item.GetX = item.GetY = 2; floor[item.Id] = item;
             }
             fixture.Map.GenerateMaps();
             for (var warmup = 0; warmup < 100; warmup++) Cycle();

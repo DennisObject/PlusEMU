@@ -10,12 +10,77 @@ using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Users.Inventory;
 using Plus.HabboHotel.Users.Inventory.Furniture;
+using Plus.HabboHotel.Items.Interactor;
 using Xunit;
 
 namespace Plus.Tests;
 
 public partial class PlacedFurniRoomTests
 {
+    [Fact]
+    public void ItemInteractorRequiresAdmissionAndCreatesANewInteractorPerAccess()
+    {
+        var item = Furni(89, InteractionType.None, WiredBoxType.None);
+        var error = Assert.Throws<InvalidOperationException>(() => item.Interactor);
+        Assert.Contains("attached to a room", error.Message);
+
+        Assert.True(Handler(new()).SetFloorItem(_client, item, 1, 1, 0, true, false, false));
+
+        Assert.NotSame(item.Interactor, item.Interactor);
+        Assert.Same(_room, item.GetRoom());
+    }
+
+    [Fact]
+    public void AdmissionRejectsForeignOwnershipAndWrongRoomDetachWithoutChangingGeometry()
+    {
+        var item = Furni(88, InteractionType.None, WiredBoxType.None);
+        var handler = Handler(new());
+        Assert.True(handler.SetFloorItem(_client, item, 1, 1, 0, true, false, false));
+        var foreign = (Room)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        foreign.Id = _room.RoomId;
+
+        Assert.Throws<InvalidOperationException>(() => item.Detach(foreign));
+        Assert.Throws<InvalidOperationException>(() => item.Attach(foreign, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
+        Assert.Same(_room, item.GetRoom());
+        Assert.Equal((1, 1, 0d), (item.GetX, item.GetY, item.GetZ));
+        Assert.Contains(item, _room.GetGameMap().GetCoordinatedItems(new(1, 1)));
+    }
+
+    [Fact]
+    public void DuplicateAdmissionDoesNotRebindOrMoveEitherItem()
+    {
+        var original = Furni(87, InteractionType.None, WiredBoxType.None);
+        var duplicate = Furni(87, InteractionType.None, WiredBoxType.None);
+        var handler = Handler(new());
+        Assert.True(handler.SetFloorItem(_client, original, 1, 1, 0, true, false, false));
+
+        Assert.True(handler.SetFloorItem(_client, duplicate, 2, 2, 0, true, false, false));
+
+        Assert.Same(_room, original.GetRoom());
+        Assert.Null(duplicate.GetRoom());
+        Assert.Equal((1, 1), (original.GetX, original.GetY));
+        Assert.Equal((0, 0), (duplicate.GetX, duplicate.GetY));
+        Assert.DoesNotContain(duplicate, _room.GetGameMap().GetCoordinatedItems(new(2, 2)));
+    }
+
+    [Fact]
+    public void HopperPersistenceFailurePreservesCountAndInteractionState()
+    {
+        var travel = new FailingTravelStore();
+        var interactors = new ItemInteractorFactory(travel, TestItemRuntime.Profiles,
+            TestItemRuntime.Quests, TestItemRuntime.Rewards, TestItemRuntime.Achievements);
+        var handler = new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance,
+            TestGameClientManager.Empty, TestLanguageManager.RoomItems, interactors, travel, TestItemRuntime.Rewards);
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_room, handler);
+        var item = Furni(86, InteractionType.Hopper, WiredBoxType.None);
+        item.InteractingUser = 123;
+
+        Assert.Throws<InvalidOperationException>(() => handler.SetFloorItem(_client, item, 1, 1, 0, true, false, false));
+
+        Assert.Equal(0, handler.HopperCount);
+        Assert.Equal(123, item.InteractingUser);
+    }
+
     [Fact]
     public void InvalidLoadedFloorItemClearsPersistenceBeforeReturningItToOnlineOwner()
     {
@@ -123,18 +188,23 @@ public partial class PlacedFurniRoomTests
         Assert.Empty(sent);
     }
 
-    private RoomItemHandling Handler(DependencyRoomItemStore store, IGameClientManager? clients = null)
+    private RoomItemHandling Handler(DependencyRoomItemStore store, IGameClientManager? clients = null,
+        IItemTravelStore? travel = null)
     {
         _client.GetHabbo().Inventory ??= new InventoryComponent
         {
             Furniture = new FurnitureInventoryComponent([], [])
         };
+        travel ??= TestItemRuntime.Travel;
+        var interactors = ReferenceEquals(travel, TestItemRuntime.Travel) ? TestItemRuntime.Interactors
+            : new ItemInteractorFactory(travel, TestItemRuntime.Profiles, TestItemRuntime.Quests,
+                TestItemRuntime.Rewards, TestItemRuntime.Achievements);
         var handler = new RoomItemHandling(_room, store, TestRoomItemMetadataStore.Instance,
             clients ?? TestGameClientManager.Empty,
             new TestLanguageManager(new Dictionary<string, string>
             {
                 ["room.item.already_placed"] = "localized duplicate"
-            }));
+            }), interactors, travel, TestItemRuntime.Rewards);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(_room, handler);
         return handler;
@@ -202,5 +272,15 @@ public partial class PlacedFurniRoomTests
         public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
         public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) => FloorPlacements++;
         public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) => WallPlacements++;
+    }
+
+    private sealed class FailingTravelStore : IItemTravelStore
+    {
+        public uint FindOtherHopperRoom(uint roomId) => 0;
+        public uint FindHopper(uint roomId) => 0;
+        public uint FindLinkedTeleporter(uint itemId) => 0;
+        public uint FindItemRoom(uint itemId) => 0;
+        public void RegisterHopper(uint itemId, uint roomId) => throw new InvalidOperationException("hopper write failed");
+        public void RemoveHopper(uint itemId, uint roomId) => throw new InvalidOperationException("hopper delete failed");
     }
 }

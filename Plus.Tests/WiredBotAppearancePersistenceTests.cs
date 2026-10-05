@@ -132,7 +132,7 @@ public sealed class WiredBotAppearancePersistenceTests
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
             Room.Id = 42;
-            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
+            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
             Set(Room, "_roomUserManager", users);
             var botData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot));
             botData.Id = 31;
@@ -161,7 +161,7 @@ public sealed class WiredBotAppearancePersistenceTests
             var descriptor = WiredBoxRegistry.All.Single(value => value.CanonicalName == "wf_act_bot_clothes");
             var action = new WiredModernAction(Room, new Item { Id = 1 }, descriptor, new(), _ => { },
                 (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System,
-                TestWiredRewardService.Instance, store, TestWiredClients.Empty, TestWiredDefinitions.Unused);
+                TestWiredRewardService.Instance, store, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
             Assert.True(action.TryValidateConfiguration(
                 new() { IntParams = [0], Text = "\thd-200-1" }, out var configuration, out var error), error);
             action.ApplyConfiguration(configuration);

@@ -55,12 +55,12 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             var database = new PreviewDatabase(connectionString);
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
             room.Id = roomId; room.Name = "Settings menu probe"; room.OwnerId = (int)ownerId; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
-            var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty); Set(room, "_roomUserManager", manager);
+            var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel); Set(room, "_roomUserManager", manager);
             var owner = Client(room, (int)ownerId, "owner", manager, 1);
             var guest = Client(room, (int)guestId, "guest", manager, 2);
             var settingsStore = new DatabaseWiredRoomSettingsStore(database);
             var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, new WiredRoomSettingsFactory(settingsStore),
-                new WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
+                new WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
             Set(room, "_wiredComponent", wired);
             var settings = wired.Settings;
             var settingsService = new WiredRoomSettingsService(TestLogging.For<WiredRoomSettingsService>());
@@ -87,7 +87,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             await new WiredRoomSettingsSaveEvent(settingsService).Parse(room, owner.Client, Packet(0, 2));
             Assert.Equal(new(2, 2, "Europe/Berlin"), settings.Snapshot); // Two-int route retains timezone, modify implies inspect.
             // Inspect is allowed independently of ordinary decoration rights; explicit modify=0 denies a prior decorator.
-            var itemHandler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems); Set(room, "_roomItemHandling", itemHandler);
+            var itemHandler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards); Set(room, "_roomItemHandling", itemHandler);
             itemId = Insert(connection, "items", new() { ["user_id"] = ownerId, ["room_id"] = roomId,
                 ["base_item"] = connection.QueryFirst<uint>("SELECT id FROM furniture LIMIT 1"), ["extra_data"] = "", ["wall_pos"] = "" });
             var item = new Item { Id = itemId, RoomId = roomId, ExtraData = new LegacyDataFormat { Data = "1" },

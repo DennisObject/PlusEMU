@@ -67,8 +67,8 @@ public partial class PlacedFurniRoomTests : IDisposable
         Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false),
             TestLogging.Navigation, _roomSettings, new TestGroupManager(id => _groupLookup(id)),
             TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
-        Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
-        Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty));
+        Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
+        Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         TestRoomUserSnapshots.Install(_room);
         _room.GetGameMap().GenerateMaps();
         _client.SetHabbo(new Habbo { Id = 7, Username = "owner", CurrentRoom = _room, Access = UserAccess.Empty });
@@ -94,7 +94,7 @@ public partial class PlacedFurniRoomTests : IDisposable
             _ => throw new InvalidOperationException(method)
         });
         _databaseField.SetValue(null, _database);
-        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, new EmptyConfigurationStore(), _database, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
+        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, new EmptyConfigurationStore(), _database, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         Set("_wiredComponent", wired);
     }
 

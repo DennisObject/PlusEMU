@@ -82,7 +82,7 @@ public partial class PlacedFurniRoomTests
     public void ExitFailureDetachesOnlyAfterRemovedVisitCallbacks()
     {
         var store = new ThrowingExitStore();
-        var manager = new RoomUserManager(_room, store, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
+        var manager = new RoomUserManager(_room, store, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         Set("_roomUserManager", manager);
         var user = new RoomUser(7, RoomId, 23, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 23, UserId = 7 };
         store.User = user;
@@ -167,7 +167,7 @@ public partial class PlacedFurniRoomTests
     public void DisposalStoreFailureStillDetachesTheOwnedVisits()
     {
         var store = new ThrowingExitStore { ThrowOnUserCount = true };
-        var manager = new RoomUserManager(_room, store, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
+        var manager = new RoomUserManager(_room, store, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         Set("_roomUserManager", manager);
         var user = new RoomUser(7, RoomId, 51, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 51 };
         store.User = user;

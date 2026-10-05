@@ -42,7 +42,7 @@ public sealed class WiredRoomSettingsFactoryDatabaseTests
             room.Id = roomId; room.OwnerId = userId; room.OwnerName = username; room.Type = "private"; room.UsersWithRights = [];
             var factory = new WiredRoomSettingsFactory(new DatabaseWiredRoomSettingsStore(database));
             var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, factory,
-                new Plus.HabboHotel.Items.Wired.Configuration.WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
+                new Plus.HabboHotel.Items.Wired.Configuration.WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, wired);
             var client = new FlashGameClient(TestGameServer.Instance, new Plus.Communication.Flash.FlashPacketFactory(), TestLogging.GameClient);
             client.SetHabbo(new Habbo { Id = userId, Username = username, CurrentRoom = room, Access = EditorTestSupport.Access([]) });

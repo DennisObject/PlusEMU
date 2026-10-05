@@ -111,10 +111,10 @@ public class WiredLegacyCommandEditorTests
         public World(bool ownerOnly)
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.OwnerId = 42;
-            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
             _commands = new CommandManager([new Command("first"), new Command("second")], null!, null!, new FixedTimeProvider(FixedTimeProvider.Epoch));
-            Wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, _commands, TestWiredAccess.Unused); Set(Room, "_wiredComponent", Wired);
+            Wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, _commands, TestWiredAccess.Unused, TestItemRuntime.Travel); Set(Room, "_wiredComponent", Wired);
             Owner = AddUser(42, 1, users); Guest = AddUser(43, 2, users);
             var item = new Item { Id = 7, ExtraData = new LegacyDataFormat { Data = "1" }, Definition = new()
                 { ItemName = "wf_trg_says_something", SpriteId = 91, WiredType = WiredBoxType.TriggerUserSaysCommand,

@@ -199,7 +199,7 @@ public partial class PlacedFurniRoomTests
         UseGameService("get_QuestManager", Proxy<IQuestManager>((_, _) => null));
         var gate = ClosableGate(width: 2);
         ActorOn(occupied ? NonAnchor(gate) : new Point(0, 2));
-        using (RoomOwnerScope.Enter(_room)) new InteractorGenericSwitch().OnTrigger(_client, gate, 0, true);
+        using (RoomOwnerScope.Enter(_room)) new InteractorGenericSwitch(TestItemRuntime.Quests, TestItemRuntime.Rewards).OnTrigger(_client, gate, 0, true);
         Assert.Equal(expected, gate.LegacyDataString);
     }
 
@@ -209,7 +209,7 @@ public partial class PlacedFurniRoomTests
         UseGameService("get_QuestManager", Proxy<IQuestManager>((_, _) => null));
         var lamp = ClosableGate(InteractionType.None);
         ActorOn(lamp.Coordinate);
-        using (RoomOwnerScope.Enter(_room)) new InteractorGenericSwitch().OnTrigger(_client, lamp, 0, true);
+        using (RoomOwnerScope.Enter(_room)) new InteractorGenericSwitch(TestItemRuntime.Quests, TestItemRuntime.Rewards).OnTrigger(_client, lamp, 0, true);
         Assert.Equal("0", lamp.LegacyDataString);
     }
 
@@ -475,9 +475,9 @@ public partial class PlacedFurniRoomTests
     {
         UseGameService("get_QuestManager", Proxy<IQuestManager>((_, _) => null));
         var gate = ClosableGate(); ActorOn(new Point(0, 2));
-        Task.Run(() => new InteractorGenericSwitch().OnTrigger(_client, gate, 0, true)).Wait();
+        Task.Run(() => new InteractorGenericSwitch(TestItemRuntime.Quests, TestItemRuntime.Rewards).OnTrigger(_client, gate, 0, true)).Wait();
         Assert.Equal(1, Gates.PendingCount);
-        Task.Run(() => new InteractorGenericSwitch().OnTrigger(_client, gate, 0, true)).Wait();
+        Task.Run(() => new InteractorGenericSwitch(TestItemRuntime.Quests, TestItemRuntime.Rewards).OnTrigger(_client, gate, 0, true)).Wait();
         Assert.Equal(2, Gates.PendingCount);
         ExecutorTick();
         Assert.Equal("1", gate.LegacyDataString);
@@ -562,7 +562,7 @@ public partial class PlacedFurniRoomTests
         var box = Furni(40, InteractionType.WiredEffect, WiredBoxType.None);
         var action = new Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction(_room, box,
             Plus.HabboHotel.Items.Wired.Configuration.WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_toggle_state"),
-            new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused);
+            new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
         Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [gate.Id] }, out var config, out var error), error);
         action.ApplyConfiguration(config);
         var items = _room.GetRoomItemHandler().GetFloor.ToArray(); var users = _room.GetRoomUserManager().GetUserList().ToArray();
@@ -826,7 +826,7 @@ public partial class PlacedFurniRoomTests
         var box = Furni(41, InteractionType.WiredEffect, WiredBoxType.None);
         var action = new Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction(_room, box,
             Plus.HabboHotel.Items.Wired.Configuration.WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_match_to_sshot"),
-            new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused);
+            new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
         var proposed = new Plus.HabboHotel.Items.Wired.Configuration.WiredConfiguration
         {
             IntParams = [1, 0, 0, 0, 100], SelectedItems = [gate.Id],

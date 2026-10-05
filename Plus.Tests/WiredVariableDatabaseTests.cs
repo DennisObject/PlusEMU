@@ -126,9 +126,9 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             var liveRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); liveRoom.Id = room; liveRoom.OwnerId = (int)owner;
             var atomicDb = new ProbeDatabase(connectionString);
             var roomVariables = new WiredRoomVariables(liveRoom, atomicDb, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(5000)));
-            var itemHandler = new RoomItemHandling(liveRoom, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
+            var itemHandler = new RoomItemHandling(liveRoom, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
             typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, itemHandler);
-            var roomUsers = new RoomUserManager(liveRoom, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
+            var roomUsers = new RoomUserManager(liveRoom, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
             typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, roomUsers);
             var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(itemHandler)!;
             var userDefinitionItem = new Item { Id = items[0], OwnerId = owner, Definition = new() { InteractionName = "wf_var_user" } };
@@ -179,7 +179,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             // Exercise production readiness and cycle entry with the same actual SQL module, not FlushFx directly.
             TestRoomUserSnapshots.Install(liveRoom);
             roomVariables.Fx.RemoveViewer(fxPlayer.Id); // End the preceding module-only simulated viewer session.
-            var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
+            var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, nativeWired);
             typeof(WiredComponent).GetField("_variables", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nativeWired, new Lazy<WiredRoomVariables>(() => roomVariables));
             Assert.Same(roomVariables, nativeWired.Variables);
