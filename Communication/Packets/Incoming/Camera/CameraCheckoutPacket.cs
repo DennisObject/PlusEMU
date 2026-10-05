@@ -5,12 +5,8 @@ namespace Plus.Communication.Packets.Incoming.Camera;
 
 internal static class CameraCheckoutPacket
 {
-    public static CameraCheckoutResult Execute(GameClient session, IIncomingPacket packet, ICameraService camera, Func<CameraCheckoutMedia, CameraCheckoutResult> operation)
-    {
-        if (!session.IsAuthenticated || session.GetHabbo()?.CurrentRoom == null || !TryReadMediaId(packet, out var id))
-            return new(false, "unavailable");
-        return camera.Checkout(session, id, operation);
-    }
+    internal static Guid? ReadMediaId(IIncomingPacket packet) =>
+        TryReadMediaId(packet, out var id) ? id : null;
 
     internal static bool TryReadMediaId(IIncomingPacket packet, out Guid id)
     {
