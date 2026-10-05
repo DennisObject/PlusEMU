@@ -184,7 +184,8 @@ public class Habbo
 
     public ICommandBase ChatCommand { get; set; }
 
-    public DateTime LastGiftPurchaseTime { get; set; }
+    internal object GiftPurchaseSync { get; } = new();
+    public DateTimeOffset? LastGiftPurchasedAt { get; set; }
 
     public DateTimeOffset? LastMottoUpdatedAt { get; set; }
 
