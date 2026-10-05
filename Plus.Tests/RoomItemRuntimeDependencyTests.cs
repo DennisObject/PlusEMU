@@ -36,7 +36,11 @@ public partial class PlacedFurniRoomTests
         });
         var handler = Handler(store, clients);
         var item = InvalidFloorItem(90);
-        var sent = CaptureTransport(_client);
+        var sent = CaptureTransport(_client, () =>
+        {
+            Assert.Equal(1, store.ClearCount);
+            Assert.NotNull(_client.GetHabbo().Inventory.Furniture.GetItem(90));
+        });
 
         WithUnavailableItemGlobals(() => handler.LoadFurniture([item]));
 
@@ -82,6 +86,9 @@ public partial class PlacedFurniRoomTests
         Assert.True(result);
         Assert.Equal(writes, store.FloorPlacements);
         Assert.Single(handler.GetFloor);
+        Assert.Equal((1, 1), (item.GetX, item.GetY));
+        Assert.Contains(item, _room.GetGameMap().GetCoordinatedItems(new(1, 1)));
+        Assert.DoesNotContain(item, _room.GetGameMap().GetCoordinatedItems(new(2, 2)));
         AssertNotice(Assert.Single(sent));
     }
 
@@ -159,11 +166,12 @@ public partial class PlacedFurniRoomTests
         }
     }
 
-    private static List<byte[]> CaptureTransport(GameClient client)
+    private static List<byte[]> CaptureTransport(GameClient client, Action? beforeCapture = null)
     {
         var sent = new List<byte[]>();
         client.SendCallback = args =>
         {
+            beforeCapture?.Invoke();
             sent.Add(args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray());
             return false;
         };
@@ -177,6 +185,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(ServerPacketHeader.BroadcastMessageAlertComposer, Header(packet));
         var body = new FlashIncomingPacket { Buffer = packet[6..] };
         Assert.Equal("localized duplicate", body.ReadString());
+        Assert.Equal(string.Empty, body.ReadString());
         Assert.False(body.HasDataRemaining());
     }
 
