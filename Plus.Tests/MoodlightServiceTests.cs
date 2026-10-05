@@ -18,6 +18,7 @@ using Plus.HabboHotel.Items.Data.Moodlight;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Inventory.Furniture;
 using Xunit;
 
 namespace Plus.Tests;
@@ -229,7 +230,7 @@ public sealed class MoodlightServiceTests
             Id = 4_000_000_000,
             RoomId = room.Id,
             OwnerId = 1,
-            Definition = new() { InteractionType = InteractionType.Moodlight },
+            Definition = new() { Type = ItemType.Wall, InteractionType = InteractionType.Moodlight },
             ExtraData = new LegacyDataFormat { Data = "original" }
         };
         typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
