@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Plus.HabboHotel.Users;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Navigator.SavedSearches;
 
 namespace Plus.HabboHotel.Navigator;
@@ -18,5 +18,5 @@ public interface INavigatorManager
     bool TryGetFeaturedRoom(uint roomId, [NotNullWhen(true)] out FeaturedRoom? publicRoom);
     IReadOnlyCollection<FeaturedRoom> FeaturedRooms { get; }
     Task<Dictionary<int, SavedSearch>> LoadUserNavigatorPreferences(int habboId);
-    Task SaveHomeRoom(Habbo habbo, uint roomId);
+    Task SaveHomeRoom(GameClient session, uint roomId);
 }

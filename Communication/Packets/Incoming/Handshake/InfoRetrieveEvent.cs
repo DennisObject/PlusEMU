@@ -1,14 +1,13 @@
-﻿using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users;
 
 namespace Plus.Communication.Packets.Incoming.Handshake;
 
-public class InfoRetrieveEvent : IPacketEvent
+public class InfoRetrieveEvent(IUserProfileService profiles) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        session.Send(new UserObjectComposer(session.GetHabbo()));
-        session.Send(new UserPerksComposer());
+        profiles.ShowUserObject(session);
         return Task.CompletedTask;
     }
 }

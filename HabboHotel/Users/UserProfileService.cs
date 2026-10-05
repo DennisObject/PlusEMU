@@ -1,4 +1,6 @@
+using System.Data;
 using Dapper;
+using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
@@ -20,6 +22,8 @@ public sealed record FigureUpdateRequest(string Gender, string Figure);
 
 public interface IUserProfileService
 {
+    void ShowUserObject(GameClient session);
+    Task SetChatPreference(GameClient session, bool enabled);
     void UpdateFigure(GameClient session, FigureUpdateRequest request);
     void ChangeMotto(GameClient session, string motto);
     void SetFocusPreference(GameClient session, bool enabled);
@@ -32,6 +36,24 @@ public sealed class UserProfileService(
     IWordFilterManager wordFilterManager,
     IDatabase database, TimeProvider clock) : IUserProfileService
 {
+    public void ShowUserObject(GameClient session)
+    {
+        session.Send(new UserObjectComposer(UserObjectSnapshot.Capture(session.GetHabbo())));
+        session.Send(new UserPerksComposer());
+    }
+
+    public async Task SetChatPreference(GameClient session, bool enabled)
+    {
+        var habbo = session.GetHabbo();
+        using var connection = database.Connection();
+        var updated = await connection.ExecuteAsync(
+            "UPDATE users_settings SET chat_preference = @enabled WHERE user_id = @userId LIMIT 1",
+            new { enabled, userId = habbo.Id });
+        if (updated != 1)
+            throw new DBConcurrencyException($"Settings for user {habbo.Id} no longer exist.");
+        habbo.ChatPreference = enabled;
+    }
+
     public void UpdateFigure(GameClient session, FigureUpdateRequest request)
     {
         var habbo = session.GetHabbo();

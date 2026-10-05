@@ -74,6 +74,8 @@ public sealed class UserProfileEventTests
         public FigureUpdateRequest? Figure { get; private set; }
         public string? Motto { get; private set; }
         public bool Focus { get; private set; }
+        public void ShowUserObject(GameClient session) { }
+        public Task SetChatPreference(GameClient session, bool enabled) => Task.CompletedTask;
         public void UpdateFigure(GameClient session, FigureUpdateRequest request) => Figure = request;
         public void ChangeMotto(GameClient session, string motto) => Motto = motto;
         public void SetFocusPreference(GameClient session, bool enabled) => Focus = enabled;

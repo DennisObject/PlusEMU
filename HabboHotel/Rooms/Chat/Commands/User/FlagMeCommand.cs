@@ -23,7 +23,7 @@ internal class FlagMeCommand : IChatCommand
         }
         session.GetHabbo().ChangingName = true;
         session.SendNotification("Please be aware that if your username is deemed as inappropriate, you will be banned without question.\r\rAlso note that Staff will NOT change your username again should you have an issue with what you have chosen.\r\rClose this window and click yourself to begin choosing a new username!");
-        session.Send(new UserObjectComposer(session.GetHabbo()));
+        session.Send(new UserObjectComposer(UserObjectSnapshot.Capture(session.GetHabbo())));
     }
 
 }
