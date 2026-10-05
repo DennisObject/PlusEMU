@@ -774,6 +774,7 @@ public class ModernWiredRuntimeTests
         var occupant = new RoomUser(1, 0, 7, room) { X = 1, Y = 1 };
         map.AddUserToMap(occupant, new(1, 1));
         Assert.False(room.GetRoomItemHandler().SetFloorItem(null!, mover, 1, 1, 0, false, false, false));
+        Assert.Empty(store.FloorPlacements);
         Assert.False(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0, collision: new(new HashSet<uint>(), new HashSet<int> { 8 }, new HashSet<uint>())));
         var allowed = new WiredCollisionPolicy(new HashSet<uint>(), new HashSet<int> { 7 }, new HashSet<uint>());
         Assert.True(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0, collision: allowed));
@@ -1293,4 +1294,6 @@ public class ModernWiredRuntimeTests
         public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => throw new NotSupportedException();
         public void ResetTimers(IEnumerable<Item> targets) => throw new NotSupportedException();
     }
+
+
 }
