@@ -26079,7 +26079,7 @@ CREATE TABLE `ambassador_logs` (
   `user_id` int(11),
   `target` varchar(50) NOT NULL DEFAULT '',
   `sanctions_type` text NOT NULL,
-  `timestamp` double NOT NULL DEFAULT '0',
+  `timestamp` datetime(6) NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;

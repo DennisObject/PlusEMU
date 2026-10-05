@@ -3,17 +3,19 @@ using Plus.Communication.Packets.Outgoing.Rooms.Notifications;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
-using Plus.Utilities;
+
 
 namespace Plus.HabboHotel.Ambassadors;
 
 public class AmbassadorsManager : IAmbassadorsManager
 {
     private readonly IDatabase _database;
+    private readonly TimeProvider _clock;
 
-    public AmbassadorsManager(IDatabase database)
+    public AmbassadorsManager(IDatabase database, TimeProvider clock)
     {
         _database = database;
+        _clock = clock;
     }
 
     public async Task Warn(Habbo ambassador, Habbo target, string message)
@@ -28,7 +30,7 @@ public class AmbassadorsManager : IAmbassadorsManager
                 user_id = ambassador.Id,
                 target_name = target.Username,
                 sanctions_type = message,
-                timestamp = UnixTimestamp.GetNow()
+                timestamp = _clock.GetUtcNow().UtcDateTime
             });
         ambassador.Client.SendWhisper($"You have successfully warned {target.Username}.");
         target.Client.Send(new RoomNotificationComposer("ambassador.alert.warning", "message", "${notification.ambassador.alert.warning.message}"));
