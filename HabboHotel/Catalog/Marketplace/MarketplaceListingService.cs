@@ -30,9 +30,9 @@ public sealed class MarketplaceListingService(IMarketplaceOfferStore store, IMar
             if (totalPrice > int.MaxValue)
                 return false;
             var itemType = item.Definition.Type == ItemType.Wall ? "2" : "1";
-            var timestamp = (double)time.GetUtcNow().ToUnixTimeSeconds();
+            var listedAt = time.GetUtcNow();
             store.ListFurni(new MarketplaceListing(itemId, item.Definition.Id, habbo.Id, sellingPrice, (int)totalPrice, item.Definition.PublicName,
-                item.Definition.SpriteId, itemType, timestamp, item.ExtraData.Serialize(), item.UniqueNumber, item.UniqueSeries));
+                item.Definition.SpriteId, itemType, listedAt, item.ExtraData.Serialize(), item.UniqueNumber, item.UniqueSeries));
             habbo.Inventory.Furniture.RemoveItem(itemId);
             return true;
         }

@@ -21,15 +21,15 @@ public sealed class MarketplaceOfferSearchService(IDatabase database, IMarketpla
     // Only the fixed ORDER BY texts below ever reach the SQL; filters, timestamp threshold and limit are bound.
     private const string SelectOffers = "SELECT `offer_id` AS OfferId, `item_type` AS ItemType, `sprite_id` AS SpriteId, `total_price` AS TotalPrice, " +
         "`limited_number` AS LimitedNumber, `limited_stack` AS LimitedStack FROM `catalog_marketplace_offers` " +
-        "WHERE `state` = '1' AND `timestamp` >= @threshold AND (@minCost < 0 OR `total_price` > @minCost) AND (@maxCost < 0 OR `total_price` < @maxCost) ";
+        "WHERE `state` = '1' AND `listed_at` >= @threshold AND (@minCost < 0 OR `total_price` > @minCost) AND (@maxCost < 0 OR `total_price` < @maxCost) ";
     private const string NewestFirst = SelectOffers + "ORDER BY `asking_price` DESC LIMIT 500";
     private const string CheapestFirst = SelectOffers + "ORDER BY `asking_price` ASC LIMIT 500";
 
     public MarketplaceOffersSnapshot Search(int minCost, int maxCost, string searchQuery, int filterMode)
     {
         var sql = filterMode == 1 ? NewestFirst : CheapestFirst;
-        // Offers older than two days drop out of the market.
-        var threshold = (double)time.GetUtcNow().ToUnixTimeSeconds() - 172800;
+        // Offers listed before this instant are past their two-day lifetime and drop out of the market.
+        var threshold = time.GetUtcNow().UtcDateTime.AddSeconds(-172800);
         List<MarketplaceOfferRow> rows;
         using (var connection = database.Connection())
             rows = connection.Query<MarketplaceOfferRow>(sql, new { threshold, minCost, maxCost }).ToList();

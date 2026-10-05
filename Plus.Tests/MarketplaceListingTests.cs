@@ -40,7 +40,7 @@ public class MarketplaceListingTests
         Assert.Equal(101, listing.TotalPrice);
         Assert.Equal("1", listing.ItemType);
         Assert.Equal("", listing.ExtraData);
-        Assert.Equal((double)Now.ToUnixTimeSeconds(), listing.Timestamp);
+        Assert.Equal(Now, listing.ListedAt);
     }
 
     [Fact]

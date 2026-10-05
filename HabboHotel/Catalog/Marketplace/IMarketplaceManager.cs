@@ -9,8 +9,6 @@ public interface IMarketplaceManager
     List<int> MarketItemKeys { get; }
     List<MarketOffer> MarketItems { get; }
     int AvgPriceForSprite(int spriteId);
-    string FormatTimestampString();
-    double FormatTimestamp();
     int OfferCountForSprite(uint spriteId);
     MarketplaceItemStats ItemStats(uint spriteId);
     MarketplaceOwnOffers OwnOffers(int userId);

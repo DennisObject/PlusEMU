@@ -12,16 +12,18 @@ public class MarketplaceManager : IMarketplaceManager
     private readonly IDatabase _database;
     private readonly IItemDataManager _itemDataManager;
     private readonly IItemFactory _itemFactory;
+    private readonly TimeProvider _time;
     public Dictionary<int, int> MarketAverages { get; } = new();
     public Dictionary<int, int> MarketCounts { get; } = new();
     public List<int> MarketItemKeys { get; } = new();
     public List<MarketOffer> MarketItems { get; } = new();
 
-    public MarketplaceManager(IDatabase database, IItemDataManager itemDataManager, IItemFactory itemFactory)
+    public MarketplaceManager(IDatabase database, IItemDataManager itemDataManager, IItemFactory itemFactory, TimeProvider time)
     {
         _database = database;
         _itemDataManager = itemDataManager;
         _itemFactory = itemFactory;
+        _time = time;
     }
     public int AvgPriceForSprite(int spriteId)
     {
@@ -43,13 +45,6 @@ public class MarketplaceManager : IMarketplaceManager
             return Convert.ToInt32(Math.Ceiling((double)(num / num2)));
         return 0;
     }
-
-    public string FormatTimestampString()
-    {
-        return FormatTimestamp().ToString().Split(new[] { ',' })[0];
-    }
-
-    public double FormatTimestamp() => UnixTimestamp.GetNow() - 172800.0;
 
     public int OfferCountForSprite(uint spriteId)
     {
@@ -90,23 +85,37 @@ public class MarketplaceManager : IMarketplaceManager
     {
         using var connection = _database.Connection();
         var rows = connection.Query<OwnOfferRow>(
-            "SELECT `timestamp` AS Timestamp, `state` AS State, `offer_id` AS OfferId, `sprite_id` AS SpriteId, `total_price` AS TotalPrice, `limited_number` AS LimitedNumber, `limited_stack` AS LimitedStack FROM `catalog_marketplace_offers` WHERE `user_id` = @userId",
+            "SELECT `listed_at` AS ListedAt, `state` AS State, `offer_id` AS OfferId, `sprite_id` AS SpriteId, `total_price` AS TotalPrice, `limited_number` AS LimitedNumber, `limited_stack` AS LimitedStack FROM `catalog_marketplace_offers` WHERE `user_id` = @userId",
             new { userId }).ToArray();
         var accumulated = connection.ExecuteScalar<int?>(
             "SELECT SUM(`asking_price`) FROM `catalog_marketplace_offers` WHERE `state` = 2 AND `user_id` = @userId",
             new { userId }) ?? 0;
-        var now = UnixTimestamp.GetNow();
+        var now = _time.GetUtcNow();
         var offers = rows.Select(row =>
         {
-            var minutes = Convert.ToInt32(Math.Floor((row.Timestamp + 172800.0 - now) / 60.0));
-            var state = row.State;
+            // A NULL listing time is unknown, so the offer counts as already expired.
+            var minutes = row.ListedAt is { } listedAt
+                ? Convert.ToInt32(Math.Floor((new DateTimeOffset(DateTime.SpecifyKind(listedAt, DateTimeKind.Utc)).AddSeconds(172800) - now).TotalSeconds / 60.0))
+                : 0;
+            // The state column is an enum of '1' (listed) and '2' (sold); an unsold offer past its lifetime is shown as expired.
+            var state = int.Parse(row.State);
             if (minutes <= 0 && state != 2) { state = 3; minutes = 0; }
-            return new MarketplaceOwnOffer(row.OfferId, state, row.SpriteId, row.LimitedNumber, row.LimitedStack, row.TotalPrice, minutes);
+            return new MarketplaceOwnOffer(Convert.ToInt32(row.OfferId), state, row.SpriteId, row.LimitedNumber, row.LimitedStack, row.TotalPrice, minutes);
         }).ToArray();
         return new(accumulated, offers);
     }
 
-    private sealed record OwnOfferRow(double Timestamp, int State, int OfferId, int SpriteId, int TotalPrice, int LimitedNumber, int LimitedStack);
+    // Column types as MariaDB stores them; the state enum arrives as text.
+    private sealed class OwnOfferRow
+    {
+        public DateTime? ListedAt { get; set; }
+        public string State { get; set; } = "";
+        public uint OfferId { get; set; }
+        public int SpriteId { get; set; }
+        public int TotalPrice { get; set; }
+        public int LimitedNumber { get; set; }
+        public int LimitedStack { get; set; }
+    }
 
     public int CalculateComissionPrice(float price) => Convert.ToInt32(Math.Ceiling(price / 100 * 1));
 
@@ -129,7 +138,7 @@ public class MarketplaceManager : IMarketplaceManager
     {
         using var connection = _database.Connection();
         return await connection.QuerySingleOrDefaultAsync<MarketOffer>(
-            "SELECT `furni_id`, `sprite_id`, `item_id`, `user_id`, `extra_data`, `offer_id`, `state`, `timestamp`, `limited_number`, `limited_stack` FROM `catalog_marketplace_offers` WHERE `offer_id` = @offerId LIMIT 1",
+            "SELECT `furni_id`, `sprite_id`, `item_id`, `user_id`, `extra_data`, `offer_id`, `state`, `limited_number`, `limited_stack` FROM `catalog_marketplace_offers` WHERE `offer_id` = @offerId LIMIT 1",
             new { offerId });
     }
 

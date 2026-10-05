@@ -6,7 +6,7 @@ namespace Plus.HabboHotel.Catalog.Marketplace;
 
 public enum MarketplacePurchaseRefusal { NotFound, Sold, Expired, UnknownItem, OwnOffer, InsufficientCredits, InvalidOffer }
 
-public sealed record MarketplacePurchaseRequest(int OfferId, int BuyerId, int BuyerCredits, double ExpiredBefore, Func<uint, ItemDefinition?> DefinitionOf);
+public sealed record MarketplacePurchaseRequest(int OfferId, int BuyerId, int BuyerCredits, DateTime ListedBefore, Func<uint, ItemDefinition?> DefinitionOf);
 
 public sealed record MarketplaceClaimedOffer(int TotalPrice, uint FurniId, uint ItemId, string ExtraData, uint LimitedNumber, uint LimitedStack, ItemDefinition Definition);
 
@@ -24,7 +24,7 @@ public sealed class MarketplacePurchaseStore(IDatabase database) : IMarketplaceP
     private sealed class OfferRow
     {
         public string State { get; set; } = "";
-        public double Timestamp { get; set; }
+        public DateTime? ListedAt { get; set; }
         public int TotalPrice { get; set; }
         public string ExtraData { get; set; } = "";
         public uint ItemId { get; set; }
@@ -41,13 +41,14 @@ public sealed class MarketplacePurchaseStore(IDatabase database) : IMarketplaceP
         using var transaction = connection.BeginTransaction();
         try
         {
-            var offer = connection.QuerySingleOrDefault<OfferRow>("SELECT `state` AS State, `timestamp` AS Timestamp, `total_price` AS TotalPrice, `extra_data` AS ExtraData, " +
+            var offer = connection.QuerySingleOrDefault<OfferRow>("SELECT `state` AS State, `listed_at` AS ListedAt, `total_price` AS TotalPrice, `extra_data` AS ExtraData, " +
                 "`item_id` AS ItemId, `furni_id` AS FurniId, `user_id` AS UserId, `limited_number` AS LimitedNumber, `limited_stack` AS LimitedStack " +
                 "FROM `catalog_marketplace_offers` WHERE `offer_id` = @OfferId LIMIT 1 FOR UPDATE", new { request.OfferId }, transaction);
             if (offer == null) return Refuse(transaction, MarketplacePurchaseRefusal.NotFound);
             // Only a listed offer ('1') can be bought; any other state is treated as no longer available.
             if (offer.State != "1") return Refuse(transaction, MarketplacePurchaseRefusal.Sold);
-            if (request.ExpiredBefore > offer.Timestamp) return Refuse(transaction, MarketplacePurchaseRefusal.Expired);
+            // A NULL listing time is unknown, so it cannot be proven live and is treated as expired.
+            if (offer.ListedAt is not { } listedAt || listedAt < request.ListedBefore) return Refuse(transaction, MarketplacePurchaseRefusal.Expired);
             var definition = request.DefinitionOf(offer.ItemId);
             if (definition == null) return Refuse(transaction, MarketplacePurchaseRefusal.UnknownItem);
             if (offer.UserId == (uint)request.BuyerId) return Refuse(transaction, MarketplacePurchaseRefusal.OwnOffer);

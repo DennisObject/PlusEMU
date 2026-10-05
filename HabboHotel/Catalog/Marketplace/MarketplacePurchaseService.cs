@@ -31,11 +31,11 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
         lock (habbo.WalletSync)
         {
             if (habbo.WalletClosed) return MarketplacePurchaseOutcome.WalletClosed;
-            var expiredBefore = time.GetUtcNow().ToUnixTimeSeconds() - OfferLifetimeSeconds;
+            var listedBefore = time.GetUtcNow().UtcDateTime.AddSeconds(-OfferLifetimeSeconds);
             MarketplacePurchaseResult result;
             lock (_sales)
             {
-                result = store.Claim(new MarketplacePurchaseRequest(offerId, habbo.Id, habbo.Credits, expiredBefore,
+                result = store.Claim(new MarketplacePurchaseRequest(offerId, habbo.Id, habbo.Credits, listedBefore,
                     itemId => items.Items.TryGetValue(itemId, out var definition) ? definition : null));
                 if (result.Offer is { } sale)
                     RecordAverage(sale.Definition.SpriteId, sale.TotalPrice);
