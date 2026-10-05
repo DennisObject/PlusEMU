@@ -131,11 +131,17 @@ public sealed class CacheLifetimeTests
         Assert.Equal(TimeSpan.FromMinutes(20), clock.Period);
 
         var first = Task.Run(clock.Fire);
-        Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
-        clock.Fire();
-        Assert.Equal(1, Volatile.Read(ref calls));
-        release.Set();
-        await first;
+        try
+        {
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+            clock.Fire();
+            Assert.Equal(1, Volatile.Read(ref calls));
+        }
+        finally
+        {
+            release.Set();
+            await first;
+        }
 
         clock.Fire();
         clock.Fire();
