@@ -7,7 +7,7 @@ namespace Plus.Communication.Flash;
 public class FlashGameClient : GameClient
 {
     protected override bool SupportsLegacyCrypto => true;
-    private bool _hasReceivedPolicy;
+    private bool _hasReceivedData;
     private static byte[] XmlPolicy = Encoding.UTF8.GetBytes("<?xml version=\"1.0\"?>\r\n" +
                                                              "<!DOCTYPE cross-domain-policy SYSTEM \"/xml/dtds/cross-domain-policy.dtd\">\r\n" +
                                                              "<cross-domain-policy>\r\n" +
@@ -37,12 +37,16 @@ public class FlashGameClient : GameClient
 
     internal override void OnReceived(byte[] buffer, long offset, long size)
     {
-        if (!_hasReceivedPolicy && buffer[offset] == (byte)'<')
+        if (size == 0) return;
+        if (!_hasReceivedData)
         {
-            _hasReceivedPolicy = true;
-            SendPolicy();
-            Disconnect();
-            return;
+            _hasReceivedData = true;
+            if (Rc4Client == null && buffer[offset] == (byte)'<')
+            {
+                SendPolicy();
+                Disconnect();
+                return;
+            }
         }
 
         base.OnReceived(buffer, offset, size);
