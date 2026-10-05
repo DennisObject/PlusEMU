@@ -321,7 +321,7 @@ public class HabbiconDatabaseTests
     }
 
     private static void HabbiconMessagesForTest(Plus.HabboHotel.GameClients.GameClient client, HabbiconChange change) =>
-        Plus.Communication.Packets.Outgoing.Habbicons.HabbiconMessages.Publish(client, change);
+        Plus.HabboHotel.Habbicons.HabbiconMessages.Publish(client, change);
 
     [HabbiconDatabaseFact]
     public async Task DirectFriendHabiconSendsOneTypedOnlineMessageAndUsesExistingOfflineFallback()
