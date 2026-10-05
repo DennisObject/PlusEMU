@@ -23,8 +23,7 @@ public partial class WiredComponent
     private readonly Dictionary<uint, Item> _counterItems = [];
     private IWiredConfigurationStore? _configurationStore;
     private Lazy<WiredRoomVariables>? _variables;
-    private WiredRoomSettings? _settings;
-    public WiredRoomSettings Settings => _settings ??= WiredRoomSettings.For(_room);
+    public WiredRoomSettings Settings { get; }
     internal DateTimeOffset CalendarTime => Settings.ExplicitTimeZone is { } zone
         ? TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone) : DateTimeOffset.Now;
     private IWiredConfigurationStore ConfigurationStore => _configurationStore ??= new WiredConfigurationStore(PlusEnvironment.DatabaseManager);

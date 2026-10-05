@@ -1,10 +1,12 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Reflection;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming.Rooms;
 using Plus.Communication.Packets.Incoming.WiredVariables;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.Instance;
 using Xunit;
 
 namespace Plus.Tests;
@@ -24,6 +26,8 @@ public sealed class WiredVariableMenuEventTests
     public async Task AllMenuHandlersRejectUnauthorizedClientsBeforeReadingOrOpeningDatabase()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        typeof(Room).GetField("_wiredComponent", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(room,
+            new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance));
         RoomPacketEvent[] handlers = [new WiredUserVariableUpdateEvent(), new WiredUserVariableManageEvent(), new WiredUserVariablesRequestEvent(), new WiredAllVariablesRequestEvent(), new WiredVariableHashesEvent(),
             new WiredVariableHoldersRequestEvent(), new WiredVariableHoldersPageEvent()];
         foreach (var handler in handlers)

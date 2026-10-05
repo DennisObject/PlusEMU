@@ -25,7 +25,7 @@ internal abstract class SaveWiredConfigEvent(IDatabase database, IFigureDataMana
         if (!session.GetHabbo().InRoom)
             return Task.CompletedTask;
         var room = session.GetHabbo().CurrentRoom;
-        if (room == null || !WiredRoomSettings.For(room, database).CanModify(session))
+        if (room == null || !room.GetWired().Settings.CanModify(session))
             return Task.CompletedTask;
         try
         {

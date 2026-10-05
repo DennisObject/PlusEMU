@@ -14,7 +14,7 @@ public sealed class WiredUserVariableUpdateEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!WiredRoomSettings.For(room).CanModify(session) || !TryRead(packet, false, out var request)) return Task.CompletedTask;
+        if (!room.GetWired().Settings.CanModify(session) || !TryRead(packet, false, out var request)) return Task.CompletedTask;
         var menu = new WiredVariableMenu(room, room.GetWired().Variables);
         menu.Write(request!.Target, request.TargetId, request.DefinitionId, request.Value, WiredVariableMutation.Set, request.Token);
         session.Send(new WiredUserVariablesDataComposer(menu.Snapshot()));
@@ -41,12 +41,12 @@ public sealed class WiredUserVariableManageEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!WiredRoomSettings.For(room).CanModify(session) || !WiredUserVariableUpdateEvent.TryRead(packet, true, out var request)) return Task.CompletedTask;
+        if (!room.GetWired().Settings.CanModify(session) || !WiredUserVariableUpdateEvent.TryRead(packet, true, out var request)) return Task.CompletedTask;
         var menu = new WiredVariableMenu(room, room.GetWired().Variables);
         if (request!.Action == 2)
         {
             // This reaches offline holders, so ordinary wired editing or group rights are insufficient.
-            if (WiredRoomSettings.For(room).CanManage(session)) menu.Clear(request.Target, request.DefinitionId);
+            if (room.GetWired().Settings.CanManage(session)) menu.Clear(request.Target, request.DefinitionId);
         }
         else menu.Write(request.Target, request.TargetId, request.DefinitionId, request.Value,
             request.Action == 1 ? WiredVariableMutation.Remove : WiredVariableMutation.Replace);

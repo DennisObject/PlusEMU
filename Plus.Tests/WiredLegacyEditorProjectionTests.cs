@@ -86,7 +86,7 @@ public class WiredLegacyEditorProjectionTests
     [Fact]
     public void EveryConstructibleLegacyBoxHasAnExplicitCanonicalOrCustomEditorDescriptor()
     {
-        var wired = new WiredComponent(null!, TestLogging.Logger, TimeProvider.System);
+        var wired = new WiredComponent(null!, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
         var count = 0;
         foreach (var type in Enum.GetValues<WiredBoxType>().Where(WiredBoxTypeUtility.IsLegacyConstructible))
         {

@@ -11,7 +11,7 @@ public sealed class WiredUserVariablesRequestEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!WiredRoomSettings.For(room).CanInspect(session) || packet.HasDataRemaining()) return Task.CompletedTask;
+        if (!room.GetWired().Settings.CanInspect(session) || packet.HasDataRemaining()) return Task.CompletedTask;
         session.Send(new WiredUserVariablesDataComposer(new WiredVariableMenu(room, room.GetWired().Variables).Snapshot()));
         return Task.CompletedTask;
     }

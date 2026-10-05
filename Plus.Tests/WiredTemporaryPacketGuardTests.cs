@@ -12,10 +12,12 @@ using Plus.Core.Settings;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.HabboHotel.Items.Data.Moodlight;
 using Plus.HabboHotel.Items.Data.Toner;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Inventory.Furniture;
@@ -198,6 +200,8 @@ public class WiredTemporaryPacketGuardTests
         room.Id = 1; room.OwnerId = 42; room.OwnerName = "owner"; room.Type = "private";
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
+        typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room,
+            new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance));
         var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
         client.SetHabbo(new Habbo { Id = 42, Username = "owner", CurrentRoom = room, Credits = 10,
             Access = EditorTestSupport.Access(["room.item_save_branding_items"]) });

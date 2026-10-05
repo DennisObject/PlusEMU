@@ -20,7 +20,7 @@ public sealed class WiredMonitorRequestEvent : RoomPacketEvent
         try { action = packet.HasDataRemaining() ? packet.ReadInt() : Fetch; }
         catch (ArgumentException) { return Task.CompletedTask; }
         if (action is not (Fetch or ClearLogs) || packet.HasDataRemaining()) return Task.CompletedTask;
-        var settings = WiredRoomSettings.For(room);
+        var settings = room.GetWired().Settings;
         if (!settings.CanInspect(session)) return Task.CompletedTask;
         if (action == ClearLogs)
         {
@@ -48,7 +48,7 @@ public sealed class WiredRoomLogsPageEvent : RoomPacketEvent
         // Every source the client can filter by is accepted; the ones Plus never writes read as empty.
         if (packet.HasDataRemaining() || level is < -1 or > 3 || source is < -1 or > (int)WiredLogSource.WiredLog || query.Length > MaxQuery)
             return Task.CompletedTask;
-        if (!WiredRoomSettings.For(room).CanInspect(session) || !_pages.TryPass(session)) return Task.CompletedTask;
+        if (!room.GetWired().Settings.CanInspect(session) || !_pages.TryPass(session)) return Task.CompletedTask;
         query = query.Trim();
         var result = room.GetWired().ReadLogs(Math.Max(1, page) - 1, size, level, query, source);
         session.Send(new WiredRoomLogPageComposer(result, level, source, query));

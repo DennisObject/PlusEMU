@@ -14,6 +14,7 @@ using Plus.HabboHotel.Items.Wired.Boxes;
 using Plus.HabboHotel.Items.Wired.Boxes.Conditions;
 using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
+using Plus.HabboHotel.Items.Wired.Settings;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -25,11 +26,12 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly ILogger _logger;
     private readonly TimeProvider _clock;
 
-    public WiredComponent(Room instance, ILogger logger, TimeProvider clock) //, RoomItem Items)
+    public WiredComponent(Room instance, ILogger logger, TimeProvider clock, IWiredRoomSettingsFactory settingsFactory) //, RoomItem Items)
     {
         _room = instance;
         _logger = logger;
         _clock = clock;
+        Settings = settingsFactory.Create(instance);
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
             box => ReferenceEquals(_room.GetRoomItemHandler().GetItem(box.Item.Id), box.Item),

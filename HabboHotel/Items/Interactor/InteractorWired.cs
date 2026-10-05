@@ -23,7 +23,7 @@ public class InteractorWired : IFurniInteractor
 
         if (session == null || item == null)
             return;
-        if (!WiredRoomSettings.For(itemRoom).CanInspect(session))
+        if (!itemRoom.GetWired().Settings.CanInspect(session))
             return;
         IWiredItem? box = null;
         if (!itemRoom.GetWired().TryGet(item.Id, out box))

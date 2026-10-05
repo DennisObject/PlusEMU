@@ -1,5 +1,7 @@
 namespace Plus.HabboHotel.Items.Wired.Settings;
 
+using Plus.Utilities.DependencyInjection;
+
 [Flags]
 public enum WiredRoomAccess
 {
@@ -28,10 +30,22 @@ public sealed record WiredRoomSettingsSnapshot(int InspectMask = 2, int ModifyMa
     }
 }
 
+[Singleton]
 public interface IWiredRoomSettingsStore
 {
     WiredRoomSettingsSnapshot? Load(uint roomId);
     void Save(uint roomId, int actorId, bool staff, WiredRoomSettingsSnapshot? expected, WiredRoomSettingsSnapshot settings);
 }
 
-public sealed record WiredRoomSettingsView(WiredRoomSettingsSnapshot Settings, bool CanInspect, bool CanModify, bool CanManage);
+public sealed record WiredRoomSettingsView(uint RoomId, int InspectMask, int ModifyMask,
+    bool CanInspect, bool CanModify, bool CanManage, string TimeZoneId);
+
+public interface IWiredRoomSettingsFactory
+{
+    WiredRoomSettings Create(Plus.HabboHotel.Rooms.Room room);
+}
+
+public sealed class WiredRoomSettingsFactory(IWiredRoomSettingsStore store) : IWiredRoomSettingsFactory
+{
+    public WiredRoomSettings Create(Plus.HabboHotel.Rooms.Room room) => new(room, store);
+}

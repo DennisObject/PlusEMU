@@ -117,8 +117,8 @@ public class ModernWiredRuntimeTests
         f.Room.OwnerName = "Alice"; f.Room.Type = "private"; f.Room.UsersWithRights = [];
         var store = new MonitorSettingsStore();
         var settings = new WiredRoomSettings(f.Room, store);
-        ((ConditionalWeakTable<Room, WiredRoomSettings>)typeof(WiredRoomSettings).GetField("Instances", BindingFlags.NonPublic | BindingFlags.Static)!
-            .GetValue(null)!).Add(f.Room, settings);
+        typeof(WiredComponent).GetField("<Settings>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(f.Room.GetWired(), settings);
         var item = MakeItem(102, "wf_act_log");
         var box = Assert.IsType<WiredModernAction>(f.Room.GetWired().CreateConfiguredBox(item, Descriptor("wf_act_log")));
         Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0], Text = "Gate opened" }, out var config, out _));
@@ -585,7 +585,7 @@ public class ModernWiredRuntimeTests
             Habbo.Effects.CurrentEffect = 8; client.SetHabbo(Habbo); clients.RegisterClient(client, 1, "Alice");
             User = new(1, 0, 7, Room); RoomUsers(Room)[7] = User;
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
-            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System);
+            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);

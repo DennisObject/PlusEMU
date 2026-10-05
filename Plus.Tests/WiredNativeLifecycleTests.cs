@@ -317,7 +317,7 @@ public sealed class WiredNativeLifecycleTests
     public void NativeTimezoneOverrideBindsCalendarAndVariablesWhileDefaultsRemainDistinct()
     {
         var f = new World(); var store = new SettingsStore();
-        Set(f.Wired, "_settings", new WiredRoomSettings(f.Room, store));
+        Set(f.Wired, "<Settings>k__BackingField", new WiredRoomSettings(f.Room, store));
         Assert.Equal(DateTimeOffset.Now.Offset, f.Wired.CalendarTime.Offset);
         Assert.Equal(TimeZoneInfo.Utc, f.Wired.Variables.TimeZone());
         f.Human(); f.Room.Type = "private"; f.Room.OwnerName = "viewer";
@@ -362,7 +362,7 @@ public sealed class WiredNativeLifecycleTests
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(Map, new byte[3, 3]);
             _items = (ConcurrentDictionary<uint, Item>)Get(handler, "_floorItems");
             _users = (ConcurrentDictionary<int, RoomUser>)Get(users, "_users");
-            Wired = new(Room, TestLogging.Logger, TimeProvider.System); Set(Room, "_wiredComponent", Wired);
+            Wired = new(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance); Set(Room, "_wiredComponent", Wired);
         }
         public void PrepareVariables()
         {
