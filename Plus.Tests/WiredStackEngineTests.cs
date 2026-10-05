@@ -179,7 +179,7 @@ public class WiredStackEngineTests
     public void PendingActorCannotExecuteAfterLeavingOrChangingRoom(bool changeRoom)
     {
         var room = EmptyRoom();
-        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused);
+        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent);
         var trigger = fixture.Trigger();
         var effect = fixture.Effect(delay: 1);
@@ -519,7 +519,7 @@ public class WiredStackEngineTests
         var settings = new TestRoomSettings(values);
         var wired = new WiredComponent(EmptyRoom(), TestLogging.Logger, TimeProvider.System, settings,
             TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance,
-            TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused);
+            TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
         values["wired.max_depth"] = "1";
         values["wired.max_executions_per_pass"] = "1";
         values["wired.max_pending_stacks"] = "1";
@@ -533,7 +533,7 @@ public class WiredStackEngineTests
     [Fact]
     public void EveryPreviouslyConstructibleBoxRetainsItsTypeAndConfigurationShape()
     {
-        var wired = new WiredComponent(EmptyRoom(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused);
+        var wired = new WiredComponent(EmptyRoom(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
         WiredBoxType[] unsupported = [WiredBoxType.None, WiredBoxType.EffectMoveFurniFromNearestUser,
             WiredBoxType.EffectBotCommunicatesToUserBox, WiredBoxType.ConditionFurniTypeMatches,
             WiredBoxType.ConditionFurniTypeDoesntMatch];
@@ -569,7 +569,7 @@ public class WiredStackEngineTests
     public void KickWarningPrecedesGraceAndProtectedActorsAreNeverScheduled(bool protectedActor)
     {
         var actor = ActorRoom(protectedActor);
-        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var kick = fixture.Add(new KickUserBox(actor.Room,
@@ -591,7 +591,7 @@ public class WiredStackEngineTests
     public void TeleportGlowBeginsWhenFiringIsAcceptedBeforeItsDelay()
     {
         var actor = ActorRoom();
-        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var teleport = fixture.Add(new TeleportUserBox(actor.Room,
@@ -652,7 +652,7 @@ public class WiredStackEngineTests
     public void LeavingAndReenteringTheSameRoomCancelsThePreviousVisit()
     {
         var actor = ActorRoom();
-        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var effect = fixture.Effect(delay: 4);

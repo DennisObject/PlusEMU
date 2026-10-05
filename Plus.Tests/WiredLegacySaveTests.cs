@@ -199,7 +199,7 @@ public class WiredLegacySaveTests
     {
         0 => new TeleportUserBox(null!, item),
         1 => new MatchPositionBox(null!, item),
-        2 => new GiveUserBadgeBox(null!, item),
+        2 => new GiveUserBadgeBox(null!, item, TestWiredAccess.Unused),
         3 => new SetRollerSpeedBox(null!, item),
         4 => new FurniMatchStateAndPositionBox(null!, item),
         _ => throw new ArgumentOutOfRangeException(nameof(shape))

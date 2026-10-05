@@ -12,10 +12,10 @@ public static class WiredLegacyCustomEditor
 
     public static IWiredItem? CreateCandidate(IWiredItem original) => original.Type switch
     {
-        WiredBoxType.EffectGiveUserBadge => new GiveUserBadgeBox(original.Instance, original.Item),
+        WiredBoxType.EffectGiveUserBadge => ((GiveUserBadgeBox)original).CreateCandidate(),
         WiredBoxType.EffectSetRollerSpeed => new SetRollerSpeedBox(original.Instance, original.Item),
         WiredBoxType.EffectRegenerateMaps => new RegenerateMapsBox(original.Instance, original.Item),
-        WiredBoxType.TriggerUserSaysCommand => new UserSaysCommandBox(original.Instance, original.Item),
+        WiredBoxType.TriggerUserSaysCommand => ((UserSaysCommandBox)original).CreateCandidate(),
         _ => null
     };
 

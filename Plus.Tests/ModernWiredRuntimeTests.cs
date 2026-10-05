@@ -819,7 +819,8 @@ public class ModernWiredRuntimeTests
                 database == null ? TestWiredConfigurationStore.Instance : new WiredConfigurationStore(database),
                 database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance,
                 clientsForText ?? TestWiredClients.Empty, TestGroupManager.Empty,
-                new TestWiredDefinitions(() => DefinitionManager?.Items ?? throw new InvalidOperationException("No test definitions installed.")));
+                new TestWiredDefinitions(() => DefinitionManager?.Items ?? throw new InvalidOperationException("No test definitions installed.")),
+                TestWiredCommands.Unused, TestWiredAccess.Unused);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);

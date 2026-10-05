@@ -356,7 +356,7 @@ public sealed class RoomChatServiceTests
             var users = new RoomUserManager(_room, TestRoomUserStore.Instance, clock, new TestRewardProgress(), TestChatEmotions.Unused);
             var items = new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
             _floorItems = (ConcurrentDictionary<uint, Item>)Get(items, "_floorItems");
-            _wired = new WiredComponent(_room, TestLogging.Logger, clock, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused);
+            _wired = new WiredComponent(_room, TestLogging.Logger, clock, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused);
             Set(_room, "_roomUserManager", users);
             Set(_room, "_roomItemHandling", items);
             Set(_room, "_wiredComponent", _wired);

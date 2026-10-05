@@ -20,6 +20,8 @@ using Plus.Database;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
+using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Rooms.Chat.Commands;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -34,10 +36,13 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly IGameClientManager _clients;
     private readonly IGroupManager _groups;
     private readonly IItemDataManager _definitions;
+    private readonly ICommandManager _commands;
+    private readonly IAccessControl _access;
 
     public WiredComponent(Room instance, ILogger logger, TimeProvider clock, ISettingsManager settings, IWiredRoomSettingsFactory settingsFactory,
         IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService,
-        IBotManagementStore botStore, IGameClientManager clients, IGroupManager groups, IItemDataManager definitions) //, RoomItem Items)
+        IBotManagementStore botStore, IGameClientManager clients, IGroupManager groups, IItemDataManager definitions,
+        ICommandManager commands, IAccessControl access) //, RoomItem Items)
     {
         _room = instance;
         _logger = logger;
@@ -49,6 +54,8 @@ public partial class WiredComponent : IWiredRuntimeOperations
         _clients = clients;
         _groups = groups;
         _definitions = definitions;
+        _commands = commands;
+        _access = access;
         Settings = settingsFactory.Create(instance);
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
@@ -256,7 +263,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
             case WiredBoxType.TriggerUserFurniCollision:
                 return new UserFurniCollision(_room, item);
             case WiredBoxType.TriggerUserSaysCommand:
-                return new UserSaysCommandBox(_room, item);
+                return new UserSaysCommandBox(_room, item, _commands);
             case WiredBoxType.EffectShowMessage:
                 return new ShowMessageBox(_room, item, _clients);
             case WiredBoxType.EffectTeleportToFurni:
@@ -354,7 +361,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
             case WiredBoxType.EffectRegenerateMaps:
                 return new RegenerateMapsBox(_room, item);
             case WiredBoxType.EffectGiveUserBadge:
-                return new GiveUserBadgeBox(_room, item);
+                return new GiveUserBadgeBox(_room, item, _access);
         }
         return null;
     }

@@ -1,6 +1,7 @@
 ﻿using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.Chat.Commands;
 using Plus.HabboHotel.Users;
 using System.Collections.Concurrent;
 
@@ -8,10 +9,13 @@ namespace Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 
 internal class UserSaysCommandBox : IWiredItem
 {
-    public UserSaysCommandBox(Room instance, Item item)
+    private readonly ICommandManager _commands;
+
+    public UserSaysCommandBox(Room instance, Item item, ICommandManager commands)
     {
         Instance = instance;
         Item = item;
+        _commands = commands;
         StringData = "";
         SetItems = new();
     }
@@ -43,7 +47,7 @@ internal class UserSaysCommandBox : IWiredItem
             return false;
         if (BoolData && Instance.OwnerId != player.Id || string.IsNullOrWhiteSpace(StringData))
             return false;
-        if (!PlusEnvironment.Game.ChatManager.GetCommands().TryGetCommand(StringData.Replace(":", "").ToLower(), out var chatCommand))
+        if (!_commands.TryGetCommand(StringData.Replace(":", "").ToLower(), out var chatCommand))
             return false;
         if (player.ChatCommand == chatCommand)
         {
@@ -55,4 +59,6 @@ internal class UserSaysCommandBox : IWiredItem
         }
         return false;
     }
+
+    internal UserSaysCommandBox CreateCandidate() => new(Instance, Item, _commands);
 }

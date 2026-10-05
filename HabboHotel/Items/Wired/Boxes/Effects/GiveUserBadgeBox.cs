@@ -9,10 +9,13 @@ namespace Plus.HabboHotel.Items.Wired.Boxes.Effects;
 
 internal class GiveUserBadgeBox : IWiredItem
 {
-    public GiveUserBadgeBox(Room instance, Item item)
+    private readonly IAccessControl _access;
+
+    public GiveUserBadgeBox(Room instance, Item item, IAccessControl access)
     {
         Instance = instance;
         Item = item;
+        _access = access;
         SetItems = new();
     }
 
@@ -41,8 +44,7 @@ internal class GiveUserBadgeBox : IWiredItem
     {
         if (@params == null || @params.Length == 0)
             return false;
-        var owner = PlusEnvironment.GetHabboById(Item.UserId);
-        if (owner == null || !owner.Access.Can(PermissionKeys.RoomItemWiredRewards))
+        if (!_access.Can(Item.UserId, PermissionKeys.RoomItemWiredRewards))
             return false;
         var player = (Habbo)@params[0];
         if (player == null || player.Client == null)
@@ -62,4 +64,6 @@ internal class GiveUserBadgeBox : IWiredItem
         }
         return true;
     }
+
+    internal GiveUserBadgeBox CreateCandidate() => new(Instance, Item, _access);
 }

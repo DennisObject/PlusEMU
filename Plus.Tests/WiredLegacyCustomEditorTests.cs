@@ -90,7 +90,7 @@ public class WiredLegacyCustomEditorTests
         var item = new Item { Id = 7, Definition = new() { SpriteId = 91, InteractionType = InteractionType.WiredEffect } };
         IWiredItem box = kind switch
         {
-            0 => new GiveUserBadgeBox(null!, item),
+            0 => new GiveUserBadgeBox(null!, item, TestWiredAccess.Unused),
             1 => new SetRollerSpeedBox(null!, item),
             2 => new RegenerateMapsBox(null!, item),
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
