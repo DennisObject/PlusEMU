@@ -46,7 +46,7 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        if (connection.Query<int>("SELECT id FROM items WHERE id=@itemId AND room_id=@roomId FOR UPDATE", new { itemId, roomId }, transaction).Count() != 1)
+        if (connection.Query<uint>("SELECT id FROM items WHERE id=@itemId AND room_id=@roomId FOR UPDATE", new { itemId, roomId }, transaction).Count() != 1)
             throw new InvalidOperationException("Branding item is not in the room.");
         connection.Execute("UPDATE items SET extra_data=@data WHERE id=@itemId AND room_id=@roomId LIMIT 1", new { itemId, roomId, data }, transaction);
         transaction.Commit();
