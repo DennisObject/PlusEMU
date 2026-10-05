@@ -91,7 +91,7 @@ public class BotDomainDependencyTests
         var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty,
             TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         users = new(room, TestRoomUserStore.Instance, TimeProvider.System, TestRewardProgress.Unused,
-            TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
+            TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, users);
         return room;
