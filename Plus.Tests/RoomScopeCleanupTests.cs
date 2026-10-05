@@ -206,7 +206,7 @@ public sealed class RoomScopeCleanupTests
             room.UsersWithRights = [];
             room.WordFilterList = [];
             Set(room, "_tents", new Dictionary<uint, List<RoomUser>>());
-            Set(room, "_wiredComponent", new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance));
+            Set(room, "_wiredComponent", new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance));
             initialize?.Invoke(room);
         }
         public void Initiated() { }
