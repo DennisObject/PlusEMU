@@ -16,6 +16,7 @@ public class GroupManager : IGroupManager, IStartable
 {
     private readonly ILogger<GroupManager> _logger;
     private readonly IDatabase _database;
+    private readonly IGroupMembershipLoader _memberships;
     private readonly Dictionary<int, GroupColours> _backgroundColours;
     private readonly List<GroupColours> _baseColours;
 
@@ -26,10 +27,11 @@ public class GroupManager : IGroupManager, IStartable
     private readonly Dictionary<int, GroupColours> _symbolColours;
     private readonly List<GroupBadgeParts> _symbols;
 
-    public GroupManager(ILogger<GroupManager> logger, IDatabase database)
+    public GroupManager(ILogger<GroupManager> logger, IDatabase database, IGroupMembershipLoader memberships)
     {
         _logger = logger;
         _database = database;
+        _memberships = memberships;
         _groupLoadingSync = new();
         _groups = new();
         _bases = new();
@@ -90,7 +92,7 @@ public class GroupManager : IGroupManager, IStartable
             var row = connection.QuerySingleOrDefault<GroupRow>("SELECT id,name,`desc` AS Description,badge,room_id AS RoomId,owner_id AS OwnerId,created,state,colour1,colour2,admindeco AS AdminDeco,forum_enabled AS ForumEnabled FROM `groups` WHERE id=@id LIMIT 1", new { id });
             if (row != null)
             {
-                group = new(row.Id, row.Name, row.Description, row.Badge, row.RoomId, row.OwnerId, row.Created, row.State, row.Colour1, row.Colour2, row.AdminDeco, row.ForumEnabled);
+                group = new(row.Id, row.Name, row.Description, row.Badge, row.RoomId, row.OwnerId, row.Created, row.State, row.Colour1, row.Colour2, row.AdminDeco, row.ForumEnabled, _memberships.Load(row.Id));
                 _groups.TryAdd(group.Id, group);
                 return true;
             }
@@ -106,13 +108,13 @@ public class GroupManager : IGroupManager, IStartable
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        connection.Execute("INSERT INTO `groups` (`name`,`desc`,badge,owner_id,created,room_id,state,colour1,colour2,admindeco) VALUES (@name,@description,@badge,@ownerId,UNIX_TIMESTAMP(),@roomId,0,@colour1,@colour2,0)", new { name, description, badge, ownerId = player.Id, roomId, colour1, colour2 }, transaction);
+        connection.Execute("INSERT INTO `groups` (`name`,`desc`,badge,owner_id,created,room_id,state,colour1,colour2,admindeco) VALUES (@name,@description,@badge,@ownerId,UNIX_TIMESTAMP(),@roomId,'0',@colour1,@colour2,0)", new { name, description, badge, ownerId = player.Id, roomId, colour1, colour2 }, transaction);
         var id = connection.ExecuteScalar<int>("SELECT LAST_INSERT_ID()", transaction: transaction);
         connection.Execute("INSERT INTO group_memberships (user_id,group_id,`rank`) VALUES (@userId,@id,1)", new { userId = player.Id, id }, transaction);
         connection.Execute("UPDATE rooms SET group_id=@id WHERE id=@roomId LIMIT 1", new { id, roomId }, transaction);
         connection.Execute("DELETE FROM room_rights WHERE room_id=@roomId", new { roomId }, transaction);
         transaction.Commit();
-        group = new(id, name, description, badge, roomId, player.Id, (int)UnixTimestamp.GetNow(), 0, colour1, colour2, 0, false);
+        group = new(id, name, description, badge, roomId, player.Id, (int)UnixTimestamp.GetNow(), 0, colour1, colour2, 0, false, GroupMembershipSnapshot.ForOwner(player.Id));
         if (!_groups.TryAdd(group.Id, group))
             return false;
         return true;

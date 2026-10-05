@@ -12,7 +12,7 @@ public class Group
     private RoomData _room;
     public bool HasForum;
 
-    public Group(int id, string name, string description, string badge, uint roomId, int owner, int time, int type, int colour1, int colour2, int adminOnlyDeco, bool hasForum)
+    public Group(int id, string name, string description, string badge, uint roomId, int owner, int time, int type, int colour1, int colour2, int adminOnlyDeco, bool hasForum, GroupMembershipSnapshot membership)
     {
         Id = id;
         Name = name;
@@ -27,10 +27,9 @@ public class Group
         Type = (GroupType)type;
         AdminOnlyDeco = adminOnlyDeco;
         ForumEnabled = hasForum;
-        _members = new();
-        _requests = new();
-        _administrators = new();
-        InitMembers();
+        _members = membership.Members.ToList();
+        _requests = membership.Requests.ToList();
+        _administrators = membership.Administrators.ToList();
     }
 
     public int Id { get; set; }
@@ -65,26 +64,6 @@ public class Group
     public int MemberCount => _members.Count + _administrators.Count;
 
     public int RequestCount => _requests.Count;
-
-    public void InitMembers()
-    {
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        foreach (var member in connection.Query<GroupMemberRow>(
-                     "SELECT user_id AS UserId,`rank` AS Rank FROM group_memberships WHERE group_id=@id", new { id = Id }))
-        {
-            if (member.Rank != 0)
-            {
-                if (!_administrators.Contains(member.UserId)) _administrators.Add(member.UserId);
-            }
-            else if (!_members.Contains(member.UserId)) _members.Add(member.UserId);
-        }
-        foreach (var userId in connection.Query<int>("SELECT user_id FROM group_requests WHERE group_id=@id", new { id = Id }))
-        {
-            if (_members.Contains(userId) || _administrators.Contains(userId))
-                connection.Execute("DELETE FROM group_requests WHERE group_id=@id AND user_id=@userId", new { id = Id, userId });
-            else if (!_requests.Contains(userId)) _requests.Add(userId);
-        }
-    }
 
     public bool IsMember(int id) => _members.Contains(id) || _administrators.Contains(id);
 
