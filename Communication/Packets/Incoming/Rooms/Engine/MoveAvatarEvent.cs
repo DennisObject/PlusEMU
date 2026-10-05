@@ -21,13 +21,18 @@ internal class MoveAvatarEvent : IPacketEvent
             return Task.CompletedTask;
         if (!user.IsBot)
             room.GetWired().Dispatch(new(WiredEventKind.ClickTile) { Actor = user, X = moveX, Y = moveY });
-        if (!user.CanWalk || moveX == user.X && moveY == user.Y)
+        if (!user.CanWalk)
             return Task.CompletedTask;
         if (room.UsesV2Movement)
         {
+            // v2 lands X/Y a tick after the announce, so mid-step the tile being left is a reversal.
+            if (!user.SetStep && moveX == user.X && moveY == user.Y)
+                return Task.CompletedTask;
             user.MoveTo(moveX, moveY);
             return Task.CompletedTask;
         }
+        if (moveX == user.X && moveY == user.Y)
+            return Task.CompletedTask;
         if (user.RidingHorse)
         {
             var horse = room.GetRoomUserManager().GetRoomUserByVirtualId(user.HorseId);
