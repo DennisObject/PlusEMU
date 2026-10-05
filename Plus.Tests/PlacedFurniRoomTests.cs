@@ -196,7 +196,9 @@ public partial class PlacedFurniRoomTests : IDisposable
     };
 
     private static PlaceObjectEvent PlaceObject() =>
-        new(Proxy<IRoomManager>((_, _) => null), Proxy<ISettingsManager>((_, _) => "500"), Proxy<IAchievementManager>((_, _) => null));
+        new(new RoomItemPlacementService(Proxy<ISettingsManager>((_, _) => "500"),
+            Proxy<IAchievementManager>((_, _) => null), Proxy<IRewardTrackManager>((_, _) => null),
+            TestLogging.For<RoomItemPlacementService>()));
 
     private void Inventory(InventoryItem item) =>
         _client.GetHabbo().Inventory = new InventoryComponent
