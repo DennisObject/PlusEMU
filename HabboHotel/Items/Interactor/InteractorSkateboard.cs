@@ -1,8 +1,9 @@
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Achievements;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
-internal sealed class InteractorSkateboard : IFurniInteractor
+internal sealed class InteractorSkateboard(IAchievementManager achievements) : IFurniInteractor
 {
     private const int SkateboardEffect = 71;
 
@@ -20,7 +21,7 @@ internal sealed class InteractorSkateboard : IFurniInteractor
         user.RotBody = body;
         user.RotHead = head;
         user.Z += lift;
-        PlusEnvironment.Game.AchievementManager.ProgressAchievement(session, achievement, 1);
+        achievements.ProgressAchievement(session, achievement, 1);
         user.UpdateNeeded = true;
     }
 

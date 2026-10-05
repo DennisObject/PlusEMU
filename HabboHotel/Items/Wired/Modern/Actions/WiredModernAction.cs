@@ -26,6 +26,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     private readonly IBotManagementStore _botStore;
     private readonly IGameClientManager _clients;
     private readonly IItemDataManager _definitions;
+    private readonly IItemTravelStore _travelStore;
     public static readonly IReadOnlySet<string> OtherNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "wf_act_control_clock", "wf_act_adjust_clock", "wf_act_reset_timers", "wf_act_call_stacks", "wf_act_neg_call_stacks",
@@ -37,7 +38,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     public bool IsNegative => Descriptor.CanonicalName is "wf_act_neg_call_stacks" or "wf_act_neg_send_signal" or "wf_act_neg_log";
     public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
         Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog, ILogger logger,
-        TimeProvider clock, IWiredRewardService rewards, IBotManagementStore botStore, IGameClientManager clients, IItemDataManager definitions) : base(room, item, descriptor)
+        TimeProvider clock, IWiredRewardService rewards, IBotManagementStore botStore, IGameClientManager clients, IItemDataManager definitions,
+        IItemTravelStore travelStore) : base(room, item, descriptor)
     {
         if (!Supports(descriptor.CanonicalName)) throw new ArgumentException("Unknown action.", nameof(descriptor));
         _clocks = clocks; _publish = publish; _movement = new(walkTransition);
@@ -48,6 +50,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         _botStore = botStore;
         _clients = clients;
         _definitions = definitions;
+        _travelStore = travelStore;
     }
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
@@ -128,7 +131,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         var name = Descriptor.CanonicalName;
         if (name == "wf_act_give_reward") return _rewards.Execute(Item, context, config);
         if (WiredTemporaryFurnitureActions.Supports(name)) return WiredTemporaryFurnitureActions.Execute(name, Item, context, config, _definitions);
-        if (name == "wf_act_teleport_to_room") return WiredRoomForwarding.Execute(context, config, _logger);
+        if (name == "wf_act_teleport_to_room") return WiredRoomForwarding.Execute(context, config, _logger, _travelStore);
         if (WiredBotActions.Names.Contains(name))
             return WiredBotActions.Execute(name, context, config, _movement, _botStore);
         if (WiredMovementActions.Names.Contains(name))

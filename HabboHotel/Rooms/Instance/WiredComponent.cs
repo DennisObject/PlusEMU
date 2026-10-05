@@ -38,11 +38,12 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly IItemDataManager _definitions;
     private readonly ICommandManager _commands;
     private readonly IAccessControl _access;
+    private readonly IItemTravelStore _travelStore;
 
     public WiredComponent(Room instance, ILogger logger, TimeProvider clock, ISettingsManager settings, IWiredRoomSettingsFactory settingsFactory,
         IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService,
         IBotManagementStore botStore, IGameClientManager clients, IGroupManager groups, IItemDataManager definitions,
-        ICommandManager commands, IAccessControl access) //, RoomItem Items)
+        ICommandManager commands, IAccessControl access, IItemTravelStore travelStore) //, RoomItem Items)
     {
         _room = instance;
         _logger = logger;
@@ -56,6 +57,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
         _definitions = definitions;
         _commands = commands;
         _access = access;
+        _travelStore = travelStore;
         Settings = settingsFactory.Create(instance);
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,

@@ -42,13 +42,14 @@ public class RoomUserManager
     private readonly IChatEmotionsManager _chatEmotions;
     private readonly IBotAiFactory _botAiFactory;
     private readonly IGameClientManager _clients;
+    private readonly IItemTravelStore _travelStore;
     private ConcurrentDictionary<int, RoomUser> _users;
 
     public int UserCount;
 
 
     public RoomUserManager(Room room, IRoomUserStore store, TimeProvider clock, IRewardTrackManager rewards,
-        IChatEmotionsManager chatEmotions, IBotAiFactory botAiFactory, IGameClientManager clients)
+        IChatEmotionsManager chatEmotions, IBotAiFactory botAiFactory, IGameClientManager clients, IItemTravelStore travelStore)
     {
         _room = room;
         _store = store;
@@ -57,6 +58,7 @@ public class RoomUserManager
         _chatEmotions = chatEmotions;
         _botAiFactory = botAiFactory;
         _clients = clients;
+        _travelStore = travelStore;
         _users = new();
         _pets = new();
         _bots = new();
@@ -1224,12 +1226,12 @@ public class RoomUserManager
                                 var room = user.GetClient().GetHabbo().CurrentRoom;
                                 if (room == null)
                                     return;
-                                if (!ItemTeleporterFinder.IsTeleLinked(item.Id, room))
+                                if (!ItemTeleporterFinder.IsTeleLinked(item.Id, room, _travelStore))
                                     user.UnlockWalking();
                                 else
                                 {
-                                    var linkedTele = ItemTeleporterFinder.GetLinkedTele(item.Id);
-                                    var teleRoomId = ItemTeleporterFinder.GetTeleRoomId(linkedTele, room);
+                                    var linkedTele = _travelStore.FindLinkedTeleporter(item.Id);
+                                    var teleRoomId = ItemTeleporterFinder.GetTeleRoomId(linkedTele, room, _travelStore);
                                     if (teleRoomId == room.RoomId)
                                     {
                                         var targetItem = room.GetRoomItemHandler().GetItem(linkedTele);

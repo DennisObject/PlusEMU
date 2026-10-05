@@ -7,6 +7,8 @@ using Plus.Core;
 using Plus.Core.Language;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Interactor;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Items.Wired;
 
 using Plus.HabboHotel.Users.Inventory.Furniture;
@@ -37,7 +39,6 @@ public class RoomItemHandling
         var item = new Item { Id = id, IsTemporary = true, RoomId = _room.RoomId,
             OwnerId = ownerId, UserId = unchecked((int)ownerId), Definition = definition,
             ExtraData = FurniExtraData.Load(definition, state, true), Username = _room.OwnerName };
-        item.BindTemporaryRoom(_room);
         _temporaryItems.Add(id, item);
         if (!SetFloorItem(null!, item, x, y, rotation, true, false, true, true, height ?? -1))
         {
@@ -70,6 +71,9 @@ public class RoomItemHandling
     private readonly IRoomItemMetadataStore _metadata;
     private readonly IGameClientManager _clients;
     private readonly ILanguageManager _language;
+    private readonly IItemInteractorFactory _interactors;
+    private readonly IItemTravelStore _travelStore;
+    private readonly IRewardTrackManager _rewards;
     private readonly ConcurrentDictionary<uint, Item> _wallItems;
     private int _mRollerCycle;
     private int _mRollerSpeed;
@@ -79,13 +83,17 @@ public class RoomItemHandling
     public int HopperCount;
 
     public RoomItemHandling(Room room, IRoomItemStore store, IRoomItemMetadataStore metadata,
-        IGameClientManager clients, ILanguageManager language)
+        IGameClientManager clients, ILanguageManager language, IItemInteractorFactory interactors, IItemTravelStore travelStore,
+        IRewardTrackManager rewards)
     {
         _room = room;
         _store = store;
         _metadata = metadata;
         _clients = clients;
         _language = language;
+        _interactors = interactors;
+        _travelStore = travelStore;
+        _rewards = rewards;
         HopperCount = 0;
         GotRollers = false;
         _mRollerSpeed = 4;
@@ -210,7 +218,10 @@ public class RoomItemHandling
                     item.WallCoordinates = ":w=0,2 l=11,53 l";
                 }
                 if (!_wallItems.ContainsKey(item.Id))
+                {
+                    item.Attach(_room, _interactors, _travelStore, _rewards);
                     _wallItems.TryAdd(item.Id, item);
+                }
             }
         }
         foreach (var item in _floorItems.Values.ToList())
@@ -313,6 +324,7 @@ public class RoomItemHandling
         _room.GetGameMap().GenerateMaps();
         _room.GetGameMap().FlushPlacementUpdates();
         _room.GetRoomUserManager().UpdateUserStatusses();
+        item.Detach(_room);
     }
 
     private List<IServerPacket> CycleRollers()
@@ -715,7 +727,16 @@ public class RoomItemHandling
             return true;
         }
         item.RoomId = _room.RoomId;
-        item.Interactor.OnPlace(session, item);
+        item.Attach(_room, _interactors, _travelStore, _rewards);
+        try
+        {
+            item.Interactor.OnPlace(session, item);
+        }
+        catch
+        {
+            item.Detach(_room);
+            throw;
+        }
         if (item.Definition.InteractionType == InteractionType.Moodlight)
         {
             if (_room.MoodlightData == null)
@@ -790,14 +811,18 @@ public class RoomItemHandling
     // that transaction shares NavSync; callbacks do not.
     internal bool AdmitFloorItem(Item item)
     {
-        if (item.Definition.InteractionType is InteractionType.Teleport or InteractionType.OneWayGate)
-            item.BindInteractionClock(_room.InteractionClock);
+        item.Attach(_room, _interactors, _travelStore, _rewards);
         var inputs = _room.GetGameMap().Navigation?.Inputs;
-        if (inputs == null) return _floorItems.TryAdd(item.Id, item);
+        if (inputs == null)
+        {
+            if (_floorItems.TryAdd(item.Id, item)) return true;
+            item.Detach(_room);
+            return false;
+        }
         item.EnableNavigationSynchronization();
         lock (item.NavSync)
         {
-            if (!_floorItems.TryAdd(item.Id, item)) return false;
+            if (!_floorItems.TryAdd(item.Id, item)) { item.Detach(_room); return false; }
             inputs.Attach(item);
             return true;
         }

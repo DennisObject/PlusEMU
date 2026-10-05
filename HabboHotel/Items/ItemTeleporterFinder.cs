@@ -1,33 +1,24 @@
-﻿using Dapper;
-using Plus.HabboHotel.Rooms;
+﻿using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Items;
 
 public static class ItemTeleporterFinder
 {
-    public static uint GetLinkedTele(uint teleId)
-    {
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        return connection.QuerySingleOrDefault<uint>(
-            "SELECT tele_two_id FROM room_items_tele_links WHERE tele_one_id=@teleId LIMIT 1", new { teleId });
-    }
-
-    public static uint GetTeleRoomId(uint teleId, Room pRoom)
+    public static uint GetTeleRoomId(uint teleId, Room pRoom, IItemTravelStore store)
     {
         if (pRoom.GetRoomItemHandler().GetItem(teleId) != null)
             return pRoom.RoomId;
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        return connection.QuerySingleOrDefault<uint>("SELECT room_id FROM items WHERE id=@teleId LIMIT 1", new { teleId });
+        return store.FindItemRoom(teleId);
     }
 
-    public static bool IsTeleLinked(uint teleId, Room pRoom)
+    public static bool IsTeleLinked(uint teleId, Room pRoom, IItemTravelStore store)
     {
-        var linkId = GetLinkedTele(teleId);
+        var linkId = store.FindLinkedTeleporter(teleId);
         if (linkId == 0) return false;
         var item = pRoom.GetRoomItemHandler().GetItem(linkId);
         if (item != null && item.Definition.InteractionType == InteractionType.Teleport)
             return true;
-        var roomId = GetTeleRoomId(linkId, pRoom);
+        var roomId = GetTeleRoomId(linkId, pRoom, store);
         if (roomId == 0) return false;
         return true;
     }

@@ -96,6 +96,7 @@ public sealed class UserProfileEventTests
         public Task SetMessengerInvitePreference(GameClient session, bool enabled) { Invites = enabled; return Task.CompletedTask; }
         public Task SetSoundVolumes(GameClient session, SoundVolumeRequest request) { Volumes = request; return Task.CompletedTask; }
         public void UpdateFigure(GameClient session, FigureUpdateRequest request) => Figure = request;
+        public void ApplyMannequin(GameClient session, FigureUpdateRequest request) => Figure = request;
         public void ChangeMotto(GameClient session, string motto) => Motto = motto;
         public void SetFocusPreference(GameClient session, bool enabled) => Focus = enabled;
         public Task SetChatStylePreference(GameClient session, int bubbleId) { Bubble = bubbleId; return Task.CompletedTask; }
