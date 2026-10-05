@@ -181,7 +181,8 @@ public class ClubMembershipDatabaseTests : IDisposable
                     WHERE blocking.trx_mysql_thread_id=@blocker LIMIT 1
                     """, new { blocker = account.ServerThread });
                 if (waiting != null) break;
-                await Task.Delay(10);
+                // MariaDB refreshes this shared metadata cache only after 100 ms without a read.
+                await Task.Delay(200);
             }
             Assert.True(waiting != null, $"Permission refresh must reach its account row lock before the wallet write. Worker entered; connection requests={connectionRequests}; MaximumPoolSize={new MySqlConnectionStringBuilder(account.ConnectionString).MaximumPoolSize}.");
             Assert.NotNull(waiting!.WaitingQuery);
