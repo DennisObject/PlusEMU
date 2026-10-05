@@ -3,6 +3,7 @@ using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Habbicons;
 using Plus.Communication.Packets.Outgoing.Navigator;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
+using Plus.Communication.Packets.Outgoing.Rooms.Notifications;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
 using Xunit;
@@ -82,6 +83,28 @@ public class AccessWireSnapshotTests
         Assert.Equal(expected, Write(composer));
         Assert.Equal(new object[] { 0, 0 }, Write(new HeightMapComposer(new short[0, 2])));
         Assert.Equal(new object[] { 2, 0 }, Write(new HeightMapComposer(new short[2, 0])));
+    }
+
+    [Fact]
+    public void RoomNotificationCapturesFilteredValuesInTheirOriginalOrder()
+    {
+        var values = new Dictionary<string, string>
+        {
+            ["message"] = "hello", ["empty"] = " ", ["linkUrl"] = "/room/1"
+        };
+        var composer = new RoomNotificationComposer("notice", values);
+        var expected = new object[] { "notice", 2, "message", "hello", "linkUrl", "/room/1" };
+        Assert.Equal(expected, Write(composer));
+        values["message"] = "changed";
+        values["empty"] = "visible";
+        values.Clear();
+        Assert.Equal(expected, Write(composer));
+        Assert.Equal(expected, Write(composer));
+        Assert.Equal(new object[] { "notice", 0 }, Write(new RoomNotificationComposer("notice")));
+        Assert.Equal(new object[] { "notice", 1, "message", "hello" },
+            Write(new RoomNotificationComposer("notice", "message", "hello")));
+        Assert.Equal(new object[] { "notice", 2, "title", "title", "message", "message" },
+            Write(new RoomNotificationComposer("title", "message", "notice", "", "")));
     }
 
     private static object[] Write(IServerPacket composer)
