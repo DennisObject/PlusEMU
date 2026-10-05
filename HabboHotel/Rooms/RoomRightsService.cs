@@ -82,7 +82,7 @@ public sealed class RoomRightsService(IRoomRightsStore store, ILanguageManager l
         {
             PublishRemoval(room, userId, false);
             room.UsersWithRights.Remove(userId);
-            session.Send(new FlatControllerRemovedComposer(room, userId));
+            session.Send(new FlatControllerRemovedComposer(room.Id, userId));
         }
     }
 
@@ -95,7 +95,7 @@ public sealed class RoomRightsService(IRoomRightsStore store, ILanguageManager l
         foreach (var userId in removals)
         {
             PublishRemoval(room, userId, false);
-            session.Send(new FlatControllerRemovedComposer(room, userId));
+            session.Send(new FlatControllerRemovedComposer(room.Id, userId));
             session.Send(new RoomRightsListComposer(room.Id, room.UsersWithRights.Select(id => new RoomRightHolder(id, cacheManager.GenerateUser(id)?.Username ?? "Unknown Error")).ToArray()));
             session.Send(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(room.GetRoomUserManager().GetUserList())));
         }

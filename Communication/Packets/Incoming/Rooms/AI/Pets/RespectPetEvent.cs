@@ -58,7 +58,10 @@ internal class RespectPetEvent : RoomPacketEvent
 
             //Send the magic out.
             if (room.RespectNotificationsEnabled)
-                room.SendPacket(new RespectPetNotificationComposer(targetUser.GetClient().GetHabbo(), targetUser));
+            {
+                var target = targetUser.GetClient().GetHabbo();
+                room.SendPacket(new RespectPetNotificationComposer(targetUser.VirtualId, target.Id, target.Username, "FFFFFF"));
+            }
             room.SendPacket(new CarryObjectComposer(thisUser.VirtualId, thisUser.CarryItemId));
             return Task.CompletedTask;
         }

@@ -124,7 +124,7 @@ public class WiredTemporaryPacketGuardTests
     {
         var item = new Item { Id = uint.MaxValue - 1, IsTemporary = temporary };
         using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
-        new ObjectRemoveComposer(item, 42).Compose(output);
+        new ObjectRemoveComposer(item.Id, item.IsTemporary, 42).Compose(output);
         var input = new FlashIncomingPacket { Buffer = stream.ToArray().AsMemory(6) };
         Assert.Equal(expected, input.ReadString()); Assert.False(input.ReadBool());
         Assert.Equal(42, input.ReadInt()); Assert.Equal(0, input.ReadInt()); Assert.False(input.HasDataRemaining());

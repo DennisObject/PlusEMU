@@ -117,7 +117,7 @@ public class Pet
     public void OnRespect()
     {
         Respect++;
-        Room.SendPacket(new RespectPetNotificationComposer(this));
+        Room.SendPacket(new RespectPetNotificationComposer(VirtualId, PetId, Name, Color));
         if (DbState != PetDatabaseUpdateState.NeedsInsert)
             DbState = PetDatabaseUpdateState.NeedsUpdate;
         if (Experience <= 150000)

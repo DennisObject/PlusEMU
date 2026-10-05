@@ -1,23 +1,22 @@
 ﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Settings;
 
 public class FlatControllerRemovedComposer : IServerPacket
 {
-    private readonly Room _instance;
+    private readonly uint _roomId;
     private readonly int _userId;
     public uint MessageId => ServerPacketHeader.FlatControllerRemovedComposer;
 
-    public FlatControllerRemovedComposer(Room instance, int userId)
+    public FlatControllerRemovedComposer(uint roomId, int userId)
     {
-        _instance = instance;
+        _roomId = roomId;
         _userId = userId;
     }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteUInteger(_instance.Id);
+        packet.WriteUInteger(_roomId);
         packet.WriteInteger(_userId);
     }
 }
