@@ -57,12 +57,12 @@ public sealed class MoodlightService(IRoomItemMetadataStore store) : IMoodlightS
         if (!MoodlightData.IsValidColor(request.ColorCode) || !MoodlightData.IsValidIntensity(request.Intensity)) return;
         var selected = new MoodlightPreset(request.ColorCode, request.Intensity, request.BackgroundMode >= 2);
         var data = room.MoodlightData;
+        if (data.Presets.Count < request.Preset || data.Presets[request.Preset - 1] is not { } target) return;
         var prepared = MoodlightData.Serialize(true, request.Preset, selected);
         store.UpdateMoodlightPreset(item.Id, room.Id, request.Preset,
             $"{selected.ColorCode},{selected.ColorIntensity},{(selected.BackgroundOnly ? 1 : 0)}");
         data.Enabled = true;
         data.CurrentPreset = request.Preset;
-        var target = data.Presets[request.Preset - 1];
         target.ColorCode = selected.ColorCode;
         target.ColorIntensity = selected.ColorIntensity;
         target.BackgroundOnly = selected.BackgroundOnly;

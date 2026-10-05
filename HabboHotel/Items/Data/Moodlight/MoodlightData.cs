@@ -10,7 +10,7 @@ public class MoodlightData
 
     public List<MoodlightPreset> Presets;
 
-    // Pure model: the record is loaded and validated by the metadata store before any live state exists.
+    // Pure model: persistence and default-row creation are owned by the metadata store.
     public MoodlightData(uint itemId, MoodlightRecord record)
     {
         ItemId = itemId;
