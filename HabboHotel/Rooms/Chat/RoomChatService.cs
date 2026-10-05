@@ -88,7 +88,7 @@ public sealed class RoomChatService(
             if (habbo.BannedPhraseCount >= Convert.ToInt32(settingsManager.TryGetValue("room.chat.filter.banned_phrases.chances")))
             {
                 await moderationManager.BanUser("System", ModerationBanType.Username, habbo.Username,
-                    $"Spamming banned phrases ({message})", LegacyLocalEpoch(now) + 78892200);
+                    $"Spamming banned phrases ({message})", now.AddSeconds(78892200));
                 session.Disconnect();
                 return;
             }
@@ -167,7 +167,7 @@ public sealed class RoomChatService(
             if (habbo.BannedPhraseCount >= Convert.ToInt32(settingsManager.TryGetValue("room.chat.filter.banned_phrases.chances")))
             {
                 await moderationManager.BanUser("System", ModerationBanType.Username, habbo.Username,
-                    $"Spamming banned phrases ({message})", LegacyLocalEpoch(now) + 78892200);
+                    $"Spamming banned phrases ({message})", now.AddSeconds(78892200));
                 session.Disconnect();
                 return;
             }
@@ -195,6 +195,4 @@ public sealed class RoomChatService(
             rewardTrackManager.Progress(session, RewardTrackActions.ChatWithSomeone);
     }
 
-    private double LegacyLocalEpoch(DateTimeOffset now) =>
-        now.ToUnixTimeMilliseconds() / 1000.0 + clock.LocalTimeZone.GetUtcOffset(now).TotalSeconds;
 }

@@ -39,10 +39,11 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     private readonly ITradingLockService _tradingLocks;
     // Held for every write to an account so it cannot interleave with that account's login.
     private readonly IAccountSessionGate _sessionGate;
+    private readonly TimeProvider _clock;
 
     public HousekeepingUserActions(IHousekeepingUserStore users, IGameClientManager clients, IModerationManager moderation, IAccessControl permissions,
         IBoundedPasswordHasher passwordHasher, IDatabase database, IAccountSessionGate sessionGate,
-        ISessionIssuer sessions, ITradingLockService tradingLocks)
+        ISessionIssuer sessions, ITradingLockService tradingLocks, TimeProvider clock)
     {
         _users = users;
         _clients = clients;
@@ -53,6 +54,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         _sessionGate = sessionGate;
         _sessions = sessions;
         _tradingLocks = tradingLocks;
+        _clock = clock;
     }
 
     public async Task<HousekeepingOutcome> Ban(Habbo actor, int userId, string reason, int hours)
@@ -63,9 +65,9 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         using var account = await _sessionGate.EnterAsync(userId, deadline.Token);
         if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
-        var expire = BanClock.Now() + hours * 3600.0;
+        var expiresAt = _clock.GetUtcNow().AddHours(hours);
         // The ban coordinator counts the ban, signs the account out and closes its session; this action holds the gate.
-        await _moderation.BanAccount(actor.Username, userId, user.Username, reason.Length > 0 ? reason : "No reason specified.", expire, deadline.Token,
+        await _moderation.BanAccount(actor.Username, userId, user.Username, reason.Length > 0 ? reason : "No reason specified.", expiresAt, deadline.Token,
             heldUserId: userId);
         return HousekeepingOutcome.Success(Label(user), $"hours={hours} reason={HousekeepingLimits.AuditValue(reason)}");
     }

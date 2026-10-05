@@ -2,7 +2,6 @@
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
-using Plus.Utilities;
 
 namespace Plus.Communication.Packets.Incoming.Moderation;
 
@@ -11,11 +10,13 @@ internal class ModerationBanEvent : IPacketEvent
 {
     private readonly IGameClientManager _clientManager;
     private readonly IModerationManager _moderationManager;
+    private readonly TimeProvider _clock;
 
-    public ModerationBanEvent(IGameClientManager clientManager, IModerationManager moderationManager)
+    public ModerationBanEvent(IGameClientManager clientManager, IModerationManager moderationManager, TimeProvider clock)
     {
         _clientManager = clientManager;
         _moderationManager = moderationManager;
+        _clock = clock;
     }
 
     public async Task Parse(GameClient session, IIncomingPacket packet)
@@ -23,7 +24,7 @@ internal class ModerationBanEvent : IPacketEvent
         using var deadline = new CancellationTokenSource(ModerationManager.BanBudget);
         var userId = packet.ReadInt();
         var message = packet.ReadString();
-        var length = packet.ReadInt() * 3600 + BanClock.Now();
+        var hours = packet.ReadInt();
         packet.ReadString(); //unk1
         packet.ReadString(); //unk2
         var ipBan = packet.ReadBool();
@@ -42,12 +43,13 @@ internal class ModerationBanEvent : IPacketEvent
             session.SendWhisper("Oops, you cannot ban that user.");
             return;
         }
+        var expiresAt = _clock.GetUtcNow().AddHours(hours);
 #pragma warning disable CS0618 // The handshake's machine id only lives on the session.
         var machineId = targetClient!.MachineId;
 #pragma warning restore CS0618
         // Fail closed first, from memory; the account, its recorded address and its device then share one deadline.
         targetClient.Disconnect();
-        await _moderationManager.BanAccount(session.GetHabbo().Username, habbo.Id, habbo.Username, message ?? "No reason specified.", length, deadline.Token,
+        await _moderationManager.BanAccount(session.GetHabbo().Username, habbo.Id, habbo.Username, message ?? "No reason specified.", expiresAt, deadline.Token,
             includeAddress: ipBan || machineBan, machineId: machineBan ? machineId : null);
     }
 }

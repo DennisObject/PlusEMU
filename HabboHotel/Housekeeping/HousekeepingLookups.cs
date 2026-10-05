@@ -22,14 +22,17 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
     private readonly IModerationManager _moderation;
     private readonly IRoomManager _rooms;
     private readonly IDatabase _database;
+    private readonly TimeProvider _clock;
 
-    public HousekeepingLookups(IGameClientManager clients, IAccessControl permissions, IModerationManager moderation, IRoomManager rooms, IDatabase database)
+    public HousekeepingLookups(IGameClientManager clients, IAccessControl permissions, IModerationManager moderation, IRoomManager rooms,
+        IDatabase database, TimeProvider clock)
     {
         _clients = clients;
         _permissions = permissions;
         _moderation = moderation;
         _rooms = rooms;
         _database = database;
+        _clock = clock;
     }
 
     public HousekeepingUserDetail? User(Habbo actor, HousekeepingUserRecord? record)
@@ -50,15 +53,17 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
 
     public HousekeepingDashboard Dashboard()
     {
-        var since = PlusEnvironment.GetUnixTimestamp() - 86400;
+        var now = _clock.GetUtcNow();
+        var sinceUtc = now.AddDays(-1).UtcDateTime;
+        var sinceEpoch = now.AddDays(-1).ToUnixTimeSeconds();
         using var connection = _database.Connection();
         var counts = connection.QuerySingle<DashboardCounts>(
             "SELECT (SELECT COUNT(*) FROM `users`) AS TotalUsers, (SELECT COUNT(*) FROM `rooms`) AS TotalRooms, " +
             "(SELECT COALESCE(MAX(`peak`), 0) FROM `housekeeping_online_peaks` WHERE `day` = UTC_DATE()) AS PeakToday, " +
             "(SELECT COALESCE(MAX(`peak`), 0) FROM `housekeeping_online_peaks`) AS PeakAllTime, " +
-            "(SELECT COUNT(*) FROM `bans` WHERE CAST(`added_date` AS DECIMAL(20, 3)) > @since) + " +
-            "(SELECT COUNT(*) FROM `housekeeping_log` WHERE `timestamp` > @since AND `success` = 1 AND `action` IN ('user.mute', 'user.trade_lock')) AS Sanctions",
-            new { since });
+            "(SELECT COUNT(*) FROM `bans` WHERE `added_date` > @sinceUtc) + " +
+            "(SELECT COUNT(*) FROM `housekeeping_log` WHERE `timestamp` > @sinceEpoch AND `success` = 1 AND `action` IN ('user.mute', 'user.trade_lock')) AS Sanctions",
+            new { sinceUtc, sinceEpoch });
         var online = _clients.Count;
         return new(online, counts.TotalUsers, _rooms.GetRooms().Count(room => room.UsersNow > 0), counts.TotalRooms,
             Math.Max(online, counts.PeakToday), Math.Max(online, counts.PeakAllTime),

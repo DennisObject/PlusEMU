@@ -23,8 +23,8 @@ public sealed class ModeratorTargetHierarchyTests
             new ForceSitCommand(), new UnFreezeCommand(null!), new AlertCommand(),
             new GiveCommand(), new GiveBadgeCommand(null!), new FreezeCommand(null!),
             new KickCommand(), new SummonCommand(null!), new MuteCommand(null!),
-            new UnmuteCommand(null!), new TradeBanCommand(null!), new BanCommand(null!),
-            new IpBanCommand(null!), new MipCommand(null!) })
+            new UnmuteCommand(null!), new TradeBanCommand(null!), new BanCommand(null!, TimeProvider.System),
+            new IpBanCommand(null!, TimeProvider.System), new MipCommand(null!, TimeProvider.System) })
         {
             yield return [command, 50];
             yield return [command, 90];

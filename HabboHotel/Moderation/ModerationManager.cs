@@ -2,7 +2,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
 using System.Data;
-using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Dapper;
 using Plus.Database;
@@ -19,6 +18,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
     private readonly ISessionIssuer _sessions;
     private readonly IGameClientManager _clients;
     private readonly IAccountSessionGate _sessionGate;
+    private readonly TimeProvider _clock;
     private readonly ConcurrentDictionary<string, ModerationBan> _bans = new();
     private readonly Dictionary<int, List<ModerationPresetActions>> _moderationCfhTopicActions = new();
 
@@ -38,13 +38,15 @@ public sealed class ModerationManager : IModerationManager, IStartable
 
     public ICollection<ModerationTicket> GetTickets => _modTickets.Values;
 
-    public ModerationManager(IDatabase database, ILogger<ModerationManager> logger, ISessionIssuer sessions, IGameClientManager clients, IAccountSessionGate sessionGate)
+    public ModerationManager(IDatabase database, ILogger<ModerationManager> logger, ISessionIssuer sessions, IGameClientManager clients,
+        IAccountSessionGate sessionGate, TimeProvider clock)
     {
         _sessionGate = sessionGate;
         _sessions = sessions;
         _clients = clients;
         _database = database;
         _logger = logger;
+        _clock = clock;
     }
 
     public Dictionary<string, List<ModerationPresetActions>> UserActionPresets
@@ -145,16 +147,19 @@ public sealed class ModerationManager : IModerationManager, IStartable
 
     private async Task LoadBans(IDbConnection connection)
     {
-        var bans = await connection.QueryAsync<(string Type, string Value, string Reason, double Expires)>("SELECT bantype, value, reason, expire FROM bans WHERE bantype IN ('machine', 'user')");
+        var bans = await connection.QueryAsync<BanRow>("SELECT bantype AS Type, value, reason, expire AS ExpiresAt FROM bans WHERE bantype IN ('machine', 'user')");
+        var now = _clock.GetUtcNow();
         _bans.Clear();
         foreach (var ban in bans)
         {
-            if (ban.Expires > BanClock.Now())
-                _bans.TryAdd(ban.Value, new(BanTypeUtility.GetModerationBanType(ban.Type), ban.Value, ban.Reason, ban.Expires));
+            if (ban.ExpiresAt is { } expiresAt && expiresAt > now)
+                _bans.TryAdd(ban.Value, new(BanTypeUtility.GetModerationBanType(ban.Type), ban.Value, ban.Reason, expiresAt));
             else
                 await connection.ExecuteAsync("DELETE FROM bans WHERE bantype = @type AND value = @value LIMIT 1", new { type = ban.Type, value = ban.Value });
         }
     }
+
+    private sealed record BanRow(string Type, string Value, string Reason, DateTimeOffset? ExpiresAt);
 
     /// <summary>
     /// How long a ban may hold its caller, across every step of a compound ban. Kept under the packet manager's 5 s limit
@@ -173,7 +178,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
     internal Func<Task>? AfterBanInsert { get; set; }
 
     /// <summary>One ban being enforced, kept whole through retries.</summary>
-    private sealed class BanWork(string mod, ModerationBanType type, string value, string reason, double expire, string account)
+    private sealed class BanWork(string mod, ModerationBanType type, string value, string reason, DateTimeOffset? expiresAt, string account)
     {
         // Never disposed: an unban may cancel it at any time, and it is collected with the work.
         private readonly CancellationTokenSource _cancellation = new();
@@ -183,7 +188,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
         /// <summary>The banned value; empty for an address part until it is resolved from <see cref="AddressOf"/>.</summary>
         public string Value { get; set; } = value;
         public string Reason { get; } = reason;
-        public double Expire { get; } = expire;
+        public DateTimeOffset? ExpiresAt { get; } = expiresAt?.ToUniversalTime();
         /// <summary>The banned account's username, so unbanning it also stops this work; empty for standalone bans.</summary>
         public string Account { get; } = account;
         /// <summary>For an address part: the account whose recorded address is banned.</summary>
@@ -208,20 +213,20 @@ public sealed class ModerationManager : IModerationManager, IStartable
         }
     }
 
-    public Task BanUser(string mod, ModerationBanType type, string banValue, string reason, double expireTimestamp, CancellationToken deadline = default) =>
-        WithDeadline(deadline, token => Ban(new(mod, type, banValue, reason, expireTimestamp, type == ModerationBanType.Username ? banValue : string.Empty), 0, token));
+    public Task BanUser(string mod, ModerationBanType type, string banValue, string reason, DateTimeOffset? expiresAt, CancellationToken deadline = default) =>
+        WithDeadline(deadline, token => Ban(new(mod, type, banValue, reason, expiresAt, type == ModerationBanType.Username ? banValue : string.Empty), 0, token));
 
-    public Task BanAccount(string mod, int userId, string username, string reason, double expireTimestamp, CancellationToken deadline = default,
+    public Task BanAccount(string mod, int userId, string username, string reason, DateTimeOffset? expiresAt, CancellationToken deadline = default,
         bool includeAddress = false, string? machineId = null, int heldUserId = 0) =>
         WithDeadline(deadline, async token =>
         {
             await CountBan(userId, token);
-            await Ban(new(mod, ModerationBanType.Username, username, reason, expireTimestamp, username), heldUserId, token);
+            await Ban(new(mod, ModerationBanType.Username, username, reason, expiresAt, username), heldUserId, token);
             // The address is resolved inside the ban work, so running out of time defers it instead of dropping it.
             if (includeAddress)
-                await Ban(new(mod, ModerationBanType.Ip, string.Empty, reason, expireTimestamp, username) { AddressOf = userId }, heldUserId, token);
+                await Ban(new(mod, ModerationBanType.Ip, string.Empty, reason, expiresAt, username) { AddressOf = userId }, heldUserId, token);
             if (!string.IsNullOrEmpty(machineId))
-                await Ban(new(mod, ModerationBanType.Machine, machineId, reason, expireTimestamp, username), heldUserId, token);
+                await Ban(new(mod, ModerationBanType.Machine, machineId, reason, expiresAt, username), heldUserId, token);
         });
 
     /// <summary>Runs a ban action on the caller's deadline, or on a fresh <see cref="BanBudget"/> created before any I/O.</summary>
@@ -354,10 +359,11 @@ public sealed class ModerationManager : IModerationManager, IStartable
             cancellationToken.ThrowIfCancellationRequested();
             using (var connection = _database.Connection())
             {
+                var addedAt = _clock.GetUtcNow();
                 work.BanId = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
                     "INSERT INTO `bans` (`bantype`, `value`, `reason`, `expire`, `added_by`, `added_date`) VALUES (@banType, @banValue, @reason, @expire, @mod, @addedDate); " +
                     "SELECT LAST_INSERT_ID();",
-                    new { banType, banValue = work.Value, reason = work.Reason, expire = work.Expire, mod = work.Mod, addedDate = PlusEnvironment.GetUnixTimestamp().ToString(CultureInfo.InvariantCulture) },
+                    new { banType, banValue = work.Value, reason = work.Reason, expire = work.ExpiresAt?.UtcDateTime, mod = work.Mod, addedDate = addedAt.UtcDateTime },
                     cancellationToken: cancellationToken));
             }
             if (AfterBanInsert != null) await AfterBanInsert();
@@ -365,7 +371,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
             // Published in the same turn as the row: an unban, which clears the cache in its own turn, always comes
             // entirely before or after. A re-ban also refreshes the cached expiry.
             if (work.Type == ModerationBanType.Machine || work.Type == ModerationBanType.Username)
-                _bans[work.Value] = new(work.Type, work.Value, work.Reason, work.Expire);
+                _bans[work.Value] = new(work.Type, work.Value, work.Reason, work.ExpiresAt);
         }
         finally
         {
@@ -373,12 +379,12 @@ public sealed class ModerationManager : IModerationManager, IStartable
         }
     }
 
-    /// <summary>Whether the ban row still exists and has not expired on the <see cref="BanClock"/>.</summary>
+    /// <summary>Whether the ban row still exists and has not expired.</summary>
     private async Task<bool> BanInForce(long banId, CancellationToken cancellationToken)
     {
         using var connection = _database.Connection();
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition("SELECT COUNT(*) FROM `bans` WHERE `id` = @banId AND `expire` > @now",
-            new { banId, now = BanClock.Now() }, cancellationToken: cancellationToken)) > 0;
+            new { banId, now = _clock.GetUtcNow().UtcDateTime }, cancellationToken: cancellationToken)) > 0;
     }
 
     /// <summary>
@@ -467,7 +473,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
     {
         if (_bans.TryGetValue(key, out ban))
         {
-            if (!ban.Expired)
+            if (!ban.IsExpiredAt(_clock.GetUtcNow()))
                 return true;
 
             //This ban has expired, let us quickly remove it here.

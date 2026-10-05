@@ -82,7 +82,7 @@ public class LoginServiceTests
     public async Task BannedAccountsOrAddressesGetNoSessionButOnlyAfterTheRightPassword(string banned)
     {
         _accounts.Add("Dennis", Hasher.Hash("correct horse"));
-        _bans.ByUsernameOrAddress[banned] = new LoginBan("Scamming", 2_000_000_000);
+        _bans.ByUsernameOrAddress[banned] = new LoginBan("Scamming", DateTimeOffset.FromUnixTimeSeconds(2_000_000_000));
         var remembered = await _remember.Issue(_accounts.Rows.Single().Id);
 
         var wrong = await Service().Login("Dennis", "wrong horse", "10.0.0.1");

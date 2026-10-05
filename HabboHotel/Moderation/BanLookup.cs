@@ -9,7 +9,7 @@ public interface IBanLookup
     Task<LoginBan?> Find(string username, string address);
 }
 
-public sealed record LoginBan(string Reason, long ExpiresAt);
+public sealed record LoginBan(string Reason, DateTimeOffset? ExpiresAt);
 
 /// <summary>
 /// Reads bans straight from the database for the login API. ModerationManager only caches
@@ -29,10 +29,11 @@ public class BanLookup : IBanLookup
     public async Task<LoginBan?> Find(string username, string address)
     {
         using var connection = _database.Connection();
+        var now = _time.GetUtcNow();
         return await connection.QueryFirstOrDefaultAsync<LoginBan>(
-            "SELECT `reason` AS Reason, CAST(`expire` AS SIGNED) AS ExpiresAt FROM `bans` " +
+            "SELECT `reason` AS Reason, `expire` AS ExpiresAt FROM `bans` " +
             "WHERE ((`bantype` = 'user' AND `value` = @username) OR (`bantype` = 'ip' AND `value` = @address)) AND `expire` > @now " +
             "ORDER BY `expire` DESC LIMIT 1",
-            new { username, address, now = BanClock.Now(_time) });
+            new { username, address, now = now.UtcDateTime });
     }
 }

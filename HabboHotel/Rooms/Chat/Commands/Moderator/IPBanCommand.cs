@@ -2,7 +2,6 @@
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users;
-using Plus.Utilities;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 
@@ -17,9 +16,12 @@ internal class IpBanCommand : ITargetChatCommand
 
     public bool MustBeInSameRoom => true;
 
-    public IpBanCommand(IModerationManager moderationManager)
+    private readonly TimeProvider _clock;
+
+    public IpBanCommand(IModerationManager moderationManager, TimeProvider clock)
     {
         _moderationManager = moderationManager;
+        _clock = clock;
     }
 
     public async Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
@@ -30,14 +32,14 @@ internal class IpBanCommand : ITargetChatCommand
             session.SendWhisper("Oops, you cannot ban that user.");
             return;
         }
-        var expire = BanClock.Now() + 78892200;
+        var expiresAt = _clock.GetUtcNow().AddSeconds(78892200);
         var username = target.Username;
         string reason;
         if (parameters.Any())
             reason = CommandManager.MergeParams(parameters);
         else
             reason = "No reason specified.";
-        await _moderationManager.BanAccount(session.GetHabbo().Username, target.Id, target.Username, reason, expire, deadline.Token, includeAddress: true);
+        await _moderationManager.BanAccount(session.GetHabbo().Username, target.Id, target.Username, reason, expiresAt, deadline.Token, includeAddress: true);
         target.Client?.Disconnect();
         session.SendWhisper($"Success, you have IP and account banned the user '{username}' for '{reason}'!");
     }

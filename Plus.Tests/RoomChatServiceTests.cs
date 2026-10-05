@@ -190,7 +190,7 @@ public sealed class RoomChatServiceTests
     }
 
     [Fact]
-    public async Task BannedThresholdUsesSameSampledLocalEpochForExpiry()
+    public async Task BannedThresholdUsesSameSampledUtcInstantForExpiry()
     {
         var zone = TimeZoneInfo.CreateCustomTimeZone("chat-test-plus-five-thirty", TimeSpan.FromHours(5.5), "test", "test");
         var now = Now.AddMilliseconds(789);
@@ -203,8 +203,7 @@ public sealed class RoomChatServiceTests
 
         await world.Service.Chat(world.Sender, "threshold", 1);
 
-        var expected = now.ToUnixTimeMilliseconds() / 1000.0 + zone.GetUtcOffset(now).TotalSeconds + 78892200;
-        Assert.Equal(expected, recorder.Expiry);
+        Assert.Equal(now.AddSeconds(78892200), recorder.Expiry);
         Assert.Equal(now, Assert.Single(world.Logs.Entries).CreatedAt);
         Assert.Equal(1, clock.Calls);
     }
@@ -443,7 +442,7 @@ public sealed class RoomChatServiceTests
 
     public class RecordingModeration : DispatchProxy
     {
-        public double? Expiry { get; private set; }
+        public DateTimeOffset? Expiry { get; private set; }
         public static (IModerationManager Manager, RecordingModeration Recorder) Create()
         {
             var manager = DispatchProxy.Create<IModerationManager, RecordingModeration>();
@@ -453,7 +452,7 @@ public sealed class RoomChatServiceTests
         {
             if (targetMethod?.Name == nameof(IModerationManager.BanUser))
             {
-                Expiry = (double)args![4]!;
+                Expiry = (DateTimeOffset?)args![4];
                 return Task.CompletedTask;
             }
             return targetMethod?.ReturnType.IsValueType == true ? Activator.CreateInstance(targetMethod.ReturnType) : null;

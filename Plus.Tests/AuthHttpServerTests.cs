@@ -443,7 +443,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     public async Task ABannedUsersRememberTokenIsRefusedAndRevoked()
     {
         var row = _accounts.Add("Dennis", "x");
-        _bans.ByUsernameOrAddress["Dennis"] = new LoginBan("Scamming", 2_000_000_000);
+        _bans.ByUsernameOrAddress["Dennis"] = new LoginBan("Scamming", DateTimeOffset.FromUnixTimeSeconds(2_000_000_000));
         await Start();
         var token = await _remember.Issue(row.Id);
         var otherDevice = await _remember.Issue(row.Id);
@@ -504,7 +504,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     public async Task BannedAccountsAreToldWhyOnceThePasswordIsRight()
     {
         _accounts.Add("Dennis", Hasher.Hash("correct horse"));
-        _bans.ByUsernameOrAddress["Dennis"] = new LoginBan("Scamming", 2_000_000_000);
+        _bans.ByUsernameOrAddress["Dennis"] = new LoginBan("Scamming", DateTimeOffset.FromUnixTimeSeconds(2_000_000_000));
         await Start();
 
         var wrong = await Post("/api/auth/login", new { username = "Dennis", password = "nope" });
