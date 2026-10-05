@@ -23236,7 +23236,7 @@ CREATE TABLE `logs_client_namechange` (
   `user_id` int(11) NOT NULL,
   `new_name` varchar(50) NOT NULL DEFAULT '',
   `old_name` varchar(50) NOT NULL DEFAULT '',
-  `timestamp` int(11) NOT NULL,
+  `timestamp` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 

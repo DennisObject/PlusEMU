@@ -26,6 +26,7 @@ public class GameClientManager : IGameClientManager
     private readonly Queue _timedOutConnections;
     private readonly ConcurrentDictionary<int, GameClient> _userIdRegister;
     private readonly ConcurrentDictionary<string, GameClient> _usernameRegister;
+    private readonly object _usernameSync = new();
 
     public GameClientManager(IDatabase database, ILogger<GameClientManager> logger)
     {
@@ -51,17 +52,30 @@ public class GameClientManager : IGameClientManager
 
     public GameClient? GetClientByUserId(int userId) => _userIdRegister.TryGetValue(userId, out var client) ? client : null;
 
-    public GameClient? GetClientByUsername(string username) => _usernameRegister.ContainsKey(username.ToLower()) ? _usernameRegister[username.ToLower()] : null;
+    public GameClient? GetClientByUsername(string username) =>
+        _usernameRegister.TryGetValue(username.ToLowerInvariant(), out var client) ? client : null;
 
     public bool TryGetClient(Guid clientId, [NotNullWhen(true)] out GameClient? client) => _clients.TryGetValue(clientId, out client);
 
     public bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername)
     {
-        if (client == null || !_usernameRegister.ContainsKey(oldUsername.ToLower()))
+        var oldKey = oldUsername.ToLowerInvariant();
+        var newKey = newUsername.ToLowerInvariant();
+        lock (_usernameSync)
+        {
+            if (!_usernameRegister.TryGetValue(oldKey, out var registered) || !ReferenceEquals(registered, client))
+                return false;
+            if (oldKey == newKey)
+                return true;
+            if (_usernameRegister.ContainsKey(newKey))
+                return false;
+            if (!_usernameRegister.TryRemove(new KeyValuePair<string, GameClient>(oldKey, client)))
+                return false;
+            if (_usernameRegister.TryAdd(newKey, client))
+                return true;
+            _usernameRegister.TryAdd(oldKey, client);
             return false;
-        _usernameRegister.TryRemove(oldUsername.ToLower(), out client);
-        _usernameRegister.TryAdd(newUsername.ToLower(), client);
-        return true;
+        }
     }
 
     public async Task<string> GetNameById(int id)
@@ -164,10 +178,8 @@ public class GameClientManager : IGameClientManager
 
     public void RegisterClient(GameClient client, int userId, string username)
     {
-        if (_usernameRegister.ContainsKey(username.ToLower()))
-            _usernameRegister[username.ToLower()] = client;
-        else
-            _usernameRegister.TryAdd(username.ToLower(), client);
+        lock (_usernameSync)
+            _usernameRegister[username.ToLowerInvariant()] = client;
         if (_userIdRegister.ContainsKey(userId))
             _userIdRegister[userId] = client;
         else
@@ -183,8 +195,11 @@ public class GameClientManager : IGameClientManager
         if (_userIdRegister.TryGetValue(userId, out var byId) && CanDropRegistration(client, byId))
             _userIdRegister.TryRemove(new KeyValuePair<int, GameClient>(userId, byId));
 
-        if (username != null && _usernameRegister.TryGetValue(username.ToLower(), out var byName) && CanDropRegistration(client, byName))
-            _usernameRegister.TryRemove(new KeyValuePair<string, GameClient>(username.ToLower(), byName));
+        lock (_usernameSync)
+        {
+            if (username != null && _usernameRegister.TryGetValue(username.ToLowerInvariant(), out var byName) && CanDropRegistration(client, byName))
+                _usernameRegister.TryRemove(new KeyValuePair<string, GameClient>(username.ToLowerInvariant(), byName));
+        }
     }
 
     private bool CanDropRegistration(GameClient client, GameClient stored)

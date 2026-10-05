@@ -325,14 +325,6 @@ public class Habbo
         return achievement;
     }
 
-    public void ChangeName(string username)
-    {
-        LastNameChangedAt = DateTimeOffset.UtcNow;
-        Username = username;
-        SaveKey("username", username);
-        Persistence.SetProfileValue(Id, "last_change", LastNameChangedAt.Value.UtcDateTime);
-    }
-
     public void SaveChatBubble(string customBubbleId) => SaveKey("bubble_id", customBubbleId);
 
     public void SaveKey(string key, string value)
