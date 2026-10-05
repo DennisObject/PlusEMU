@@ -52,7 +52,7 @@ public sealed class TradingLockDatabaseTests : IDisposable
         var habbo = Online();
         var locks = Locks();
         var expiry = locks.Set(UserId, TimeSpan.FromDays(2));
-        var factory = new UserDataFactory(null!, _database, [], null!, null!, null!, new RoomVisitRecorder(_database, TimeProvider.System));
+        var factory = new UserDataFactory(null!, _database, [], null!, null!, null!, new Plus.HabboHotel.Rooms.RoomVisitRecorder(_database, TimeProvider.System));
 
         Assert.Equal(TimeSpan.Zero, expiry.Offset);
         Assert.Equal(expiry, habbo.TradingLockExpiresAt);
