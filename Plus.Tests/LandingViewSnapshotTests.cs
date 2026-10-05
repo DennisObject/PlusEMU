@@ -69,5 +69,6 @@ public sealed class LandingViewSnapshotTests
     {
         public bool Shown { get; private set; }
         public void ShowArticles(GameClient session) => Shown = true;
+        public void RefreshCampaign(GameClient session, string campaigns) => throw new NotSupportedException();
     }
 }

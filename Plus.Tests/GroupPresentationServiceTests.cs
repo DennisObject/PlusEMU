@@ -287,6 +287,7 @@ public sealed class GroupPresentationServiceTests
         public void ShowCreationWindow(GameClient session) => throw new NotSupportedException();
         public void ShowInfo(GameClient session, int groupId, bool newWindow) => throw new NotSupportedException();
         public void ShowFurnitureSettings(GameClient session, uint itemId, int groupId) => throw new NotSupportedException();
+        public void ShowCatalogFurnitureConfiguration(GameClient session) => throw new NotSupportedException();
     }
 
     private sealed class PacketReader(byte[] payload)

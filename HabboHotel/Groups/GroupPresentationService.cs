@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Plus.Communication.Packets.Outgoing.Groups;
+using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.Core.Settings;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms;
@@ -49,11 +50,24 @@ public interface IGroupPresentationService
     void ShowCreationWindow(GameClient session);
     void ShowInfo(GameClient session, int groupId, bool newWindow);
     void ShowFurnitureSettings(GameClient session, uint itemId, int groupId);
+    void ShowCatalogFurnitureConfiguration(GameClient session);
 }
 
 public sealed class GroupPresentationService(IGroupManager groups, ICacheManager cache, IRoomDataLoader rooms, ISettingsManager settings, IGroupInfoSnapshotService groupInfo) : IGroupPresentationService
 {
     private const int PageSize = 14;
+
+    public void ShowCatalogFurnitureConfiguration(GameClient session)
+    {
+        var configurations = groups.GetGroupsForUser(session.GetHabbo().Id).Select(group =>
+        {
+            lock (group)
+                return new GroupFurniConfig(group.Id, group.Name, group.Badge,
+                    groups.GetColourCode(group.Colour1, true), groups.GetColourCode(group.Colour2, false),
+                    group.CreatorId, group.ForumEnabled);
+        }).ToImmutableArray();
+        session.Send(new GroupFurniConfigComposer(configurations));
+    }
 
     public void ShowInfo(GameClient session, int groupId, bool newWindow)
     {

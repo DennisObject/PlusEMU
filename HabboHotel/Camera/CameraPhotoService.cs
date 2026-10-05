@@ -14,6 +14,7 @@ namespace Plus.HabboHotel.Camera;
 [Singleton]
 public interface ICameraPhotoService
 {
+    void Initialize(GameClient session);
     void Purchase(GameClient session, Guid? mediaId);
     void Publish(GameClient session, Guid? mediaId);
     void EnterCompetition(GameClient session, Guid? mediaId);
@@ -22,6 +23,21 @@ public interface ICameraPhotoService
 public sealed class CameraPhotoService(ICameraService camera, ICameraCheckoutService checkout,
     IAchievementManager achievements, IRewardTrackManager rewards, ILogger<CameraPhotoService> logger) : ICameraPhotoService
 {
+    public void Initialize(GameClient session)
+    {
+        if (!session.IsAuthenticated) return;
+        var prices = (Credits: 0, Points: 0, PublishPoints: 0);
+        try
+        {
+            if (checkout.Enabled) prices = checkout.Prices;
+        }
+        catch (Exception)
+        {
+            // Invalid camera pricing keeps the established zero-price initialization response.
+        }
+        session.Send(new InitCameraComposer(prices.Credits, prices.Points, prices.PublishPoints));
+    }
+
     public void Purchase(GameClient session, Guid? mediaId)
     {
         try
