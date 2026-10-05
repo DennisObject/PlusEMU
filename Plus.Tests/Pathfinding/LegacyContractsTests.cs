@@ -42,7 +42,7 @@ public class LegacyContractsTests
         Set("_gamemap", map); Set("_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance)); Set("_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         map.GenerateMaps(); NavTest.Enable(map).Compiler.RebuildAll();
         var grid = map.Navigation.Grid;
-        var legacyActor = new RoomUser(0, 0, 1, room) { X = sx, Y = sy };
+        var legacyActor = new RoomUser(0, 0, 1, room, null) { X = sx, Y = sy };
         var path = PathFinder.FindPath(legacyActor, true, map, new(sx, sy), new(gx, gy));
         var route = new Route(); var search = new PathSearch(grid, new());
         var outcome = search.Find(new(new ActorProfile(), grid.Position(grid.Tile(sx, sy)), gx, gy),

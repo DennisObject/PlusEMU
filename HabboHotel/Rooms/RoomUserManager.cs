@@ -126,7 +126,7 @@ public class RoomUserManager
 
     public RoomUser DeployBot(RoomBot bot, Pet pet)
     {
-        var user = new RoomUser(0, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room);
+        var user = new RoomUser(0, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room, null);
         bot.VirtualId = user.VirtualId;
         var personalId = user.VirtualId;
         user.InternalRoomId = personalId;
@@ -193,10 +193,13 @@ public class RoomUserManager
             _bots.TryRemove(user.BotData.Id, out var bot);
         _room.GetWired()?.BeforeActorLeaves(user);
         user.BotAi.OnSelfLeaveRoom(kicked);
-        _room.SendPacket(new UserRemoveComposer(user.VirtualId));
-        if (_users != null && _users.TryRemove(user.InternalRoomId, out var toRemove) && ReferenceEquals(toRemove, user))
+        if (_users != null && _users.TryRemove(new KeyValuePair<int, RoomUser>(user.InternalRoomId, user)))
+        {
+            _room.SendPacket(new UserRemoveComposer(user.VirtualId));
             _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
+        }
         OnRemove(user);
+        user.Dispose();
     }
 
     public RoomUser? GetUserForSquare(int x, int y) => _room.GetGameMap().GetRoomUsers(new(x, y)).FirstOrDefault();
@@ -211,9 +214,7 @@ public class RoomUserManager
             return false;
         if (_users.Any(u => u.Value.UserId == session.GetHabbo().Id))
             return false;
-        var user = new RoomUser(session.GetHabbo().Id, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room);
-        if (user == null || user.GetClient() == null)
-            return false;
+        var user = new RoomUser(session.GetHabbo().Id, _room.RoomId, Interlocked.Increment(ref _primaryPrivateUserId) - 1, _room, session);
         user.UserId = session.GetHabbo().Id;
         session.GetHabbo().TentId = 0;
         var personalId = user.VirtualId;
@@ -328,12 +329,19 @@ public class RoomUserManager
 
     public void RemoveUserFromRoom(GameClient session, bool nofityUser, bool notifyKick = false)
     {
+        RoomUser? removedUser = null;
         try
         {
             if (_room == null)
                 return;
             if (session == null || session.GetHabbo() == null)
                 return;
+            var user = GetUserList().FirstOrDefault(candidate => !candidate.IsBot && ReferenceEquals(candidate.GetClient(), session));
+            if (user == null)
+            {
+                if (GetRoomUserByHabbo(session.GetHabbo().Id) != null || !ReferenceEquals(session.GetHabbo().CurrentRoom, _room))
+                    return;
+            }
             if (notifyKick)
                 session.Send(new GenericErrorComposer(GenericError.KickedFromRoom));
             if (nofityUser)
@@ -341,7 +349,6 @@ public class RoomUserManager
             if (session.GetHabbo().TentId > 0)
                 session.GetHabbo().TentId = 0;
             session.EndCameraContext();
-            var user = GetRoomUserByHabbo(session.GetHabbo().Id);
             if (user != null && UsesV2Movement) _room.GetGameMap().Navigation!.Remove(user);
             if (user != null) _room.GetWired()?.BeforeActorLeaves(user);
             session.GetHabbo().CurrentRoom = null;
@@ -368,6 +375,7 @@ public class RoomUserManager
                             session.GetHabbo().Effects.ApplyEffect(0);
                     }
                 }
+                removedUser = user;
                 RemoveRoomUser(user);
                 if (user.CurrentItemEffect != ItemEffectType.None)
                 {
@@ -384,13 +392,15 @@ public class RoomUserManager
                 //Session.GetHabbo().CurrentRoomId = 0;
                     session.GetHabbo().Messenger?.NotifyChangesToFriends();
                 _store.RecordExit(_room.RoomId, session.GetHabbo().Id, _clock.GetUtcNow(), _room.UsersNow);
-                if (user != null)
-                    user.Dispose();
             }
         }
         catch (Exception e)
         {
             ExceptionLogger.LogException(e);
+        }
+        finally
+        {
+            removedUser?.Dispose();
         }
     }
 
@@ -451,6 +461,8 @@ public class RoomUserManager
 
     private void RemoveRoomUser(RoomUser user)
     {
+        if (!_users.TryRemove(new KeyValuePair<int, RoomUser>(user.InternalRoomId, user)))
+            return;
         if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) navigation.Remove(user);
         _room.GetWired()?.BeforeActorLeaves(user);
         if (!user.IsBot || !user.BotData.IsTemporary)
@@ -462,12 +474,7 @@ public class RoomUserManager
         }
         _room.GetGameMap().RemoveUserFromMap(user, new(user.X, user.Y));
         _room.SendPacket(new UserRemoveComposer(user.VirtualId));
-        RoomUser? toRemove = null;
-        if (_users.TryRemove(user.InternalRoomId, out toRemove))
-        {
-            if (ReferenceEquals(toRemove, user))
-                _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
-        }
+        _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
         user.InternalRoomId = -1;
         OnRemove(user);
     }
@@ -504,7 +511,7 @@ public class RoomUserManager
 
     public RoomUser? GetRoomUserByHabbo(int id)
     {
-        var user = GetUserList().FirstOrDefault(x => x.GetClient()?.GetHabbo()?.Id == id);
+        var user = GetUserList().FirstOrDefault(x => !x.IsBot && x.HabboId == id);
         if (user != null)
             return user;
         return null;
@@ -635,7 +642,11 @@ public class RoomUserManager
         if (IsValid(actor) && !actor.NeedsAutokick) return true;
         var client = actor.GetClient();
         if (client?.GetHabbo()?.CurrentRoom == _room) RemoveUserFromRoom(client, true);
-        else RemoveRoomUser(actor);
+        else
+        {
+            RemoveRoomUser(actor);
+            actor.Dispose();
+        }
         return false;
     }
 
@@ -666,7 +677,10 @@ public class RoomUserManager
                     if (user.GetClient() != null)
                         RemoveUserFromRoom(user.GetClient(), false);
                     else
+                    {
                         RemoveRoomUser(user);
+                        user.Dispose();
+                    }
                 }
                 if (user.NeedsAutokick && !toRemove.Contains(user))
                 {
@@ -939,11 +953,14 @@ public class RoomUserManager
             }
             foreach (var userToRemove in toRemove.ToList())
             {
-                var client = PlusEnvironment.Game.ClientManager.GetClientByUserId(userToRemove.HabboId);
+                var client = userToRemove.GetClient();
                 if (client != null)
                     RemoveUserFromRoom(client, true);
                 else
+                {
                     RemoveRoomUser(userToRemove);
+                    userToRemove.Dispose();
+                }
             }
             if (UserCount != userCounter)
                 UpdateUserCount(userCounter);
@@ -1343,20 +1360,28 @@ public class RoomUserManager
 
     private void DisposeUsers()
     {
-        if (UsesV2Movement) _room.GetGameMap()?.Navigation?.Shutdown();
-        foreach (var user in _users.Values.ToArray()) _room.GetWired()?.BeforeActorLeaves(user);
-        UpdatePets();
-        UpdateBots();
-        _room.UsersNow = 0;
-        _store.UpdateUserCount(_room.Id, 0);
-        _users.Clear();
-        _pets.Clear();
-        _bots.Clear();
-        UserCount = 0;
-        PetCount = 0;
-        _users = null;
-        _pets = null;
-        _bots = null;
-        _room = null;
+        var users = _users.Values.ToArray();
+        try
+        {
+            if (UsesV2Movement) _room.GetGameMap()?.Navigation?.Shutdown();
+            foreach (var user in users) _room.GetWired()?.BeforeActorLeaves(user);
+            UpdatePets();
+            UpdateBots();
+            _room.UsersNow = 0;
+            _store.UpdateUserCount(_room.Id, 0);
+        }
+        finally
+        {
+            _users.Clear();
+            _pets.Clear();
+            _bots.Clear();
+            UserCount = 0;
+            PetCount = 0;
+            foreach (var user in users) user.Dispose();
+            _users = null;
+            _pets = null;
+            _bots = null;
+            _room = null;
+        }
     }
 }

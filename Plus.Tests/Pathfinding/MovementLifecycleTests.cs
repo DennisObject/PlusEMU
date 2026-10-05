@@ -104,7 +104,7 @@ public partial class PlacedFurniRoomTests
     {
         var actor = ExecutorActor(0, 1);
         var navigation = _room.GetGameMap().Navigation!;
-        var newcomer = new Plus.HabboHotel.Rooms.RoomUser(0, _room.RoomId, 99, _room) { X = 2, Y = 2, Z = 0 };
+        var newcomer = new Plus.HabboHotel.Rooms.RoomUser(0, _room.RoomId, 99, _room, null) { X = 2, Y = 2, Z = 0 };
         navigation.Admit(newcomer);
         Assert.Equal(NavState.PendingAdmission, newcomer.Movement.State);
         Assert.DoesNotContain(newcomer, _room.GetGameMap().GetRoomUsers(new(2, 2)));

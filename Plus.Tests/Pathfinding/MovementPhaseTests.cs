@@ -149,7 +149,7 @@ public partial class PlacedFurniRoomTests
 
     private RoomUser ExecutorAdditionalBot(int x, int y, int id)
     {
-        var actor = new RoomUser(0, RoomId, id, _room) { X = x, Y = y, InternalRoomId = id };
+        var actor = new RoomUser(0, RoomId, id, _room, null) { X = x, Y = y, InternalRoomId = id };
         actor.BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot));
         actor.BotData.AiType = BotAiType.Generic;
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)

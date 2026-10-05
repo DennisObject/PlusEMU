@@ -91,7 +91,7 @@ public sealed class WiredSelectorReviewRegressionTests
         public int WorldCaptures;
         public Fixture()
         {
-            RoomUser[] users = [new(111, 1, 11, _room), new(112, 1, 12, _room)];
+            RoomUser[] users = [new(111, 1, 11, _room, null), new(112, 1, 12, _room, null)];
             Context = new(_room, new(WiredEventKind.Enter) { EventItem = Items[0] },
                 new(() => Items, () => users, id => Items.FirstOrDefault(x => x.Id == id),
                     id => users.FirstOrDefault(x => x.VirtualId == id)), new Operations());

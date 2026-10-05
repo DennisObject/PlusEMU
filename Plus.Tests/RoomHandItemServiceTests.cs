@@ -14,8 +14,7 @@ public partial class PlacedFurniRoomTests
         var actor = LegacyRider();
         actor.CarryItemId = 8;
         actor.CarryTimer = 20;
-        var target = new RoomUser(9, RoomId, 9, _room) { X = actor.X + 2, Y = actor.Y + 2, DanceId = 1 };
-        AddHandTarget(target);
+        var target = AddHandTarget(actor.X + 2, actor.Y + 2, 1);
         var quests = 0;
         var service = new RoomAvatarActionService(TimeProvider.System, Proxy<IQuestManager>((_, args) =>
         {
@@ -40,8 +39,7 @@ public partial class PlacedFurniRoomTests
         var actor = LegacyRider();
         actor.CarryItemId = 7;
         actor.CarryTimer = 20;
-        var target = new RoomUser(9, RoomId, 9, _room) { X = actor.X + 3, Y = actor.Y };
-        AddHandTarget(target);
+        var target = AddHandTarget(actor.X + 3, actor.Y);
         _client.GetHabbo().Access = EditorTestSupport.Access(moderator ? [PermissionKeys.ModerationTool] : []);
         new RoomAvatarActionService(TimeProvider.System, null!, null!).GiveHandItem(_room, _client, 9);
         Assert.Equal(moderator ? 7 : 0, target.CarryItemId);
@@ -49,13 +47,13 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(moderator ? 2 : 0, _client.Sent.Count);
     }
 
-    private void AddHandTarget(RoomUser target)
+    private RoomUser AddHandTarget(int x = 0, int y = 0, int danceId = 0)
     {
         var client = new TestClient();
         client.SetHabbo(new Plus.HabboHotel.Users.Habbo { Id = 9, Username = "target", CurrentRoom = _room });
-        typeof(RoomUser).GetField("_mClient", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
-            .SetValue(target, client);
+        var target = new RoomUser(9, RoomId, 9, _room, client) { X = x, Y = y, DanceId = danceId };
         Assert.True(LegacyUsers().TryAdd(9, target));
+        return target;
     }
 
     [Fact]
@@ -63,8 +61,7 @@ public partial class PlacedFurniRoomTests
     {
         var actor = LegacyRider();
         actor.CarryItemId = 8;
-        var target = new RoomUser(9, RoomId, 9, _room);
-        AddHandTarget(target);
+        var target = AddHandTarget();
         var service = new RoomAvatarActionService(TimeProvider.System, null!, null!);
         service.GiveHandItem(_room, _client, 99);
         service.GiveHandItem(_room, _client, 9);

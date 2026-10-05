@@ -50,7 +50,7 @@ public class PathfindingBenchmarks
             var navigation = map.Navigation ?? new RoomNavigation(room, model, new() { Engine = PathfindingEngine.Shadow }, TestLogging.Navigation); navigation.Compiler.RebuildAll();
             var grid = navigation.Grid; var settings = new PathfindingSettings();
             var search = new PathSearch(grid, settings); var route = new Route(); var actor = new ActorProfile { IgnoreUsers = true };
-            var legacyActor = new RoomUser(0, 0, 1, room) { AllowOverride = false, X = sx, Y = sy };
+            var legacyActor = new RoomUser(0, 0, 1, room, null) { AllowOverride = false, X = sx, Y = sy };
             var request = new SearchRequest(actor, grid.Position(grid.Tile(sx, sy)), gx, gy);
             using var lease = PathWorkspacePool.Rent(grid.SlotCapacity, grid.ActiveNodeCount);
             var ws = lease.Workspace; var metrics = new PathFinderMetrics();

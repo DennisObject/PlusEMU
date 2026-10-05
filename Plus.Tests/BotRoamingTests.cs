@@ -232,7 +232,7 @@ public class BotRoamingTests
         stress.SqState = 3;
         roster.TryAdd(stress.InternalRoomId, stress);
 
-        var ordinary = new RoomUser(0, 1, 2, room);
+        var ordinary = new RoomUser(0, 1, 2, room, null);
         ordinary.SetPos(2, 2, 0);
         ordinary.InternalRoomId = 2;
         ordinary.SqState = 3;
@@ -293,7 +293,7 @@ public class BotRoamingTests
         Assert.Contains(crowded, step => step.X == 3 && step.Y == 2);
         Assert.DoesNotContain(crowded, step => step.X == 2 && step.Y == 2);
 
-        var staff = new RoomUser(0, 1, 2, room) { AllowOverride = true };
+        var staff = new RoomUser(0, 1, 2, room, null) { AllowOverride = true };
         staff.SetPos(1, 2, 0);
         var through = PathFinder.FindPath(staff, true, map, new(1, 2), new(3, 2));
         Assert.Contains(through, step => step.X == 2 && step.Y == 2);
@@ -313,7 +313,7 @@ public class BotRoamingTests
         Assert.True(map.IsValidStep2(bot, new(1, 1), new(3, 1), true, true));
         Assert.True(map.IsValidStep(new(1, 1), new(3, 1), true, true, false, bot));
 
-        var staff = new RoomUser(0, 1, 3, room) { AllowOverride = true };
+        var staff = new RoomUser(0, 1, 3, room, null) { AllowOverride = true };
         Assert.True(map.IsValidStep2(staff, new(1, 1), new(2, 1), false, true));
         Assert.True(map.IsValidStep(new(1, 1), new(2, 1), false, true, false, staff));
     }
@@ -381,7 +381,7 @@ public class BotRoamingTests
         var data = new RoomBot(-1, 1, "generic", "freeroam", "Stress", "", "hd-180-1",
             1, 1, 0, 0, 0, 0, 0, 0, ref speeches, "M", 0, 7, false, 60, false, 0)
         { IsTemporary = temporary };
-        var user = new RoomUser(0, 1, 1, room)
+        var user = new RoomUser(0, 1, 1, room, null)
         {
             AllowOverride = allowOverride,
             BotData = data

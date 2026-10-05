@@ -166,8 +166,7 @@ public sealed class LoveLockServiceTests
 
     private static RoomUser AddUser(Room room, GameClient client, int id)
     {
-        var user = new RoomUser(id, room.Id, id, room) { InternalRoomId = id };
-        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(user, client);
+        var user = new RoomUser(id, room.Id, id, room, client) { InternalRoomId = id };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomUserManager())!;
         users[id] = user; return user;
     }

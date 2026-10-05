@@ -311,7 +311,7 @@ public sealed class TradeConfirmationServiceTests
             session.SetHabbo(habbo);
             habbo.Client = session;
             _clients.RegisterClient(session, habboId, habbo.Username);
-            var roomUser = new RoomUser(habboId, 42, virtualId, Room) { UserId = habboId };
+            var roomUser = new RoomUser(habboId, 42, virtualId, Room, null) { UserId = habboId };
             var users = (System.Collections.Concurrent.ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Room.GetRoomUserManager())!;
             users[virtualId] = roomUser;
             return new(habbo, session, packets, roomUser);

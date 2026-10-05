@@ -361,8 +361,7 @@ public sealed class UserMaintenanceServiceTests
 
     private static RoomUser AddRoomUser(Room room, Plus.Communication.Flash.FlashGameClient client)
     {
-        var user = new RoomUser(7, room.Id, 1, room);
-        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(user, client);
+        var user = new RoomUser(7, room.Id, 1, room, client);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomUserManager())!;
         users.TryAdd(1, user);
         return user;

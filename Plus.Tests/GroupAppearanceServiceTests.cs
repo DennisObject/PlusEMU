@@ -181,8 +181,7 @@ public sealed class GroupAppearanceServiceTests
 
     private static void AddViewer(Room room, GameClient client)
     {
-        var user = new RoomUser(client.GetHabbo().Id, room.Id, 1, room);
-        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(user, client);
+        var user = new RoomUser(client.GetHabbo().Id, room.Id, 1, room, client);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomUserManager())!;
         users[user.InternalRoomId] = user;

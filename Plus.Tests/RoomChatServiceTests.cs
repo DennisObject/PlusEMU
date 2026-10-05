@@ -371,10 +371,10 @@ public sealed class RoomChatServiceTests
                 Id = 8, Username = "Bob", CurrentRoom = _room, Effects = new EffectsComponent(clock),
                 IgnoresComponent = new([]), ReceiveWhispers = true
             });
-            SenderUser = new RoomUser(7, 1, 11, _room);
-            Add(users, SenderUser, Sender);
-            RecipientUser = new RoomUser(8, 2, 12, _room);
-            Add(users, RecipientUser, Recipient);
+            SenderUser = new RoomUser(7, 1, 11, _room, Sender);
+            Add(users, SenderUser);
+            RecipientUser = new RoomUser(8, 2, 12, _room, Recipient);
+            Add(users, RecipientUser);
             var clientManager = ClientDirectory.Create(out var clients);
             Clients = clients;
             Clients.ByUserId[7] = Sender;
@@ -406,10 +406,9 @@ public sealed class RoomChatServiceTests
             return (client, sent);
         }
 
-        private static void Add(RoomUserManager manager, RoomUser user, GameClient client)
+        private static void Add(RoomUserManager manager, RoomUser user)
         {
-            user.UserId = client.GetHabbo().Id;
-            Set(user, "_mClient", client);
+            user.UserId = user.HabboId;
             var users = (ConcurrentDictionary<int, RoomUser>)Get(manager, "_users");
             users[user.VirtualId] = user;
         }

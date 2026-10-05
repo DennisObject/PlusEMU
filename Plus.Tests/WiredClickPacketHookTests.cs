@@ -148,8 +148,7 @@ public class WiredClickPacketHookTests
         world.Capture.ApplyConfiguration(new() { Delay = 1 });
         await new ClickUserEvent().Parse(world.Room, world.Client, Packet(world.Target.VirtualId));
         Assert.Empty(world.Capture.Events);
-        var replacement = new RoomUser(world.Actor.HabboId, 1, world.Actor.VirtualId, world.Room);
-        Set(replacement, "_mClient", world.Client);
+        var replacement = new RoomUser(world.Actor.HabboId, 1, world.Actor.VirtualId, world.Room, world.Client);
         ((ConcurrentDictionary<int, RoomUser>)Get(world.Room.GetRoomUserManager(), "_users"))[world.Actor.VirtualId] = replacement;
         world.Clock = 1000; world.Room.GetWired().OnCycle();
         Assert.Empty(world.Capture.Events);
@@ -232,7 +231,7 @@ public class WiredClickPacketHookTests
         private RoomUser AddUser(int habboId, int virtualId, FlashGameClient client)
         {
             client.SetHabbo(new Habbo { Id = habboId, Username = "actor" + habboId, CurrentRoom = Room, Client = client });
-            var user = new RoomUser(habboId, 1, virtualId, Room); Set(user, "_mClient", client);
+            var user = new RoomUser(habboId, 1, virtualId, Room, client);
             ((ConcurrentDictionary<int, RoomUser>)Get(Room.GetRoomUserManager(), "_users")).TryAdd(virtualId, user); return user;
         }
         public IWiredConfiguredItem AddBox(string name, int[] parameters, uint[]? selected = null)

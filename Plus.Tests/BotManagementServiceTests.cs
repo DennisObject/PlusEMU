@@ -138,7 +138,7 @@ public sealed class BotManagementServiceTests
         List<RandomSpeech> speech = [];
         var bot = new RoomBot(31, room.Id, "generic", "stand", "Helper", "", "hr-100", 0, 0, 0, 0, 0, 0, 0, 0,
             ref speech, "M", 0, ownerId, false, 7, false, 0);
-        var botUser = new RoomUser(0, room.Id, 3, room) { BotData = bot };
+        var botUser = new RoomUser(0, room.Id, 3, room, null) { BotData = bot };
         var bots = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_bots", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(users)!;
         bots[bot.Id] = botUser;
 

@@ -319,7 +319,7 @@ public class GroupManagementTests : IDisposable
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
-        var roomUser = new RoomUser(8, group.RoomId, 3, room);
+        var roomUser = new RoomUser(8, group.RoomId, 3, room, null);
         roomUser.SetStatus("flatctrl 1", "");
         roomUser.SetStatus("flatctrl 3", "");
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)

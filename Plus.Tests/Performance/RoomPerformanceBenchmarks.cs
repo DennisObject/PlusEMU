@@ -98,10 +98,10 @@ internal sealed class RoomPerformanceFixture
         var factory = new FlashPacketFactory();
         for (var i = 0; i < botCount + userCount; i++)
         {
-            var user = new RoomUser(i + 1, 0, i, room) { X = 1, Y = 1, InternalRoomId = i, AllowOverride = true };
-            user.Statusses.Add("mv", "2,1,0");
+            RoomUser user;
             if (i < botCount)
             {
+                user = new RoomUser(i + 1, 0, i, room, null) { X = 1, Y = 1, InternalRoomId = i, AllowOverride = true };
                 user.BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot));
                 typeof(RoomBot).GetProperty(nameof(RoomBot.IsTemporary))!.SetValue(user.BotData, true);
                 user.Path.AddRange(new[] { new Vector2D(3, 1), new Vector2D(2, 1), new Vector2D(1, 1) });
@@ -113,10 +113,11 @@ internal sealed class RoomPerformanceFixture
                 var habbo = (Habbo)RuntimeHelpers.GetUninitializedObject(typeof(Habbo));
                 habbo.CurrentRoom = room;
                 client.SetHabbo(habbo);
-                SetField(user, "_mClient", client);
+                user = new RoomUser(i + 1, 0, i, room, client) { X = 1, Y = 1, InternalRoomId = i, AllowOverride = true };
                 fixture.Clients.Add(client);
                 fixture.Users.Add(user);
             }
+            user.Statusses.Add("mv", "2,1,0");
             dictionary.TryAdd(i, user);
             map.AddUserToMap(user, user.Coordinate);
         }

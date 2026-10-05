@@ -219,8 +219,7 @@ public sealed class RoomInteractionServiceTests
             sent.Add((System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
             return true;
         };
-        var viewer = new RoomUser(client.GetHabbo().Id, room.Id, 1, room);
-        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(viewer, client);
+        var viewer = new RoomUser(client.GetHabbo().Id, room.Id, 1, room, client);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomUserManager())!;
         users[1] = viewer;
         return (room, client, sent);

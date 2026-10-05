@@ -66,7 +66,7 @@ public sealed class HorseCustomizationServiceTests
         pet.ExperienceLevels = [100];
         pet.OwnerId = ownerId;
         pet.AnyoneCanRide = anyoneCanRide;
-        var roomUser = new RoomUser(0, room.Id, 3, room) { PetData = pet };
+        var roomUser = new RoomUser(0, room.Id, 3, room, null) { PetData = pet };
         var pets = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_pets", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         pets[pet.PetId] = roomUser;

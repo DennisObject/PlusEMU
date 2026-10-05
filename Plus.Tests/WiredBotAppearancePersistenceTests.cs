@@ -142,7 +142,7 @@ public sealed class WiredBotAppearancePersistenceTests
             botData.Gender = "F";
             botData.AiType = BotAiType.Generic;
             botData.VirtualId = 31;
-            Bot = new(0, Room.Id, 31, Room) { BotData = botData };
+            Bot = new(0, Room.Id, 31, Room, null) { BotData = botData };
             var bots = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
                 .GetField("_bots", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(users)!;
             bots[botData.Id] = Bot;
@@ -150,8 +150,7 @@ public sealed class WiredBotAppearancePersistenceTests
             var viewer = new Habbo { Id = 7, CurrentRoom = Room };
             var (client, sent) = HabbiconTestSupport.Client(viewer);
             _sent = sent;
-            var roomUser = new RoomUser(viewer.Id, Room.Id, 7, Room);
-            Set(roomUser, "_mClient", client);
+            var roomUser = new RoomUser(viewer.Id, Room.Id, 7, Room, client);
             var people = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
                 .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(users)!;
             people[roomUser.VirtualId] = roomUser;

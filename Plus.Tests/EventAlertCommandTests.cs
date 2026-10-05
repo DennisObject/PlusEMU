@@ -96,8 +96,7 @@ public sealed class EventAlertCommandTests : IDisposable
         var habbo = new Habbo { Id = 7, Username = "Alice", CurrentRoom = room };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
-        var user = new RoomUser(7, 1, 11, room) { UserId = 7 };
-        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(user, client);
+        var user = new RoomUser(7, 1, 11, room, client) { UserId = 7 };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         users[user.VirtualId] = user;
         return (client, room, sent);

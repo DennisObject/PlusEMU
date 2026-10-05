@@ -339,7 +339,7 @@ public partial class PlacedFurniRoomTests
 
     private RoomUser FallbackBot(int x, int y, int id)
     {
-        var bot = new RoomUser(0, RoomId, id, _room) { X = x, Y = y, InternalRoomId = id, BotData = ProfileBot(false) };
+        var bot = new RoomUser(0, RoomId, id, _room, null) { X = x, Y = y, InternalRoomId = id, BotData = ProfileBot(false) };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         Assert.True(users.TryAdd(id, bot));

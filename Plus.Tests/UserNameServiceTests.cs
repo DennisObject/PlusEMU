@@ -229,8 +229,7 @@ public sealed class UserNameServiceTests
         };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
-        var roomUser = new RoomUser(habbo.Id, room.Id, 3, room) { InternalRoomId = 3, UserId = habbo.Id };
-        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(roomUser, client);
+        var roomUser = new RoomUser(habbo.Id, room.Id, 3, room, client) { InternalRoomId = 3, UserId = habbo.Id };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         users[3] = roomUser;

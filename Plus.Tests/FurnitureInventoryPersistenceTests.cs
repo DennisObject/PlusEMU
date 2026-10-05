@@ -261,8 +261,7 @@ public sealed class FurnitureInventoryPersistenceTests
         };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
-        var roomUser = new RoomUser(habbo.Id, room.Id, 1, room) { UserId = habbo.Id };
-        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(roomUser, client);
+        var roomUser = new RoomUser(habbo.Id, room.Id, 1, room, client) { UserId = habbo.Id };
         var entries = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(users)!;
         entries[roomUser.VirtualId] = roomUser;

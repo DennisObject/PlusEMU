@@ -73,8 +73,7 @@ public sealed class ModeratorTargetHierarchyTests
         var (targetSession, sent) = HabbiconTestSupport.Client(target);
         var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
         typeof(Room).GetField("_roomUserManager", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(room, manager);
-        var user = new RoomUser(2, 1, 2, room);
-        typeof(RoomUser).GetField("_mClient", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(user, targetSession);
+        var user = new RoomUser(2, 1, 2, room, targetSession);
         ((ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!)[2] = user;
         await new MakeSayCommand().Execute(session, room, target, ["hello"]);
         Assert.Single(sent);

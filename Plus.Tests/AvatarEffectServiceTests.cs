@@ -305,8 +305,7 @@ public class AvatarEffectServiceTests
             .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, new FixedTimeProvider(Now)));
         var (client, _) = HabbiconTestSupport.Client(habbo);
         habbo.CurrentRoom = room;
-        var user = new RoomUser(7, room.Id, 1, room);
-        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(user, client);
+        var user = new RoomUser(7, room.Id, 1, room, client);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(room.GetRoomUserManager())!;
         users.TryAdd(7, user);

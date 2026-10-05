@@ -140,7 +140,7 @@ public class WiredLegacyCommandEditorTests
             };
             var habbo = new Habbo { Id = id, Username = "actor" + id, CurrentRoom = Room, Client = client, Access = UserAccess.Create([], [new("command.first", false), new("command.second", false)], ["command.first", "command.second"]) };
             client.SetHabbo(habbo);
-            var user = new RoomUser(id, 0, virtualId, Room); Set(user, "_mClient", client);
+            var user = new RoomUser(id, 0, virtualId, Room, client);
             ((ConcurrentDictionary<int, RoomUser>)Get(users, "_users")).TryAdd(virtualId, user);
             return habbo;
         }

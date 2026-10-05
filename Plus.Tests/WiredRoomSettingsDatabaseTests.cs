@@ -206,7 +206,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             SendCallback = args => { packets.Add(((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2)), new() { Buffer = args.MemoryBuffer[6..].ToArray() })); return true; }
         };
         client.SetHabbo(new Habbo { Id = id, Username = name, CurrentRoom = room, Client = client, Access = EditorTestSupport.Access([]) });
-        var actor = new RoomUser(id, roomId: room.Id, virtualId: virtualId, room: room); Set(actor, "_mClient", client);
+        var actor = new RoomUser(id, roomId: room.Id, virtualId: virtualId, room: room, client: client);
         ((ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!).TryAdd(virtualId, actor);
         return (client, packets);
     }

@@ -10,7 +10,7 @@ public sealed class RoomUserStatusSnapshotTests
     [Fact]
     public void StatusWireShapeIsInvariantAndFrozenBeforeComposition()
     {
-        var user = new RoomUser(7, 42, 9, null!) { X = 3, Y = 4, Z = 1.25, RotHead = 2, RotBody = 6 };
+        var user = new RoomUser(7, 42, 9, null!, null) { X = 3, Y = 4, Z = 1.25, RotHead = 2, RotBody = 6 };
         user.Statusses.Add("sit", "0.5");
         var source = new List<RoomUser> { user };
         var previousCulture = CultureInfo.CurrentCulture;
@@ -41,7 +41,7 @@ public sealed class RoomUserStatusSnapshotTests
     [Fact]
     public void EmptyStatusRetainsTheTwoSlashesAndEmptyListRetainsTheCount()
     {
-        var user = new RoomUser(7, 42, 9, null!);
+        var user = new RoomUser(7, 42, 9, null!, null);
         Assert.Equal("//", Assert.Single(RoomUserStatusSnapshot.Capture([user])).Status);
         var packet = new HabbiconTestSupport.RecordingPacket();
         new UserUpdateComposer([]).Compose(packet);

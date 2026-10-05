@@ -142,15 +142,14 @@ public sealed class RoomMuteServiceTests
             Target.Client = TargetClient;
             var users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock);
             Set(Room, "_roomUserManager", users);
-            Add(users, new RoomUser(Owner.Id, 1, 11, Room), OwnerClient);
-            TargetUser = new RoomUser(Target.Id, 2, 12, Room);
-            Add(users, TargetUser, TargetClient);
+            Add(users, new RoomUser(Owner.Id, 1, 11, Room, OwnerClient));
+            TargetUser = new RoomUser(Target.Id, 2, 12, Room, TargetClient);
+            Add(users, TargetUser);
         }
 
-        private static void Add(RoomUserManager manager, RoomUser user, GameClient client)
+        private static void Add(RoomUserManager manager, RoomUser user)
         {
-            user.UserId = client.GetHabbo().Id;
-            Set(user, "_mClient", client);
+            user.UserId = user.HabboId;
             ((ConcurrentDictionary<int, RoomUser>)Get(manager, "_users"))[user.VirtualId] = user;
         }
     }
