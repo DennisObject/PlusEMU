@@ -76,7 +76,7 @@ public class WiredModernContractsTests
         var box = new ConfiguredBox(name);
         box.ApplyConfiguration(new() { IntParams = [200, 7], Text = "schema-json", SelectedItems = [8], Delay = 3 });
         var packet = new RecordingPacket();
-        var composer = new WiredConfiguredConfigComposer(box);
+        var composer = new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(box));
         composer.Compose(packet);
         var expected = new List<object> { false, 100, 1, 8u, 91, 7u, "schema-json", 2, 200, 7, 0, code };
         if (action) expected.Add(3);
@@ -94,7 +94,7 @@ public class WiredModernContractsTests
         var saved = box.Configuration;
         box.EditorConfiguration = saved with { Text = "current value" };
         var packet = new RecordingPacket();
-        new WiredConfiguredConfigComposer(box).Compose(packet);
+        new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(box)).Compose(packet);
         Assert.Contains("current value", packet.Writes);
         Assert.Same(saved, box.Configuration);
         Assert.Equal("saved metadata", box.Configuration.Text);
@@ -304,7 +304,7 @@ public class WiredModernContractsTests
         var item = new Item { Id = 7, Definition = new() { SpriteId = 91 } };
         var teleport = new TeleportUserBox(null!, item) { Delay = 3, StringData = string.Empty };
         var packet = new RecordingPacket();
-        new WiredEffectConfigComposer(teleport, []).Compose(packet);
+        new WiredEffectConfigComposer(WiredEditorSnapshot.Effect(teleport, [])).Compose(packet);
         Assert.Equal(new object[] { false, 15, 0, 91, 7u, "", 0, 0, 8, 3, 0 }, packet.Writes);
     }
 
@@ -314,11 +314,11 @@ public class WiredModernContractsTests
         var item = new Item { Id = 7, Definition = new() { SpriteId = 91 } };
         var condition = new FurniMatchStateAndPositionBox(null!, item) { StringData = "1;0;1" };
         var conditionPacket = new RecordingPacket();
-        new WiredConditionConfigComposer(condition).Compose(conditionPacket);
+        new WiredConditionConfigComposer(WiredEditorSnapshot.Condition(condition)).Compose(conditionPacket);
         Assert.Equal(new object[] { false, 5, 0, 91, 7u, "1;0;1", 3, 1, 0, 1, 0, 0 }, conditionPacket.Writes);
         var bot = new BotGivesHandItemBox(null!, item) { StringData = "Bot;12" };
         var botPacket = new RecordingPacket();
-        new WiredEffectConfigComposer(bot, []).Compose(botPacket);
+        new WiredEffectConfigComposer(WiredEditorSnapshot.Effect(bot, [])).Compose(botPacket);
         Assert.Equal(new object[] { false, 15, 0, 91, 7u, "Bot", 1, 12, 0, 24, 0, 0 }, botPacket.Writes);
         Assert.Equal(2, WiredBoxTypeUtility.GetWiredId(WiredBoxType.TriggerWalkOffFurni));
         Assert.Equal(2, WiredBoxTypeUtility.GetWiredId(WiredBoxType.ConditionTriggererOnFurni));

@@ -36,7 +36,7 @@ public class WiredLegacyCommandEditorTests
         Assert.Equal(0, descriptor.EditorCode);
         Assert.Equal(new[] { 0, 1, ownerOnly ? 1 : 0 }, configuration.IntParams);
         using var stream = PlusMemoryStream.GetStream();
-        var composer = new WiredConfiguredConfigComposer(world.Box.Item, descriptor, configuration, 0);
+        var composer = new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(world.Box.Item, descriptor, configuration, 0));
         Assert.Equal(ServerPacketHeader.WiredTriggeRconfigComposer, composer.MessageId);
         composer.Compose(new FlashOutgoingPacket(stream));
         var opened = new FlashIncomingPacket { Buffer = stream.ToArray().AsMemory(6) };

@@ -36,7 +36,7 @@ public class WiredLegacyEditorProjectionTests
         Assert.Equal(parameters, configuration.IntParams);
         Assert.Equal(editorCode, descriptor.EditorCode);
         var packet = new RecordingPacket();
-        var composer = new WiredConfiguredConfigComposer(original.Item, descriptor, configuration);
+        var composer = new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(original.Item, descriptor, configuration));
         composer.Compose(packet);
         var expected = new List<object> { false, 100, configuration.SelectedItems.Length };
         expected.AddRange(configuration.SelectedItems.Select(id => (object)id));
@@ -60,7 +60,7 @@ public class WiredLegacyEditorProjectionTests
             var original = Create(shape);
             Assert.True(WiredLegacyEditorProjection.TryGetConfiguration(original, out var descriptor, out var configuration));
             var packet = new RecordingPacket();
-            new WiredConfiguredConfigComposer(original.Item, descriptor, configuration, blockedItems: [77, 88]).Compose(packet);
+            new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(original.Item, descriptor, configuration, blockedItems: [77, 88])).Compose(packet);
             Assert.Equal(shape == 3 ? new object[] { 0, 5 } : new object[] { 2, 77, 88 },
                 packet.Writes.TakeLast(shape == 3 ? 2 : 3));
         }

@@ -22,7 +22,7 @@ public class WiredLegacyCustomEditorTests
         Assert.Equal(code, descriptor.EditorCode);
         Assert.Equal(kind == 1 ? new[] { 2 } : new[] { 0, 0, 34 }, configuration.IntParams);
         var packet = new RecordingPacket();
-        new WiredEffectConfigComposer(original, []).Compose(packet);
+        new WiredEffectConfigComposer(WiredEditorSnapshot.Effect(original, [])).Compose(packet);
         var expected = new List<object> { false, 0, 0, 91, 7u, kind == 1 ? "" : text, kind == 1 ? 1 : 3 };
         expected.AddRange(configuration.IntParams.Select(value => (object)value));
         expected.AddRange(new object[] { 0, code, 0, 0 });
