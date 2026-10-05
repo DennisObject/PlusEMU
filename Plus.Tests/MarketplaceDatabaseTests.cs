@@ -1,0 +1,258 @@
+using System.Buffers.Binary;
+using System.Reflection;
+using System.Text;
+using Dapper;
+using MySqlConnector;
+using Plus.Communication.Flash;
+using Plus.Communication.Packets.Incoming.Marketplace;
+using Plus.HabboHotel.Catalog.Marketplace;
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.DataFormat;
+using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Inventory;
+using Plus.HabboHotel.Users.Inventory.Furniture;
+using Xunit;
+
+namespace Plus.Tests;
+
+public sealed class MarketplaceDatabaseFactAttribute : FactAttribute
+{
+    public MarketplaceDatabaseFactAttribute()
+    {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_MARKETPLACE_PROBE_CONNECTION_STRING")))
+            Skip = "Set PLUS_MARKETPLACE_PROBE_CONNECTION_STRING to a disposable task_refactor_tests_marketplace_ schema with the catalog_marketplace_offers and items tables.";
+    }
+}
+
+// Runs the marketplace store, search and redemption against a real MariaDB schema. Each test truncates the two tables it uses.
+[Collection("MarketplaceDatabase")]
+public sealed class MarketplaceDatabaseTests
+{
+    private const int SellerId = 7;
+    private const int BuyerId = 8;
+    private static readonly DateTimeOffset Now = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000);
+    private readonly string _connectionString = Environment.GetEnvironmentVariable("PLUS_MARKETPLACE_PROBE_CONNECTION_STRING")!;
+
+    public MarketplaceDatabaseTests()
+    {
+        if (!new MySqlConnectionStringBuilder(_connectionString).Database.StartsWith("task_refactor_tests_marketplace_", StringComparison.Ordinal))
+            throw new InvalidOperationException("Marketplace probe tests require a disposable task_refactor_tests_marketplace_ schema.");
+        Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
+        using var connection = new MySqlConnection(_connectionString);
+        connection.Execute("DELETE FROM `catalog_marketplace_offers`");
+        connection.Execute("DELETE FROM `items`");
+    }
+
+    [MarketplaceDatabaseFact]
+    public void SearchMaterializesTypedRowsInOrderWithinTheWindow()
+    {
+        Insert(1, sprite: 100, asking: 50, total: 55, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000);
+        Insert(2, sprite: 200, asking: 30, total: 33, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, itemType: "2");
+        Insert(3, sprite: 300, asking: 10, total: 11, state: "1", timestamp: Now.ToUnixTimeSeconds() - 200_000);
+        Insert(4, sprite: 400, asking: 20, total: 22, state: "2", timestamp: Now.ToUnixTimeSeconds() - 1000);
+        var manager = new Manager();
+
+        var snapshot = Search(manager, -1, -1, 0);
+
+        Assert.Equal(new[] { 2, 1 }, manager.Keys);
+        Assert.Equal(new uint[] { 2, 1 }, manager.Items.Select(item => item.OfferId).ToArray());
+        Assert.Equal(2, manager.Items[0].ItemType);
+        Assert.Equal(2, snapshot.Offers.Length);
+    }
+
+    [MarketplaceDatabaseFact]
+    public void SearchDescendingAndBoundsUseTheTotalPrice()
+    {
+        Insert(1, sprite: 100, asking: 50, total: 55, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000);
+        Insert(2, sprite: 200, asking: 30, total: 33, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000);
+        Insert(3, sprite: 300, asking: 5, total: 6, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000);
+        var manager = new Manager();
+
+        Search(manager, 10, 56, 1);
+
+        Assert.Equal(new uint[] { 1, 2 }, manager.Items.Select(item => item.OfferId).ToArray());
+    }
+
+    [MarketplaceDatabaseFact]
+    public void ListingCommitsOfferAndRemovesFurniTogether()
+    {
+        InsertFurni(41, SellerId, roomId: 0);
+        var seller = Seller();
+
+        Assert.True(Listing().TryList(seller, 41, 100));
+
+        Assert.Equal(1, Count("catalog_marketplace_offers"));
+        Assert.Equal(0, Count("items"));
+    }
+
+    [MarketplaceDatabaseFact]
+    public void ListingRollsBackWhenTheFurniIsNoLongerTheSellersToRemove()
+    {
+        InsertFurni(41, SellerId, roomId: 5);
+        var seller = Seller();
+
+        Assert.Throws<InvalidOperationException>(() => Listing().TryList(seller, 41, 100));
+
+        Assert.Equal(0, Count("catalog_marketplace_offers"));
+        Assert.Equal(1, Count("items"));
+    }
+
+    [MarketplaceDatabaseFact]
+    public void ListingRollsBackTheOfferWhenTheFurniDeleteFails()
+    {
+        InsertFurni(41, SellerId, roomId: 0);
+        var seller = Seller();
+        using (var admin = new MySqlConnection(_connectionString))
+            admin.Execute("RENAME TABLE `items` TO `items_probe_hidden`");
+        try
+        {
+            var error = Assert.Throws<MySqlException>(() => Listing().TryList(seller, 41, 100));
+            Assert.Contains("doesn't exist", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            using var admin = new MySqlConnection(_connectionString);
+            admin.Execute("RENAME TABLE `items_probe_hidden` TO `items`");
+        }
+
+        Assert.Equal(0, Count("catalog_marketplace_offers"));
+    }
+
+    [MarketplaceDatabaseFact]
+    public void ClaimRollsBackAndKeepsEverySaleWhenTheWalletCannotHoldIt()
+    {
+        Insert(1, sprite: 100, asking: 25, total: 26, state: "2", timestamp: 1, seller: SellerId);
+        Insert(2, sprite: 200, asking: 5, total: 6, state: "2", timestamp: 1, seller: SellerId);
+
+        var owed = Store().ClaimSold(SellerId, _ => false);
+
+        Assert.Null(owed);
+        Assert.Equal(2, CountWhere("state = '2' AND user_id = " + SellerId));
+    }
+
+    [MarketplaceDatabaseFact]
+    public void ClaimPaysExactlyTheClaimedSalesAndKeepsALaterSale()
+    {
+        Insert(1, sprite: 100, asking: 25, total: 26, state: "2", timestamp: 1, seller: SellerId);
+        Insert(2, sprite: 200, asking: 5, total: 6, state: "2", timestamp: 1, seller: SellerId);
+        Task? concurrent = null;
+
+        // A sale completed after the claim read its rows must survive the claim: the delete names only the claimed ids.
+        var owed = Store().ClaimSold(SellerId, _ =>
+        {
+            concurrent = Task.Run(() => Insert(3, sprite: 300, asking: 7, total: 8, state: "2", timestamp: 1, seller: SellerId));
+            return true;
+        });
+        concurrent!.Wait(TimeSpan.FromSeconds(30));
+
+        Assert.Equal(30, owed);
+        Assert.Equal(new uint[] { 3 }, OfferIds("state = '2' AND user_id = " + SellerId));
+    }
+
+    [MarketplaceDatabaseFact]
+    public void ClaimRejectsNegativeSalesWithoutChangingAnything()
+    {
+        Insert(1, sprite: 100, asking: 25, total: 26, state: "2", timestamp: 1, seller: SellerId);
+        Insert(2, sprite: 200, asking: -3, total: 6, state: "2", timestamp: 1, seller: SellerId);
+
+        Assert.Null(Store().ClaimSold(SellerId, _ => true));
+
+        Assert.Equal(2, CountWhere("state = '2' AND user_id = " + SellerId));
+    }
+
+    [MarketplaceDatabaseFact]
+    public void RedemptionPaysOnceAcrossRepeatedCalls()
+    {
+        Insert(1, sprite: 100, asking: 25, total: 26, state: "2", timestamp: 1, seller: SellerId);
+        Insert(2, sprite: 200, asking: 5, total: 6, state: "2", timestamp: 1, seller: SellerId);
+        var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = SellerId, Username = "seller", Credits = 1000 });
+        var redeem = new MarketplaceRedemptionService(Store());
+
+        redeem.Redeem(client);
+        redeem.Redeem(client);
+
+        Assert.Equal(1030, client.GetHabbo().Credits);
+        Assert.Equal(0, CountWhere("state = '2' AND user_id = " + SellerId));
+    }
+
+    private Habbo Seller(uint furniId = 41)
+    {
+        var item = new InventoryItem
+        {
+            Id = furniId, OwnerId = SellerId, ExtraData = FurniObjectData.Empty,
+            Definition = new ItemDefinition { Id = 900, SpriteId = 55, PublicName = "Probe", ItemName = "probe", Type = ItemType.Floor, AllowTrade = true, AllowMarketplaceSell = true },
+        };
+        return new Habbo { Id = SellerId, Username = "seller", Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([item], []) } };
+    }
+
+    private MarketplaceListingService Listing() => new(Store(), new Manager(), new FixedClock(Now));
+
+    private MarketplaceOffersSnapshot Search(Manager manager, int min, int max, int mode) =>
+        new MarketplaceOfferSearchService(new MySqlDatabase(_connectionString), manager, new FixedClock(Now)).Search(min, max, "", mode);
+
+    private MarketplaceOfferStore Store() => new(new MySqlDatabase(_connectionString));
+
+    private void Insert(uint offerId, int sprite, int asking, int total, string state, long timestamp, string itemType = "1", int seller = BuyerId)
+    {
+        using var connection = new MySqlConnection(_connectionString);
+        connection.Execute("INSERT INTO `catalog_marketplace_offers` (`offer_id`,`item_id`,`user_id`,`asking_price`,`total_price`,`public_name`,`sprite_id`,`item_type`,`timestamp`,`extra_data`,`limited_number`,`limited_stack`,`furni_id`,`state`) " +
+            "VALUES (@offerId,1,@seller,@asking,@total,'probe',@sprite,@itemType,@timestamp,'',0,0,1,@state)",
+            new { offerId, seller, asking, total, sprite, itemType, timestamp = (double)timestamp, state });
+    }
+
+    private void InsertFurni(uint id, int owner, int roomId)
+    {
+        using var connection = new MySqlConnection(_connectionString);
+        connection.Execute("INSERT INTO `items` (`id`,`user_id`,`room_id`,`base_item`,`extra_data`) VALUES (@id,@owner,@roomId,1,'')", new { id, owner, roomId });
+    }
+
+    private int Count(string table)
+    {
+        using var connection = new MySqlConnection(_connectionString);
+        return connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM `{table}`");
+    }
+
+    private int CountWhere(string predicate)
+    {
+        using var connection = new MySqlConnection(_connectionString);
+        return connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM `catalog_marketplace_offers` WHERE {predicate}");
+    }
+
+    private uint[] OfferIds(string predicate)
+    {
+        using var connection = new MySqlConnection(_connectionString);
+        return connection.Query<uint>($"SELECT `offer_id` FROM `catalog_marketplace_offers` WHERE {predicate} ORDER BY `offer_id`").ToArray();
+    }
+
+    private sealed class MySqlDatabase(string connectionString) : Plus.Database.IDatabase
+    {
+        public bool IsConnected() => true;
+        public Plus.Database.Interfaces.IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
+        public System.Data.IDbConnection Connection() => new MySqlConnection(connectionString);
+    }
+
+    private sealed class Manager : IMarketplaceManager
+    {
+        public List<MarketOffer> Items { get; } = new();
+        public List<int> Keys { get; } = new();
+        public Dictionary<int, int> MarketAverages { get; } = new();
+        public Dictionary<int, int> MarketCounts { get; } = new();
+        List<int> IMarketplaceManager.MarketItemKeys => Keys;
+        List<MarketOffer> IMarketplaceManager.MarketItems => Items;
+        public int AvgPriceForSprite(int spriteId) => spriteId * 2;
+        public string FormatTimestampString() => "";
+        public double FormatTimestamp() => 0;
+        public int OfferCountForSprite(uint spriteId) => 0;
+        public MarketplaceItemStats ItemStats(uint spriteId) => new(0, 0);
+        public MarketplaceOwnOffers OwnOffers(int userId) => new(0, []);
+        public int CalculateComissionPrice(float price) => Convert.ToInt32(Math.Ceiling(price / 100 * 1));
+        public Task<bool> TryCancelOffer(Habbo habbo, uint offerId) => Task.FromResult(false);
+        public Task<MarketOffer?> GetOffer(uint offerId) => Task.FromResult<MarketOffer?>(null);
+        public Task DeleteOffer(uint offerId) => Task.CompletedTask;
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+}
