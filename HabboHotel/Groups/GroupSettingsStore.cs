@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using Dapper;
 using Plus.Database;
 using Plus.Utilities.DependencyInjection;
@@ -20,7 +21,7 @@ public sealed class GroupSettingsStore(IDatabase database) : IGroupSettingsStore
         using var transaction = connection.BeginTransaction();
         var updated = connection.Execute(
             "UPDATE groups SET `state` = @state, admindeco = @adminOnlyDeco, forum_enabled = @forumEnabled WHERE id = @groupId LIMIT 1",
-            new { groupId, state = (int)type, adminOnlyDeco, forumEnabled }, transaction);
+            new { groupId, state = ((int)type).ToString(CultureInfo.InvariantCulture), adminOnlyDeco, forumEnabled }, transaction);
         if (updated != 1 && !connection.ExecuteScalar<bool>(
                 "SELECT EXISTS(SELECT 1 FROM groups WHERE id = @groupId)", new { groupId }, transaction))
             return false;

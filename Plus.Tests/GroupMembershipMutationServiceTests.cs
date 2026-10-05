@@ -156,7 +156,7 @@ public sealed class GroupMembershipMutationServiceTests
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root) { Database = schema }.ConnectionString);
             using (var connection = database.Connection())
             {
-                connection.Execute("CREATE TABLE group_memberships(user_id INT NOT NULL,group_id INT NOT NULL,`rank` INT NOT NULL DEFAULT 0,PRIMARY KEY(user_id,group_id)); CREATE TABLE group_requests(user_id INT NOT NULL,group_id INT NOT NULL,PRIMARY KEY(user_id,group_id)); CREATE TABLE groups(id INT PRIMARY KEY,`state` INT NOT NULL,admindeco BOOL NOT NULL,forum_enabled BOOL NOT NULL); INSERT INTO groups VALUES(9,1,0,0); INSERT INTO group_requests VALUES(8,9),(11,9),(12,9),(13,9),(14,10)");
+                connection.Execute("CREATE TABLE group_memberships(user_id INT NOT NULL,group_id INT NOT NULL,`rank` INT NOT NULL DEFAULT 0,PRIMARY KEY(user_id,group_id)); CREATE TABLE group_requests(user_id INT NOT NULL,group_id INT NOT NULL,PRIMARY KEY(user_id,group_id)); CREATE TABLE groups(id INT PRIMARY KEY,`state` ENUM('0','1','2') NOT NULL,admindeco BOOL NOT NULL,forum_enabled BOOL NOT NULL); INSERT INTO groups VALUES(9,'1',0,0); INSERT INTO group_requests VALUES(8,9),(11,9),(12,9),(13,9),(14,10)");
             }
             var store = new GroupMembershipMutationStore(database);
             Assert.True(store.Accept(9, 8));
@@ -167,6 +167,15 @@ public sealed class GroupMembershipMutationServiceTests
             Assert.False(store.Accept(9, 10));
             Assert.True(store.Decline(9, 13));
             var settings = new GroupSettingsStore(database);
+            foreach (var type in new[] { GroupType.Open, GroupType.Locked, GroupType.Private })
+            {
+                Assert.True(settings.Update(9, type, false, false, []));
+                using var state = database.Connection();
+                var persisted = state.QuerySingle<(string Text, int DomainValue)>(
+                    "SELECT CAST(`state` AS CHAR) AS Text, CAST(CAST(`state` AS CHAR) AS UNSIGNED) AS DomainValue FROM groups WHERE id=9");
+                Assert.Equal(((int)type).ToString(System.Globalization.CultureInfo.InvariantCulture), persisted.Text);
+                Assert.Equal(type, (GroupType)persisted.DomainValue);
+            }
             Assert.True(settings.Update(9, GroupType.Private, true, true, [11, 12]));
             Assert.False(settings.Update(10, GroupType.Open, false, false, [14]));
             using var rollback = database.Connection();
