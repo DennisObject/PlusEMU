@@ -182,6 +182,21 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     }
 
     [MessengerFriendDatabaseFact]
+    public async Task DecliningLegacyDuplicateRowsRemovesTheCachedRequestAfterTheirCommit()
+    {
+        Account(9891); Account(9892);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9892, 9891), (9892, 9891), (9891, 9892)");
+        var decliner = Habbo(9891, MessengerFor(requests: [new MessengerRequest { FromId = 9892, ToId = 9891 }]));
+        var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
+
+        Assert.Null(await service.DeclineRequestAsync(decliner, 9892));
+
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9892 AND to_id = 9891"));
+        Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9891 AND to_id = 9892"));
+        Assert.False(decliner.Messenger.Requests.ContainsKey(9892));
+    }
+
+    [MessengerFriendDatabaseFact]
     public async Task RemoveDeletesBothDirectionsAndUpdatesBothMemories()
     {
         Account(9601); Account(9602);

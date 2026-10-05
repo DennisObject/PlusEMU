@@ -35,7 +35,7 @@ public sealed class MessengerFriendMutationService(IMessengerDataLoader messenge
         if (fromId == habbo.Id || !habbo.Messenger.Requests.ContainsKey(fromId)) return FriendRequestError.NoFriendRequest;
         using var accounts = await sessionGate.EnterManyAsync([habbo.Id, fromId]);
         if (!habbo.Messenger.Requests.ContainsKey(fromId)) return FriendRequestError.NoFriendRequest;
-        if (await messengerData.DeleteFriendRequest(fromId, habbo.Id) != 1) return FriendRequestError.NoFriendRequest;
+        if (await messengerData.DeleteFriendRequest(fromId, habbo.Id) == 0) return FriendRequestError.NoFriendRequest;
         habbo.Messenger.RemoveRequest(fromId);
         return null;
     }
