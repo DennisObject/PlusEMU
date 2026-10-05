@@ -206,6 +206,7 @@ public sealed class WiredVariableUtcDatabaseTests
     private sealed class RejectConfigurationStore : IWiredConfigurationStore
     {
         public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => throw new NotSupportedException();
+        public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new NotSupportedException();
         public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
     }

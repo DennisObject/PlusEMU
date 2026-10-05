@@ -118,6 +118,7 @@ public sealed class WiredRuntimeFactoryTests
         public int Reads { get; private set; }
         public WiredConfiguration? Load(uint id, WiredBoxDescriptor descriptor)
         { Reads++; throw new InvalidDataException("Saved bytes are unreadable."); }
+        public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
         public void Save(uint id, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new NotSupportedException();
         public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
     }
