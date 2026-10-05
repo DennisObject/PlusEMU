@@ -286,6 +286,8 @@ internal sealed class FakeBans : IBanLookup
 
     public Task<LoginBan?> Find(string username, string address) =>
         Task.FromResult(ByUsernameOrAddress.TryGetValue(username, out var ban) || ByUsernameOrAddress.TryGetValue(address, out ban) ? ban : null);
+
+    public Task<LoginBan?> FindAt(string username, string address, DateTimeOffset now) => Find(username, address);
 }
 
 /// <summary>Real hashing slowed down, recording how many hashes ran at the same time.</summary>

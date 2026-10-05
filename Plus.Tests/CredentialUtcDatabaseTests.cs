@@ -2,6 +2,7 @@ using Dapper;
 using MySqlConnector;
 using System.Data;
 using Plus.Database;
+using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users.Authentication;
 using Xunit;
 
@@ -70,7 +71,10 @@ public sealed class CredentialUtcDatabaseTests
             await connection.ExecuteAsync(Migration);
             await connection.ExecuteAsync(
                 "DELETE FROM user_access_tokens; DELETE FROM user_remember_tokens; DELETE FROM user_sessions; " +
-                "UPDATE users SET auth_ticket='', auth_ticket_expires_at=NULL, auth_ticket_session=NULL, auth_ticket_exchanged=0 WHERE id=1");
+                "UPDATE users SET auth_ticket='', auth_ticket_expires_at=NULL, auth_ticket_session=NULL, auth_ticket_exchanged=0 WHERE id=1; " +
+                "ALTER TABLE users ADD username VARCHAR(64) NULL, ADD password VARCHAR(255) NULL, ADD ip_last VARCHAR(45) NULL; " +
+                "UPDATE users SET username='clock-user', password='', ip_last='' WHERE id=1; " +
+                "CREATE TABLE bans (bantype VARCHAR(16) NOT NULL, value VARCHAR(64) NOT NULL, reason VARCHAR(255) NOT NULL, expire DATETIME(6) NULL)");
 
             SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
             var clock = new AdvancingTime(new DateTimeOffset(2041, 2, 3, 9, 5, 6, TimeSpan.FromHours(5)), TimeSpan.FromMinutes(1));
@@ -86,9 +90,8 @@ public sealed class CredentialUtcDatabaseTests
             var access = new AccessTokenStore(database, clock, options);
             var remember = new RememberTokenStore(database, clock, options);
             var generations = new CredentialGenerations(database, clock);
-            var accounts = new FakeAccounts();
-            accounts.Add("clock-user", "");
-            var issuer = new SessionIssuer(tickets, access, remember, generations, accounts, new FakeBans(), clock);
+            var accounts = new AccountStore(database, clock, options);
+            var issuer = new SessionIssuer(tickets, access, remember, generations, accounts, new BanLookup(database, clock), clock);
 
             clock.ResetReads();
             var issued = (await issuer.Issue(1, "clock-user", 0, "203.0.113.1", remember: true))!;
@@ -132,6 +135,27 @@ public sealed class CredentialUtcDatabaseTests
             clock.ResetReads();
             await remember.Continue(1, rotation.FamilyId);
             Assert.Equal(1, clock.Reads);
+
+            var before = await connection.QuerySingleAsync<MutationSnapshot>(
+                "SELECT (SELECT COUNT(*) FROM user_sessions) AS Sessions, (SELECT COUNT(*) FROM user_access_tokens) AS Access, " +
+                "(SELECT COUNT(*) FROM user_remember_tokens) AS Remember, ip_last AS Address FROM users WHERE id=1");
+            var nearMaximum = new AdvancingTime(DateTimeOffset.MaxValue.AddSeconds(-30), TimeSpan.FromSeconds(1));
+            var nearMaximumIssuer = new SessionIssuer(
+                new SsoTicketStore(database, nearMaximum, options),
+                new AccessTokenStore(database, nearMaximum, options),
+                new RememberTokenStore(database, nearMaximum, options),
+                new CredentialGenerations(database, nearMaximum),
+                new AccountStore(database, nearMaximum, options),
+                new BanLookup(database, nearMaximum),
+                nearMaximum);
+
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+                nearMaximumIssuer.Issue(1, "clock-user", 0, "203.0.113.250", remember: true));
+
+            Assert.Equal(1, nearMaximum.Reads);
+            Assert.Equal(before, await connection.QuerySingleAsync<MutationSnapshot>(
+                "SELECT (SELECT COUNT(*) FROM user_sessions) AS Sessions, (SELECT COUNT(*) FROM user_access_tokens) AS Access, " +
+                "(SELECT COUNT(*) FROM user_remember_tokens) AS Remember, ip_last AS Address FROM users WHERE id=1"));
         });
     }
 
@@ -313,6 +337,14 @@ public sealed class CredentialUtcDatabaseTests
     {
         public DateTimeOffset CreatedAt { get; set; }
         public DateTimeOffset ExpiresAt { get; set; }
+    }
+
+    private sealed record MutationSnapshot
+    {
+        public int Sessions { get; set; }
+        public int Access { get; set; }
+        public int Remember { get; set; }
+        public string Address { get; set; } = "";
     }
 
     private sealed class AdvancingTime(DateTimeOffset start, TimeSpan step) : TimeProvider

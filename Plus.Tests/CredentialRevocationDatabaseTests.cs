@@ -432,5 +432,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
             await Release.Task;
             return null;
         }
+
+        public Task<LoginBan?> FindAt(string username, string address, DateTimeOffset now) => Find(username, address);
     }
 }

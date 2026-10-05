@@ -106,7 +106,7 @@ public class SessionIssuer : ISessionIssuer
             await RevokeAll(userId);
             return new(ResumeStatus.Invalid);
         }
-        if (await _bans.Find(username, address) is { } ban)
+        if (await _bans.FindAt(username, address, instant.UtcNow) is { } ban)
         {
             await RevokeAll(userId);
             return new(ResumeStatus.Banned, Ban: ban);
