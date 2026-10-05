@@ -38,7 +38,7 @@ public sealed class PlayerProfileService(IGroupManager groupManager, IMessengerD
         var otherUser = target.Id != viewer.Id;
         var friendship = otherUser && viewer.Messenger.FriendshipExists(target.Id);
         var now = clock.GetUtcNow();
-        var elapsed = (int)Math.Clamp(target.LastOnlineAt is { } lastOnline ? (now - lastOnline).TotalSeconds : 0, 0, int.MaxValue);
+        var elapsed = (int)Math.Clamp(target.LastOnlineAt is { } lastOnline ? (now - lastOnline).Ticks / TimeSpan.TicksPerSecond : 0, 0, int.MaxValue);
         session.Send(new ProfileInformationComposer(new(target.Id, target.Username, target.Look, target.Motto,
             target.AccountCreatedAt, stats.AchievementPoints, friendCount, friendship,
             otherUser && !friendship && viewer.Messenger.OutstandingFriendRequests.Contains(target.Id),

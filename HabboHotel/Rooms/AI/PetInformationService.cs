@@ -34,7 +34,7 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
     public PetInformationSnapshot Capture(Pet pet)
     {
         var now = clock.GetUtcNow();
-        var age = pet.CreatedAt is { } createdAt ? Math.Floor((now - createdAt).TotalDays) : 0;
+        var age = pet.CreatedAt is { } createdAt ? (now - createdAt).Ticks / TimeSpan.TicksPerDay : 0;
         var days = (int)Math.Clamp(age, 0, int.MaxValue);
         return new(pet.PetId, pet.Name, pet.Level, Pet.MaxLevel, pet.Experience, pet.ExperienceGoal,
             pet.Energy, Pet.MaxEnergy, pet.Nutrition, Pet.MaxNutrition, pet.Respect, pet.OwnerId,
@@ -43,7 +43,7 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
 
     internal static PetInformationSnapshot Capture(Habbo habbo, DateTimeOffset now)
     {
-        var days = habbo.AccountCreatedAt is { } createdAt ? Math.Floor((now - createdAt).TotalDays) : 0;
+        var days = habbo.AccountCreatedAt is { } createdAt ? (now - createdAt).Ticks / TimeSpan.TicksPerDay : 0;
         var age = (int)Math.Clamp(days, 0, int.MaxValue);
         return new(habbo.Id, habbo.Username, habbo.Access.SecurityLevel, 10, 0, 0, 100, 100, 100, 100,
             habbo.HabboStats.Respect, habbo.Id, age, habbo.Username, false, 0);

@@ -68,6 +68,19 @@ public sealed class PetInformationSnapshotTests
     }
 
     [Fact]
+    public void LargePetAndAccountAgesTruncateTicksBeforeCountingDays()
+    {
+        var created = DateTimeOffset.MinValue;
+        var now = created.AddDays(3_000_000).AddTicks(-1);
+        var pet = (Pet)RuntimeHelpers.GetUninitializedObject(typeof(Pet));
+        pet.ExperienceLevels = [100];
+        pet.CreatedAt = created;
+        var habbo = new Habbo { AccountCreatedAt = created, HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
+        Assert.Equal(2_999_999, new PetInformationService(new FixedClock(now)).Capture(pet).AgeInDays);
+        Assert.Equal(2_999_999, PetInformationService.Capture(habbo, now).AgeInDays);
+    }
+
+    [Fact]
     public async Task IncomingPetRequestOnlyDecodesAndDelegates()
     {
         var pets = new RecordingService();
