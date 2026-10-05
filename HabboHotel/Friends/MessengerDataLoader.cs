@@ -45,6 +45,7 @@ internal class MessengerDataLoader : IMessengerDataLoader
         return (await connection.QueryAsync<int>("SELECT to_id FROM messenger_requests WHERE from_id = @userId", new { userId })).ToList();
     }
 
+    // Read committed: under repeatable read, the existence probes and deletes take gap locks that block inserts of unrelated pairs in the same key gap. Every writer of a pair already holds both users rows FOR UPDATE, so the pair checks stay exact without gap locks.
     /// <summary>
     /// Consumes exactly the request from <paramref name="fromId"/> and commits both friendship rows in one transaction.
     /// Both accounts are locked in ascending id order first; a self pair, a missing account, an absent request or a full list
@@ -54,7 +55,7 @@ internal class MessengerDataLoader : IMessengerDataLoader
     {
         using var connection = _database.Connection();
         connection.Open();
-        using var transaction = connection.BeginTransaction();
+        using var transaction = connection.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
         if (!await LockExactPair(connection, transaction, acceptorId, fromId)) return new(FriendRequestError.NoFriendRequest);
         if (await connection.ExecuteAsync("DELETE FROM messenger_requests WHERE from_id = @fromId AND to_id = @acceptorId", new { fromId, acceptorId }, transaction) != 1)
             return new(FriendRequestError.NoFriendRequest);
@@ -165,7 +166,7 @@ internal class MessengerDataLoader : IMessengerDataLoader
     {
         using var connection = _database.Connection();
         connection.Open();
-        using var transaction = connection.BeginTransaction();
+        using var transaction = connection.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
         if (!await LockExactPair(connection, transaction, userOneId, userTwoId)) return 0;
         var removed = await connection.ExecuteAsync("DELETE FROM messenger_friendships WHERE (user_one_id = @userOneId AND user_two_id = @userTwoId) OR (user_one_id = @userTwoId AND user_two_id = @userOneId)", new { userOneId, userTwoId }, transaction);
         transaction.Commit();
@@ -183,7 +184,7 @@ internal class MessengerDataLoader : IMessengerDataLoader
     {
         using var connection = _database.Connection();
         connection.Open();
-        using var transaction = connection.BeginTransaction();
+        using var transaction = connection.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
         if (!await LockExactPair(connection, transaction, fromUserId, toUserId)) return false;
         if (await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM messenger_requests WHERE from_id = @fromUserId AND to_id = @toUserId", new { fromUserId, toUserId }, transaction) > 0) return false;
         await connection.ExecuteAsync("INSERT INTO messenger_requests (from_id, to_id) VALUES (@fromUserId, @toUserId)", new { fromUserId, toUserId }, transaction);
@@ -196,7 +197,7 @@ internal class MessengerDataLoader : IMessengerDataLoader
     {
         using var connection = _database.Connection();
         connection.Open();
-        using var transaction = connection.BeginTransaction();
+        using var transaction = connection.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
         if (!await LockExactPair(connection, transaction, fromUserId, toUserId)) return 0;
         var removed = await connection.ExecuteAsync("DELETE FROM messenger_requests WHERE from_id = @fromUserId AND to_id = @toUserId", new { fromUserId, toUserId }, transaction);
         transaction.Commit();
