@@ -6,7 +6,9 @@ ALTER TABLE `groups`
 
 UPDATE `groups`
 SET `created_at_utc` = CASE
-    WHEN `created` IS NULL OR `created` <= 0 OR CAST(`created` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
+    WHEN `created` IS NULL OR `created` <= 0 THEN NULL
+    WHEN `created` >= 253402300800 THEN NULL
+    WHEN CAST(`created` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
     ELSE DATE_ADD(TIMESTAMP '1970-01-01 00:00:00', INTERVAL ROUND(`created` * 1000000) MICROSECOND)
 END;
 

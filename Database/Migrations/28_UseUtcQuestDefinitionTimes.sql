@@ -7,11 +7,15 @@ ALTER TABLE `quests`
 
 UPDATE `quests`
 SET `unlocks_at_utc` = CASE
-        WHEN `timestamp_unlock` IS NULL OR `timestamp_unlock` <= 0 OR CAST(`timestamp_unlock` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
+        WHEN `timestamp_unlock` IS NULL OR `timestamp_unlock` <= 0 THEN NULL
+        WHEN `timestamp_unlock` >= 253402300800 THEN NULL
+        WHEN CAST(`timestamp_unlock` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
         ELSE DATE_ADD(TIMESTAMP '1970-01-01 00:00:00', INTERVAL ROUND(`timestamp_unlock` * 1000000) MICROSECOND)
     END,
     `locks_at_utc` = CASE
-        WHEN `timestamp_lock` IS NULL OR `timestamp_lock` <= 0 OR CAST(`timestamp_lock` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
+        WHEN `timestamp_lock` IS NULL OR `timestamp_lock` <= 0 THEN NULL
+        WHEN `timestamp_lock` >= 253402300800 THEN NULL
+        WHEN CAST(`timestamp_lock` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
         ELSE DATE_ADD(TIMESTAMP '1970-01-01 00:00:00', INTERVAL ROUND(`timestamp_lock` * 1000000) MICROSECOND)
     END;
 

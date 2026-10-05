@@ -59,7 +59,8 @@ public sealed class UtcMigrationRangeGuardTests
                 if (migration.Number == 37)
                     Assert.Contains(values, value => value == DateTimeOffset.FromUnixTimeMilliseconds(MillisecondsLimit));
                 if (widened || target.ActualSupportsOverflow)
-                    Assert.True(values.Count(value => value == null) >= 2, $"{migration.File}:{target.Table}.{target.Column} did not null the out-of-range row");
+                    Assert.True(values.Count(value => value == null) >= 3,
+                        $"{migration.File}:{target.Table}.{target.Column} did not null every invalid row");
 
                 var metadata = connection.QuerySingle<ColumnMetadata>("""
                     SELECT COLUMN_TYPE AS Type, IS_NULLABLE AS Nullable, ORDINAL_POSITION AS Ordinal
@@ -111,7 +112,7 @@ public sealed class UtcMigrationRangeGuardTests
     {
         var actualValid = type.StartsWith("INT", StringComparison.Ordinal) ? "2147483647" : "2200000000.123456";
         var actualSeed = $"INSERT INTO `{table}` (id,`{column}`) VALUES (1,0),(2,{actualValid})" +
-            (supportsOverflow ? $",(3,{FirstUnrepresentableSecond})" : "") + ";";
+            (supportsOverflow ? $",(3,{FirstUnrepresentableSecond}),(4,1e100)" : "") + ";";
         return new(number, file,
             $"CREATE TABLE `{table}` (id INT PRIMARY KEY{PrefixColumns(ordinal)}, `{column}` {type}{IndexSql(indexes)}) ENGINE=InnoDB",
             actualSeed,
@@ -124,7 +125,8 @@ public sealed class UtcMigrationRangeGuardTests
         int firstOrdinal, int secondOrdinal, bool supportsOverflow = false, IndexExpectation[]? indexes = null)
     {
         var actualValid = type.StartsWith("INT", StringComparison.Ordinal) ? "2147483647" : "2200000000.123456";
-        var rows = $"(1,0,0),(2,{actualValid},{actualValid})" + (supportsOverflow ? $",(3,{FirstUnrepresentableSecond},{FirstUnrepresentableSecond})" : "");
+        var rows = $"(1,0,0),(2,{actualValid},{actualValid})" +
+            (supportsOverflow ? $",(3,{FirstUnrepresentableSecond},{FirstUnrepresentableSecond}),(4,1e100,1e100)" : "");
         return new(number, file,
             $"CREATE TABLE `{table}` (id INT PRIMARY KEY{PrefixColumns(firstOrdinal)}, `{first}` {type}, `{second}` {type}{IndexSql(indexes)}) ENGINE=InnoDB",
             $"INSERT INTO `{table}` (id,`{first}`,`{second}`) VALUES {rows}",
@@ -135,7 +137,7 @@ public sealed class UtcMigrationRangeGuardTests
 
     private static MigrationCase BanCase() => new(34, "34_UseUtcModerationBanTimes.sql",
         "CREATE TABLE bans (id INT PRIMARY KEY, expire DOUBLE NOT NULL, added_date VARCHAR(50) NOT NULL)",
-        $"INSERT INTO bans VALUES (1,0,'0'),(2,2200000000.123456,'2200000000.123456'),(3,{FirstUnrepresentableSecond},'{FirstUnrepresentableSecond}'),(4,1,'not-a-time')",
+        $"INSERT INTO bans VALUES (1,0,'0'),(2,2200000000.123456,'2200000000.123456'),(3,{FirstUnrepresentableSecond},'{FirstUnrepresentableSecond}'),(4,1,'not-a-time'),(5,1e100,'99999999999999999999999999999999999999999999999999')",
         "ALTER TABLE bans MODIFY expire DECIMAL(30,6) NULL",
         $"INSERT INTO bans VALUES (1,0,'0'),(2,2200000000.123456,'2200000000.123456'),(3,{FirstUnrepresentableSecond},'{FirstUnrepresentableSecond}'),(4,NULL,'not-a-time'),(5,-1,'-1')",
         [TargetFor("bans", "expire", 2, "DOUBLE", true), TargetFor("bans", "added_date", 3, "DOUBLE", true)], []);
@@ -165,7 +167,7 @@ public sealed class UtcMigrationRangeGuardTests
         CREATE TABLE logs_client_staff (id INT PRIMARY KEY, `timestamp` DOUBLE NOT NULL);
         CREATE TABLE housekeeping_log (id INT PRIMARY KEY, `timestamp` INT NOT NULL, action VARCHAR(64) NOT NULL, KEY timestamp_action (`timestamp`,action))
         """,
-        $"INSERT INTO logs_client_staff VALUES (1,0),(2,2200000000.123456),(3,{FirstUnrepresentableSecond}); INSERT INTO housekeeping_log VALUES (1,0,'a'),(2,2147483647,'b')",
+        $"INSERT INTO logs_client_staff VALUES (1,0),(2,2200000000.123456),(3,{FirstUnrepresentableSecond}),(4,1e100); INSERT INTO housekeeping_log VALUES (1,0,'a'),(2,2147483647,'b')",
         "ALTER TABLE logs_client_staff MODIFY `timestamp` DECIMAL(30,6) NULL; ALTER TABLE housekeeping_log MODIFY `timestamp` DECIMAL(30,6) NULL",
         $"INSERT INTO logs_client_staff VALUES (1,0),(2,2200000000.123456),(3,{FirstUnrepresentableSecond}),(4,NULL),(5,-1); INSERT INTO housekeeping_log VALUES (1,0,'a'),(2,2200000000.123456,'b'),(3,{FirstUnrepresentableSecond},'c'),(4,NULL,'d'),(5,-1,'e')",
         [TargetFor("logs_client_staff", "timestamp", 2, "DOUBLE", true), TargetFor("housekeeping_log", "timestamp", 2, "INT")], [new("housekeeping_log", "timestamp_action", "timestamp,action")]);

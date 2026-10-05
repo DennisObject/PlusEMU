@@ -8,11 +8,15 @@ ALTER TABLE `reward_tracks`
 
 UPDATE `reward_tracks`
 SET `starts_at_utc` = CASE
-      WHEN `starts_at` IS NULL OR `starts_at` <= 0 OR CAST(`starts_at` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
+      WHEN `starts_at` IS NULL OR `starts_at` <= 0 THEN NULL
+      WHEN `starts_at` >= 253402300800 THEN NULL
+      WHEN CAST(`starts_at` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`starts_at` * 1000000) AS SIGNED) MICROSECOND)
     END,
     `ends_at_utc` = CASE
-      WHEN `ends_at` IS NULL OR `ends_at` <= 0 OR CAST(`ends_at` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
+      WHEN `ends_at` IS NULL OR `ends_at` <= 0 THEN NULL
+      WHEN `ends_at` >= 253402300800 THEN NULL
+      WHEN CAST(`ends_at` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`ends_at` * 1000000) AS SIGNED) MICROSECOND)
     END;
 
@@ -27,7 +31,9 @@ ALTER TABLE `users_reward_track_prizes`
 
 UPDATE `users_reward_track_prizes`
 SET `claimed_at_utc` = CASE
-      WHEN `claimed_at` IS NULL OR `claimed_at` <= 0 OR CAST(`claimed_at` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
+      WHEN `claimed_at` IS NULL OR `claimed_at` <= 0 THEN NULL
+      WHEN `claimed_at` >= 253402300800 THEN NULL
+      WHEN CAST(`claimed_at` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`claimed_at` * 1000000) AS SIGNED) MICROSECOND)
     END;
 

@@ -7,14 +7,17 @@ ALTER TABLE `bans`
 
 UPDATE `bans`
 SET `expire_utc` = CASE
-        WHEN `expire` IS NULL OR `expire` <= 0 OR CAST(`expire` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
+        WHEN `expire` IS NULL OR `expire` <= 0 THEN NULL
+        WHEN `expire` >= 253402300800 THEN NULL
+        WHEN CAST(`expire` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
         ELSE DATE_ADD(TIMESTAMP '1970-01-01 00:00:00', INTERVAL ROUND(`expire` * 1000000) MICROSECOND)
     END,
     `added_date_utc` = CASE
         WHEN `added_date` IS NULL
             OR TRIM(`added_date`) NOT REGEXP '^[0-9]+([.][0-9]+)?$'
-            OR CAST(`added_date` AS DECIMAL(30, 6)) <= 0
-            OR CAST(`added_date` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
+            OR CAST(`added_date` AS DOUBLE) <= 0 THEN NULL
+        WHEN CAST(`added_date` AS DOUBLE) >= 253402300800 THEN NULL
+        WHEN CAST(`added_date` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
         ELSE DATE_ADD(TIMESTAMP '1970-01-01 00:00:00',
             INTERVAL ROUND(CAST(`added_date` AS DECIMAL(30, 6)) * 1000000) MICROSECOND)
     END;

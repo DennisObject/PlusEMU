@@ -3,7 +3,9 @@ ALTER TABLE `ambassador_logs`
 
 UPDATE `ambassador_logs`
 SET `timestamp_datetime` = CASE
-      WHEN `timestamp` IS NULL OR `timestamp` <= 0 OR CAST(`timestamp` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
+      WHEN `timestamp` IS NULL OR `timestamp` <= 0 THEN NULL
+      WHEN `timestamp` >= 253402300800 THEN NULL
+      WHEN CAST(`timestamp` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL ROUND(`timestamp` * 1000000) MICROSECOND)
     END;
 

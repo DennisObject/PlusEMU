@@ -6,11 +6,15 @@ ALTER TABLE room_promotions
 
 UPDATE room_promotions
 SET started_at_utc = CASE
-        WHEN timestamp_start IS NULL OR timestamp_start <= 0 OR CAST(timestamp_start AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
+        WHEN timestamp_start IS NULL OR timestamp_start <= 0 THEN NULL
+        WHEN timestamp_start >= 253402300800 THEN NULL
+        WHEN CAST(timestamp_start AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
         ELSE DATE_ADD(TIMESTAMP '1970-01-01 00:00:00', INTERVAL timestamp_start SECOND)
     END,
     expires_at_utc = CASE
-        WHEN timestamp_expire IS NULL OR timestamp_expire <= 0 OR CAST(timestamp_expire AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
+        WHEN timestamp_expire IS NULL OR timestamp_expire <= 0 THEN NULL
+        WHEN timestamp_expire >= 253402300800 THEN NULL
+        WHEN CAST(timestamp_expire AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
         ELSE DATE_ADD(TIMESTAMP '1970-01-01 00:00:00', INTERVAL timestamp_expire SECOND)
     END;
 
