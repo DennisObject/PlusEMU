@@ -6,6 +6,7 @@ using MySqlConnector;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming.Marketplace;
 using Plus.HabboHotel.Catalog.Marketplace;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Users;
@@ -41,6 +42,7 @@ public sealed class MarketplaceDatabaseTests
         using var connection = new MySqlConnection(_connectionString);
         connection.Execute("DELETE FROM `catalog_marketplace_offers`");
         connection.Execute("DELETE FROM `items`");
+        connection.Execute("DELETE FROM `catalog_marketplace_data`");
     }
 
     [MarketplaceDatabaseFact]
@@ -175,6 +177,33 @@ public sealed class MarketplaceDatabaseTests
         Assert.Equal(0, CountWhere("state = '2' AND user_id = " + SellerId));
     }
 
+    private (GameClient Client, int Id) Buyer(int credits)
+    {
+        var habbo = new Habbo { Id = BuyerId, Username = "buyer", Credits = credits, Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([], []) } };
+        return (HabbiconTestSupport.Client(habbo).Client, BuyerId);
+    }
+
+    private MarketplacePurchaseService Purchase((GameClient Client, int Id) buyer)
+    {
+        var definitions = new Dictionary<uint, ItemDefinition> { [900] = new() { Id = 900, SpriteId = 55, PublicName = "Probe", ItemName = "probe", Type = ItemType.Floor } };
+        var items = CatalogSnapshotTestSupport.Proxy<IItemDataManager>((method, _) => method == "get_Items" ? definitions : throw new InvalidOperationException(method));
+        var averages = new Dictionary<int, int>();
+        var counts = new Dictionary<int, int>();
+        var marketplace = CatalogSnapshotTestSupport.Proxy<IMarketplaceManager>((method, _) => method switch
+        {
+            "get_MarketAverages" => averages,
+            "get_MarketCounts" => counts,
+            _ => throw new InvalidOperationException(method),
+        });
+        return new MarketplacePurchaseService(new MarketplacePurchaseStore(new MySqlDatabase(_connectionString)), items, marketplace, new FixedClock(Now));
+    }
+
+    private string[] States()
+    {
+        using var connection = new MySqlConnection(_connectionString);
+        return connection.Query<string>("SELECT `state` FROM `catalog_marketplace_offers` ORDER BY `offer_id`").ToArray();
+    }
+
     private Habbo Seller(uint furniId = 41)
     {
         var item = new InventoryItem
@@ -192,12 +221,68 @@ public sealed class MarketplaceDatabaseTests
 
     private MarketplaceOfferStore Store() => new(new MySqlDatabase(_connectionString));
 
-    private void Insert(uint offerId, int sprite, int asking, int total, string state, long timestamp, string itemType = "1", int seller = BuyerId)
+    private void Insert(uint offerId, int sprite, int asking, int total, string state, long timestamp, string itemType = "1", int seller = BuyerId, uint itemId = 900, uint furniId = 1)
     {
         using var connection = new MySqlConnection(_connectionString);
         connection.Execute("INSERT INTO `catalog_marketplace_offers` (`offer_id`,`item_id`,`user_id`,`asking_price`,`total_price`,`public_name`,`sprite_id`,`item_type`,`timestamp`,`extra_data`,`limited_number`,`limited_stack`,`furni_id`,`state`) " +
-            "VALUES (@offerId,1,@seller,@asking,@total,'probe',@sprite,@itemType,@timestamp,'',0,0,1,@state)",
-            new { offerId, seller, asking, total, sprite, itemType, timestamp = (double)timestamp, state });
+            "VALUES (@offerId,@itemId,@seller,@asking,@total,'probe',@sprite,@itemType,@timestamp,'',0,0,@furniId,@state)",
+            new { offerId, itemId, seller, asking, total, sprite, itemType, timestamp = (double)timestamp, furniId, state });
+    }
+
+    [MarketplaceDatabaseFact]
+    public void PurchaseDeliversOnceAndRecordsTheSale()
+    {
+        Insert(1, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 77);
+        var buyer = Buyer(credits: 1000);
+        var purchase = Purchase(buyer);
+
+        Assert.Equal(MarketplacePurchaseOutcome.Bought, purchase.Buy(buyer.Client, 1));
+        Assert.Equal(MarketplacePurchaseOutcome.Sold, purchase.Buy(buyer.Client, 1));
+
+        Assert.Equal(899, buyer.Client.GetHabbo().Credits);
+        Assert.Equal(new[] { "2" }, States());
+        Assert.Equal(1, CountItems("`id` = 77 AND `user_id` = " + BuyerId + " AND `base_item` = 900"));
+        using var connection = new MySqlConnection(_connectionString);
+        Assert.Equal((1, 101), connection.QuerySingle<(int Sold, int Avg)>("SELECT `sold` AS Sold, `avgprice` AS Avg FROM `catalog_marketplace_data` WHERE `sprite` = 55"));
+    }
+
+    [MarketplaceDatabaseFact]
+    public void PurchaseRefusalsChangeNothing()
+    {
+        Insert(1, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 77);
+        Insert(2, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 200_000, seller: SellerId, furniId: 78);
+        Insert(3, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, itemId: 901, furniId: 79);
+        Insert(4, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: BuyerId, furniId: 80);
+        var poor = Buyer(credits: 50);
+        var purchase = Purchase(poor);
+
+        Assert.Equal(MarketplacePurchaseOutcome.InsufficientCredits, purchase.Buy(poor.Client, 1));
+        var buyer = Buyer(credits: 1000);
+        Assert.Equal(MarketplacePurchaseOutcome.Expired, Purchase(buyer).Buy(buyer.Client, 2));
+        Assert.Equal(MarketplacePurchaseOutcome.UnknownItem, Purchase(buyer).Buy(buyer.Client, 3));
+        Assert.Equal(MarketplacePurchaseOutcome.OwnOffer, Purchase(buyer).Buy(buyer.Client, 4));
+
+        Assert.Equal(new[] { "1", "1", "1", "1" }, States());
+        Assert.Equal(0, CountItems("`id` IN (77, 78, 79, 80)"));
+        Assert.Equal(50, poor.Client.GetHabbo().Credits);
+        Assert.Equal(1000, buyer.Client.GetHabbo().Credits);
+    }
+
+    [MarketplaceDatabaseFact]
+    public void ForcedDeliveryFailureRollsBackTheClaimAndCharge()
+    {
+        Insert(1, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 77);
+        using (var connection = new MySqlConnection(_connectionString))
+            connection.Execute("INSERT INTO `items` (`id`,`user_id`,`room_id`,`base_item`,`extra_data`) VALUES (77, 9, 0, 1, '')");
+        var buyer = Buyer(credits: 1000);
+
+        var error = Assert.Throws<MySqlException>(() => Purchase(buyer).Buy(buyer.Client, 1));
+        Assert.Contains("Duplicate entry", error.Message, StringComparison.Ordinal);
+
+        Assert.Equal(new[] { "1" }, States());
+        using (var connection = new MySqlConnection(_connectionString))
+            Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM `catalog_marketplace_data`"));
+        Assert.Equal(1000, buyer.Client.GetHabbo().Credits);
     }
 
     private void InsertFurni(uint id, int owner, int roomId)
@@ -210,6 +295,12 @@ public sealed class MarketplaceDatabaseTests
     {
         using var connection = new MySqlConnection(_connectionString);
         return connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM `{table}`");
+    }
+
+    private int CountItems(string predicate)
+    {
+        using var connection = new MySqlConnection(_connectionString);
+        return connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM `items` WHERE {predicate}");
     }
 
     private int CountWhere(string predicate)
