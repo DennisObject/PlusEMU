@@ -1,19 +1,14 @@
 ﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni;
 
-internal class DiceOffEvent : IPacketEvent
+internal sealed class DiceOffEvent(IFurnitureUseService furniture) : RoomPacketEvent
 {
-    public Task Parse(GameClient session, IIncomingPacket packet)
+    public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        var room = session.GetHabbo().CurrentRoom;
-        if (room == null)
-            return Task.CompletedTask;
-        var item = room.GetRoomItemHandler().GetItem(packet.ReadUInt());
-        if (item == null || item.IsTemporary)
-            return Task.CompletedTask;
-        var hasRights = room.CheckRights(session);
-        item.Interactor.OnTrigger(session, item, -1, hasRights);
+        furniture.TurnOffDice(room, session, packet.ReadUInt());
         return Task.CompletedTask;
     }
 }

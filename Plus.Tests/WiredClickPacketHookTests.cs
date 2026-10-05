@@ -181,6 +181,10 @@ public class WiredClickPacketHookTests
         public List<FurnitureClickRequest> Clicks { get; } = [];
         public void Click(Room room, GameClient session, FurnitureClickRequest request) => Clicks.Add(request);
         public void Use(Room room, GameClient session, FurnitureUseRequest request) => throw new NotSupportedException();
+        public void TurnOffDice(Room room, GameClient session, uint itemId) => throw new NotSupportedException();
+        public void RollDice(Room room, GameClient session, FurnitureUseRequest request) => throw new NotSupportedException();
+        public void UseOneWayGate(Room room, GameClient session, uint itemId) => throw new NotSupportedException();
+        public void UseWall(Room room, GameClient session, FurnitureUseRequest request) => throw new NotSupportedException();
     }
 
     private static FlashIncomingPacket Packet(params int[] values)
