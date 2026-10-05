@@ -16,7 +16,7 @@ public class HousekeepingActionLogComposer : IServerPacket
         foreach (var entry in _entries)
         {
             packet.WriteInteger(entry.Id);
-            packet.WriteInteger(entry.Timestamp);
+            packet.WriteInteger(entry.LegacyTimestamp);
             packet.WriteInteger(entry.ActorId);
             packet.WriteString(entry.ActorName);
             packet.WriteString(entry.TargetType);

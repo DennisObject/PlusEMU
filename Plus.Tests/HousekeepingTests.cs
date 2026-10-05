@@ -451,7 +451,7 @@ public class HousekeepingHandlerTests
     public async Task ActionLogIsReadBackNewestFirstForStaff()
     {
         var audit = new FakeAudit();
-        audit.Entries.Add(new() { Id = 4, Timestamp = 100, ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true });
+        audit.Entries.Add(new() { Id = 4, CreatedAt = DateTimeOffset.FromUnixTimeSeconds(100), ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true });
         var (client, sent) = Client(Staff(HousekeepingRights.Access));
         await new HousekeepingListActionLogEvent(new HousekeepingActionRunner(audit, NullLogger<HousekeepingActionRunner>.Instance), audit).Parse(client, Incoming(10_000));
         var packet = new FlashIncomingPacket { Buffer = Assert.Single(sent).Payload };
@@ -539,7 +539,7 @@ public class HousekeepingWireTests
     [Fact]
     public void ActionLogMatchesHousekeepingActionLogEntryData()
     {
-        var entry = new HousekeepingAuditEntry { Id = 4, Timestamp = 100, ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true };
+        var entry = new HousekeepingAuditEntry { Id = 4, CreatedAt = DateTimeOffset.FromUnixTimeSeconds(100), ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true };
         Assert.Equal(new object[] { 1, 4, 100, 1, "staff", "room", 5, "Lobby", "room.close", "open=False", true },
             Writes(new HousekeepingActionLogComposer(new[] { entry })));
     }

@@ -147,14 +147,14 @@ public class HousekeepingDatabaseTests : IDisposable
     [HousekeepingDatabaseFact]
     public void AuditRowsRoundTripNewestFirstWithoutLineBreaks()
     {
-        var audit = new HousekeepingAuditLog(_database);
+        var audit = new HousekeepingAuditLog(_database, TimeProvider.System);
         audit.Write(Owner, "hk_owner", "user.ban", HousekeepingOutcome.Success(HousekeepingTarget.User(Target, "hk_o'brien"), "hours=2 reason=a\nb"));
         audit.Write(Owner, "hk_owner", "room.close", HousekeepingOutcome.Fail(HousekeepingErrors.RankTooHigh, HousekeepingTarget.Room(5, "Lobby")));
         var rows = audit.List(10);
         Assert.Equal(new[] { "room.close", "user.ban" }, rows.Select(row => row.Action));
         Assert.Equal(("room", 5, "Lobby", false), (rows[0].TargetType, rows[0].TargetId, rows[0].TargetLabel, rows[0].Success));
         Assert.Equal(("user", "hk_o'brien", "hours=2 reason=a b", true), (rows[1].TargetType, rows[1].TargetLabel, rows[1].Detail, rows[1].Success));
-        Assert.True(rows[1].Timestamp > 1_700_000_000);
+        Assert.True(rows[1].CreatedAt > DateTimeOffset.FromUnixTimeSeconds(1_700_000_000));
     }
 
     [HousekeepingDatabaseFact]
@@ -237,7 +237,7 @@ public class HousekeepingDatabaseTests : IDisposable
     public void DashboardCountsPeaksAndRecentSanctions()
     {
         Execute("INSERT INTO housekeeping_online_peaks (day, peak) VALUES (UTC_DATE(), 12), (UTC_DATE() - INTERVAL 3 DAY, 40)");
-        new HousekeepingAuditLog(_database).Write(Owner, "hk_owner", "user.mute", HousekeepingOutcome.Success(HousekeepingTarget.User(Target), "minutes=5"));
+        new HousekeepingAuditLog(_database, TimeProvider.System).Write(Owner, "hk_owner", "user.mute", HousekeepingOutcome.Success(HousekeepingTarget.User(Target), "minutes=5"));
         new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate(), TimeProvider.System).BanUser("hk_owner", ModerationBanType.Username, "hk_peer", "x", DateTimeOffset.UtcNow.AddMinutes(1)).GetAwaiter().GetResult();
         var lookups = new HousekeepingLookups(_clients, null!, new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate(), TimeProvider.System), NoLoadedRooms(), _database, TimeProvider.System, new Plus.Core.ServerUptime(TimeProvider.System));
         var dashboard = lookups.Dashboard();

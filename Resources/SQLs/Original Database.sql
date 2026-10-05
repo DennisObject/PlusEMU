@@ -22002,7 +22002,7 @@ CREATE TABLE `logs_client_staff` (
   `user_id` int(11) NOT NULL DEFAULT '0',
   `data_string` text NOT NULL,
   `machine_id` varchar(75) NOT NULL DEFAULT '',
-  `timestamp` double NOT NULL DEFAULT '0',
+  `timestamp` datetime(6) NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
@@ -25368,7 +25368,7 @@ ALTER TABLE `user_remember_tokens` ADD COLUMN IF NOT EXISTS `grace_uses` tinyint
 -- Audit trail of in-client housekeeping actions; the panel's audit tab reads it back.
 CREATE TABLE IF NOT EXISTS housekeeping_log (
  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
- `timestamp` INT NOT NULL,
+ `timestamp` DATETIME(6) NULL DEFAULT NULL,
  actor_id INT NOT NULL,
  actor_name VARCHAR(125) NOT NULL DEFAULT '',
  target_type VARCHAR(16) NOT NULL DEFAULT 'user',
