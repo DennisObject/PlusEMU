@@ -328,6 +328,88 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     }
 
     // Forwards every member to the real object unless a test overrides it.
+    [MessengerFriendDatabaseFact]
+    public async Task FailureAfterBothRelationshipRowsRollsBackEverythingBeforeTheBuddyViews()
+    {
+        // The requester-to-acceptor row is inserted second, so this trigger fires after both relationship rows are written.
+        Account(9811); Account(9812);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9812, 9811)");
+        Execute("CREATE TRIGGER messenger_test_fail_second AFTER INSERT ON messenger_friendships FOR EACH ROW BEGIN IF NEW.user_one_id = 9812 AND NEW.user_two_id = 9811 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected second-row failure'; END IF; END");
+        try
+        {
+            var acceptor = Habbo(9811, MessengerFor(requests: [new MessengerRequest { FromId = 9812, ToId = 9811 }]));
+            var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
+
+            await Assert.ThrowsAnyAsync<Exception>(() => service.AcceptRequestAsync(acceptor, 9812));
+
+            Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9812 AND to_id = 9811"));
+            Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id IN (9811, 9812)"));
+            Assert.True(acceptor.Messenger.Requests.ContainsKey(9812));
+            Assert.Empty(acceptor.Messenger.Friends);
+        }
+        finally { Execute("DROP TRIGGER IF EXISTS messenger_test_fail_second"); }
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task AcceptingIsDecidedUnderTheHoldWhenAnIncomingRequestArrivesWhileWaiting()
+    {
+        Account(9821); Account(9822);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9822, 9821)");
+        var gate = new AccountSessionGate(TimeSpan.FromSeconds(20));
+        var service = new MessengerFriendMutationService(Loader(), gate, new GameClientManager(null!, null!));
+        var sender = Habbo(9821, MessengerFor());
+        var held = await gate.EnterManyAsync([9821, 9822]);
+
+        // The precheck sees no incoming request; the request is recorded in memory before the hold is released.
+        var send = service.SendRequestAsync(sender, 9822);
+        await Task.Delay(200);
+        Assert.False(send.IsCompleted);
+        sender.Messenger.AddFriendRequest(new MessengerRequest { FromId = 9822, ToId = 9821 });
+        held.Dispose();
+
+        var outcome = await send.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.Null(outcome.Error);
+        Assert.True(outcome.Accepted);
+        Assert.Equal(2, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE (user_one_id = 9821 AND user_two_id = 9822) OR (user_one_id = 9822 AND user_two_id = 9821)"));
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9822 AND to_id = 9821"));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task ConcurrentDeclinesOfOneRequestCommitExactlyOnce()
+    {
+        Account(9831); Account(9832);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9832, 9831)");
+        var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(TimeSpan.FromSeconds(20)), new GameClientManager(null!, null!));
+        var first = Habbo(9831, MessengerFor(requests: [new MessengerRequest { FromId = 9832, ToId = 9831 }]));
+        var second = Habbo(9831, MessengerFor(requests: [new MessengerRequest { FromId = 9832, ToId = 9831 }]));
+
+        var results = await Task.WhenAll(service.DeclineRequestAsync(first, 9832), service.DeclineRequestAsync(second, 9832));
+
+        Assert.Single(results, result => result == null);
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9832 AND to_id = 9831"));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task ConcurrentRemovalsOfOneFriendshipUpdateMemoryOnce()
+    {
+        Account(9841); Account(9842);
+        Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9841, 9842), (9842, 9841)");
+        var remover = Habbo(9841, MessengerFor(friends: [new MessengerBuddy { Id = 9842 }]));
+        var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(TimeSpan.FromSeconds(20)), new GameClientManager(null!, null!));
+
+        await Task.WhenAll(service.RemoveFriendsAsync(remover, [9842]), service.RemoveFriendsAsync(remover, [9842]));
+
+        Assert.Null(remover.Messenger.GetFriend(9842));
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id IN (9841, 9842) AND user_two_id IN (9841, 9842)"));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public void PristineSchemaHasNoRequestPairKeyButFriendshipsArePairKeyed()
+    {
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'messenger_requests' AND INDEX_NAME <> 'PRIMARY' AND NON_UNIQUE = 0"));
+        Assert.Equal(2, Scalar("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'messenger_friendships' AND INDEX_NAME = 'PRIMARY'"));
+    }
+
     public class Forwarder : DispatchProxy
     {
         public Func<MethodInfo, object?[]?, object?> Handler { get; set; } = (method, args) => method.Invoke(null, args);
