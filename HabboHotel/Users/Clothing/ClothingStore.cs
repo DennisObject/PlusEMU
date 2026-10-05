@@ -26,5 +26,10 @@ public sealed class ClothingStore(IDatabase database) : IClothingStore
             new { userId, partId, part });
     }
 
-    private sealed record Row(int Id, int PartId, string Part);
+    private sealed class Row
+    {
+        public int Id { get; set; }
+        public int PartId { get; set; }
+        public string Part { get; set; } = string.Empty;
+    }
 }
