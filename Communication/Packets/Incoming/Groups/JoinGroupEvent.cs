@@ -37,7 +37,9 @@ internal class JoinGroupEvent : IPacketEvent
             var groupAdmins = (from client in _clientManager.GetClients.ToList()
                 where client != null && client.GetHabbo() != null && @group.IsAdmin(client.GetHabbo().Id)
                 select client).ToList();
-            foreach (var client in groupAdmins) client.Send(new GroupMembershipRequestedComposer(group.Id, session.GetHabbo(), 3));
+            var requester = session.GetHabbo();
+            var requested = new GroupMemberUpdateSnapshot(group.Id, 3, requester.Id, requester.Username, requester.Look);
+            foreach (var client in groupAdmins) client.Send(new GroupMembershipRequestedComposer(requested));
             session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id)));
         }
         else

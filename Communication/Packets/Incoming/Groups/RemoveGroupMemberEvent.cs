@@ -82,7 +82,7 @@ internal class RemoveGroupMemberEvent : IPacketEvent
                     if (user != null)
                     {
                         session.GetHabbo().CurrentRoom
-                            .SendPacket(new UpdateFavouriteGroupComposer(group, user.VirtualId));
+                            .SendPacket(new UpdateFavouriteGroupComposer(FavouriteGroupSnapshot.Capture(group, user.VirtualId)));
                     }
                     session.GetHabbo().CurrentRoom
                         .SendPacket(new RefreshFavouriteGroupComposer(session.GetHabbo().Id));
@@ -133,7 +133,7 @@ internal class RemoveGroupMemberEvent : IPacketEvent
                     {
                         var favouriteUser = habbo.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(userId);
                         if (favouriteUser != null)
-                            habbo.CurrentRoom.SendPacket(new UpdateFavouriteGroupComposer(null, favouriteUser.VirtualId));
+                            habbo.CurrentRoom.SendPacket(new UpdateFavouriteGroupComposer(FavouriteGroupSnapshot.Capture(null, favouriteUser.VirtualId)));
                         habbo.CurrentRoom.SendPacket(new RefreshFavouriteGroupComposer(userId));
                     }
                     else

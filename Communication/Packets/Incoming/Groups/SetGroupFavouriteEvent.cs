@@ -38,7 +38,7 @@ internal class SetGroupFavouriteEvent : IPacketEvent
             var user = session.GetHabbo().CurrentRoom.GetRoomUserManager()
                 .GetRoomUserByHabbo(session.GetHabbo().Id);
             if (user != null)
-                session.GetHabbo().CurrentRoom.SendPacket(new UpdateFavouriteGroupComposer(group, user.VirtualId));
+                session.GetHabbo().CurrentRoom.SendPacket(new UpdateFavouriteGroupComposer(FavouriteGroupSnapshot.Capture(group, user.VirtualId)));
         }
         else
             session.Send(new RefreshFavouriteGroupComposer(session.GetHabbo().Id));

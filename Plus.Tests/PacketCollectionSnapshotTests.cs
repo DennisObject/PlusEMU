@@ -3,6 +3,9 @@ using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Communication.Packets.Outgoing.Inventory.Achievements;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Achievements;
+using Plus.HabboHotel.Groups;
+using Plus.HabboHotel.Users;
+using Plus.Communication.Packets.Outgoing.Groups;
 using Plus.Communication.Packets.Outgoing.FriendList;
 using Plus.Communication.Packets.Outgoing.Sound;
 using Plus.Communication.Packets.Outgoing.Housekeeping;
@@ -133,6 +136,37 @@ public sealed class PacketCollectionSnapshotTests
         Assert.Equal(expectedUnlock, Writes(unlocked));
         Assert.Equal(expectedProgress, Writes(progressed));
         Assert.Equal(expectedUnlock, Writes(unlocked));
+    }
+
+    [Fact]
+    public void GroupPresentationPacketsKeepCapturedGroupAndRequesterFields()
+    {
+        var group = new Group(7, "Crew", "description", "badge", 42, 1, DateTimeOffset.UnixEpoch,
+            0, 3, 4, 0, true, new([1], [], []));
+        var user = new Habbo { Id = 1, Username = "Alice", Look = "look" };
+        var favourite = new UpdateFavouriteGroupComposer(FavouriteGroupSnapshot.Capture(group, 8));
+        var removed = new UpdateFavouriteGroupComposer(FavouriteGroupSnapshot.Capture(null, 8));
+        var settings = new GroupFurniSettingsComposer(GroupFurniSettingsSnapshot.Capture(group, 9, user.Id));
+        var request = new GroupMembershipRequestedComposer(new(group.Id, 3, user.Id, user.Username, user.Look));
+        object[] expectedFavourite = [8, 7, 3, "Crew"];
+        object[] expectedRemoved = [8, 0, 3, ""];
+        object[] expectedSettings = [9u, 7, "Crew", 42u, true, true];
+        object[] expectedRequest = [7, 3, 1, "Alice", "look", ""];
+        Assert.Equal(expectedFavourite, Writes(favourite));
+        Assert.Equal(expectedRemoved, Writes(removed));
+        Assert.Equal(expectedSettings, Writes(settings));
+        Assert.Equal(expectedRequest, Writes(request));
+        group.Id = 99;
+        group.Name = "changed";
+        group.RoomId = 99;
+        group.ForumEnabled = false;
+        user.Id = 99;
+        user.Username = "changed";
+        user.Look = "changed";
+        Assert.Equal(expectedFavourite, Writes(favourite));
+        Assert.Equal(expectedRemoved, Writes(removed));
+        Assert.Equal(expectedSettings, Writes(settings));
+        Assert.Equal(expectedRequest, Writes(request));
     }
 
     private static List<object> Writes(IServerPacket composer)

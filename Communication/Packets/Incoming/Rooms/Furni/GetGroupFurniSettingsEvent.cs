@@ -29,7 +29,7 @@ internal class GetGroupFurniSettingsEvent : IPacketEvent
             return Task.CompletedTask;
         if (!_groupManager.TryGetGroup(groupId, out var group))
             return Task.CompletedTask;
-        session.Send(new GroupFurniSettingsComposer(group, itemId, session.GetHabbo().Id));
+        session.Send(new GroupFurniSettingsComposer(GroupFurniSettingsSnapshot.Capture(group, itemId, session.GetHabbo().Id)));
         session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id)));
         return Task.CompletedTask;
     }
