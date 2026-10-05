@@ -162,23 +162,32 @@ public class ClubMembershipDatabaseTests : IDisposable
         using var transaction = await account.BeginTransactionAsync();
         await account.ExecuteAsync("SELECT id FROM users FORCE INDEX(PRIMARY) WHERE id=@userId FOR UPDATE",
             new { userId = User }, transaction);
-        var refresh = Task.Run(() => _access.Refresh(User));
+        var connectionRequests = 0;
+        _database.BeforeConnection = () => Interlocked.Increment(ref connectionRequests);
+        var workerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var refresh = Task.Run(() => { workerEntered.SetResult(); _access.Refresh(User); });
         try
         {
-            using var observer = _database.Connection();
-            var deadline = DateTime.UtcNow.AddSeconds(5);
-            var waiting = false;
-            while (DateTime.UtcNow < deadline)
+            await workerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            using var observer = new MySqlConnection(account.ConnectionString);
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
+            AccountLockWait? waiting = null;
+            while (elapsed.Elapsed < TimeSpan.FromSeconds(5))
             {
-                waiting = await observer.ExecuteScalarAsync<bool>("""
-                    SELECT EXISTS(SELECT 1 FROM information_schema.INNODB_LOCK_WAITS w
-                    JOIN information_schema.INNODB_TRX t ON t.trx_id=w.requesting_trx_id
-                    WHERE t.trx_query LIKE 'UPDATE users%`rank`%' AND t.trx_query LIKE '%957001%')
-                    """);
-                if (waiting) break;
+                waiting = await observer.QuerySingleOrDefaultAsync<AccountLockWait>("""
+                    SELECT requesting.trx_query AS WaitingQuery FROM information_schema.INNODB_LOCK_WAITS w
+                    JOIN information_schema.INNODB_TRX requesting ON requesting.trx_id=w.requesting_trx_id
+                    JOIN information_schema.INNODB_TRX blocking ON blocking.trx_id=w.blocking_trx_id
+                    WHERE blocking.trx_mysql_thread_id=@blocker LIMIT 1
+                    """, new { blocker = account.ServerThread });
+                if (waiting != null) break;
                 await Task.Delay(10);
             }
-            Assert.True(waiting, "Permission refresh must reach its account row lock before the wallet write.");
+            Assert.True(waiting != null, $"Permission refresh must reach its account row lock before the wallet write. Worker entered; connection requests={connectionRequests}; MaximumPoolSize={new MySqlConnectionStringBuilder(account.ConnectionString).MaximumPoolSize}.");
+            Assert.NotNull(waiting!.WaitingQuery);
+            Assert.StartsWith("UPDATE users FORCE INDEX(PRIMARY)", waiting.WaitingQuery, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("`rank`", waiting.WaitingQuery);
+            Assert.Contains(User.ToString(System.Globalization.CultureInfo.InvariantCulture), waiting.WaitingQuery);
             // With the old secondary-index-first refresh, this write deadlocks while holding PRIMARY.
             await account.ExecuteAsync("UPDATE users SET credits=999 WHERE id=@userId",
                 new { userId = User }, transaction);
@@ -188,6 +197,7 @@ public class ClubMembershipDatabaseTests : IDisposable
         }
         finally
         {
+            _database.BeforeConnection = null;
             if (transaction.Connection != null)
                 await transaction.RollbackAsync();
             await refresh.WaitAsync(TimeSpan.FromSeconds(5));
@@ -309,6 +319,10 @@ public class ClubMembershipDatabaseTests : IDisposable
         _rewards.RunPaydays();
         Assert.Equal(801, Scalar("SELECT credits FROM users WHERE id = 957001"));
         Assert.Equal(9, _rewards.Kickback(_habbo).Missed);
+    }
+    private sealed class AccountLockWait
+    {
+        public string? WaitingQuery { get; set; }
     }
     private void Sql(string sql) { using var connection = _database.Connection(); connection.Execute(sql); }
     private long Scalar(string sql) { using var connection = _database.Connection(); return connection.ExecuteScalar<long>(sql); }
