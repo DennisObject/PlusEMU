@@ -64,7 +64,7 @@ public sealed class RoomDataLoaderTests
                     spush_enabled BOOL NOT NULL DEFAULT FALSE, spull_enabled BOOL NOT NULL DEFAULT FALSE,
                     enables_enabled BOOL NOT NULL DEFAULT FALSE, respect_notifications_enabled BOOL NOT NULL DEFAULT FALSE,
                     pet_morphs_allowed BOOL NOT NULL DEFAULT FALSE, lay_enabled BOOL NOT NULL DEFAULT FALSE);
-                INSERT INTO users VALUES (7, 'owner');
+                INSERT INTO users VALUES (7, 'owner'), (8, '');
                 INSERT INTO rooms (id, owner, caption, model_name) VALUES
                     (1, 7, 'Zulu', 'model_a'), (3, 7, 'Missing model', 'unknown');
                 INSERT INTO rooms (id, owner, caption, model_name, state, tags, allow_pets, allow_pets_eat,
@@ -73,6 +73,7 @@ public sealed class RoomDataLoaderTests
                     VALUES (2, 7, 'Alpha', 'model_a', 'password', 'one,two', TRUE, TRUE, TRUE, TRUE, 2, 9,
                         TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE);
                 INSERT INTO rooms (id, owner, caption, model_name) VALUES (4, 999, 'Orphan', 'model_a');
+                INSERT INTO rooms (id, owner, caption, model_name) VALUES (5, 8, 'Empty owner name', 'model_a');
                 """);
 
             var model = new RoomModel("model_a", 0, 0, 0, 0, "0", 0, 0, false);
@@ -98,8 +99,9 @@ public sealed class RoomDataLoaderTests
 
             Assert.False(loader.TryGetData(404, out _));
             Assert.False(loader.TryGetData(3, out _));
-            Assert.True(loader.TryGetData(4, out var orphan));
-            Assert.Equal("Habboon", orphan.OwnerName);
+            Assert.False(loader.TryGetData(4, out _));
+            Assert.True(loader.TryGetData(5, out var unnamedOwner));
+            Assert.Equal("Habboon", unnamedOwner.OwnerName);
 
             Assert.True(loader.TryGetData(2, out var materialized));
             Assert.Equal((RoomAccess.Password, 2, "one", "two"),
