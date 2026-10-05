@@ -152,9 +152,9 @@ public class GroupManagementTests : IDisposable
     public async Task MemberPagesAreFourteenAndPendingStaysWithAdmins()
     {
         var group = NewGroup(hasForum: false);
-        for (var id = 2; id <= 21; id++) group.AddMember(id);
+        for (var id = 2; id <= 21; id++) group.PublishJoin(id);
         group.Type = GroupType.Locked;
-        group.AddMember(30);
+        group.PublishJoin(30);
         var cache = Proxy<ICacheManager>((method, args) =>
         {
             var id = (int)args[0]!;
@@ -247,7 +247,7 @@ public class GroupManagementTests : IDisposable
     {
         var group = NewGroup(hasForum: false);
         group.Type = GroupType.Locked;
-        group.AddMember(8);
+        group.PublishJoin(8);
         var (target, _) = Client(new Habbo { Id = 8, Username = "Bob", Look = "hr-1", Access = Rights() });
         var (owner, sent) = Client(Owner());
         await new AcceptGroupMembershipEvent(Mutations(group, UnloadedRooms())).Parse(owner, Packet(group.Id, 8));
@@ -279,7 +279,7 @@ public class GroupManagementTests : IDisposable
     public async Task ConfirmCountsFurnitureWithoutRemovingTheMember()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(8);
+        group.PublishJoin(8);
         _database.Scalar = 4;
         var (owner, sent) = Client(Owner());
         await new ConfirmRemoveGroupMemberEvent(Removal(GroupSource(group), UnloadedRooms())).Parse(owner, Packet(group.Id, 8));
@@ -295,7 +295,7 @@ public class GroupManagementTests : IDisposable
     public async Task KickRefreshDoesNotDependOnTheMembersPage()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(8);
+        group.PublishJoin(8);
         var rooms = UnloadedRooms();
         var (owner, sent) = Client(Owner());
         await new RemoveGroupMemberEvent(Removal(GroupSource(group), rooms)).Parse(owner, Packet(group.Id, 8, true));
@@ -310,7 +310,7 @@ public class GroupManagementTests : IDisposable
     public async Task KickClearsFavouriteAndHomeroomRights()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(8);
+        group.PublishJoin(8);
         group.MakeAdmin(8);
         var stats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, group.Id, "", 0);
         var targetHabbo = new Habbo { Id = 8, Username = "Target", Access = Rights(), HabboStats = stats };
@@ -356,7 +356,7 @@ public class GroupManagementTests : IDisposable
     public async Task LegacyRemovalPayloadStillRemovesAMember()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(8);
+        group.PublishJoin(8);
         var rooms = UnloadedRooms();
         var (owner, sent) = Client(Owner());
         await new RemoveGroupMemberEvent(Removal(GroupSource(group), rooms)).Parse(owner, Packet(group.Id, 8));
@@ -369,9 +369,9 @@ public class GroupManagementTests : IDisposable
     public async Task ConfirmAndRemovalRefuseTheOwnerAndOtherAdmins()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(7);
-        group.AddMember(4);
-        group.AddMember(5);
+        group.PublishJoin(7);
+        group.PublishJoin(4);
+        group.PublishJoin(5);
         group.MakeAdmin(4);
         group.MakeAdmin(5);
         var rooms = UnloadedRooms();
@@ -386,7 +386,7 @@ public class GroupManagementTests : IDisposable
         Assert.True(group.IsAdmin(5));
 
         var (member, memberSent) = Client(new Habbo { Id = 8, Username = "Member", Access = Rights() });
-        group.AddMember(8);
+        group.PublishJoin(8);
         await new ConfirmRemoveGroupMemberEvent(Removal(groups, UnloadedRooms())).Parse(member, Packet(group.Id, 4));
         Assert.Empty(memberSent);
         Assert.True(group.IsAdmin(4));
@@ -396,7 +396,7 @@ public class GroupManagementTests : IDisposable
     public async Task AdminCanLeaveWhileTheHomeroomIsUnloaded()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(11);
+        group.PublishJoin(11);
         group.MakeAdmin(11);
         Client(Owner());
         var leaver = new Habbo
@@ -426,7 +426,7 @@ public class GroupManagementTests : IDisposable
     {
         var group = NewGroup(hasForum: false);
         group.Type = GroupType.Locked;
-        group.AddMember(8);
+        group.PublishJoin(8);
         var (owner, sent) = Client(Owner());
         var rooms = UnloadedRooms();
         var mutations = Mutations(group, rooms, identities: false);

@@ -89,27 +89,20 @@ public class Group
             _members.Add(userId);
     }
 
-    public void AddMember(int id)
+    // Memory publication only. Callers persist the membership or request before publishing it.
+    public void PublishJoin(int id)
     {
         if (IsMember(id) || Type == GroupType.Locked && _requests.Contains(id))
             return;
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
         if (IsAdmin(id))
         {
-            connection.Execute("UPDATE group_memberships SET `rank`=0 WHERE user_id=@id AND group_id=@groupId", new { id, groupId = Id });
             _administrators.Remove(id);
             _members.Add(id);
         }
         else if (Type == GroupType.Locked)
-        {
-            connection.Execute("INSERT INTO group_requests (user_id,group_id) VALUES (@id,@groupId)", new { id, groupId = Id });
             _requests.Add(id);
-        }
         else
-        {
-            connection.Execute("INSERT INTO group_memberships (user_id,group_id) VALUES (@id,@groupId)", new { id, groupId = Id });
             _members.Add(id);
-        }
     }
 
     public void DeleteMember(int id)

@@ -74,7 +74,7 @@ public class GroupInfoSnapshotTests : IDisposable
 
         group.Name = "Changed";
         group.Badge = "b05114s06114";
-        group.AddMember(30);
+        group.PublishJoin(30);
         group.MakeAdmin(3);
 
         Assert.Equal(first, Writes(snapshot, true));
@@ -159,11 +159,11 @@ public class GroupInfoSnapshotTests : IDisposable
         }
         else
             _rooms.Remove(group.RoomId);
-        group.AddMember(4);
+        group.PublishJoin(4);
         group.MakeAdmin(4);
-        group.AddMember(3);
-        group.AddMember(5);
-        group.AddMember(8);
+        group.PublishJoin(3);
+        group.PublishJoin(5);
+        group.PublishJoin(8);
         var requests = (List<int>)typeof(Group).GetField("_requests", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(group)!;
         requests.Add(5);
         requests.Add(6);
