@@ -32,7 +32,7 @@ public sealed class AvatarEffectService(TimeProvider time) : IAvatarEffectServic
         var effect = habbo.Effects.GetEffectNullableAt(effectId, now, false, true);
         if (effect == null || habbo.Effects.HasEffectAt(effectId, now, true)) return;
         effect.Activate(now);
-        session.Send(new AvatarEffectActivatedComposer(new AvatarEffectActivation(effect.SpriteId, (int)effect.Duration)));
+        session.Send(new AvatarEffectActivatedComposer(new AvatarEffectActivation(effect.SpriteId, ToWire(effect.Duration))));
     }
 
     public void Select(GameClient session, int effectId)
@@ -53,8 +53,11 @@ public sealed class AvatarEffectService(TimeProvider time) : IAvatarEffectServic
     {
         var now = time.GetUtcNow();
         return habbo.Effects.GetAllEffects
-            .Select(effect => new AvatarEffectEntry(effect.SpriteId, (int)effect.Duration, effect.Activated ? effect.Quantity - 1 : effect.Quantity,
-                effect.Activated, effect.Activated ? (int)effect.TimeLeftAt(now) : -1))
+            .Select(effect => new AvatarEffectEntry(effect.SpriteId, ToWire(effect.Duration), effect.Activated ? effect.Quantity - 1 : effect.Quantity,
+                effect.Activated, effect.Activated ? ToWire(effect.TimeLeftAt(now)) : -1))
             .ToImmutableArray();
     }
+
+    // Wire fields are 32-bit: values are truncated like the original casts, then held inside [0, int.MaxValue].
+    private static int ToWire(double value) => (int)Math.Clamp(value, 0, int.MaxValue);
 }

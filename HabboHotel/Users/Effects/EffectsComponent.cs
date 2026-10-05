@@ -69,7 +69,7 @@ public sealed class EffectsComponent
     public AvatarEffect? GetEffectNullableAt(int spriteId, DateTimeOffset now, bool activatedOnly = false, bool unactivatedOnly = false)
     {
         foreach (var effect in _effects.Values.ToList())
-            if (!effect.HasExpiredAt(now) && effect.SpriteId == spriteId && (!activatedOnly || effect.Activated) && (!unactivatedOnly || !effect.Activated))
+            if (effect.Quantity > 0 && !effect.HasExpiredAt(now) && effect.SpriteId == spriteId && (!activatedOnly || effect.Activated) && (!unactivatedOnly || !effect.Activated))
                 return effect;
         return null;
     }
@@ -82,8 +82,12 @@ public sealed class EffectsComponent
     {
         var now = _time.GetUtcNow();
         foreach (var effect in _effects.Values.ToList())
-            if (effect.HasExpiredAt(now))
-                effect.HandleExpiration(habbo);
+        {
+            if (!effect.HasExpiredAt(now)) continue;
+            effect.HandleExpiration(habbo);
+            // A consumed last quantity is gone from the store, so it leaves the component too; a failed expiry keeps it.
+            if (effect.Quantity <= 0) _effects.TryRemove(effect.Id, out _);
+        }
     }
 
     public void ApplyEffect(int effectId)

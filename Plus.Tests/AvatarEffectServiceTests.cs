@@ -219,6 +219,70 @@ public class AvatarEffectServiceTests
         Assert.Equal(60, BinaryPrimitives.ReadInt32BigEndian(message.Payload.AsSpan(4)));
     }
 
+    [Fact]
+    public void FutureOrMissingTimestampsCountAsNoTimeUsedAndNeverExceedTheDuration()
+    {
+        var clock = new FixedTimeProvider(Now);
+        var (habbo, _) = Owner(sprite: 1, duration: 100, activated: true, activatedAt: Now.AddSeconds(30), clock: clock);
+        var service = new AvatarEffectService(clock);
+        Assert.Equal(100, service.Capture(habbo).Single().RemainingSeconds);
+
+        habbo.Effects.GetAllEffects.Single().ActivatedAt = null;
+        Assert.Equal(100, service.Capture(habbo).Single().RemainingSeconds);
+    }
+
+    [Fact]
+    public void HugeDurationsStayInsideTheWireIntegerRange()
+    {
+        var clock = new FixedTimeProvider(Now);
+        var (habbo, _) = Owner(sprite: 1, duration: 3_000_000_000d, activated: true, activatedAt: Now, clock: clock);
+
+        var entry = new AvatarEffectService(clock).Capture(habbo).Single();
+
+        Assert.Equal(int.MaxValue, entry.Duration);
+        Assert.Equal(int.MaxValue, entry.RemainingSeconds);
+    }
+
+    [Fact]
+    public async Task LastQuantityExpiryRemovesTheEffectAndDeniesReactivation()
+    {
+        var store = new RecordingStore();
+        var clock = new FixedTimeProvider(Now);
+        var (habbo, effect) = Owner(sprite: 42, duration: 10, activated: true, activatedAt: Now.AddSeconds(-20), quantity: 1, store: store, clock: clock);
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+        habbo.Client = client;
+
+        habbo.Effects.CheckEffectExpiry(habbo);
+
+        Assert.Equal(new[] { (effect.Id, 0, false) }, store.Saves);
+        Assert.Empty(habbo.Effects.GetAllEffects);
+        Assert.False(habbo.Effects.HasEffect(42));
+
+        sent.Clear();
+        store.Activations.Clear();
+        await Activated(Now).Parse(client, Packet(42));
+
+        Assert.Empty(store.Activations);
+        Assert.Empty(sent);
+    }
+
+    [Fact]
+    public void FailedLastQuantityExpiryKeepsTheEffectInTheComponent()
+    {
+        var store = new RecordingStore { FailSave = true };
+        var clock = new FixedTimeProvider(Now);
+        var (habbo, effect) = Owner(sprite: 42, duration: 10, activated: true, activatedAt: Now.AddSeconds(-20), quantity: 1, store: store, clock: clock);
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+        habbo.Client = client;
+
+        Assert.Throws<InvalidOperationException>(() => habbo.Effects.CheckEffectExpiry(habbo));
+
+        Assert.Same(effect, Assert.Single(habbo.Effects.GetAllEffects));
+        Assert.Equal(1, effect.Quantity);
+        Assert.True(effect.Activated);
+        Assert.Empty(sent);
+    }
+
     private static AvatarEffectActivatedEvent Activated(DateTimeOffset clock) => new(new AvatarEffectService(new FixedTimeProvider(clock)));
 
     private static (Habbo Habbo, AvatarEffect Effect) Owner(int sprite, double duration, bool activated, DateTimeOffset? activatedAt = null, int quantity = 1,

@@ -35,9 +35,10 @@ public sealed class AvatarEffect
     // Remaining time is measured against an instant the caller captured, never the wall clock.
     public double TimeLeftAt(DateTimeOffset now)
     {
-        var used = ActivatedAt is { } activatedAt ? (now - activatedAt).TotalSeconds : 0;
-        var tl = Activated ? Duration - used : Duration;
-        return tl < 0 ? 0 : tl;
+        // A timestamp in the future or missing counts as no time used yet, so the remaining time never exceeds the duration.
+        var used = ActivatedAt is { } activatedAt ? Math.Max(0, (now - activatedAt).TotalSeconds) : 0;
+        var remaining = Activated ? Duration - used : Duration;
+        return Math.Max(0, remaining);
     }
 
     public bool HasExpiredAt(DateTimeOffset now) => Activated && TimeLeftAt(now) <= 0;

@@ -35,7 +35,7 @@ public class UserDataFactory : IUserDataFactory
         var habbo = await LoadHabboInfo(userId);
         if (habbo == null) return null;
         habbo.Persistence = _persistence;
-        habbo.SessionStartedAt = DateTimeOffset.UtcNow;
+        habbo.SessionStartedAt = _time.GetUtcNow();
         var components = _components.Load(userId);
         habbo.Clothing = new(components.Clothing, habbo, _clothingStore);
         habbo.Effects = new(components.Effects, habbo, _time);
