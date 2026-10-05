@@ -16,8 +16,16 @@ internal class BotLoader : IBotLoader
         using var connection = _database.Connection();
         return connection.Query<BotRow>("SELECT `id`, `user_id` AS UserId, `name`, `motto`, `look`, `gender` FROM `bots` " +
                 "WHERE `user_id` = @userId AND `room_id` = 0 AND `ai_type` != 'pet'", new { userId })
-            .Select(row => new Bot(row.Id, row.UserId, row.Name, row.Motto, row.Look, row.Gender)).ToList();
+            .Select(row => new Bot(checked((int)row.Id), checked((int)row.UserId), row.Name, row.Motto, row.Look, row.Gender)).ToList();
     }
 
-    private sealed record BotRow(int Id, int UserId, string Name, string Motto, string Look, string Gender);
+    private sealed class BotRow
+    {
+        public uint Id { get; set; }
+        public uint UserId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Motto { get; set; } = string.Empty;
+        public string Look { get; set; } = string.Empty;
+        public string Gender { get; set; } = string.Empty;
+    }
 }

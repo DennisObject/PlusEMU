@@ -74,10 +74,13 @@ public sealed class GroupParticipationService(IGroupManager groups, IGroupInfoSn
             return Task.CompletedTask;
         lock (found)
         {
-            if (!IsCurrent(found) || !store.SaveFavourite(habbo.Id, found.Id))
-                return Task.CompletedTask;
-
-            habbo.HabboStats.FavouriteGroupId = found.Id;
+            if (!IsCurrent(found)) return Task.CompletedTask;
+            lock (habbo.WalletSync)
+            {
+                if (habbo.WalletClosed || !store.SaveFavourite(habbo.Id, found.Id))
+                    return Task.CompletedTask;
+                habbo.HabboStats.FavouriteGroupId = found.Id;
+            }
             if (habbo.InRoom && habbo.CurrentRoom is { } room)
             {
                 room.SendPacket(new RefreshFavouriteGroupComposer(habbo.Id));
@@ -96,10 +99,12 @@ public sealed class GroupParticipationService(IGroupManager groups, IGroupInfoSn
     {
         var habbo = session.GetHabbo();
         using var account = accounts.Enter(habbo.Id);
-        if (!store.SaveFavourite(habbo.Id, 0))
-            return Task.CompletedTask;
-
-        habbo.HabboStats.FavouriteGroupId = 0;
+        lock (habbo.WalletSync)
+        {
+            if (habbo.WalletClosed || !store.SaveFavourite(habbo.Id, 0))
+                return Task.CompletedTask;
+            habbo.HabboStats.FavouriteGroupId = 0;
+        }
         if (habbo.InRoom && habbo.CurrentRoom is { } room)
         {
             var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);

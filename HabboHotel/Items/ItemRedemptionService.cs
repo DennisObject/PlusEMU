@@ -66,7 +66,12 @@ public sealed class ItemRedemptionStore(IDatabase database) : IItemRedemptionSto
         return result;
     }
 
-    private sealed record ClothingRow(int Id, int PartId, string Part);
+    private sealed class ClothingRow
+    {
+        public int Id { get; set; }
+        public int PartId { get; set; }
+        public string Part { get; set; } = "";
+    }
 }
 
 public interface IItemRedemptionService

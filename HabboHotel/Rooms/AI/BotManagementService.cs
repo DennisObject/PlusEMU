@@ -58,7 +58,7 @@ public sealed class BotManagementStore(IDatabase database) : IBotManagementStore
         connection.Execute("DELETE FROM bots_speech WHERE bot_id=@botId", new { botId }, transaction);
         foreach (var text in speech) connection.Execute("INSERT INTO bots_speech (bot_id,text) VALUES (@botId,@text)", new { botId, text }, transaction);
         if (connection.Execute("UPDATE bots SET automatic_chat=@automatic,speaking_interval=@interval,mix_sentences=@mix WHERE id=@botId AND room_id=@roomId LIMIT 1",
-                new { botId, roomId, automatic, interval, mix }, transaction) != 1) throw new InvalidOperationException("Bot speech was not persisted.");
+                new { botId, roomId, automatic = automatic ? "true" : "false", interval, mix }, transaction) != 1) throw new InvalidOperationException("Bot speech was not persisted.");
         transaction.Commit();
         return speech;
     }
@@ -68,7 +68,15 @@ public sealed class BotManagementStore(IDatabase database) : IBotManagementStore
         using var connection = database.Connection();
         if (connection.Execute(sql, args) != 1) throw new InvalidOperationException("Bot mutation was not persisted.");
     }
-    private sealed record PlacementRow(string AiType, string WalkMode, bool AutomaticChat, int SpeakingInterval, bool MixSentences, int ChatBubble);
+    private sealed class PlacementRow
+    {
+        public string AiType { get; set; } = "";
+        public string WalkMode { get; set; } = "";
+        public bool AutomaticChat { get; set; }
+        public int SpeakingInterval { get; set; }
+        public bool MixSentences { get; set; }
+        public int ChatBubble { get; set; }
+    }
 }
 
 public interface IBotManagementService
