@@ -21,8 +21,13 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 public sealed record WiredRewardEntry(int Type, string Code, int Probability);
 public sealed class WiredRewardClaim
 {
+    private DateTimeOffset? _lastClaimAt;
     public long Count { get; set; }
-    public DateTimeOffset? LastClaimAt { get; set; }
+    public DateTimeOffset? LastClaimAt
+    {
+        get => _lastClaimAt;
+        set => _lastClaimAt = value?.ToUniversalTime();
+    }
     public HashSet<string> ReceivedCodes { get; set; } = new(StringComparer.Ordinal);
 }
 internal sealed class WiredRewardClaimJson
@@ -42,18 +47,14 @@ public static class WiredRewardClaimsJson
         foreach (var property in document.RootElement.EnumerateObject())
         {
             if (!int.TryParse(property.Name, NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId)
-                || property.Value.ValueKind != JsonValueKind.Object) continue;
+                || property.Value.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException("Invalid reward claim entry.");
             var value = property.Value;
             var claim = new WiredRewardClaim
             {
-                Count = value.TryGetProperty(nameof(WiredRewardClaim.Count), out var count) && count.TryGetInt64(out var parsedCount)
-                    ? parsedCount : 0,
+                Count = ReadCount(value),
                 LastClaimAt = ReadLastClaim(value),
-                ReceivedCodes = value.TryGetProperty(nameof(WiredRewardClaim.ReceivedCodes), out var codes)
-                    && codes.ValueKind == JsonValueKind.Array
-                    ? new(codes.EnumerateArray().Where(code => code.ValueKind == JsonValueKind.String)
-                        .Select(code => code.GetString()!).Where(code => code != null), StringComparer.Ordinal)
-                    : new(StringComparer.Ordinal)
+                ReceivedCodes = ReadCodes(value)
             };
             claims[userId] = claim;
         }
@@ -70,12 +71,19 @@ public static class WiredRewardClaimsJson
 
     private static DateTimeOffset? ReadLastClaim(JsonElement value)
     {
-        if (value.TryGetProperty(nameof(WiredRewardClaim.LastClaimAt), out var canonical)
-            && canonical.ValueKind == JsonValueKind.String
-            && DateTimeOffset.TryParse(canonical.GetString(), CultureInfo.InvariantCulture,
-                DateTimeStyles.RoundtripKind, out var instant)) return instant.ToUniversalTime();
-        if (!value.TryGetProperty("LastClaimUnix", out var legacy) || legacy.ValueKind != JsonValueKind.Number
-            || !legacy.TryGetDecimal(out var seconds) || seconds <= 0) return null;
+        if (value.TryGetProperty(nameof(WiredRewardClaim.LastClaimAt), out var canonical))
+        {
+            if (canonical.ValueKind == JsonValueKind.Null) return null;
+            if (canonical.ValueKind != JsonValueKind.String
+                || !DateTimeOffset.TryParse(canonical.GetString(), CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind, out var instant))
+                throw new InvalidDataException("Invalid canonical reward claim time.");
+            return instant.ToUniversalTime();
+        }
+        if (!value.TryGetProperty("LastClaimUnix", out var legacy)) return null;
+        if (legacy.ValueKind != JsonValueKind.Number || !legacy.TryGetDecimal(out var seconds))
+            throw new InvalidDataException("Invalid legacy reward claim time.");
+        if (seconds <= 0) return null;
         try
         {
             var ticks = decimal.ToInt64(decimal.Round(seconds * TimeSpan.TicksPerSecond,
@@ -83,6 +91,30 @@ public static class WiredRewardClaimsJson
             return DateTimeOffset.UnixEpoch.AddTicks(ticks);
         }
         catch (Exception error) when (error is OverflowException or ArgumentOutOfRangeException) { return null; }
+    }
+
+    private static long ReadCount(JsonElement value)
+    {
+        if (!value.TryGetProperty(nameof(WiredRewardClaim.Count), out var count)) return 0;
+        if (count.ValueKind != JsonValueKind.Number || !count.TryGetInt64(out var parsedCount))
+            throw new InvalidDataException("Invalid reward claim count.");
+        return parsedCount;
+    }
+
+    private static HashSet<string> ReadCodes(JsonElement value)
+    {
+        if (!value.TryGetProperty(nameof(WiredRewardClaim.ReceivedCodes), out var codes))
+            return new(StringComparer.Ordinal);
+        if (codes.ValueKind != JsonValueKind.Array)
+            throw new InvalidDataException("Invalid received reward codes.");
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var code in codes.EnumerateArray())
+        {
+            if (code.ValueKind != JsonValueKind.String || code.GetString() is not { } text)
+                throw new InvalidDataException("Invalid received reward code.");
+            result.Add(text);
+        }
+        return result;
     }
 }
 public sealed record WiredRewardGrant(int Reason, string? Badge = null, InventoryItem? Furniture = null);
@@ -120,9 +152,19 @@ public static class WiredRewards
         }
         return true; // Empty defaults are editable but cannot award anything.
     }
-    public static bool IntervalOpen(WiredRewardClaim claim, int interval, int count, DateTimeOffset now) => claim.Count == 0
-        || interval != 0 && (claim.LastClaimAt == null || now - claim.LastClaimAt >= count * (interval switch
-        { 1 => TimeSpan.FromDays(1), 2 => TimeSpan.FromHours(1), 3 => TimeSpan.FromMinutes(1), _ => TimeSpan.MaxValue }));
+    public static bool IntervalOpen(WiredRewardClaim claim, int interval, int count, DateTimeOffset now)
+    {
+        if (claim.Count == 0) return true;
+        if (interval is < 1 or > 3 || count is < 1 or > 1000) return false;
+        if (claim.LastClaimAt == null) return true;
+        var unit = interval switch
+        {
+            1 => TimeSpan.TicksPerDay,
+            2 => TimeSpan.TicksPerHour,
+            _ => TimeSpan.TicksPerMinute
+        };
+        return now.ToUniversalTime() - claim.LastClaimAt >= TimeSpan.FromTicks(checked(unit * count));
+    }
     public static WiredRewardEntry? Pick(IReadOnlyList<WiredRewardEntry> entries, bool unique, WiredRewardClaim claim, int roll)
     {
         var candidates = unique ? entries.Where(entry => !claim.ReceivedCodes.Contains(entry.Code)).ToArray() : entries.ToArray();

@@ -27,6 +27,12 @@ public sealed class WiredRewardUtcJsonTests
     [Fact]
     public void CanonicalJsonNormalizesUtcAndRoundTripsClaimsAndCodes()
     {
+        var assigned = new WiredRewardClaim
+        {
+            LastClaimAt = DateTimeOffset.Parse("2040-01-02T03:04:05+02:00")
+        };
+        Assert.Equal(TimeSpan.Zero, assigned.LastClaimAt!.Value.Offset);
+
         var parsed = WiredRewardClaimsJson.Parse("""
             {"7":{"Count":3,"LastClaimAt":"2040-01-02T03:04:05.123456+02:00","ReceivedCodes":["A","B"]}}
             """);
@@ -41,6 +47,30 @@ public sealed class WiredRewardUtcJsonTests
     }
 
     [Fact]
+    public void CanonicalNullIsAuthoritativeOverLegacyTime()
+    {
+        var parsed = WiredRewardClaimsJson.Parse("""
+            {"7":{"Count":1,"LastClaimAt":null,"LastClaimUnix":2208988800,"ReceivedCodes":[]}}
+            """);
+
+        Assert.Null(parsed[7].LastClaimAt);
+    }
+
+    [Theory]
+    [InlineData("{\"not-an-id\":{\"Count\":1,\"ReceivedCodes\":[]}}")]
+    [InlineData("{\"7\":[]}")]
+    [InlineData("{\"7\":{\"Count\":\"1\",\"ReceivedCodes\":[]}}")]
+    [InlineData("{\"7\":{\"Count\":9223372036854775808,\"ReceivedCodes\":[]}}")]
+    [InlineData("{\"7\":{\"Count\":1,\"ReceivedCodes\":null}}")]
+    [InlineData("{\"7\":{\"Count\":1,\"ReceivedCodes\":[\"A\",2]}}")]
+    [InlineData("{\"7\":{\"Count\":1,\"LastClaimAt\":42,\"ReceivedCodes\":[]}}")]
+    [InlineData("{\"7\":{\"Count\":1,\"LastClaimUnix\":\"1\",\"ReceivedCodes\":[]}}")]
+    public void ParserRejectsMalformedQuotaAndHistoryShapes(string json)
+    {
+        Assert.Throws<InvalidDataException>(() => WiredRewardClaimsJson.Parse(json));
+    }
+
+    [Fact]
     public void IntervalIsClosedBeforeAndAtFutureClaimsAndOpensAtExactElapsedBoundary()
     {
         var claim = new WiredRewardClaim { Count = 1, LastClaimAt = DateTimeOffset.Parse("2040-01-01T00:00:00Z") };
@@ -48,5 +78,12 @@ public sealed class WiredRewardUtcJsonTests
         Assert.True(WiredRewards.IntervalOpen(claim, 3, 2, claim.LastClaimAt.Value.AddSeconds(120)));
         Assert.True(WiredRewards.IntervalOpen(claim, 3, 2, claim.LastClaimAt.Value.AddSeconds(121)));
         Assert.False(WiredRewards.IntervalOpen(claim, 3, 2, claim.LastClaimAt.Value.AddMinutes(-1)));
+
+        var maximum = new WiredRewardClaim { Count = 1, LastClaimAt = DateTimeOffset.UnixEpoch };
+        Assert.False(WiredRewards.IntervalOpen(maximum, 1, 1000,
+            DateTimeOffset.UnixEpoch.AddDays(1000).AddTicks(-1)));
+        Assert.True(WiredRewards.IntervalOpen(maximum, 1, 1000, DateTimeOffset.UnixEpoch.AddDays(1000)));
+        Assert.False(WiredRewards.IntervalOpen(maximum, 1, 1001, DateTimeOffset.MaxValue));
+        Assert.False(WiredRewards.IntervalOpen(maximum, 4, 1, DateTimeOffset.MaxValue));
     }
 }
