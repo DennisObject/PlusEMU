@@ -1,6 +1,6 @@
 ﻿using Plus.HabboHotel.GameClients;
 
-namespace Plus.Communication.Packets.Incoming.Inventory.AvatarEffects;
+namespace Plus.Communication.Packets.Incoming.Inventory.AvatarEffect;
 
 internal class AvatarEffectSelectedEvent : IPacketEvent
 {

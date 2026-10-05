@@ -2,7 +2,7 @@
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Effects;
 
-namespace Plus.Communication.Packets.Incoming.Inventory.AvatarEffects;
+namespace Plus.Communication.Packets.Incoming.Inventory.AvatarEffect;
 
 internal class AvatarEffectActivatedEvent(IAvatarEffectStore effects) : IPacketEvent
 {
