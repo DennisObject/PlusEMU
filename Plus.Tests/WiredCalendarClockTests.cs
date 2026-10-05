@@ -20,7 +20,7 @@ public class WiredCalendarClockTests
         var clock = new CountingClock();
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var wired = new WiredComponent(room, TestLogging.Logger, clock, TestRoomSettings.Empty, new Factory(zone),
-            TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty);
+            TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty);
 
         var calendar = wired.CalendarTime;
         Assert.Equal(year, calendar.Year);

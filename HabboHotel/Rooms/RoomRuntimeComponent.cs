@@ -17,7 +17,7 @@ public sealed class RoomRuntimeComponent(IRoomItemStore itemStore, Plus.HabboHot
     public int Order => 0;
     public void Initiate(Room room) => room.SetRuntime(
         new(room, room.Data.Model, room.NavigationLogger, settings, groups), new(room, itemStore, metadata), new(room, userStore, clock),
-        new(room, room.WiredLogger, clock, settings, wiredSettings, wiredConfigurations, database, wiredRewards, botStore, clients),
+        new(room, room.WiredLogger, clock, settings, wiredSettings, wiredConfigurations, database, wiredRewards, botStore, clients, groups),
         userSnapshots, clock);
     public void Initiated() { }
 }

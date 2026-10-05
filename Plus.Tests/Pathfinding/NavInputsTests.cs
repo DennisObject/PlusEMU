@@ -152,7 +152,7 @@ public class NavInputsTests
         var handler = fixture.Room.GetRoomItemHandler();
         var wired = new Plus.HabboHotel.Rooms.Instance.WiredComponent(fixture.Room, TestLogging.Logger, TimeProvider.System,
             TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance,
-            TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty);
+            TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty);
         Set(fixture.Room, "_wiredComponent", wired);
         var item = NavTest.Item(); item.GetX = item.GetY = 2;
         item.ExtraData = new Plus.HabboHotel.Items.DataFormat.LegacyDataFormat { Data = "0" };

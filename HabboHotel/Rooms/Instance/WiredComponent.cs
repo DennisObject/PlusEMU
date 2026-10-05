@@ -19,6 +19,7 @@ using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.Database;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Groups;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -31,10 +32,11 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly TimeProvider _clock;
     private readonly IBotManagementStore _botStore;
     private readonly IGameClientManager _clients;
+    private readonly IGroupManager _groups;
 
     public WiredComponent(Room instance, ILogger logger, TimeProvider clock, ISettingsManager settings, IWiredRoomSettingsFactory settingsFactory,
         IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService,
-        IBotManagementStore botStore, IGameClientManager clients) //, RoomItem Items)
+        IBotManagementStore botStore, IGameClientManager clients, IGroupManager groups) //, RoomItem Items)
     {
         _room = instance;
         _logger = logger;
@@ -44,6 +46,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
         _rewards = rewardService;
         _botStore = botStore;
         _clients = clients;
+        _groups = groups;
         Settings = settingsFactory.Create(instance);
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,

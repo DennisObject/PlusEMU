@@ -1,6 +1,7 @@
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Runtime;
+using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Games.Teams;
 
@@ -10,12 +11,14 @@ public sealed class WiredModernCondition : WiredModernBox
 {
     private readonly Func<Item, long?> _counterTime;
     private readonly Func<DateTimeOffset> _clock;
+    private readonly IGroupManager _groups;
     public WiredModernCondition(Room room, Item item, WiredBoxDescriptor descriptor,
-        Func<Item, long?> counterTime, Func<DateTimeOffset> clock) : base(room, item, descriptor)
+        IGroupManager groups, Func<Item, long?> counterTime, Func<DateTimeOffset> clock) : base(room, item, descriptor)
     {
         if (!WiredConditionConfiguration.Supports(descriptor.CanonicalName)) throw new ArgumentException("Unknown condition.", nameof(descriptor));
         _counterTime = counterTime;
         _clock = clock;
+        _groups = groups;
     }
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error) =>
         WiredConditionConfiguration.TryValidate(Descriptor.CanonicalName, proposed, out validated, out error);
@@ -45,7 +48,7 @@ public sealed class WiredModernCondition : WiredModernBox
                 string.Equals(badge.Code, config.Text, StringComparison.OrdinalIgnoreCase)) == true, 1);
             case "wf_cnd_actor_in_group":
                 var group = context.Room.Group;
-                if (Param(config, 1) == 1 && !PlusEnvironment.Game.GroupManager.TryGetGroup(Param(config, 2), out group)) return false;
+                if (Param(config, 1) == 1 && !_groups.TryGetGroup(Param(config, 2), out group)) return false;
                 return group != null && Quantify(user => !user.IsBot && group.IsMember(user.HabboId), 3);
             case "wf_cnd_user_performs_action": return Quantify(user => IsPerforming(user, config, context.Event), 6);
             case "wf_cnd_triggerer_match":

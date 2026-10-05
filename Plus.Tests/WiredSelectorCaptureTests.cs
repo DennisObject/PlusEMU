@@ -184,12 +184,12 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
             { Item = Furni(), Instance = Room, Body = body, Configuration = new() { Delay = delay } });
         public IWiredContextualSelector Selector(string name, WiredConfiguration c, int x = 0)
         {
-            var box = WiredSelectorFactory.Create(Room, Furni(name, x), _state, Queries, ReadWorld)!;
+            var box = WiredSelectorFactory.Create(Room, Furni(name, x), _state, TestGroupManager.Empty, Queries, ReadWorld)!;
             Configure(box, c); Add(box); return box;
         }
         public void Addon(string name, WiredConfiguration c)
         {
-            var box = WiredAddonFactory.Create(Room, Furni(name), _state, Queries, ReadWorld)!;
+            var box = WiredAddonFactory.Create(Room, Furni(name), _state, TestGroupManager.Empty, Queries, ReadWorld)!;
             Configure(box, c); Add(box);
         }
         private static void Configure(IWiredConfiguredItem box, WiredConfiguration c)

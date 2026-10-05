@@ -73,7 +73,8 @@ public class ModernWiredRuntimeTests
         void AssertBoundary(string name, DateTimeOffset now, bool expected)
         {
             var reads = 0;
-            var condition = new WiredModernCondition(room, MakeItem(101, name), Descriptor(name), _ => null, () => { reads++; return now; });
+            var condition = new WiredModernCondition(room, MakeItem(101, name), Descriptor(name), TestGroupManager.Empty,
+                _ => null, () => { reads++; return now; });
             Assert.True(condition.TryValidateConfiguration(new() { IntParams = [2] }, out var configuration, out var error), error);
             condition.ApplyConfiguration(configuration);
             Assert.Equal(expected, condition.Execute(Context(room, new(WiredEventKind.Use), [], [])));
@@ -815,7 +816,8 @@ public class ModernWiredRuntimeTests
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
             var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance,
                 database == null ? TestWiredConfigurationStore.Instance : new WiredConfigurationStore(database),
-                database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, clientsForText ?? TestWiredClients.Empty);
+                database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance,
+                clientsForText ?? TestWiredClients.Empty, TestGroupManager.Empty);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
@@ -927,7 +929,8 @@ public class ModernWiredRuntimeTests
         var user = new RoomUser(1, 0, 7, room, null);
         user.SetStatus("sit");
         var context = Context(room, new(WiredEventKind.ClickUser) { TargetUser = user }, [], [user]);
-        var box = new WiredModernCondition(room, MakeItem(100, "wf_cnd_user_performs_action"), Descriptor("wf_cnd_user_performs_action"), _ => null, () => DateTimeOffset.UtcNow);
+        var box = new WiredModernCondition(room, MakeItem(100, "wf_cnd_user_performs_action"), Descriptor("wf_cnd_user_performs_action"),
+            TestGroupManager.Empty, _ => null, () => DateTimeOffset.UtcNow);
         Assert.True(box.TryValidateConfiguration(new() { IntParams = [6, 0, 0, 0, 1, 11, 0] }, out var config, out _));
         box.ApplyConfiguration(config);
         Assert.True(box.Execute(context));
@@ -955,7 +958,8 @@ public class ModernWiredRuntimeTests
         picked.LegacyDataString = "state,with;delimiters";
         items[1] = picked;
         items[2] = MakeItem(2, "test");
-        var box = new WiredModernCondition(room, MakeItem(100, "wf_cnd_match_snapshot"), Descriptor("wf_cnd_match_snapshot"), _ => null, () => DateTimeOffset.UtcNow);
+        var box = new WiredModernCondition(room, MakeItem(100, "wf_cnd_match_snapshot"), Descriptor("wf_cnd_match_snapshot"),
+            TestGroupManager.Empty, _ => null, () => DateTimeOffset.UtcNow);
         var candidate = new WiredConfiguration { IntParams = [1, 1, 1, 1, 100, 0], SelectedItems = [1] };
         var prepared = WiredRoomOperations.PrepareSnapshots(box, candidate);
         Assert.Equal("state,with;delimiters", Assert.Single(prepared.Snapshots).State);

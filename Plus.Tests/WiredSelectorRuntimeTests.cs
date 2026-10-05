@@ -17,12 +17,12 @@ public sealed class WiredSelectorRuntimeTests
         foreach (var name in WiredAddonModule.Names)
         {
             var item = new Item { Id = 9, Definition = new() { ItemName = "hotel_specific_name", InteractionName = name } };
-            var addon = WiredAddonFactory.Create(null!, item, new());
+            var addon = WiredAddonFactory.Create(null!, item, new(), TestGroupManager.Empty);
             Assert.NotNull(addon);
             Assert.Equal(name, addon.Descriptor.CanonicalName);
             Assert.Equal(name == "wf_xtra_execution_limit", addon.AfterConditions);
         }
-        Assert.Null(WiredAddonFactory.Create(null!, new() { Definition = new() { ItemName = "wf_xtra_var_fx_health" } }, new()));
+        Assert.Null(WiredAddonFactory.Create(null!, new() { Definition = new() { ItemName = "wf_xtra_var_fx_health" } }, new(), TestGroupManager.Empty));
     }
 
     [Fact]
@@ -31,20 +31,21 @@ public sealed class WiredSelectorRuntimeTests
         foreach (var name in WiredSelectorModule.Names)
         {
             var item = new Item { Id = 9, Definition = new() { ItemName = name.ToUpperInvariant() } };
-            var box = WiredSelectorFactory.Create(null!, item, new(), _ => throw new InvalidOperationException("Not executed by this construction test"));
+            var box = WiredSelectorFactory.Create(null!, item, new(), TestGroupManager.Empty,
+                _ => throw new InvalidOperationException("Not executed by this construction test"));
             Assert.NotNull(box);
             Assert.Equal(name, box.Descriptor.CanonicalName);
             Assert.Equal(WiredBoxSupport.Implemented, box.Descriptor.Support);
             if (name.EndsWith("_with_var", StringComparison.Ordinal))
-                Assert.Null(WiredSelectorFactory.Create(null!, item, new()));
+                Assert.Null(WiredSelectorFactory.Create(null!, item, new(), TestGroupManager.Empty));
         }
-        Assert.Null(WiredSelectorFactory.Create(null!, new() { Definition = new() { ItemName = "not_wired" } }, new()));
+        Assert.Null(WiredSelectorFactory.Create(null!, new() { Definition = new() { ItemName = "not_wired" } }, new(), TestGroupManager.Empty));
     }
 
     [Fact]
     public void FailedValidationDoesNotChangeLiveBoxAndPublishKeepsExactActiveEnvelopeFields()
     {
-        var box = WiredSelectorFactory.Create(null!, new() { Definition = new() { ItemName = "wf_slc_furni_neighborhood" } }, new())!;
+        var box = WiredSelectorFactory.Create(null!, new() { Definition = new() { ItemName = "wf_slc_furni_neighborhood" } }, new(), TestGroupManager.Empty)!;
         var original = box.Configuration;
         Assert.False(box.TryValidateConfiguration(Config([4, 0, 0, 0, 0, 2, 1, 1]), out _, out var error));
         Assert.NotEmpty(error);
