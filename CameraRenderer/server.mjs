@@ -103,7 +103,8 @@ async function createPage(abort) {
         slot.page = page;
         page.on('pageerror', error => console.error('Camera page error: '+error.message));
         page.on('console', message => { if(message.type()==='error') console.error('Camera page: '+message.text()); });
-        page.on('response', response => { if (response.status() >= 400) { const path = new URL(response.url()).pathname; slot.failures.push('Missing trusted asset: '+path); console.error('Missing camera asset: '+path); } });
+        // A missing wall photo stays an empty frame, as it does in the client.
+        page.on('response', response => { const path = new URL(response.url()).pathname; if (response.status() >= 400 && !mediaPath.test(path)) { slot.failures.push('Missing trusted asset: '+path); console.error('Missing camera asset: '+path); } });
         page.on('requestfailed', request => slot.failures.push('Failed trusted asset: '+request.url()));
         await page.goto(`${origin}/page/index.html`, {waitUntil:'load',timeout:15000});
         await page.waitForFunction(() => window.cameraReady === true, {timeout:15000});
