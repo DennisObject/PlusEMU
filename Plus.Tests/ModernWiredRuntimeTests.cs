@@ -264,7 +264,7 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
-    public async Task DeniedMonitorClearNeitherClearsNorConsumesTheClearGate()
+    public async Task DeniedMonitorClearLeavesLogsAndItsGateForTheSameSessionOnceGranted()
     {
         using var f = new TeleportFixture();
         f.Room.OwnerName = "Alice"; f.Room.Type = "private"; f.Room.UsersWithRights = [];
@@ -273,17 +273,33 @@ public class ModernWiredRuntimeTests
         typeof(WiredComponent).GetField("<Settings>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!
             .SetValue(f.Room.GetWired(), settings);
         store.Saved = new(InspectMask: (int)WiredRoomAccess.Everyone); settings.Reload();
+
+        // Seed one room log line through the real wired log action.
+        var item = MakeItem(102, "wf_act_log");
+        var box = Assert.IsType<WiredModernAction>(f.Room.GetWired().CreateConfiguredBox(item, Descriptor("wf_act_log")));
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0], Text = "Gate opened" }, out var config, out _));
+        box.ApplyConfiguration(config);
+        f.Items[102] = item; f.Engine.Add(box);
+        f.Fire();
+        Assert.Equal(1, f.Room.GetWired().ReadLogs(0, 50, -1, "", -1).Total);
+
+        // Bob can inspect but not manage, so his clear is denied and neither clears the log nor uses his clear gate.
+        var bobHabbo = new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room, Access = EditorTestSupport.Access([]) };
         var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
-        bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
+        bob.SetHabbo(bobHabbo);
         var bobReplies = Capture(bob);
-        var alice = Capture(f.Habbo.Client);
         var clear = new WiredMonitorRequestEvent(new WiredMonitorService(new WiredRequestGateService(new ManualMonotonicClock())));
 
-        await clear.Parse(f.Room, bob, Request(1)); // inspect-only: no clear and no reply
+        await clear.Parse(f.Room, bob, Request(1));
         Assert.Empty(bobReplies);
-        await clear.Parse(f.Room, f.Habbo.Client, Request(1)); // the owner's clear at the same instant still passes
-        Assert.Single(alice);
-        Assert.Equal(5101u, alice[0].Header);
+        Assert.Equal(1, f.Room.GetWired().ReadLogs(0, 50, -1, "", -1).Total);
+
+        // The same session is then granted manage rights through its access seam and clears at the unchanged instant.
+        bobHabbo.Access = EditorTestSupport.Access([Plus.HabboHotel.Permissions.PermissionKeys.RoomOwnerAny]);
+        await clear.Parse(f.Room, bob, Request(1));
+        Assert.Single(bobReplies);
+        Assert.Equal(5101u, bobReplies[0].Header);
+        Assert.Equal(0, f.Room.GetWired().ReadLogs(0, 50, -1, "", -1).Total);
     }
 
     [Fact]
