@@ -4,21 +4,14 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Game.Lobby;
 
-internal class GetGameAchievementsEvent : IPacketEvent
+internal class GetGameAchievementsEvent(IAchievementManager achievementManager, IAchievementSnapshotService snapshots) : IPacketEvent
 {
-    private readonly IAchievementManager _achievementManager;
-
-    public GetGameAchievementsEvent(IAchievementManager achievementManager)
-    {
-        _achievementManager = achievementManager;
-    }
-
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var gameId = packet.ReadInt();
         session.Send(new GameAccountStatusComposer(gameId));
         session.Send(new PlayableGamesComposer(gameId));
-        session.Send(new GameAchievementListComposer(session, _achievementManager.GetGameAchievements(gameId), gameId));
+        session.Send(new GameAchievementListComposer(gameId, snapshots.Capture(session.GetHabbo(), achievementManager.GetGameAchievements(gameId))));
         return Task.CompletedTask;
     }
 }
