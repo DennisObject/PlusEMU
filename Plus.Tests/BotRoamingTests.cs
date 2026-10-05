@@ -156,7 +156,7 @@ public class BotRoamingTests
         user.SetPos(1, 2, 0);
         user.GoalX = -1;
         user.GoalY = -1;
-        var ai = new GenericBot(user.VirtualId);
+        var ai = new GenericBot(user.VirtualId, new FakeWordFilter());
         ai.Init(user.BotData.BotId, user.VirtualId, 1, user, room);
         var timer = typeof(GenericBot).GetField("_actionTimer", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(timer);
@@ -199,7 +199,7 @@ public class BotRoamingTests
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused));
+            .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty));
         map.SetFloorStatus(0, 0, 0);
         Assert.DoesNotContain(new Point(0, 0), map.WalkableSquares());
 
@@ -220,7 +220,7 @@ public class BotRoamingTests
         var (room, map) = Create("000\r000\r000", 1, 1);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
-        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
+        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, users);
         var roster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
@@ -335,7 +335,7 @@ public class BotRoamingTests
         user.SetPos(1, 2, 0);
         user.GoalX = -1;
         user.GoalY = -1;
-        var ai = new GenericBot(user.VirtualId);
+        var ai = new GenericBot(user.VirtualId, new FakeWordFilter());
         ai.Init(user.BotData.BotId, user.VirtualId, 1, user, room);
         ai.OnTimerTick();
         Assert.Contains(new Point(user.GoalX, user.GoalY), map.WalkableSquares());
@@ -345,7 +345,7 @@ public class BotRoamingTests
         var stuck = Bot(blockedRoom, allowOverride: true);
         stuck.GoalX = 4;
         stuck.GoalY = 4;
-        var idle = new GenericBot(stuck.VirtualId);
+        var idle = new GenericBot(stuck.VirtualId, new FakeWordFilter());
         idle.Init(stuck.BotData.BotId, stuck.VirtualId, 1, stuck, blockedRoom);
         idle.OnTimerTick();
         Assert.False(blockedMap.TryGetRandomWalkableSquare(out _));

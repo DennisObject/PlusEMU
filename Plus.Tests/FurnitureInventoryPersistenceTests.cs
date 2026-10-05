@@ -248,7 +248,7 @@ public sealed class FurnitureInventoryPersistenceTests
         room.OwnerName = "owner";
         room.Type = "private";
         room.UsersWithRights = [];
-        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
+        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, users);
         var definition = new ItemDefinition { Id = 100, Type = ItemType.Floor };
         var inventoryItem = new InventoryItem { Id = itemId, OwnerId = (uint)userId, Definition = definition };

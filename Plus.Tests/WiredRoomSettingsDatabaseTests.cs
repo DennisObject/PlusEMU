@@ -55,7 +55,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             var database = new PreviewDatabase(connectionString);
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
             room.Id = roomId; room.Name = "Settings menu probe"; room.OwnerId = (int)ownerId; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
-            var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused); Set(room, "_roomUserManager", manager);
+            var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty); Set(room, "_roomUserManager", manager);
             var owner = Client(room, (int)ownerId, "owner", manager, 1);
             var guest = Client(room, (int)guestId, "guest", manager, 2);
             var settingsStore = new DatabaseWiredRoomSettingsStore(database);

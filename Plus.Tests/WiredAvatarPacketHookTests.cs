@@ -286,7 +286,7 @@ public class WiredAvatarPacketHookTests
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
             var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
-            Users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock ?? TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
+            Users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock ?? TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
             Actions = new RoomAvatarActionService(clock ?? TimeProvider.System, new NoQuests(), Rewards);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", Users);
             _wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused); Set(Room, "_wiredComponent", _wired);

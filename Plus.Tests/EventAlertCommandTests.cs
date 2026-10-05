@@ -91,7 +91,7 @@ public sealed class EventAlertCommandTests : IDisposable
     private static (GameClient Client, Room Room, List<(uint Header, byte[] Payload)> Sent) Client(TimeProvider clock)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, clock, new TestRewardProgress(), TestChatEmotions.Unused);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, clock, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
         var habbo = new Habbo { Id = 7, Username = "Alice", CurrentRoom = room };
         var (client, sent) = HabbiconTestSupport.Client(habbo);

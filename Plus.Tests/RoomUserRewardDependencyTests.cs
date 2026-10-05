@@ -119,7 +119,7 @@ public partial class PlacedFurniRoomTests
 
     private RoomUserManager InstallRewardManager(TestRewardProgress rewards)
     {
-        var manager = new RoomUserManager(_room, TestRoomUserStore.Instance, _interactionClock, rewards, TestChatEmotions.Unused);
+        var manager = new RoomUserManager(_room, TestRoomUserStore.Instance, _interactionClock, rewards, TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
         Set("_roomUserManager", manager);
         return manager;
     }

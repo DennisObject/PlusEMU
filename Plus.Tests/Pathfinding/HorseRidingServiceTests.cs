@@ -130,6 +130,7 @@ public partial class PlacedFurniRoomTests
         pet.Name = "horse"; pet.OwnerName = "owner"; pet.Type = 13; pet.Race = "0"; pet.Color = "ffffff";
         pet.GnomeClothing = ""; pet.AnyoneCanRide = 1; pet.Saddle = 1; pet.Energy = pet.Nutrition = 100;
         pet.ExperienceLevels = [100, 200, 400, 600]; pet.PlacedInRoom = true;
+        pet.Attach(_room, TestGameClientManager.Empty, TestRewardProgress.Unused);
         Assert.True(LegacyPets().TryAdd(pet.PetId, horse));
         return horse;
     }

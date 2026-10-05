@@ -40,19 +40,23 @@ public class RoomUserManager
     private readonly TimeProvider _clock;
     private readonly IRewardTrackManager _rewards;
     private readonly IChatEmotionsManager _chatEmotions;
+    private readonly IBotAiFactory _botAiFactory;
+    private readonly IGameClientManager _clients;
     private ConcurrentDictionary<int, RoomUser> _users;
 
     public int UserCount;
 
 
     public RoomUserManager(Room room, IRoomUserStore store, TimeProvider clock, IRewardTrackManager rewards,
-        IChatEmotionsManager chatEmotions)
+        IChatEmotionsManager chatEmotions, IBotAiFactory botAiFactory, IGameClientManager clients)
     {
         _room = room;
         _store = store;
         _clock = clock;
         _rewards = rewards;
         _chatEmotions = chatEmotions;
+        _botAiFactory = botAiFactory;
+        _clients = clients;
         _users = new();
         _pets = new();
         _bots = new();
@@ -153,12 +157,13 @@ public class RoomUserManager
             user.SetRot(model.DoorOrientation, false);
         }
         user.BotData = bot;
-        user.BotAi = bot.GenerateBotAi(user.VirtualId);
+        user.BotAi = _botAiFactory.Create(bot.AiType, user.VirtualId);
         if (user.IsPet)
         {
             user.BotAi.Init(bot.BotId, user.VirtualId, _room.RoomId, user, _room);
             user.PetData = pet;
             user.PetData.VirtualId = user.VirtualId;
+            user.PetData.Attach(_room, _clients, _rewards);
         }
         else
             user.BotAi.Init(bot.BotId, user.VirtualId, _room.RoomId, user, _room);
@@ -209,6 +214,8 @@ public class RoomUserManager
         }
         finally
         {
+            user.BotAi?.Detach(_room, user);
+            user.PetData?.Detach(_room);
             user.Dispose();
         }
     }
@@ -1416,7 +1423,12 @@ public class RoomUserManager
             _bots.Clear();
             UserCount = 0;
             PetCount = 0;
-            foreach (var user in users) user.Dispose();
+            foreach (var user in users)
+            {
+                user.BotAi?.Detach(_room, user);
+                user.PetData?.Detach(_room);
+                user.Dispose();
+            }
             _users = null;
             _pets = null;
             _bots = null;

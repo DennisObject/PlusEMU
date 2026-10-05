@@ -1,17 +1,20 @@
 ﻿using System.Drawing;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Rooms.Chat.Filter;
 
 namespace Plus.HabboHotel.Rooms.AI.Types;
 
 public class GenericBot : BotAi
 {
     private readonly int _virtualId;
+    private readonly IWordFilterManager _wordFilter;
     private int _actionTimer;
     private int _speechTimer;
 
-    public GenericBot(int virtualId)
+    public GenericBot(int virtualId, IWordFilterManager wordFilter)
     {
         _virtualId = virtualId;
+        _wordFilter = wordFilter;
     }
 
     public override void OnSelfEnterRoom()
@@ -54,7 +57,7 @@ public class GenericBot : BotAi
                 if (botData.AutomaticChat == false)
                     return;
                 var speech = botData.GetRandomSpeech();
-                var @string = PlusEnvironment.Game.ChatManager.GetFilter().CheckMessage(speech.Message);
+                var @string = _wordFilter.CheckMessage(speech.Message);
                 if (@string.Contains("<img src") || @string.Contains("<font ") || @string.Contains("</font>") || @string.Contains("</a>") || @string.Contains("<i>"))
                     @string = "I really shouldn't be using HTML within bot speeches.";
                 botUser.Chat(@string, botData.ChatBubble);

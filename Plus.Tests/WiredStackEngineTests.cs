@@ -788,7 +788,7 @@ public class WiredStackEngineTests
     private static (Room Room, Habbo Player, ConcurrentDictionary<int, RoomUser> Users, List<uint> Packets) ActorRoom(bool protectedActor = false)
     {
         var room = EmptyRoom();
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty);
         SetPrivate(room, "_roomUserManager", manager);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;

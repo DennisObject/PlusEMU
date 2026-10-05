@@ -3,12 +3,16 @@ using Plus.Communication.Packets.Outgoing.Pets;
 using Plus.Communication.Packets.Outgoing.Rooms.AI.Pets;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.Quests;
+using Plus.HabboHotel.GameClients;
 using Plus.Utilities;
 
 namespace Plus.HabboHotel.Rooms.AI;
 
 public class Pet
 {
+    private Room? _room;
+    private IGameClientManager? _clients;
+    private IRewardTrackManager? _rewards;
     public int AnyoneCanRide;
     public string Color;
     public DateTimeOffset? CreatedAt;
@@ -67,16 +71,22 @@ public class Pet
         OwnerName = ownerName;
     }
 
-    public Room? Room
+    public Room? Room => _room;
+
+    internal void Attach(Room room, IGameClientManager clients, IRewardTrackManager rewards)
     {
-        get
-        {
-            if (!IsInRoom)
-                return null;
-            if (PlusEnvironment.Game.RoomManager.TryGetRoom(RoomId, out var room))
-                return room;
-            return null;
-        }
+        if (_room != null && !ReferenceEquals(_room, room)) throw new InvalidOperationException("Pet is already attached to another room.");
+        _room = room;
+        _clients = clients;
+        _rewards = rewards;
+    }
+
+    internal void Detach(Room room)
+    {
+        if (!ReferenceEquals(_room, room)) return;
+        _room = null;
+        _clients = null;
+        _rewards = null;
     }
 
     public bool IsInRoom => RoomId > 0;
@@ -148,9 +158,9 @@ public class Pet
         var gained = Level - before;
         if (gained < 1 || OwnerId <= 0)
             return;
-        var client = PlusEnvironment.Game.ClientManager.GetClientByUserId(OwnerId);
+        var client = _clients?.GetClientByUserId(OwnerId);
         if (client != null)
-            RewardTrackManager.Current?.Progress(client, RewardTrackActions.PetLevel, gained);
+            _rewards!.Progress(client, RewardTrackActions.PetLevel, gained);
     }
 
     public void PetEnergy(bool add)

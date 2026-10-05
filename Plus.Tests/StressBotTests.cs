@@ -189,7 +189,8 @@ public class StressBotTests
         for (var y = 0; y < 4; y++)
             gameMap[x, y] = 1;
         typeof(Gamemap).GetProperty(nameof(Gamemap.GameMap))!.SetValue(map, gameMap);
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused,
+            new TestBotAiFactory((_, virtualId) => new GenericBot(virtualId, new FakeWordFilter())), TestGameClientManager.Empty);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
         TestRoomUserSnapshots.Install(room);

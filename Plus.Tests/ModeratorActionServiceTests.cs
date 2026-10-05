@@ -59,7 +59,7 @@ public sealed class ModeratorActionServiceTests
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 42; room.OwnerId = 7; room.Name = "Original"; room.Description = "Description"; room.Tags.Add("bad");
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused));
+            .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty));
         var (actor, _) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
         var store = new RecordingStore { Fail = fail, BeforeWrite = () => { Assert.Equal("Original", room.Name); Assert.Equal(RoomAccess.Open, room.Access); Assert.Single(room.Tags); } };
         var rooms = Proxy<IRoomManager>((method, args) => { Assert.Equal("TryGetRoom", method); args[1] = room; return true; });
