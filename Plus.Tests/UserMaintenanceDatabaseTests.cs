@@ -24,7 +24,7 @@ public sealed class UserMaintenanceDatabaseTests
                 INSERT INTO users VALUES (9, 100, 20, 30, 40, 'hello'), (10, 1, 2, 3, 4, NULL);
                 CREATE TRIGGER user_maintenance_fail BEFORE UPDATE ON users FOR EACH ROW BEGIN IF NEW.id = 10 AND NEW.activity_points = 77 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced failure'; END IF; END;
                 """);
-            var options = new MySqlConnectionStringBuilder(connection.ConnectionString) { Database = schema, Pooling = false };
+            var options = new MySqlConnectionStringBuilder(connection.ConnectionString) { Database = schema, Pooling = false, AllowZeroDateTime = true, ConvertZeroDateTime = true };
             var store = new UserMaintenanceStore(new ProbeDatabase(options.ConnectionString));
 
             Assert.Equal(100, store.ReadCurrency(9, UserCurrency.Credits));

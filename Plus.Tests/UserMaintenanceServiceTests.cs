@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.GameClients;
@@ -247,6 +248,77 @@ public sealed class UserMaintenanceServiceTests
         Assert.True(await change!);
         Assert.Equal(105, habbo.Credits);
         Assert.Equal(1, sent.Count);
+    }
+
+    [Fact]
+    public async Task TakeNotifiesDucketsWithTheRemainingBalanceAndTheLegacyPositiveAmount()
+    {
+        var (habbo, _, sent, clients) = Setup();
+
+        Assert.True(await Service(new RecordingStore(), clients).TakeCurrency(7, "pixels", 5));
+
+        Assert.Equal(15, habbo.Duckets);
+        Assert.Equal(Int32s(15, 5, 0), Assert.Single(sent).Payload);
+    }
+
+    [Fact]
+    public async Task TakeWithANegativeAmountKeepsTheSignedDeltaAndItsRawNotification()
+    {
+        var (habbo, _, sent, clients) = Setup();
+
+        Assert.True(await Service(new RecordingStore(), clients).TakeCurrency(7, "pixels", -5));
+
+        Assert.Equal(25, habbo.Duckets);
+        Assert.Equal(Int32s(25, -5, 0), Assert.Single(sent).Payload);
+    }
+
+    [Fact]
+    public async Task ReloadNotifiesDucketsWithTheLoadedBalanceTwice()
+    {
+        var (_, _, sent, clients) = Setup();
+
+        Assert.True(await Service(new RecordingStore { Read = 11 }, clients).ReloadCurrency(7, "duckets"));
+
+        Assert.Equal(Int32s(11, 11, 0), Assert.Single(sent).Payload);
+    }
+
+    [Fact]
+    public async Task GiveCreditsSendsTheDecimalBalanceString()
+    {
+        var (_, _, sent, clients) = Setup();
+
+        Assert.True(await Service(new RecordingStore(), clients).GiveCurrency(7, "coins", 5));
+
+        Assert.Equal(Encode("105.0"), Assert.Single(sent).Payload);
+    }
+
+    [Fact]
+    public async Task DiamondsAndGotwUseTheirFixedNotificationTypes()
+    {
+        var (_, _, sent, clients) = Setup();
+        var service = Service(new RecordingStore(), clients);
+
+        Assert.True(await service.GiveCurrency(7, "diamonds", 5));
+        Assert.True(await service.GiveCurrency(7, "gotw", 5));
+
+        Assert.Equal(new[] { Int32s(25, 0, 5), Int32s(25, 0, 103) }, sent.Select(packet => packet.Payload).ToArray());
+    }
+
+    private static byte[] Int32s(params int[] values)
+    {
+        var bytes = new byte[values.Length * 4];
+        for (var index = 0; index < values.Length; index++) BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(index * 4), values[index]);
+        return bytes;
+    }
+
+    // Flash string framing: a big-endian UInt16 length followed by UTF-8 bytes.
+    private static byte[] Encode(string value)
+    {
+        var text = Encoding.UTF8.GetBytes(value);
+        var bytes = new byte[2 + text.Length];
+        BinaryPrimitives.WriteUInt16BigEndian(bytes, checked((ushort)text.Length));
+        text.CopyTo(bytes, 2);
+        return bytes;
     }
 
     private static int Start(UserCurrency currency) => currency switch
