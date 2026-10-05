@@ -156,7 +156,7 @@ public partial class PlacedFurniRoomTests
         var helper = await Drop(12, 1, 1, InteractionType.WalkMagicTile);
         Assert.NotNull(helper);
         Assert.Equal(2.35, helper.GetZ);
-        await new UpdateMagicTileEvent().Parse(_client, ClientPacket(12, 100));
+        await new UpdateMagicTileEvent(new MagicTileService()).Parse(_client, ClientPacket(12, 100));
         var rug = await Drop(13, 1, 1, InteractionType.None);
         Assert.NotNull(rug);
         Assert.Equal(1, rug.GetZ);
@@ -220,12 +220,12 @@ public partial class PlacedFurniRoomTests
     public async Task WidgetMoveReloadAndRealObjectPacketsKeepAuthoritativeHeightAndPrivateSuffix()
     {
         var tile = await Drop(10, 1, 1, InteractionType.WalkMagicTile);
-        await new UpdateMagicTileEvent().Parse(_client, ClientPacket(10, 175, true));
+        await new UpdateMagicTileEvent(new MagicTileService()).Parse(_client, ClientPacket(10, 175, true));
         Assert.Equal("175;1", tile!.LegacyDataString);
         Add(11, 2, 2, height: 2.35);
         await MoveObject().Parse(_room, _client, ClientPacket(10, 2, 2, 0));
         Assert.Equal("235;1", tile.LegacyDataString);
-        await new UpdateMagicTileEvent().Parse(_client, ClientPacket(10, 300));
+        await new UpdateMagicTileEvent(new MagicTileService()).Parse(_client, ClientPacket(10, 300));
         Assert.Equal("300;1", tile.LegacyDataString);
         Assert.Equal(1, RoomItemSnapshot.Capture(tile).FloorExtra);
         foreach (var composer in new IServerPacket[] { new ObjectAddComposer(RoomItemSnapshot.Capture(tile)), new ObjectUpdateComposer(RoomItemSnapshot.Capture(tile)) })
@@ -240,7 +240,7 @@ public partial class PlacedFurniRoomTests
         }
         var loaded = ItemLoader.ReadRoomItem(Row(3, tile.LegacyDataString), RoomId, tile.Definition);
         Assert.Equal("300;1", loaded.LegacyDataString);
-        await new UpdateMagicTileEvent().Parse(_client, ClientPacket(10, 325, false));
+        await new UpdateMagicTileEvent(new MagicTileService()).Parse(_client, ClientPacket(10, 325, false));
         Assert.Equal("325", tile.LegacyDataString);
         Assert.Equal(0, RoomItemSnapshot.Capture(tile).FloorExtra);
     }
@@ -272,16 +272,16 @@ public partial class PlacedFurniRoomTests
     public async Task WidgetRejectsNonMagicAndUnauthorizedAndClampsBothInputForms()
     {
         var ordinary = Add(10, 1, 1, height: 80);
-        await new UpdateMagicTileEvent().Parse(_client, ClientPacket(10, 100));
+        await new UpdateMagicTileEvent(new MagicTileService()).Parse(_client, ClientPacket(10, 100));
         Assert.Equal(0, ordinary.GetZ);
         var helper = Add(11, 1, 1, type: InteractionType.WalkMagicTile);
-        await new UpdateMagicTileEvent().Parse(_client, ClientPacket(11, -100));
+        await new UpdateMagicTileEvent(new MagicTileService()).Parse(_client, ClientPacket(11, -100));
         Assert.Equal(40, helper.GetZ);
-        await new UpdateMagicTileEvent().Parse(_client, ClientPacket(11, 9000));
+        await new UpdateMagicTileEvent(new MagicTileService()).Parse(_client, ClientPacket(11, 9000));
         Assert.Equal(40, helper.GetZ);
         _client.GetHabbo().Id = 99;
         _client.GetHabbo().Username = "visitor";
-        await new UpdateMagicTileEvent().Parse(_client, ClientPacket(11, 0));
+        await new UpdateMagicTileEvent(new MagicTileService()).Parse(_client, ClientPacket(11, 0));
         Assert.Equal(40, helper.GetZ);
     }
 
@@ -295,7 +295,7 @@ public partial class PlacedFurniRoomTests
         revision.InternalIdToOutgoingIdMapping = revision.OutgoingHeaders.Where(pair => pair.Value > 0).ToDictionary(pair => (uint)typeof(ServerPacketHeader).GetField(pair.Key)!.GetRawConstantValue()!, pair => pair.Value);
         _client.Revision = revision;
         var mapping = revision.IncomingHeaders.Where(pair => pair.Value > 0).ToDictionary(pair => pair.Value, pair => (uint)typeof(ClientPacketHeader).GetField(pair.Key)!.GetRawConstantValue()!);
-        using var manager = new PacketManager([new UpdateMagicTileAdjacentEvent()], NullLogger<PacketManager>.Instance);
+        using var manager = new PacketManager([new UpdateMagicTileAdjacentEvent(new MagicTileService())], NullLogger<PacketManager>.Instance);
         await manager.TryExecutePacket(_client, mapping[2687], ClientPacket(10, false));
         Assert.Equal(2.01, tile.GetZ);
         Assert.Contains(2816u, _client.Sent);
@@ -343,7 +343,7 @@ public partial class PlacedFurniRoomTests
         table.ExtraData = new LegacyDataFormat { Data = "1" };
         table.UpdateState();
         Assert.Equal((short)(1152 | 0x4000), DeltaAt(1, 1));
-        await new UpdateMagicTileEvent().Parse(_client, ClientPacket(11, 225));
+        await new UpdateMagicTileEvent(new MagicTileService()).Parse(_client, ClientPacket(11, 225));
         Assert.Equal((short)576, DeltaAt(2, 2));
         await PickupObject()
             .Parse(_client, ClientPacket(0, 11));
