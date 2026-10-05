@@ -74,6 +74,9 @@ public class HabbiconPacketTests
     private sealed class RecordingPresentation : IHabbiconPresentationService
     {
         public int? Info;
+        public List<(int Category, IReadOnlyList<int>? Ids)> Resets { get; } = [];
+        public void ResetUnseenItems(Plus.HabboHotel.GameClients.GameClient session, int category, IReadOnlyList<int> ids) => Resets.Add((category, ids));
+        public void ResetUnseenCategory(Plus.HabboHotel.GameClients.GameClient session, int category) => Resets.Add((category, null));
         public void ShowInfo(Plus.HabboHotel.GameClients.GameClient session, int id) => Info = id;
         public void ShowShop(Plus.HabboHotel.GameClients.GameClient session) => throw new InvalidOperationException();
         public void Change(Plus.HabboHotel.GameClients.GameClient session, HabbiconAction action, int id) => throw new InvalidOperationException();
@@ -169,7 +172,8 @@ public class HabbiconPacketTests
     {
         var service = new Service();
         var (client, _) = Client(new Habbo { Id = 1 });
-        var items = new UnseenResetItemsEvent(service);
+        var presentation = new HabbiconPresentationService(service, NullLogger<HabbiconPresentationService>.Instance);
+        var items = new UnseenResetItemsEvent(presentation);
         await items.Parse(client, Incoming(4, 1, 61));
         await items.Parse(client, Incoming(8, 0));
         await items.Parse(client, Incoming(8, 1001));
@@ -177,10 +181,27 @@ public class HabbiconPacketTests
         Assert.Empty(service.Clears);
         await items.Parse(client, Incoming(8, 3, 61, 61, 71));
         Assert.Equal(new[] { 61, 71 }, Assert.Single(service.Clears));
-        await new UnseenResetCategoryEvent(service).Parse(client, Incoming(4));
+        await new UnseenResetCategoryEvent(presentation).Parse(client, Incoming(4));
         Assert.Single(service.Clears);
-        await new UnseenResetCategoryEvent(service).Parse(client, Incoming(8));
+        await new UnseenResetCategoryEvent(presentation).Parse(client, Incoming(8));
         Assert.Empty(service.Clears[1]);
+    }
+
+    [Fact]
+    public async Task UnseenHandlersFullyDecodeAndDelegateCategoryPolicy()
+    {
+        var (client, sent) = Client(new Habbo { Id = 1 });
+        var presentation = new RecordingPresentation();
+        var packet = Incoming(4, 3, 61, 61, 71);
+        await new UnseenResetItemsEvent(presentation).Parse(client, packet);
+        Assert.False(packet.HasDataRemaining());
+        Assert.Equal(4, presentation.Resets[0].Category);
+        Assert.Equal(new[] { 61, 61, 71 }, presentation.Resets[0].Ids);
+        var category = Incoming(4);
+        await new UnseenResetCategoryEvent(presentation).Parse(client, category);
+        Assert.False(category.HasDataRemaining());
+        Assert.Equal((4, (IReadOnlyList<int>?)null), presentation.Resets[1]);
+        Assert.Empty(sent);
     }
 
     [Theory]

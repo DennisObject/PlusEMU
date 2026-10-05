@@ -3,11 +3,12 @@ using Plus.HabboHotel.Habbicons;
 
 namespace Plus.Communication.Packets.Incoming.Habbicons;
 
-public sealed class UnseenResetCategoryEvent(IHabbiconService service) : IPacketEvent
+public sealed class UnseenResetCategoryEvent(IHabbiconPresentationService habbicons) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (packet.ReadInt() == HabbiconService.UnseenCategory) service.ClearUnseen(session.GetHabbo().Id, Array.Empty<int>());
+        var category = packet.ReadInt();
+        habbicons.ResetUnseenCategory(session, category);
         return Task.CompletedTask;
     }
 }
