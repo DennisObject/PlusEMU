@@ -19,28 +19,28 @@ public class MessengerUtcHabiconTests
     [Fact]
     public void WireSecondsClampsBelowEpochAndPastInt32AndKeepsWholeSeconds()
     {
-        Assert.Equal(0, MessengerTime.WireSeconds(new DateTime(1969, 12, 31, 23, 59, 59, DateTimeKind.Utc)));
-        Assert.Equal(0, MessengerTime.WireSeconds(DateTime.UnixEpoch));
-        Assert.Equal(1_700_000_000, MessengerTime.WireSeconds(new DateTime(2023, 11, 14, 22, 13, 20, 123, DateTimeKind.Utc)));
-        Assert.Equal(int.MaxValue, MessengerTime.WireSeconds(new DateTime(2038, 1, 19, 3, 14, 8, DateTimeKind.Utc)));
-        Assert.Equal(int.MaxValue, MessengerTime.WireSeconds(new DateTime(9999, 12, 31, 23, 59, 59, 999, DateTimeKind.Utc)));
+        Assert.Equal(0, MessengerTime.WireSeconds(At(new DateTime(1969, 12, 31, 23, 59, 59, DateTimeKind.Utc))));
+        Assert.Equal(0, MessengerTime.WireSeconds(At(DateTime.UnixEpoch)));
+        Assert.Equal(1_700_000_000, MessengerTime.WireSeconds(At(new DateTime(2023, 11, 14, 22, 13, 20, 123, DateTimeKind.Utc))));
+        Assert.Equal(int.MaxValue, MessengerTime.WireSeconds(At(new DateTime(2038, 1, 19, 3, 14, 8, DateTimeKind.Utc))));
+        Assert.Equal(int.MaxValue, MessengerTime.WireSeconds(At(new DateTime(9999, 12, 31, 23, 59, 59, 999, DateTimeKind.Utc))));
     }
 
     [Fact]
     public void MissingTimesHaveNoWireValueAndReadAsZeroSecondsAgo()
     {
         var now = new DateTime(2023, 11, 14, 22, 15, 0, DateTimeKind.Utc);
-        Assert.Equal(0, MessengerTime.WireSeconds((DateTime?)null));
-        Assert.Equal(0, MessengerTime.SecondsBetween(now, (DateTime?)null));
+        Assert.Equal(0, MessengerTime.WireSeconds((DateTimeOffset?)null));
+        Assert.Equal(0, MessengerTime.SecondsBetween(now, (DateTimeOffset?)null));
     }
 
     [Fact]
     public void SecondsBetweenReadsFutureAsZeroAndClampsOverflow()
     {
-        var now = new DateTime(2023, 11, 14, 22, 15, 0, DateTimeKind.Utc);
+        var now = At(new DateTime(2023, 11, 14, 22, 15, 0, DateTimeKind.Utc));
         Assert.Equal(0, MessengerTime.SecondsBetween(now, now.AddSeconds(5)));
         Assert.Equal(60, MessengerTime.SecondsBetween(now, now.AddSeconds(-60.5)));
-        Assert.Equal(int.MaxValue, MessengerTime.SecondsBetween(now, new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc)));
+        Assert.Equal(int.MaxValue, MessengerTime.SecondsBetween(now, At(new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc))));
     }
 
     [Fact]
@@ -193,6 +193,26 @@ public class MessengerUtcHabiconTests
     }
 
     [MessengerUtcDatabaseFact]
+    public async Task OfflineReadMaterializesNativeDateTimeBeyond2038AndNullsThroughTheLoader()
+    {
+        await WithSchema(async connectionString =>
+        {
+            CreateMigratedSchema(connectionString);
+            using (var setup = new MySqlConnection(connectionString))
+            {
+                setup.Open();
+                setup.Execute("INSERT INTO messenger_offline_messages (to_id, from_id, message, `timestamp`) VALUES (2, 3, 'after 2038', '2039-12-31 23:59:50.250000'), (2, 3, 'unknown', NULL)");
+            }
+            var loader = new MessengerDataLoader(new HabbiconDatabaseTests.TestDatabase(connectionString), null!, null!, null!,
+                new FixedTimeProvider(new DateTimeOffset(2040, 1, 1, 0, 0, 0, TimeSpan.Zero)));
+
+            var result = await loader.GetAndDeleteOfflineMessages(2);
+
+            Assert.Equal(new[] { ("unknown", 0), ("after 2038", 9) }, result[3]);
+        });
+    }
+
+    [MessengerUtcDatabaseFact]
     public async Task ExactIdDeleteLeavesRowsThatArrivedAfterTheRead()
     {
         await WithSchema(async connectionString =>
@@ -225,6 +245,8 @@ public class MessengerUtcHabiconTests
         }
         throw new InvalidOperationException("Expected the missing socket to be unreachable.");
     }
+
+    private static DateTimeOffset At(DateTime utc) => new(utc);
 
     private static int ReadInt(byte[] payload, int offset) => BinaryPrimitives.ReadInt32BigEndian(payload.AsSpan(offset, 4));
 
@@ -260,6 +282,8 @@ public class MessengerUtcHabiconTests
     {
         var server = Environment.GetEnvironmentVariable("PLUS_MESSENGER_UTC_TEST_CONNECTION_STRING")!;
         var schema = "task_messenger_tests_utc_" + Guid.NewGuid().ToString("N")[..12];
+        // Production Database.Connection sets these, and they change how native DATETIME values are materialised.
+        var options = new MySqlConnectionStringBuilder(server) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true };
         using (var admin = new MySqlConnection(server))
         {
             admin.Open();
@@ -267,7 +291,7 @@ public class MessengerUtcHabiconTests
         }
         try
         {
-            await body(new MySqlConnectionStringBuilder(server) { Database = schema }.ConnectionString);
+            await body(options.ConnectionString);
         }
         finally
         {

@@ -38,7 +38,7 @@ public sealed class HabbiconMessengerService(IHabbiconService habbicons, IGameCl
             // Nothing is acknowledged or delivered unless the store has committed the audit row.
             var createdAtUtc = capturedAt.UtcDateTime;
             int messageId = store.Record(sender.Id, recipientId, ":" + item.Name + ":", createdAtUtc, target == null);
-            int createdAt = MessengerTime.WireSeconds(createdAtUtc);
+            int createdAt = MessengerTime.WireSeconds(capturedAt);
             session.Send(new MessengerMessageAckComposer(confirmationId, messageId, createdAt));
             target?.Send(new MessengerMessageComposer(messageId, sender.Id, id, createdAt));
             try
