@@ -308,9 +308,29 @@ public sealed class MessengerCommunicationServiceTests
         }
 
         public MessengerCommunicationService ServiceWithRealOutput() =>
-            new(Filter, LoaderProxy(), Quests, Rewards, new MessengerCommunicationOutput());
+            new(Filter, LoaderProxy(), Quests, Rewards, new MessengerCommunicationOutput(), Friends);
 
-        public MessengerCommunicationService Service() => new(Filter, LoaderProxy(), Quests, Rewards, Output);
+        public MessengerCommunicationService Service() => new(Filter, LoaderProxy(), Quests, Rewards, Output, Friends);
+
+        // Memory-only stand-in for the persisted workflow: these tests check reward and quest ordering around the result.
+        public readonly MemoryFriendMutations Friends = new();
+
+        public sealed class MemoryFriendMutations : IMessengerFriendMutationService
+        {
+            public Task<FriendRequestError?> AcceptRequestAsync(Habbo habbo, int fromId)
+            {
+                habbo.Messenger.RemoveRequest(fromId);
+                return Task.FromResult<FriendRequestError?>(null);
+            }
+            public Task<FriendRequestError?> DeclineRequestAsync(Habbo habbo, int fromId) => throw new NotSupportedException();
+            public Task DeclineAllRequestsAsync(Habbo habbo) => throw new NotSupportedException();
+            public Task<FriendRequestError?> SendRequestAsync(Habbo habbo, int toId)
+            {
+                if (habbo.Messenger.Requests.ContainsKey(toId)) return AcceptRequestAsync(habbo, toId);
+                return Task.FromResult(habbo.Messenger.SendFriendRequest(toId));
+            }
+            public Task RemoveFriendsAsync(Habbo habbo, IReadOnlyList<int> friendIds) => throw new NotSupportedException();
+        }
 
         private IMessengerDataLoader LoaderProxy()
         {

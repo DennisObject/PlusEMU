@@ -45,26 +45,31 @@ internal class MessengerDataLoader : IMessengerDataLoader
         return (await connection.QueryAsync<int>("SELECT to_id FROM messenger_requests WHERE from_id = @userId", new { userId })).ToList();
     }
 
-    public async Task<(MessengerBuddy from, MessengerBuddy to)?> CreateRelationship(int fromUserId, int toUserId)
+    /// <summary>
+    /// Consumes exactly the request from <paramref name="fromId"/> and commits both friendship rows in one transaction.
+    /// Accounts are locked in ascending id order; a missing account, an absent request or a full friend list commits nothing.
+    /// </summary>
+    public async Task<FriendAcceptResult> AcceptFriendRequest(int acceptorId, int fromId)
     {
         using var connection = _database.Connection();
-        var access = new[] { fromUserId, toUserId }.Distinct().ToDictionary(id => id, id => _gameClientManager.GetClientByUserId(id)?.GetHabbo().Access ?? _permissions.Resolve(id));
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        var accounts = await connection.QueryAsync<int>("SELECT id FROM users WHERE id IN @ids ORDER BY id FOR UPDATE", new { ids = access.Keys.ToArray() }, transaction);
-        if (accounts.Count() != 2) return null;
-        foreach (var pair in access)
-            if (await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id = @id", new { id = pair.Key }, transaction) >= Plus.HabboHotel.Subscriptions.ClubLimits.For(pair.Value, "friends", _settings)) return null;
-        await connection.ExecuteAsync("INSERT IGNORE INTO messenger_friendships (user_one_id, user_two_id) VALUES (@fromUserId, @toUserId), (@toUserId, @fromUserId)", new
+        var ids = new[] { acceptorId, fromId }.Distinct().OrderBy(id => id).ToArray();
+        var locked = (await connection.QueryAsync<int>("SELECT id FROM users WHERE id IN @ids ORDER BY id FOR UPDATE", new { ids }, transaction)).Count();
+        if (locked != ids.Length) return new(FriendRequestError.NoFriendRequest);
+        if (await connection.ExecuteAsync("DELETE FROM messenger_requests WHERE from_id = @fromId AND to_id = @acceptorId", new { fromId, acceptorId }, transaction) != 1)
+            return new(FriendRequestError.NoFriendRequest);
+        foreach (var id in ids)
         {
-            fromUserId,
-            toUserId
-        }, transaction);
+            var access = _gameClientManager.GetClientByUserId(id)?.GetHabbo().Access ?? _permissions.Resolve(id);
+            var friends = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id = @id", new { id }, transaction);
+            if (friends >= Plus.HabboHotel.Subscriptions.ClubLimits.For(access, "friends", _settings)) return new(FriendRequestError.FriendLimitReached);
+        }
+        await connection.ExecuteAsync("INSERT IGNORE INTO messenger_friendships (user_one_id, user_two_id) VALUES (@acceptorId, @fromId), (@fromId, @acceptorId)", new { acceptorId, fromId }, transaction);
         transaction.Commit();
-        var from = await GetBuddy(toUserId, fromUserId);
-        var to = await GetBuddy(fromUserId, toUserId);
-
-        return (from!, to!);
+        var from = await GetBuddy(acceptorId, fromId);
+        var to = await GetBuddy(fromId, acceptorId);
+        return new(null, from, to);
     }
 
     public async Task<MessengerBuddy> CreateBuddy(int userId)
@@ -142,10 +147,10 @@ internal class MessengerDataLoader : IMessengerDataLoader
         return await connection.ExecuteScalarAsync<int>("SELECT count(0) FROM messenger_friendships WHERE user_one_id = @userid OR user_two_id = @userid", new { userid = userId });
     }
 
-    public async Task DeleteFriendship(int userOneId, int userTwoId)
+    public async Task<int> DeleteFriendship(int userOneId, int userTwoId)
     {
         using var connection = _database.Connection();
-        await connection.ExecuteAsync("DELETE FROM messenger_friendships WHERE (user_one_id = @userOneId AND user_two_id = @userTwoId) OR (user_one_id = @userTwoId AND user_two_id = @userOneId)", new { userOneId, userTwoId });
+        return await connection.ExecuteAsync("DELETE FROM messenger_friendships WHERE (user_one_id = @userOneId AND user_two_id = @userTwoId) OR (user_one_id = @userTwoId AND user_two_id = @userOneId)", new { userOneId, userTwoId });
     }
 
     public async Task SetRelationship(int userOneId, int userTwoId, int relationship)
@@ -154,16 +159,17 @@ internal class MessengerDataLoader : IMessengerDataLoader
         await connection.ExecuteAsync("UPDATE messenger_friendships SET relationship = @relationship WHERE user_one_id = @userOneId AND user_two_id = @userTwoId", new { userOneId, userTwoId, relationship });
     }
 
-    public async Task RegisterFriendRequest(int fromUserId, int toUserId)
+    public async Task<bool> RegisterFriendRequest(int fromUserId, int toUserId)
     {
         using var connection = _database.Connection();
-        await connection.ExecuteAsync("INSERT INTO messenger_requests (from_id, to_id) VALUES (@fromUserId, @toUserId)", new { fromUserId, toUserId });
+        return await connection.ExecuteAsync("INSERT IGNORE INTO messenger_requests (from_id, to_id) VALUES (@fromUserId, @toUserId)", new { fromUserId, toUserId }) == 1;
     }
 
-    public async Task DeleteFriendRequest(int fromUserId, int toUserId)
+    // Removes only the request that goes from fromUserId to toUserId; the reverse direction is a different request.
+    public async Task<int> DeleteFriendRequest(int fromUserId, int toUserId)
     {
         using var connection = _database.Connection();
-        await connection.ExecuteAsync("DELETE FROM messenger_requests WHERE (from_id = @fromUserId AND to_id = @toUserId) OR (from_id = @toUserId AND to_id = @toUserId)", new { fromUserId, toUserId });
+        return await connection.ExecuteAsync("DELETE FROM messenger_requests WHERE from_id = @fromUserId AND to_id = @toUserId", new { fromUserId, toUserId });
     }
 
     public async Task<(int userId, bool blockFriendRequests)> CanReceiveFriendRequests(string name)

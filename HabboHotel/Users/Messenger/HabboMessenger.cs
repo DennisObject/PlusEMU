@@ -43,30 +43,17 @@ public class HabboMessenger
     {
         if (_outstandingFriendRequests.Contains(toId))
             return FriendRequestError.AlreadyOutstandingFriendRequest;
+        // A request already waiting from toId is consumed by the persisted accept path, never here.
         if (_requests.ContainsKey(toId))
-            return AcceptFriendRequest(toId);
+            return FriendRequestError.AlreadyOutstandingFriendRequest;
         FriendRequestUpdated?.Invoke(this, new(FriendRequestModificationType.Sent, new() { ToId = toId }));
         return null;
     }
 
     public Func<int> FriendLimit { get; set; } = () => 300;
 
-    public FriendRequestError? AcceptFriendRequest(int fromId)
-    {
-        if (_friends.Count >= FriendLimit()) return FriendRequestError.FriendLimitReached;
-        if (!_requests.TryRemove(fromId, out var request))
-            return FriendRequestError.NoFriendRequest;
-        FriendRequestUpdated?.Invoke(this, new(FriendRequestModificationType.Accepted, request));
-        return null;
-    }
-
-    public FriendRequestError? DeclineFriendRequest(int fromId)
-    {
-        if (!_requests.TryRemove(fromId, out var request))
-            return FriendRequestError.NoFriendRequest;
-        FriendRequestUpdated?.Invoke(this, new(FriendRequestModificationType.Declined, request));
-        return null;
-    }
+    // Called only after the request has been consumed in storage; no persistence event is raised.
+    public void RemoveRequest(int fromId) => _requests.TryRemove(fromId, out _);
 
     public void ReceiveRoomInvite(MessengerBuddy friend, string message)
     {

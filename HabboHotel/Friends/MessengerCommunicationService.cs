@@ -23,7 +23,8 @@ public sealed class MessengerCommunicationService(
     IMessengerDataLoader messengerData,
     IQuestManager quests,
     IRewardTrackManager rewards,
-    IMessengerCommunicationOutput output) : IMessengerCommunicationService
+    IMessengerCommunicationOutput output,
+    IMessengerFriendMutationService friends) : IMessengerCommunicationService
 {
     public Task SendMessage(GameClient session, int friendId, string text)
     {
@@ -59,7 +60,8 @@ public sealed class MessengerCommunicationService(
 
         var habbo = session.GetHabbo();
         var accepting = habbo.Messenger.Requests.ContainsKey(userId);
-        if (habbo.Messenger.SendFriendRequest(userId) == null && !accepting)
+        // The reward waits for the stored request; a refused or accepting attempt earns none.
+        if (await friends.SendRequestAsync(habbo, userId) == null && !accepting)
             rewards.Progress(session, RewardTrackActions.RequestFriend);
         // The attempt counts toward the social quest even when the messenger refuses it.
         quests.ProgressUserQuest(session, QuestType.SocialFriend);

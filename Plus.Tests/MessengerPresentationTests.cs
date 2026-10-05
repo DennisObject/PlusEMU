@@ -221,16 +221,16 @@ public class MessengerPresentationTests
         public Task<List<MessengerBuddy>> GetBuddiesForUser(int userId) => throw new NotSupportedException();
         public Task<List<MessengerRequest>> GetRequestsForUser(int userId) => throw new NotSupportedException();
         public Task<List<int>> GetOutstandingRequestsForUser(int userId) => throw new NotSupportedException();
-        public Task<(MessengerBuddy from, MessengerBuddy to)?> CreateRelationship(int fromUserId, int toUserId) => throw new NotSupportedException();
+        public Task<FriendAcceptResult> AcceptFriendRequest(int acceptorId, int fromId) => throw new NotSupportedException();
         public Task<MessengerBuddy> CreateBuddy(int userId) => throw new NotSupportedException();
         public Task<MessengerBuddy?> GetBuddy(int userId, int friendId) => throw new NotSupportedException();
         public void BroadcastStatusUpdate(Habbo habbo, MessengerEventTypes eventType, string value) => throw new NotSupportedException();
         public Task LogPrivateMessage(int fromId, int toId, string message) => throw new NotSupportedException();
         public Task LogPrivateOfflineMessage(int fromId, int toId, string message) => throw new NotSupportedException();
-        public Task DeleteFriendship(int userOneId, int userTwoId) => throw new NotSupportedException();
+        public Task<int> DeleteFriendship(int userOneId, int userTwoId) => throw new NotSupportedException();
         public Task SetRelationship(int userOneId, int userTwoId, int relationship) => throw new NotSupportedException();
-        public Task DeleteFriendRequest(int fromUserId, int toUserId) => throw new NotSupportedException();
-        public Task RegisterFriendRequest(int fromUserId, int toUserId) => throw new NotSupportedException();
+        public Task<int> DeleteFriendRequest(int fromUserId, int toUserId) => throw new NotSupportedException();
+        public Task<bool> RegisterFriendRequest(int fromUserId, int toUserId) => throw new NotSupportedException();
         public Task<(int userId, bool blockFriendRequests)> CanReceiveFriendRequests(string name) => throw new NotSupportedException();
         public Task<int> GetFriendCount(int userId) => throw new NotSupportedException();
     }
