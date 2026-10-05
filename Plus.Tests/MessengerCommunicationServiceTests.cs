@@ -36,9 +36,7 @@ public sealed class MessengerCommunicationServiceTests
         Assert.Equal(new[] { "hello" }, f.Filter.Checked);
         Assert.Single(sent);
         Assert.Equal(ServerPacketHeader.InstantMessageErrorComposer, sent[0].Header);
-        var expected = new HabbiconTestSupport.RecordingPacket();
-        new InstantMessageErrorComposer(MessengerMessageErrors.NotFriends, 99).Compose(expected);
-        Assert.Equal(expected.Writes, MessengerFixture.Decode(sent[0].Payload));
+        Assert.Equal(new object[] { 6, 99, "" }, MessengerFixture.Decode(sent[0].Payload));
         Assert.Empty(events);
         Assert.Empty(f.Rewards.Progressed);
     }
@@ -297,10 +295,10 @@ public sealed class MessengerCommunicationServiceTests
             var session = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
                 Revision = new Revision { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
-                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id) },
+                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Where(id => id > 0).Distinct().ToDictionary(id => id, id => id) },
                 SendCallback = args =>
                 {
-                    var bytes = args.MemoryBuffer.ToArray();
+                    var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
                     sent.Add((System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
                     return true;
                 }
@@ -330,6 +328,7 @@ public sealed class MessengerCommunicationServiceTests
             writes.Add(System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(reader.ReadBytes(4)));
             writes.Add(System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(reader.ReadBytes(4)));
             writes.Add(System.Text.Encoding.UTF8.GetString(reader.ReadBytes(System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(reader.ReadBytes(2)))));
+            Assert.Equal(stream.Length, stream.Position);
             return writes;
         }
 
