@@ -176,7 +176,7 @@ public class ModernWiredRuntimeTests
         f.Fire();
 
         var alice = Capture(f.Habbo.Client);
-        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, ""));
+        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, ""));
         var page = Reply(alice, 918);
         Assert.Equal((1, 1, 50, 1), (page.Int(), page.Int(), page.Int(), page.Int()));
         Assert.Equal((1d, 2, 8, "Gate opened"), (page.Long(), page.Byte(), page.Byte(), page.String()));
@@ -186,17 +186,17 @@ public class ModernWiredRuntimeTests
         Assert.Equal((false, false, false), (page.Bool(), page.Bool(), page.Bool()));
         page.End();
 
-        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(9, 50, 2, 8, " GATE "));
+        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(9, 50, 2, 8, " GATE "));
         page = Reply(alice, 918);
         Assert.Equal((1, 1, 50, 1), (page.Int(), page.Int(), page.Int(), page.Int()));
         Assert.Equal("Gate opened", page.Skip(2, 1, 1).String()); page.Skip(2).String();
         Assert.Equal((true, 2, true, 8, true, "GATE"), (page.Bool(), page.Byte(), page.Bool(), page.Byte(), page.Bool(), page.String()));
         page.End();
-        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, 4, "")); // a source Plus never writes
+        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, 4, "")); // a source Plus never writes
         page = Reply(alice, 918);
         Assert.Equal((0, 1, 50, 0), (page.Int(), page.Int(), page.Int(), page.Int()));
 
-        await new WiredMonitorRequestEvent().Parse(f.Room, f.Habbo.Client, Request(0));
+        await MonitorRequest().Parse(f.Room, f.Habbo.Client, Request(0));
         var monitor = Reply(alice, 5101);
         monitor.Skip(1); Assert.Equal(10000, monitor.Int()); Assert.False(monitor.Bool());
         monitor.Skip(1); Assert.Equal(100, monitor.Int()); monitor.Skip(3); Assert.Equal(32, monitor.Int());
@@ -217,27 +217,74 @@ public class ModernWiredRuntimeTests
         var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
         bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
         var bobReplies = Capture(bob);
-        await new WiredRoomLogsPageEvent().Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
-        await new WiredMonitorRequestEvent().Parse(f.Room, bob, Request(0));
+        await RoomLogsPage().Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
+        await MonitorRequest().Parse(f.Room, bob, Request(0));
         Assert.Empty(bobReplies);
         store.Saved = new(InspectMask: (int)WiredRoomAccess.Everyone); settings.Reload();
-        await new WiredMonitorRequestEvent().Parse(f.Room, bob, Request(1));
+        await MonitorRequest().Parse(f.Room, bob, Request(1));
         Assert.Empty(bobReplies);
-        var pages = new WiredRoomLogsPageEvent();
+        var pages = RoomLogsPage();
         await pages.Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
         await pages.Parse(f.Room, bob, Request(1, 50, -1, -1, "")); // inside the 250 ms page interval
         Assert.Equal(1, Reply(bobReplies, 918).Int());
         Assert.Empty(bobReplies);
 
-        await new WiredMonitorRequestEvent().Parse(f.Room, f.Habbo.Client, Request(1));
+        await MonitorRequest().Parse(f.Room, f.Habbo.Client, Request(1));
         monitor = Reply(alice, 5101).Skip(16, 1);
         Assert.Equal(4, monitor.Int());
         for (var i = 0; i < 4; i++) { monitor.String(); monitor.String(); Assert.Equal(0, monitor.Int()); monitor.Skip(1).String(); monitor.String(); monitor.Int(); }
         Assert.Equal(0, monitor.Int());
         monitor.End();
-        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "x", 1)); // trailing data is malformed
+        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "x", 1)); // trailing data is malformed
         Assert.Empty(alice);
     }
+
+    [Fact]
+    public async Task MonitorAndLogGatesUseTheInjectedMonotonicClockAndStayIndependent()
+    {
+        using var f = new TeleportFixture();
+        f.Room.OwnerName = "Alice"; f.Room.Type = "private"; f.Room.UsersWithRights = [];
+        var clock = new ManualMonotonicClock();
+        var gates = new WiredRequestGateService(clock);
+        var fetch = new WiredMonitorRequestEvent(gates, new WiredMonitorService());
+        var pages = new WiredRoomLogsPageEvent(gates, new WiredMonitorService());
+        var alice = Capture(f.Habbo.Client);
+        int Monitors() => alice.Count(reply => reply.Header == 5101);
+        int Pages() => alice.Count(reply => reply.Header == 918);
+
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(0)); Assert.Equal(1, Monitors()); // the first request passes
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(0)); Assert.Equal(1, Monitors()); // a repeat at the same instant is refused
+        clock.Advance(199);
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(0)); Assert.Equal(1, Monitors());
+        clock.Advance(1);
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(0)); Assert.Equal(2, Monitors()); // exactly 200 ms passes
+
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(1)); Assert.Equal(3, Monitors()); // a clear has its own gate
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(1)); Assert.Equal(3, Monitors());
+
+        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "")); Assert.Equal(1, Pages());
+        clock.Advance(249);
+        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "")); Assert.Equal(1, Pages());
+        clock.Advance(1);
+        await pages.Parse(f.Room, f.Habbo.Client, Request(0, 50, -1, -1, "")); Assert.Equal(2, Pages()); // page 0 is normalized to page 1
+
+        // Malformed requests return before the gate, so they cannot use up the interval.
+        clock.Advance(250);
+        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "x", 1)); Assert.Equal(2, Pages());
+        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "")); Assert.Equal(3, Pages());
+    }
+
+    private sealed class ManualMonotonicClock : TimeProvider
+    {
+        private long _now;
+        public override long TimestampFrequency => 1000;
+        public override long GetTimestamp() => _now;
+        public void Advance(long milliseconds) => _now += milliseconds;
+    }
+
+    // Each request source gets its own rate gates, as in production, unless a test shares one explicitly.
+    private static WiredRoomLogsPageEvent RoomLogsPage() => new(new WiredRequestGateService(TimeProvider.System), new WiredMonitorService());
+    private static WiredMonitorRequestEvent MonitorRequest() => new(new WiredRequestGateService(TimeProvider.System), new WiredMonitorService());
 
     private static List<(uint Header, byte[] Body)> Capture(GameClient client)
     {

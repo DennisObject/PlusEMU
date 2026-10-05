@@ -3,21 +3,16 @@ using Plus.Communication.Packets.Incoming.Rooms;
 using Plus.Communication.Packets.Outgoing.WiredVariables;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Variables;
-using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.WiredVariables;
 
-public sealed record WiredVariableMenuWrite(int Action, WiredVariableTarget Target, int TargetId, uint DefinitionId, int Value, string Token);
-
-public sealed class WiredUserVariableUpdateEvent : RoomPacketEvent
+public sealed class WiredUserVariableUpdateEvent(IWiredVariableMenuService menus) : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         if (!room.GetWired().Settings.CanModify(session) || !TryRead(packet, false, out var request)) return Task.CompletedTask;
-        var menu = new WiredVariableMenu(room, room.GetWired().Variables);
-        menu.Write(request!.Target, request.TargetId, request.DefinitionId, request.Value, WiredVariableMutation.Set, request.Token);
-        session.Send(new WiredUserVariablesDataComposer(menu.Snapshot()));
+        session.Send(new WiredUserVariablesDataComposer(menus.Write(room, request!)));
         return Task.CompletedTask;
     }
     public static bool TryRead(IIncomingPacket packet, bool manage, out WiredVariableMenuWrite? request)
@@ -37,20 +32,15 @@ public sealed class WiredUserVariableUpdateEvent : RoomPacketEvent
     }
 }
 
-public sealed class WiredUserVariableManageEvent : RoomPacketEvent
+public sealed class WiredUserVariableManageEvent(IWiredVariableMenuService menus) : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanModify(session) || !WiredUserVariableUpdateEvent.TryRead(packet, true, out var request)) return Task.CompletedTask;
-        var menu = new WiredVariableMenu(room, room.GetWired().Variables);
-        if (request!.Action == 2)
-        {
-            // This reaches offline holders, so ordinary wired editing or group rights are insufficient.
-            if (room.GetWired().Settings.CanManage(session)) menu.Clear(request.Target, request.DefinitionId);
-        }
-        else menu.Write(request.Target, request.TargetId, request.DefinitionId, request.Value,
-            request.Action == 1 ? WiredVariableMutation.Remove : WiredVariableMutation.Replace);
-        session.Send(new WiredUserVariablesDataComposer(menu.Snapshot()));
+        var settings = room.GetWired().Settings;
+        if (!settings.CanModify(session) || !WiredUserVariableUpdateEvent.TryRead(packet, true, out var request)) return Task.CompletedTask;
+        // This reaches offline holders, so ordinary wired editing or group rights are insufficient.
+        var mayClear = request!.Action == 2 && settings.CanManage(session);
+        session.Send(new WiredUserVariablesDataComposer(menus.Manage(room, request, mayClear)));
         return Task.CompletedTask;
     }
 }
