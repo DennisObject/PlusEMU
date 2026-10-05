@@ -180,21 +180,6 @@ public class PlusEnvironment : IPlusEnvironment
     [Obsolete]
     public static string BoolToEnum(bool @bool) => @bool ? "1" : "0";
 
-    [Obsolete]
-    public static double GetUnixTimestamp()
-    {
-        var ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0);
-        return ts.TotalSeconds;
-    }
-
-    [Obsolete]
-    public static long Now()
-    {
-        var ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0);
-        var unixTime = ts.TotalMilliseconds;
-        return (long)unixTime;
-    }
-
     public static string FilterFigure(string figure)
     {
         foreach (var character in figure)
