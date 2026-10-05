@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Plus.Communication.Packets.Outgoing.Groups;
 using Plus.Core.Settings;
+using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Cache;
 using Plus.HabboHotel.Cache.Type;
@@ -46,11 +47,35 @@ public interface IGroupPresentationService
     void ShowMembers(GameClient session, GroupMembersRequest request);
     void ShowBadgeEditor(GameClient session);
     void ShowCreationWindow(GameClient session);
+    void ShowInfo(GameClient session, int groupId, bool newWindow);
+    void ShowFurnitureSettings(GameClient session, uint itemId, int groupId);
 }
 
-public sealed class GroupPresentationService(IGroupManager groups, ICacheManager cache, IRoomDataLoader rooms, ISettingsManager settings) : IGroupPresentationService
+public sealed class GroupPresentationService(IGroupManager groups, ICacheManager cache, IRoomDataLoader rooms, ISettingsManager settings, IGroupInfoSnapshotService groupInfo) : IGroupPresentationService
 {
     private const int PageSize = 14;
+
+    public void ShowInfo(GameClient session, int groupId, bool newWindow)
+    {
+        if (groups.TryGetGroup(groupId, out var group))
+            session.Send(new GroupInfoComposer(groupInfo.Capture(group, session.GetHabbo().Id), newWindow));
+    }
+
+    public void ShowFurnitureSettings(GameClient session, uint itemId, int groupId)
+    {
+        var habbo = session.GetHabbo();
+        var room = habbo.CurrentRoom;
+        if (!habbo.InRoom || room == null)
+            return;
+        var item = room.GetRoomItemHandler().GetItem(itemId);
+        if (item == null || item.IsTemporary || item.Definition.InteractionType != InteractionType.GuildGate ||
+            !groups.TryGetGroup(groupId, out var group))
+            return;
+        var settings = GroupFurniSettingsSnapshot.Capture(group, itemId, habbo.Id);
+        var info = groupInfo.Capture(group, habbo.Id);
+        session.Send(new GroupFurniSettingsComposer(settings));
+        session.Send(new GroupInfoComposer(info));
+    }
 
     public void ShowMembers(GameClient session, GroupMembersRequest request)
     {

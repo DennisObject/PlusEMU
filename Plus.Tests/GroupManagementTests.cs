@@ -160,7 +160,7 @@ public class GroupManagementTests : IDisposable
             var id = (int)args[0]!;
             return new CachedUser { Id = id, Username = id == 30 ? "Pending" : "Member" + id, Look = "hr-1" };
         });
-        var handler = new GetGroupMembersEvent(new GroupPresentationService(GroupSource(group), cache, Proxy<IRoomDataLoader>((_, _) => throw new NotSupportedException()), Proxy<ISettingsManager>((_, _) => throw new NotSupportedException())));
+        var handler = new GetGroupMembersEvent(new GroupPresentationService(GroupSource(group), cache, Proxy<IRoomDataLoader>((_, _) => throw new NotSupportedException()), Proxy<ISettingsManager>((_, _) => throw new NotSupportedException()), GroupInfo()));
         var (member, memberSent) = Client(new Habbo { Id = 2, Username = "Member2", Access = Rights() });
         await handler.Parse(member, Packet(group.Id, 0, "", 0));
         var firstPage = DecodeMembers(memberSent[0].Payload);

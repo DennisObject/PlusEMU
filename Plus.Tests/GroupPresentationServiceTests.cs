@@ -37,7 +37,7 @@ public sealed class GroupPresentationServiceTests
     public void MissingGroupDoesNotPublish()
     {
         var (client, sent) = Client(1);
-        var service = new GroupPresentationService(GroupSource(null), Cache(), Rooms(), Settings());
+        var service = new GroupPresentationService(GroupSource(null), Cache(), Rooms(), Settings(), NoGroupInfo());
 
         service.ShowMembers(client, new GroupMembersRequest(99, 0, "", 0));
 
@@ -55,7 +55,7 @@ public sealed class GroupPresentationServiceTests
             [3] = User(3, "Member"),
             [4] = User(4, "Pending")
         };
-        var service = new GroupPresentationService(GroupSource(group), Cache(users), Rooms(), Settings());
+        var service = new GroupPresentationService(GroupSource(group), Cache(users), Rooms(), Settings(), NoGroupInfo());
         var (owner, ownerSent) = Client(1);
 
         service.ShowMembers(owner, new GroupMembersRequest(group.Id, 0, "", 0));
@@ -84,7 +84,7 @@ public sealed class GroupPresentationServiceTests
         var ids = Enumerable.Range(1, 20).ToImmutableArray();
         var group = Group(new GroupMembershipSnapshot(ids, [], []), creatorId: 99);
         var users = ids.ToDictionary(id => id, id => User(id, $"Member{id:D2}"));
-        var service = new GroupPresentationService(GroupSource(group), Cache(users), Rooms(), Settings());
+        var service = new GroupPresentationService(GroupSource(group), Cache(users), Rooms(), Settings(), NoGroupInfo());
         var (client, sent) = Client(99);
 
         service.ShowMembers(client, new GroupMembersRequest(group.Id, -1, "", 0));
@@ -142,7 +142,7 @@ public sealed class GroupPresentationServiceTests
         var symbolColours = new List<GroupColours> { new(4, "00AA00") };
         var backgrounds = new List<GroupColours> { new(5, "0000AA") };
         var groups = GroupSource(null, bases, symbols, baseColours, symbolColours, backgrounds);
-        var service = new GroupPresentationService(groups, Cache(), Rooms(), Settings());
+        var service = new GroupPresentationService(groups, Cache(), Rooms(), Settings(), NoGroupInfo());
         var (client, sent) = Client(1);
 
         service.ShowBadgeEditor(client);
@@ -275,6 +275,9 @@ public sealed class GroupPresentationServiceTests
         List<int> Roles,
         List<string> Names);
 
+    private static IGroupInfoSnapshotService NoGroupInfo() =>
+        Proxy<IGroupInfoSnapshotService>((method, _) => throw new NotSupportedException(method));
+
     private sealed class RecordingPresentationService : IGroupPresentationService
     {
         public GroupMembersRequest? Request { get; private set; }
@@ -282,6 +285,8 @@ public sealed class GroupPresentationServiceTests
         public void ShowMembers(GameClient session, GroupMembersRequest request) => Request = request;
         public void ShowBadgeEditor(GameClient session) => BadgeEditorShown = true;
         public void ShowCreationWindow(GameClient session) => throw new NotSupportedException();
+        public void ShowInfo(GameClient session, int groupId, bool newWindow) => throw new NotSupportedException();
+        public void ShowFurnitureSettings(GameClient session, uint itemId, int groupId) => throw new NotSupportedException();
     }
 
     private sealed class PacketReader(byte[] payload)

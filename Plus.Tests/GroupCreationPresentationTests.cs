@@ -45,7 +45,8 @@ public sealed class GroupCreationPresentationTests
         });
         var service = new GroupPresentationService(
             CatalogSnapshotTestSupport.Proxy<IGroupManager>((_, _) => throw new NotSupportedException()),
-            CatalogSnapshotTestSupport.Proxy<ICacheManager>((_, _) => throw new NotSupportedException()), loader, settings);
+            CatalogSnapshotTestSupport.Proxy<ICacheManager>((_, _) => throw new NotSupportedException()), loader, settings,
+            CatalogSnapshotTestSupport.Proxy<IGroupInfoSnapshotService>((_, _) => throw new NotSupportedException()));
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
 
         service.ShowCreationWindow(client);
@@ -82,5 +83,7 @@ public sealed class GroupCreationPresentationTests
         public void ShowCreationWindow(GameClient session) => Shown = true;
         public void ShowMembers(GameClient session, GroupMembersRequest request) => throw new NotSupportedException();
         public void ShowBadgeEditor(GameClient session) => throw new NotSupportedException();
+        public void ShowInfo(GameClient session, int groupId, bool newWindow) => throw new NotSupportedException();
+        public void ShowFurnitureSettings(GameClient session, uint itemId, int groupId) => throw new NotSupportedException();
     }
 }
