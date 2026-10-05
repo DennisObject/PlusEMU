@@ -21,7 +21,7 @@ public sealed class RoleChatCommandTests
         using var provider = services.BuildServiceProvider();
         var give = provider.GetRequiredService<GiveRoleCommand>();
         var take = provider.GetRequiredService<TakeRoleCommand>();
-        var commands = new CommandManager([give, take], null!, provider.GetRequiredService<IDatabase>());
+        var commands = new CommandManager([give, take], null!, provider.GetRequiredService<IDatabase>(), TimeProvider.System);
         Assert.True(commands.TryGetCommand("giverole", out var registeredGive));
         Assert.Same(give, registeredGive);
         Assert.True(commands.TryGetCommand("takerole", out var registeredTake));

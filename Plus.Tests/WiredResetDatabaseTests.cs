@@ -80,7 +80,7 @@ public class WiredResetDatabaseTests
         using var admin = Open();
         var (room, item) = PlacedVariable(admin);
         var database = new TestDatabase();
-        var before = new WiredRoomVariables(room, database, () => 1000);
+        var before = new WiredRoomVariables(room, database, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         Save(before, item, 7);
         Assert.True(before.Module.SaveGlobalValue(item.Id, 42));
         Assert.Equal(42, GlobalValue(admin, item.Id));
@@ -92,7 +92,7 @@ public class WiredResetDatabaseTests
         Assert.Equal(0, Count(admin, "wired_variable_values", "definition_id", item.Id));
 
         Assert.Null(new WiredConfigurationStore(database).Load(item.Id, item.Definition.WiredDescriptor!));
-        var after = new WiredRoomVariables(room, database, () => 2000);
+        var after = new WiredRoomVariables(room, database, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
         Save(after, item, 3);
         Assert.Equal(3, GlobalValue(admin, item.Id));
         Assert.True(after.Module.SaveGlobalValue(item.Id, 5));
@@ -113,7 +113,7 @@ public class WiredResetDatabaseTests
 
         var reset = Task.Run(() => new WiredConfigurationStore(new TestDatabase()).Reset([world.Definition]));
         Assert.False(reset.Wait(TimeSpan.FromMilliseconds(500)));
-        writer.Execute("INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at_ms,updated_at_ms) VALUES (@Id,0,99,11,1,1)",
+        writer.Execute("INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at,updated_at) VALUES (@Id,0,99,11,'1970-01-01 00:00:00.001000','1970-01-01 00:00:00.001000')",
             new { Id = world.Definition }, transaction);
         transaction.Commit();
 
@@ -147,9 +147,9 @@ public class WiredResetDatabaseTests
         Configure(admin, other, "wf_var_furni", new WiredConfiguration { IntParams = [1, 10], Text = "reset_other" });
         admin.Execute("INSERT INTO wired_variable_locks(definition_id) VALUES (@Definition),(@Other)", new { Definition = definition.Id, Other = other });
         admin.Execute("""
-            INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at_ms,updated_at_ms) VALUES
-            (@Definition,3,0,42,1,1),(@Definition,0,@Owner,5,1,1),(@Other,1,@Definition,9,1,1),(@Other,1,@Legacy,8,1,1)
-            """, new { Definition = definition.Id, Other = other, Legacy = legacy, Owner = room.OwnerId });
+            INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at,updated_at) VALUES
+            (@Definition,3,0,42,@At,@At),(@Definition,0,@Owner,5,@At,@At),(@Other,1,@Definition,9,@At,@At),(@Other,1,@Legacy,8,@At,@At)
+            """, new { Definition = definition.Id, Other = other, Legacy = legacy, Owner = room.OwnerId, At = DateTime.UnixEpoch.AddMilliseconds(1) });
         admin.Execute("INSERT INTO wired_items VALUES (@Id,'',0,'probe','0')", new { Id = definition.Id });
         admin.Execute("INSERT INTO wired_items VALUES (@Id,'',5,'legacy probe','1')", new { Id = legacy });
         admin.Execute("INSERT INTO wired_items VALUES (@Id,@Items,0,'','0')", new { Id = selector, Items = definition.Id.ToString() });
