@@ -61,8 +61,8 @@ public sealed class ModeratorHistoryService(
         var now = timeProvider.GetUtcNow();
         foreach (var visit in visits)
         {
-            if (visit.RoomName == null || AsUtc(visit.EntryTimestamp) is not { } enteredAt) continue;
-            var exitedAt = AsUtc(visit.ExitTimestamp) ?? now;
+            if (visit.RoomName == null || visit.EntryTimestamp is not { } enteredAt) continue;
+            var exitedAt = visit.ExitTimestamp ?? now;
             var entries = ResolveEntries(connection.Query<ChatlogRow>(
                 """
                 SELECT user_id AS UserId, `timestamp` AS Timestamp, message FROM chatlogs
@@ -97,7 +97,7 @@ public sealed class ModeratorHistoryService(
         var timestamps = new HashSet<DateTimeOffset>();
         var visits = new List<ModeratorRoomVisit>();
         foreach (var row in rows)
-            if (row.RoomName != null && AsUtc(row.EntryTimestamp) is { } enteredAt && timestamps.Add(enteredAt))
+            if (row.RoomName != null && row.EntryTimestamp is { } enteredAt && timestamps.Add(enteredAt))
                 visits.Add(new(new(row.RoomId, row.RoomName), enteredAt));
         return new(new(user.Id, user.Username), visits.ToImmutableArray());
     }
@@ -108,20 +108,35 @@ public sealed class ModeratorHistoryService(
         foreach (var row in rows)
         {
             var user = GetUser(row.UserId);
-            if (user != null && AsUtc(row.Timestamp) is { } createdAt)
+            if (user != null && row.Timestamp is { } createdAt)
                 entries.Add(new(row.UserId, user.Username, row.Message, createdAt));
         }
         return entries.ToImmutableArray();
     }
 
     private Users.Habbo? GetUser(int userId) => userLookup.GetById(userId);
-    private static DateTimeOffset? AsUtc(DateTime? value) => value.HasValue
-        ? new(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc))
-        : null;
+    private sealed class ChatlogRow
+    {
+        public int UserId { get; set; }
+        public DateTimeOffset? Timestamp { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
 
-    private sealed record ChatlogRow(int UserId, DateTime? Timestamp, string Message);
-    private sealed record RoomVisitRow(uint RoomId, string? RoomName, DateTime? EntryTimestamp, DateTime? ExitTimestamp);
-    private sealed record RoomVisitSummaryRow(uint RoomId, string? RoomName, DateTime? EntryTimestamp);
+    private sealed class RoomVisitRow
+    {
+        public uint RoomId { get; set; }
+        public string? RoomName { get; set; }
+        public DateTimeOffset? EntryTimestamp { get; set; }
+        public DateTimeOffset? ExitTimestamp { get; set; }
+    }
+
+    private sealed class RoomVisitSummaryRow
+    {
+        public uint RoomId { get; set; }
+        public string? RoomName { get; set; }
+        public DateTimeOffset? EntryTimestamp { get; set; }
+    }
+
 }
 
 public sealed record ModeratorUserIdentity(int Id, string Username);
