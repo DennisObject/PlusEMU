@@ -20,10 +20,13 @@ internal class DisableMimicCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        session.GetHabbo().AllowMimic = !session.GetHabbo().AllowMimic;
-        session.SendWhisper($"You're {(session.GetHabbo().AllowMimic ? "now" : "no longer")} able to be mimiced.");
+        var habbo = session.GetHabbo();
+        var value = !habbo.AllowMimic;
         using var connection = _database.Connection();
-        connection.Execute("UPDATE users SET allow_mimic = @AllowMimic WHERE id = @userId LIMIT 1",
-            new { AllowMimic = session.GetHabbo().AllowMimic, userId = session.GetHabbo().Id });
+        if (connection.Execute("UPDATE users_settings SET allow_mimic = @value WHERE user_id = @userId LIMIT 1",
+                new { value, userId = habbo.Id }) != 1)
+            throw new InvalidOperationException("User settings were not persisted.");
+        habbo.AllowMimic = value;
+        session.SendWhisper($"You're {(value ? "now" : "no longer")} able to be mimiced.");
     }
 }

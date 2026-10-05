@@ -97,9 +97,9 @@ public sealed class NavigatorManager : INavigatorManager, IStartable
         if (!RoomFactory.TryGetData(roomId, out _))
             return;
 
-        habbo.HomeRoom = roomId;
-
         using var connection = _database.Connection();
-        await connection.ExecuteAsync("UPDATE users_settings SET home_room = @roomid WHERE id = @userid LIMIT 1", new { roomid = roomId, userid = habbo.Id });
+        if (await connection.ExecuteAsync("UPDATE users_settings SET home_room = @roomid WHERE user_id = @userid LIMIT 1", new { roomid = roomId, userid = habbo.Id }) != 1)
+            throw new DBConcurrencyException("User settings were not persisted.");
+        habbo.HomeRoom = roomId;
     }
 }
