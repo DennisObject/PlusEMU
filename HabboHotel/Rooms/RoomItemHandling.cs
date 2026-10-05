@@ -4,6 +4,7 @@ using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Core;
+using Plus.Core.Language;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
@@ -67,6 +68,8 @@ public class RoomItemHandling
     private readonly Room _room;
     private readonly IRoomItemStore _store;
     private readonly IRoomItemMetadataStore _metadata;
+    private readonly IGameClientManager _clients;
+    private readonly ILanguageManager _language;
     private readonly ConcurrentDictionary<uint, Item> _wallItems;
     private int _mRollerCycle;
     private int _mRollerSpeed;
@@ -75,11 +78,14 @@ public class RoomItemHandling
 
     public int HopperCount;
 
-    public RoomItemHandling(Room room, IRoomItemStore store, IRoomItemMetadataStore metadata)
+    public RoomItemHandling(Room room, IRoomItemStore store, IRoomItemMetadataStore metadata,
+        IGameClientManager clients, ILanguageManager language)
     {
         _room = room;
         _store = store;
         _metadata = metadata;
+        _clients = clients;
+        _language = language;
         HopperCount = 0;
         GotRollers = false;
         _mRollerSpeed = 4;
@@ -177,7 +183,7 @@ public class RoomItemHandling
                 if (!_room.GetGameMap().ValidTile(item.GetX, item.GetY))
                 {
                     _store.ClearRoom(item.Id);
-                    var client = PlusEnvironment.Game.ClientManager.GetClientByUserId(item.UserId);
+                    var client = _clients.GetClientByUserId(item.UserId);
                     if (client != null)
                     {
                         client.GetHabbo().Inventory.Furniture.AddItem(item.ToInventoryItem());
@@ -551,7 +557,7 @@ public class RoomItemHandling
         if (duplicate)
         {
             if (session != null)
-                session.SendNotification(PlusEnvironment.LanguageManager.TryGetValue("room.item.already_placed"));
+                session.SendNotification(_language.TryGetValue("room.item.already_placed"));
             return true;
         }
         // Effects, Wired hooks, networking and persistence run only after the map commit.
@@ -703,7 +709,7 @@ public class RoomItemHandling
             return false;
         if (_floorItems.ContainsKey(item.Id))
         {
-            session.SendNotification(PlusEnvironment.LanguageManager.TryGetValue("room.item.already_placed"));
+            session.SendNotification(_language.TryGetValue("room.item.already_placed"));
             return true;
         }
         item.RoomId = _room.RoomId;

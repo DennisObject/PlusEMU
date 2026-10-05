@@ -52,7 +52,7 @@ public class MovementIntakeTests
     {
         var fixture = RoomPerformanceFixture.Create(0, 1);
         var actor = fixture.Users[0]; actor.ClearMovement(true);
-        RoomPerformanceFixture.SetField(fixture.Room, "_roomItemHandling", new RoomItemHandling(fixture.Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));
+        RoomPerformanceFixture.SetField(fixture.Room, "_roomItemHandling", new RoomItemHandling(fixture.Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
         if (engine == PathfindingEngine.Legacy) return actor;
         var navigation = new RoomNavigation(fixture.Room, fixture.Map.StaticModel, new() { Engine = engine }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!

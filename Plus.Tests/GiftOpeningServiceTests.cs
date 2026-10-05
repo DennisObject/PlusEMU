@@ -166,7 +166,7 @@ public sealed class GiftOpeningServiceTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
-        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, itemStore ?? TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, itemStore ?? TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room,
             new Gamemap(room, new RoomModel("gift-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));

@@ -136,7 +136,7 @@ public sealed class WiredGroupDependencyTests
                 TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
             typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Room, map);
             typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(Room, new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));
+                .SetValue(Room, new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
             typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System));
             _wired = new(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty,

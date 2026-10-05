@@ -221,7 +221,7 @@ public sealed class MoodlightServiceTests
         room.OwnerName = "owner";
         room.Type = "private";
         room.UsersWithRights = [];
-        var handling = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance);
+        var handling = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handling);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));

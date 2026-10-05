@@ -91,7 +91,7 @@ public sealed class WiredVariableBuiltinDerivedTests
         public Fixture(string key)
         {
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1; room.OwnerId = 5;
-            var handler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance); typeof(Room).GetField("_roomItemHandling", Private)!.SetValue(room, handler);
+            var handler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems); typeof(Room).GetField("_roomItemHandling", Private)!.SetValue(room, handler);
             _floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", Private)!.GetValue(handler)!;
             var database = DispatchProxy.Create<IDatabase, ModernWiredRuntimeTests.RecordingProxy>();
             ((ModernWiredRuntimeTests.RecordingProxy)(object)database).InvokeMethod = (method, _) => throw new InvalidOperationException("Unexpected database access: " + method.Name);

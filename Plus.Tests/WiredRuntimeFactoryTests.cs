@@ -82,7 +82,7 @@ public sealed class WiredRuntimeFactoryTests
     public void CustomNameLoadsCanonicalSidecarThroughLegacyDescriptor(WiredBoxType type, string name, string text, int count)
     {
         var room = Room();
-        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance);
+        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handler)!;
         var item = new Item { Id = 10, Definition = new() { ItemName = "legacy_custom_name", WiredType = type } };
@@ -103,7 +103,7 @@ public sealed class WiredRuntimeFactoryTests
     public void InjectedStoreFailureLeavesSavedBytesUnregisteredAndUnpublished()
     {
         var room = Room();
-        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance);
+        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         var item = new Item { Id = 11, Definition = new() { ItemName = "legacy_custom_name", WiredType = WiredBoxType.TriggerUserSays } };
         var store = new FailingLoadStore();

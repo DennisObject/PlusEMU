@@ -7,6 +7,10 @@ using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Data.Moodlight;
 using Plus.HabboHotel.Items.Data.Toner;
+using Plus.Core.Language;
+using Plus.Communication.Packets;
+using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Users.Messenger;
 
 namespace Plus.Tests;
 
@@ -32,6 +36,40 @@ internal sealed class TestRoomFactory : IRoomFactory
 {
     public Room Create(RoomData data) => throw new NotSupportedException();
     public void Dispose(uint roomId) { }
+}
+
+internal sealed class TestGameClientManager(Func<int, GameClient?> lookup) : IGameClientManager
+{
+    internal static TestGameClientManager Empty { get; } = new(_ => null);
+    public GameClient? GetClientByUserId(int userId) => lookup(userId);
+    public int Count => throw new NotSupportedException();
+    public ICollection<GameClient> GetClients => throw new NotSupportedException();
+    public void OnCycle() => throw new NotSupportedException();
+    public GameClient? GetClientByUsername(string username) => throw new NotSupportedException();
+    public bool TryGetClient(Guid clientId, out GameClient? client) => throw new NotSupportedException();
+    public bool TryChangeClientUsername(GameClient client, string oldUsername, string newUsername, Func<bool> persist) => throw new NotSupportedException();
+    public Task<string> GetNameById(int id) => throw new NotSupportedException();
+    public IEnumerable<GameClient> GetClientsById(Dictionary<int, MessengerBuddy>.KeyCollection users) => throw new NotSupportedException();
+    public void StaffAlert(IServerPacket message, int exclude = 0) => throw new NotSupportedException();
+    public void ModAlert(string message) => throw new NotSupportedException();
+    public void DoAdvertisingReport(GameClient reporter, GameClient target) => throw new NotSupportedException();
+    public void SendPacket(IServerPacket packet, PermissionDefinition? permission = null) => throw new NotSupportedException();
+    public void LogClonesOut(int userId) => throw new NotSupportedException();
+    public void RegisterClient(GameClient client, int userId, string username) => throw new NotSupportedException();
+    public void UnregisterClient(GameClient client, int userId, string username) => throw new NotSupportedException();
+    public void CloseAll() => throw new NotSupportedException();
+}
+
+internal sealed class TestLanguageManager(IReadOnlyDictionary<string, string> values) : ILanguageManager
+{
+    internal static TestLanguageManager RoomItems { get; } = new(new Dictionary<string, string>
+    {
+        ["room.item.already_placed"] = "room.item.already_placed"
+    });
+    public string TryGetValue(string value) => values.TryGetValue(value, out var translated)
+        ? translated
+        : throw new KeyNotFoundException(value);
+    public Task Reload() => throw new NotSupportedException();
 }
 
 internal sealed class TestRoomItemStore : IRoomItemStore

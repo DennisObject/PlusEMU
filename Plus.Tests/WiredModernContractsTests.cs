@@ -182,7 +182,7 @@ public class WiredModernContractsTests
         var item = new Item { Id = 7, Definition = definition };
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));
+            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
         var handling = room.GetRoomItemHandler();
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling)
             .GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handling)!;

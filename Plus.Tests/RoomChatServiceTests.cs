@@ -354,7 +354,7 @@ public sealed class RoomChatServiceTests
             _room.MutedUsers = [];
             _room.WordFilterList = [];
             var users = new RoomUserManager(_room, TestRoomUserStore.Instance, clock);
-            var items = new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance);
+            var items = new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
             _floorItems = (ConcurrentDictionary<uint, Item>)Get(items, "_floorItems");
             _wired = new WiredComponent(_room, TestLogging.Logger, clock, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused);
             Set(_room, "_roomUserManager", users);

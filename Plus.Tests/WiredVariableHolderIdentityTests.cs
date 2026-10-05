@@ -27,7 +27,7 @@ public sealed class WiredVariableHolderIdentityTests
         Assert.False(transient.CanPersist); Assert.True(transient.IsTemporaryFurni);
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1;
-        var handling = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance); typeof(Room).GetField("_roomItemHandling", flags)!.SetValue(room, handling);
+        var handling = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems); typeof(Room).GetField("_roomItemHandling", flags)!.SetValue(room, handling);
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", flags)!.GetValue(handling)!;
         floor[id] = permanent;
         var db = DispatchProxy.Create<IDatabase, ModernWiredRuntimeTests.RecordingProxy>();

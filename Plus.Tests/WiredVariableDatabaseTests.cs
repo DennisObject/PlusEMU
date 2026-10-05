@@ -126,7 +126,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             var liveRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); liveRoom.Id = room; liveRoom.OwnerId = (int)owner;
             var atomicDb = new ProbeDatabase(connectionString);
             var roomVariables = new WiredRoomVariables(liveRoom, atomicDb, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(5000)));
-            var itemHandler = new RoomItemHandling(liveRoom, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance);
+            var itemHandler = new RoomItemHandling(liveRoom, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems);
             typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, itemHandler);
             var roomUsers = new RoomUserManager(liveRoom, TestRoomUserStore.Instance, TimeProvider.System);
             typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, roomUsers);

@@ -197,7 +197,7 @@ public class BotRoamingTests
     {
         var (room, map) = Create("000\r000\r000", 1, 1);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));
+            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         map.SetFloorStatus(0, 0, 0);
@@ -219,7 +219,7 @@ public class BotRoamingTests
     {
         var (room, map) = Create("000\r000\r000", 1, 1);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));
+            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
         var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, users);
