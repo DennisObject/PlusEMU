@@ -27,6 +27,12 @@ namespace Plus.Tests;
 [Collection("Group purchase")]
 public class GroupManagementTests : IDisposable
 {
+    private GroupRemovalService Removal(IGroupManager groups, IRoomManager rooms, ISettingsManager? settings = null) =>
+        new(groups, rooms, settings ?? Proxy<ISettingsManager>((_, _) => "50"),
+            Proxy<IGameClientManager>((method, args) => method == "GetClientByUserId"
+                ? _clients.GetValueOrDefault((int)args[0]!) : throw new InvalidOperationException(method)),
+            GroupInfo(), new GroupRemovalStore(_database));
+
     private readonly FieldInfo _gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
     private readonly FieldInfo _databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
     private readonly object? _previousGame;
@@ -222,7 +228,7 @@ public class GroupManagementTests : IDisposable
         });
         var settings = Proxy<ISettingsManager>((_, _) => "50");
         var (stranger, strangerSent) = Client(new Habbo { Id = 8, Username = "Stranger", Access = Rights() });
-        var handler = new DeleteGroupEvent(groups, _database, rooms, settings);
+        var handler = new DeleteGroupEvent(Removal(groups, rooms, settings));
         await handler.Parse(stranger, Packet(group.Id));
         Assert.Empty(deleted);
         Assert.NotEmpty(strangerSent);
@@ -276,7 +282,7 @@ public class GroupManagementTests : IDisposable
         group.AddMember(8);
         _database.Scalar = 4;
         var (owner, sent) = Client(Owner());
-        await new ConfirmRemoveGroupMemberEvent(GroupSource(group), _database).Parse(owner, Packet(group.Id, 8));
+        await new ConfirmRemoveGroupMemberEvent(Removal(GroupSource(group), UnloadedRooms())).Parse(owner, Packet(group.Id, 8));
 
         Assert.True(group.IsMember(8));
         Assert.Contains("SELECT COUNT(*) FROM `items`", string.Join("\n", _database.Statements));
@@ -292,7 +298,7 @@ public class GroupManagementTests : IDisposable
         group.AddMember(8);
         var rooms = UnloadedRooms();
         var (owner, sent) = Client(Owner());
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database, GroupInfo()).Parse(owner, Packet(group.Id, 8, true));
+        await new RemoveGroupMemberEvent(Removal(GroupSource(group), rooms)).Parse(owner, Packet(group.Id, 8, true));
 
         Assert.False(group.IsMember(8));
         var body = sent.Single(item => item.Header == ServerPacketHeader.UnknownGroupComposer).Payload;
@@ -326,7 +332,7 @@ public class GroupManagementTests : IDisposable
             return true;
         });
         var (owner, sent) = Client(Owner());
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database, GroupInfo()).Parse(owner, Packet(group.Id, 8, true));
+        await new RemoveGroupMemberEvent(Removal(GroupSource(group), rooms)).Parse(owner, Packet(group.Id, 8, true));
 
         Assert.False(group.IsAdmin(8));
         Assert.False(group.IsMember(8));
@@ -353,7 +359,7 @@ public class GroupManagementTests : IDisposable
         group.AddMember(8);
         var rooms = UnloadedRooms();
         var (owner, sent) = Client(Owner());
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database, GroupInfo()).Parse(owner, Packet(group.Id, 8));
+        await new RemoveGroupMemberEvent(Removal(GroupSource(group), rooms)).Parse(owner, Packet(group.Id, 8));
 
         Assert.False(group.IsMember(8));
         Assert.Contains(ServerPacketHeader.UnknownGroupComposer, sent.Select(item => item.Header));
@@ -371,17 +377,17 @@ public class GroupManagementTests : IDisposable
         var rooms = UnloadedRooms();
         var groups = GroupSource(group);
         var (admin, adminSent) = Client(new Habbo { Id = 4, Username = "Admin", Access = Rights() });
-        await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(admin, Packet(group.Id, 7));
-        await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(admin, Packet(group.Id, 5));
-        await new RemoveGroupMemberEvent(groups, rooms, _database, GroupInfo()).Parse(admin, Packet(group.Id, 7));
-        await new RemoveGroupMemberEvent(groups, rooms, _database, GroupInfo()).Parse(admin, Packet(group.Id, 5));
+        await new ConfirmRemoveGroupMemberEvent(Removal(groups, UnloadedRooms())).Parse(admin, Packet(group.Id, 7));
+        await new ConfirmRemoveGroupMemberEvent(Removal(groups, UnloadedRooms())).Parse(admin, Packet(group.Id, 5));
+        await new RemoveGroupMemberEvent(Removal(groups, rooms)).Parse(admin, Packet(group.Id, 7));
+        await new RemoveGroupMemberEvent(Removal(groups, rooms)).Parse(admin, Packet(group.Id, 5));
         Assert.DoesNotContain(adminSent, item => item.Header == ServerPacketHeader.GroupConfirmRemoveMemberComposer || item.Header == ServerPacketHeader.UnknownGroupComposer);
         Assert.True(group.IsMember(7));
         Assert.True(group.IsAdmin(5));
 
         var (member, memberSent) = Client(new Habbo { Id = 8, Username = "Member", Access = Rights() });
         group.AddMember(8);
-        await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(member, Packet(group.Id, 4));
+        await new ConfirmRemoveGroupMemberEvent(Removal(groups, UnloadedRooms())).Parse(member, Packet(group.Id, 4));
         Assert.Empty(memberSent);
         Assert.True(group.IsAdmin(4));
     }
@@ -407,7 +413,7 @@ public class GroupManagementTests : IDisposable
             args[1] = null;
             return false;
         });
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database, GroupInfo()).Parse(client, Packet(group.Id, 11));
+        await new RemoveGroupMemberEvent(Removal(GroupSource(group), rooms)).Parse(client, Packet(group.Id, 11));
 
         Assert.False(group.IsMember(11));
         Assert.False(group.IsAdmin(11));

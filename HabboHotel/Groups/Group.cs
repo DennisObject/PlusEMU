@@ -115,20 +115,8 @@ public class Group
 
     public void DeleteMember(int id)
     {
-        if (IsMember(id))
-        {
-            if (_members.Contains(id))
-                _members.Remove(id);
-        }
-        else if (IsAdmin(id))
-        {
-            if (_administrators.Contains(id))
-                _administrators.Remove(id);
-        }
-        else
-            return;
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        connection.Execute("DELETE FROM group_memberships WHERE user_id=@id AND group_id=@groupId LIMIT 1", new { id, groupId = Id });
+        _members.Remove(id);
+        _administrators.Remove(id);
     }
 
     public void HandleRequest(int id, bool accepted)
