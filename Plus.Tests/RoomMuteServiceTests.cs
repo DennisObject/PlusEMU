@@ -103,7 +103,7 @@ public sealed class RoomMuteServiceTests
 
         clock.Now = Now.AddMinutes(5);
         var descriptor = WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_mute_triggerer");
-        var modern = new WiredModernAction(world.Room, item, descriptor, new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, clock, TestWiredRewardService.Instance);
+        var modern = new WiredModernAction(world.Room, item, descriptor, new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, clock, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
         Assert.True(modern.TryValidateConfiguration(new() { IntParams = [3, 0] }, out var config, out var error), error);
         modern.ApplyConfiguration(config);
         var context = new WiredRuntimeContext(world.Room, new(WiredEventKind.Use) { Actor = world.TargetUser },

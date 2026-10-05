@@ -85,7 +85,7 @@ public sealed class RoomGameTimeTests
         Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance));
         Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, clock));
         TestRoomUserSnapshots.Install(room);
-        Set(room, "_wiredComponent", new WiredComponent(room, TestLogging.Logger, clock, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance));
+        Set(room, "_wiredComponent", new WiredComponent(room, TestLogging.Logger, clock, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance));
         Set(room, "_gameManager", new GameManager(room, clock));
         Set(room, "_banzai", new BattleBanzai(room, clock));
         room.GetGameMap().GenerateMaps();

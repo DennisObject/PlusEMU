@@ -48,7 +48,7 @@ public class ModernWiredRuntimeTests
     private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null,
         TimeProvider? clock = null, IWiredRewardService? rewards = null) =>
         new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger,
-            clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance);
+            clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance, TestBotManagementStore.Instance);
 
     [Fact]
     public void TimerResetAndElapsedConditionsUseCapturedUtcInstantsAtExactBoundaries()
@@ -746,7 +746,7 @@ public class ModernWiredRuntimeTests
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
             var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance,
                 database == null ? TestWiredConfigurationStore.Instance : new WiredConfigurationStore(database),
-                database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance);
+                database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
@@ -754,7 +754,7 @@ public class ModernWiredRuntimeTests
             Target = MakeItem(1, "test"); Target.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); Items[1] = Target;
             Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room")); Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
             Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
-                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance);
+                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
             Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _); Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item; Items[100] = Action.Item; Engine.Add(Trigger); Engine.Add(Action);
         }

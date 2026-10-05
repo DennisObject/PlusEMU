@@ -88,7 +88,7 @@ public partial class PlacedFurniRoomTests : IDisposable
             _ => throw new InvalidOperationException(method)
         });
         _databaseField.SetValue(null, _database);
-        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, new EmptyConfigurationStore(), _database, TestWiredRewardService.Instance);
+        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, new EmptyConfigurationStore(), _database, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
         Set("_wiredComponent", wired);
     }
 

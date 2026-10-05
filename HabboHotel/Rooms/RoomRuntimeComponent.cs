@@ -8,11 +8,13 @@ using Plus.HabboHotel.Rooms.Instance;
 
 public sealed class RoomRuntimeComponent(IRoomItemStore itemStore, IRoomUserStore userStore,
     IRoomUserSnapshotService userSnapshots, TimeProvider clock, IWiredRoomSettingsFactory wiredSettings,
-    IWiredConfigurationStore wiredConfigurations, IDatabase database, IWiredRewardService wiredRewards) : IRoomComponent
+    IWiredConfigurationStore wiredConfigurations, IDatabase database, IWiredRewardService wiredRewards,
+    AI.IBotManagementStore botStore) : IRoomComponent
 {
     public int Order => 0;
     public void Initiate(Room room) => room.SetRuntime(
         new(room, room.Data.Model, room.NavigationLogger), new(room, itemStore), new(room, userStore, clock),
-        new(room, room.WiredLogger, clock, wiredSettings, wiredConfigurations, database, wiredRewards), userSnapshots, clock);
+        new(room, room.WiredLogger, clock, wiredSettings, wiredConfigurations, database, wiredRewards, botStore),
+        userSnapshots, clock);
     public void Initiated() { }
 }

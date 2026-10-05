@@ -16,6 +16,7 @@ using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.Database;
+using Plus.HabboHotel.Rooms.AI;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -26,9 +27,11 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly WiredTargetResolver _targets;
     private readonly ILogger _logger;
     private readonly TimeProvider _clock;
+    private readonly IBotManagementStore _botStore;
 
     public WiredComponent(Room instance, ILogger logger, TimeProvider clock, IWiredRoomSettingsFactory settingsFactory,
-        IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService) //, RoomItem Items)
+        IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService,
+        IBotManagementStore botStore) //, RoomItem Items)
     {
         _room = instance;
         _logger = logger;
@@ -36,6 +39,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
         _configurationStore = configurationStore;
         _database = database;
         _rewards = rewardService;
+        _botStore = botStore;
         Settings = settingsFactory.Create(instance);
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
@@ -327,7 +331,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
             case WiredBoxType.EffectTeleportBotToFurniBox:
                 return new TeleportBotToFurniBox(_room, item);
             case WiredBoxType.EffectBotChangesClothesBox:
-                return new BotChangesClothesBox(_room, item);
+                return new BotChangesClothesBox(_room, item, _botStore);
             case WiredBoxType.EffectBotMovesToFurniBox:
                 return new BotMovesToFurniBox(_room, item);
             case WiredBoxType.EffectBotCommunicatesToAllBox:

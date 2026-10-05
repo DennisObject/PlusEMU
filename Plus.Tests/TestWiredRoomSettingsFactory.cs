@@ -7,6 +7,7 @@ using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using System.Data;
+using Plus.HabboHotel.Rooms.AI;
 
 namespace Plus.Tests;
 
@@ -34,6 +35,24 @@ internal sealed class TestWiredRewardService : IWiredRewardService
 {
     public static TestWiredRewardService Instance { get; } = new();
     public bool Execute(Item box, WiredRuntimeContext context, WiredConfiguration config) => throw new InvalidOperationException("Unused Wired reward service must remain lazy.");
+}
+
+internal sealed class TestBotManagementStore : IBotManagementStore
+{
+    public static TestBotManagementStore Instance { get; } = new();
+    public BotPlacementData Place(int botId, int ownerId, uint roomId, int x, int y) =>
+        throw new InvalidOperationException("Unused Wired bot persistence must remain lazy.");
+    public void PickUp(int botId, uint roomId) =>
+        throw new InvalidOperationException("Unused Wired bot persistence must remain lazy.");
+    public void SaveAppearance(int botId, uint roomId, string look, string gender) =>
+        throw new InvalidOperationException("Unused Wired bot persistence must remain lazy.");
+    public IReadOnlyList<string> SaveSpeech(int botId, uint roomId, IReadOnlyList<string> speech,
+        bool automatic, int interval, bool mix) =>
+        throw new InvalidOperationException("Unused Wired bot persistence must remain lazy.");
+    public void SaveWalkingMode(int botId, uint roomId, string mode) =>
+        throw new InvalidOperationException("Unused Wired bot persistence must remain lazy.");
+    public void SaveName(int botId, uint roomId, string name) =>
+        throw new InvalidOperationException("Unused Wired bot persistence must remain lazy.");
 }
 
 internal sealed class TestWiredDatabase : IDatabase
