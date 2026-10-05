@@ -11,7 +11,7 @@ namespace Plus.Tests;
 public sealed class GroupConstructionDatabaseTests
 {
     [RoomComponentDatabaseFact]
-    public void InitialRowsArePreparedAndCreationPublishesOnlyAfterCommit()
+    public async Task InitialRowsArePreparedAndCreationPublishesOnlyAfterCommit()
     {
         SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
         using var connection = new MySqlConnection(ProductionConnection());
@@ -31,7 +31,7 @@ public sealed class GroupConstructionDatabaseTests
                     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, group_id INT UNSIGNED NOT NULL,
                     user_id INT UNSIGNED NOT NULL, `rank` BOOL NOT NULL DEFAULT FALSE);
                 CREATE TABLE group_requests (group_id INT UNSIGNED NOT NULL, user_id INT UNSIGNED NOT NULL);
-                CREATE TABLE rooms (id INT UNSIGNED PRIMARY KEY, group_id INT NOT NULL DEFAULT 0);
+                CREATE TABLE rooms (id INT UNSIGNED PRIMARY KEY, owner INT UNSIGNED NOT NULL, group_id INT NOT NULL DEFAULT 0);
                 INSERT INTO `groups` VALUES
                     (10, 'open', 'description', 'badge', 20, 0, 41, '0', 3, 4, 1, TRUE),
                     (11, 'locked', 'description', 'badge', 20, NULL, 41, '1', 3, 4, 1, FALSE),
@@ -39,7 +39,7 @@ public sealed class GroupConstructionDatabaseTests
                 INSERT INTO group_memberships (group_id, user_id, `rank`) VALUES
                     (10, 30, FALSE), (10, 20, TRUE), (10, 10, FALSE);
                 INSERT INTO group_requests VALUES (10, 40), (10, 30), (10, 25);
-                INSERT INTO rooms VALUES (42, 0);
+                INSERT INTO rooms VALUES (42, 7, 0), (43, 8, 0), (44, 7, 10);
                 """);
             connection.Execute(File.ReadAllText(Path.Combine(RepositoryRoot(), "Database", "Migrations",
                 "26_UseUtcGroupCreationTime.sql")));
@@ -77,6 +77,8 @@ public sealed class GroupConstructionDatabaseTests
                 WHERE table_schema = DATABASE() AND table_name = 'groups'
                 """);
             var owner = new Habbo { Id = 7, Username = "owner" };
+            Assert.False(groups.TryCreateGroup(owner, "wrong owner", "description", 43, "badge", 3, 4, out _));
+            Assert.False(groups.TryCreateGroup(owner, "already grouped", "description", 44, "badge", 3, 4, out _));
             Assert.Throws<MySqlException>(() => groups.TryCreateGroup(
                 owner, "failed", "description", 42, "badge", 3, 4, out _));
             Assert.Equal(3, connection.QuerySingle<int>("SELECT COUNT(*) FROM `groups`"));
@@ -100,6 +102,25 @@ public sealed class GroupConstructionDatabaseTests
                 """, new { groupId = created.Id, ownerId = owner.Id }));
             Assert.Equal(created.Id, connection.QuerySingle<int>("SELECT group_id FROM rooms WHERE id = 42"));
             Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM room_rights WHERE room_id = 42"));
+            Assert.False(groups.TryCreateGroup(owner, "duplicate", "description", 42, "badge", 3, 4, out _));
+            Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM `groups` WHERE room_id = 42"));
+
+            connection.Execute("INSERT INTO rooms VALUES (45, 7, 0)");
+            var competing = new GroupManager(TestLogging.For<GroupManager>(), database, memberships,
+                new FixedClock(now));
+            using var start = new ManualResetEventSlim();
+            Task<bool> Attempt(GroupManager manager, string name) => Task.Run(() =>
+            {
+                start.Wait();
+                return manager.TryCreateGroup(owner, name, "description", 45, "badge", 3, 4, out _);
+            });
+            var first = Attempt(groups, "first contender");
+            var second = Attempt(competing, "second contender");
+            start.Set();
+            var results = await Task.WhenAll(first, second);
+            Assert.Single(results, result => result);
+            Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM `groups` WHERE room_id = 45"));
+            Assert.NotEqual(0, connection.QuerySingle<int>("SELECT group_id FROM rooms WHERE id = 45"));
         }
         finally
         {
