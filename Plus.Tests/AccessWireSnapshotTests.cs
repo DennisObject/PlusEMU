@@ -68,6 +68,22 @@ public class AccessWireSnapshotTests
         }
     }
 
+    [Fact]
+    public void HeightMapCapturesEncodedRowsBeforeTheSourceChanges()
+    {
+        var heights = new short[2, 3] { { -1, 256, 512 }, { 7, 1024, 16384 } };
+        var composer = new HeightMapComposer(heights);
+        var expected = new object[] { 2, 6, (short)-1, (short)7, (short)256, (short)1024, (short)512, (short)16384 };
+        Assert.Equal(expected, Write(composer));
+
+        heights[0, 0] = 99;
+        heights[1, 2] = 100;
+        Assert.Equal(expected, Write(composer));
+        Assert.Equal(expected, Write(composer));
+        Assert.Equal(new object[] { 0, 0 }, Write(new HeightMapComposer(new short[0, 2])));
+        Assert.Equal(new object[] { 2, 0 }, Write(new HeightMapComposer(new short[2, 0])));
+    }
+
     private static object[] Write(IServerPacket composer)
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
