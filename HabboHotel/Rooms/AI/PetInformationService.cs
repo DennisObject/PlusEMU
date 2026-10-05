@@ -11,6 +11,7 @@ public sealed record PetInformationSnapshot(int Id, string Name, int Level, int 
 public interface IPetInformationService
 {
     void SendInformation(GameClient session, int petId);
+    void SendTrainingPanel(GameClient session, int petId);
     PetInformationSnapshot Capture(Pet pet);
 }
 
@@ -29,6 +30,20 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
         }
         var target = room.GetRoomUserManager().GetRoomUserByHabbo(petId)?.GetClient()?.GetHabbo();
         if (target != null) session.Send(new PetInformationComposer(Capture(target, clock.GetUtcNow())));
+    }
+
+    public void SendTrainingPanel(GameClient session, int petId)
+    {
+        var room = session.GetHabbo().CurrentRoom;
+        if (room == null) return;
+        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet))
+        {
+            var target = room.GetRoomUserManager().GetRoomUserByHabbo(petId)?.GetClient()?.GetHabbo();
+            if (target != null) session.SendWhisper("Maybe one day, boo boo.");
+            return;
+        }
+        if (pet.RoomId != room.RoomId || pet.PetData == null) return;
+        session.Send(new PetTrainingPanelComposer(pet.PetData.PetId, pet.PetData.Level));
     }
 
     public PetInformationSnapshot Capture(Pet pet)

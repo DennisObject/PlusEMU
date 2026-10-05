@@ -1,4 +1,5 @@
 using Plus.Communication.Packets.Outgoing.Rooms.Notifications;
+using Plus.Communication.Packets.Outgoing.Rooms.FloorPlan;
 using Plus.Communication.Packets.Outgoing.Rooms.Session;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
@@ -7,7 +8,12 @@ using Plus.HabboHotel.Users;
 namespace Plus.HabboHotel.Rooms;
 
 public readonly record struct FloorPlanUpdateRequest(string Map, bool DoorFieldsPresent, bool WallHeightPresent, FloorPlanSave.Layout Requested);
-public interface IFloorPlanUpdateService { void Update(Room room, GameClient session, FloorPlanUpdateRequest body); }
+public interface IFloorPlanUpdateService
+{
+    void Update(Room room, GameClient session, FloorPlanUpdateRequest body);
+    void ShowEntryTile(GameClient session);
+    void ShowOccupiedTiles(GameClient session);
+}
 
 public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
 {
@@ -18,6 +24,19 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
     {
         _roomManager = roomManager;
         _store = store;
+    }
+
+    public void ShowEntryTile(GameClient session)
+    {
+        var room = session.GetHabbo().CurrentRoom;
+        var model = room?.GetGameMap().Model;
+        if (model != null) session.Send(new RoomEntryTileComposer(model.DoorX, model.DoorY, model.DoorOrientation));
+    }
+
+    public void ShowOccupiedTiles(GameClient session)
+    {
+        var room = session.GetHabbo().CurrentRoom;
+        if (room != null) session.Send(new RoomOccupiedTilesComposer(FloorPlanSave.OccupiedTiles(FloorItems(room))));
     }
 
     public void Update(Room room, GameClient session, FloorPlanUpdateRequest body)

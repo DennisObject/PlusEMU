@@ -140,6 +140,8 @@ public sealed class RoomDecorationServiceTests
     private sealed class FloorCapture : IFloorPlanUpdateService
     {
         public Room? Room; public FloorPlanUpdateRequest Body;
+        public void ShowEntryTile(GameClient session) => throw new NotSupportedException();
+        public void ShowOccupiedTiles(GameClient session) => throw new NotSupportedException();
         public void Update(Room room, GameClient session, FloorPlanUpdateRequest body) { Room = room; Body = body; }
     }
 }
