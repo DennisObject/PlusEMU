@@ -8,10 +8,19 @@ public interface ITelevisionPresentationService
 {
     void ShowPlaylist(GameClient session, int itemId);
     void ShowNextVideo(GameClient session, int itemId);
+    void ShowVideoInformation(GameClient session, int itemId, string videoId);
 }
 
 public sealed class TelevisionPresentationService(ITelevisionManager televisions) : ITelevisionPresentationService
 {
+    public void ShowVideoInformation(GameClient session, int itemId, string videoId)
+    {
+        var matches = televisions.TelevisionList.Where(video => video.YouTubeId == videoId)
+            .Select(video => video.YouTubeId).ToImmutableArray();
+        foreach (var match in matches)
+            session.Send(new GetYouTubeVideoComposer(itemId, match));
+    }
+
     public void ShowNextVideo(GameClient session, int itemId)
     {
         if (!session.GetHabbo().InRoom)
