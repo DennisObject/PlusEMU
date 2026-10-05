@@ -36,7 +36,7 @@ public sealed class RoomDeletionDatabaseTests : IDisposable
             INSERT INTO user_favorites(user_id,room_id) VALUES (@UserId,@RoomId);
             INSERT INTO user_roomvisits(user_id,room_id,entry_timestamp,exit_timestamp) VALUES (@UserId,@RoomId,0,0);
             """, Values);
-        _room = new Room(new RoomData { Id = RoomId }, [], TestLogging.Navigation, TestLogging.Logger);
+        _room = new Room(new RoomData { Id = RoomId }, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(_room, new RoomItemHandling(_room, new RoomItemStore(_database), TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems));
         var manager = DispatchProxy.Create<IRoomManager, ManagerProxy>();

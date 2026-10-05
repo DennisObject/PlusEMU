@@ -122,7 +122,7 @@ public class TelevisionPresentationTests
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
         service.ShowNextVideo(client, 7);
         Assert.Empty(sent);
-        client.GetHabbo().CurrentRoom = new Room(Data(1), Array.Empty<IRoomComponent>(), TestLogging.Navigation, TestLogging.Logger);
+        client.GetHabbo().CurrentRoom = new Room(Data(1), Array.Empty<IRoomComponent>(), TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
         service.ShowNextVideo(client, 7);
         var video = Assert.Single(sent);
         Assert.Equal(ServerPacketHeader.GetYouTubeVideoComposer, video.Header);
@@ -173,7 +173,7 @@ public class TelevisionPresentationTests
 
     private static (GameClient Client, List<(uint Header, byte[] Payload)> Sent) InRoom(Habbo habbo)
     {
-        var room = new Room(Data(1), Array.Empty<IRoomComponent>(), TestLogging.Navigation, TestLogging.Logger);
+        var room = new Room(Data(1), Array.Empty<IRoomComponent>(), TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
         habbo.CurrentRoom = room;
         return HabbiconTestSupport.Client(habbo);
     }

@@ -60,7 +60,7 @@ public sealed class RoomBanTimeTests
     {
         var data = (RoomData)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
         data.Id = id;
-        return new Room(data, [], TestLogging.Navigation, TestLogging.Logger);
+        return new Room(data, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
     }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
