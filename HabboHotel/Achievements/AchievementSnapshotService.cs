@@ -7,13 +7,23 @@ namespace Plus.HabboHotel.Achievements;
 public sealed record AchievementProgressSnapshot(int Id, string Category, string Badge, int TargetLevel, int Requirement, int RewardPixels,
     int Progress, bool Completed, int TotalLevels);
 
+public sealed record AchievementDefinitionSnapshot(string Name, ImmutableArray<AchievementLevelDefinition> Levels);
+public readonly record struct AchievementLevelDefinition(int Level, int Requirement);
+
 public interface IAchievementSnapshotService
 {
+    ImmutableArray<AchievementDefinitionSnapshot> CaptureDefinitions(IEnumerable<Achievement> achievements);
     ImmutableArray<AchievementProgressSnapshot> Capture(Habbo habbo, IEnumerable<Achievement> achievements);
 }
 
 public sealed class AchievementSnapshotService : IAchievementSnapshotService
 {
+    public ImmutableArray<AchievementDefinitionSnapshot> CaptureDefinitions(IEnumerable<Achievement> achievements) =>
+        achievements.Select(achievement => new AchievementDefinitionSnapshot(
+            (achievement.GroupName ?? string.Empty).Replace("ACH_", ""),
+            achievement.Levels.Values.Select(level => new AchievementLevelDefinition(level.Level, level.Requirement)).ToImmutableArray()))
+        .ToImmutableArray();
+
     public ImmutableArray<AchievementProgressSnapshot> Capture(Habbo habbo, IEnumerable<Achievement> achievements)
     {
         var snapshots = ImmutableArray.CreateBuilder<AchievementProgressSnapshot>();

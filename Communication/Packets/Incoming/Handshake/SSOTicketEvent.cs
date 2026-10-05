@@ -36,7 +36,7 @@ public class SSOTicketEvent : IPacketEvent
     private readonly IBadgeManager _badgeManager;
     private readonly IModerationManager _moderationManager;
     private readonly IModeratorTicketService _tickets;
-    private readonly IAchievementManager _achievementManager;
+    private readonly IAchievementShowcaseService _achievementShowcase;
     private readonly ICacheManager _cacheManager;
     private readonly IFigureDataManager _figureManager;
     private readonly ILanguageManager _languageManager;
@@ -49,7 +49,7 @@ public class SSOTicketEvent : IPacketEvent
     public SSOTicketEvent(IAuthenticator authenticate,
         IBadgeManager badgeManager,
         IModerationManager moderationManager,
-        IAchievementManager achievementManager,
+        IAchievementShowcaseService achievementShowcase,
         ICacheManager cacheManager,
         IFigureDataManager figureManager,
         ILanguageManager languageManager,
@@ -62,7 +62,7 @@ public class SSOTicketEvent : IPacketEvent
         _badgeManager = badgeManager;
         _moderationManager = moderationManager;
         _tickets = tickets;
-        _achievementManager = achievementManager;
+        _achievementShowcase = achievementShowcase;
         _cacheManager = cacheManager;
         _figureManager = figureManager;
         _languageManager = languageManager;
@@ -92,7 +92,7 @@ public class SSOTicketEvent : IPacketEvent
             session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats.AchievementPoints));
             session.Send(new BuildersClubMembershipComposer());
             session.Send(new CfhTopicsInitComposer(_moderationManager.UserActionPresets));
-            session.Send(new BadgeDefinitionsComposer(_achievementManager.Achievements));
+            _achievementShowcase.ShowDefinitions(session);
             session.Send(new SoundSettingsComposer(session.GetHabbo().ClientVolume, session.GetHabbo().ChatPreference, session.GetHabbo().AllowMessengerInvites,
                 session.GetHabbo().FocusPreference,
                 FriendBarStateUtility.GetInt(session.GetHabbo().FriendbarState)));

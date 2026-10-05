@@ -24,6 +24,25 @@ public class AchievementSnapshotTests
     private static readonly AchievementSnapshotService Service = new();
 
     [Fact]
+    public void BadgeDefinitionsFreezeNamesSparseLevelsAndEmptyEntries()
+    {
+        var defined = Achievement("ACH_SOCIAL", "social", 0, (4, 40), (1, 10));
+        var empty = Achievement("ACH_EMPTY", "social", 0);
+        var source = new List<Achievement> { defined, empty };
+        var composer = new BadgeDefinitionsComposer(Service.CaptureDefinitions(source));
+        var expected = new List<object> { 2, "SOCIAL", 2, 4, 40, 1, 10, "EMPTY", 0 };
+
+        Assert.Equal(expected, Writes(composer));
+        defined.GroupName = "ACH_CHANGED";
+        defined.Levels.Clear();
+        empty.Levels.Add(9, new AchievementLevel(9, 0, 0, 99));
+        source.Clear();
+
+        Assert.Equal(expected, Writes(composer));
+        Assert.Equal(expected, Writes(composer));
+    }
+
+    [Fact]
     public void ComposedPayloadsMatchThePreMigrationBaseline()
     {
         var lines = BaselineLines();
