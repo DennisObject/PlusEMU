@@ -1,5 +1,8 @@
 using System.Reflection;
 using Plus.Core.Settings;
+using Plus.HabboHotel.Catalog;
+using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Subscriptions;
 using Xunit;
@@ -37,6 +40,30 @@ public class ClubLimitSnapshotTests
         var before = clock.Reads;
 
         Assert.Equal(int.MaxValue, ClubLimits.For(access, "visitors", settings));
+        Assert.Equal(1, clock.Reads - before);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ModelAndCatalogPageEligibilityShareOneObservationOfAnExpiringGrant(bool roomModel)
+    {
+        var clock = new ExpiringClock();
+        var role = new AccessRole(2, "catalog", "Catalog", 1, 1, "", false,
+            [PermissionKeys.ClubAccess, PermissionKeys.CatalogEdit], new Dictionary<string, int>());
+        var access = UserAccess.Create([new(role, clock.Expiry)], clock: clock);
+        var model = new RoomModel("model_a", 0, 0, 0, 0, "0", 2, 0, false)
+        { RequiredPermission = PermissionKeys.CatalogEdit };
+        var page = new CatalogPage
+        { Enabled = true, RequiredClubLevel = 2, RequiredPermission = PermissionKeys.CatalogEdit };
+        var user = new Habbo { Access = access };
+        Func<bool> eligible = roomModel ? () => model.CanCreate(access) : () => page.CanOpen(user);
+        var before = clock.Reads;
+
+        Assert.True(eligible());
+        Assert.Equal(1, clock.Reads - before);
+        before = clock.Reads;
+        Assert.False(eligible());
         Assert.Equal(1, clock.Reads - before);
     }
 

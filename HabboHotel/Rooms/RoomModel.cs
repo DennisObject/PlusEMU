@@ -78,10 +78,10 @@ public class RoomModel
     {
         // AIR's stock creator omits these legacy models; neither has a newroom thumbnail.
         if (Id is "model_s" or "model_wl") return false;
-        var resolved = access.Capture();
+        var resolved = access.Capture(out var now);
         bool modelAllowed = RequiredClubLevel < 0
             ? resolved.Keys.Contains(PermissionKeys.NavigatorRoomModelsStaff)
-            : ClubAccess.LevelFor(access) >= RequiredClubLevel;
+            : ClubAccess.LevelFor(resolved, now) >= RequiredClubLevel;
         return modelAllowed && (string.IsNullOrEmpty(RequiredPermission) || resolved.Keys.Contains(RequiredPermission));
     }
 
