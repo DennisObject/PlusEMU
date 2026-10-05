@@ -150,6 +150,7 @@ public sealed class LoveLockServiceTests
         var item = new Item { Id = 7, RoomId = room.Id, OwnerId = ownerId, Definition = new() { InteractionType = InteractionType.Lovelock },
             ExtraData = new LegacyDataFormat(), InteractingUser = one, InteractingUser2 = two };
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
         floor[item.Id] = item; return item;
     }
 

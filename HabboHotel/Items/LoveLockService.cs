@@ -33,7 +33,7 @@ public sealed class LoveLockService(ILoveLockStore store, TimeProvider timeProvi
         if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Lovelock) return;
         var actorId = session.GetHabbo().Id;
         if (item.RoomId != room.RoomId || (actorId != item.InteractingUser && actorId != item.InteractingUser2) ||
-            (item.UserId != item.InteractingUser && item.UserId != item.InteractingUser2)) return;
+            (item.OwnerId != item.InteractingUser && item.OwnerId != item.InteractingUser2)) return;
         var one = room.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
         var two = room.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser2);
         var oneClient = one?.GetClient(); var twoClient = two?.GetClient();
