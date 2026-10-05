@@ -50,6 +50,7 @@ public static class PermissionKeys
     public const string CommandFreeze = "command.freeze";
     public const string CommandGive = "command.give";
     public const string CommandGivebadge = "command.givebadge";
+    public const string CommandGiverole = "command.giverole";
     public const string CommandGoto = "command.goto";
     public const string CommandHa = "command.ha";
     public const string CommandHal = "command.hal";
@@ -94,6 +95,7 @@ public static class PermissionKeys
     public const string CommandStress = "command.stress";
     public const string CommandSummon = "command.summon";
     public const string CommandSuperfastwalk = "command.superfastwalk";
+    public const string CommandTakerole = "command.takerole";
     public const string CommandTeleport = "command.teleport";
     public const string CommandTradeban = "command.tradeban";
     public const string CommandUnfreeze = "command.unfreeze";
