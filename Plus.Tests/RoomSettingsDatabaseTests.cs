@@ -50,11 +50,18 @@ public sealed class RoomSettingsDatabaseTests
             var metadata = new RoomItemMetadataStore(database);
             metadata.SetToner(92,42,0,255,1);
             Assert.Equal((1,0,255,1), connection.QuerySingle<(int,int,int,int)>("SELECT enabled,data1,data2,data3 FROM room_items_toner"));
-            connection.Execute("UPDATE items SET room_id=0");
+            connection.Execute("INSERT INTO items VALUES (93,43,'other'); INSERT INTO room_items_toner VALUES (93,TRUE,20,30,40)");
+            var furniture = new FurnitureUseStore(database);
+            furniture.SetTonerEnabled(92,42,false);
+            Assert.Equal(0, connection.QuerySingle<int>("SELECT enabled FROM room_items_toner WHERE id=92"));
+            Assert.Equal(1, connection.QuerySingle<int>("SELECT enabled FROM room_items_toner WHERE id=93"));
+            connection.Execute("UPDATE items SET room_id=0 WHERE id=92");
+            Assert.Throws<InvalidOperationException>(() => furniture.SetTonerEnabled(92,42,true));
+            Assert.Equal(0, connection.QuerySingle<int>("SELECT enabled FROM room_items_toner WHERE id=92"));
             Assert.Throws<InvalidOperationException>(() => metadata.SetToner(92,42,10,20,30));
             Assert.Throws<InvalidOperationException>(() => metadata.SetMannequinData(92,42,"rejected"));
-            Assert.Equal("original", connection.QuerySingle<string>("SELECT extra_data FROM items"));
-            Assert.Equal(255, connection.QuerySingle<int>("SELECT data2 FROM room_items_toner"));
+            Assert.Equal("original", connection.QuerySingle<string>("SELECT extra_data FROM items WHERE id=92"));
+            Assert.Equal(255, connection.QuerySingle<int>("SELECT data2 FROM room_items_toner WHERE id=92"));
         }
         finally { connection.Execute($"DROP DATABASE IF EXISTS `{schema}`"); }
     }
