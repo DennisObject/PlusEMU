@@ -147,6 +147,11 @@ public sealed class FurnitureInventoryPersistenceTests
         finally
         {
             held.Dispose();
+            if (worker != null)
+            {
+                try { await worker.WaitAsync(TimeSpan.FromSeconds(2)); }
+                catch { /* Preserve an assertion already escaping the try; the success path observes below. */ }
+            }
         }
 
         Assert.True(await worker!.WaitAsync(TimeSpan.FromSeconds(2)));
