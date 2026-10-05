@@ -52,8 +52,15 @@ public sealed class RoomComponentDatabaseTests
                 CREATE TABLE users (id INT PRIMARY KEY, username VARCHAR(100));
                 CREATE TABLE logs_client_trade (
                     id INT AUTO_INCREMENT PRIMARY KEY, `1id` INT, `2id` INT, `1items` TEXT, `2items` TEXT, `timestamp` CHAR(20));
-                CREATE TABLE rooms (id INT UNSIGNED PRIMARY KEY, users_now INT NOT NULL DEFAULT 0);
-                CREATE TABLE user_roomvisits (room_id INT UNSIGNED, user_id INT, exit_timestamp DOUBLE);
+                CREATE TABLE rooms (id INT UNSIGNED PRIMARY KEY, caption VARCHAR(100) NOT NULL DEFAULT '',
+                    users_now INT NOT NULL DEFAULT 0 CHECK (users_now >= 0));
+                CREATE TABLE user_roomvisits (
+                    id INT AUTO_INCREMENT PRIMARY KEY, room_id INT UNSIGNED, user_id INT,
+                    entry_timestamp DOUBLE NULL, exit_timestamp DOUBLE NULL,
+                    KEY entry_timestamp (entry_timestamp), KEY exit_timestamp (exit_timestamp));
+                CREATE TABLE chatlogs (
+                    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, room_id INT UNSIGNED NOT NULL,
+                    `timestamp` DOUBLE NOT NULL, message VARCHAR(255) NOT NULL);
                 """);
             connection.Execute("""
                 INSERT INTO bots VALUES
@@ -74,8 +81,10 @@ public sealed class RoomComponentDatabaseTests
                 INSERT INTO items (id, user_id, room_id, x, y, z, rot, extra_data, wall_pos, base_item, limited_number, limited_stack)
                     VALUES (92, 7, 42, 2, 3, 2, 4, '100;1', '', 500, 6, 7), (93, 7, 42, 0, 0, 0, 0, '', '', 999, 0, 0);
                 INSERT INTO items_groups VALUES (92, 123);
-                INSERT INTO rooms VALUES (42, 0);
-                INSERT INTO user_roomvisits VALUES (42, 7, 0);
+                INSERT INTO rooms VALUES (42, 'Probe room', 0);
+                INSERT INTO user_roomvisits (room_id, user_id, entry_timestamp, exit_timestamp) VALUES
+                    (42, 7, 2200000000, 0), (42, 8, 0, NULL);
+                INSERT INTO chatlogs (user_id, room_id, `timestamp`, message) VALUES (7, 42, 2200001000, 'inside visit');
                 """);
 
             var migration = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory,
@@ -143,6 +152,32 @@ public sealed class RoomComponentDatabaseTests
             Assert.Equal(savedExpiry.UtcDateTime,
                 DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT expire FROM room_bans WHERE user_id = 23"), DateTimeKind.Utc));
             Assert.Equal([20, 23], banStore.ActiveUserIds(42).Order().ToArray());
+            var visitMigration = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory,
+                "../../../../Database/Migrations/23_UseUtcRoomVisitTimes.sql")));
+            connection.Execute(visitMigration);
+            Assert.Equal(2, connection.QuerySingle<int>("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'user_roomvisits'
+                    AND column_name IN ('entry_timestamp', 'exit_timestamp') AND DATA_TYPE = 'datetime' AND DATETIME_PRECISION = 6
+                """));
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).UtcDateTime,
+                DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT entry_timestamp FROM user_roomvisits WHERE user_id = 7"), DateTimeKind.Utc));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT exit_timestamp FROM user_roomvisits WHERE user_id = 7"));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT entry_timestamp FROM user_roomvisits WHERE user_id = 8"));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT exit_timestamp FROM user_roomvisits WHERE user_id = 8"));
+            var visitClock = new FixedClock(DateTimeOffset.FromUnixTimeSeconds(2_200_003_600));
+            new RoomVisitRecorder(new ProbeDatabase(databaseConnection), visitClock).RecordEntry(9, 42);
+            Assert.Equal(visitClock.GetUtcNow().UtcDateTime,
+                DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT entry_timestamp FROM user_roomvisits WHERE user_id = 9"), DateTimeKind.Utc));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT exit_timestamp FROM user_roomvisits WHERE user_id = 9"));
+            var history = new Plus.HabboHotel.Moderation.ModeratorHistoryService(
+                new ProbeDatabase(databaseConnection), null!, new TestModeratorUserLookup(), new TestChatlogManager(), visitClock);
+            var roomVisits = Assert.IsType<Plus.HabboHotel.Moderation.ModeratorUserRoomVisits>(history.GetUserRoomVisits(7));
+            var visit = Assert.Single(roomVisits.Visits);
+            Assert.Equal((42u, "Probe room", DateTimeOffset.FromUnixTimeSeconds(2_200_000_000)),
+                (visit.Room.Id, visit.Room.Name, visit.EnteredAt));
+            var userChatlog = Assert.IsType<Plus.HabboHotel.Moderation.ModeratorUserChatlog>(history.GetUserChatlog(7));
+            Assert.Equal("inside visit", Assert.Single(Assert.Single(userChatlog.Rooms).Entries).Message);
             var tradeStore = (ITradeStore)new RoomTradingComponent(new ProbeDatabase(databaseConnection));
             tradeStore.TransferItem(90, 2);
             tradeStore.DeleteItem(91);
@@ -169,9 +204,14 @@ public sealed class RoomComponentDatabaseTests
                 userStore.SavePet(new(11, 8, 99, "pet", 2, "3", "ffffff", DateTimeOffset.FromUnixTimeSeconds(2_200_000_000), 60, 70, 20.25, -1, 50, 60, 70, false)));
             Assert.Equal((42u, 6, 7, 2.25),
                 connection.QuerySingle<(uint, int, int, double)>("SELECT room_id, x, y, z FROM bots WHERE id = 11"));
-            userStore.RecordExit(42, 7, 1234, 6);
+            var exitedAt = DateTimeOffset.FromUnixTimeSeconds(2_200_007_200);
+            userStore.RecordExit(42, 7, exitedAt, 6);
             Assert.Equal(6, connection.QuerySingle<int>("SELECT users_now FROM rooms WHERE id = 42"));
-            Assert.Equal(1234, connection.QuerySingle<double>("SELECT exit_timestamp FROM user_roomvisits WHERE room_id = 42 AND user_id = 7"));
+            Assert.Equal(exitedAt.UtcDateTime, DateTime.SpecifyKind(
+                connection.QuerySingle<DateTime>("SELECT exit_timestamp FROM user_roomvisits WHERE room_id = 42 AND user_id = 7"), DateTimeKind.Utc));
+            Assert.Throws<MySqlException>(() => userStore.RecordExit(42, 8, exitedAt, -1));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT exit_timestamp FROM user_roomvisits WHERE room_id = 42 AND user_id = 8"));
+            Assert.Equal(6, connection.QuerySingle<int>("SELECT users_now FROM rooms WHERE id = 42"));
             Assert.Equal((8, 9, 1.5, "updated", "look", 4), connection.QuerySingle<(int, int, double, string, string, int)>(
                 "SELECT x, y, z, name, look, rotation FROM bots WHERE id = 10"));
             Assert.Equal((6, 7, 2.25), connection.QuerySingle<(int, int, double)>("SELECT x, y, z FROM bots WHERE id = 11"));
@@ -218,5 +258,21 @@ public sealed class RoomComponentDatabaseTests
         public Plus.HabboHotel.Items.ItemDefinition GetItemByName(string name) => definition;
         public Dictionary<int, uint> Gifts { get; } = [];
         public Dictionary<uint, Plus.HabboHotel.Items.ItemDefinition> Items { get; } = new() { [definition.Id] = definition };
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private sealed class TestModeratorUserLookup : Plus.HabboHotel.Moderation.IModeratorUserLookup
+    {
+        public Plus.HabboHotel.Users.Habbo? GetById(int userId) => new() { Id = userId, Username = $"user-{userId}" };
+    }
+
+    private sealed class TestChatlogManager : Plus.HabboHotel.Rooms.Chat.Logs.IChatlogManager
+    {
+        public void StoreChatlog(Plus.HabboHotel.Rooms.Chat.Logs.ChatlogEntry entry) { }
+        public void FlushAndSave() { }
     }
 }

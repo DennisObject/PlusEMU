@@ -2,6 +2,7 @@ using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.Users.Badges;
+using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Users.UserData;
 
@@ -10,11 +11,12 @@ public class UserDataFactory : IUserDataFactory
     private readonly BadgeManager _badgeManager;
     private readonly IDatabase _database;
     private readonly IEnumerable<IUserDataLoadingTask> _userDataLoadingTasks;
+    private readonly IRoomVisitRecorder _roomVisits;
     private readonly IUserPersistenceService _persistence;
     private readonly IUserComponentLoader _components;
     private readonly Clothing.IClothingStore _clothingStore;
 
-    public UserDataFactory(BadgeManager badgeManager, IDatabase database, IEnumerable<IUserDataLoadingTask> userDataLoadingTasks, IUserPersistenceService persistence, IUserComponentLoader components, Clothing.IClothingStore clothingStore)
+    public UserDataFactory(BadgeManager badgeManager, IDatabase database, IEnumerable<IUserDataLoadingTask> userDataLoadingTasks, IUserPersistenceService persistence, IUserComponentLoader components, Clothing.IClothingStore clothingStore, IRoomVisitRecorder roomVisits)
     {
         _badgeManager = badgeManager;
         _database = database;
@@ -22,6 +24,7 @@ public class UserDataFactory : IUserDataFactory
         _persistence = persistence;
         _components = components;
         _clothingStore = clothingStore;
+        _roomVisits = roomVisits;
     }
 
     public async Task<Habbo?> Create(int userId, CancellationToken cancellationToken = default)
@@ -75,6 +78,7 @@ public class UserDataFactory : IUserDataFactory
             "LEFT JOIN `user_info` i ON u.id = i.user_id " +
             "WHERE u.`id` = @userId LIMIT 1",
             new { userId });
+        habbo?.SetRoomVisitRecorder(_roomVisits);
         return habbo;
     }
 

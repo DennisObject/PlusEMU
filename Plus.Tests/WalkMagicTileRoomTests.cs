@@ -1006,7 +1006,7 @@ public partial class PlacedFurniRoomTests
     {
         var nextRoom = (Room)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Room));
         nextRoom.Id = RoomId + 1;
-        var nextUsers = new RoomUserManager(nextRoom, TestRoomUserStore.Instance);
+        var nextUsers = new RoomUserManager(nextRoom, TestRoomUserStore.Instance, TimeProvider.System);
         var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", 0, 0, false), TestLogging.Navigation);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextUsers);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom, TestRoomItemStore.Instance));

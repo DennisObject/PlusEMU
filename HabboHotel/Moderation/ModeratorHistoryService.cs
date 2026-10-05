@@ -61,14 +61,19 @@ public sealed class ModeratorHistoryService(
         var now = timeProvider.GetUtcNow();
         foreach (var visit in visits)
         {
-            if (visit.RoomName == null) continue;
-            var exit = visit.ExitTimestamp is > 0 ? visit.ExitTimestamp.Value : ToUnixTime(now);
+            if (visit.RoomName == null || AsUtc(visit.EntryTimestamp) is not { } enteredAt) continue;
+            var exitedAt = AsUtc(visit.ExitTimestamp) ?? now;
             var entries = ResolveEntries(connection.Query<ChatlogRow>(
                 """
                 SELECT user_id AS UserId, `timestamp` AS Timestamp, message FROM chatlogs
                 WHERE room_id=@RoomId AND `timestamp`>@EntryTimestamp AND `timestamp`<@ExitTimestamp
                 ORDER BY `timestamp` DESC LIMIT 100
-                """, new { visit.RoomId, visit.EntryTimestamp, ExitTimestamp = exit }));
+                """, new
+                {
+                    visit.RoomId,
+                    EntryTimestamp = ToUnixTime(enteredAt),
+                    ExitTimestamp = ToUnixTime(exitedAt)
+                }));
             rooms.Add(new(new(visit.RoomId, visit.RoomName), entries));
         }
         return new(new(user.Id, user.Username), rooms.ToImmutableArray());
@@ -89,11 +94,11 @@ public sealed class ModeratorHistoryService(
             LEFT JOIN rooms ON rooms.id=visits.room_id
             ORDER BY visits.entry_timestamp DESC
             """, new { userId });
-        var timestamps = new HashSet<double>();
+        var timestamps = new HashSet<DateTimeOffset>();
         var visits = new List<ModeratorRoomVisit>();
         foreach (var row in rows)
-            if (row.RoomName != null && timestamps.Add(row.EntryTimestamp))
-                visits.Add(new(new(row.RoomId, row.RoomName), FromUnixTime(row.EntryTimestamp)));
+            if (row.RoomName != null && AsUtc(row.EntryTimestamp) is { } enteredAt && timestamps.Add(enteredAt))
+                visits.Add(new(new(row.RoomId, row.RoomName), enteredAt));
         return new(new(user.Id, user.Username), visits.ToImmutableArray());
     }
 
@@ -111,10 +116,13 @@ public sealed class ModeratorHistoryService(
     private Users.Habbo? GetUser(int userId) => userLookup.GetById(userId);
     private static DateTimeOffset FromUnixTime(double value) => DateTimeOffset.UnixEpoch.AddMilliseconds(value * 1000d);
     private static double ToUnixTime(DateTimeOffset value) => value.ToUnixTimeMilliseconds() / 1000d;
+    private static DateTimeOffset? AsUtc(DateTime? value) => value.HasValue
+        ? new(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc))
+        : null;
 
     private sealed record ChatlogRow(int UserId, double Timestamp, string Message);
-    private sealed record RoomVisitRow(uint RoomId, string? RoomName, double EntryTimestamp, double? ExitTimestamp);
-    private sealed record RoomVisitSummaryRow(uint RoomId, string? RoomName, double EntryTimestamp);
+    private sealed record RoomVisitRow(uint RoomId, string? RoomName, DateTime? EntryTimestamp, DateTime? ExitTimestamp);
+    private sealed record RoomVisitSummaryRow(uint RoomId, string? RoomName, DateTime? EntryTimestamp);
 }
 
 public sealed record ModeratorUserIdentity(int Id, string Username);

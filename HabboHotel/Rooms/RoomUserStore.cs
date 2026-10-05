@@ -14,7 +14,7 @@ public interface IRoomUserStore
     void UpdateUserCount(uint roomId, int count);
     void SavePet(RoomPetSave pet);
     void SaveBot(RoomBotSave bot);
-    void RecordExit(uint roomId, int userId, double exitTimestamp, int usersNow);
+    void RecordExit(uint roomId, int userId, DateTimeOffset exitedAt, int usersNow);
 }
 
 public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
@@ -66,15 +66,15 @@ public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
             """, bot);
     }
 
-    public void RecordExit(uint roomId, int userId, double exitTimestamp, int usersNow)
+    public void RecordExit(uint roomId, int userId, DateTimeOffset exitedAt, int usersNow)
     {
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
         connection.Execute("""
-            UPDATE user_roomvisits SET exit_timestamp = @exitTimestamp
-            WHERE room_id = @roomId AND user_id = @userId ORDER BY exit_timestamp DESC LIMIT 1
-            """, new { exitTimestamp, roomId, userId }, transaction);
+            UPDATE user_roomvisits SET exit_timestamp = @exitedAt
+            WHERE room_id = @roomId AND user_id = @userId ORDER BY entry_timestamp DESC, id DESC LIMIT 1
+            """, new { exitedAt = exitedAt.UtcDateTime, roomId, userId }, transaction);
         connection.Execute("UPDATE rooms SET users_now = @usersNow WHERE id = @roomId LIMIT 1", new { usersNow, roomId }, transaction);
         transaction.Commit();
     }

@@ -199,7 +199,7 @@ public class BotRoamingTests
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance));
+            .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         map.SetFloorStatus(0, 0, 0);
         Assert.DoesNotContain(new Point(0, 0), map.WalkableSquares());
 
@@ -220,7 +220,7 @@ public class BotRoamingTests
         var (room, map) = Create("000\r000\r000", 1, 1);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
-        var users = new RoomUserManager(room, TestRoomUserStore.Instance);
+        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, users);
         var roster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)

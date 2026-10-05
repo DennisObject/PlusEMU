@@ -29,6 +29,7 @@ namespace Plus.HabboHotel.Users;
 
 public class Habbo
 {
+    private IRoomVisitRecorder _roomVisits = null!;
     internal uint WiredRoomNetworkDestination { get; set; }
     public HabboStats HabboStats { get; set; }
 
@@ -425,17 +426,7 @@ public class Habbo
             Client.Send(new RoomPropertyComposer("floor", room.Floor));
         Client.Send(new RoomPropertyComposer("landscape", room.Landscape));
         Client.Send(new RoomRatingComposer(room.Score, !(Client.GetHabbo().RatedRooms.Contains(room.RoomId) || room.OwnerId == Client.GetHabbo().Id)));
-        using (var dbClient = PlusEnvironment.DatabaseManager.Connection())
-        {
-            dbClient.Execute("INSERT INTO user_roomvisits (user_id,room_id,entry_timestamp,exit_timestamp) VALUES (@userId, @roomId, @entryTimestamp, @exitTimestamp)",
-                new
-                {
-                    userId = Client.GetHabbo().Id,
-                    roomId = Client.GetHabbo().CurrentRoom.RoomId,
-                    entryTimestamp = UnixTimestamp.GetNow(),
-                    exitTimestamp = 0,
-                });
-        }
+        _roomVisits.RecordEntry(Client.GetHabbo().Id, Client.GetHabbo().CurrentRoom.RoomId);
 
         if (room.OwnerId != Id)
         {
@@ -444,4 +435,6 @@ public class Habbo
         }
         return true;
     }
+
+    internal void SetRoomVisitRecorder(IRoomVisitRecorder roomVisits) => _roomVisits = roomVisits;
 }

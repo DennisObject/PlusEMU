@@ -36,15 +36,17 @@ public class RoomUserManager
     private int _primaryPrivateUserId;
     private Room _room;
     private readonly IRoomUserStore _store;
+    private readonly TimeProvider _clock;
     private ConcurrentDictionary<int, RoomUser> _users;
 
     public int UserCount;
 
 
-    public RoomUserManager(Room room, IRoomUserStore store)
+    public RoomUserManager(Room room, IRoomUserStore store, TimeProvider clock)
     {
         _room = room;
         _store = store;
+        _clock = clock;
         _users = new();
         _pets = new();
         _bots = new();
@@ -381,7 +383,7 @@ public class RoomUserManager
 
                 //Session.GetHabbo().CurrentRoomId = 0;
                     session.GetHabbo().Messenger?.NotifyChangesToFriends();
-                _store.RecordExit(_room.RoomId, session.GetHabbo().Id, UnixTimestamp.GetNow(), _room.UsersNow);
+                _store.RecordExit(_room.RoomId, session.GetHabbo().Id, _clock.GetUtcNow(), _room.UsersNow);
                 if (user != null)
                     user.Dispose();
             }

@@ -45,5 +45,5 @@ internal sealed class TestRoomUserStore : IRoomUserStore
     public void UpdateUserCount(uint roomId, int count) { }
     public void SavePet(RoomPetSave pet) { }
     public void SaveBot(RoomBotSave bot) { }
-    public void RecordExit(uint roomId, int userId, double exitTimestamp, int usersNow) { }
+    public void RecordExit(uint roomId, int userId, DateTimeOffset exitedAt, int usersNow) { }
 }

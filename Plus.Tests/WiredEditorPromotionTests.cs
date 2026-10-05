@@ -270,7 +270,7 @@ public class WiredEditorPromotionTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 1; room.OwnerId = 42; room.OwnerName = "owner"; room.Type = "private";
-        Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance)); Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance));
+        Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance)); Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         var wired = new WiredComponent(room, TestLogging.Logger); Set(room, "_wiredComponent", wired);
         var target = new Item { Id = 8, ExtraData = new LegacyDataFormat { Data = "captured-state" }, Definition = new() { Id = 18, Type = ItemType.Floor } };
         target.SetState(1, 2, 3.5, new()); Floor(room).TryAdd(8, target);
