@@ -3,11 +3,11 @@ using Plus.HabboHotel.Quests;
 
 namespace Plus.Communication.Packets.Incoming.Quests;
 
-internal sealed class GetRewardTracksEvent : IPacketEvent
+internal sealed class GetRewardTracksEvent(IRewardTrackManager rewards) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        RewardTrackManager.Current?.SendTracks(session);
+        rewards.SendTracks(session);
         return Task.CompletedTask;
     }
 }
