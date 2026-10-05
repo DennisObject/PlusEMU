@@ -167,6 +167,35 @@ public sealed class ClubUtcMigrationDatabaseTests
         AssertMetadata(connection);
     }
 
+    [ClubMigrationDatabaseTheory]
+    [InlineData("")]
+    [InlineData("STRICT_TRANS_TABLES")]
+    public void OutOfRangeNonKeyInstantsBecomeNullInEverySqlMode(string sqlMode)
+    {
+        using var schema = new ClubMigrationSchema(Server);
+        using var connection = new MySqlConnection(schema.ConnectionString);
+        connection.Open();
+        Legacy(connection);
+        // Past 9999-12-31 (253402300799) and far beyond it: legacy BIGINT can hold these, the migration cannot store them.
+        connection.Execute("""
+            INSERT INTO user_club_memberships (user_id, expires_at, started_at, first_started_at, past_seconds, modified_at, gifts_claimed) VALUES (1010, 253402300800, 1700000000, 1700000000, 3, 300000000000, 1);
+            INSERT INTO club_gift_claims (user_id, gift_number, catalog_item_id, claimed_at) VALUES (1010, 1, 1017, 99999999999999);
+            INSERT INTO club_credit_spending (user_id, credits, spent_at) VALUES (1010, 7, 253402300800);
+            """);
+        connection.Execute($"SET SESSION sql_mode = '{sqlMode}'");
+
+        connection.Execute(Script());
+
+        var row = connection.QuerySingle<ClubMembershipRow>("SELECT expires_at AS ExpiresAt, started_at AS StartedAt, first_started_at AS FirstStartedAt, past_seconds AS PastSeconds, modified_at AS ModifiedAt, gifts_claimed AS GiftsClaimed FROM user_club_memberships WHERE user_id = 1010").ToMembership();
+        Assert.Null(row.ExpiresAt); Assert.Null(row.ModifiedAt);
+        Assert.Equal(new DateTimeOffset(2023, 11, 14, 22, 13, 20, TimeSpan.Zero), row.StartedAt);
+        Assert.Equal(3, row.PastSeconds);
+        Assert.Equal(1, row.GiftsClaimed);
+        Assert.Null(connection.ExecuteScalar<DateTimeOffset?>("SELECT claimed_at FROM club_gift_claims WHERE user_id = 1010"));
+        Assert.Null(connection.ExecuteScalar<DateTimeOffset?>("SELECT spent_at FROM club_credit_spending WHERE user_id = 1010"));
+        Assert.Equal(7, connection.ExecuteScalar<int>("SELECT credits FROM club_credit_spending WHERE user_id = 1010"));
+    }
+
     // The shipped legacy columns are BIGINT, so fractions cannot occur there. This variant widens the legacy epoch columns to
     // DECIMAL(20,6) only to prove the staging expression keeps microseconds exactly; it does not model a real legacy schema.
     [ClubMigrationDatabaseFact]

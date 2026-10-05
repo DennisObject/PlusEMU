@@ -15,13 +15,13 @@ ALTER TABLE `user_club_memberships`
   ADD COLUMN `modified_at_utc` DATETIME(6) NULL AFTER `modified_at`;
 
 UPDATE `user_club_memberships`
-SET `expires_at_utc` = CASE WHEN `expires_at` IS NULL OR `expires_at` <= 0 THEN NULL
+SET `expires_at_utc` = CASE WHEN `expires_at` IS NULL OR `expires_at` <= 0 OR `expires_at` > 253402300799 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`expires_at` * 1000000) AS SIGNED) MICROSECOND) END,
-    `started_at_utc` = CASE WHEN `started_at` IS NULL OR `started_at` <= 0 THEN NULL
+    `started_at_utc` = CASE WHEN `started_at` IS NULL OR `started_at` <= 0 OR `started_at` > 253402300799 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`started_at` * 1000000) AS SIGNED) MICROSECOND) END,
-    `first_started_at_utc` = CASE WHEN `first_started_at` IS NULL OR `first_started_at` <= 0 THEN NULL
+    `first_started_at_utc` = CASE WHEN `first_started_at` IS NULL OR `first_started_at` <= 0 OR `first_started_at` > 253402300799 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`first_started_at` * 1000000) AS SIGNED) MICROSECOND) END,
-    `modified_at_utc` = CASE WHEN `modified_at` IS NULL OR `modified_at` <= 0 THEN NULL
+    `modified_at_utc` = CASE WHEN `modified_at` IS NULL OR `modified_at` <= 0 OR `modified_at` > 253402300799 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`modified_at` * 1000000) AS SIGNED) MICROSECOND) END;
 
 ALTER TABLE `user_club_memberships`
@@ -38,7 +38,7 @@ ALTER TABLE `club_membership_intervals`
 
 UPDATE `club_membership_intervals`
 SET `started_at_utc` = DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`started_at` * 1000000) AS SIGNED) MICROSECOND),
-    `expires_at_utc` = CASE WHEN `expires_at` IS NULL OR `expires_at` <= 0 THEN NULL
+    `expires_at_utc` = CASE WHEN `expires_at` IS NULL OR `expires_at` <= 0 OR `expires_at` > 253402300799 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`expires_at` * 1000000) AS SIGNED) MICROSECOND) END;
 
 ALTER TABLE `club_membership_intervals`
@@ -53,7 +53,7 @@ ALTER TABLE `club_gift_claims`
   ADD COLUMN `claimed_at_utc` DATETIME(6) NULL AFTER `claimed_at`;
 
 UPDATE `club_gift_claims`
-SET `claimed_at_utc` = CASE WHEN `claimed_at` IS NULL OR `claimed_at` <= 0 THEN NULL
+SET `claimed_at_utc` = CASE WHEN `claimed_at` IS NULL OR `claimed_at` <= 0 OR `claimed_at` > 253402300799 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`claimed_at` * 1000000) AS SIGNED) MICROSECOND) END;
 
 ALTER TABLE `club_gift_claims`
@@ -65,7 +65,7 @@ ALTER TABLE `club_credit_spending`
   ADD COLUMN `spent_at_utc` DATETIME(6) NULL AFTER `spent_at`;
 
 UPDATE `club_credit_spending`
-SET `spent_at_utc` = CASE WHEN `spent_at` IS NULL OR `spent_at` <= 0 THEN NULL
+SET `spent_at_utc` = CASE WHEN `spent_at` IS NULL OR `spent_at` <= 0 OR `spent_at` > 253402300799 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`spent_at` * 1000000) AS SIGNED) MICROSECOND) END;
 
 ALTER TABLE `club_credit_spending`

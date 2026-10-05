@@ -313,6 +313,36 @@ public class ClubMembershipDatabaseTests : IDisposable
     private void Sql(string sql) { using var connection = _database.Connection(); connection.Execute(sql); }
     private long Scalar(string sql) { using var connection = _database.Connection(); return connection.ExecuteScalar<long>(sql); }
     [ClubDatabaseFact]
+    public void FractionalGiftClaimKeepsItsMicrosecondsThroughTheRealService()
+    {
+        var purchased = new DateTimeOffset(2026, 10, 4, 10, 0, 0, TimeSpan.Zero).AddTicks(2_000_000);
+        _clock.Now = purchased;
+        _memberships.Purchase(_habbo, Month);
+        // Just before expiry, after a full month of tenure, the first gift is earned and the membership is still active.
+        var claimed = purchased.AddDays(31).AddSeconds(-1).AddTicks(3_450);
+        _clock.Now = claimed;
+        _access.Refresh(User); _habbo.Access = _access.Resolve(User);
+        Assert.Equal(1, _rewards.Gifts(_habbo).Available);
+        Assert.NotNull(_rewards.Claim(_habbo, "hc_arab_chair"));
+        using var connection = _database.Connection();
+        Assert.Equal(claimed, connection.ExecuteScalar<DateTimeOffset?>("SELECT claimed_at FROM club_gift_claims WHERE user_id = 957001"));
+    }
+
+    [ClubDatabaseFact]
+    public void RunPaydaysRoundTripsTheMonthlyKeyAsUtcDatetime6()
+    {
+        _memberships.Purchase(_habbo, Month);
+        Assert.True(_rewards.Charge(_habbo, 99));
+        _clock.Now = new(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+        _rewards.RunPaydays();
+        using var connection = _database.Connection();
+        var payday = connection.ExecuteScalar<DateTimeOffset?>("SELECT payday FROM club_paydays WHERE user_id = 957001");
+        Assert.Equal(new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero), payday);
+        Assert.Equal(TimeSpan.Zero, payday!.Value.Offset);
+        Assert.Equal("datetime(6)", connection.ExecuteScalar<string>("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'club_paydays' AND COLUMN_NAME = 'payday'"));
+    }
+
+    [ClubDatabaseFact]
     public void FractionalPurchaseAndSpendingKeepMicrosecondsThroughStorageAndAccessResolution()
     {
         var instant = new DateTimeOffset(2026, 10, 4, 10, 0, 0, TimeSpan.Zero).AddTicks(1_234_560);
