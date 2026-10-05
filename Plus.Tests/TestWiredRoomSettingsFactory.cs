@@ -3,6 +3,9 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Rooms;
 using Plus.Database;
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
+using Plus.HabboHotel.Items.Wired.Runtime;
 using System.Data;
 
 namespace Plus.Tests;
@@ -25,6 +28,12 @@ internal sealed class TestWiredConfigurationStore : IWiredConfigurationStore
     public static TestWiredConfigurationStore Instance { get; } = new();
     public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => null;
     public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) { }
+}
+
+internal sealed class TestWiredRewardService : IWiredRewardService
+{
+    public static TestWiredRewardService Instance { get; } = new();
+    public bool Execute(Item box, WiredRuntimeContext context, WiredConfiguration config) => throw new InvalidOperationException("Unused Wired reward service must remain lazy.");
 }
 
 internal sealed class TestWiredDatabase : IDatabase

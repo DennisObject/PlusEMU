@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Plus.HabboHotel.GameClients;
@@ -19,6 +20,7 @@ internal static class TestLogging
     internal static ILogger Logger => NullLogger.Instance;
     internal static ILogger<GameClient> GameClient => NullLogger<GameClient>.Instance;
     internal static ILogger<RoomNavigation> Navigation => NullLogger<RoomNavigation>.Instance;
+    internal static ILogger<WiredRewardService> Rewards => NullLogger<WiredRewardService>.Instance;
     internal static ILoggerFactory Factory => NullLoggerFactory.Instance;
     internal static ILogger<T> For<T>() => NullLogger<T>.Instance;
 }

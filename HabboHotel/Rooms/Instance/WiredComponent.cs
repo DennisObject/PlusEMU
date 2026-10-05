@@ -28,13 +28,14 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly TimeProvider _clock;
 
     public WiredComponent(Room instance, ILogger logger, TimeProvider clock, IWiredRoomSettingsFactory settingsFactory,
-        IWiredConfigurationStore configurationStore, IDatabase database) //, RoomItem Items)
+        IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService) //, RoomItem Items)
     {
         _room = instance;
         _logger = logger;
         _clock = clock;
         _configurationStore = configurationStore;
         _database = database;
+        _rewards = rewardService;
         Settings = settingsFactory.Create(instance);
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,

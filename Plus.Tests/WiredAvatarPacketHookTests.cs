@@ -258,7 +258,7 @@ public class WiredAvatarPacketHookTests
             Users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock ?? TimeProvider.System);
             Actions = new RoomAvatarActionService(clock ?? TimeProvider.System, new NoQuests());
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", Users);
-            _wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance); Set(Room, "_wiredComponent", _wired);
+            _wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance); Set(Room, "_wiredComponent", _wired);
             Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
                 Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>

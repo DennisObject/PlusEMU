@@ -45,9 +45,9 @@ public sealed class ModernWiredDatabaseCollection;
 public class ModernWiredRuntimeTests
 {
     private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null,
-        TimeProvider? clock = null) =>
+        TimeProvider? clock = null, IWiredRewardService? rewards = null) =>
         new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger,
-            clock ?? TimeProvider.System);
+            clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance);
 
     [Fact]
     public void TimerResetAndElapsedConditionsUseCapturedUtcInstantsAtExactBoundaries()
@@ -634,7 +634,7 @@ public class ModernWiredRuntimeTests
             Habbo.Effects.CurrentEffect = 8; client.SetHabbo(Habbo); clients.RegisterClient(client, 1, "Alice");
             User = new(1, 0, 7, Room); RoomUsers(Room)[7] = User;
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
-            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance);
+            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
@@ -642,7 +642,7 @@ public class ModernWiredRuntimeTests
             Target = MakeItem(1, "test"); Target.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); Items[1] = Target;
             Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room")); Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
             Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
-                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System);
+                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance);
             Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _); Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item; Items[100] = Action.Item; Engine.Add(Trigger); Engine.Add(Action);
         }
@@ -1072,16 +1072,60 @@ public class ModernWiredRuntimeTests
     {
         using var f = new TeleportFixture(); f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
         var sent = 0; ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
-        var dbField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!; var original = dbField.GetValue(null);
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>(); ((RecordingProxy)(object)database).InvokeMethod = (_, _) => throw new InvalidOperationException("Injected SQL failure");
-        try
+        var rewards = new WiredRewardService(new WiredRewardStore(database), DispatchProxy.Create<IItemDataManager, RecordingProxy>(), TimeProvider.System, TestLogging.Rewards);
+        var action = ActionBox(f.Room, "wf_act_give_reward", rewards: rewards);
+        Assert.True(action.TryValidateConfiguration(WiredRewards.Defaults() with { Text = "1,furni#5,100" }, out var config, out _)); action.ApplyConfiguration(config);
+        var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]); ctx.Triggering.UserIds.Add(f.User.VirtualId);
+        Assert.False(action.Execute(ctx)); Assert.Equal(0, sent); Assert.Empty(f.Habbo.Inventory.Furniture.GetItems);
+    }
+
+    [Fact]
+    public void RewardServiceReadsOneInjectedClockAndPublishesOnlyAfterStoreCommit()
+    {
+        using var f = new TeleportFixture(); f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
+        var sent = 0; ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
+        var clock = new RewardClock(DateTimeOffset.FromUnixTimeSeconds(1234));
+        var store = new RecordingRewardStore(() => sent, new(4, "BADGE1"));
+        var rewards = new WiredRewardService(store, DispatchProxy.Create<IItemDataManager, RecordingProxy>(), clock, TestLogging.Rewards);
+        var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]); ctx.Triggering.UserIds.Add(f.User.VirtualId);
+        Assert.True(WiredRewards.TryValidate(WiredRewards.Defaults() with { Text = "0,BADGE1,100" }, out var config, out _));
+        Assert.True(rewards.Execute(MakeItem(100, "wf_act_give_reward"), ctx, config));
+        Assert.Equal(new long[] { 1234 }, store.Times); Assert.Equal(1, clock.Reads);
+        Assert.Equal(new[] { 0 }, store.SentAtClaim); // Nothing reaches the client before the store commits.
+        Assert.True(sent > 0); Assert.True(f.Habbo.Inventory.Badges.HasBadge("BADGE1"));
+    }
+
+    [Fact]
+    public void RewardServiceStoreFailureLogsAndPublishesNothing()
+    {
+        using var f = new TeleportFixture(); f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
+        var sent = 0; ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
+        var clock = new RewardClock(DateTimeOffset.FromUnixTimeSeconds(1234));
+        var store = new RecordingRewardStore(() => sent, null, new InvalidOperationException("Injected commit failure"));
+        var rewards = new WiredRewardService(store, DispatchProxy.Create<IItemDataManager, RecordingProxy>(), clock, TestLogging.Rewards);
+        var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]); ctx.Triggering.UserIds.Add(f.User.VirtualId);
+        Assert.True(WiredRewards.TryValidate(WiredRewards.Defaults() with { Text = "0,BADGE1,100" }, out var config, out _));
+        Assert.False(rewards.Execute(MakeItem(100, "wf_act_give_reward"), ctx, config));
+        Assert.Equal(new long[] { 1234 }, store.Times); Assert.Equal(0, sent); Assert.False(f.Habbo.Inventory.Badges.HasBadge("BADGE1"));
+    }
+
+    private sealed class RewardClock(DateTimeOffset now) : TimeProvider
+    {
+        public int Reads { get; private set; }
+        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+    }
+
+    private sealed class RecordingRewardStore(Func<int> sent, WiredRewardGrant? grant, Exception? failure = null) : IWiredRewardStore
+    {
+        public List<long> Times { get; } = [];
+        public List<int> SentAtClaim { get; } = [];
+        public WiredRewardGrant ClaimAndGrant(Item box, uint roomId, Habbo habbo, WiredConfiguration configuration, IItemDataManager definitions, long now)
         {
-            dbField.SetValue(null, database); var action = ActionBox(f.Room, "wf_act_give_reward");
-            Assert.True(action.TryValidateConfiguration(WiredRewards.Defaults() with { Text = "1,furni#5,100" }, out var config, out _)); action.ApplyConfiguration(config);
-            var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]); ctx.Triggering.UserIds.Add(f.User.VirtualId);
-            Assert.False(action.Execute(ctx)); Assert.Equal(0, sent); Assert.Empty(f.Habbo.Inventory.Furniture.GetItems);
+            Times.Add(now); SentAtClaim.Add(sent());
+            if (failure != null) throw failure;
+            return grant!;
         }
-        finally { dbField.SetValue(null, original); }
     }
 
     [WiredVariableDatabaseFact]

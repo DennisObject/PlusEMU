@@ -24,6 +24,7 @@ public partial class WiredComponent
     private readonly Dictionary<uint, Item> _counterItems = [];
     private readonly IWiredConfigurationStore _configurationStore;
     private readonly IDatabase _database;
+    private readonly IWiredRewardService _rewards;
     private Lazy<WiredRoomVariables>? _variables;
     public WiredRoomSettings Settings { get; }
     internal DateTimeOffset CalendarTime =>
@@ -63,7 +64,7 @@ public partial class WiredComponent
         }
         else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName))
         {
-            box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event), DispatchWalkTransition, _roomLog, _logger, _clock);
+            box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event), DispatchWalkTransition, _roomLog, _logger, _clock, _rewards);
             defaults = WiredActionConfiguration.Defaults(descriptor.CanonicalName);
         }
         else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || WiredVariableMetadataBox.Supports(descriptor.CanonicalName)

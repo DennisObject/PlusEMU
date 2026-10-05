@@ -70,22 +70,6 @@ public static class WiredRewards
         foreach (var entry in candidates) { cumulative += entry.Probability; if (roll <= cumulative) return entry; }
         return null;
     }
-    public static bool Execute(Item box, WiredRuntimeContext context, WiredConfiguration config, ILogger logger)
-    {
-        if (box.IsTemporary || !TryEntries(config.Text, out var prizes) || prizes.Count == 0) return false;
-        var changed = false;
-        foreach (var user in context.Targets.ResolveUsers(context, [], config.UserSources["users"]).Where(user => !user.IsBot))
-        {
-            var habbo = user.GetClient()?.GetHabbo();
-            if (habbo == null || !ReferenceEquals(habbo.CurrentRoom, context.Room)) continue;
-            WiredRewardGrant grant;
-            try { grant = new WiredRewardStore(PlusEnvironment.DatabaseManager).ClaimAndGrant(box, context.Room.Id, habbo, config, PlusEnvironment.Game.ItemManager, DateTimeOffset.UtcNow.ToUnixTimeSeconds()); }
-            catch (Exception exception) { logger.LogError(exception, "Atomic wired reward failed for box {BoxId}.", box.Id); continue; }
-            Publish(habbo, grant);
-            changed |= grant.Reason is 4 or 5;
-        }
-        return changed;
-    }
     public static void Publish(Habbo habbo, WiredRewardGrant grant)
     {
         if (grant.Badge is { } badge)
@@ -105,8 +89,39 @@ public static class WiredRewards
     }
 }
 
+public interface IWiredRewardService
+{
+    bool Execute(Item box, WiredRuntimeContext context, WiredConfiguration config);
+}
+
+public sealed class WiredRewardService(IWiredRewardStore store, IItemDataManager definitions, TimeProvider clock,
+    ILogger<WiredRewardService> logger) : IWiredRewardService
+{
+    public bool Execute(Item box, WiredRuntimeContext context, WiredConfiguration config)
+    {
+        if (box.IsTemporary || !WiredRewards.TryEntries(config.Text, out var prizes) || prizes.Count == 0) return false;
+        var changed = false;
+        foreach (var user in context.Targets.ResolveUsers(context, [], config.UserSources["users"]).Where(user => !user.IsBot))
+        {
+            var habbo = user.GetClient()?.GetHabbo();
+            if (habbo == null || !ReferenceEquals(habbo.CurrentRoom, context.Room)) continue;
+            WiredRewardGrant grant;
+            try { grant = store.ClaimAndGrant(box, context.Room.Id, habbo, config, definitions, clock.GetUtcNow().ToUnixTimeSeconds()); }
+            catch (Exception exception) { logger.LogError(exception, "Atomic wired reward failed for box {BoxId}.", box.Id); continue; }
+            WiredRewards.Publish(habbo, grant);
+            changed |= grant.Reason is 4 or 5;
+        }
+        return changed;
+    }
+}
+
+public interface IWiredRewardStore
+{
+    WiredRewardGrant ClaimAndGrant(Item box, uint roomId, Habbo habbo, WiredConfiguration configuration, IItemDataManager definitions, long now);
+}
+
 /// <summary>Durability boundary: quota and grant commit together. This module emits no packets or memory inventory writes.</summary>
-public sealed class WiredRewardStore(IDatabase database)
+public sealed class WiredRewardStore(IDatabase database) : IWiredRewardStore
 {
     public WiredRewardGrant ClaimAndGrant(Item box, uint roomId, Habbo habbo, WiredConfiguration configuration, IItemDataManager definitions, long now)
     {
