@@ -99,8 +99,7 @@ public class GroupManagementTests : IDisposable
         var group = NewGroup(hasForum: false);
         group.Badge = "b05114s06114";
         var (client, sent) = Client(Owner());
-        var groups = GroupSource(group);
-        await new UpdateGroupBadgeEvent(groups, _database, GroupInfo()).Parse(client, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
+        await new UpdateGroupBadgeEvent(Appearance(group)).Parse(client, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
 
         Assert.Equal("b01014s02024", group.Badge);
         Assert.Contains("UPDATE `groups` SET `badge`", string.Join("\n", _database.Statements));
@@ -108,12 +107,12 @@ public class GroupManagementTests : IDisposable
 
         group.Badge = "b05114s06114";
         var written = _database.Statements.Count;
-        await new UpdateGroupBadgeEvent(groups, _database, GroupInfo()).Parse(client, Packet(group.Id, 4, 1, 1, 4));
+        await new UpdateGroupBadgeEvent(Appearance(group)).Parse(client, Packet(group.Id, 4, 1, 1, 4));
         Assert.Equal("b05114s06114", group.Badge);
         Assert.Equal(written, _database.Statements.Count);
 
         var (member, memberSent) = Client(new Habbo { Id = 2, Username = "Member2", Access = Rights() });
-        await new UpdateGroupBadgeEvent(groups, _database, GroupInfo()).Parse(member, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
+        await new UpdateGroupBadgeEvent(Appearance(group)).Parse(member, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
         Assert.Equal("b05114s06114", group.Badge);
         Assert.Empty(memberSent);
     }
@@ -489,6 +488,12 @@ public class GroupManagementTests : IDisposable
         var cache = Proxy<ICacheManager>((method, _) => method == "GenerateUser" ? null : throw new InvalidOperationException(method));
         return new GroupInfoSnapshotService(clients, cache, _database);
     }
+
+    private IGroupAppearanceService Appearance(Group group) => new GroupAppearanceService(
+        GroupSource(group),
+        Proxy<IWordFilterManager>((method, args) => method == nameof(IWordFilterManager.CheckMessage) ? args[0] : throw new InvalidOperationException(method)),
+        GroupInfo(),
+        new GroupAppearanceStore(_database));
 
     private static MembersPage DecodeMembers(byte[] body)
     {
