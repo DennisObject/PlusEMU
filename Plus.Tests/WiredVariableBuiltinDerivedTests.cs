@@ -27,7 +27,7 @@ public sealed class WiredVariableBuiltinDerivedTests
         fixture.Builtin.Value = null;
         Assert.Null(fixture.Read(derived));
         using (var reads = fixture.Module.CaptureReads([derived], fixture.Frame)) Assert.Null(reads.Read(derived, fixture.Holder, fixture.Frame));
-        fixture.Builtin.Value = new(150, 0, 0); fixture.Directory.Owner = 6;
+        fixture.Builtin.Value = new(150, null, null); fixture.Directory.Owner = 6;
         Assert.Null(fixture.Read(derived)); Assert.Empty(fixture.Variables.Catalog().Variables);
         fixture.Directory.Owner = 5; level.Item.SetState(1, 0, 0, []);
         Assert.Null(fixture.Read(derived));
@@ -36,7 +36,7 @@ public sealed class WiredVariableBuiltinDerivedTests
     [Fact]
     public void PresenceOnlyBuiltinEchoDoesNotBecomeNumericOrAcquireTimestamps()
     {
-        var fixture = new Fixture("@is_idle"); fixture.Builtin.Value = new(1, 1000, 2000);
+        var fixture = new Fixture("@is_idle"); fixture.Builtin.Value = new(1, DateTimeOffset.FromUnixTimeMilliseconds(1000), DateTimeOffset.FromUnixTimeMilliseconds(2000));
         fixture.AddMetadata("wf_xtra_var_lvlup_system");
         var time = fixture.AddMetadata("wf_xtra_var_time_util"); time.ApplyConfiguration(new() { IntParams = [1 << 21, 1] });
         var catalog = fixture.Variables.Catalog(); var alias = Assert.Single(catalog.Variables);
@@ -61,7 +61,7 @@ public sealed class WiredVariableBuiltinDerivedTests
     [Fact]
     public void NumericBuiltinTimeValueConvertsButIncidentalProviderTimestampsStayUnavailable()
     {
-        var fixture = new Fixture("@achievement_score"); fixture.Builtin.Value = new(150, 12000, 24000);
+        var fixture = new Fixture("@achievement_score"); fixture.Builtin.Value = new(150, DateTimeOffset.FromUnixTimeMilliseconds(12000), DateTimeOffset.FromUnixTimeMilliseconds(24000));
         var time = fixture.AddMetadata("wf_xtra_var_time_util"); time.ApplyConfiguration(new() { IntParams = [1 << 22, 0] });
         var id = WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 20, 22, true)!.Value;
         var reference = new WiredVariableReference(WiredVariableTarget.User, $"custom:{id}");
@@ -95,9 +95,9 @@ public sealed class WiredVariableBuiltinDerivedTests
             _floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", Private)!.GetValue(handler)!;
             var database = DispatchProxy.Create<IDatabase, ModernWiredRuntimeTests.RecordingProxy>();
             ((ModernWiredRuntimeTests.RecordingProxy)(object)database).InvokeMethod = (method, _) => throw new InvalidOperationException("Unexpected database access: " + method.Name);
-            Variables = new(room, database, () => 1000); Directory = new(key);
+            Variables = new(room, database, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000))); Directory = new(key);
             var resolve = typeof(WiredRoomVariables).GetMethod("ResolveDerived", Private)!.CreateDelegate<Func<WiredVariableReference, WiredVariableDerivation?>>(Variables);
-            Module = new(1, Directory, new MemoryWiredVariableStore(), () => 1000, Builtin, resolve);
+            Module = new(1, Directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)), Builtin, resolve);
             typeof(WiredRoomVariables).GetField("<Module>k__BackingField", Private)!.SetValue(Variables, Module);
             Frame = new(1, [Holder]);
             var item = new Item { Id = 20, OwnerId = 5, Definition = new() { InteractionName = "wf_var_echo" } }; _floor[item.Id] = item;
@@ -122,7 +122,7 @@ public sealed class WiredVariableBuiltinDerivedTests
     }
     private sealed class BuiltinValues : IWiredBuiltinVariables
     {
-        public WiredVariableValue? Value = new(150, 0, 0);
+        public WiredVariableValue? Value = new(150, null, null);
         public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame) => Value;
         public bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame) => false;
     }

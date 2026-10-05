@@ -55,7 +55,7 @@ public sealed class WiredVariableRuntimeFrameTests
         Assert.True(frame.Contains(holder));
         Assert.Equal(floor.Id, (uint)Assert.Single(frame.ResolveSource!(WiredVariableTarget.Furni, WiredSources.AllRoom, [])).EntityId);
         Assert.Equal(2, frame.Holders.Count);
-        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), () => 1);
+        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         var reference = new WiredVariableReference(WiredVariableTarget.Furni, "custom:10");
         Assert.True(module.Mutate(reference, holder, WiredVariableMutation.Give, 7, frame));
         Assert.Equal(7, module.Read(reference, holder, frame)!.Value);

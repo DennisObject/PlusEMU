@@ -92,7 +92,7 @@ public sealed class WiredVariableWallBuiltinTests
                 new(() => Floors.Values, () => [], handler.GetItem), wired);
             context.Triggering.FurniIds.Add(Wall.Id);
             Frame = WiredVariableRuntimeFrames.Create(context); Assert.Contains(WiredVariableRuntimeFrames.FurniHolder(Wall), Frame.Holders); Holder = WiredVariableRuntimeFrames.FurniHolder(Wall);
-            Module = new(1, new Directory(), new MemoryWiredVariableStore(), () => 1, new RoomWiredBuiltinVariables(Room, wired.ReadBuiltin, wired.WriteBuiltin));
+            Module = new(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)), new RoomWiredBuiltinVariables(Room, wired.ReadBuiltin, wired.WriteBuiltin));
         }
         public WiredVariableValue? Read(string key) => Module.Read(Reference(key), Holder, Frame);
         public bool Write(string key, int value) => Module.Mutate(Reference(key), Holder, WiredVariableMutation.Set, value, Frame);

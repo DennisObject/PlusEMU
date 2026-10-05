@@ -57,8 +57,10 @@ public sealed class WiredUserVariablesDataComposer(WiredVariableMenuSnapshot sna
             var definition = definitions[value.Key.DefinitionId];
             packet.WriteUInteger(value.Key.DefinitionId); packet.WriteBoolean(definition.HasValue);
             packet.WriteInteger(definition.HasValue ? value.Value.Value : 0);
-            packet.WriteInteger((int)Math.Clamp(value.Value.CreatedAtMs / 1000, 0, int.MaxValue));
-            packet.WriteInteger((int)Math.Clamp(value.Value.UpdatedAtMs / 1000, 0, int.MaxValue));
+            packet.WriteInteger(LegacySeconds(value.Value.CreatedAt));
+            packet.WriteInteger(LegacySeconds(value.Value.UpdatedAt));
         }
+        static int LegacySeconds(DateTimeOffset? timestamp) => timestamp is { } value
+            ? (int)Math.Clamp(value.ToUnixTimeSeconds(), 0, int.MaxValue) : 0;
     }
 }

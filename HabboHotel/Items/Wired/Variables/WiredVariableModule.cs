@@ -8,7 +8,7 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 /// Durable writes complete before changes enter the queue. The directory remains the authority on ownership/placement.
 /// </summary>
 public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory directory, IWiredVariableStore durable,
-    Func<long> nowMs, IWiredBuiltinVariables? builtins = null, Func<WiredVariableReference, WiredVariableDerivation?>? derive = null)
+    TimeProvider clock, IWiredBuiltinVariables? builtins = null, Func<WiredVariableReference, WiredVariableDerivation?>? derive = null)
 {
     private readonly MemoryWiredVariableStore _active = new();
     private readonly Queue<WiredVariableChange> _changes = new();
@@ -54,7 +54,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
                 var definition = resolution.Definition;
                 var value = resolution.Builtin is { } builtin ? builtins?.Read(builtin, holder, frame)
                     : values.GetValueOrDefault(Key(definition!, holder))
-                        ?? (definition!.Target == WiredVariableTarget.Global ? new(definition.InitialValue, 0, 0) : null);
+                        ?? (definition!.Target == WiredVariableTarget.Global ? new(definition.InitialValue, null, null) : null);
                 if (value is not null && resolution.Convert is { } convert) value = convert(value);
                 if (value is not null) captured[(reference, holder)] = value;
             }
@@ -76,7 +76,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
                 var definition = resolved.Definition!;
                 if (definition.IsDurable && !holder.CanPersist) return null;
                 var stored = Store(definition, frame).Read(Key(definition, holder));
-                value = stored ?? (definition.Target == WiredVariableTarget.Global ? new(definition.InitialValue, 0, 0) : null);
+                value = stored ?? (definition.Target == WiredVariableTarget.Global ? new(definition.InitialValue, null, null) : null);
             }
             return value is not null && resolved.Convert is { } convert ? convert(value) : value;
         }
@@ -179,14 +179,14 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         var key = Key(definition, holder);
         var write = Store(definition, frame).Mutate(key, previous =>
         {
-            var current = previous ?? (definition.Target == WiredVariableTarget.Global ? new(definition.InitialValue, 0, 0) : null);
+            var current = previous ?? (definition.Target == WiredVariableTarget.Global ? new(definition.InitialValue, null, null) : null);
             if (mutation == WiredVariableMutation.Give && current is not null) return previous;
             if (mutation is WiredVariableMutation.Set or WiredVariableMutation.Remove && current is null) return previous;
             if (mutation == WiredVariableMutation.Remove) return null;
             var next = definition.HasValue ? transform(current?.Value ?? 0) : 1;
             if (mutation == WiredVariableMutation.Set && previous is not null && previous.Value == next) return previous;
-            var now = nowMs();
-            return new(next, previous?.CreatedAtMs ?? now, now);
+            var now = clock.GetUtcNow();
+            return new(next, previous?.CreatedAt ?? now, now);
         }, definition.IsDurable ? resolved.Authorization : null);
         if (!write.Changed) return false;
         _changes.Enqueue(new(definition.RoomId, key, write.After is null ? WiredVariableChangeKind.Removed :
@@ -208,10 +208,13 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
                 if (resolved?.Definition is not { Target: WiredVariableTarget.Context, HasValue: true } definition) return false;
                 destinations.Add((definition, value));
             }
+            DateTimeOffset? capturedAt = null;
+            DateTimeOffset CaptureNow() => capturedAt ??= clock.GetUtcNow();
             foreach (var (definition, value) in destinations)
             {
                 var key = new WiredVariableKey(definition.ItemId, WiredVariableTarget.Context, 0);
-                var write = frame.Context.Mutate(key, before => before?.Value == value ? before : new(value, before?.CreatedAtMs ?? nowMs(), nowMs()));
+                var write = frame.Context.Mutate(key, before => before?.Value == value ? before
+                    : new(value, before?.CreatedAt ?? CaptureNow(), CaptureNow()));
                 if (write.Changed) _changes.Enqueue(new(roomId, key, write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
                     write.Before, write.After, 0, frame.Depth + 1));
             }
@@ -227,8 +230,10 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             var resolved = Resolve(new(WiredVariableTarget.Global, $"custom:{definitionId}"), true);
             if (resolved?.Definition is not { Target: WiredVariableTarget.Global, Link: null } definition || definition.ItemId != definitionId) return false;
             var frame = new WiredVariableFrame(roomId, []);
+            DateTimeOffset? capturedAt = null;
             var result = Store(definition, frame).Mutate(new(definitionId, WiredVariableTarget.Global, 0),
-                before => before ?? new(definition.InitialValue, nowMs(), nowMs()), definition.IsDurable ? resolved.Authorization : null);
+                before => before ?? new(definition.InitialValue, capturedAt ??= clock.GetUtcNow(), capturedAt.Value),
+                definition.IsDurable ? resolved.Authorization : null);
             return result.After is not null;
         }
     }
@@ -241,8 +246,10 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             var resolved = Resolve(new(WiredVariableTarget.Global, $"custom:{definitionId}"), true);
             if (resolved?.Definition is not { Target: WiredVariableTarget.Global, Link: null } definition || definition.ItemId != definitionId) return false;
             var key = new WiredVariableKey(definitionId, WiredVariableTarget.Global, 0);
+            DateTimeOffset? capturedAt = null;
             var write = Store(definition, new(roomId, [])).Mutate(key, before => before?.Value == value ? before
-                : new(value, before?.CreatedAtMs ?? nowMs(), nowMs()), definition.IsDurable ? resolved.Authorization : null);
+                : new(value, before?.CreatedAt ?? (capturedAt ??= clock.GetUtcNow()), capturedAt ??= clock.GetUtcNow()),
+                definition.IsDurable ? resolved.Authorization : null);
             if (write.After is null) return false;
             if (write.Changed) _changes.Enqueue(new(definition.RoomId, key, write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
                 write.Before, write.After, 0, 1) { Origin = 2 });

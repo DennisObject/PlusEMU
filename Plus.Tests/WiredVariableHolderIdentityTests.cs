@@ -32,8 +32,8 @@ public sealed class WiredVariableHolderIdentityTests
         floor[id] = permanent;
         var db = DispatchProxy.Create<IDatabase, ModernWiredRuntimeTests.RecordingProxy>();
         ((ModernWiredRuntimeTests.RecordingProxy)(object)db).InvokeMethod = (method, _) => throw new InvalidOperationException("Unexpected SQL: " + method.Name);
-        var variables = new WiredRoomVariables(room, db, () => 1);
-        var durable = new MemoryWiredVariableStore(); var module = new WiredVariableModule(1, new Directory(), durable, () => 1);
+        var variables = new WiredRoomVariables(room, db, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
+        var durable = new MemoryWiredVariableStore(); var module = new WiredVariableModule(1, new Directory(), durable, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         typeof(WiredRoomVariables).GetField("<Module>k__BackingField", flags)!.SetValue(variables, module);
         var frame = new WiredVariableFrame(1, [holder, transient]);
         var active = new WiredVariableReference(WiredVariableTarget.Furni, "custom:10");

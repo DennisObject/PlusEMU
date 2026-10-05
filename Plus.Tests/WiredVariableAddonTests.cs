@@ -47,7 +47,7 @@ public sealed class WiredVariableAddonTests
         var context = new WiredRuntimeContext(room, new(WiredEventKind.Enter), new(() => [], () => users), new Operations());
         context.SelectorPool.UserIds.UnionWith(users.Select(x => x.VirtualId)); context.Selected.UserIds.UnionWith(users.Select(x => x.VirtualId));
         var frame = WiredVariableRuntimeFrames.Create(context); context.VariableFrame = frame;
-        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), () => 1000);
+        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var holders = frame.Holders.ToArray();
         for (var i = 0; i < holders.Length; i++)
         {

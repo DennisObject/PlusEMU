@@ -3,7 +3,7 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 namespace Plus.HabboHotel.Items.Wired.Variables;
 
 /// <summary>Executable scalar boxes decoded from the active Octane legacy editor ABI.</summary>
-public sealed class WiredVariableExecutors(WiredVariableModule variables, Func<long> nowMs)
+public sealed class WiredVariableExecutors(WiredVariableModule variables, TimeProvider clock)
 {
     public static bool Supports(string name) => name is "wf_act_give_var" or "wf_act_remove_var" or "wf_act_change_var_val"
         or "wf_cnd_has_var" or "wf_cnd_neg_has_var" or "wf_cnd_var_val_match" or "wf_cnd_var_age_match";
@@ -74,14 +74,15 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, Func<l
             // Octane duration units: milliseconds, seconds, minutes, hours, days, weeks, months, years.
             long[] units = [1, 1000, 60000, 3600000, 86400000, 604800000, 2592000000, 31536000000];
             var duration = (long)p[3] * units[p[4]];
+            var now = clock.GetUtcNow();
             return Quantify(targets.Select(target =>
             {
                 var current = variables.Read(reference, target, frame);
                 if (current is null) return false;
-                var timestamp = p[1] == 1 ? current.UpdatedAtMs : current.CreatedAtMs;
-                if (timestamp <= 0) return false;
-                var age = Math.Max(0, nowMs() - timestamp);
-                return p[2] == 0 ? age < duration : age > duration;
+                var timestamp = p[1] == 1 ? current.UpdatedAt : current.CreatedAt;
+                if (timestamp is null) return false;
+                var ageMilliseconds = now <= timestamp.Value ? 0 : (now - timestamp.Value).TotalMilliseconds;
+                return p[2] == 0 ? ageMilliseconds < duration : ageMilliseconds > duration;
             }), p[^1]);
         }
         var operands = new List<(WiredVariableHolder Holder, int Value)>();

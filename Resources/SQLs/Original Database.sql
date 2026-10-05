@@ -25485,3 +25485,23 @@ CREATE TABLE club_membership_intervals (
  PRIMARY KEY (user_id, started_at)
 ) ENGINE=InnoDB;
 -- A fresh install has no memberships to copy, so the historical interval backfill is not needed here.
+
+CREATE TABLE IF NOT EXISTS `wired_variable_locks` (
+    `definition_id` int unsigned NOT NULL,
+    `retired` tinyint unsigned NOT NULL DEFAULT 0,
+    PRIMARY KEY (`definition_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `wired_variable_values` (
+    `definition_id` int unsigned NOT NULL,
+    `target_kind` tinyint unsigned NOT NULL,
+    `holder_id` bigint NOT NULL,
+    `value` int NOT NULL,
+    `created_at` DATETIME(6) NULL DEFAULT NULL,
+    `updated_at` DATETIME(6) NULL DEFAULT NULL,
+    PRIMARY KEY (`definition_id`, `target_kind`, `holder_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `wired_reward_state` (
+    `item_id` int unsigned NOT NULL,
+    `state_json` mediumtext NOT NULL,
+    PRIMARY KEY (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

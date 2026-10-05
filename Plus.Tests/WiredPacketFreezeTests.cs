@@ -19,7 +19,7 @@ public class WiredPacketFreezeTests
             WiredVariableAvailability.Persistent, true), true, false) { TextConnector = connector };
         var definitions = new List<WiredVariableDescription> { variable };
         var removed = new List<string> { "user:9" };
-        var holders = new List<WiredVariableStoredHolder> { new(new(10, WiredVariableTarget.User, 7), "Alice", new(25, 1000, 2000)) };
+        var holders = new List<WiredVariableStoredHolder> { new(new(10, WiredVariableTarget.User, 7), "Alice", new(25, DateTimeOffset.FromUnixTimeMilliseconds(1000), DateTimeOffset.FromUnixTimeMilliseconds(2000))) };
         var composers = new IServerPacket[]
         {
             new WiredAllVariablesDiffComposer(new(42, true, removed, definitions)),

@@ -9,7 +9,7 @@ public sealed class WiredVariableTimeTests
     public void CalendarUsesExplicitRoomTimezoneAndElapsedUnitsUseUtc()
     {
         var time = new WiredVariableTimeUtilities(WiredVariableTimeUtilities.ValidMask, 0);
-        var value = new WiredVariableValue(1609459200, 0, 0); // 2021-01-01 00:00 UTC, ISO week 53.
+        var value = new WiredVariableValue(1609459200, null, null); // 2021-01-01 00:00 UTC, ISO week 53.
         var zone = TimeZoneInfo.CreateCustomTimeZone("probe", TimeSpan.FromHours(-5), "probe", "probe");
         Assert.Equal(19, time.Read(value, 4, zone));
         Assert.Equal(31, time.Read(value, 6, zone));
@@ -25,10 +25,10 @@ public sealed class WiredVariableTimeTests
     {
         var creation = new WiredVariableTimeUtilities(1 << 21, 1);
         var updated = creation with { Mode = 2 };
-        var value = new WiredVariableValue(99, 12001, 24001);
+        var value = new WiredVariableValue(99, DateTimeOffset.FromUnixTimeMilliseconds(12001), DateTimeOffset.FromUnixTimeMilliseconds(24001));
         Assert.Equal(12, creation.Read(value, 21, TimeZoneInfo.Utc));
         Assert.Equal(24, updated.Read(value, 21, TimeZoneInfo.Utc));
-        Assert.Null(creation.Read(value with { CreatedAtMs = 0 }, 21, TimeZoneInfo.Utc));
+        Assert.Null(creation.Read(value with { CreatedAt = null }, 21, TimeZoneInfo.Utc));
         Assert.Null(creation.Read(value, 10, TimeZoneInfo.Utc));
         Assert.Null(WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 6250000, 0, false));
         Assert.Equal(700000161u, WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 10, 0, false));

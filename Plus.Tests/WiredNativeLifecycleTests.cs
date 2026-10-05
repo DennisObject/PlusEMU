@@ -369,7 +369,7 @@ public sealed class WiredNativeLifecycleTests
         {
             // Keep native variable read/write behavior; isolate only storage authority for these non-SQL regressions.
             var variables = Wired.Variables;
-            var module = new WiredVariableModule(Room.Id, new OwnerDirectory(), new MemoryWiredVariableStore(), () => 0,
+            var module = new WiredVariableModule(Room.Id, new OwnerDirectory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(0)),
                 new RoomWiredBuiltinVariables(Room, engineRead: Wired.ReadBuiltin, engineWrite: Wired.WriteBuiltin, stateChanged: Wired.PublishBuiltinStateChanged));
             typeof(WiredRoomVariables).GetField("<Module>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(variables, module);
         }

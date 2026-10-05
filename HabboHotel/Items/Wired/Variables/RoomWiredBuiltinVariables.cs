@@ -81,7 +81,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             _ => null
         };
         value ??= engineRead?.Invoke(reference with { Token = $"internal:{key}" }, holder, frame);
-        return value is int number ? new(number, 0, 0) : null;
+        return value is int number ? new(number, null, null) : null;
     }
 
     public bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame)

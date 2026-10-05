@@ -30,7 +30,7 @@ public sealed class WiredVariableBuiltinStateTests
             var moved = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_movedItems", flags)!.GetValue(handling)!;
             Assert.Same(item, moved[item.Id]); notices++;
         });
-        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), () => 1, builtins);
+        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)), builtins);
         var reference = new WiredVariableReference(WiredVariableTarget.Furni, "internal:@state");
         Assert.True(module.Mutate(reference, holder, WiredVariableMutation.Set, 1, frame));
         Assert.Equal(1, notices);
@@ -61,7 +61,7 @@ public sealed class WiredVariableBuiltinStateTests
             if (!Monitor.TryEnter(engineGate, TimeSpan.FromSeconds(2))) throw new TimeoutException("State callback retained module lock while entering engine");
             try { notified = true; } finally { Monitor.Exit(engineGate); }
         });
-        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), () => 1, builtins);
+        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)), builtins);
         var reference = new WiredVariableReference(WiredVariableTarget.Furni, "internal:@state");
         var engine = Task.Run(() =>
         {

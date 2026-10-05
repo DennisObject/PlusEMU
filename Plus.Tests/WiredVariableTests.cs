@@ -25,7 +25,7 @@ public sealed class WiredVariableTests
         var directory = new Directory();
         directory.Definitions[10] = new(10, 1, 5, "a", WiredVariableTarget.Context, WiredVariableAvailability.RoomActive, true);
         directory.Definitions[11] = directory.Definitions[10] with { ItemId = 11, Name = "b", HasValue = false };
-        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), () => 1); var frame = Frame();
+        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1))); var frame = Frame();
         Assert.False(module.CaptureContextValues(new Dictionary<uint, int> { [10] = 10, [11] = 20 }, frame));
         Assert.Empty(frame.Context.GetHolders(10)); Assert.Empty(module.DrainChanges());
         directory.Definitions[11] = directory.Definitions[11] with { HasValue = true };
@@ -45,7 +45,7 @@ public sealed class WiredVariableTests
             new Plus.HabboHotel.Items.Item { Id = uint.MaxValue - 1, IsTemporary = true } };
         var a = WiredVariableRuntimeFrames.FurniHolder(items[0]); var b = WiredVariableRuntimeFrames.FurniHolder(items[1]);
         Assert.Equal(0, a.StableId); Assert.Equal(0, b.StableId); Assert.Equal(-1, a.EntityId); Assert.Equal(-2, b.EntityId);
-        var durable = new MemoryWiredVariableStore(); var module = new WiredVariableModule(1, directory, durable, () => 1);
+        var durable = new MemoryWiredVariableStore(); var module = new WiredVariableModule(1, directory, durable, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         var frame = Frame(a, b); var active = new WiredVariableReference(WiredVariableTarget.Furni, "custom:10");
         var persistent = new WiredVariableReference(WiredVariableTarget.Furni, "custom:11");
         Assert.True(module.Mutate(active, a, WiredVariableMutation.Give, 10, frame));
@@ -69,12 +69,12 @@ public sealed class WiredVariableTests
     {
         var directory = new Directory(); directory.Definitions[10] = User();
         var durable = new MemoryWiredVariableStore();
-        var first = new WiredVariableModule(1, directory, durable, () => 1000);
+        var first = new WiredVariableModule(1, directory, durable, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var alice = Holder(100, 1);
         Assert.True(first.Mutate(UserRef, alice, WiredVariableMutation.Give, 23, Frame(alice)));
         first.HolderLeft(alice);
         first.DetachDefinition(10); // Pickup preserves durable data.
-        var loaded = new WiredVariableModule(1, directory, durable, () => 2000);
+        var loaded = new WiredVariableModule(1, directory, durable, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
         var aliceReturned = Holder(100, 20); var bob = Holder(200, 1);
         Assert.Equal(23, loaded.Read(UserRef, aliceReturned, Frame(aliceReturned, bob))!.Value);
         Assert.Null(loaded.Read(UserRef, bob, Frame(aliceReturned, bob)));
@@ -87,7 +87,7 @@ public sealed class WiredVariableTests
     {
         var directory = new Directory(); directory.Definitions[10] = User(WiredVariableAvailability.UserActive);
         var durable = new MemoryWiredVariableStore(); var holder = Holder(7, 12);
-        var module = new WiredVariableModule(1, directory, durable, () => 1);
+        var module = new WiredVariableModule(1, directory, durable, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         Assert.True(module.Mutate(UserRef, holder, WiredVariableMutation.Give, 4, Frame(holder)));
         Assert.Empty(durable.GetHolders(10));
         module.HolderLeft(holder);
@@ -98,26 +98,34 @@ public sealed class WiredVariableTests
     public void CreationUpdateRemovalHaveActualTimestampsAndNoOpWritesEmitNothing()
     {
         var directory = new Directory(); directory.Definitions[10] = User();
-        long time = 100; var holder = Holder(7, 42);
-        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), () => time);
+        var clock = new MutableTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(100)); var holder = Holder(7, 42);
+        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), clock);
         var frame = Frame(holder);
         Assert.True(module.Mutate(UserRef, holder, WiredVariableMutation.Give, 0, frame));
         Assert.False(module.Mutate(UserRef, holder, WiredVariableMutation.Give, 9, frame));
-        time = 200;
+        clock.UtcNow = DateTimeOffset.FromUnixTimeMilliseconds(200);
         Assert.True(module.Change(UserRef, holder, WiredVariableMutation.Set, value => value + 3, frame));
         Assert.False(module.Mutate(UserRef, holder, WiredVariableMutation.Set, 3, frame));
         var value = module.Read(UserRef, holder, frame)!;
-        Assert.Equal(100, value.CreatedAtMs); Assert.Equal(200, value.UpdatedAtMs);
+        Assert.Equal(100, value.CreatedAt?.ToUnixTimeMilliseconds()); Assert.Equal(200, value.UpdatedAt?.ToUnixTimeMilliseconds());
         Assert.True(module.Mutate(UserRef, holder, WiredVariableMutation.Remove, 0, frame));
         Assert.Equal(new[] { WiredVariableChangeKind.Created, WiredVariableChangeKind.Updated, WiredVariableChangeKind.Removed }, module.DrainChanges().Select(x => x.Kind));
         Assert.Empty(module.DrainChanges());
+        Assert.Equal(2, clock.Reads);
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = now;
+        public int Reads { get; private set; }
+        public override DateTimeOffset GetUtcNow() { Reads++; return UtcNow; }
     }
 
     [Fact]
     public void ContextBelongsToFrameAndCanExplicitlyBeInheritedBySignal()
     {
         var directory = new Directory(); directory.Definitions[11] = new(11, 1, 5, "capture", WiredVariableTarget.Context, WiredVariableAvailability.RoomActive, true);
-        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), () => 1);
+        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         var reference = new WiredVariableReference(WiredVariableTarget.Context, "custom:11");
         var holder = new WiredVariableHolder(WiredVariableTarget.Context, 0, 0);
         var frame = Frame(); var unrelated = Frame();
@@ -134,8 +142,8 @@ public sealed class WiredVariableTests
         directory.Definitions[20] = User(WiredVariableAvailability.Shared) with { ItemId = 20, RoomId = 2 };
         directory.Definitions[10] = User() with { Link = new(2, new(WiredVariableTarget.User, "custom:20"), true) };
         var holder = Holder(11, 1); var frame = Frame(holder); var store = new MemoryWiredVariableStore();
-        store.Mutate(new(20, WiredVariableTarget.User, 11), _ => new(91, 1, 1));
-        var module = new WiredVariableModule(1, directory, store, () => 2);
+        store.Mutate(new(20, WiredVariableTarget.User, 11), _ => new(91, DateTimeOffset.FromUnixTimeMilliseconds(1), DateTimeOffset.FromUnixTimeMilliseconds(1)));
+        var module = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2)));
         Assert.Equal(91, module.Read(UserRef, holder, frame)!.Value);
         Assert.False(module.Mutate(UserRef, holder, WiredVariableMutation.Set, 8, frame));
         Assert.Empty(module.DrainChanges());
@@ -152,7 +160,7 @@ public sealed class WiredVariableTests
     {
         var directory = new Directory(); directory.Definitions[10] = User() with { Link = new(1, new(WiredVariableTarget.User, "custom:11"), false) };
         directory.Definitions[11] = User() with { ItemId = 11, Link = new(1, UserRef, false) };
-        var holder = Holder(5, 1); var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), () => 1);
+        var holder = Holder(5, 1); var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         Assert.Null(module.Read(UserRef, holder, Frame(holder)));
         Assert.False(module.Mutate(UserRef, holder, WiredVariableMutation.Give, 1, Frame(holder)));
         directory.Definitions[10] = User();
@@ -165,7 +173,7 @@ public sealed class WiredVariableTests
         var directory = new Directory(); directory.Definitions[10] = User() with { HasValue = false };
         directory.Definitions[11] = User() with { ItemId = 11 };
         var holder = Holder(1, 1); var frame = Frame(holder);
-        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), () => 1);
+        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         Assert.True(module.Mutate(UserRef, holder, WiredVariableMutation.Give, 444, frame));
         Assert.Equal(1, module.Read(UserRef, holder, frame)!.Value);
         Assert.False(module.Mutate(UserRef, holder, WiredVariableMutation.Set, 6, frame));
@@ -176,12 +184,12 @@ public sealed class WiredVariableTests
     public void RoomVariableStartsAvailableAndFirstUpdatePersistsAcrossReload()
     {
         var directory = new Directory(); directory.Definitions[10] = new(10, 1, 5, "global", WiredVariableTarget.Global, WiredVariableAvailability.Persistent, true, 7);
-        var store = new MemoryWiredVariableStore(); var module = new WiredVariableModule(1, directory, store, () => 3);
+        var store = new MemoryWiredVariableStore(); var module = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(3)));
         var reference = new WiredVariableReference(WiredVariableTarget.Global, "custom:10");
         var holder = new WiredVariableHolder(WiredVariableTarget.Global, 0, 0);
         Assert.Equal(7, module.Read(reference, holder, Frame())!.Value);
         Assert.True(module.Change(reference, holder, WiredVariableMutation.Set, value => value + 1, Frame()));
-        var loaded = new WiredVariableModule(1, directory, store, () => 4);
+        var loaded = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(4)));
         Assert.Equal(8, loaded.Read(reference, holder, Frame())!.Value);
     }
 
@@ -189,7 +197,7 @@ public sealed class WiredVariableTests
     public void RoomVariableEditorReopensCurrentDurableValueAndSeedDoesNotOverwriteIt()
     {
         var directory = new Directory(); directory.Definitions[10] = new(10, 1, 5, "global", WiredVariableTarget.Global, WiredVariableAvailability.Persistent, true, 7);
-        var store = new MemoryWiredVariableStore(); var module = new WiredVariableModule(1, directory, store, () => 1000);
+        var store = new MemoryWiredVariableStore(); var module = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var saved = new WiredConfiguration { IntParams = [10, 7], Text = "global" };
         Assert.True(module.InitializeGlobal(10));
         var editor = new WiredVariableEditor(module);
@@ -197,7 +205,7 @@ public sealed class WiredVariableTests
         module.DrainChanges();
         Assert.True(editor.SaveGlobalValue(10, 42));
         Assert.Empty(module.DrainChanges());
-        var reloaded = new WiredVariableModule(1, directory, store, () => 2000);
+        var reloaded = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
         Assert.True(reloaded.InitializeGlobal(10));
         Assert.Equal(42, new WiredVariableEditor(reloaded).ForDisplay("wf_var_room", 10, saved).IntParams[1]);
         Assert.Equal(7, saved.IntParams[1]);
@@ -207,11 +215,29 @@ public sealed class WiredVariableTests
     }
 
     [Fact]
+    public void GlobalInitializationAndUnchangedSaveDoNotResampleClock()
+    {
+        var directory = new Directory();
+        directory.Definitions[10] = new(10, 1, 5, "global", WiredVariableTarget.Global,
+            WiredVariableAvailability.Persistent, true, 7);
+        var clock = new MutableTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000));
+        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), clock);
+        var editor = new WiredVariableEditor(module);
+
+        Assert.True(module.InitializeGlobal(10));
+        Assert.True(module.InitializeGlobal(10));
+        Assert.True(editor.SaveGlobalValue(10, 7));
+        Assert.Equal(1, clock.Reads);
+        Assert.True(editor.SaveGlobalValue(10, 8));
+        Assert.Equal(2, clock.Reads);
+    }
+
+    [Fact]
     public void FailedCommitDoesNotPublishChange()
     {
         var directory = new Directory(); directory.Definitions[10] = User();
         var holder = Holder(1, 1);
-        var module = new WiredVariableModule(1, directory, new FailingStore(), () => 1);
+        var module = new WiredVariableModule(1, directory, new FailingStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         Assert.Throws<IOException>(() => module.Mutate(UserRef, holder, WiredVariableMutation.Give, 3, Frame(holder)));
         Assert.Empty(module.DrainChanges());
     }
@@ -221,7 +247,7 @@ public sealed class WiredVariableTests
     {
         var directory = new Directory(); directory.Definitions[10] = User();
         var store = new MemoryWiredVariableStore(); var holder = Holder(1, 1); var frame = Frame(holder);
-        var modules = Enumerable.Range(0, 4).Select(_ => new WiredVariableModule(1, directory, store, () => 1)).ToArray();
+        var modules = Enumerable.Range(0, 4).Select(_ => new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)))).ToArray();
         modules[0].Mutate(UserRef, holder, WiredVariableMutation.Give, 0, frame);
         Parallel.For(0, 400, i => modules[i % 4].Change(UserRef, holder, WiredVariableMutation.Set, value => value + 1, frame));
         Assert.Equal(400, modules[0].Read(UserRef, holder, frame)!.Value);
@@ -263,7 +289,7 @@ public sealed class WiredVariableTests
             else if (change == "delete") directory.Definitions.Remove(20);
             else directory.Definitions[10] = directory.Definitions[10] with { Link = directory.Definitions[10].Link! with { ReadOnly = true } };
         });
-        var module = new WiredVariableModule(1, directory, store, () => 1);
+        var module = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         var holder = Holder(1, 2);
         Assert.False(module.Mutate(UserRef, holder, WiredVariableMutation.Give, 3, Frame(holder)));
         Assert.Empty(backing.GetHolders(20));

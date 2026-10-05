@@ -113,7 +113,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             var variableItem = new Item { Id = variableId, RoomId = roomId, OwnerId = ownerId,
                 Definition = new() { ItemName = "wf_var_room", InteractionName = "wf_var_room", Type = ItemType.Floor } };
             ((ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(itemHandler)!).TryAdd(variableId, variableItem);
-            var variables = new WiredRoomVariables(room, database, () => 1234);
+            var variables = new WiredRoomVariables(room, database, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1234)));
             Set(wired, "_variables", new Lazy<WiredRoomVariables>(() => variables));
             var definition = variables.CreateBox(variableItem)!;
             Assert.True(definition.TryValidateConfiguration(variableConfig, out variableConfig, out _));
@@ -123,7 +123,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             var userVariableConfig = new WiredConfiguration { IntParams = [1, 10], Text = "settings_clear_probe" };
             connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@Id,'wf_var_user',1,@Json)",
                 new { Id = userVariableId, Json = JsonSerializer.Serialize(userVariableConfig) });
-            connection.Execute("INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at_ms,updated_at_ms) VALUES (@Id,0,@Holder,12,1234,1234)",
+            connection.Execute("INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at,updated_at) VALUES (@Id,0,@Holder,12,'1970-01-01 00:00:01.234000','1970-01-01 00:00:01.234000')",
                 new { Id = userVariableId, Holder = guestId });
             await AssertVariableMenuSettingsGates(room, settings, variables, owner.Client, guest.Client, guest.Packets, connection, variableId, userVariableId);
             var accepted = settings.Snapshot;

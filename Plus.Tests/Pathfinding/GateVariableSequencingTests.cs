@@ -22,7 +22,7 @@ public partial class PlacedFurniRoomTests
     private WiredVariableModule GateVariables(List<(Item Item, WiredVariableFrame Frame, string State)> notices)
     {
         var builtins = new RoomWiredBuiltinVariables(_room, stateChanged: (item, frame) => notices.Add((item, frame, item.LegacyDataString)));
-        return new WiredVariableModule(_room.Id, new GateDirectory(_room.Id), new MemoryWiredVariableStore(), () => 1, builtins);
+        return new WiredVariableModule(_room.Id, new GateDirectory(_room.Id), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)), builtins);
     }
 
     private static readonly WiredVariableReference StateReference = new(WiredVariableTarget.Furni, "internal:@state");
@@ -187,7 +187,7 @@ public partial class PlacedFurniRoomTests
         var gate = ClosableGate(); ActorOn(new Point(0, 2)); GateTransition? nested = null;
         var builtins = new RoomWiredBuiltinVariables(_room, stateChanged: (item, _) =>
             nested = GateTransitionService.Apply(item, "2", GateCloseReason.Wired, persist: false));
-        var module = new WiredVariableModule(_room.Id, new GateDirectory(_room.Id), new MemoryWiredVariableStore(), () => 1, builtins);
+        var module = new WiredVariableModule(_room.Id, new GateDirectory(_room.Id), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)), builtins);
         var holder = WiredVariableRuntimeFrames.FurniHolder(gate); var frame = new WiredVariableFrame(_room.Id, [holder]);
         Assert.True(Task.Run(() => module.Mutate(StateReference, holder, WiredVariableMutation.Set, 0, frame)).Result);
         Assert.Equal(GateTransition.Queued, Task.Run(() => GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false)).Result);
@@ -231,7 +231,7 @@ public partial class PlacedFurniRoomTests
     private WiredVariableModule AliasVariables(List<(Item Item, WiredVariableFrame Frame, string State)> notices)
     {
         var builtins = new RoomWiredBuiltinVariables(_room, stateChanged: (item, frame) => notices.Add((item, frame, item.LegacyDataString)));
-        return new WiredVariableModule(_room.Id, new AliasDirectory(_room.Id), new MemoryWiredVariableStore(), () => 1, builtins);
+        return new WiredVariableModule(_room.Id, new AliasDirectory(_room.Id), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)), builtins);
     }
 
     [Fact]
@@ -280,7 +280,7 @@ public partial class PlacedFurniRoomTests
         var notices = new List<(Item Item, WiredVariableFrame Frame, string State)>();
         var directory = new RetargetDirectory(_room.Id) { ToState = toState };
         var builtins = new RoomWiredBuiltinVariables(_room, stateChanged: (item, frame) => notices.Add((item, frame, item.LegacyDataString)));
-        var module = new WiredVariableModule(_room.Id, directory, new MemoryWiredVariableStore(), () => 1, builtins);
+        var module = new WiredVariableModule(_room.Id, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)), builtins);
         var holder = WiredVariableRuntimeFrames.FurniHolder(gate); var frame = new WiredVariableFrame(_room.Id, [holder]);
         Assert.True(module.Change(PointsReference, holder, WiredVariableMutation.Give, _ => 5, frame));
         return (module, directory, holder, frame, notices);

@@ -9,7 +9,7 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 public sealed partial class WiredRoomVariables
 {
     private readonly Room _room;
-    private readonly Func<long> _nowMs;
+    private readonly TimeProvider _clock;
     private readonly WiredVariableConfigurationPersistence _persistence;
     private readonly Dictionary<uint, WiredVariableDefinitionBox> _definitions = [];
     public WiredVariableModule Module { get; }
@@ -24,16 +24,16 @@ public sealed partial class WiredRoomVariables
     }
     public bool FxDirty { get; private set; } = true;
 
-    public WiredRoomVariables(Room room, IDatabase database, Func<long> nowMs,
+    public WiredRoomVariables(Room room, IDatabase database, TimeProvider clock,
         Func<WiredVariableReference, WiredVariableHolder, WiredVariableFrame, int?>? builtinRead = null,
         Func<WiredVariableReference, WiredVariableHolder, int, WiredVariableFrame, bool>? builtinWrite = null,
         Action<Item, WiredVariableFrame>? stateChanged = null)
     {
-        _room = room; _nowMs = nowMs;
-        Module = new(room.Id, new DatabaseWiredVariableDirectory(database), new DatabaseWiredVariableStore(database), nowMs,
+        _room = room; _clock = clock;
+        Module = new(room.Id, new DatabaseWiredVariableDirectory(database), new DatabaseWiredVariableStore(database), clock,
             new RoomWiredBuiltinVariables(room, builtinRead, builtinWrite, stateChanged), ResolveDerived);
         Editor = new(Module); Fx = new(Module);
-        _persistence = new(database, Module, nowMs);
+        _persistence = new(database, Module, clock);
     }
 
     public IWiredConfiguredItem? CreateBox(Item item)
@@ -46,7 +46,7 @@ public sealed partial class WiredRoomVariables
             if (WiredVariableAddonBox.Supports(descriptor.CanonicalName)) return new WiredVariableAddonBox(_room, item, descriptor, Module,
                 id => MetadataOn(id, "wf_xtra_var_text_connector")?.TextConnector ?? new Dictionary<int, string>());
         }
-        return WiredVariableBoxFactory.Create(_room, item, Module, _nowMs, _persistence);
+        return WiredVariableBoxFactory.Create(_room, item, Module, _clock, _persistence);
     }
     /// <summary>Call after hydration from the companion configuration store. Database failures must abort activation.</summary>
     public void ConfigurationLoaded(IWiredConfiguredItem box)

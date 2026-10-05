@@ -14,7 +14,7 @@ public sealed class WiredVariableChangedTriggerTests
     public void ActualScalarChangesMatchTypedTriggerKindsTargetIdentityAndCreatorOrigin()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1;
-        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), () => 1);
+        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         var holder = new WiredVariableHolder(WiredVariableTarget.User, 7, 1); var frame = new WiredVariableFrame(1, [holder]);
         var reference = new WiredVariableReference(WiredVariableTarget.User, "custom:10");
         Assert.True(WiredBoxRegistry.TryGet("wf_trg_var_changed", out var descriptor));
@@ -38,7 +38,7 @@ public sealed class WiredVariableChangedTriggerTests
     [Fact]
     public void SuccessfulBuiltinWritesEmitActualDeltaAndFailedOrEqualWritesEmitNothing()
     {
-        var builtin = new Builtin(); var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), () => 1, builtin);
+        var builtin = new Builtin(); var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)), builtin);
         var holder = new WiredVariableHolder(WiredVariableTarget.User, 7, 1); var frame = new WiredVariableFrame(1, [holder]);
         var reference = new WiredVariableReference(WiredVariableTarget.User, "internal:@position_x");
         Assert.True(module.Mutate(reference, holder, WiredVariableMutation.Set, 5, frame, origin: 2));
@@ -52,7 +52,7 @@ public sealed class WiredVariableChangedTriggerTests
     private sealed class Builtin : IWiredBuiltinVariables
     {
         public bool Accept = true; private int _value;
-        public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame) => new(_value, 0, 0);
+        public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame) => new(_value, null, null);
         public bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame)
         { if (!Accept) return false; _value = value; return true; }
     }

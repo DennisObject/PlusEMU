@@ -18,17 +18,17 @@ public sealed record WiredVariableTimeUtilities(int Mask, int Mode)
     public int? Read(WiredVariableValue value, int id, TimeZoneInfo zone)
     {
         if (!Has(id)) return null;
-        var seconds = Mode switch { 1 => value.CreatedAtMs / 1000, 2 => value.UpdatedAtMs / 1000, _ => Math.Max(0, value.Value) };
-        if (Mode != 0 && seconds <= 0) return null;
-        var utc = DateTimeOffset.FromUnixTimeSeconds(seconds);
+        long? seconds = Mode switch { 1 => value.CreatedAt?.ToUnixTimeSeconds(), 2 => value.UpdatedAt?.ToUnixTimeSeconds(), _ => Math.Max(0, value.Value) };
+        if (seconds is null || Mode != 0 && seconds <= 0) return null;
+        var utc = DateTimeOffset.FromUnixTimeSeconds(seconds.Value);
         var local = TimeZoneInfo.ConvertTime(utc, zone);
         long? result = id switch
         {
             1 => local.Millisecond, 2 => local.Second, 3 => local.Minute, 4 => local.Hour,
             5 => local.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)local.DayOfWeek,
             6 => local.Day, 7 => local.DayOfYear, 8 => ISOWeek.GetWeekOfYear(local.DateTime), 9 => local.Month, 10 => local.Year,
-            20 => seconds * 1000, 21 => seconds, 22 => seconds / 60, 23 => seconds / 3600,
-            24 => seconds / 86400, 25 => seconds / 604800, 26 => (utc.Year - 1970L) * 12 + utc.Month - 1, _ => null
+            20 => seconds.Value * 1000, 21 => seconds.Value, 22 => seconds.Value / 60, 23 => seconds.Value / 3600,
+            24 => seconds.Value / 86400, 25 => seconds.Value / 604800, 26 => (utc.Year - 1970L) * 12 + utc.Month - 1, _ => null
         };
         return result is { } number ? (int)Math.Clamp(number, int.MinValue, int.MaxValue) : null;
     }

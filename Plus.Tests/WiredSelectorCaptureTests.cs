@@ -150,6 +150,7 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         private readonly WiredSelectorRoomState _state = new();
         private readonly Dictionary<uint, IWiredConfiguredItem> _boxes = [];
         private readonly WiredVariableModule _variables;
+        private readonly FixtureClock _clock;
         public readonly WiredStackEngine Engine;
         public long Now;
         public int WorldCaptures, FurnitureConversions, AvatarConversions, GroupMembershipReads, VariableSessions, DisposedSessions;
@@ -158,10 +159,15 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         public Fixture()
         {
             Room.Id = 1;
-            _variables = new(1, this, new MemoryWiredVariableStore(), () => Now);
+            _clock = new(this);
+            _variables = new(1, this, new MemoryWiredVariableStore(), _clock);
             Engine = new(() => Now, box => Furniture.Contains(box.Item), _ => true, _ => { }, Errors.Add);
             Engine.BindRuntime(Room, new(() => Furniture, () => Users,
                 id => Furniture.FirstOrDefault(x => x.Id == id), id => Users.FirstOrDefault(x => x.VirtualId == id)), this);
+        }
+        private sealed class FixtureClock(Fixture fixture) : TimeProvider
+        {
+            public override DateTimeOffset GetUtcNow() => DateTimeOffset.FromUnixTimeMilliseconds(fixture.Now);
         }
         public Item Furni(string name = "", int x = 0)
         {

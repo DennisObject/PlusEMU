@@ -31,7 +31,7 @@ public partial class WiredComponent
         TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), Settings.ExplicitTimeZone ?? _clock.LocalTimeZone);
     private IWiredConfigurationStore ConfigurationStore => _configurationStore;
     public WiredRoomVariables Variables => (_variables ??= new(() => new(_room,
-        _database, () => _clock.GetUtcNow().ToUnixTimeMilliseconds(), builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged)
+        _database, _clock, builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged)
         { TimeZone = () => Settings.ExplicitTimeZone ?? TimeZoneInfo.Utc })).Value;
 
     // Returns a detached concrete candidate. Registration and persistence belong to the loader/publisher.

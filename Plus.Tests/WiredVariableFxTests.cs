@@ -15,7 +15,7 @@ public sealed class WiredVariableFxTests
     [InlineData(true)]
     public void ReusedRoomUnitIdInitializesReplacementAndRejectsDetachedPendingBatch(bool samePlayer)
     {
-        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), () => 1000);
+        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var viewer = new WiredVariableHolder(WiredVariableTarget.User, 901, 8);
         var old = new WiredVariableHolder(WiredVariableTarget.User, 900, 7);
         var replacement = old with { StableId = samePlayer ? old.StableId : 902 };
@@ -42,7 +42,7 @@ public sealed class WiredVariableFxTests
     public void OverrideUsesStablePlayerIdWhileWireUsesEntityIdAndAudienceLossRemovesStatus()
     {
         var directory = new Directory(); var store = new MemoryWiredVariableStore();
-        var module = new WiredVariableModule(1, directory, store, () => 1000);
+        var module = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var holder = new WiredVariableHolder(WiredVariableTarget.User, 900, 7);
         var viewer = new WiredVariableHolder(WiredVariableTarget.User, 901, 8);
         var frame = new WiredVariableFrame(1, [holder, viewer]);
@@ -86,11 +86,11 @@ public sealed class WiredVariableFxTests
     [Fact]
     public void ScalarEditorExecutionChangesSelectedStableHolderAndChecksQuantifier()
     {
-        var directory = new Directory(); var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), () => 1000);
+        var directory = new Directory(); var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var holder = new WiredVariableHolder(WiredVariableTarget.User, 321, 8);
         var other = new WiredVariableHolder(WiredVariableTarget.User, 123, 9);
         var frame = new WiredVariableFrame(1, [holder, other]) { Trigger = [holder] };
-        var executor = new WiredVariableExecutors(module, () => 2000);
+        var executor = new WiredVariableExecutors(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
         Assert.True(executor.Execute("wf_act_give_var", new() { IntParams = [0,0,10,0,0], Text = "10" }, frame));
         Assert.True(executor.Execute("wf_act_change_var_val", new() { IntParams = [0,1,0,5,0,0,0,0,0], Text = "custom:10\t\t" }, frame));
         Assert.Equal(15, module.Read(new(WiredVariableTarget.User,"custom:10"), holder, frame)!.Value);

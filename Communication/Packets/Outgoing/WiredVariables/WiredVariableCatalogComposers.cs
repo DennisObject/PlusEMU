@@ -63,14 +63,16 @@ public sealed class WiredVariableHoldersPageComposer(string variableId, WiredVar
         {
             packet.WriteInteger(holder.Key.Target switch { WiredVariableTarget.Global => 0, WiredVariableTarget.User => 1, WiredVariableTarget.Furni => 2, _ => 3 });
             packet.WriteInteger(checked((int)holder.Key.HolderId)); packet.WriteString(holder.Name); packet.WriteInteger(holder.Value.Value);
-            WriteTimestamp(packet, holder.Value.CreatedAtMs); WriteTimestamp(packet, holder.Value.UpdatedAtMs);
+            WriteTimestamp(packet, holder.Value.CreatedAt); WriteTimestamp(packet, holder.Value.UpdatedAt);
         }
         packet.WriteInteger(userFilter); packet.WriteInteger(sort);
     }
-    internal static void WriteTimestamp(IOutgoingPacket packet, long timestamp)
+    internal static void WriteTimestamp(IOutgoingPacket packet, DateTimeOffset? timestamp)
     {
-        packet.WriteInteger(unchecked((int)(timestamp >> 32))); packet.WriteInteger(unchecked((int)timestamp));
-        packet.WriteString(timestamp > 0 && timestamp <= 253402300799999L
-            ? DateTimeOffset.FromUnixTimeMilliseconds(timestamp).UtcDateTime.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) : "");
+        var milliseconds = timestamp?.ToUnixTimeMilliseconds() ?? 0;
+        packet.WriteInteger(unchecked((int)(milliseconds >> 32))); packet.WriteInteger(unchecked((int)milliseconds));
+        packet.WriteString(timestamp?.UtcDateTime.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) ?? "");
     }
+    internal static void WriteTimestamp(IOutgoingPacket packet, long timestamp) =>
+        WriteTimestamp(packet, timestamp > 0 && timestamp <= 253402300799999L ? DateTimeOffset.FromUnixTimeMilliseconds(timestamp) : null);
 }
