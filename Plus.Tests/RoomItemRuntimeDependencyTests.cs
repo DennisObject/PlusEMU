@@ -48,7 +48,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(1, store.ClearCount);
         var returned = Assert.IsType<InventoryItem>(_client.GetHabbo().Inventory.Furniture.GetItem(90));
         Assert.Equal(item.Id, returned.Id);
-        Assert.Equal(ServerPacketHeader.FurniListUpdateComposer, Header(Assert.Single(sent)));
+        Assert.Equal(ServerPacketHeader.FurniListUpdateComposer, Assert.Single(sent).Header);
     }
 
     [Fact]
@@ -166,28 +166,28 @@ public partial class PlacedFurniRoomTests
         }
     }
 
-    private static List<byte[]> CaptureTransport(GameClient client, Action? beforeCapture = null)
+    private static List<CapturedPacket> CaptureTransport(TestClient client, Action? beforeCapture = null)
     {
-        var sent = new List<byte[]>();
+        var sent = new List<CapturedPacket>();
         client.SendCallback = args =>
         {
             beforeCapture?.Invoke();
-            sent.Add(args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray());
+            sent.Add(new(client.Sent[^1], args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray()));
             return false;
         };
         return sent;
     }
 
-    private static uint Header(byte[] packet) => (uint)FlashGameClient.DecodeInt16(packet.AsMemory(4));
-
-    private static void AssertNotice(byte[] packet)
+    private static void AssertNotice(CapturedPacket packet)
     {
-        Assert.Equal(ServerPacketHeader.BroadcastMessageAlertComposer, Header(packet));
-        var body = new FlashIncomingPacket { Buffer = packet[6..] };
+        Assert.Equal(ServerPacketHeader.BroadcastMessageAlertComposer, packet.Header);
+        var body = new FlashIncomingPacket { Buffer = packet.Bytes[6..] };
         Assert.Equal("localized duplicate", body.ReadString());
         Assert.Equal(string.Empty, body.ReadString());
         Assert.False(body.HasDataRemaining());
     }
+
+    private sealed record CapturedPacket(uint Header, byte[] Bytes);
 
     private sealed class DependencyRoomItemStore : IRoomItemStore
     {

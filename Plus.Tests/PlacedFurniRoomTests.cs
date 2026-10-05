@@ -390,8 +390,6 @@ public partial class PlacedFurniRoomTests : IDisposable
             (true, false, 0, 0, 0);
         public override void CreateHeader(Memory<byte> memory, uint messageId)
         {
-            FlashGameClient.EncodeInt32(memory, memory.Length - 4, 0);
-            FlashGameClient.EncodeInt16(memory, checked((short)messageId), 4);
             BeforeCapture?.Invoke(messageId);
             Sent.Add(messageId);
             Packets.Add((messageId, memory[6..].ToArray()));
