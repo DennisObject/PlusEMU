@@ -53,6 +53,8 @@ internal class MessengerDataLoader : IMessengerDataLoader
     /// </summary>
     public async Task<FriendAcceptResult> AcceptFriendRequest(int acceptorId, int fromId)
     {
+        var access = new[] { acceptorId, fromId }.Distinct().ToDictionary(id => id,
+            id => _gameClientManager.GetClientByUserId(id)?.GetHabbo().Access ?? _permissions.Resolve(id));
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
@@ -61,9 +63,8 @@ internal class MessengerDataLoader : IMessengerDataLoader
             return new(FriendRequestError.NoFriendRequest);
         foreach (var id in new[] { acceptorId, fromId })
         {
-            var access = _gameClientManager.GetClientByUserId(id)?.GetHabbo().Access ?? _permissions.Resolve(id);
             var friends = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id = @id", new { id }, transaction);
-            if (friends >= Plus.HabboHotel.Subscriptions.ClubLimits.For(access, "friends", _settings)) return new(FriendRequestError.FriendLimitReached);
+            if (friends >= Plus.HabboHotel.Subscriptions.ClubLimits.For(access[id], "friends", _settings)) return new(FriendRequestError.FriendLimitReached);
         }
         await InsertFriendshipIfMissing(connection, transaction, acceptorId, fromId);
         await InsertFriendshipIfMissing(connection, transaction, fromId, acceptorId);
