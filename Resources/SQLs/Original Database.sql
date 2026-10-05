@@ -13503,7 +13503,7 @@ CREATE TABLE `chatlogs_console_invitations` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user_id` int(11) NOT NULL DEFAULT '0',
   `message` text NOT NULL,
-  `timestamp` double NOT NULL DEFAULT '0',
+  `timestamp` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
