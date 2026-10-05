@@ -98,7 +98,6 @@ public sealed class LoginLoaderPristineDatabaseTests
     private sealed class ProbeDatabase(string connectionString) : Plus.Database.IDatabase
     {
         public bool IsConnected() => true;
-        [Obsolete] public Plus.Database.Interfaces.IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public IDbConnection Connection() => new MySqlConnection(connectionString);
     }
 }
