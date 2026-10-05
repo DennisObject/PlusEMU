@@ -18,11 +18,11 @@ public sealed record ClubMembership
         GiftsClaimed = giftsClaimed;
     }
 
-    public DateTimeOffset? ExpiresAt { get; init; }
-    public DateTimeOffset? StartedAt { get; init; }
-    public DateTimeOffset? FirstStartedAt { get; init; }
+    public DateTimeOffset? ExpiresAt { get; }
+    public DateTimeOffset? StartedAt { get; }
+    public DateTimeOffset? FirstStartedAt { get; }
     public long PastSeconds { get; init; }
-    public DateTimeOffset? ModifiedAt { get; init; }
+    public DateTimeOffset? ModifiedAt { get; }
     public int GiftsClaimed { get; init; }
 
     public static ClubMembership None { get; } = new();
