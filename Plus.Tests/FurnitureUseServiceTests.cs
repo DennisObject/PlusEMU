@@ -58,7 +58,7 @@ public sealed class FurnitureUseServiceTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
-        Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance));
+        Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));
         Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         var item = new Item { Id = 1, RoomId = room.Id, OwnerId = 7, Definition = new() { InteractionType = InteractionType.Toner }, ExtraData = new LegacyDataFormat() };
         Set(item, "_room", room);

@@ -66,6 +66,7 @@ public class RoomItemHandling
     private readonly List<int> _rollerUsersMoved;
     private readonly Room _room;
     private readonly IRoomItemStore _store;
+    private readonly IRoomItemMetadataStore _metadata;
     private readonly ConcurrentDictionary<uint, Item> _wallItems;
     private int _mRollerCycle;
     private int _mRollerSpeed;
@@ -74,10 +75,11 @@ public class RoomItemHandling
 
     public int HopperCount;
 
-    public RoomItemHandling(Room room, IRoomItemStore store)
+    public RoomItemHandling(Room room, IRoomItemStore store, IRoomItemMetadataStore metadata)
     {
         _room = room;
         _store = store;
+        _metadata = metadata;
         HopperCount = 0;
         GotRollers = false;
         _mRollerSpeed = 4;
@@ -213,12 +215,12 @@ public class RoomItemHandling
             else if (item.Definition.InteractionType == InteractionType.Moodlight)
             {
                 if (_room.MoodlightData == null)
-                    _room.MoodlightData = new(item.Id);
+                    _room.MoodlightData = LoadMoodlight(item.Id);
             }
             else if (item.Definition.InteractionType == InteractionType.Toner)
             {
                 if (_room.TonerData == null)
-                    _room.TonerData = new(item.Id);
+                    _room.TonerData = LoadToner(item.Id);
             }
             else if (item.IsWired)
             {
@@ -232,6 +234,12 @@ public class RoomItemHandling
                 HopperCount++;
         }
     }
+
+    private Plus.HabboHotel.Items.Data.Moodlight.MoodlightData? LoadMoodlight(uint itemId) =>
+        _metadata.LoadMoodlight(itemId) is { } record ? new Plus.HabboHotel.Items.Data.Moodlight.MoodlightData(itemId, record) : null;
+
+    private Plus.HabboHotel.Items.Data.Toner.TonerData? LoadToner(uint itemId) =>
+        _metadata.LoadToner(itemId) is { } record ? new Plus.HabboHotel.Items.Data.Toner.TonerData(itemId, record) : null;
 
     public Item? GetItem(uint pId)
     {
@@ -602,7 +610,7 @@ public class RoomItemHandling
         map.AddItemEffects(item);
         if (item.Definition.InteractionType == InteractionType.Toner)
             if (_room.TonerData == null)
-                _room.TonerData = new(item.Id);
+                _room.TonerData = LoadToner(item.Id);
         UpdateItem(item);
         map.FlushPlacementUpdates();
         if (item.Definition.InteractionType == InteractionType.WalkMagicTile)
@@ -677,7 +685,7 @@ public class RoomItemHandling
             map.RemoveItemEffects(item);
             map.AddItemEffects(item);
             if (item.Definition.InteractionType == InteractionType.Toner && _room.TonerData == null)
-                _room.TonerData = new(item.Id);
+                _room.TonerData = LoadToner(item.Id);
             UpdateItem(item);
         }
         map.FlushPlacementUpdates();
@@ -704,8 +712,9 @@ public class RoomItemHandling
         {
             if (_room.MoodlightData == null)
             {
-                _room.MoodlightData = new(item.Id);
-                item.LegacyDataString = _room.MoodlightData.GenerateExtraData();
+                _room.MoodlightData = LoadMoodlight(item.Id);
+                if (_room.MoodlightData != null)
+                    item.LegacyDataString = _room.MoodlightData.GenerateExtraData();
             }
         }
         _store.PlaceWall(item.Id, _room.RoomId, item.GetX, item.GetY, item.GetZ, item.Rotation, item.WallCoordinates);

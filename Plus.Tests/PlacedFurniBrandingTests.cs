@@ -198,5 +198,9 @@ public partial class PlacedFurniRoomTests
         }
         public void SetMannequinData(uint itemId, uint roomId, string data) => throw new NotSupportedException();
         public void SetToner(uint itemId, uint roomId, int hue, int saturation, int lightness) => throw new NotSupportedException();
+        public Plus.HabboHotel.Items.Data.Moodlight.MoodlightRecord? LoadMoodlight(uint itemId) => throw new NotSupportedException();
+        public void SetMoodlightEnabled(uint itemId, uint roomId, bool enabled) => throw new NotSupportedException();
+        public void UpdateMoodlightPreset(uint itemId, uint roomId, int preset, string value) => throw new NotSupportedException();
+        public Plus.HabboHotel.Items.Data.Toner.TonerRecord? LoadToner(uint itemId) => throw new NotSupportedException();
     }
 }

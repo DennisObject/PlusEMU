@@ -285,7 +285,7 @@ public class WiredAvatarPacketHookTests
         public World(int action, int code = -1, TimeProvider? clock = null)
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
-            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance);
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance);
             Users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock ?? TimeProvider.System);
             Actions = new RoomAvatarActionService(clock ?? TimeProvider.System, new NoQuests(), Rewards);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", Users);

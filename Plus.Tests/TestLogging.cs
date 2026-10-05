@@ -4,6 +4,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Data.Moodlight;
+using Plus.HabboHotel.Items.Data.Toner;
 
 namespace Plus.Tests;
 
@@ -40,6 +43,18 @@ internal sealed class TestRoomItemStore : IRoomItemStore
     public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
     public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) { }
     public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) { }
+}
+
+internal sealed class TestRoomItemMetadataStore : IRoomItemMetadataStore
+{
+    internal static TestRoomItemMetadataStore Instance { get; } = new();
+    public void SetMannequinData(uint itemId, uint roomId, string data) => throw new NotSupportedException();
+    public void SetToner(uint itemId, uint roomId, int hue, int saturation, int lightness) => throw new NotSupportedException();
+    public void SetBrandingData(uint itemId, uint roomId, string data) => throw new NotSupportedException();
+    public MoodlightRecord? LoadMoodlight(uint itemId) => throw new NotSupportedException();
+    public void SetMoodlightEnabled(uint itemId, uint roomId, bool enabled) => throw new NotSupportedException();
+    public void UpdateMoodlightPreset(uint itemId, uint roomId, int preset, string value) => throw new NotSupportedException();
+    public TonerRecord? LoadToner(uint itemId) => throw new NotSupportedException();
 }
 
 internal sealed class TestRoomUserStore : IRoomUserStore

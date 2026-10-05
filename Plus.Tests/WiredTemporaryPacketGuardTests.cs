@@ -80,6 +80,8 @@ public class WiredTemporaryPacketGuardTests
                     ? new GiftOpeningService(new GiftStore(database), null!, null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<GiftOpeningService>.Instance)
                 : parameter.ParameterType == typeof(IRoomItemMetadataService)
                     ? new RoomItemMetadataService(new RoomItemMetadataStore(database), null!)
+                : parameter.ParameterType == typeof(IMoodlightService)
+                    ? new MoodlightService(new RoomItemMetadataStore(database))
                     : parameter.ParameterType == typeof(IRoomInteractionService)
                         ? new RoomInteractionService(new RoomInteractionStore(database))
                         : parameter.ParameterType == typeof(ILoveLockService)
@@ -160,7 +162,8 @@ public class WiredTemporaryPacketGuardTests
             room.MoodlightData = (MoodlightData)RuntimeHelpers.GetUninitializedObject(typeof(MoodlightData));
             room.MoodlightData.ItemId = item.Id;
         }
-        await new Plus.Communication.Packets.Incoming.Rooms.Furni.Moodlight.GetMoodlightConfigEvent().Parse(room, client, new FlashIncomingPacket());
+        await new Plus.Communication.Packets.Incoming.Rooms.Furni.Moodlight.GetMoodlightConfigEvent(
+            new MoodlightService(TestRoomItemMetadataStore.Instance)).Parse(room, client, new FlashIncomingPacket());
         if (!existingState) Assert.Null(room.MoodlightData);
         Assert.Same(item, room.GetRoomItemHandler().GetItem(item.Id));
     }
@@ -193,6 +196,7 @@ public class WiredTemporaryPacketGuardTests
         else if (name.Contains("MoveWall")) output.WriteString(":w=1,1 l=1,1 l");
         else if (name.Contains("UseFurniture") || name.Contains("UseWallItem") || name.Contains("ThrowDice")) output.WriteInteger(0);
         else if (name.Contains("SetToner")) { output.WriteInteger(10); output.WriteInteger(20); output.WriteInteger(30); }
+        else if (name.Contains("MoodlightUpdate")) { output.WriteInteger(2); output.WriteString("#000000"); output.WriteInteger(255); }
         else if (name.Contains("UpdateStickyNote")) { output.WriteString("FFFF33"); output.WriteString("changed"); }
         else if (name.Contains("SetMannequinName")) output.WriteString("changed");
         else if (name.Contains("FriendFurni")) output.WriteBoolean(true);
@@ -206,7 +210,7 @@ public class WiredTemporaryPacketGuardTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 1; room.OwnerId = 42; room.OwnerName = "owner"; room.Type = "private";
-        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room,
             new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty));

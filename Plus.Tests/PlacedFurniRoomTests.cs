@@ -64,7 +64,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         Set("_interactionClock", _interactionClock);
         Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false),
             TestLogging.Navigation, _roomSettings, new TestGroupManager(id => _groupLookup(id))));
-        Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance));
+        Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));
         Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System));
         TestRoomUserSnapshots.Install(_room);
         _room.GetGameMap().GenerateMaps();

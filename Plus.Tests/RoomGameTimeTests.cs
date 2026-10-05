@@ -82,7 +82,7 @@ public sealed class RoomGameTimeTests
         var map = new Gamemap(room, new RoomModel("game-time", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
         Set(room, "_interactionClock", clock);
         Set(room, "_gamemap", map);
-        Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance));
+        Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));
         Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, clock));
         TestRoomUserSnapshots.Install(room);
         Set(room, "_wiredComponent", new WiredComponent(room, TestLogging.Logger, clock, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty));

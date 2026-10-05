@@ -356,7 +356,7 @@ public sealed class WiredNativeLifecycleTests
             Set(Room, "_interactionClock", TimeProvider.System);
             Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true),
                 TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty);
-            var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance);
+            var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);
             var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System); Set(Room, "_roomUserManager", users);
             TestRoomUserSnapshots.Install(Room);

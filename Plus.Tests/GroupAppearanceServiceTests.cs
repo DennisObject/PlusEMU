@@ -173,7 +173,7 @@ public sealed class GroupAppearanceServiceTests
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 42;
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
+            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         return room;

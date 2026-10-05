@@ -58,7 +58,7 @@ public sealed class GroupDetailPresentationTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 42;
-        var items = new RoomItemHandling(room, TestRoomItemStore.Instance);
+        var items = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, items);
         var item = new Item
         {
