@@ -286,7 +286,6 @@ public class GameClientManager : IGameClientManager
                     //    }
                     //}
                 }
-                var start = DateTime.Now;
                 foreach (var client in toPing.ToList())
                 {
                     try
