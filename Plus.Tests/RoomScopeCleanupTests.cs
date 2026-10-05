@@ -180,7 +180,7 @@ public sealed class RoomScopeCleanupTests
             services.AddScoped<IRoomComponent>(provider => new MinimalComponent(provider.GetRequiredService<Probe>(), initialize));
             _provider = services.BuildServiceProvider();
             _factory = new ScopedRoomFactory(_provider.GetRequiredService<IServiceScopeFactory>(), TestLogging.Navigation, TestLogging.Factory);
-            Manager = new RoomManager(NullLogger<RoomManager>.Instance, null!, null!, TimeProvider.System, _factory);
+            Manager = new RoomManager(NullLogger<RoomManager>.Instance, null!, null!, TimeProvider.System, _factory, new TestRoomDataLoaderFactory());
         }
         public Room Create(uint id)
         {
