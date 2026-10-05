@@ -485,7 +485,10 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
             }
             await Task.Delay(20);
         }
-        throw new TimeoutException("The accept never waited on the held friendship gap.");
+        using var inspector = new MySqlConnection(schema.ConnectionString);
+        inspector.Open();
+        var transactions = inspector.Query<string>("SELECT CONCAT(trx_state, ' | ', LEFT(trx_query, 160)) FROM information_schema.INNODB_TRX WHERE trx_query LIKE '%messenger_friendships%'");
+        throw new TimeoutException("The accept never waited on the held friendship gap. Open friendship transactions: " + string.Join("; ", transactions));
     }
 
     public class Forwarder : DispatchProxy
