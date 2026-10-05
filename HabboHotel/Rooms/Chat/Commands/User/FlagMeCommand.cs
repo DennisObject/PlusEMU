@@ -6,7 +6,7 @@ using Plus.Utilities;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 
-internal class FlagMeCommand : IChatCommand
+internal class FlagMeCommand(TimeProvider clock) : IChatCommand
 {
     public string Key => "flagme";
 
@@ -16,7 +16,7 @@ internal class FlagMeCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (!NameChangePolicy.CanChange(session.GetHabbo(), DateTimeOffset.UtcNow))
+        if (!NameChangePolicy.CanChange(session.GetHabbo(), clock.GetUtcNow()))
         {
             session.SendWhisper("Sorry, it seems you currently do not have the option to change your username!");
             return;
