@@ -54,13 +54,15 @@ public sealed class UtcMigrationRangeGuardTests
             {
                 Assert.Equal(before[target.Table], connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM `{target.Table}`"));
                 var values = connection.Query<DateTimeOffset?>($"SELECT `{target.Column}` FROM `{target.Table}` ORDER BY {target.OrderBy}").ToArray();
-                Assert.Contains(values, value => value == null);
-                Assert.Contains(values, value => value == (widened ? target.WideValidAt : target.ActualValidAt));
-                if (migration.Number == 37)
-                    Assert.Contains(values, value => value == DateTimeOffset.FromUnixTimeMilliseconds(MillisecondsLimit));
-                if (widened || target.ActualSupportsOverflow)
-                    Assert.True(values.Count(value => value == null) >= 3,
-                        $"{migration.File}:{target.Table}.{target.Column} did not null every invalid row");
+                for (var index = 0; index < values.Length; index++)
+                {
+                    var expected = index == 1 ? (widened ? target.WideValidAt : target.ActualValidAt)
+                        : migration.Number == 37 && index == 5 ? DateTimeOffset.FromUnixTimeMilliseconds(MillisecondsLimit)
+                        : migration.Number == 34 && !widened && target.Column == "expire" && index == 3
+                            ? DateTimeOffset.UnixEpoch.AddSeconds(1) : (DateTimeOffset?)null;
+                    Assert.True(expected == values[index],
+                        $"{migration.File}:{target.Table}.{target.Column} row {index + 1} expected {expected:O}, got {values[index]:O}");
+                }
 
                 var metadata = connection.QuerySingle<ColumnMetadata>("""
                     SELECT COLUMN_TYPE AS Type, IS_NULLABLE AS Nullable, ORDINAL_POSITION AS Ordinal
