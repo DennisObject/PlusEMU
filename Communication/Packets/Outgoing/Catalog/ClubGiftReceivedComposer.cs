@@ -1,19 +1,19 @@
-using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Catalog;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog;
 
-public class ClubGiftReceivedComposer(CatalogItem item) : IServerPacket
+public class ClubGiftReceivedComposer(ClubGiftReceivedSnapshot gift) : IServerPacket
 {
     public uint MessageId => ServerPacketHeader.ClubGiftReceivedComposer;
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteString(item.CatalogName);
+        packet.WriteString(gift.CatalogName);
         packet.WriteInteger(1);
-        packet.WriteString(item.Definition.ProductType);
-        packet.WriteInteger(item.Definition.SpriteId);
+        packet.WriteString(gift.ProductType);
+        packet.WriteInteger(gift.SpriteId);
         packet.WriteString("");
-        packet.WriteInteger(item.Amount);
+        packet.WriteInteger(gift.Amount);
         packet.WriteBoolean(false);
     }
 }
