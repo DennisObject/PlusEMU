@@ -144,6 +144,66 @@ public sealed class GroupMembershipMutationServiceTests
         Assert.Equal(string.Empty, ReadString(body, ref offset));
     }
 
+    [Theory]
+    [InlineData("accept")]
+    [InlineData("decline")]
+    [InlineData("give")]
+    [InlineData("take")]
+    [InlineData("settings")]
+    public async Task MutationWaitingOnDeletedGroupPublishesNothing(string operation)
+    {
+        var group = Group(members: [8], requests: [8]);
+        var (owner, sent) = Client(7, false);
+        using var found = new ManualResetEventSlim();
+        var removed = false;
+        var writes = 0;
+        var manager = Proxy<IGroupManager>((_, args) =>
+        {
+            if (Volatile.Read(ref removed))
+            {
+                args[1] = null;
+                return false;
+            }
+            args[1] = group;
+            found.Set();
+            return true;
+        });
+        var rooms = Proxy<IRoomManager>((_, args) => { args[1] = null; return false; });
+        var store = Proxy<IGroupMembershipMutationStore>((_, _) =>
+        {
+            Interlocked.Increment(ref writes);
+            return true;
+        });
+        var mutations = new GroupMembershipMutationService(manager, rooms,
+            Proxy<IGroupMemberIdentityLookup>((_, _) => new GroupMemberIdentity(8, "Target", "hr-1")), store);
+        var settings = new GroupSettingsService(manager, rooms,
+            Proxy<IGroupInfoSnapshotService>((_, _) => throw new InvalidOperationException("Deleted group must not be captured")),
+            Proxy<IGroupSettingsStore>((_, _) => { Interlocked.Increment(ref writes); return true; }));
+
+        Task mutation;
+        lock (group)
+        {
+            mutation = Task.Run(() => operation switch
+            {
+                "accept" => mutations.Accept(owner, group.Id, 8),
+                "decline" => mutations.Decline(owner, group.Id, 8),
+                "give" => mutations.GiveAdmin(owner, group.Id, 8),
+                "take" => mutations.TakeAdmin(owner, group.Id, 8),
+                _ => settings.Update(owner, new(group.Id, 2, 1, true))
+            });
+            Assert.True(found.Wait(TimeSpan.FromSeconds(5)), "Mutation did not resolve the group");
+            Volatile.Write(ref removed, true);
+        }
+        await mutation.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(0, writes);
+        Assert.True(group.HasRequest(8));
+        Assert.True(group.IsMember(8));
+        Assert.False(group.IsAdmin(8));
+        Assert.Equal(GroupType.Open, group.Type);
+        Assert.Empty(sent);
+    }
+
     [RoomComponentDatabaseFact]
     public void StoreCommitsExactMutationsAndRollsBackMissingRequest()
     {

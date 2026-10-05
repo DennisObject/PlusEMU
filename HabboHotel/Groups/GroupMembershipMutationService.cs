@@ -49,17 +49,22 @@ public sealed class GroupMembershipMutationService(
     {
         if (!groups.TryGetGroup(groupId, out var group))
             return Task.CompletedTask;
-        var actor = session.GetHabbo();
-        if ((actor.Id != group.CreatorId && !group.IsAdmin(actor.Id) && !actor.Access.Can(PermissionKeys.GroupAcceptAny)) ||
-            !group.HasRequest(userId))
-            return Task.CompletedTask;
-        var identity = identities.Find(userId);
-        if (!store.Accept(group.Id, userId))
-            return Task.CompletedTask;
+        lock (group)
+        {
+            if (!groups.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group))
+                return Task.CompletedTask;
+            var actor = session.GetHabbo();
+            if ((actor.Id != group.CreatorId && !group.IsAdmin(actor.Id) && !actor.Access.Can(PermissionKeys.GroupAcceptAny)) ||
+                !group.HasRequest(userId))
+                return Task.CompletedTask;
+            var identity = identities.Find(userId);
+            if (!store.Accept(group.Id, userId))
+                return Task.CompletedTask;
 
-        group.HandleRequest(userId, true);
-        SendMemberUpdate(session, group, userId, 2, identity);
-        return Task.CompletedTask;
+            group.HandleRequest(userId, true);
+            SendMemberUpdate(session, group, userId, 2, identity);
+            return Task.CompletedTask;
+        }
     }
 
     public Task GiveAdmin(GameClient session, int groupId, int userId) =>
@@ -69,13 +74,18 @@ public sealed class GroupMembershipMutationService(
     {
         if (!groups.TryGetGroup(groupId, out var group))
             return Task.CompletedTask;
-        var actor = session.GetHabbo();
-        if ((actor.Id != group.CreatorId && !group.IsAdmin(actor.Id)) ||
-            !group.HasRequest(userId) || !store.Decline(group.Id, userId))
+        lock (group)
+        {
+            if (!groups.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group))
+                return Task.CompletedTask;
+            var actor = session.GetHabbo();
+            if ((actor.Id != group.CreatorId && !group.IsAdmin(actor.Id)) ||
+                !group.HasRequest(userId) || !store.Decline(group.Id, userId))
+                return Task.CompletedTask;
+            group.HandleRequest(userId, false);
+            session.Send(new UnknownGroupComposer(group.Id, userId));
             return Task.CompletedTask;
-        group.HandleRequest(userId, false);
-        session.Send(new UnknownGroupComposer(group.Id, userId));
-        return Task.CompletedTask;
+        }
     }
 
     public Task TakeAdmin(GameClient session, int groupId, int userId) =>
@@ -85,20 +95,25 @@ public sealed class GroupMembershipMutationService(
     {
         if (!groups.TryGetGroup(groupId, out var group))
             return Task.CompletedTask;
-        var actor = session.GetHabbo();
-        if (actor.Id != group.CreatorId || userId == group.CreatorId || !group.IsMember(userId))
-            return Task.CompletedTask;
-        var identity = identities.Find(userId);
-        if (!store.SetAdmin(group.Id, userId, isAdmin))
-            return Task.CompletedTask;
+        lock (group)
+        {
+            if (!groups.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group))
+                return Task.CompletedTask;
+            var actor = session.GetHabbo();
+            if (actor.Id != group.CreatorId || userId == group.CreatorId || !group.IsMember(userId))
+                return Task.CompletedTask;
+            var identity = identities.Find(userId);
+            if (!store.SetAdmin(group.Id, userId, isAdmin))
+                return Task.CompletedTask;
 
-        if (isAdmin)
-            group.MakeAdmin(userId);
-        else
-            group.TakeAdmin(userId);
-        PublishController(group, userId, isAdmin);
-        SendMemberUpdate(session, group, userId, isAdmin ? 1 : 2, identity);
-        return Task.CompletedTask;
+            if (isAdmin)
+                group.MakeAdmin(userId);
+            else
+                group.TakeAdmin(userId);
+            PublishController(group, userId, isAdmin);
+            SendMemberUpdate(session, group, userId, isAdmin ? 1 : 2, identity);
+            return Task.CompletedTask;
+        }
     }
 
     private void PublishController(Group group, int userId, bool isAdmin)

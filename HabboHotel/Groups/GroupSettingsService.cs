@@ -23,29 +23,35 @@ public sealed class GroupSettingsService(
 {
     public Task Update(GameClient session, GroupSettingsRequest request)
     {
-        if (!groups.TryGetGroup(request.GroupId, out var group) || group.CreatorId != session.GetHabbo().Id)
+        if (!groups.TryGetGroup(request.GroupId, out var group))
             return Task.CompletedTask;
-        var type = request.Type switch
+        lock (group)
         {
-            1 => GroupType.Locked,
-            2 => GroupType.Private,
-            _ => GroupType.Open
-        };
-        var requests = type == GroupType.Locked
-            ? ImmutableArray<int>.Empty
-            : group.GetRequests.ToImmutableArray();
-        if (!store.Update(group.Id, type, request.FurniOptions == 1, request.ForumEnabled, requests))
-            return Task.CompletedTask;
+            if (!groups.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group) ||
+                group.CreatorId != session.GetHabbo().Id)
+                return Task.CompletedTask;
+            var type = request.Type switch
+            {
+                1 => GroupType.Locked,
+                2 => GroupType.Private,
+                _ => GroupType.Open
+            };
+            var requests = type == GroupType.Locked
+                ? ImmutableArray<int>.Empty
+                : group.GetRequests.ToImmutableArray();
+            if (!store.Update(group.Id, type, request.FurniOptions == 1, request.ForumEnabled, requests))
+                return Task.CompletedTask;
 
-        group.Type = type;
-        foreach (var userId in requests)
-            group.HandleRequest(userId, false);
-        group.AdminOnlyDeco = request.FurniOptions;
-        group.ForumEnabled = request.ForumEnabled;
-        group.HasForum = request.ForumEnabled;
-        PublishRoomRights(group, request.FurniOptions);
-        session.Send(new GroupInfoComposer(groupInfo.Capture(group, session.GetHabbo().Id)));
-        return Task.CompletedTask;
+            group.Type = type;
+            foreach (var userId in requests)
+                group.HandleRequest(userId, false);
+            group.AdminOnlyDeco = request.FurniOptions;
+            group.ForumEnabled = request.ForumEnabled;
+            group.HasForum = request.ForumEnabled;
+            PublishRoomRights(group, request.FurniOptions);
+            session.Send(new GroupInfoComposer(groupInfo.Capture(group, session.GetHabbo().Id)));
+            return Task.CompletedTask;
+        }
     }
 
     private void PublishRoomRights(Group group, int furniOptions)
