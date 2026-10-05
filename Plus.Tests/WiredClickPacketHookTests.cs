@@ -27,6 +27,27 @@ namespace Plus.Tests;
 public class WiredClickPacketHookTests
 {
     [Theory]
+    [InlineData(-5, 10, 4294967291u, false)]
+    [InlineData(-5, 20, 5u, true)]
+    [InlineData(int.MinValue, 20, 2147483648u, true)]
+    public async Task FurnitureClickDecodesTheCompleteFrameBeforeOneDomainCall(int wireId, int category, uint itemId, bool isWall)
+    {
+        var service = new RecordingFurniture();
+        await new ClickFurniEvent(service).Parse(null!, null!, Packet(wireId, category));
+        Assert.Equal(new FurnitureClickRequest(itemId, isWall), Assert.Single(service.Clicks));
+    }
+
+    [Fact]
+    public async Task MalformedFurnitureClicksDoNotDelegateOrInspectRoomState()
+    {
+        var service = new RecordingFurniture();
+        var handler = new ClickFurniEvent(service);
+        foreach (var values in new[] { Array.Empty<int>(), new[] { 1 }, new[] { 0, 10 }, new[] { 1, 0 }, new[] { 1, 10, 9 } })
+            await handler.Parse(null!, null!, Packet(values));
+        Assert.Empty(service.Clicks);
+    }
+
+    [Theory]
     [InlineData(false, false)] [InlineData(true, false)] [InlineData(false, true)] [InlineData(true, true)]
     public async Task ClickUserCarriesExactActorAndTargetAndOnlyAcceptedSettings(bool blockMenu, bool noRotate)
     {
@@ -71,7 +92,7 @@ public class WiredClickPacketHookTests
         var item = world.Room.GetRoomItemHandler().PlaceTemporaryFloorItem(definition, 42, 1, 1, 0, 0, "unchanged")!;
         Assert.True(world.Room.GetRoomItemHandler().OwnsTemporary(item));
         world.Packets.Clear();
-        await new ClickFurniEvent().Parse(world.Room, world.Client, Packet(unchecked((int)item.Id), 10));
+        await new ClickFurniEvent(new FurnitureUseService(null!, null!)).Parse(world.Room, world.Client, Packet(unchecked((int)item.Id), 10));
         var evt = Assert.Single(world.Capture.Events);
         Assert.Same(world.Actor, evt.Actor); Assert.Same(item, evt.EventItem); Assert.Equal(WiredEventKind.ClickFurni, evt.Kind);
         Assert.Equal("unchanged", item.LegacyDataString); Assert.True(world.Room.GetRoomItemHandler().OwnsTemporary(item));
@@ -79,7 +100,7 @@ public class WiredClickPacketHookTests
         world.Capture.Events.Clear();
         var lookalike = new Item { Id = item.Id, IsTemporary = true, Definition = definition };
         world.Items("_floorItems")[item.Id] = lookalike;
-        await new ClickFurniEvent().Parse(world.Room, world.Client, Packet(unchecked((int)item.Id), 10));
+        await new ClickFurniEvent(new FurnitureUseService(null!, null!)).Parse(world.Room, world.Client, Packet(unchecked((int)item.Id), 10));
         Assert.Empty(world.Capture.Events); // The registry owns the original reference, not an item with matching bits.
     }
 
@@ -89,14 +110,14 @@ public class WiredClickPacketHookTests
         var world = new World("wf_trg_click_furni", [0]);
         var wall = new Item { Id = 5, Definition = new() { Type = ItemType.Wall } };
         world.Items("_wallItems").TryAdd(5, wall);
-        await new ClickFurniEvent().Parse(world.Room, world.Client, Packet(-5, 20));
+        await new ClickFurniEvent(new FurnitureUseService(null!, null!)).Parse(world.Room, world.Client, Packet(-5, 20));
         Assert.Same(wall, Assert.Single(world.Capture.Events).EventItem);
         world.Capture.Events.Clear();
-        await new ClickFurniEvent().Parse(world.Room, world.Client, Packet(-5, 10));
+        await new ClickFurniEvent(new FurnitureUseService(null!, null!)).Parse(world.Room, world.Client, Packet(-5, 10));
         Assert.Empty(world.Capture.Events);
         var highFloor = new Item { Id = unchecked((uint)-5), Definition = new() { Type = ItemType.Floor } };
         world.Items("_floorItems").TryAdd(highFloor.Id, highFloor);
-        await new ClickFurniEvent().Parse(world.Room, world.Client, Packet(-5, 10));
+        await new ClickFurniEvent(new FurnitureUseService(null!, null!)).Parse(world.Room, world.Client, Packet(-5, 10));
         Assert.Same(highFloor, Assert.Single(world.Capture.Events).EventItem); Assert.False(highFloor.IsTemporary);
     }
 
@@ -115,7 +136,7 @@ public class WiredClickPacketHookTests
         Assert.Equal((1, 1), (Assert.Single(world.Capture.Events).X, world.Capture.Events[0].Y));
         world.Capture.Events.Clear();
         await new MoveAvatarEvent(new RoomAvatarActionService(TimeProvider.System, null!, null!)).Parse(world.Client, Packet(-1, 1)); Assert.Empty(world.Capture.Events);
-        await new ClickFurniEvent().Parse(world.Room, world.Client, Packet(5, 10));
+        await new ClickFurniEvent(new FurnitureUseService(null!, null!)).Parse(world.Room, world.Client, Packet(5, 10));
         Assert.All(world.Capture.Events, evt => Assert.Equal(WiredEventKind.ClickTile, evt.Kind));
         Assert.NotEmpty(world.Capture.Events); Assert.Same(item, world.Capture.Events[0].EventItem);
     }
@@ -138,7 +159,7 @@ public class WiredClickPacketHookTests
     [InlineData("1.6.6.json")] [InlineData("example.json")]
     public void ActualClickHandlersAndResponseMappingsAreUnique(string profile)
     {
-        IPacketEvent[] handlers = [new ClickFurniEvent(), new ClickUserEvent()];
+        IPacketEvent[] handlers = [new ClickFurniEvent(new FurnitureUseService(null!, null!)), new ClickUserEvent()];
         using var manager = new PacketManager(handlers, NullLogger<PacketManager>.Instance);
         var registered = (Dictionary<uint, IPacketEvent>)Get(manager, "_incomingPackets");
         var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
@@ -153,6 +174,13 @@ public class WiredClickPacketHookTests
             var id = (uint)typeof(ServerPacketHeader).GetField(name)!.GetRawConstantValue()!;
             Assert.Equal(id, revision.OutgoingHeaders[name]); Assert.Single(revision.OutgoingHeaders, pair => pair.Value == id);
         }
+    }
+
+    private sealed class RecordingFurniture : IFurnitureUseService
+    {
+        public List<FurnitureClickRequest> Clicks { get; } = [];
+        public void Click(Room room, GameClient session, FurnitureClickRequest request) => Clicks.Add(request);
+        public void Use(Room room, GameClient session, FurnitureUseRequest request) => throw new NotSupportedException();
     }
 
     private static FlashIncomingPacket Packet(params int[] values)
