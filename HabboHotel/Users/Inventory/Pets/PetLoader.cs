@@ -11,7 +11,7 @@ internal sealed class PetLoader(IDatabase database) : IPetLoader
     public List<Pet> GetPetsForUser(int userId)
     {
         using var connection = database.Connection();
-        return Load(connection, userId).Select(row => new Pet(row.Id, row.UserId, row.RoomId, row.Name, row.Type, row.Race,
+        return Load(connection, userId).Select(row => new Pet(checked((int)row.Id), checked((int)row.UserId), row.RoomId, row.Name, checked((int)row.Type), row.Race,
                 row.Color, row.Experience, row.Energy, row.Nutrition, row.Respect, row.CreatedAt,
                 row.X, row.Y, row.Z, row.HaveSaddle, row.AnyoneRide, row.Hairdye, row.Pethair, row.GnomeClothing, row.OwnerName)).ToList();
     }
@@ -28,15 +28,15 @@ internal sealed class PetLoader(IDatabase database) : IPetLoader
 
     internal sealed class PetRow
     {
-        public int Id { get; set; }
-        public int UserId { get; set; }
+        public uint Id { get; set; }
+        public uint UserId { get; set; }
         public string OwnerName { get; set; } = "";
         public uint RoomId { get; set; }
         public string Name { get; set; } = "";
         public int X { get; set; }
         public int Y { get; set; }
         public double Z { get; set; }
-        public int Type { get; set; }
+        public uint Type { get; set; }
         public string Race { get; set; } = "";
         public string Color { get; set; } = "";
         public int Experience { get; set; }

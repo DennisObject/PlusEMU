@@ -56,5 +56,9 @@ public sealed class RoomBansComponent(IDatabase database, TimeProvider clock) : 
             "SELECT DISTINCT user_id FROM room_bans WHERE room_id = @roomId AND expire > UTC_TIMESTAMP(6)", new { roomId }).ToArray();
     }
 
-    private sealed record RoomBanRow(uint UserId, DateTimeOffset ExpiresAt);
+    private sealed class RoomBanRow
+    {
+        public uint UserId { get; set; }
+        public DateTimeOffset ExpiresAt { get; set; }
+    }
 }

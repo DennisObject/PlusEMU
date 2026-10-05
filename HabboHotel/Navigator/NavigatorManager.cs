@@ -96,19 +96,25 @@ public sealed class NavigatorManager : INavigatorManager, IStartable
         return (await connection.QueryAsync<SavedSearch>("SELECT `id`,`filter`,`search_code` as search FROM `user_saved_searches` WHERE `user_id` = @userId", new { userId })).ToDictionary(search => search.Id);
     }
 
-    public async Task SaveHomeRoom(GameClient session, uint roomId)
+    public Task SaveHomeRoom(GameClient session, uint roomId)
     {
         var habbo = session.GetHabbo();
-        if (_rooms.TryGetData(roomId, out _))
+        var exists = _rooms.TryGetData(roomId, out _);
+        lock (habbo.WalletSync)
         {
-            using var connection = _database.Connection();
-            var updated = await connection.ExecuteAsync(
-                "UPDATE users_settings SET home_room = @roomId WHERE user_id = @userId LIMIT 1",
-                new { roomId, userId = habbo.Id });
-            if (updated != 1)
-                throw new DBConcurrencyException($"Settings for user {habbo.Id} no longer exist.");
-            habbo.HomeRoom = roomId;
+            if (habbo.WalletClosed) return Task.CompletedTask;
+            if (exists)
+            {
+                using var connection = _database.Connection();
+                var updated = connection.Execute(
+                    "UPDATE users_settings SET home_room = @roomId WHERE user_id = @userId LIMIT 1",
+                    new { roomId, userId = habbo.Id });
+                if (updated != 1)
+                    throw new DBConcurrencyException($"Settings for user {habbo.Id} no longer exist.");
+                habbo.HomeRoom = roomId;
+            }
         }
         session.Send(new NavigatorSettingsComposer(roomId));
+        return Task.CompletedTask;
     }
 }

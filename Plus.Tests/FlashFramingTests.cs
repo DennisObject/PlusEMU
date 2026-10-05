@@ -102,6 +102,71 @@ public class FlashFramingTests
         Assert.Equal(new uint[] { 1 }, server.MessageIds);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CiphertextStartingWithPolicyMarkerIsDelivered(bool afterHandshake)
+    {
+        var server = new FakeServer();
+        var client = Client(server, 1u, 2u);
+        var disconnected = 0;
+        var sends = 0;
+        client.DisconnectRequested = () => disconnected++;
+        client.SendCallback = _ => { sends++; return false; };
+        if (afterHandshake) client.OnReceived(new byte[] { 0, 0, 0, 2, 0, 1 }, 0, 6);
+        var key = new byte[] { 64 };
+        client.ActivateLegacyCrypto(key);
+        var encrypted = new byte[] { 0, 0, 0, 2, 0, 2 };
+        new Arc4(key).Encrypt(ref encrypted);
+        Assert.Equal((byte)'<', encrypted[0]);
+
+        client.OnReceived(encrypted, 0, 1);
+        client.OnReceived(encrypted, 1, encrypted.Length - 1);
+
+        Assert.Equal(afterHandshake ? new uint[] { 1, 2 } : new uint[] { 2 }, server.MessageIds);
+        Assert.Equal(0, disconnected);
+        Assert.Equal(0, sends);
+    }
+
+    [Fact]
+    public void PlaintextPayloadFragmentStartingWithPolicyMarkerIsDelivered()
+    {
+        var server = new FakeServer();
+        var client = Client(server, 1u);
+        var disconnected = 0;
+        var sends = 0;
+        client.DisconnectRequested = () => disconnected++;
+        client.SendCallback = _ => { sends++; return false; };
+        var payloads = new List<byte>();
+        server.Receive = (_, packet) => payloads.Add(packet.ReadByte());
+        var frame = new byte[] { 0, 0, 0, 3, 0, 1, (byte)'<' };
+
+        client.OnReceived(frame, 0, 6);
+        client.OnReceived(frame, 6, 1);
+
+        Assert.Equal(new byte[] { (byte)'<' }, payloads);
+        Assert.Equal(0, disconnected);
+        Assert.Equal(0, sends);
+    }
+
+    [Fact]
+    public void InitialPolicyRequestAfterAnEmptyReceiveStillRespondsAndDisconnects()
+    {
+        var server = new FakeServer();
+        var client = Client(server);
+        var disconnected = 0;
+        byte[]? policy = null;
+        client.DisconnectRequested = () => disconnected++;
+        client.SendCallback = args => { policy = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray(); return false; };
+
+        client.OnReceived(Array.Empty<byte>(), 0, 0);
+        client.OnReceived(new byte[] { (byte)'<' }, 0, 1);
+
+        Assert.StartsWith("<?xml version=\"1.0\"?>", System.Text.Encoding.UTF8.GetString(Assert.IsType<byte[]>(policy)));
+        Assert.Equal(1, disconnected);
+        Assert.Empty(server.MessageIds);
+    }
+
     [Fact]
     public void LegacyCryptoEncryptsOutgoingFramesAfterInjection()
     {

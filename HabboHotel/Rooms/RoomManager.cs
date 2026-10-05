@@ -17,6 +17,7 @@ public class RoomManager : IRoomManager, IStartable
     private readonly ILanguageManager _languageManager;
 
     private readonly object _roomLoadingSync;
+    private readonly HashSet<uint> _unloadingRooms = new();
     private readonly TimeProvider _clock;
     private readonly IRoomFactory _roomFactory;
 
@@ -167,12 +168,35 @@ public class RoomManager : IRoomManager, IStartable
 
     public void UnloadRoom(uint roomId)
     {
-        if (_rooms.TryRemove(roomId, out var room))
+        Room room;
+        lock (_roomLoadingSync)
+        {
+            if (!_rooms.TryRemove(roomId, out room!)) return;
+            _unloadingRooms.Add(roomId);
+        }
+        Exception? failure = null;
+        try
         {
             room.GetWired().ObserveFastWork(null);
             _fastWiredRooms.TryRemove(roomId, out _);
             room.Dispose();
-            _roomFactory.Dispose(roomId);
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+            throw;
+        }
+        finally
+        {
+            try { _roomFactory.Dispose(roomId); }
+            catch (Exception exception) when (failure != null)
+            {
+                _logger.LogError(exception, "Dependency scope cleanup failed for room {RoomId}", roomId);
+            }
+            finally
+            {
+                lock (_roomLoadingSync) _unloadingRooms.Remove(roomId);
+            }
         }
     }
 
@@ -191,6 +215,11 @@ public class RoomManager : IRoomManager, IStartable
         }
         lock (_roomLoadingSync)
         {
+            if (_unloadingRooms.Contains(roomId))
+            {
+                room = null;
+                return false;
+            }
             if (_rooms.TryGetValue(roomId, out inst))
             {
                 if (!inst.Unloaded)
