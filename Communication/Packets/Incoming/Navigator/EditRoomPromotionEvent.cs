@@ -44,7 +44,7 @@ internal class EditRoomPromotionEvent : IPacketEvent
             return Task.CompletedTask;
         data.Promotion.Name = name;
         data.Promotion.Description = desc;
-        room.SendPacket(new RoomEventComposer(data, data.Promotion));
+        room.SendPacket(new RoomEventComposer(RoomEventSnapshot.Capture(data, data.Promotion)));
         return Task.CompletedTask;
     }
 }

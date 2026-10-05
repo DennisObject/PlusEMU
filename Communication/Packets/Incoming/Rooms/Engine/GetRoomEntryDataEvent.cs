@@ -37,7 +37,7 @@ internal class GetRoomEntryDataEvent : IPacketEvent
         session.Send(new RoomVisualizationSettingsComposer(room.WallThickness, room.FloorThickness, Convert.ToBoolean(room.Hidewall)));
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Username);
         if (user != null && session.GetHabbo().PetId == 0) room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
-        session.Send(new RoomEventComposer(room, room.Promotion));
+        session.Send(new RoomEventComposer(RoomEventSnapshot.Capture(room.Data, room.Promotion)));
         if (room.GetWired() != null)
             room.GetWired().TriggerEvent(WiredBoxType.TriggerRoomEnter, session.GetHabbo());
         if (UnixTimestamp.GetNow() < session.GetHabbo().FloodTime && session.GetHabbo().FloodTime != 0)
