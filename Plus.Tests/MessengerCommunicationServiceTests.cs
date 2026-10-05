@@ -324,10 +324,10 @@ public sealed class MessengerCommunicationServiceTests
             }
             public Task<FriendRequestError?> DeclineRequestAsync(Habbo habbo, int fromId) => throw new NotSupportedException();
             public Task DeclineAllRequestsAsync(Habbo habbo) => throw new NotSupportedException();
-            public Task<FriendRequestError?> SendRequestAsync(Habbo habbo, int toId)
+            public async Task<FriendRequestOutcome> SendRequestAsync(Habbo habbo, int toId)
             {
-                if (habbo.Messenger.Requests.ContainsKey(toId)) return AcceptRequestAsync(habbo, toId);
-                return Task.FromResult(habbo.Messenger.SendFriendRequest(toId));
+                if (habbo.Messenger.Requests.ContainsKey(toId)) return new(await AcceptRequestAsync(habbo, toId), Accepted: true);
+                return new(habbo.Messenger.SendFriendRequest(toId));
             }
             public Task RemoveFriendsAsync(Habbo habbo, IReadOnlyList<int> friendIds) => throw new NotSupportedException();
         }

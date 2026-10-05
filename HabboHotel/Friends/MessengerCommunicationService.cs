@@ -58,10 +58,9 @@ public sealed class MessengerCommunicationService(
         if (userId == 0 || blocked)
             return;
 
-        var habbo = session.GetHabbo();
-        var accepting = habbo.Messenger.Requests.ContainsKey(userId);
-        // The reward waits for the stored request; a refused or accepting attempt earns none.
-        if (await friends.SendRequestAsync(habbo, userId) == null && !accepting)
+        // Accepting is decided under the account holds, so only a newly stored outgoing request earns the reward.
+        var outcome = await friends.SendRequestAsync(session.GetHabbo(), userId);
+        if (outcome.Error == null && !outcome.Accepted)
             rewards.Progress(session, RewardTrackActions.RequestFriend);
         // The attempt counts toward the social quest even when the messenger refuses it.
         quests.ProgressUserQuest(session, QuestType.SocialFriend);

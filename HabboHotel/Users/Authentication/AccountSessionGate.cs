@@ -16,6 +16,9 @@ public interface IAccountSessionGate
 
     Task<IDisposable> EnterAsync(int userId, CancellationToken cancellationToken = default);
 
+    /// <summary>Holds the stripes of every account, each taken once in ascending stripe order; a failure releases what was taken.</summary>
+    Task<IDisposable> EnterManyAsync(IEnumerable<int> userIds, CancellationToken cancellationToken = default);
+
     IDisposable Enter(int userId);
 
     /// <summary>Logins of this account that started before now must not complete.</summary>
@@ -45,6 +48,28 @@ public sealed class AccountSessionGate : IAccountSessionGate
         return new Held(stripe);
     }
 
+    public async Task<IDisposable> EnterManyAsync(IEnumerable<int> userIds, CancellationToken cancellationToken = default)
+    {
+        // Accounts sharing a stripe are one lock, so acquisition is over distinct stripe indexes in ascending order.
+        var indexes = userIds.Select(id => (int)((uint)id % Stripes)).Distinct().OrderBy(index => index).ToArray();
+        var held = new List<Held>(indexes.Length);
+        try
+        {
+            foreach (var index in indexes)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!await _stripes[index].WaitAsync(_timeout, cancellationToken)) throw new TimeoutException("Account is busy.");
+                held.Add(new Held(_stripes[index]));
+            }
+        }
+        catch
+        {
+            for (var i = held.Count - 1; i >= 0; i--) held[i].Dispose();
+            throw;
+        }
+        return new HeldMany(held);
+    }
+
     public IDisposable Enter(int userId)
     {
         var stripe = Stripe(userId);
@@ -57,6 +82,14 @@ public sealed class AccountSessionGate : IAccountSessionGate
     public bool IsRevoked(int userId, long loginStarted) => _revoked.TryGetValue(userId, out var revokedAt) && revokedAt >= loginStarted;
 
     private SemaphoreSlim Stripe(int userId) => _stripes[(uint)userId % Stripes];
+
+    private sealed class HeldMany(List<Held> held) : IDisposable
+    {
+        public void Dispose()
+        {
+            for (var i = held.Count - 1; i >= 0; i--) held[i].Dispose();
+        }
+    }
 
     private sealed class Held(SemaphoreSlim stripe) : IDisposable
     {

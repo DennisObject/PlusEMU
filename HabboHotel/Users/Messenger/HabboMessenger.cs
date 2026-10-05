@@ -55,6 +55,12 @@ public class HabboMessenger
     // Called only after the request has been consumed in storage; no persistence event is raised.
     public void RemoveRequest(int fromId) => _requests.TryRemove(fromId, out _);
 
+    // Called only after the outgoing request has been stored, so a later attempt is refused as outstanding.
+    public void RecordOutstandingFriendRequest(int toId)
+    {
+        if (!_outstandingFriendRequests.Contains(toId)) _outstandingFriendRequests.Add(toId);
+    }
+
     public void ReceiveRoomInvite(MessengerBuddy friend, string message)
     {
         if (string.IsNullOrWhiteSpace(message)) return;

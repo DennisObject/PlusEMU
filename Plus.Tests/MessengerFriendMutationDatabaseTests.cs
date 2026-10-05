@@ -1,0 +1,336 @@
+using System.Reflection;
+using Dapper;
+using MySqlConnector;
+using Plus.Database;
+using Plus.HabboHotel.Friends;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Authentication;
+using Plus.HabboHotel.Users.Messenger;
+using Plus.Core.Settings;
+using Xunit;
+
+namespace Plus.Tests;
+
+public sealed class MessengerFriendDatabaseFactAttribute : FactAttribute
+{
+    public const string Variable = "PLUS_MESSENGER_FRIEND_SERVER_CONNECTION_STRING";
+    public MessengerFriendDatabaseFactAttribute()
+    {
+        if (Environment.GetEnvironmentVariable(Variable) == null) Skip = $"Set {Variable} to a bare MariaDB server connection (no Database).";
+    }
+}
+
+/// <summary>One GUID schema per class, loaded once from the pristine dump; every test uses its own account ids.</summary>
+public sealed class MessengerFriendSchema : IDisposable
+{
+    private readonly string _server;
+    public string Name { get; } = "task_messenger_tests_" + Guid.NewGuid().ToString("N")[..12];
+    public string ConnectionString { get; }
+
+    public MessengerFriendSchema()
+    {
+        _server = Environment.GetEnvironmentVariable(MessengerFriendDatabaseFactAttribute.Variable)!;
+        using (var admin = new MySqlConnection(_server))
+        {
+            admin.Open();
+            admin.Execute($"CREATE DATABASE `{Name}` CHARACTER SET utf8mb4");
+        }
+        ConnectionString = new MySqlConnectionStringBuilder(_server) { Database = Name, AllowZeroDateTime = true, ConvertZeroDateTime = true, SslMode = MySqlSslMode.None, Pooling = false, AllowUserVariables = true }.ToString();
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+        connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql")), commandTimeout: 900);
+    }
+
+    public void Dispose()
+    {
+        using var admin = new MySqlConnection(_server);
+        admin.Open();
+        admin.Execute($"DROP DATABASE IF EXISTS `{Name}`");
+    }
+}
+
+public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema schema) : IClassFixture<MessengerFriendSchema>
+{
+    private static readonly TimeProvider Clock = TimeProvider.System;
+
+    private MessengerDataLoader Loader(IDatabase? database = null) =>
+        new(database ?? new HabbiconDatabaseTests.TestDatabase(schema.ConnectionString), new GameClientManager(null!, null!), Permissions(), Settings(), Clock);
+
+    private static IAccessControl Permissions()
+    {
+        var proxy = DispatchProxy.Create<IAccessControl, Forwarder>();
+        ((Forwarder)(object)proxy).Handler = (method, _) => method.Name == nameof(IAccessControl.Resolve) ? UserAccess.Empty : throw new NotSupportedException(method.Name);
+        return (IAccessControl)(object)proxy;
+    }
+
+    private static ISettingsManager Settings()
+    {
+        var proxy = DispatchProxy.Create<ISettingsManager, Forwarder>();
+        ((Forwarder)(object)proxy).Handler = (method, _) => method.Name == nameof(ISettingsManager.GetOptionalValue) ? null : throw new NotSupportedException(method.Name);
+        return (ISettingsManager)(object)proxy;
+    }
+
+    // Accounts are created with ids unique to each test so the shared schema never leaks state between tests.
+    private void Account(int id)
+    {
+        using var connection = new MySqlConnection(schema.ConnectionString);
+        connection.Open();
+        connection.Execute("INSERT INTO users (id, username, auth_ticket, credits, activity_points, vip_points) VALUES (@id, @name, '', 0, 0, 0)", new { id, name = "friend_" + id });
+        connection.Execute("INSERT IGNORE INTO users_settings (user_id) VALUES (@id)", new { id });
+    }
+
+    private static HabboMessenger MessengerFor(IEnumerable<MessengerBuddy>? friends = null, IEnumerable<MessengerRequest>? requests = null, IEnumerable<int>? outstanding = null) =>
+        new(friends?.ToDictionary(friend => friend.Id) ?? [], requests?.ToDictionary(request => request.FromId) ?? [], (outstanding ?? []).ToList(), Clock);
+
+    private static Habbo Habbo(int id, HabboMessenger messenger) => new() { Id = id, Username = "friend_" + id, Access = UserAccess.Empty, Messenger = messenger };
+
+    private int Scalar(string sql, object? parameters = null)
+    {
+        using var connection = new MySqlConnection(schema.ConnectionString);
+        connection.Open();
+        return connection.ExecuteScalar<int>(sql, parameters);
+    }
+
+    private void Execute(string sql, object? parameters = null)
+    {
+        using var connection = new MySqlConnection(schema.ConnectionString);
+        connection.Open();
+        connection.Execute(sql, parameters);
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task AcceptCommitsBothRowsAndConsumesOnlyTheSendersRequest()
+    {
+        Account(9101); Account(9102);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9102, 9101), (9101, 9102)");
+        var acceptor = Habbo(9101, MessengerFor(requests: [new MessengerRequest { FromId = 9102, ToId = 9101 }]));
+        var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
+
+        Assert.Null(await service.AcceptRequestAsync(acceptor, 9102));
+
+        Assert.Equal(2, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE (user_one_id = 9101 AND user_two_id = 9102) OR (user_one_id = 9102 AND user_two_id = 9101)"));
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9102 AND to_id = 9101"));
+        Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9101 AND to_id = 9102"));
+        Assert.NotNull(acceptor.Messenger.GetFriend(9102));
+        Assert.False(acceptor.Messenger.Requests.ContainsKey(9102));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task ConcurrentAcceptsOfOnePairCommitExactlyOnce()
+    {
+        Account(9201); Account(9202);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9202, 9201)");
+        var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
+        var first = Habbo(9201, MessengerFor(requests: [new MessengerRequest { FromId = 9202, ToId = 9201 }]));
+        var second = Habbo(9201, MessengerFor(requests: [new MessengerRequest { FromId = 9202, ToId = 9201 }]));
+
+        var results = await Task.WhenAll(service.AcceptRequestAsync(first, 9202), service.AcceptRequestAsync(second, 9202));
+
+        Assert.Single(results, result => result == null);
+        Assert.Equal(2, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE (user_one_id = 9201 AND user_two_id = 9202) OR (user_one_id = 9202 AND user_two_id = 9201)"));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task MissingRequestOrAccountCommitsNothingAndLeavesMemoryAlone()
+    {
+        Account(9301); Account(9302);
+        var acceptor = Habbo(9301, MessengerFor(requests: [new MessengerRequest { FromId = 9302, ToId = 9301 }]));
+        var loader = Loader();
+
+        var missing = await loader.AcceptFriendRequest(9301, 9302);
+        Assert.Equal(FriendRequestError.NoFriendRequest, missing.Error);
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id = 9301"));
+        Assert.Empty(acceptor.Messenger.Friends);
+
+        var unknown = await loader.AcceptFriendRequest(9301, 9399);
+        Assert.Equal(FriendRequestError.NoFriendRequest, unknown.Error);
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id = 9301"));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task FullFriendListRollsBackTheConsumedRequest()
+    {
+        Account(9401); Account(9402);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9402, 9401)");
+        for (var i = 0; i < 300; i++) Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9401, @other)", new { other = 9500000 + i });
+        var acceptor = Habbo(9401, MessengerFor(requests: [new MessengerRequest { FromId = 9402, ToId = 9401 }]));
+        var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
+
+        Assert.Equal(FriendRequestError.FriendLimitReached, await service.AcceptRequestAsync(acceptor, 9402));
+
+        Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9402 AND to_id = 9401"));
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id = 9402"));
+        Assert.True(acceptor.Messenger.Requests.ContainsKey(9402));
+        Assert.Empty(acceptor.Messenger.Friends.Where(pair => pair.Key == 9402));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task DeclineDeletesOnlyTheSenderToRecipientRequest()
+    {
+        Account(9501); Account(9502);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9502, 9501), (9501, 9502)");
+        var decliner = Habbo(9501, MessengerFor(requests: [new MessengerRequest { FromId = 9502, ToId = 9501 }]));
+        var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
+
+        Assert.Null(await service.DeclineRequestAsync(decliner, 9502));
+
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9502 AND to_id = 9501"));
+        Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9501 AND to_id = 9502"));
+        Assert.False(decliner.Messenger.Requests.ContainsKey(9502));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task RemoveDeletesBothDirectionsAndUpdatesBothMemories()
+    {
+        Account(9601); Account(9602);
+        Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9601, 9602), (9602, 9601)");
+        var friend = new MessengerBuddy { Id = 9602 };
+        var remover = Habbo(9601, MessengerFor(friends: [friend]));
+        var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
+
+        await service.RemoveFriendsAsync(remover, [9602]);
+
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id IN (9601, 9602) AND user_two_id IN (9601, 9602)"));
+        Assert.Null(remover.Messenger.GetFriend(9602));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task RegisterDuplicateRequestReportsOutstanding()
+    {
+        Account(9701); Account(9702);
+        var loader = Loader();
+
+        Assert.True(await loader.RegisterFriendRequest(9701, 9702));
+        Assert.False(await loader.RegisterFriendRequest(9701, 9702));
+        Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9701 AND to_id = 9702"));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task StorageFailureLeavesMemoryAndPublicationUnchanged()
+    {
+        Account(9801); Account(9802);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9802, 9801)");
+        var acceptor = Habbo(9801, MessengerFor(requests: [new MessengerRequest { FromId = 9802, ToId = 9801 }]));
+        var failing = DispatchProxy.Create<IMessengerDataLoader, Forwarder>();
+        var real = Loader();
+        ((Forwarder)(object)failing).Handler = (method, args) => method.Name == nameof(IMessengerDataLoader.AcceptFriendRequest)
+            ? throw new InvalidOperationException("Injected storage failure")
+            : method.Invoke(real, args);
+        var service = new MessengerFriendMutationService((IMessengerDataLoader)(object)failing, new AccountSessionGate(), new GameClientManager(null!, null!));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AcceptRequestAsync(acceptor, 9802));
+
+        Assert.True(acceptor.Messenger.Requests.ContainsKey(9802));
+        Assert.Empty(acceptor.Messenger.Friends);
+        Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9802 AND to_id = 9801"));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task SortedAccountGateWaitsForAHeldLoginAndNeverDeadlocks()
+    {
+        Account(9901); Account(9902);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9902, 9901)");
+        var gate = new AccountSessionGate();
+        var held = await gate.EnterAsync(9902);
+        var service = new MessengerFriendMutationService(Loader(), gate, new GameClientManager(null!, null!));
+        var acceptor = Habbo(9901, MessengerFor(requests: [new MessengerRequest { FromId = 9902, ToId = 9901 }]));
+
+        var accept = service.AcceptRequestAsync(acceptor, 9902);
+        await Task.Delay(200);
+        Assert.False(accept.IsCompleted);
+        held.Dispose();
+
+        Assert.Null(await accept.WaitAsync(TimeSpan.FromSeconds(30)));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task ReversePairOperationsInBothDirectionsCompleteWithoutDeadlock()
+    {
+        Account(9951); Account(9952);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9952, 9951), (9951, 9952)");
+        var gate = new AccountSessionGate();
+        var service = new MessengerFriendMutationService(Loader(), gate, new GameClientManager(null!, null!));
+        var first = Habbo(9951, MessengerFor(requests: [new MessengerRequest { FromId = 9952, ToId = 9951 }]));
+        var second = Habbo(9952, MessengerFor(requests: [new MessengerRequest { FromId = 9951, ToId = 9952 }]));
+
+        var tasks = Task.WhenAll(service.AcceptRequestAsync(first, 9952), service.AcceptRequestAsync(second, 9951));
+
+        await tasks.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.Equal(2, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE (user_one_id = 9951 AND user_two_id = 9952) OR (user_one_id = 9952 AND user_two_id = 9951)"));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task FailureAfterTheRelationshipInsertRollsBackTheConsumedRequest()
+    {
+        Account(9981); Account(9982);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9982, 9981)");
+        Execute("CREATE TRIGGER messenger_test_fail_friend BEFORE INSERT ON messenger_friendships FOR EACH ROW BEGIN IF NEW.user_one_id = 9981 AND NEW.user_two_id = 9982 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected friendship failure'; END IF; END");
+        try
+        {
+            var acceptor = Habbo(9981, MessengerFor(requests: [new MessengerRequest { FromId = 9982, ToId = 9981 }]));
+            var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
+
+            await Assert.ThrowsAnyAsync<Exception>(() => service.AcceptRequestAsync(acceptor, 9982));
+
+            Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9982 AND to_id = 9981"));
+            Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id IN (9981, 9982)"));
+            Assert.True(acceptor.Messenger.Requests.ContainsKey(9982));
+            Assert.Empty(acceptor.Messenger.Friends);
+        }
+        finally { Execute("DROP TRIGGER IF EXISTS messenger_test_fail_friend"); }
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task SelfAndMissingAccountPairsAreRefusedBeforeAnyWrite()
+    {
+        Account(9991);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9991, 9991)");
+        var loader = Loader();
+
+        Assert.Equal(FriendRequestError.NoFriendRequest, (await loader.AcceptFriendRequest(9991, 9991)).Error);
+        Assert.False(await loader.RegisterFriendRequest(9991, 9991));
+        Assert.False(await loader.RegisterFriendRequest(9991, 9999991));
+        Assert.Equal(0, await loader.DeleteFriendship(9991, 9991));
+        Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9991 AND to_id = 9991"));
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE to_id = 9999991"));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task SameStripeAccountsAcceptWithoutSelfDeadlock()
+    {
+        // 9xxx1 and 9xxx65 share a stripe (id mod 64); the canonical seam must hold that stripe once.
+        Account(9311); Account(9375);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9375, 9311)");
+        var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(TimeSpan.FromSeconds(5)), new GameClientManager(null!, null!));
+        var acceptor = Habbo(9311, MessengerFor(requests: [new MessengerRequest { FromId = 9375, ToId = 9311 }]));
+
+        Assert.Null(await service.AcceptRequestAsync(acceptor, 9375).WaitAsync(TimeSpan.FromSeconds(20)));
+        Assert.Equal(2, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE (user_one_id = 9311 AND user_two_id = 9375) OR (user_one_id = 9375 AND user_two_id = 9311)"));
+    }
+
+    [MessengerFriendDatabaseFact]
+    public async Task OpposingPairsAcrossWraparoundStripesCompleteWithoutDeadlock()
+    {
+        // The two accepted pairs are driven in opposing directions over shared accounts while a third account removes a friend.
+        Account(9711); Account(9712); Account(9713); Account(9714);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9712, 9711), (9714, 9713)");
+        var gate = new AccountSessionGate(TimeSpan.FromSeconds(20));
+        var service = new MessengerFriendMutationService(Loader(), gate, new GameClientManager(null!, null!));
+        var first = Habbo(9711, MessengerFor(requests: [new MessengerRequest { FromId = 9712, ToId = 9711 }]));
+        var second = Habbo(9713, MessengerFor(requests: [new MessengerRequest { FromId = 9714, ToId = 9713 }]));
+        var third = Habbo(9714, MessengerFor(requests: []));
+
+        var tasks = Task.WhenAll(service.AcceptRequestAsync(first, 9712), service.AcceptRequestAsync(second, 9714), service.RemoveFriendsAsync(third, [9713]));
+        await tasks.WaitAsync(TimeSpan.FromSeconds(60));
+        Assert.Equal(2, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE (user_one_id = 9711 AND user_two_id = 9712) OR (user_one_id = 9712 AND user_two_id = 9711)"));
+    }
+
+    // Forwards every member to the real object unless a test overrides it.
+    public class Forwarder : DispatchProxy
+    {
+        public Func<MethodInfo, object?[]?, object?> Handler { get; set; } = (method, args) => method.Invoke(null, args);
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => Handler(targetMethod!, args);
+    }
+}
