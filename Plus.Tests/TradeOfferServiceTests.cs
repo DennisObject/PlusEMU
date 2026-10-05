@@ -147,6 +147,50 @@ public sealed class TradeOfferServiceTests
     }
 
     [Fact]
+    public void BatchOfferIgnoresTheSingleLtdCapForEveryRequestedItem()
+    {
+        using var f = new TradeConfirmationServiceTests.TradeFixture();
+        var alice = f.Join(1, 7); var bob = f.Join(2, 8);
+        var trade = f.Start(alice, bob);
+        Stock(alice, Enumerable.Range(0, 10).Select(i => Floor((uint)(600 + i), 90, ltd: true)).ToArray());
+        f.Trades.OfferItems(alice.Session, 10, 600);
+        Assert.Equal(10, trade.Users[0].OfferedItems.Count);
+        Assert.All(trade.Users[0].OfferedItems.Values, item => Assert.True(item.UniqueNumber > 0));
+
+        // A second trade with eleven matching LTD items: the batch path has no 9-LTD cap, so all eleven are offered.
+        var carol = f.Join(3, 9); var dave = f.Join(4, 10);
+        var secondTrade = f.Start(carol, dave);
+        Stock(carol, Enumerable.Range(0, 11).Select(i => Floor((uint)(700 + i), 91, ltd: true)).ToArray());
+        f.Trades.OfferItems(carol.Session, 11, 700);
+        Assert.Equal(11, secondTrade.Users[0].OfferedItems.Count);
+        Assert.All(secondTrade.Users[0].OfferedItems.Values, item => Assert.True(item.UniqueNumber > 0));
+    }
+
+    [Fact]
+    public void BatchAddsItemsBeforeADuplicateAndStopsSilently()
+    {
+        using var f = new TradeConfirmationServiceTests.TradeFixture();
+        var alice = f.Join(1, 7); var bob = f.Join(2, 8);
+        var trade = f.Start(alice, bob);
+        Stock(alice, Floor(200, 77), Floor(201, 77), Floor(202, 77));
+        // The batch enumerates the same order that AllItems reports here.
+        var ordered = alice.Habbo.Inventory.Furniture.AllItems.Where(x => x.Definition.Id == 77).Select(x => x.Id).ToArray();
+        var first = ordered[0]; var second = ordered[1];
+        f.Trades.OfferItem(alice.Session, second);
+        f.Trades.Accept(alice.Session);
+        Assert.True(trade.Users[0].HasAccepted);
+        alice.Packets.Clear(); bob.Packets.Clear();
+
+        f.Trades.OfferItems(alice.Session, 2, first);
+
+        Assert.True(trade.Users[0].OfferedItems.ContainsKey(first));
+        Assert.True(trade.Users[0].OfferedItems.ContainsKey(second));
+        Assert.Equal(2, trade.Users[0].OfferedItems.Count);
+        Assert.False(trade.Users[0].HasAccepted);
+        Assert.Empty(alice.Sent); Assert.Empty(bob.Sent);
+    }
+
+    [Fact]
     public void BatchWithNothingToOfferStillAnswersAndAmountZeroAddsNothing()
     {
         using var f = new TradeConfirmationServiceTests.TradeFixture();
@@ -190,7 +234,7 @@ public sealed class TradeOfferServiceTests
         f.Trades.Accept(alice.Session);
         stranger.RoomUser.TradeId = trade.Id;
         stranger.RoomUser.IsTrading = true;
-        Stock(stranger, Floor(400, 11), Floor(401, 11));
+        Stock(stranger, Floor(400, 11), Floor(401, 11), Floor(100, 11), Floor(150, 11));
         f.Trades.OfferItem(stranger.Session, 100);
         alice.Packets.Clear(); bob.Packets.Clear(); stranger.Packets.Clear();
 
@@ -201,6 +245,10 @@ public sealed class TradeOfferServiceTests
 
         Assert.Equal(new uint[] { 100 }, trade.Users[0].OfferedItems.Keys);
         Assert.Equal(new uint[] { 150 }, trade.Users[1].OfferedItems.Keys);
+        Assert.True(trade.Users[0].OfferedItems.ContainsKey(100));
+        Assert.True(trade.Users[1].OfferedItems.ContainsKey(150));
+        Assert.True(alice.RoomUser.HasStatus("trd")); Assert.True(bob.RoomUser.HasStatus("trd"));
+        Assert.True(f.Trading.TryGetTrade(trade.Id, out _));
         Assert.True(trade.Users[0].HasAccepted); // a stale actor cannot reset alice's acceptance
         Assert.False(trade.Users[1].HasAccepted);
         Assert.True(trade.CanChange);
