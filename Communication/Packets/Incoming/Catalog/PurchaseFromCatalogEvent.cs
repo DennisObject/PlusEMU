@@ -410,9 +410,9 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                 ? new HabboActivityPointNotificationComposer(habbo.Diamonds, -offer.Points, 5)
                 : new HabboActivityPointNotificationComposer(habbo.Duckets, -offer.Points));
         session.Send(new PurchaseOKComposer());
-        var membershipEnd = DateTimeOffset.FromUnixTimeSeconds(expiry.Value).UtcDateTime;
+        var membershipEnd = DateTimeOffset.FromUnixTimeSeconds(expiry.Value);
         // The client caches offers; resend them so the next confirmation shows the new end date.
-        session.Send(new HabboClubOffersComposer(_catalogManager.ClubOffers, ClubWindow, membershipEnd));
+        session.Send(new HabboClubOffersComposer(ClubOfferSnapshotFactory.Capture(_catalogManager.ClubOffers, ClubWindow, membershipEnd, _clock.GetUtcNow())));
         session.Send(new ScrSendUserInfoComposer(habbo.Access, ScrSendUserInfoComposer.PurchaseResponse));
     }
 }
