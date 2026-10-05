@@ -15,6 +15,7 @@ using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Rooms.Chat.Styles;
 using Plus.HabboHotel.Users.Messenger.FriendBar;
 using Plus.HabboHotel.Subscriptions;
+using Plus.HabboHotel.Users.Authentication;
 using Plus.Utilities;
 
 using Plus.HabboHotel.Rooms;
@@ -42,7 +43,8 @@ public sealed class UserProfileService(
     IAchievementManager achievementManager,
     IQuestManager questManager,
     IWordFilterManager wordFilterManager,
-    IDatabase database, TimeProvider clock, IChatStyleManager styles) : IUserProfileService
+    IDatabase database, TimeProvider clock, IChatStyleManager styles,
+    IRewardTrackManager rewardTrackManager, IAccountSessionGate accountSessionGate) : IUserProfileService
 {
     public void ShowUserObject(GameClient session)
     {
@@ -92,32 +94,40 @@ public sealed class UserProfileService(
     public void UpdateFigure(GameClient session, FigureUpdateRequest request)
     {
         var habbo = session.GetHabbo();
+        using var account = accountSessionGate.Enter(habbo.Id);
         var gender = request.Gender.ToUpper();
         var look = figureManager.ProcessFigure(request.Figure, gender, habbo.Clothing.GetClothingParts,
             ClubAccess.LevelFor(habbo.Access));
         if (look == habbo.Look) return;
         var now = clock.GetUtcNow();
-        if (habbo.LastClothingUpdatedAt is { } lastUpdate && (now - lastUpdate).TotalSeconds <= 2.0)
+        if (habbo.LastClothingUpdatedAt is { } lastUpdate && now - lastUpdate <= TimeSpan.FromSeconds(2))
         {
             habbo.ClothingUpdateWarnings++;
             if (habbo.ClothingUpdateWarnings >= 25) habbo.SessionClothingBlocked = true;
             return;
         }
         if (habbo.SessionClothingBlocked) return;
-        habbo.LastClothingUpdatedAt = now;
         if (gender is not ("M" or "F"))
         {
+            habbo.LastClothingUpdatedAt = now;
             session.Send(new BroadcastMessageAlertComposer("Sorry, you chose an invalid gender."));
             return;
         }
+        var liveLook = figureManager.FilterFigure(look);
 
-        questManager.ProgressUserQuest(session, QuestType.ProfileChangeLook);
-        habbo.Look = figureManager.FilterFigure(look);
-        habbo.Gender = gender.ToLower();
-        RewardTrackManager.Current?.Progress(session, RewardTrackActions.ChangeFigure);
         using (var connection = database.Connection())
-            connection.Execute("UPDATE users SET look=@look, gender=@gender WHERE id=@userId LIMIT 1",
+        {
+            var updated = connection.Execute("UPDATE users SET look=@look, gender=@gender WHERE id=@userId LIMIT 1",
                 new { look, gender, userId = habbo.Id });
+            if (updated != 1)
+                throw new DBConcurrencyException($"User {habbo.Id} no longer exists.");
+        }
+
+        habbo.LastClothingUpdatedAt = now;
+        questManager.ProgressUserQuest(session, QuestType.ProfileChangeLook);
+        habbo.Look = liveLook;
+        habbo.Gender = gender.ToLower();
+        rewardTrackManager.Progress(session, RewardTrackActions.ChangeFigure);
         achievementManager.ProgressAchievement(session, "ACH_AvatarLooks", 1);
         session.Send(new AvatarAspectUpdateComposer(look, gender));
         if (habbo.Look.Contains("ha-1006")) questManager.ProgressUserQuest(session, QuestType.WearHat);
@@ -131,28 +141,34 @@ public sealed class UserProfileService(
     public void ChangeMotto(GameClient session, string motto)
     {
         var habbo = session.GetHabbo();
+        using var account = accountSessionGate.Enter(habbo.Id);
         if (habbo.TimeMuted > 0)
         {
             session.SendNotification("Oops, you're currently muted - you cannot change your motto.");
             return;
         }
         var now = clock.GetUtcNow();
-        if (habbo.LastMottoUpdatedAt is { } lastUpdate && (now - lastUpdate).TotalSeconds <= 2.0)
+        if (habbo.LastMottoUpdatedAt is { } lastUpdate && now - lastUpdate <= TimeSpan.FromSeconds(2))
         {
             habbo.MottoUpdateWarnings++;
             if (habbo.MottoUpdateWarnings >= 25) habbo.SessionMottoBlocked = true;
             return;
         }
         if (habbo.SessionMottoBlocked) return;
-        habbo.LastMottoUpdatedAt = now;
         var newMotto = StringCharFilter.Escape(motto.Trim());
         if (newMotto.Length > 38) newMotto = newMotto[..38];
         if (newMotto == habbo.Motto) return;
         if (!habbo.Access.Can(PermissionKeys.ChatFilterBypass)) newMotto = wordFilterManager.CheckMessage(newMotto);
-        habbo.Motto = newMotto;
         using (var connection = database.Connection())
-            connection.Execute("UPDATE users SET motto=@motto WHERE id=@userId LIMIT 1", new { userId = habbo.Id, motto = newMotto });
-        RewardTrackManager.Current?.Progress(session, RewardTrackActions.ChangeMotto);
+        {
+            var updated = connection.Execute("UPDATE users SET motto=@motto WHERE id=@userId LIMIT 1",
+                new { userId = habbo.Id, motto = newMotto });
+            if (updated != 1)
+                throw new DBConcurrencyException($"User {habbo.Id} no longer exists.");
+        }
+        habbo.LastMottoUpdatedAt = now;
+        habbo.Motto = newMotto;
+        rewardTrackManager.Progress(session, RewardTrackActions.ChangeMotto);
         questManager.ProgressUserQuest(session, QuestType.ProfileChangeMotto);
         achievementManager.ProgressAchievement(session, "ACH_Motto", 1);
         if (!habbo.InRoom) return;

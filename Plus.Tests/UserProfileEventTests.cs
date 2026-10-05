@@ -4,6 +4,7 @@ using Plus.Communication.Packets.Incoming.Sound;
 using Plus.Communication.Packets.Incoming.Users;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Authentication;
 using Xunit;
 
 namespace Plus.Tests;
@@ -38,7 +39,7 @@ public sealed class UserProfileEventTests
     {
         var habbo = new Habbo { Id = 7, Motto = "original", TimeMuted = 10 };
         var (session, sent) = HabbiconTestSupport.Client(habbo);
-        var profiles = new UserProfileService(null!, null!, null!, null!, null!, TimeProvider.System, null!);
+        var profiles = new UserProfileService(null!, null!, null!, null!, null!, TimeProvider.System, null!, null!, new AccountSessionGate());
 
         profiles.ChangeMotto(session, "changed");
 
@@ -51,7 +52,7 @@ public sealed class UserProfileEventTests
     {
         var habbo = new Habbo { Id = 7, FocusPreference = false };
         var (session, _) = HabbiconTestSupport.Client(habbo);
-        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!, null!, null!);
         Assert.Throws<InvalidOperationException>(() => profiles.SetFocusPreference(session, true));
         Assert.False(habbo.FocusPreference);
     }
@@ -63,7 +64,7 @@ public sealed class UserProfileEventTests
         var habbo = new Habbo { Id = 7, Motto = "original", MottoUpdateWarnings = 24,
             LastMottoUpdatedAt = clock.GetUtcNow().AddSeconds(-2).ToOffset(TimeSpan.FromHours(2)) };
         var (session, sent) = HabbiconTestSupport.Client(habbo);
-        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), clock, null!);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), clock, null!, null!, new AccountSessionGate());
         profiles.ChangeMotto(session, "changed");
         Assert.Equal(25, habbo.MottoUpdateWarnings);
         Assert.True(habbo.SessionMottoBlocked);
