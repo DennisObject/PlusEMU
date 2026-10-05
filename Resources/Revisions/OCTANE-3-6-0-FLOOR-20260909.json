@@ -2,7 +2,7 @@
   "Name": "OCTANE-3-6-0-FLOOR-20260909",
   "IncomingHeaders": {
     "InitDiffieHandshakeEvent": 3110,
-    "GenerateSecretKeyEvent": 773,
+    "CompleteDiffieHandshakeEvent": 773,
     "UniqueIdEvent": 2490,
     "SSOTicketEvent": 2419,
     "InfoRetrieveEvent": 357,
@@ -377,7 +377,7 @@
   "OutgoingHeaders": {
     "AllowedChatStylesComposer": 9340,
     "CreatableRoomModelsComposer": 9341,
-    "InitCryptoComposer": 1347,
+    "InitDiffieHandshakeComposer": 1347,
     "SecretKeyComposer": 3885,
     "AuthenticationOkComposer": 2491,
     "UserObjectComposer": 2725,
@@ -554,7 +554,7 @@
     "HabboSearchResultComposer": 973,
     "PetHorseFigureInformationComposer": 1924,
     "PetInventoryComposer": 3522,
-    "PongComposer": 3928,
+    "PingComposer": 3928,
     "RentableSpaceComposer": 3559,
     "GetYouTubePlaylistComposer": 1112,
     "RespectNotificationComposer": 2815,

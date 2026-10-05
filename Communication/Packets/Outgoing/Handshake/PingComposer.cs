@@ -2,9 +2,9 @@
 
 namespace Plus.Communication.Packets.Outgoing.Handshake;
 
-public class PongComposer : IServerPacket
+public class PingComposer : IServerPacket
 {
-    public uint MessageId => ServerPacketHeader.PongComposer;
+    public uint MessageId => ServerPacketHeader.PingComposer;
 
     public void Compose(IOutgoingPacket packet)
     {

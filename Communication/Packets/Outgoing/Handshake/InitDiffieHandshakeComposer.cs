@@ -2,13 +2,13 @@
 
 namespace Plus.Communication.Packets.Outgoing.Handshake;
 
-public class InitCryptoComposer : IServerPacket
+public class InitDiffieHandshakeComposer : IServerPacket
 {
     private readonly string _prime;
     private readonly string _generator;
-    public uint MessageId => ServerPacketHeader.InitCryptoComposer;
+    public uint MessageId => ServerPacketHeader.InitDiffieHandshakeComposer;
 
-    public InitCryptoComposer(string prime, string generator)
+    public InitDiffieHandshakeComposer(string prime, string generator)
     {
         _prime = prime;
         _generator = generator;

@@ -3,7 +3,7 @@ namespace Plus.Communication.Packets.Outgoing;
 public static class ServerPacketHeader
 {
     // Handshake
-    public const uint InitCryptoComposer = 3531; //675
+    public const uint InitDiffieHandshakeComposer = 3531; //675
     public const uint SecretKeyComposer = 696; //3179
     public const uint AuthenticationOkComposer = 1079; //1442
     public const uint UserObjectComposer = 845; //1823
@@ -244,7 +244,7 @@ public static class ServerPacketHeader
     public const uint HabboSearchResultComposer = 2823; //214
     public const uint PetHorseFigureInformationComposer = 2926; //560
     public const uint PetInventoryComposer = 1988; //3528
-    public const uint PongComposer = 1240; //624
+    public const uint PingComposer = 1240; //624
     public const uint RentableSpaceComposer = 2323; //2660
     public const uint GetYouTubePlaylistComposer = 1354; //763
     public const uint RespectNotificationComposer = 1818; //474

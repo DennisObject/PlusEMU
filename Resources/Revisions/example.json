@@ -2,7 +2,7 @@
   "Name": "PRODUCTION-201701242205-837386173",
   "IncomingHeaders": {
     "InitDiffieHandshakeEvent": 3392,
-    "GenerateSecretKeyEvent": 3622,
+    "CompleteDiffieHandshakeEvent": 3622,
     "UniqueIdEvent": 3521,
     "SSOTicketEvent": 1989,
     "InfoRetrieveEvent": 2629,
@@ -318,7 +318,7 @@
     "GetClubOffersEvent": 362
   },
   "OutgoingHeaders": {
-    "InitCryptoComposer": 3531,
+    "InitDiffieHandshakeComposer": 3531,
     "SecretKeyComposer": 696,
     "AuthenticationOkComposer": 1079,
     "UserObjectComposer": 845,
@@ -511,7 +511,7 @@
     "HabboSearchResultComposer": 2823,
     "PetHorseFigureInformationComposer": 2926,
     "PetInventoryComposer": 1988,
-    "PongComposer": 1240,
+    "PingComposer": 1240,
     "RentableSpaceComposer": 2323,
     "GetYouTubePlaylistComposer": 1354,
     "RespectNotificationComposer": 1818,

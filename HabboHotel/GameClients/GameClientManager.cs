@@ -263,7 +263,7 @@ public class GameClientManager : IGameClientManager
                 {
                     try
                     {
-                        client.Send(new PongComposer());
+                        client.Send(new PingComposer());
                     }
                     catch
                     {
