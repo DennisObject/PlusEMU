@@ -3,17 +3,7 @@ using Plus.HabboHotel.Ambassadors;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Action;
 
-internal class AmbassadorAlertEvent : IPacketEvent
+internal class AmbassadorAlertEvent(IAmbassadorsManager ambassadors) : IPacketEvent
 {
-    private readonly IAmbassadorsManager _ambassadorsManager;
-
-    public AmbassadorAlertEvent(IAmbassadorsManager ambassadorsManager) => _ambassadorsManager = ambassadorsManager;
-
-    public async Task Parse(GameClient session, IIncomingPacket packet)
-    {
-        var userid = packet.ReadInt();
-        var target = PlusEnvironment.GetHabboById(userid);
-
-        await _ambassadorsManager.Warn(session.GetHabbo(), target, "Alert");
-    }
+    public Task Parse(GameClient session, IIncomingPacket packet) => ambassadors.Warn(session, packet.ReadInt(), "Alert");
 }
