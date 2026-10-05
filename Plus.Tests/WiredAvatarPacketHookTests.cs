@@ -37,12 +37,87 @@ public class WiredAvatarPacketHookTests
     public async Task SignPacketRunsExactSignFilterAndRejectsOutOfRangeValue(int sign)
     {
         var world = new World(9, sign);
-        await new ApplySignEvent().Parse(world.Room, world.Client, Packet(sign));
+        world.Actor.IdleTime = 10;
+        await new ApplySignEvent(world.Actions).Parse(world.Room, world.Client, Packet(sign));
         var observed = Assert.Single(world.Capture.Events);
         Assert.Same(world.Actor, observed.Actor); Assert.Equal(sign, observed.Code);
         Assert.Equal(sign.ToString(), world.Actor.Statusses["sign"]);
-        await new ApplySignEvent().Parse(world.Room, world.Client, Packet(18));
+        Assert.Equal((int)WiredAvatarAction.Sign, observed.Action);
+        Assert.Equal(0, world.Actor.IdleTime);
+        Assert.Equal(sign.ToString(), world.Capture.SignStatusAtDispatch);
+        await new ApplySignEvent(world.Actions).Parse(world.Room, world.Client, Packet(18));
         Assert.Single(world.Capture.Events); Assert.Equal(sign.ToString(), world.Actor.Statusses["sign"]);
+    }
+
+    [Fact]
+    public void SignDeadlineExpiresBeforeExactAndAfterBoundariesAndRefreshes()
+    {
+        var clock = new ManualClock(new DateTimeOffset(2040, 1, 2, 3, 4, 5, TimeSpan.Zero));
+        var world = new World(9, 4, clock);
+        world.Actions.ApplySign(world.Room, world.Client, 4);
+        var firstDeadline = clock.GetUtcNow().AddSeconds(5);
+        Assert.Equal(firstDeadline, world.Actor.SignExpiresAt);
+
+        world.Actor.UpdateNeeded = false;
+        clock.Now = firstDeadline.AddTicks(-1);
+        world.Users.UpdateSignStatus(world.Actor);
+        Assert.Equal("4", world.Actor.Statusses["sign"]);
+        Assert.Equal(firstDeadline, world.Actor.SignExpiresAt);
+        Assert.False(world.Actor.UpdateNeeded);
+
+        clock.Now = firstDeadline;
+        world.Users.UpdateSignStatus(world.Actor);
+        Assert.False(world.Actor.Statusses.ContainsKey("sign"));
+        Assert.Null(world.Actor.SignExpiresAt);
+        Assert.True(world.Actor.UpdateNeeded);
+
+        world.Actor.UpdateNeeded = false;
+        clock.Now = firstDeadline.AddHours(1);
+        world.Users.UpdateSignStatus(world.Actor);
+        Assert.False(world.Actor.UpdateNeeded);
+
+        world.Actions.ApplySign(world.Room, world.Client, 5);
+        clock.Now = clock.Now.AddSeconds(4);
+        var supersededDeadline = clock.Now.AddSeconds(1);
+        world.Actions.ApplySign(world.Room, world.Client, 6);
+        var refreshedDeadline = clock.Now.AddSeconds(5);
+        Assert.Equal(refreshedDeadline, world.Actor.SignExpiresAt);
+        clock.Now = supersededDeadline;
+        world.Users.UpdateSignStatus(world.Actor);
+        Assert.Equal("6", world.Actor.Statusses["sign"]);
+        Assert.Equal(refreshedDeadline, world.Actor.SignExpiresAt);
+        clock.Now = refreshedDeadline.AddTicks(1);
+        world.Users.UpdateSignStatus(world.Actor);
+        Assert.False(world.Actor.Statusses.ContainsKey("sign"));
+        Assert.Null(world.Actor.SignExpiresAt);
+    }
+
+    [Fact]
+    public void ApplySignRejectsInvalidMissingActorAndForeignRoom()
+    {
+        var world = new World(9, 3);
+        world.Actions.ApplySign(world.Room, world.Client, -1);
+        Assert.Empty(world.Capture.Events);
+
+        world.RemoveActor();
+        world.Actions.ApplySign(world.Room, world.Client, 3);
+        Assert.Empty(world.Capture.Events);
+
+        world.AddActor();
+        world.Client.GetHabbo().CurrentRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        world.Actions.ApplySign(world.Room, world.Client, 3);
+        Assert.Empty(world.Capture.Events);
+        Assert.False(world.Actor.Statusses.ContainsKey("sign"));
+    }
+
+    [Fact]
+    public async Task SignHandlerOnlyDecodesAndDelegates()
+    {
+        var actions = new RecordingAvatarActions();
+        await new ApplySignEvent(actions).Parse(null!, null!, Packet(12));
+        Assert.Equal(12, actions.SignId);
+        Assert.Null(actions.Room);
+        Assert.Null(actions.Session);
     }
 
     [Theory]
@@ -85,13 +160,18 @@ public class WiredAvatarPacketHookTests
         public FlashGameClient Client { get; }
         public RoomUser Actor { get; }
         public CaptureAction Capture { get; }
+        public RoomUserManager Users { get; }
+        public IRoomAvatarActionService Actions { get; }
         private readonly WiredComponent _wired;
+        private readonly ConcurrentDictionary<int, RoomUser> _users;
         private uint _next = 10;
-        public World(int action, int code = -1)
+        public World(int action, int code = -1, TimeProvider? clock = null)
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
-            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System);
-            Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance);
+            Users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock ?? TimeProvider.System);
+            Actions = new RoomAvatarActionService(clock ?? TimeProvider.System);
+            Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", Users);
             _wired = new WiredComponent(Room, TestLogging.Logger); Set(Room, "_wiredComponent", _wired);
             Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
@@ -102,12 +182,16 @@ public class WiredAvatarPacketHookTests
             };
             Client.SetHabbo(new Habbo { Id = 42, Username = "actor", CurrentRoom = Room, Client = Client, Effects = new EffectsComponent() });
             Actor = new RoomUser(42, 1, 7, Room); Set(Actor, "_mClient", Client);
-            ((ConcurrentDictionary<int, RoomUser>)Get(users, "_users")).TryAdd(7, Actor);
+            _users = (ConcurrentDictionary<int, RoomUser>)Get(Users, "_users");
+            AddActor();
             var captureItem = Item("wf_act_toggle_state");
             Capture = new CaptureAction(Room, captureItem);
             Assert.True(_wired.AddBox(Capture));
             AddTrigger(action, code);
         }
+
+        public void AddActor() => _users.TryAdd(Actor.VirtualId, Actor);
+        public void RemoveActor() => _users.TryRemove(Actor.VirtualId, out _);
 
         public void AddTrigger(int action, int code = -1)
         {
@@ -126,14 +210,36 @@ public class WiredAvatarPacketHookTests
         }
     }
 
+    private sealed class ManualClock(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = now;
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    private sealed class RecordingAvatarActions : IRoomAvatarActionService
+    {
+        public Room? Room { get; private set; }
+        public GameClient? Session { get; private set; }
+        public int SignId { get; private set; }
+        public void ApplySign(Room room, GameClient session, int signId)
+            => (Room, Session, SignId) = (room, session, signId);
+    }
+
     private sealed class CaptureAction(Room room, Item item) : WiredModernBox(room, item,
         WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_toggle_state")), IWiredContextualAction
     {
         public List<WiredRuntimeEvent> Events { get; } = [];
+        public string? SignStatusAtDispatch { get; private set; }
         public bool IsNegative => false;
         public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
         { validated = proposed; error = ""; return true; }
-        public override bool Execute(WiredRuntimeContext context) { Events.Add(context.Event); return true; }
+        public override bool Execute(WiredRuntimeContext context)
+        {
+            Events.Add(context.Event);
+            if (context.Event.Action == (int)WiredAvatarAction.Sign)
+                SignStatusAtDispatch = context.Event.Actor?.Statusses.GetValueOrDefault("sign");
+            return true;
+        }
     }
 
     private sealed class NoQuests : IQuestManager

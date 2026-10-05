@@ -964,14 +964,7 @@ public class RoomUserManager
             var isBot = user.IsBot;
             if (isBot)
                 cyclegameitems = false;
-            if (UnixTimestamp.GetNow() > UnixTimestamp.GetNow() + user.SignTime)
-            {
-                if (user.Statusses.ContainsKey("sign"))
-                {
-                    user.Statusses.Remove("sign");
-                    user.UpdateNeeded = true;
-                }
-            }
+            UpdateSignStatus(user);
             var itemsOnSquare = _room.GetGameMap().GetAllRoomItemForSquare(user.X, user.Y);
             var model = _room.GetGameMap().Model;
             var walkMagic = _room.GetGameMap().WalkMagicAt(user.X, user.Y);
@@ -1232,6 +1225,18 @@ public class RoomUserManager
             if (!wasLaying && user.Statusses.ContainsKey("lay"))
                 _room.GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = user, Action = (int)WiredAvatarAction.Lay });
         }
+    }
+
+    internal void UpdateSignStatus(RoomUser user)
+    {
+        if (user.SignExpiresAt is not { } deadline)
+            return;
+        var now = _clock.GetUtcNow();
+        if (now < deadline)
+            return;
+        user.SignExpiresAt = null;
+        user.Statusses.Remove("sign");
+        user.UpdateNeeded = true;
     }
 
     private void UpdateUserEffect(RoomUser user, int x, int y)

@@ -86,7 +86,7 @@ public class RoomUser
     public double SetZ;
     public bool ShieldActive;
     public int ShieldCounter;
-    public double SignTime;
+    public DateTimeOffset? SignExpiresAt;
     public byte SqState;
     public bool SuperFastWalking = false;
     public Team Team;
