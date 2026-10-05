@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Navigator;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Permissions;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
@@ -114,11 +115,63 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
             connection.Execute("DROP TRIGGER reject_home; DELETE FROM users_settings WHERE user_id=7");
             await Assert.ThrowsAsync<System.Data.DBConcurrencyException>(() => navigator.SaveHomeRoom(habbo, 42));
             Assert.Equal(0u, habbo.HomeRoom);
+
+            connection.Execute("INSERT INTO users_settings VALUES (7,0)");
+            using var entered = new ManualResetEventSlim();
+            using var release = new ManualResetEventSlim();
+            using var saving = new ManualResetEventSlim();
+            var gatedDatabase = new HabbiconDatabaseTests.TestDatabase(options.ConnectionString);
+            gatedDatabase.BeforeConnection = () =>
+            {
+                entered.Set();
+                Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
+            };
+            var gatedNavigator = new NavigatorManager(gatedDatabase, NullLogger<NavigatorManager>.Instance);
+            habbo.Access = UserAccess.Empty;
+            var persistence = DispatchProxy.Create<IUserPersistenceService, SaveHome>();
+            ((SaveHome)(object)persistence).Save = () =>
+            {
+                using var saved = new MySqlConnection(options.ConnectionString);
+                saved.Execute("UPDATE users_settings SET home_room=@HomeRoom WHERE user_id=7", new { habbo.HomeRoom });
+            };
+            habbo.Persistence = persistence;
+            var update = Task.Run(() => gatedNavigator.SaveHomeRoom(habbo, 42));
+            Task? save = null;
+            try
+            {
+                Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+                save = Task.Run(() => { saving.Set(); habbo.Save(); });
+                Assert.True(saving.Wait(TimeSpan.FromSeconds(5)));
+                Assert.NotSame(save, await Task.WhenAny(save, Task.Delay(150)));
+            }
+            finally
+            {
+                release.Set();
+                try { await update.WaitAsync(TimeSpan.FromSeconds(10)); } catch { }
+                if (save != null) { try { await save.WaitAsync(TimeSpan.FromSeconds(10)); } catch { } }
+            }
+            await update;
+            await save!;
+            Assert.Equal(42u, habbo.HomeRoom);
+            Assert.Equal(42u, connection.ExecuteScalar<uint>("SELECT home_room FROM users_settings WHERE user_id=7"));
+            gatedDatabase.BeforeConnection = () => throw new InvalidOperationException("A closed wallet must not write.");
+            await Assert.ThrowsAsync<InvalidOperationException>(() => gatedNavigator.SaveHomeRoom(habbo, 99));
+            Assert.Equal(42u, habbo.HomeRoom);
         }
         finally
         {
             gameField.SetValue(null, previousGame);
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
+        }
+    }
+    public class SaveHome : DispatchProxy
+    {
+        public Action Save = null!;
+        protected override object? Invoke(MethodInfo? method, object?[]? args)
+        {
+            if (method!.Name != nameof(IUserPersistenceService.Save)) throw new NotSupportedException(method.Name);
+            Save();
+            return null;
         }
     }
     public class LoadedRoom : DispatchProxy

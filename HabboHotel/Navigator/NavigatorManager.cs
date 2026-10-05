@@ -92,14 +92,19 @@ public sealed class NavigatorManager : INavigatorManager, IStartable
         return (await connection.QueryAsync<SavedSearch>("SELECT `id`,`filter`,`search_code` as search FROM `user_saved_searches` WHERE `user_id` = @userId", new { userId })).ToDictionary(search => search.Id);
     }
 
-    public async Task SaveHomeRoom(Habbo habbo, uint roomId)
+    public Task SaveHomeRoom(Habbo habbo, uint roomId)
     {
         if (!RoomFactory.TryGetData(roomId, out _))
-            return;
+            return Task.CompletedTask;
 
-        using var connection = _database.Connection();
-        if (await connection.ExecuteAsync("UPDATE users_settings SET home_room = @roomid WHERE user_id = @userid LIMIT 1", new { roomid = roomId, userid = habbo.Id }) != 1)
-            throw new DBConcurrencyException("User settings were not persisted.");
-        habbo.HomeRoom = roomId;
+        lock (habbo.WalletSync)
+        {
+            if (habbo.WalletClosed) throw new InvalidOperationException("User session is closed.");
+            using var connection = _database.Connection();
+            if (connection.Execute("UPDATE users_settings SET home_room = @roomid WHERE user_id = @userid LIMIT 1", new { roomid = roomId, userid = habbo.Id }) != 1)
+                throw new DBConcurrencyException("User settings were not persisted.");
+            habbo.HomeRoom = roomId;
+        }
+        return Task.CompletedTask;
     }
 }
