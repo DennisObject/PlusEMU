@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Users.Inventory.Badges;
 using Plus.Core;
 using Dapper;
 using Microsoft.Extensions.Logging;
@@ -53,7 +54,7 @@ public class BadgeManager : IBadgeManager, IStartable
         });
         habbo.Inventory.Badges.AddBadge(new Badge(code, 0));
 
-        habbo.Client.Send(new BadgesComposer(habbo.Id, habbo.Inventory.Badges.Badges));
+        habbo.Client.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
         habbo.Client.Send(new FurniListNotificationComposer(1, 4));
     }
 

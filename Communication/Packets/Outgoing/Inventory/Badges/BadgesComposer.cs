@@ -1,33 +1,22 @@
-﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Users.Badges;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users.Inventory.Badges;
 
 namespace Plus.Communication.Packets.Outgoing.Inventory.Badges;
 
-public class BadgesComposer : IServerPacket
+public sealed class BadgesComposer(BadgeInventorySnapshot snapshot) : IServerPacket
 {
-    private readonly int _userId;
-    private readonly IReadOnlyDictionary<string, Badge> _badges;
     public uint MessageId => ServerPacketHeader.BadgesComposer;
-
-    public BadgesComposer(int userId, IReadOnlyDictionary<string, Badge> badges)
-    {
-        _userId = userId;
-        _badges = badges;
-    }
 
     public void Compose(IOutgoingPacket packet)
     {
-        var equippedBadges = _badges.Values.Where(badge => badge.Slot > 0).OrderBy(badge => badge.Slot).ToList();
-
-        packet.WriteInteger(_badges.Count);
-        foreach (var badge in _badges.Values)
+        packet.WriteInteger(snapshot.Codes.Length);
+        foreach (var code in snapshot.Codes)
         {
             packet.WriteInteger(1);
-            packet.WriteString(badge.Code);
+            packet.WriteString(code);
         }
-
-        packet.WriteInteger(equippedBadges.Count);
-        foreach (var badge in equippedBadges)
+        packet.WriteInteger(snapshot.Equipped.Length);
+        foreach (var badge in snapshot.Equipped)
         {
             packet.WriteInteger(badge.Slot);
             packet.WriteString(badge.Code);

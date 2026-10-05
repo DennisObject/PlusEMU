@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Users.Inventory.Badges;
 using System.Data;
 using System.Globalization;
 using System.Text.Json;
@@ -90,7 +91,7 @@ public static class WiredRewards
         if (grant.Badge is { } badge)
         {
             habbo.Inventory.Badges.AddBadge(new(badge, 0));
-            habbo.Client.Send(new BadgesComposer(habbo.Id, habbo.Inventory.Badges.Badges));
+            habbo.Client.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
             habbo.Client.Send(new FurniListNotificationComposer(1, 4));
         }
         if (grant.Furniture is { } item)

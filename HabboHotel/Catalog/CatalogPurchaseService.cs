@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Users.Inventory.Bots;
 ﻿using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets;
 using Plus.HabboHotel.Rooms.AI;
@@ -350,7 +351,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                 if (bot != null)
                 {
                     session.GetHabbo().Inventory.Bots.AddBot(bot);
-                    session.Send(new BotInventoryComposer(session.GetHabbo().Inventory.Bots.Bots.Values.ToList()));
+                    session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));
                     session.Send(new FurniListNotificationComposer((uint)bot.Id, 5));
                 }
                 else

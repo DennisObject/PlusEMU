@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Users.Inventory.Bots;
 using System.Text.RegularExpressions;
 using Dapper;
 using Plus.Communication.Packets.Outgoing.Inventory.Bots;
@@ -90,7 +91,7 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
             4, 0, 0, 0, 0, ref speeches, "", 0, bot.OwnerId, data.AutomaticChat, data.SpeakingInterval, data.MixSentences, data.ChatBubble), null);
         botUser.Chat("Hello!");
         room.GetGameMap().UpdateUserMovement(new(x, y), new(x, y), botUser);
-        if (session.GetHabbo().Inventory.Bots.RemoveBot(botId)) session.Send(new BotInventoryComposer(session.GetHabbo().Inventory.Bots.Bots.Values.ToList()));
+        if (session.GetHabbo().Inventory.Bots.RemoveBot(botId)) session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));
     }
 
     public void PickUp(GameClient session, int botId)
@@ -102,7 +103,7 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
         store.PickUp(botId, room.RoomId);
         room.GetGameMap().RemoveUserFromMap(bot, new(bot.X, bot.Y));
         habbo.Inventory.Bots.AddBot(new(bot.BotData.Id, bot.BotData.OwnerId, bot.BotData.Name, bot.BotData.Motto, bot.BotData.Look, bot.BotData.Gender));
-        session.Send(new BotInventoryComposer(habbo.Inventory.Bots.Bots.Values.ToList()));
+        session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(habbo.Inventory.Bots.Bots.Values)));
         room.GetRoomUserManager().RemoveBot(bot.VirtualId, false);
     }
 
