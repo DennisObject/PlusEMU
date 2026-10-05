@@ -63,7 +63,7 @@ public sealed class AuthTokenCleanupDatabaseTests : IDisposable
     {
         var userId = User();
         var issuer = new SessionIssuer(new SsoTicketStore(_database, _time, AuthTestConfig.Options()), _access, _remember, _generations, new AccountStore(_database, _time, AuthTestConfig.Options()),
-            new Plus.HabboHotel.Moderation.BanLookup(_database, _time));
+            new Plus.HabboHotel.Moderation.BanLookup(_database, _time), _time);
         await issuer.Issue(userId, "x", 0, "203.0.113.8");
         var remembered = (await issuer.Issue(userId, "x", 0, "203.0.113.8", remember: true))!;
         using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString))

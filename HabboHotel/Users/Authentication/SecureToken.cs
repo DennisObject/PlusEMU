@@ -18,3 +18,12 @@ public static class SecureToken
 }
 
 public readonly record struct IssuedToken(string Value, DateTimeOffset ExpiresAt);
+
+public readonly record struct CredentialInstant
+{
+    public CredentialInstant(DateTimeOffset value) => UtcNow = value.ToUniversalTime();
+
+    public DateTimeOffset UtcNow { get; }
+
+    public static CredentialInstant Capture(TimeProvider time) => new(time.GetUtcNow());
+}

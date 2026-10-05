@@ -53,6 +53,7 @@ public interface ICredentialGenerations
 
     /// <summary>Opens a session row inside the credential write that first uses it.</summary>
     Task StartSession(int userId, string sessionId, CredentialScope scope);
+    Task StartSessionAt(int userId, string sessionId, CredentialInstant instant, CredentialScope scope);
 
     /// <summary>Deletes up to <paramref name="batch"/> sessions created before <paramref name="cutoff"/>
     /// that no access token, remember token or unexpired ticket refers to any more.</summary>
@@ -139,10 +140,10 @@ public class CredentialGenerations : ICredentialGenerations
     }
 
     public Task StartSession(int userId, string sessionId, CredentialScope scope)
-    {
-        var now = _time.GetUtcNow();
-        return StartSession(scope.Connection, scope.Transaction, sessionId, userId, now);
-    }
+        => StartSessionAt(userId, sessionId, CredentialInstant.Capture(_time), scope);
+
+    public Task StartSessionAt(int userId, string sessionId, CredentialInstant instant, CredentialScope scope) =>
+        StartSession(scope.Connection, scope.Transaction, sessionId, userId, instant.UtcNow);
 
     public async Task<int> PruneSessions(DateTimeOffset cutoff, int batch)
     {

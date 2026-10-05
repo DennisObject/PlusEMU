@@ -480,9 +480,12 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         }
 
         public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) => inner.Issue(userId, sessionId, scope);
+        public Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null) => inner.IssueAt(userId, sessionId, instant, scope);
         public Task<int?> FindUser(string ticket) => inner.FindUser(ticket);
+        public Task<int?> FindUserAt(string ticket, CredentialInstant instant) => inner.FindUserAt(ticket, instant);
         public Task<CredentialOwner?> FindOwner(string ticket) => inner.FindOwner(ticket);
         public Task<CredentialOwner?> Exchange(string ticket) => inner.Exchange(ticket);
+        public Task<CredentialOwner?> ExchangeAt(string ticket, CredentialInstant instant) => inner.ExchangeAt(ticket, instant);
         public Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope) => inner.Withdraw(userId, ticket, scope);
         public Task Revoke(int userId, CredentialScope? scope = null) => inner.Revoke(userId, scope);
         public Task RevokeSession(int userId, string sessionId, CredentialScope scope) => inner.RevokeSession(userId, sessionId, scope);
@@ -499,7 +502,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
 
     private SessionIssuer Sessions(ISsoTicketStore? tickets = null, IRememberTokenStore? remember = null) =>
         new(tickets ?? _tickets, new AccessTokenStore(_database, TimeProvider.System, _options), remember ?? _remember, new CredentialGenerations(_database, TimeProvider.System),
-            new AccountStore(_database, TimeProvider.System, _options), new BanLookup(_database, TimeProvider.System));
+            new AccountStore(_database, TimeProvider.System, _options), new BanLookup(_database, TimeProvider.System), TimeProvider.System);
 
     private LoginService Login(IBoundedPasswordHasher? hasher = null) =>
         new(new AccountStore(_database, TimeProvider.System, _options), hasher ?? _hasher, new LoginThrottle(TimeProvider.System, _options), _sessions,
@@ -553,8 +556,16 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
             return rotation;
         }
 
+        public async Task<RememberRotation> RotateAt(string token, CredentialInstant instant, Func<int, CredentialScope, Task>? onReuse = null)
+        {
+            var rotation = await inner.RotateAt(token, instant, onReuse);
+            hook();
+            return rotation;
+        }
+
         public Task<IssuedToken> Issue(int userId, CredentialScope? scope = null) => inner.Issue(userId, scope);
         public Task<IssuedToken> Continue(int userId, string familyId, CredentialScope? scope = null) => inner.Continue(userId, familyId, scope);
+        public Task<IssuedToken> ContinueAt(int userId, string familyId, CredentialInstant instant, CredentialScope? scope = null) => inner.ContinueAt(userId, familyId, instant, scope);
         public Task<CredentialOwner?> FindOwner(string token) => inner.FindOwner(token);
         public Task RevokeSession(string sessionId, CredentialScope scope) => inner.RevokeSession(sessionId, scope);
         public Task RevokeAll(int userId, CredentialScope? scope = null) => inner.RevokeAll(userId, scope);
@@ -570,8 +581,17 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
             return owner;
         }
 
+        public async Task<CredentialOwner?> ExchangeAt(string ticket, CredentialInstant instant)
+        {
+            var owner = await inner.ExchangeAt(ticket, instant);
+            hook();
+            return owner;
+        }
+
         public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) => inner.Issue(userId, sessionId, scope);
+        public Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null) => inner.IssueAt(userId, sessionId, instant, scope);
         public Task<int?> FindUser(string ticket) => inner.FindUser(ticket);
+        public Task<int?> FindUserAt(string ticket, CredentialInstant instant) => inner.FindUserAt(ticket, instant);
         public Task<CredentialOwner?> FindOwner(string ticket) => inner.FindOwner(ticket);
         public Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope) => inner.Withdraw(userId, ticket, scope);
         public Task<int?> Consume(string ticket) => inner.Consume(ticket);

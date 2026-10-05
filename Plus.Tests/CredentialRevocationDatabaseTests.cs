@@ -31,7 +31,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     }
 
     private SessionIssuer Issuer(IAccountStore? accounts = null, IBanLookup? bans = null) =>
-        new(_tickets, _access, _remember, _generations, accounts ?? _accounts, bans ?? new BanLookup(_database, TimeProvider.System));
+        new(_tickets, _access, _remember, _generations, accounts ?? _accounts, bans ?? new BanLookup(_database, TimeProvider.System), TimeProvider.System);
 
     [AuthDatabaseFact]
     public async Task RevokeAllLandingMidResumeLeavesNothingLive()
@@ -78,7 +78,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         var issuer = Issuer();
         var session = await issuer.Issue(userId, "x", await issuer.Generation(userId), "203.0.113.8");
         var paused = new PausedTickets(_tickets);
-        var racing = new SessionIssuer(paused, _access, _remember, _generations, _accounts, new BanLookup(_database, TimeProvider.System));
+        var racing = new SessionIssuer(paused, _access, _remember, _generations, _accounts, new BanLookup(_database, TimeProvider.System), TimeProvider.System);
 
         var pending = racing.ExchangeTicket(session!.SsoTicket.Value);
         await paused.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -137,7 +137,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         var userId = User();
         var device = (await Issuer().Issue(userId, "x", await _generations.Current(userId), "203.0.113.8"))!;
         var paused = new PausedTickets(_tickets);
-        var racing = new SessionIssuer(paused, _access, _remember, _generations, _accounts, new BanLookup(_database, TimeProvider.System));
+        var racing = new SessionIssuer(paused, _access, _remember, _generations, _accounts, new BanLookup(_database, TimeProvider.System), TimeProvider.System);
 
         var pending = racing.ExchangeTicket(device.SsoTicket.Value);
         await paused.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -154,7 +154,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         var userId = User();
         var ticket = await SessionlessTicket(userId);
         var paused = new PausedTickets(_tickets);
-        var racing = new SessionIssuer(paused, _access, _remember, _generations, _accounts, new BanLookup(_database, TimeProvider.System));
+        var racing = new SessionIssuer(paused, _access, _remember, _generations, _accounts, new BanLookup(_database, TimeProvider.System), TimeProvider.System);
 
         var pending = racing.ExchangeTicket(ticket);
         await paused.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -402,8 +402,18 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
             return owner;
         }
 
+        public async Task<CredentialOwner?> ExchangeAt(string ticket, CredentialInstant instant)
+        {
+            var owner = await inner.ExchangeAt(ticket, instant);
+            Entered.TrySetResult();
+            await Release.Task;
+            return owner;
+        }
+
         public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) => inner.Issue(userId, sessionId, scope);
+        public Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null) => inner.IssueAt(userId, sessionId, instant, scope);
         public Task<int?> FindUser(string ticket) => inner.FindUser(ticket);
+        public Task<int?> FindUserAt(string ticket, CredentialInstant instant) => inner.FindUserAt(ticket, instant);
         public Task<CredentialOwner?> FindOwner(string ticket) => inner.FindOwner(ticket);
         public Task<int?> Consume(string ticket) => inner.Consume(ticket);
         public Task Revoke(int userId, CredentialScope? scope = null) => inner.Revoke(userId, scope);

@@ -25,9 +25,12 @@ public class SsoTicketStore : ISsoTicketStore
             throw new ArgumentOutOfRangeException(nameof(options), "SSO ticket lifetime must be positive.");
     }
 
-    public async Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null)
+    public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) =>
+        IssueAt(userId, sessionId, CredentialInstant.Capture(_time), scope);
+
+    public async Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null)
     {
-        var now = _time.GetUtcNow();
+        var now = instant.UtcNow;
         var ticket = new IssuedToken(SecureToken.Generate(), now.Add(_lifetime));
         using var owned = scope == null ? _database.Connection() : null;
         await (scope?.Connection ?? owned!).ExecuteAsync(
@@ -36,7 +39,10 @@ public class SsoTicketStore : ISsoTicketStore
         return ticket;
     }
 
-    public async Task<int?> FindUser(string ticket) => (await FindOwner(ticket))?.UserId;
+    public Task<int?> FindUser(string ticket) => FindUserAt(ticket, CredentialInstant.Capture(_time));
+
+    public async Task<int?> FindUserAt(string ticket, CredentialInstant instant) =>
+        (await FindOwnerAt(ticket, instant.UtcNow))?.UserId;
 
     public async Task<CredentialOwner?> FindOwner(string ticket)
     {
@@ -57,9 +63,11 @@ public class SsoTicketStore : ISsoTicketStore
     // finds it gone and matches no row.
     public async Task<int?> Consume(string ticket) => (await ClaimFor(ticket, Cleared))?.UserId;
 
-    public async Task<CredentialOwner?> Exchange(string ticket)
+    public Task<CredentialOwner?> Exchange(string ticket) => ExchangeAt(ticket, CredentialInstant.Capture(_time));
+
+    public async Task<CredentialOwner?> ExchangeAt(string ticket, CredentialInstant instant)
     {
-        var now = _time.GetUtcNow();
+        var now = instant.UtcNow;
         if (string.IsNullOrEmpty(ticket) || await FindOwnerAt(ticket, now) is not { } owner)
             return null;
 

@@ -182,7 +182,11 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
         return Task.FromResult(token);
     }
 
+    public Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null) =>
+        Issue(userId, sessionId, scope);
+
     public Task<int?> FindUser(string ticket) => Task.FromResult(Live.TryGetValue(ticket, out var id) ? id : (int?)null);
+    public Task<int?> FindUserAt(string ticket, CredentialInstant instant) => FindUser(ticket);
 
     public Task<CredentialOwner?> FindOwner(string ticket) =>
         Task.FromResult(Live.TryGetValue(ticket, out var id) ? new CredentialOwner(id, _sessions.GetValueOrDefault(ticket)) : null);
@@ -201,6 +205,8 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
         var sessionId = _sessions[ticket] ??= "fake-" + Guid.NewGuid().ToString("N");
         return owner with { SessionId = sessionId };
     }
+
+    public Task<CredentialOwner?> ExchangeAt(string ticket, CredentialInstant instant) => Exchange(ticket);
 
     public async Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope)
     {
@@ -237,6 +243,9 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
         _sessions[token.Value] = sessionId;
         return Task.FromResult(token);
     }
+
+    public Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null) =>
+        Issue(userId, sessionId, scope);
 
     public Task<int?> FindUser(string token) => Task.FromResult(Live.TryGetValue(token, out var id) ? id : (int?)null);
 
@@ -320,6 +329,8 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
     public Task<IssuedToken> Issue(int userId, CredentialScope? scope = null) => Task.FromResult(Add(userId, "f" + ++_families));
 
     public Task<IssuedToken> Continue(int userId, string familyId, CredentialScope? scope = null) => Task.FromResult(Add(userId, familyId));
+    public Task<IssuedToken> ContinueAt(int userId, string familyId, CredentialInstant instant, CredentialScope? scope = null) =>
+        Continue(userId, familyId, scope);
 
     public Task<int> Prune(DateTimeOffset cutoff, int batch) => Task.FromResult(0);
 
@@ -337,6 +348,9 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
         _rows[token] = row with { Used = true };
         return new(RememberRotationStatus.Rotated, row.UserId, row.Family);
     }
+
+    public Task<RememberRotation> RotateAt(string token, CredentialInstant instant, Func<int, CredentialScope, Task>? onReuse = null) =>
+        Rotate(token, onReuse);
 
     public Task<CredentialOwner?> FindOwner(string token) =>
         Task.FromResult(_rows.TryGetValue(token, out var row) ? new CredentialOwner(row.UserId, row.Family) : null);
@@ -410,6 +424,7 @@ internal sealed class FakeGenerations : ICredentialGenerations
     }
 
     public Task StartSession(int userId, string sessionId, CredentialScope scope) => Task.CompletedTask;
+    public Task StartSessionAt(int userId, string sessionId, CredentialInstant instant, CredentialScope scope) => Task.CompletedTask;
 
     public Task<int> PruneSessions(DateTimeOffset cutoff, int batch) => Task.FromResult(0);
 }

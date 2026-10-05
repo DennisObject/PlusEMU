@@ -10,9 +10,11 @@ public interface ISsoTicketStore
     /// <summary>Replaces the user's ticket with a fresh one for <paramref name="sessionId"/>.</summary>
     /// <param name="scope">Joins a credential transaction instead of using a connection of its own.</param>
     Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null);
+    Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null);
 
     /// <summary>The owner of a live ticket, without using it up.</summary>
     Task<int?> FindUser(string ticket);
+    Task<int?> FindUserAt(string ticket, CredentialInstant instant);
 
     /// <summary>The owner and session of a live ticket, without using it up.</summary>
     Task<CredentialOwner?> FindOwner(string ticket);
@@ -26,6 +28,7 @@ public interface ISsoTicketStore
     /// CMS) is given one in the same users-row-locked transaction, so the owner always has one.
     /// </summary>
     Task<CredentialOwner?> Exchange(string ticket);
+    Task<CredentialOwner?> ExchangeAt(string ticket, CredentialInstant instant);
 
     /// <summary>
     /// Clears a live ticket of <paramref name="userId"/> inside a caller's transaction that holds the

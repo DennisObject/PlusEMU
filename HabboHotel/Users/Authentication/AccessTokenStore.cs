@@ -20,9 +20,12 @@ public class AccessTokenStore : IAccessTokenStore
             throw new ArgumentOutOfRangeException(nameof(options), "Access token lifetime must be positive.");
     }
 
-    public async Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null)
+    public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) =>
+        IssueAt(userId, sessionId, CredentialInstant.Capture(_time), scope);
+
+    public async Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null)
     {
-        var now = _time.GetUtcNow();
+        var now = instant.UtcNow;
         var token = new IssuedToken(SecureToken.Generate(), now.Add(_lifetime));
         using var owned = scope == null ? _database.Connection() : null;
         var connection = scope?.Connection ?? owned!;

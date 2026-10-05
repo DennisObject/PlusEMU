@@ -35,16 +35,19 @@ public class RememberTokenStore : IRememberTokenStore
         var sessionId = CredentialGenerations.NewSessionId();
         using var owned = scope == null ? _database.Connection() : null;
         await CredentialGenerations.StartSession(scope?.Connection ?? owned!, scope?.Transaction, sessionId, userId, now);
-        return await ContinueAt(userId, sessionId, now, token, scope);
+        return await ContinuePrepared(userId, sessionId, now, token, scope);
     }
 
     public async Task<RememberRotation> Rotate(string token, Func<int, CredentialScope, Task>? onReuse = null)
+        => await RotateAt(token, CredentialInstant.Capture(_time), onReuse);
+
+    public async Task<RememberRotation> RotateAt(string token, CredentialInstant instant, Func<int, CredentialScope, Task>? onReuse = null)
     {
         if (string.IsNullOrEmpty(token))
             return new(RememberRotationStatus.Invalid);
 
         var hash = SecureToken.Hash(token);
-        var now = _time.GetUtcNow();
+        var now = instant.UtcNow;
         using var connection = _database.Connection();
         var userId = await connection.ExecuteScalarAsync<int?>("SELECT `user_id` FROM `user_remember_tokens` WHERE `token_hash` = @hash", new { hash });
         if (userId == null)
@@ -87,13 +90,16 @@ public class RememberTokenStore : IRememberTokenStore
         return new(RememberRotationStatus.Rotated, userId.Value, row.FamilyId, generation);
     }
 
-    public async Task<IssuedToken> Continue(int userId, string familyId, CredentialScope? scope = null)
+    public Task<IssuedToken> Continue(int userId, string familyId, CredentialScope? scope = null) =>
+        ContinueAt(userId, familyId, CredentialInstant.Capture(_time), scope);
+
+    public Task<IssuedToken> ContinueAt(int userId, string familyId, CredentialInstant instant, CredentialScope? scope = null)
     {
-        var now = _time.GetUtcNow();
-        return await ContinueAt(userId, familyId, now, NewToken(now), scope);
+        var now = instant.UtcNow;
+        return ContinuePrepared(userId, familyId, now, NewToken(now), scope);
     }
 
-    private async Task<IssuedToken> ContinueAt(int userId, string familyId, DateTimeOffset now, IssuedToken token, CredentialScope? scope)
+    private async Task<IssuedToken> ContinuePrepared(int userId, string familyId, DateTimeOffset now, IssuedToken token, CredentialScope? scope)
     {
         using var owned = scope == null ? _database.Connection() : null;
         await (scope?.Connection ?? owned!).ExecuteAsync(

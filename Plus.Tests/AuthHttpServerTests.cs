@@ -48,7 +48,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
             c.MaxFailedLoginsPerAccount = 3;
             configure?.Invoke(c);
         });
-        var sessions = _sessions = new SessionIssuer(_tickets, _tokens, _remember, new FakeGenerations(), _accounts, _bans);
+        var sessions = _sessions = new SessionIssuer(_tickets, _tokens, _remember, new FakeGenerations(), _accounts, _bans, TimeProvider.System);
         var hasher = new BoundedPasswordHasher(_innerHasher, options);
         var login = new LoginService(_accounts, hasher, new LoginThrottle(TimeProvider.System, options), sessions, _bans);
         var registration = new RegistrationService(_accounts, hasher, sessions, new FakeWordFilter(), options);

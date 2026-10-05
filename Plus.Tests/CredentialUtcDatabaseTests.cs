@@ -60,6 +60,110 @@ public sealed class CredentialUtcDatabaseTests
         }
     }
 
+    [RoomComponentDatabaseFact]
+    public async Task SessionIssuanceUsesOneNormalizedInstantAcrossEveryCredentialWrite()
+    {
+        var root = Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!;
+        await WithSchema(root, async (builder, connection) =>
+        {
+            await SeedDecimalLegacy(connection, "STRICT_ALL_TABLES");
+            await connection.ExecuteAsync(Migration);
+            await connection.ExecuteAsync(
+                "DELETE FROM user_access_tokens; DELETE FROM user_remember_tokens; DELETE FROM user_sessions; " +
+                "UPDATE users SET auth_ticket='', auth_ticket_expires_at=NULL, auth_ticket_session=NULL, auth_ticket_exchanged=0 WHERE id=1");
+
+            SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
+            var clock = new AdvancingTime(new DateTimeOffset(2041, 2, 3, 9, 5, 6, TimeSpan.FromHours(5)), TimeSpan.FromMinutes(1));
+            var database = new TestDatabase(builder.ConnectionString);
+            var options = AuthTestConfig.Options(c =>
+            {
+                c.AccessTokenLifetimeMinutes = 10;
+                c.RememberTokenLifetimeDays = 30;
+                c.RememberReuseGraceSeconds = 30;
+                c.SsoTicketLifetimeSeconds = 60;
+            });
+            var tickets = new SsoTicketStore(database, clock, options);
+            var access = new AccessTokenStore(database, clock, options);
+            var remember = new RememberTokenStore(database, clock, options);
+            var generations = new CredentialGenerations(database, clock);
+            var accounts = new FakeAccounts();
+            accounts.Add("clock-user", "");
+            var issuer = new SessionIssuer(tickets, access, remember, generations, accounts, new FakeBans(), clock);
+
+            clock.ResetReads();
+            var issued = (await issuer.Issue(1, "clock-user", 0, "203.0.113.1", remember: true))!;
+            Assert.Equal(1, clock.Reads);
+            await AssertSessionTimes(connection, issued, clock.LastUtc, withTicket: true, assertSessionCreated: true);
+
+            clock.ResetReads();
+            var resumedWithTicket = await issuer.Resume(issued.RememberToken!.Value.Value, "203.0.113.2", withTicket: true);
+            Assert.Equal(ResumeStatus.Resumed, resumedWithTicket.Status);
+            Assert.Equal(1, clock.Reads);
+            await AssertSessionTimes(connection, resumedWithTicket.Session!, clock.LastUtc, withTicket: true);
+
+            clock.ResetReads();
+            var resumedWithoutTicket = await issuer.Resume(resumedWithTicket.Session!.RememberToken!.Value.Value, "203.0.113.3", withTicket: false);
+            Assert.Equal(ResumeStatus.Resumed, resumedWithoutTicket.Status);
+            Assert.Equal(1, clock.Reads);
+            Assert.Equal(default, resumedWithoutTicket.Session!.SsoTicket);
+            await AssertSessionTimes(connection, resumedWithoutTicket.Session, clock.LastUtc, withTicket: false);
+
+            clock.ResetReads();
+            var exchangeSource = (await issuer.Issue(1, "clock-user", 0, "203.0.113.4"))!;
+            Assert.Equal(1, clock.Reads);
+            clock.ResetReads();
+            var exchanged = await issuer.ExchangeTicket(exchangeSource.SsoTicket.Value);
+            Assert.NotNull(exchanged);
+            Assert.Equal(1, clock.Reads);
+            await AssertTokenTimes(connection, "user_access_tokens", exchanged!.Value.Value, clock.LastUtc, TimeSpan.FromMinutes(10));
+
+            clock.ResetReads();
+            await access.Issue(1);
+            Assert.Equal(1, clock.Reads);
+            clock.ResetReads();
+            await tickets.Issue(1);
+            Assert.Equal(1, clock.Reads);
+            clock.ResetReads();
+            var standaloneRemember = await remember.Issue(1);
+            Assert.Equal(1, clock.Reads);
+            clock.ResetReads();
+            var rotation = await remember.Rotate(standaloneRemember.Value);
+            Assert.Equal(1, clock.Reads);
+            clock.ResetReads();
+            await remember.Continue(1, rotation.FamilyId);
+            Assert.Equal(1, clock.Reads);
+        });
+    }
+
+    private static async Task AssertSessionTimes(MySqlConnection connection, AuthSession session, DateTimeOffset now, bool withTicket,
+        bool assertSessionCreated = false)
+    {
+        await AssertTokenTimes(connection, "user_access_tokens", session.AccessToken.Value, now, TimeSpan.FromMinutes(10));
+        await AssertTokenTimes(connection, "user_remember_tokens", session.RememberToken!.Value.Value, now, TimeSpan.FromDays(30));
+        if (assertSessionCreated)
+        {
+            var familyId = await connection.QuerySingleAsync<string>(
+                "SELECT family_id FROM user_remember_tokens WHERE token_hash=@hash", new { hash = SecureToken.Hash(session.RememberToken.Value.Value) });
+            Assert.Equal(now, await connection.QuerySingleAsync<DateTimeOffset>(
+                "SELECT created_at FROM user_sessions WHERE id=@id", new { id = familyId }));
+        }
+        if (withTicket)
+        {
+            Assert.Equal(now.AddMinutes(1), session.SsoTicket.ExpiresAt);
+            Assert.Equal(now.AddMinutes(1), await connection.QuerySingleAsync<DateTimeOffset>(
+                "SELECT auth_ticket_expires_at FROM users WHERE id=1"));
+        }
+    }
+
+    private static async Task AssertTokenTimes(MySqlConnection connection, string table, string token, DateTimeOffset now, TimeSpan lifetime)
+    {
+        var row = await connection.QuerySingleAsync<TokenTimeRow>(
+            $"SELECT created_at AS CreatedAt, expires_at AS ExpiresAt FROM `{table}` WHERE token_hash=@hash",
+            new { hash = SecureToken.Hash(token) });
+        Assert.Equal(now, row.CreatedAt);
+        Assert.Equal(now.Add(lifetime), row.ExpiresAt);
+    }
+
     private static async Task VerifyFailedPreflight(string root, string sqlMode, string tombstone, decimal invalid) =>
         await WithSchema(root, async (_, connection) =>
         {
@@ -203,6 +307,30 @@ public sealed class CredentialUtcDatabaseTests
     {
         public IDbConnection Connection() => new MySqlConnection(connectionString);
         public bool IsConnected() => true;
+    }
+
+    private sealed class TokenTimeRow
+    {
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset ExpiresAt { get; set; }
+    }
+
+    private sealed class AdvancingTime(DateTimeOffset start, TimeSpan step) : TimeProvider
+    {
+        private DateTimeOffset _next = start;
+        public int Reads { get; private set; }
+        public DateTimeOffset LastUtc { get; private set; }
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+            var value = _next;
+            _next += step;
+            LastUtc = value.ToUniversalTime();
+            return value;
+        }
+
+        public void ResetReads() => Reads = 0;
     }
 
     private const string LegacySchema = """
