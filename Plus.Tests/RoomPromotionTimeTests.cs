@@ -40,6 +40,13 @@ public sealed class RoomPromotionTimeTests
         Assert.Equal(0, promotion.MinutesLeft);
     }
 
+    [Fact]
+    public void DistantFutureExpiryClampsWireMinutes()
+    {
+        var promotion = Promotion(DateTimeOffset.MaxValue);
+        Assert.Equal(int.MaxValue, promotion.MinutesLeft);
+    }
+
     private static RoomPromotion Promotion(DateTimeOffset? expiresAt) =>
         new("name", "description", Now, expiresAt, 1, new FixedClock(Now));
 

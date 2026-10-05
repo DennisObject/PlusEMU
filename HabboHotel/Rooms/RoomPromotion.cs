@@ -13,8 +13,8 @@ public class RoomPromotion
     {
         Name = name;
         Description = description;
-        StartedAt = startedAt;
-        ExpiresAt = expiresAt;
+        StartedAt = startedAt?.ToUniversalTime();
+        ExpiresAt = expiresAt?.ToUniversalTime();
         CategoryId = categoryId;
         _clock = clock;
     }
@@ -41,6 +41,6 @@ public class RoomPromotion
     {
         if (HasExpiredAt(now))
             return 0;
-        return Convert.ToInt32(Math.Ceiling((ExpiresAt!.Value - now).TotalMinutes));
+        return (int)Math.Min(int.MaxValue, Math.Ceiling((ExpiresAt!.Value - now).TotalMinutes));
     }
 }
