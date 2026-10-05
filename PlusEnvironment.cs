@@ -47,7 +47,7 @@ public class PlusEnvironment : IPlusEnvironment
     private static IFigureDataManager _figureManager;
     private static IItemDataManager _itemDataManager;
 
-    public static DateTime ServerStarted;
+    private readonly IServerUptime _uptime;
 
     private static readonly SearchValues<char> AllowedChars = SearchValues.Create("abcdefghijklmnopqrstuvwxyz1234567890-.");
 
@@ -68,7 +68,7 @@ public class PlusEnvironment : IPlusEnvironment
         IFlashServer flashServer,
         INitroServer nitroServer,
         IAuthHttpServer authHttpServer,
-        ILogger<PlusEnvironment> logger)
+        ILogger<PlusEnvironment> logger, IServerUptime uptime)
     {
         _database = database;
         _languageManager = languageManager;
@@ -83,11 +83,12 @@ public class PlusEnvironment : IPlusEnvironment
         _rconConfiguration = rconConfiguration.Value;
         _itemDataManager = itemDataManager;
         _logger = logger;
+        _uptime = uptime;
     }
 
     public async Task<bool> Start()
     {
-        ServerStarted = DateTime.Now;
+        _uptime.Start();
         Console.ForegroundColor = ConsoleColor.DarkGreen;
         Console.WriteLine();
         Console.WriteLine("                     ____  __           ________  _____  __");
@@ -133,7 +134,7 @@ public class PlusEnvironment : IPlusEnvironment
             await _authHttpServer.Start();
             Logger.LogInformation("Auth API listening on {Urls}", string.Join(", ", _authHttpServer.Urls));
             _game.StartGameLoop();
-            var timeUsed = DateTime.Now - ServerStarted;
+            var timeUsed = _uptime.Elapsed;
             Console.WriteLine();
             Logger.LogInformation("EMULATOR -> READY! ({Seconds} s, {Milliseconds} ms)", timeUsed.Seconds, timeUsed.Milliseconds);
         }

@@ -1,5 +1,6 @@
 using Dapper;
 using Plus.Database;
+using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Permissions;
@@ -23,9 +24,10 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
     private readonly IRoomManager _rooms;
     private readonly IDatabase _database;
     private readonly TimeProvider _clock;
+    private readonly IServerUptime _uptime;
 
     public HousekeepingLookups(IGameClientManager clients, IAccessControl permissions, IModerationManager moderation, IRoomManager rooms,
-        IDatabase database, TimeProvider clock)
+        IDatabase database, TimeProvider clock, IServerUptime uptime)
     {
         _clients = clients;
         _permissions = permissions;
@@ -33,6 +35,7 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
         _rooms = rooms;
         _database = database;
         _clock = clock;
+        _uptime = uptime;
     }
 
     public HousekeepingUserDetail? User(Habbo actor, HousekeepingUserRecord? record)
@@ -40,7 +43,7 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
         if (record == null) return null;
         var online = _clients.Online(record.Id)?.GetHabbo();
         var role = (online?.Access ?? _permissions.Resolve(record.Id)).PrimaryRole;
-        var now = DateTimeOffset.UtcNow;
+        var now = _clock.GetUtcNow();
         // Email and IP are personal data; only ranks granted the private-data right see them.
         var showPrivate = actor.Access.Can(HousekeepingRights.PrivateData);
         return new(record.Id, record.Username, online?.Motto ?? record.Motto, online?.Look ?? record.Look, role?.Id ?? 0,
@@ -68,7 +71,7 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
         return new(online, counts.TotalUsers, _rooms.GetRooms().Count(room => room.UsersNow > 0), counts.TotalRooms,
             Math.Max(online, counts.PeakToday), Math.Max(online, counts.PeakAllTime),
             _moderation.GetTickets.Count(ticket => !ticket.Answered), counts.Sanctions,
-            (int)Math.Clamp((DateTime.Now - PlusEnvironment.ServerStarted).TotalSeconds, 0, int.MaxValue), $"{PlusEnvironment.PrettyVersion} {PlusEnvironment.PrettyBuild}");
+            (int)Math.Clamp(_uptime.Elapsed.TotalSeconds, 0, int.MaxValue), $"{PlusEnvironment.PrettyVersion} {PlusEnvironment.PrettyBuild}");
     }
 
     private sealed class DashboardCounts

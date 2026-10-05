@@ -239,7 +239,7 @@ public class HousekeepingDatabaseTests : IDisposable
         Execute("INSERT INTO housekeeping_online_peaks (day, peak) VALUES (UTC_DATE(), 12), (UTC_DATE() - INTERVAL 3 DAY, 40)");
         new HousekeepingAuditLog(_database).Write(Owner, "hk_owner", "user.mute", HousekeepingOutcome.Success(HousekeepingTarget.User(Target), "minutes=5"));
         new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate(), TimeProvider.System).BanUser("hk_owner", ModerationBanType.Username, "hk_peer", "x", DateTimeOffset.UtcNow.AddMinutes(1)).GetAwaiter().GetResult();
-        var lookups = new HousekeepingLookups(_clients, null!, new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate(), TimeProvider.System), NoLoadedRooms(), _database, TimeProvider.System);
+        var lookups = new HousekeepingLookups(_clients, null!, new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate(), TimeProvider.System), NoLoadedRooms(), _database, TimeProvider.System, new Plus.Core.ServerUptime(TimeProvider.System));
         var dashboard = lookups.Dashboard();
         Assert.Equal((12, 40, 2), (dashboard.PeakOnlineToday, dashboard.PeakOnlineAllTime, dashboard.SanctionsLast24h));
         Assert.Equal(Scalar<int>("SELECT COUNT(*) FROM users"), dashboard.TotalUsers);
