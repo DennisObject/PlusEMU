@@ -31,10 +31,15 @@ public class GameClientManagerTests
 
         manager.RegisterClient(clientA, 5, "probe");
         manager.RegisterClient(clientB, 5, "probe");
+
+        Assert.Same(clientB, manager.GetClientByUsername("probe"));
+        Assert.Same(clientB, manager.GetClientByUserId(5));
+
         manager.UnregisterClient(clientA, 5, "probe");
 
         Assert.Equal(1, manager.Count);
         Assert.Same(clientB, manager.GetClientByUserId(5));
+        Assert.Same(clientB, manager.GetClientByUsername("probe"));
         Assert.Contains(clientB, manager.GetClients);
     }
 }

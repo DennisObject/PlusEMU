@@ -192,7 +192,7 @@ public class GameClientManager : IGameClientManager
     public void RegisterClient(GameClient client, int userId, string username)
     {
         lock (_usernameSync)
-            _usernameRegister.TryAdd(username.ToLowerInvariant(), client);
+            _usernameRegister[username.ToLowerInvariant()] = client;
         if (_userIdRegister.ContainsKey(userId))
             _userIdRegister[userId] = client;
         else

@@ -170,7 +170,7 @@ public sealed class UserNameServiceTests
         Assert.False(await change);
         await registration;
 
-        Assert.Same(original, manager.GetClientByUsername("Alpha"));
+        Assert.Same(competing, manager.GetClientByUsername("Alpha"));
         Assert.Null(manager.GetClientByUsername("Target"));
     }
 
