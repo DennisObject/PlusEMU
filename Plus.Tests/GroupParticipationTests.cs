@@ -4,6 +4,7 @@ using Plus.Communication.Packets.Incoming.Groups;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
+using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Authentication;
 using Xunit;
@@ -77,8 +78,9 @@ public class GroupParticipationTests
         var habbo = new Habbo { Id = 8, Username = "Bob", HabboStats = Stats() };
         var (clientA, sentA) = HabbiconTestSupport.Client(habbo);
         var (clientB, sentB) = HabbiconTestSupport.Client(habbo);
-        var entered = new ManualResetEventSlim();
-        var release = new ManualResetEventSlim();
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var secondEnteredGate = new ManualResetEventSlim();
         var storeEntries = new List<(int GroupId, int FavouriteSeenAtEntry)>();
         var store = new FakeParticipationStore
         {
@@ -93,17 +95,33 @@ public class GroupParticipationTests
                 return true;
             },
         };
-        var service = new GroupParticipationService(Manager(directory, null), Snapshots(), Clients(new()), store, new AccountSessionGate());
+        var gate = new AccountSessionGate();
+        var gateCalls = 0;
+        var accounts = CatalogSnapshotTestSupport.Proxy<IAccountSessionGate>((_, args) =>
+        {
+            if (Interlocked.Increment(ref gateCalls) == 2)
+                secondEnteredGate.Set();
+            return gate.Enter((int)args[0]!);
+        });
+        var service = new GroupParticipationService(Manager(directory, null), Snapshots(), Clients(new()), store, accounts);
 
         var firstRequest = Task.Run(() => service.SetFavourite(clientA, first.Id));
-        Assert.True(entered.Wait(TimeSpan.FromSeconds(10)));
-        var secondRequest = Task.Run(() => service.SetFavourite(clientB, second.Id));
-
-        // The second request waits at the account gate while the first is paused inside its store write.
-        Assert.False(secondRequest.Wait(TimeSpan.FromMilliseconds(300)));
-        Assert.Single(store.Favourites);
-        release.Set();
-        await Task.WhenAll(firstRequest, secondRequest).WaitAsync(TimeSpan.FromSeconds(10));
+        Task? secondRequest = null;
+        try
+        {
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+            secondRequest = Task.Run(() => service.SetFavourite(clientB, second.Id));
+            Assert.True(secondEnteredGate.Wait(TimeSpan.FromSeconds(5)));
+            Assert.False(secondRequest.IsCompleted);
+            Assert.Single(store.Favourites);
+        }
+        finally
+        {
+            release.Set();
+            await firstRequest.WaitAsync(TimeSpan.FromSeconds(5));
+            if (secondRequest != null)
+                await secondRequest.WaitAsync(TimeSpan.FromSeconds(5));
+        }
 
         Assert.Equal(new[] { (9, 0), (10, 9) }, storeEntries);
         Assert.Equal(10, habbo.HabboStats.FavouriteGroupId);
@@ -112,11 +130,70 @@ public class GroupParticipationTests
     }
 
     [Fact]
+    public async Task SettingsCannotChangeAJoinSnapshotBeforeItIsSent()
+    {
+        var group = NewGroup();
+        group.Type = GroupType.Locked;
+        using var capturing = new ManualResetEventSlim();
+        using var releaseCapture = new ManualResetEventSlim();
+        using var settingsResolved = new ManualResetEventSlim();
+        var capturedTypes = new List<GroupType>();
+        var captures = 0;
+        var snapshots = CatalogSnapshotTestSupport.Proxy<IGroupInfoSnapshotService>((_, args) =>
+        {
+            if (Interlocked.Increment(ref captures) == 1)
+            {
+                capturing.Set();
+                Assert.True(releaseCapture.Wait(TimeSpan.FromSeconds(5)));
+            }
+            capturedTypes.Add(group.Type);
+            return new GroupInfoSnapshot(group.Id, group.Type, group.Name, group.Description, group.Badge,
+                group.RoomId, "HQ", group.MemberCount, "1-1-2023", "Owner", false, false,
+                false, false, group.RequestCount, false, group.ForumEnabled);
+        });
+        var settingsWrites = 0;
+        var settings = new GroupSettingsService(
+            Manager(new Dictionary<int, Group> { [group.Id] = group }, null, () => settingsResolved.Set()),
+            CatalogSnapshotTestSupport.Proxy<IRoomManager>((_, args) => { args[1] = null; return false; }),
+            snapshots,
+            CatalogSnapshotTestSupport.Proxy<IGroupSettingsStore>((_, args) =>
+            {
+                Interlocked.Increment(ref settingsWrites);
+                Assert.True(group.HasRequest(8));
+                return true;
+            }));
+        var participation = new GroupParticipationService(Manager(group, null), snapshots,
+            Clients(new()), new FakeParticipationStore(), new AccountSessionGate());
+        var (member, _) = HabbiconTestSupport.Client(new Habbo { Id = 8, Username = "Bob" });
+        var (owner, _) = HabbiconTestSupport.Client(new Habbo { Id = 7, Username = "Owner" });
+        var join = Task.Run(() => participation.Join(member, group.Id));
+        Task? update = null;
+        try
+        {
+            Assert.True(capturing.Wait(TimeSpan.FromSeconds(5)));
+            update = Task.Run(() => settings.Update(owner, new(group.Id, 0, 0, false)));
+            Assert.True(settingsResolved.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Equal(0, Volatile.Read(ref settingsWrites));
+        }
+        finally
+        {
+            releaseCapture.Set();
+            await join.WaitAsync(TimeSpan.FromSeconds(5));
+            if (update != null)
+                await update.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        Assert.Equal(new[] { GroupType.Locked, GroupType.Open }, capturedTypes);
+        Assert.False(group.HasRequest(8));
+        Assert.Equal(GroupType.Open, group.Type);
+        Assert.Equal(1, settingsWrites);
+    }
+
+    [Fact]
     public async Task DeletionWhileJoinWaitsForTheGroupLockPublishesNothing()
     {
         var group = NewGroup(9);
         var directory = new Dictionary<int, Group> { [9] = group };
-        var firstLookup = new ManualResetEventSlim();
+        using var firstLookup = new ManualResetEventSlim();
         var store = new FakeParticipationStore();
         var manager = Manager(directory, null, () => firstLookup.Set());
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 8, Username = "Bob", Look = "hr-1" });
@@ -129,7 +206,6 @@ public class GroupParticipationTests
             join = Task.Run(() => service.Join(client, group.Id));
             Assert.True(firstLookup.Wait(TimeSpan.FromSeconds(10)));
             directory.Remove(group.Id);
-            Thread.Sleep(100);
             Assert.False(join.IsCompleted);
         }
         await join.WaitAsync(TimeSpan.FromSeconds(10));
@@ -386,9 +462,9 @@ public class GroupParticipationTests
 
     private static bool Lookup(Dictionary<int, Group> directory, object?[] args, Action? onLookup)
     {
-        onLookup?.Invoke();
         var found = directory.TryGetValue((int)args[0]!, out var group);
         args[1] = found ? group : null;
+        onLookup?.Invoke();
         return found;
     }
 
