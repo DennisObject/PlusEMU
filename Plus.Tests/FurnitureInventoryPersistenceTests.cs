@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Dapper;
 using MySqlConnector;
+using Plus.Communication.Packets.Outgoing;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
@@ -33,7 +34,12 @@ public sealed class FurnitureInventoryPersistenceTests
 
         Assert.Equal(new[] { "gate-enter", "store", "gate-exit" }, context.Events);
         Assert.Null(context.Habbo.Inventory.Furniture.GetItem(7));
-        Assert.Equal(2, context.Sent.Count);
+        Assert.Equal(new uint[] { ServerPacketHeader.FurniListUpdateComposer, ServerPacketHeader.BroadcastMessageAlertComposer },
+            context.Sent.Select(packet => packet.Header));
+        Assert.Empty(context.Sent[0].Payload);
+        var notification = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = context.Sent[1].Payload };
+        Assert.Equal("Your inventory has been cleared!", notification.ReadString());
+        Assert.Equal("", notification.ReadString());
     }
 
     [Fact]
@@ -77,6 +83,12 @@ public sealed class FurnitureInventoryPersistenceTests
         var closedStore = new RecordingStore();
         Assert.False(new InventoryClearService(closedStore, closed.Gate).TryClear(closed.Client, closed.Room));
         Assert.Equal(0, closedStore.Calls);
+
+        var wrongRoom = Context();
+        wrongRoom.Habbo.CurrentRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        var wrongRoomStore = new RecordingStore();
+        Assert.False(new InventoryClearService(wrongRoomStore, wrongRoom.Gate).TryClear(wrongRoom.Client, wrongRoom.Room));
+        Assert.Equal(0, wrongRoomStore.Calls);
     }
 
     [Theory]
@@ -93,12 +105,68 @@ public sealed class FurnitureInventoryPersistenceTests
         Assert.Equal(confirmed ? 1 : 0, inventory.Calls);
     }
 
+    [Fact]
+    public void WrongConfirmationPreservesTheExistingNotice()
+    {
+        var inventory = new RecordingClearService();
+        var command = new Plus.HabboHotel.Rooms.Chat.Commands.User.EmptyItems(inventory);
+        var context = Context();
+
+        command.Execute(context.Client, context.Room, ["no"]);
+
+        Assert.Equal(0, inventory.Calls);
+        var notification = Assert.Single(context.Sent);
+        Assert.Equal(ServerPacketHeader.BroadcastMessageAlertComposer, notification.Header);
+        var packet = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = notification.Payload };
+        Assert.Equal("To confirm, you must type in :emptyitems yes", packet.ReadString());
+        Assert.Equal("", packet.ReadString());
+    }
+
+    [Fact]
+    public async Task RealAccountGateHoldsPersistenceAndPublicationUntilRelease()
+    {
+        var context = Context();
+        var gate = new AccountSessionGate();
+        var store = new RecordingStore();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var held = gate.Enter(context.Habbo.Id);
+        Task<bool>? worker = null;
+        try
+        {
+            worker = Task.Run(() =>
+            {
+                started.TrySetResult();
+                return new InventoryClearService(store, gate).TryClear(context.Client, context.Room);
+            });
+            await started.Task;
+            await Assert.ThrowsAsync<TimeoutException>(() => worker.WaitAsync(TimeSpan.FromMilliseconds(100)));
+            Assert.Equal(0, store.Calls);
+            Assert.NotNull(context.Habbo.Inventory.Furniture.GetItem(7));
+            Assert.Empty(context.Sent);
+        }
+        finally
+        {
+            held.Dispose();
+        }
+
+        Assert.True(await worker!.WaitAsync(TimeSpan.FromSeconds(2)));
+        Assert.Equal(1, store.Calls);
+        Assert.Null(context.Habbo.Inventory.Furniture.GetItem(7));
+        Assert.Equal(2, context.Sent.Count);
+    }
+
     [RoomComponentDatabaseFact]
     public async Task LoaderAndClearStorePreserveOwnerRoomPredicatesAndRollback()
     {
         var root = Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!;
         var schema = "task_refactor_tests_inventory_" + Guid.NewGuid().ToString("N");
-        var builder = new MySqlConnectionStringBuilder(root) { Database = "", Pooling = false };
+        var builder = new MySqlConnectionStringBuilder(root)
+        {
+            Database = "",
+            Pooling = false,
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
+        };
         await using var server = new MySqlConnection(builder.ConnectionString);
         await server.OpenAsync();
         await server.ExecuteAsync($"CREATE DATABASE `{schema}` CHARACTER SET utf8mb4");
@@ -132,6 +200,25 @@ public sealed class FurnitureInventoryPersistenceTests
             Assert.All(loaded, item => Assert.Equal("", item.ExtraData.Serialize()));
 
             var store = new InventoryClearStore(database);
+            await connection.ExecuteAsync("""
+                CREATE TRIGGER fail_inventory_clear BEFORE DELETE ON items FOR EACH ROW
+                BEGIN
+                    IF OLD.user_id=1 AND OLD.room_id=0 AND OLD.id=12 THEN
+                        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced inventory clear failure';
+                    END IF;
+                END
+                """);
+            var failedClear = Context(1, 10);
+            await Assert.ThrowsAsync<MySqlException>(() => Task.Run(() =>
+                new InventoryClearService(store, failedClear.Gate).TryClear(failedClear.Client, failedClear.Room)));
+            Assert.Equal(new uint[] { 10, 11, 12 }, await connection.QueryAsync<uint>(
+                "SELECT id FROM items WHERE user_id=1 AND room_id=0 ORDER BY id"));
+            Assert.NotNull(failedClear.Habbo.Inventory.Furniture.GetItem(10));
+            Assert.Empty(failedClear.Sent);
+            await connection.ExecuteAsync("DROP TRIGGER fail_inventory_clear");
+
+            store.DeleteAll(1);
+            Assert.Equal(new uint[] { 13, 14 }, await connection.QueryAsync<uint>("SELECT id FROM items ORDER BY id"));
             store.DeleteAll(1);
             Assert.Equal(new uint[] { 13, 14 }, await connection.QueryAsync<uint>("SELECT id FROM items ORDER BY id"));
 
