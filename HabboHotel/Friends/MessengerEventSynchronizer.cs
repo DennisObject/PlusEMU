@@ -94,14 +94,14 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
             if (change == BuddyModificationType.Removed)
                 await RemoveFriend(habbo, friend);
         }
-        habbo.Client.Send(new FriendListUpdateComposer(args.Changes));
+        habbo.Client.Send(new FriendListUpdateComposer(args.Changes.Select(change => MessengerBuddyModification.Capture(change.Key, change.Value)).ToList()));
     }
 
     private async Task OnFriendUpdated(Habbo habbo, MessengerBuddyModifiedEventArgs args)
     {
         if (args.BuddyModificationType == BuddyModificationType.Removed)
             await RemoveFriend(habbo, args.Buddy);
-        habbo.Client.Send(new FriendListUpdateComposer(args.Buddy, args.BuddyModificationType));
+        habbo.Client.Send(new FriendListUpdateComposer([MessengerBuddyModification.Capture(args.Buddy, args.BuddyModificationType)]));
     }
 
     private void OnFriendStatusUpdated(Habbo habbo, FriendStatusUpdatedEventArgs args) => habbo.Client.Send(new FriendNotificationComposer(args.Friend.Id, args.EventType, args.Value));
