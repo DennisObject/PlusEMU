@@ -195,7 +195,8 @@ public sealed class MarketplaceDatabaseTests
             "get_MarketCounts" => counts,
             _ => throw new InvalidOperationException(method),
         });
-        return new MarketplacePurchaseService(new MarketplacePurchaseStore(new MySqlDatabase(_connectionString)), items, marketplace, new FixedClock(Now));
+        var search = CatalogSnapshotTestSupport.Proxy<IMarketplaceOfferSearchService>((method, _) => method == "Search" ? new MarketplaceOffersSnapshot([]) : throw new InvalidOperationException(method));
+        return new MarketplacePurchaseService(new MarketplacePurchaseStore(new MySqlDatabase(_connectionString)), items, marketplace, search, new FixedClock(Now));
     }
 
     private string[] States()
@@ -266,6 +267,40 @@ public sealed class MarketplaceDatabaseTests
         Assert.Equal(0, CountItems("`id` IN (77, 78, 79, 80)"));
         Assert.Equal(50, poor.Client.GetHabbo().Credits);
         Assert.Equal(1000, buyer.Client.GetHabbo().Credits);
+    }
+
+    [MarketplaceDatabaseFact]
+    public void PurchaseRejectsInvalidPricesAndLimitedValuesBeforeAnyWrite()
+    {
+        Insert(1, sprite: 55, asking: 0, total: 0, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 77);
+        Insert(2, sprite: 55, asking: -5, total: -5, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 78);
+        Insert(3, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 79);
+        using (var connection = new MySqlConnection(_connectionString))
+            connection.Execute("UPDATE `catalog_marketplace_offers` SET `limited_number` = -1 WHERE `offer_id` = 3");
+        var buyer = Buyer(credits: 1000);
+
+        Assert.Equal(MarketplacePurchaseOutcome.InvalidOffer, Purchase(buyer).Buy(buyer.Client, 1));
+        Assert.Equal(MarketplacePurchaseOutcome.InvalidOffer, Purchase(buyer).Buy(buyer.Client, 2));
+        Assert.Equal(MarketplacePurchaseOutcome.InvalidOffer, Purchase(buyer).Buy(buyer.Client, 3));
+
+        Assert.Equal(new[] { "1", "1", "1" }, States());
+        Assert.Equal(0, CountItems("`id` IN (77, 78, 79)"));
+        Assert.Equal(1000, buyer.Client.GetHabbo().Credits);
+    }
+
+    [MarketplaceDatabaseFact]
+    public void PreparationFailureBeforeTheFirstWriteRollsBackWithNothingChanged()
+    {
+        Insert(1, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 77);
+        var store = new MarketplacePurchaseStore(new MySqlDatabase(_connectionString));
+
+        Assert.Throws<InvalidOperationException>(() => store.Claim(new MarketplacePurchaseRequest(1, BuyerId, 1000, Now.ToUnixTimeSeconds() - 172800,
+            _ => throw new InvalidOperationException("forced preparation failure"))));
+
+        Assert.Equal(new[] { "1" }, States());
+        Assert.Equal(0, CountItems("`id` = 77"));
+        using var connection = new MySqlConnection(_connectionString);
+        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM `catalog_marketplace_data`"));
     }
 
     [MarketplaceDatabaseFact]
