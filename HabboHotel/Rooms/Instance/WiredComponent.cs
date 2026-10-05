@@ -18,6 +18,7 @@ using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.Database;
 using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -29,10 +30,11 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly ILogger _logger;
     private readonly TimeProvider _clock;
     private readonly IBotManagementStore _botStore;
+    private readonly IGameClientManager _clients;
 
     public WiredComponent(Room instance, ILogger logger, TimeProvider clock, ISettingsManager settings, IWiredRoomSettingsFactory settingsFactory,
         IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService,
-        IBotManagementStore botStore) //, RoomItem Items)
+        IBotManagementStore botStore, IGameClientManager clients) //, RoomItem Items)
     {
         _room = instance;
         _logger = logger;
@@ -41,6 +43,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
         _database = database;
         _rewards = rewardService;
         _botStore = botStore;
+        _clients = clients;
         Settings = settingsFactory.Create(instance);
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
@@ -250,7 +253,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
             case WiredBoxType.TriggerUserSaysCommand:
                 return new UserSaysCommandBox(_room, item);
             case WiredBoxType.EffectShowMessage:
-                return new ShowMessageBox(_room, item);
+                return new ShowMessageBox(_room, item, _clients);
             case WiredBoxType.EffectTeleportToFurni:
                 return new TeleportUserBox(_room, item);
             case WiredBoxType.EffectToggleFurniState:

@@ -162,7 +162,7 @@ public sealed class WiredBotAppearancePersistenceTests
             var descriptor = WiredBoxRegistry.All.Single(value => value.CanonicalName == "wf_act_bot_clothes");
             var action = new WiredModernAction(Room, new Item { Id = 1 }, descriptor, new(), _ => { },
                 (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System,
-                TestWiredRewardService.Instance, store);
+                TestWiredRewardService.Instance, store, TestWiredClients.Empty);
             Assert.True(action.TryValidateConfiguration(
                 new() { IntParams = [0], Text = "\thd-200-1" }, out var configuration, out var error), error);
             action.ApplyConfiguration(configuration);

@@ -48,7 +48,7 @@ public class ModernWiredRuntimeTests
     private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null,
         TimeProvider? clock = null, IWiredRewardService? rewards = null) =>
         new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger,
-            clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+            clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty);
 
     [Fact]
     public void TimerResetAndElapsedConditionsUseCapturedUtcInstantsAtExactBoundaries()
@@ -417,9 +417,73 @@ public class ModernWiredRuntimeTests
         old.SetItems[1] = picked; picked.LegacyDataString = "changed";
         Assert.True(WiredLegacyConfigurationAdapter.TryConvert(old, Descriptor("wf_act_match_to_sshot"), out var config));
         Assert.Equal("old,raw,state", Assert.Single(config.Snapshots).State); Assert.Equal(3.25, config.Snapshots[0].Z);
-        var chat = new ShowMessageBox(room, MakeItem(101, "wf_act_show_message")) { StringData = "Hello %USERNAME%" };
+        var chat = new ShowMessageBox(room, MakeItem(101, "wf_act_show_message"), TestWiredClients.Empty) { StringData = "Hello %USERNAME%" };
         Assert.True(WiredLegacyConfigurationAdapter.TryConvert(chat, Descriptor("wf_act_show_message"), out var converted));
         Assert.Equal(new[] { 0, 0, 34, -1 }, converted.IntParams); Assert.Equal(chat.StringData, converted.Text);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void WiredChatReadsTheInjectedLiveClientCountWithoutTheGlobalManager(bool legacy)
+    {
+        var online = 17;
+        var reads = 0;
+        var clients = TestWiredClients.Create(() => { reads++; return online; });
+        using var fixture = new TeleportFixture(clientsForText: clients);
+        fixture.Room.Name = "Lounge";
+        Assert.Same(fixture.Habbo.Client, fixture.User.GetClient());
+        var replies = Capture(fixture.Habbo.Client);
+        const string text = "%USERNAME%|%ROOMNAME%|%USERCOUNT%|%USERSONLINE%";
+        var item = MakeItem(102, "wf_act_show_message");
+        item.Definition.WiredType = WiredBoxType.EffectShowMessage;
+        Func<bool> execute;
+        if (legacy)
+        {
+            var action = Assert.IsType<ShowMessageBox>(fixture.Room.GetWired().GenerateNewBox(item));
+            action.StringData = text;
+            execute = () => action.Execute(fixture.Habbo);
+        }
+        else
+        {
+            var action = Assert.IsType<WiredModernAction>(fixture.Room.GetWired().CreateConfiguredBox(item));
+            Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 0, 34, -1], Text = text },
+                out var configuration, out var error), error);
+            action.ApplyConfiguration(configuration);
+            execute = () => action.Execute(Context(fixture.Room, new(WiredEventKind.Use) { Actor = fixture.User }, [], [fixture.User]));
+        }
+        var field = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var original = (IGame)field.GetValue(null)!;
+        var game = DispatchProxy.Create<IGame, RecordingProxy>();
+        ((RecordingProxy)(object)game).InvokeMethod = (method, arguments) => method.Name == "get_ClientManager"
+            ? throw new InvalidOperationException("Text formatting used the global client manager.")
+            : method.Invoke(original, arguments);
+        try
+        {
+            field.SetValue(null, game);
+            Assert.True(execute());
+            AssertChat(17);
+            online = 23;
+            Assert.True(execute());
+            AssertChat(23);
+            Assert.Equal(2, reads);
+            Assert.Empty(replies);
+        }
+        finally { field.SetValue(null, original); }
+
+        void AssertChat(int expectedOnline)
+        {
+            var packet = Reply(replies, ServerPacketHeader.WhisperComposer);
+            Assert.Equal(fixture.User.VirtualId, packet.Int());
+            var expectedText = $"Alice|Lounge|{fixture.Room.UserCount}|{expectedOnline}";
+            Assert.Equal(expectedText, packet.String());
+            Assert.Equal(0, packet.Int());
+            Assert.Equal(34, packet.Int());
+            Assert.Equal(0, packet.Int());
+            Assert.Equal(expectedText.Length, packet.Int());
+            if (!legacy) Assert.Equal(-1, packet.Int());
+            packet.End();
+        }
     }
 
     [Fact]
@@ -725,7 +789,7 @@ public class ModernWiredRuntimeTests
         public readonly WiredStackEngine Engine; public readonly List<Exception> Errors = [];
         public IItemDataManager? DefinitionManager;
         private readonly object? _originalGame; private long _now;
-        public TeleportFixture(int cap = 100, IDatabase? database = null)
+        public TeleportFixture(int cap = 100, IDatabase? database = null, IGameClientManager? clientsForText = null)
         {
             (Room, _, Items) = World();
             var gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
@@ -746,7 +810,7 @@ public class ModernWiredRuntimeTests
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
             var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance,
                 database == null ? TestWiredConfigurationStore.Instance : new WiredConfigurationStore(database),
-                database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+                database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, clientsForText ?? TestWiredClients.Empty);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
@@ -754,7 +818,7 @@ public class ModernWiredRuntimeTests
             Target = MakeItem(1, "test"); Target.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); Items[1] = Target;
             Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room")); Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
             Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
-                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty);
             Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _); Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item; Items[100] = Action.Item; Engine.Add(Trigger); Engine.Add(Action);
         }

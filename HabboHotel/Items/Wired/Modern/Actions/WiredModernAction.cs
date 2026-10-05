@@ -9,6 +9,7 @@ using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
@@ -23,6 +24,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     private readonly TimeProvider _clock;
     private readonly IWiredRewardService _rewards;
     private readonly IBotManagementStore _botStore;
+    private readonly IGameClientManager _clients;
     public static readonly IReadOnlySet<string> OtherNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "wf_act_control_clock", "wf_act_adjust_clock", "wf_act_reset_timers", "wf_act_call_stacks", "wf_act_neg_call_stacks",
@@ -34,7 +36,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     public bool IsNegative => Descriptor.CanonicalName is "wf_act_neg_call_stacks" or "wf_act_neg_send_signal" or "wf_act_neg_log";
     public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
         Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog, ILogger logger,
-        TimeProvider clock, IWiredRewardService rewards, IBotManagementStore botStore) : base(room, item, descriptor)
+        TimeProvider clock, IWiredRewardService rewards, IBotManagementStore botStore, IGameClientManager clients) : base(room, item, descriptor)
     {
         if (!Supports(descriptor.CanonicalName)) throw new ArgumentException("Unknown action.", nameof(descriptor));
         _clocks = clocks; _publish = publish; _movement = new(walkTransition);
@@ -43,6 +45,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         _clock = clock;
         _rewards = rewards;
         _botStore = botStore;
+        _clients = clients;
     }
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
@@ -294,9 +297,9 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         return true;
     }
 
-    private static string FormatLegacyText(WiredRuntimeContext context, RoomUser user, string text) =>
+    private string FormatLegacyText(WiredRuntimeContext context, RoomUser user, string text) =>
         context.Policy.FormatText(context, text.Replace("%USERNAME%", user.GetUsername(), StringComparison.Ordinal)
             .Replace("%ROOMNAME%", context.Room.Name ?? "", StringComparison.Ordinal)
             .Replace("%USERCOUNT%", context.Room.UserCount.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-            .Replace("%USERSONLINE%", PlusEnvironment.Game.ClientManager.Count.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
+            .Replace("%USERSONLINE%", _clients.Count.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
 }

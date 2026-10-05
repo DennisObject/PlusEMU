@@ -187,7 +187,7 @@ public class WiredModernContractsTests
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling)
             .GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handling)!;
         Assert.True(floor.TryAdd(item.Id, item));
-        var legacy = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        var legacy = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty);
         var loaded = legacy.GenerateNewBox(item);
         Assert.NotNull(loaded);
         Assert.Equal(WiredBoxType.AddonRandomEffect, loaded.Type);
