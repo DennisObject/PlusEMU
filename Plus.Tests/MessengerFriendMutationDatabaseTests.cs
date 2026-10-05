@@ -473,9 +473,10 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     }
 
     // The accept's own insert shows as a lock wait; if the accept finishes first, its real outcome is surfaced instead.
+    // INNODB_TRX is a cached snapshot refreshed only after 100 ms without a read, so each sample is spaced 200 ms apart.
     private async Task WaitForFriendshipLockWait(Task accept)
     {
-        for (var attempt = 0; attempt < 500; attempt++)
+        for (var attempt = 0; attempt < 50; attempt++)
         {
             if (Scalar("SELECT COUNT(*) FROM information_schema.INNODB_TRX WHERE trx_state = 'LOCK WAIT' AND trx_query LIKE 'INSERT INTO messenger_friendships%SELECT 9971, 9972%'") > 0) return;
             if (accept.IsCompleted)
@@ -483,12 +484,14 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
                 await accept;
                 throw new InvalidOperationException("The accept finished without waiting on the held friendship gap.");
             }
-            await Task.Delay(20);
+            await Task.Delay(200);
         }
+        await Task.Delay(200);
         using var inspector = new MySqlConnection(schema.ConnectionString);
         inspector.Open();
         var transactions = inspector.Query<string>("SELECT CONCAT(trx_id, ' ', trx_state, ' ', trx_mysql_thread_id, ' | ', LEFT(IFNULL(trx_query, ''), 140)) FROM information_schema.INNODB_TRX");
-        throw new TimeoutException("The accept never waited on the held friendship gap. Open InnoDB transactions: " + string.Join("; ", transactions));
+        var waits = inspector.Query<string>("SELECT CONCAT(requesting_trx_id, ' waits for ', blocking_trx_id) FROM information_schema.INNODB_LOCK_WAITS");
+        throw new TimeoutException("The accept never waited on the held friendship gap. Open InnoDB transactions: " + string.Join("; ", transactions) + ". Lock waits: " + string.Join("; ", waits));
     }
 
     public class Forwarder : DispatchProxy
