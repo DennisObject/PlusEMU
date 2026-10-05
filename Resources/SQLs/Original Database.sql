@@ -14063,7 +14063,7 @@ CREATE TABLE `catalog_marketplace_offers` (
   `public_name` text NOT NULL,
   `sprite_id` int(11) NOT NULL,
   `item_type` enum('1','2') NOT NULL DEFAULT '1',
-  `timestamp` double NOT NULL,
+  `listed_at` datetime(6) NULL,
   `state` enum('1','2') NOT NULL DEFAULT '1',
   `extra_data` text NOT NULL,
   `furni_id` int(10) unsigned NOT NULL,
