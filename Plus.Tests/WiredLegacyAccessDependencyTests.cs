@@ -36,7 +36,7 @@ public sealed class WiredLegacyAccessDependencyTests
         });
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.OwnerId = 42;
-        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress());
+        var users = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused);
         Set(room, "_roomUserManager", users);
         var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty,
             TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance,
@@ -52,7 +52,7 @@ public sealed class WiredLegacyAccessDependencyTests
         };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
-        var user = new RoomUser(habbo.Id, 0, 5, room, client);
+        var user = new RoomUser(habbo.Id, 0, 5, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         ((ConcurrentDictionary<int, RoomUser>)Get(users, "_users")).TryAdd(user.VirtualId, user);
         var item = Item(42);
         var box = Assert.IsType<GiveUserBadgeBox>(wired.GenerateNewBox(item));
