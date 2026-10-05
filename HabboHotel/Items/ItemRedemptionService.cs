@@ -20,15 +20,23 @@ public sealed class ItemRedemptionStore(IDatabase database) : IItemRedemptionSto
     {
         using var c = database.Connection(); c.Open(); using var tx = c.BeginTransaction();
         if (c.Execute("DELETE FROM items WHERE id=@itemId AND user_id=@ownerId AND room_id=@roomId LIMIT 1", new { itemId, ownerId, roomId }, tx) != 1) throw new InvalidOperationException("Clothing furniture was not deleted.");
+        if (c.ExecuteScalar<int?>("SELECT id FROM users WHERE id=@ownerId FOR UPDATE", new { ownerId }, tx) == null)
+            throw new InvalidOperationException("Clothing owner no longer exists.");
         var result = new List<ClothingParts>();
         foreach (var partId in partIds.Distinct())
         {
-            if (c.ExecuteScalar<int?>("SELECT id FROM user_clothing WHERE user_id=@ownerId AND part_id=@partId LIMIT 1 FOR UPDATE", new { ownerId, partId }, tx) != null) continue;
+            var existing = c.QuerySingleOrDefault<ClothingRow>("SELECT id,part_id AS PartId,part AS Part FROM user_clothing WHERE user_id=@ownerId AND part_id=@partId LIMIT 1", new { ownerId, partId }, tx);
+            if (existing != null)
+            {
+                result.Add(new(existing.Id, existing.PartId, existing.Part));
+                continue;
+            }
             var id = c.ExecuteScalar<int>("INSERT INTO user_clothing(user_id,part_id,part) VALUES(@ownerId,@partId,@name); SELECT LAST_INSERT_ID()", new { ownerId, partId, name }, tx);
             result.Add(new(id, partId, name));
         }
         tx.Commit(); return result;
     }
+    private sealed record ClothingRow(int Id, int PartId, string Part);
 }
 
 public interface IItemRedemptionService { void RedeemCredits(Room room, GameClient session, uint itemId); void RedeemClothing(GameClient session, uint itemId); }
@@ -40,7 +48,7 @@ public sealed class ItemRedemptionService(IItemRedemptionStore store, ISettingsM
         if (settings.TryGetValue("room.item.exchangeables.enabled") != "1") { session.SendNotification("The hotel managers have temporarilly disabled exchanging!"); return; }
         lock (habbo.WalletSync)
         {
-            if (habbo.WalletClosed) return;
+            if (habbo.WalletClosed || habbo.CurrentRoom != room || !room.CheckRights(session, true)) return;
             var item = room.GetRoomItemHandler().GetItem(itemId);
             if (item == null || item.IsTemporary || item.RoomId != room.RoomId || item.OwnerId != habbo.Id || item.Definition?.InteractionType != InteractionType.Exchange) return;
             var value = item.Definition.BehaviourData; if (value <= 0) return;
