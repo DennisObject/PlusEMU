@@ -46,7 +46,8 @@ internal sealed class TestGameClientManager(Func<int, GameClient?> lookup) : IGa
     public ICollection<GameClient> GetClients => throw new NotSupportedException();
     public void OnCycle() => throw new NotSupportedException();
     public GameClient? GetClientByUsername(string username) => throw new NotSupportedException();
-    public bool TryGetClient(Guid clientId, out GameClient? client) => throw new NotSupportedException();
+    public bool TryGetClient(Guid clientId,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out GameClient? client) => throw new NotSupportedException();
     public bool TryChangeClientUsername(GameClient client, string oldUsername, string newUsername, Func<bool> persist) => throw new NotSupportedException();
     public Task<string> GetNameById(int id) => throw new NotSupportedException();
     public IEnumerable<GameClient> GetClientsById(Dictionary<int, MessengerBuddy>.KeyCollection users) => throw new NotSupportedException();
