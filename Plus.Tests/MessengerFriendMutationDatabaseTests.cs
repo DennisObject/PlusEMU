@@ -459,7 +459,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         {
             holder.Execute("SELECT 1 FROM messenger_friendships WHERE user_one_id = 9961 AND user_two_id = 9962 FOR UPDATE", transaction: held);
             accept = service.AcceptRequestAsync(acceptor, 9972);
-            await WaitForFriendshipLockWait();
+            await WaitForFriendshipLockWait(accept);
             holder.Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9961, 9962)", transaction: held);
             held.Commit();
             Assert.Null(await accept.WaitAsync(TimeSpan.FromSeconds(30)));
@@ -472,11 +472,17 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         Assert.Equal(2, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE (user_one_id = 9971 AND user_two_id = 9972) OR (user_one_id = 9972 AND user_two_id = 9971)"));
     }
 
-    private async Task WaitForFriendshipLockWait()
+    // The accept's own insert shows as a lock wait; if the accept finishes first, its real outcome is surfaced instead.
+    private async Task WaitForFriendshipLockWait(Task accept)
     {
         for (var attempt = 0; attempt < 500; attempt++)
         {
-            if (Scalar("SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS w JOIN information_schema.INNODB_LOCKS l ON l.lock_id = w.requested_lock_id WHERE l.lock_table LIKE CONCAT('%', DATABASE(), '%') AND l.lock_table LIKE '%messenger_friendships%'") > 0) return;
+            if (Scalar("SELECT COUNT(*) FROM information_schema.INNODB_TRX WHERE trx_state = 'LOCK WAIT' AND trx_query LIKE 'INSERT INTO messenger_friendships%SELECT 9971, 9972%'") > 0) return;
+            if (accept.IsCompleted)
+            {
+                await accept;
+                throw new InvalidOperationException("The accept finished without waiting on the held friendship gap.");
+            }
             await Task.Delay(20);
         }
         throw new TimeoutException("The accept never waited on the held friendship gap.");
