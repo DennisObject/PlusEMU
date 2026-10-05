@@ -329,9 +329,9 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
 
     // Forwards every member to the real object unless a test overrides it.
     [MessengerFriendDatabaseFact]
-    public async Task FailureAfterBothRelationshipRowsRollsBackEverythingBeforeTheBuddyViews()
+    public async Task FailureWhileWritingTheSecondRelationshipRowRollsBackTheRequestAndTheFirstRow()
     {
-        // The requester-to-acceptor row is inserted second, so this trigger fires after both relationship rows are written.
+        // The requester-to-acceptor row is inserted second; the signal aborts the statement after its insert, before any buddy read.
         Account(9811); Account(9812);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9812, 9811)");
         Execute("CREATE TRIGGER messenger_test_fail_second AFTER INSERT ON messenger_friendships FOR EACH ROW BEGIN IF NEW.user_one_id = 9812 AND NEW.user_two_id = 9811 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected second-row failure'; END IF; END");
@@ -351,6 +351,31 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     }
 
     [MessengerFriendDatabaseFact]
+    public async Task BuddyPreparationFailureAfterBothRelationshipRowsRollsBackEveryRow()
+    {
+        // The requester's users row is removed after the second relationship row, so the requester's buddy view reads nothing inside the transaction.
+        Account(9851); Account(9852);
+        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9852, 9851)");
+        Execute("CREATE TRIGGER messenger_test_drop_requester AFTER INSERT ON messenger_friendships FOR EACH ROW BEGIN IF NEW.user_one_id = 9852 AND NEW.user_two_id = 9851 THEN DELETE FROM users WHERE id = 9852; END IF; END");
+        try
+        {
+            var acceptor = Habbo(9851, MessengerFor(requests: [new MessengerRequest { FromId = 9852, ToId = 9851 }]));
+            var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => service.AcceptRequestAsync(acceptor, 9852));
+
+            Assert.Equal("Accepted friend view missing.", error.Message);
+            Assert.Equal(2, Scalar("SELECT COUNT(*) FROM users WHERE id IN (9851, 9852)"));
+            Assert.Equal(2, Scalar("SELECT COUNT(*) FROM users_settings WHERE user_id IN (9851, 9852)"));
+            Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9852 AND to_id = 9851"));
+            Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id IN (9851, 9852) OR user_two_id IN (9851, 9852)"));
+            Assert.True(acceptor.Messenger.Requests.ContainsKey(9852));
+            Assert.Empty(acceptor.Messenger.Friends);
+        }
+        finally { Execute("DROP TRIGGER IF EXISTS messenger_test_drop_requester"); }
+    }
+
+    [MessengerFriendDatabaseFact]
     public async Task AcceptingIsDecidedUnderTheHoldWhenAnIncomingRequestArrivesWhileWaiting()
     {
         Account(9821); Account(9822);
@@ -359,15 +384,23 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         var service = new MessengerFriendMutationService(Loader(), gate, new GameClientManager(null!, null!));
         var sender = Habbo(9821, MessengerFor());
         var held = await gate.EnterManyAsync([9821, 9822]);
+        Task<FriendRequestOutcome>? send = null;
+        try
+        {
+            // The precheck sees no incoming request; the request is recorded in memory before the hold is released.
+            send = service.SendRequestAsync(sender, 9822);
+            await Task.Delay(200);
+            Assert.False(send.IsCompleted);
+            sender.Messenger.AddFriendRequest(new MessengerRequest { FromId = 9822, ToId = 9821 });
+        }
+        finally
+        {
+            // Release the lease even when an assertion fails, then observe the send so its exception is never unobserved.
+            held.Dispose();
+            if (send != null) { try { await send.WaitAsync(TimeSpan.FromSeconds(30)); } catch (Exception) { } }
+        }
 
-        // The precheck sees no incoming request; the request is recorded in memory before the hold is released.
-        var send = service.SendRequestAsync(sender, 9822);
-        await Task.Delay(200);
-        Assert.False(send.IsCompleted);
-        sender.Messenger.AddFriendRequest(new MessengerRequest { FromId = 9822, ToId = 9821 });
-        held.Dispose();
-
-        var outcome = await send.WaitAsync(TimeSpan.FromSeconds(30));
+        var outcome = await send!;
         Assert.Null(outcome.Error);
         Assert.True(outcome.Accepted);
         Assert.Equal(2, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE (user_one_id = 9821 AND user_two_id = 9822) OR (user_one_id = 9822 AND user_two_id = 9821)"));
