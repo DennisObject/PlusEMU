@@ -9,7 +9,7 @@ public class NullableLookupTests
     [Fact]
     public void StoredChatCanBeReadWithoutLiveRoomOrPlayer()
     {
-        var entry = new ChatlogEntry(12, 34, "hello", 123);
+        var entry = new ChatlogEntry(12, 34, "hello", DateTimeOffset.UnixEpoch.AddSeconds(123));
 
         Assert.Null(entry.PlayerNullable());
         Assert.Null(entry.RoomNullable());
