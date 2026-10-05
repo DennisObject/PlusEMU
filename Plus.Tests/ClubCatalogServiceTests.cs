@@ -187,6 +187,9 @@ public sealed class ClubCatalogServiceTests
         public string? ProductCode { get; private set; }
         public List<int> OfferIds { get; } = [];
 
+        public Task ShowStatus(GameClient session, string type) => Task.CompletedTask;
+        public Task ShowKickback(GameClient session) => Task.CompletedTask;
+
         public Task ShowGifts(GameClient session)
         {
             GiftViews++;

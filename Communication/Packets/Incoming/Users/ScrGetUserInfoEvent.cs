@@ -1,13 +1,10 @@
-﻿using Plus.Communication.Packets.Outgoing.Users;
+﻿using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Users;
 
-internal class ScrGetUserInfoEvent : IPacketEvent
+internal class ScrGetUserInfoEvent(IClubCatalogService club) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
-    {
-        if (packet.ReadString() == "habbo_club") session.Send(new ScrSendUserInfoComposer(session.GetHabbo().Access));
-        return Task.CompletedTask;
-    }
+        => club.ShowStatus(session, packet.ReadString());
 }

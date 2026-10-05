@@ -424,6 +424,6 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
         var membershipEnd = expiry.Value;
         // The client caches offers; resend them so the next confirmation shows the new end date.
         session.Send(new HabboClubOffersComposer(ClubOfferSnapshotFactory.Capture(_catalogManager.ClubOffers, ClubWindow, membershipEnd, utcNow)));
-        session.Send(new ScrSendUserInfoComposer(habbo.Access, ScrSendUserInfoComposer.PurchaseResponse));
+        session.Send(new ScrSendUserInfoComposer(ClubStatusSnapshot.Capture(habbo.Access, ClubStatusSnapshot.PurchaseResponse)));
     }
 }

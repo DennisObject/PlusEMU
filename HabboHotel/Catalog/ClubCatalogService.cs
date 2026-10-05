@@ -19,6 +19,8 @@ public sealed record ClubGiftReceivedSnapshot(
 [Singleton]
 public interface IClubCatalogService
 {
+    Task ShowStatus(GameClient session, string type);
+    Task ShowKickback(GameClient session);
     Task ShowGifts(GameClient session);
     Task ClaimGift(GameClient session, string productCode);
     Task PurchaseMembership(GameClient session, int offerId);
@@ -30,6 +32,20 @@ public sealed class ClubCatalogService(
     ICatalogManager catalog,
     IClubMembershipService memberships) : IClubCatalogService
 {
+    public Task ShowStatus(GameClient session, string type)
+    {
+        if (type == "habbo_club")
+            session.Send(new ScrSendUserInfoComposer(ClubStatusSnapshot.Capture(session.GetHabbo().Access)));
+        return Task.CompletedTask;
+    }
+
+    public Task ShowKickback(GameClient session)
+    {
+        var info = rewards.Kickback(session.GetHabbo());
+        session.Send(new KickbackInfoComposer(info));
+        return Task.CompletedTask;
+    }
+
     public Task ShowGifts(GameClient session)
     {
         var gifts = rewards.Gifts(session.GetHabbo());
@@ -85,7 +101,7 @@ public sealed class ClubCatalogService(
             session.Send(new HabboActivityPointNotificationComposer(balance, -offer.Points, offer.PointsType));
         }
         session.Send(new PurchaseOKComposer());
-        session.Send(new ScrSendUserInfoComposer(habbo.Access, ScrSendUserInfoComposer.PurchaseResponse));
+        session.Send(new ScrSendUserInfoComposer(ClubStatusSnapshot.Capture(habbo.Access, ClubStatusSnapshot.PurchaseResponse)));
         return Task.CompletedTask;
     }
 }
