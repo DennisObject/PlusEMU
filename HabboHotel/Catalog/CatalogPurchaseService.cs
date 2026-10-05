@@ -45,6 +45,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
     private readonly IItemDataManager _itemManager;
     private readonly IBadgeManager _badgeManager;
     private readonly IItemFactory _itemFactory;
+    private readonly ICatalogBotPurchaseStore _botPurchases;
     private readonly IClubMembershipService _clubMemberships;
     private readonly IClubRewards _clubRewards;
     private readonly IAvatarEffectStore _avatarEffects;
@@ -59,6 +60,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
         IItemDataManager itemManager,
         IBadgeManager badgeManager,
         IItemFactory itemFactory,
+        ICatalogBotPurchaseStore botPurchases,
         IHabbiconService habbicons,
         IClubMembershipService clubMemberships, IClubRewards clubRewards, IAvatarEffectStore avatarEffects,
         TimeProvider clock, ILogger<CatalogPurchaseService> logger)
@@ -70,6 +72,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
         _itemManager = itemManager;
         _badgeManager = badgeManager;
         _itemFactory = itemFactory;
+        _botPurchases = botPurchases;
         _clubMemberships = clubMemberships;
         _clubRewards = clubRewards;
         _avatarEffects = avatarEffects;
@@ -221,7 +224,21 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
             return true;
         }
 
-        if (item.Definition.ProductType != "p" && !ChargePurchase()) return;
+        Bot? purchasedBot = null;
+        if (item.Definition.ProductType == "r")
+        {
+            if (!_catalogManager.TryGetBot(item.Definition.Id, out var botPreset))
+            {
+                session.SendNotification("Oops! There was an error whilst purchasing this bot. It seems that there is no bot data for the bot!");
+                return;
+            }
+            if (!ChargePurchase((connection, transaction) =>
+                {
+                    purchasedBot = _botPurchases.Create(connection, transaction, botPreset, session.GetHabbo().Id);
+                    return true;
+                })) return;
+        }
+        else if (item.Definition.ProductType != "p" && !ChargePurchase()) return;
         switch (item.Definition.ProductType)
         {
             default:
@@ -348,15 +365,10 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                     session.Send(new AvatarEffectAddedComposer(item.Definition.SpriteId, 3600));
                 break;
             case "r":
-                var bot = BotUtility.CreateBot(item.Definition, session.GetHabbo().Id);
-                if (bot != null)
-                {
-                    session.GetHabbo().Inventory.Bots.AddBot(bot);
-                    session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));
-                    session.Send(new FurniListNotificationComposer((uint)bot.Id, 5));
-                }
-                else
-                    session.SendNotification("Oops! There was an error whilst purchasing this bot. It seems that there is no bot data for the bot!");
+                var bot = purchasedBot ?? throw new InvalidOperationException("The committed bot purchase did not return a bot.");
+                session.GetHabbo().Inventory.Bots.AddBot(bot);
+                session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));
+                session.Send(new FurniListNotificationComposer((uint)bot.Id, 5));
                 break;
             case "b":
                 {
