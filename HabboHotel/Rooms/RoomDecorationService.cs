@@ -46,31 +46,35 @@ public sealed class RoomDecorationService(IRoomDecorationStore store, IAchieveme
 {
     public void Apply(Room room, GameClient session, ApplyRoomDecorationRequest request)
     {
-        if (session.GetHabbo().CurrentRoom != room || !room.CheckRights(session, true)) return;
-        var item = session.GetHabbo().Inventory.Furniture.GetItem(request.ItemId);
-        if (item?.Definition == null) return;
-        var kind = item.Definition.InteractionType switch
+        var habbo = session.GetHabbo();
+        if (habbo.CurrentRoom != room || !room.CheckRights(session, true)) return;
+        lock (habbo.Inventory.Furniture)
         {
-            InteractionType.Floor => RoomDecorationKind.Floor,
-            InteractionType.Wallpaper => RoomDecorationKind.Wallpaper,
-            InteractionType.Landscape => RoomDecorationKind.Landscape,
-            _ => (RoomDecorationKind?)null
-        };
-        var data = item.ExtraData is LegacyDataFormat legacy ? legacy.Data : string.Empty;
-        if (kind == null || string.IsNullOrWhiteSpace(data)) return;
+            var item = habbo.Inventory.Furniture.GetItem(request.ItemId);
+            if (item?.Definition == null || item.OwnerId != habbo.Id) return;
+            var kind = item.Definition.InteractionType switch
+            {
+                InteractionType.Floor => RoomDecorationKind.Floor,
+                InteractionType.Wallpaper => RoomDecorationKind.Wallpaper,
+                InteractionType.Landscape => RoomDecorationKind.Landscape,
+                _ => (RoomDecorationKind?)null
+            };
+            var data = item.ExtraData is LegacyDataFormat legacy ? legacy.Data : string.Empty;
+            if (kind == null || string.IsNullOrWhiteSpace(data)) return;
 
-        store.Apply(room.RoomId, item.Id, session.GetHabbo().Id, kind.Value, data);
-        switch (kind.Value)
-        {
-            case RoomDecorationKind.Floor:
-                room.Floor = data; quests.ProgressUserQuest(session, QuestType.FurniDecoFloor); achievements.ProgressAchievement(session, "ACH_RoomDecoFloor", 1); break;
-            case RoomDecorationKind.Wallpaper:
-                room.Wallpaper = data; quests.ProgressUserQuest(session, QuestType.FurniDecoWall); achievements.ProgressAchievement(session, "ACH_RoomDecoWallpaper", 1); break;
-            case RoomDecorationKind.Landscape:
-                room.Landscape = data; achievements.ProgressAchievement(session, "ACH_RoomDecoLandscape", 1); break;
+            store.Apply(room.RoomId, item.Id, habbo.Id, kind.Value, data);
+            switch (kind.Value)
+            {
+                case RoomDecorationKind.Floor:
+                    room.Floor = data; quests.ProgressUserQuest(session, QuestType.FurniDecoFloor); achievements.ProgressAchievement(session, "ACH_RoomDecoFloor", 1); break;
+                case RoomDecorationKind.Wallpaper:
+                    room.Wallpaper = data; quests.ProgressUserQuest(session, QuestType.FurniDecoWall); achievements.ProgressAchievement(session, "ACH_RoomDecoWallpaper", 1); break;
+                case RoomDecorationKind.Landscape:
+                    room.Landscape = data; achievements.ProgressAchievement(session, "ACH_RoomDecoLandscape", 1); break;
+            }
+            habbo.Inventory.Furniture.RemoveItem(item.Id);
+            session.Send(new FurniListRemoveComposer(item.Id));
+            room.SendPacket(new RoomPropertyComposer(kind.Value.ToString().ToLowerInvariant(), data));
         }
-        session.GetHabbo().Inventory.Furniture.RemoveItem(item.Id);
-        session.Send(new FurniListRemoveComposer(item.Id));
-        room.SendPacket(new RoomPropertyComposer(kind.Value.ToString().ToLowerInvariant(), data));
     }
 }
