@@ -32,10 +32,11 @@ public sealed class GiftOpeningServiceTests
         await service.OpenAsync(client, gift.Id);
 
         Assert.Equal(1, store.Opens);
-        Assert.Equal(200, gift.BaseItem);
-        Assert.Same(definition, gift.Definition);
-        Assert.Equal("blue", gift.LegacyDataString);
-        Assert.NotNull(client.GetHabbo().Inventory.Furniture.GetItem(gift.Id));
+        Assert.Equal(100, gift.BaseItem);
+        Assert.NotSame(definition, gift.Definition);
+        var delivered = Assert.IsType<InventoryItem>(client.GetHabbo().Inventory.Furniture.GetItem(gift.Id));
+        Assert.Same(definition, delivered.Definition);
+        Assert.Equal("blue", delivered.ExtraData.Serialize());
         Assert.NotEmpty(sent);
     }
 
@@ -88,6 +89,37 @@ public sealed class GiftOpeningServiceTests
         Assert.Empty(sent);
     }
 
+    [Fact]
+    public async Task MalformedReplacementDataDoesNotConsumeGift()
+    {
+        var (room, client, sent, gift) = Context();
+        var store = new Store { Content = new(200, "not-a-number") };
+        var definition = Definition(200, InteractionType.CrackableEgg);
+
+        await Service(store, definition).OpenAsync(client, gift.Id);
+
+        Assert.Equal(0, store.Opens);
+        Assert.Same(gift, room.GetRoomItemHandler().GetItem(gift.Id));
+        Assert.NotEmpty(sent);
+    }
+
+    [Fact]
+    public async Task FailedFloorPlacementDeliversPreparedInventoryFallback()
+    {
+        var (_, client, sent, gift) = Context();
+        var store = new Store();
+        var definition = Definition(200, InteractionType.None);
+        definition.Type = ItemType.Floor;
+        gift.GetX = 99;
+        gift.GetY = 99;
+
+        await Service(store, definition).OpenAsync(client, gift.Id);
+
+        var delivered = Assert.IsType<InventoryItem>(client.GetHabbo().Inventory.Furniture.GetItem(gift.Id));
+        Assert.Same(definition, delivered.Definition);
+        Assert.NotEmpty(sent);
+    }
+
     private static GiftOpeningService Service(Store store, ItemDefinition definition) =>
         new(store, new ItemCatalog(definition), new Cache());
 
@@ -97,6 +129,8 @@ public sealed class GiftOpeningServiceTests
         room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
+        typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room,
+            new Gamemap(room, new RoomModel("gift-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false)));
         var gift = new Item { Id = 7, RoomId = 9, OwnerId = 1, BaseItem = 100, IsTemporary = temporary, Definition = Definition(100, InteractionType.Gift), ExtraData = new LegacyDataFormat { Data = data } };
         typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(gift, room);
         var walls = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;
@@ -112,8 +146,9 @@ public sealed class GiftOpeningServiceTests
     private sealed class Store(Action? before = null) : IGiftStore
     {
         public bool FailOpen; public int Opens; public int InvalidDeletes;
-        public GiftContent? Find(uint itemId) => new(200, "blue");
-        public void Open(uint itemId, int ownerId, uint roomId, GiftContent content) { before?.Invoke(); if (FailOpen) throw new InvalidOperationException("forced"); Opens++; }
+        public GiftContent Content { get; init; } = new(200, "blue");
+        public GiftContent? Find(uint itemId) => Content;
+        public void Open(uint itemId, int ownerId, uint roomId, uint presentBaseId, GiftContent content) { before?.Invoke(); if (FailOpen) throw new InvalidOperationException("forced"); Opens++; }
         public void DeleteInvalid(uint itemId, int ownerId, uint roomId) { before?.Invoke(); InvalidDeletes++; }
     }
     private sealed class ItemCatalog(ItemDefinition definition) : IItemDataManager
