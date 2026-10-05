@@ -57,7 +57,7 @@ public sealed class HorseCustomizationServiceTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 42;
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
         var pet = (Pet)RuntimeHelpers.GetUninitializedObject(typeof(Pet));
         pet.PetId = 12;
