@@ -22,6 +22,7 @@ public class ChatEvent : IPacketEvent
     private readonly IModerationManager _moderationManager;
     private readonly ISettingsManager _settingsManager;
     private readonly IQuestManager _questManager;
+    private readonly TimeProvider _clock;
 
     public ChatEvent(
         IChatStyleManager chatStyleManager,
@@ -30,7 +31,8 @@ public class ChatEvent : IPacketEvent
         ICommandManager commandManager,
         IModerationManager moderationManager,
         ISettingsManager settingsManager,
-        IQuestManager questManager)
+        IQuestManager questManager,
+        TimeProvider clock)
     {
         _chatStyleManager = chatStyleManager;
         _chatlogManager = chatlogManager;
@@ -39,6 +41,7 @@ public class ChatEvent : IPacketEvent
         _moderationManager = moderationManager;
         _settingsManager = settingsManager;
         _questManager = questManager;
+        _clock = clock;
     }
 
     public async Task Parse(GameClient session, IIncomingPacket packet)
@@ -83,7 +86,7 @@ public class ChatEvent : IPacketEvent
             }
         }
         
-        _chatlogManager.StoreChatlog(new(session.GetHabbo().Id, room.Id, message, UnixTimestamp.GetNow(), session.GetHabbo(), room));
+        _chatlogManager.StoreChatlog(new(session.GetHabbo().Id, room.Id, message, _clock.GetUtcNow(), session.GetHabbo(), room));
         
         if (message.StartsWith(":", StringComparison.CurrentCulture) && await _commandManager.Parse(session, message))
             return;

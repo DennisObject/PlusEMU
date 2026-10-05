@@ -71,8 +71,8 @@ public sealed class ModeratorHistoryService(
                 """, new
                 {
                     visit.RoomId,
-                    EntryTimestamp = ToUnixTime(enteredAt),
-                    ExitTimestamp = ToUnixTime(exitedAt)
+                    EntryTimestamp = enteredAt.UtcDateTime,
+                    ExitTimestamp = exitedAt.UtcDateTime
                 }));
             rooms.Add(new(new(visit.RoomId, visit.RoomName), entries));
         }
@@ -108,19 +108,18 @@ public sealed class ModeratorHistoryService(
         foreach (var row in rows)
         {
             var user = GetUser(row.UserId);
-            if (user != null) entries.Add(new(row.UserId, user.Username, row.Message, FromUnixTime(row.Timestamp)));
+            if (user != null && AsUtc(row.Timestamp) is { } createdAt)
+                entries.Add(new(row.UserId, user.Username, row.Message, createdAt));
         }
         return entries.ToImmutableArray();
     }
 
     private Users.Habbo? GetUser(int userId) => userLookup.GetById(userId);
-    private static DateTimeOffset FromUnixTime(double value) => DateTimeOffset.UnixEpoch.AddMilliseconds(value * 1000d);
-    private static double ToUnixTime(DateTimeOffset value) => value.ToUnixTimeMilliseconds() / 1000d;
     private static DateTimeOffset? AsUtc(DateTime? value) => value.HasValue
         ? new(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc))
         : null;
 
-    private sealed record ChatlogRow(int UserId, double Timestamp, string Message);
+    private sealed record ChatlogRow(int UserId, DateTime? Timestamp, string Message);
     private sealed record RoomVisitRow(uint RoomId, string? RoomName, DateTime? EntryTimestamp, DateTime? ExitTimestamp);
     private sealed record RoomVisitSummaryRow(uint RoomId, string? RoomName, DateTime? EntryTimestamp);
 }

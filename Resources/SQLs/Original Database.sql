@@ -14716,7 +14716,7 @@ CREATE TABLE `chatlogs` (
   `user_id` int(10) unsigned NOT NULL,
   `room_id` int(10) unsigned NOT NULL,
   `message` text NOT NULL,
-  `timestamp` double NOT NULL,
+  `timestamp` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`) USING BTREE,
   KEY `room_id` (`room_id`) USING BTREE

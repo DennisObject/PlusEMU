@@ -60,7 +60,8 @@ public sealed class RoomComponentDatabaseTests
                     KEY entry_timestamp (entry_timestamp), KEY exit_timestamp (exit_timestamp));
                 CREATE TABLE chatlogs (
                     id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, room_id INT UNSIGNED NOT NULL,
-                    `timestamp` DOUBLE NOT NULL, message VARCHAR(255) NOT NULL);
+                    `timestamp` DOUBLE NULL, message VARCHAR(32) NOT NULL,
+                    KEY user_id (user_id), KEY room_id (room_id));
                 """);
             connection.Execute("""
                 INSERT INTO bots VALUES
@@ -84,7 +85,8 @@ public sealed class RoomComponentDatabaseTests
                 INSERT INTO rooms VALUES (42, 'Probe room', 0);
                 INSERT INTO user_roomvisits (room_id, user_id, entry_timestamp, exit_timestamp) VALUES
                     (42, 7, 2200000000, 0), (42, 8, 0, NULL);
-                INSERT INTO chatlogs (user_id, room_id, `timestamp`, message) VALUES (7, 42, 2200001000, 'inside visit');
+                INSERT INTO chatlogs (user_id, room_id, `timestamp`, message) VALUES
+                    (7, 42, 2200001000.123456, 'inside visit'), (8, 42, 0, 'legacy zero'), (9, 42, NULL, 'legacy null');
                 """);
 
             var migration = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory,
@@ -170,6 +172,34 @@ public sealed class RoomComponentDatabaseTests
             Assert.Equal(visitClock.GetUtcNow().UtcDateTime,
                 DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT entry_timestamp FROM user_roomvisits WHERE user_id = 9"), DateTimeKind.Utc));
             Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT exit_timestamp FROM user_roomvisits WHERE user_id = 9"));
+            var chatlogMigration = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory,
+                "../../../../Database/Migrations/24_UseUtcChatlogTimes.sql")));
+            connection.Execute(chatlogMigration);
+            Assert.Equal(("datetime", 6L), connection.QuerySingle<(string, long)>("""
+                SELECT DATA_TYPE, DATETIME_PRECISION FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'chatlogs' AND column_name = 'timestamp'
+                """));
+            Assert.Equal(3, connection.QuerySingle<int>("""
+                SELECT COUNT(*) FROM information_schema.statistics
+                WHERE table_schema = DATABASE() AND table_name = 'chatlogs'
+                    AND index_name IN ('PRIMARY', 'user_id', 'room_id')
+                """));
+            var migratedChatTime = DateTime.SpecifyKind(
+                connection.QuerySingle<DateTime>("SELECT `timestamp` FROM chatlogs WHERE user_id = 7"), DateTimeKind.Utc);
+            Assert.Equal(DateTimeOffset.UnixEpoch.AddSeconds(2_200_001_000.123456).UtcDateTime, migratedChatTime);
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT `timestamp` FROM chatlogs WHERE user_id = 8"));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT `timestamp` FROM chatlogs WHERE user_id = 9"));
+            var chatlogs = new Plus.HabboHotel.Rooms.Chat.Logs.ChatlogManager(new ProbeDatabase(databaseConnection));
+            var writtenAt = DateTimeOffset.FromUnixTimeSeconds(2_200_002_000).AddTicks(1_230);
+            chatlogs.StoreChatlog(new(10, 42, "first", writtenAt));
+            chatlogs.StoreChatlog(new(11, 42, new string('x', 40), writtenAt));
+            Assert.Throws<MySqlException>(chatlogs.FlushAndSave);
+            Assert.Equal(3, connection.QuerySingle<int>("SELECT COUNT(*) FROM chatlogs"));
+            var successfulChatlogs = new Plus.HabboHotel.Rooms.Chat.Logs.ChatlogManager(new ProbeDatabase(databaseConnection));
+            successfulChatlogs.StoreChatlog(new(10, 42, "written", writtenAt));
+            successfulChatlogs.FlushAndSave();
+            Assert.Equal(writtenAt.UtcDateTime, DateTime.SpecifyKind(
+                connection.QuerySingle<DateTime>("SELECT `timestamp` FROM chatlogs WHERE user_id = 10"), DateTimeKind.Utc));
             var history = new Plus.HabboHotel.Moderation.ModeratorHistoryService(
                 new ProbeDatabase(databaseConnection), null!, new TestModeratorUserLookup(), new TestChatlogManager(), visitClock);
             var roomVisits = Assert.IsType<Plus.HabboHotel.Moderation.ModeratorUserRoomVisits>(history.GetUserRoomVisits(7));
@@ -177,7 +207,8 @@ public sealed class RoomComponentDatabaseTests
             Assert.Equal((42u, "Probe room", DateTimeOffset.FromUnixTimeSeconds(2_200_000_000)),
                 (visit.Room.Id, visit.Room.Name, visit.EnteredAt));
             var userChatlog = Assert.IsType<Plus.HabboHotel.Moderation.ModeratorUserChatlog>(history.GetUserChatlog(7));
-            Assert.Equal("inside visit", Assert.Single(Assert.Single(userChatlog.Rooms).Entries).Message);
+            Assert.Equal(["written", "inside visit"],
+                Assert.Single(userChatlog.Rooms).Entries.Select(entry => entry.Message).ToArray());
             var tradeStore = (ITradeStore)new RoomTradingComponent(new ProbeDatabase(databaseConnection));
             tradeStore.TransferItem(90, 2);
             tradeStore.DeleteItem(91);
