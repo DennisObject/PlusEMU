@@ -24,7 +24,7 @@ public sealed class WiredVariableMenuEventTests
             Assert.False(WiredVariableHashesEvent.TryReadHashes(packet, out _));
     }
     [Fact]
-    public async Task AllMenuHandlersRejectUnauthorizedClientsBeforeReadingOrOpeningDatabase()
+    public async Task AllMenuHandlersRejectUnauthorizedClientsBeforeOpeningDatabase()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         typeof(Room).GetField("_wiredComponent", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(room,
@@ -33,8 +33,8 @@ public sealed class WiredVariableMenuEventTests
             new WiredVariableHoldersRequestEvent(new WiredVariableMenuService()), new WiredVariableHoldersPageEvent(new WiredVariableMenuService())];
         foreach (var handler in handlers)
         {
-            var packet = Packet(123); await handler.Parse(room, null!, packet);
-            Assert.Equal(4, packet.Buffer.Length);
+            // Handlers decode the full frame first; the denied service returns before any database connection opens.
+            await handler.Parse(room, null!, Packet(123));
         }
     }
     [Fact]

@@ -35,6 +35,7 @@ using Plus.HabboHotel.Users.Inventory.Badges;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
+using Plus.Communication.Packets.Incoming.WiredVariables;
 
 namespace Plus.Tests;
 
@@ -240,14 +241,60 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
+    public async Task UnauthorizedMenuAndMonitorRequestsNeverReadOrAnswer()
+    {
+        using var f = new TeleportFixture();
+        f.Room.OwnerName = "Alice"; f.Room.Type = "private"; f.Room.UsersWithRights = [];
+        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
+        bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
+        var replies = Capture(bob);
+        var menus = new WiredVariableMenuService();
+        var monitor = new WiredMonitorService(new WiredRequestGateService(TimeProvider.System));
+        // The fixture's database throws on any connection, so every denied request must return before a lazy read.
+        await new WiredUserVariablesRequestEvent(menus).Parse(f.Room, bob, Request());
+        await new WiredAllVariablesRequestEvent(menus).Parse(f.Room, bob, Request());
+        await new WiredVariableHashesEvent(menus).Parse(f.Room, bob, Request(0));
+        await new WiredVariableHoldersRequestEvent(menus).Parse(f.Room, bob, Request("user:10"));
+        await new WiredVariableHoldersPageEvent(menus).Parse(f.Room, bob, Request("user:10", 1, 15, 0, -1));
+        await new WiredUserVariableUpdateEvent(menus).Parse(f.Room, bob, Request(3, (int)f.Room.Id, 12, 9));
+        await new WiredUserVariableManageEvent(menus).Parse(f.Room, bob, Request(2, 0, 2, 12, 0));
+        await new WiredMonitorRequestEvent(monitor).Parse(f.Room, bob, Request(0));
+        await new WiredRoomLogsPageEvent(monitor).Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
+        Assert.Empty(replies);
+    }
+
+    [Fact]
+    public async Task DeniedMonitorClearNeitherClearsNorConsumesTheClearGate()
+    {
+        using var f = new TeleportFixture();
+        f.Room.OwnerName = "Alice"; f.Room.Type = "private"; f.Room.UsersWithRights = [];
+        var store = new MonitorSettingsStore();
+        var settings = new WiredRoomSettings(f.Room, store);
+        typeof(WiredComponent).GetField("<Settings>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(f.Room.GetWired(), settings);
+        store.Saved = new(InspectMask: (int)WiredRoomAccess.Everyone); settings.Reload();
+        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
+        bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
+        var bobReplies = Capture(bob);
+        var alice = Capture(f.Habbo.Client);
+        var clear = new WiredMonitorRequestEvent(new WiredMonitorService(new WiredRequestGateService(new ManualMonotonicClock())));
+
+        await clear.Parse(f.Room, bob, Request(1)); // inspect-only: no clear and no reply
+        Assert.Empty(bobReplies);
+        await clear.Parse(f.Room, f.Habbo.Client, Request(1)); // the owner's clear at the same instant still passes
+        Assert.Single(alice);
+        Assert.Equal(5101u, alice[0].Header);
+    }
+
+    [Fact]
     public async Task MonitorAndLogGatesUseTheInjectedMonotonicClockAndStayIndependent()
     {
         using var f = new TeleportFixture();
         f.Room.OwnerName = "Alice"; f.Room.Type = "private"; f.Room.UsersWithRights = [];
         var clock = new ManualMonotonicClock();
-        var gates = new WiredRequestGateService(clock);
-        var fetch = new WiredMonitorRequestEvent(gates, new WiredMonitorService());
-        var pages = new WiredRoomLogsPageEvent(gates, new WiredMonitorService());
+        var monitor = new WiredMonitorService(new WiredRequestGateService(clock));
+        var fetch = new WiredMonitorRequestEvent(monitor);
+        var pages = new WiredRoomLogsPageEvent(monitor);
         var alice = Capture(f.Habbo.Client);
         int Monitors() => alice.Count(reply => reply.Header == 5101);
         int Pages() => alice.Count(reply => reply.Header == 918);
@@ -283,8 +330,8 @@ public class ModernWiredRuntimeTests
     }
 
     // Each request source gets its own rate gates, as in production, unless a test shares one explicitly.
-    private static WiredRoomLogsPageEvent RoomLogsPage() => new(new WiredRequestGateService(TimeProvider.System), new WiredMonitorService());
-    private static WiredMonitorRequestEvent MonitorRequest() => new(new WiredRequestGateService(TimeProvider.System), new WiredMonitorService());
+    private static WiredRoomLogsPageEvent RoomLogsPage() => new(new WiredMonitorService(new WiredRequestGateService(TimeProvider.System)));
+    private static WiredMonitorRequestEvent MonitorRequest() => new(new WiredMonitorService(new WiredRequestGateService(TimeProvider.System)));
 
     private static List<(uint Header, byte[] Body)> Capture(GameClient client)
     {

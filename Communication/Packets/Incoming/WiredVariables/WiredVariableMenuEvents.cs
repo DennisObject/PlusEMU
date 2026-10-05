@@ -1,4 +1,3 @@
-using Plus.Communication.Packets.Outgoing.WiredVariables;
 using Plus.Communication.Packets.Incoming.Rooms;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Variables;
@@ -10,8 +9,8 @@ public sealed class WiredAllVariablesRequestEvent(IWiredVariableMenuService menu
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanInspect(session) || packet.HasDataRemaining()) return Task.CompletedTask;
-        session.Send(new WiredAllVariablesHashComposer(menus.CatalogHash(room)));
+        if (packet.HasDataRemaining()) return Task.CompletedTask;
+        menus.ShowCatalogHash(room, session);
         return Task.CompletedTask;
     }
 }
@@ -20,9 +19,8 @@ public sealed class WiredVariableHashesEvent(IWiredVariableMenuService menus) : 
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanInspect(session)) return Task.CompletedTask;
         if (!TryReadHashes(packet, out var hashes)) return Task.CompletedTask;
-        foreach (var diff in menus.CatalogDiff(room, hashes)) session.Send(new WiredAllVariablesDiffComposer(diff));
+        menus.ShowCatalogDiff(room, session, hashes);
         return Task.CompletedTask;
     }
     public static bool TryReadHashes(IIncomingPacket packet, out IReadOnlyDictionary<string, int> hashes)
@@ -46,11 +44,10 @@ public sealed class WiredVariableHoldersRequestEvent(IWiredVariableMenuService m
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanInspect(session)) return Task.CompletedTask;
         string id;
         try { id = packet.ReadString(); } catch (ArgumentException) { return Task.CompletedTask; }
         if (id.Length is < 1 or > 64 || packet.HasDataRemaining()) return Task.CompletedTask;
-        if (menus.Holders(room, id) is { } holders) session.Send(new WiredVariableHoldersComposer(room.Id, holders.Variable, holders.Holders));
+        menus.ShowHolders(room, session, id);
         return Task.CompletedTask;
     }
 }
@@ -59,13 +56,11 @@ public sealed class WiredVariableHoldersPageEvent(IWiredVariableMenuService menu
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanInspect(session)) return Task.CompletedTask;
         string id; int page, size, users, sort;
         try { id = packet.ReadString(); page = packet.ReadInt(); size = packet.ReadInt(); users = packet.ReadInt(); sort = packet.ReadInt(); }
         catch (ArgumentException) { return Task.CompletedTask; }
         if (id.Length is < 1 or > 64 || users is not (0 or 1) || sort is < -1 or > 2 || packet.HasDataRemaining()) return Task.CompletedTask;
-        if (menus.HolderPage(room, id, page, size, users, sort) is { } view)
-            session.Send(new WiredVariableHoldersPageComposer(id, view.Page, users, sort));
+        menus.ShowHolderPage(room, session, id, page, size, users, sort);
         return Task.CompletedTask;
     }
 }

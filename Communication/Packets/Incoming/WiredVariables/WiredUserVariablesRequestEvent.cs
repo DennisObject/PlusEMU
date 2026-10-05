@@ -1,5 +1,4 @@
 using Plus.Communication.Packets.Incoming.Rooms;
-using Plus.Communication.Packets.Outgoing.WiredVariables;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Rooms;
@@ -10,8 +9,8 @@ public sealed class WiredUserVariablesRequestEvent(IWiredVariableMenuService men
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanInspect(session) || packet.HasDataRemaining()) return Task.CompletedTask;
-        session.Send(new WiredUserVariablesDataComposer(menus.Snapshot(room)));
+        if (packet.HasDataRemaining()) return Task.CompletedTask;
+        menus.ShowSnapshot(room, session);
         return Task.CompletedTask;
     }
 }

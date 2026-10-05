@@ -1,6 +1,5 @@
 using System.Text;
 using Plus.Communication.Packets.Incoming.Rooms;
-using Plus.Communication.Packets.Outgoing.WiredVariables;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Rooms;
@@ -11,8 +10,8 @@ public sealed class WiredUserVariableUpdateEvent(IWiredVariableMenuService menus
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanModify(session) || !TryRead(packet, false, out var request)) return Task.CompletedTask;
-        session.Send(new WiredUserVariablesDataComposer(menus.Write(room, request!)));
+        if (!TryRead(packet, false, out var request)) return Task.CompletedTask;
+        menus.Write(room, session, request!);
         return Task.CompletedTask;
     }
     public static bool TryRead(IIncomingPacket packet, bool manage, out WiredVariableMenuWrite? request)
@@ -36,11 +35,8 @@ public sealed class WiredUserVariableManageEvent(IWiredVariableMenuService menus
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        var settings = room.GetWired().Settings;
-        if (!settings.CanModify(session) || !WiredUserVariableUpdateEvent.TryRead(packet, true, out var request)) return Task.CompletedTask;
-        // This reaches offline holders, so ordinary wired editing or group rights are insufficient.
-        var mayClear = request!.Action == 2 && settings.CanManage(session);
-        session.Send(new WiredUserVariablesDataComposer(menus.Manage(room, request, mayClear)));
+        if (!WiredUserVariableUpdateEvent.TryRead(packet, true, out var request)) return Task.CompletedTask;
+        menus.Manage(room, session, request!);
         return Task.CompletedTask;
     }
 }
