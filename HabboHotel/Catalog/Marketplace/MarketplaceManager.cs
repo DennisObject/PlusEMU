@@ -99,14 +99,23 @@ public class MarketplaceManager : IMarketplaceManager
         var offers = rows.Select(row =>
         {
             var minutes = Convert.ToInt32(Math.Floor((row.Timestamp + 172800.0 - now) / 60.0));
-            var state = row.State;
+            var state = int.Parse(row.State);
             if (minutes <= 0 && state != 2) { state = 3; minutes = 0; }
-            return new MarketplaceOwnOffer(row.OfferId, state, row.SpriteId, row.LimitedNumber, row.LimitedStack, row.TotalPrice, minutes);
+            return new MarketplaceOwnOffer(checked((int)row.OfferId), state, row.SpriteId, row.LimitedNumber, row.LimitedStack, row.TotalPrice, minutes);
         }).ToArray();
         return new(accumulated, offers);
     }
 
-    private sealed record OwnOfferRow(double Timestamp, int State, int OfferId, int SpriteId, int TotalPrice, int LimitedNumber, int LimitedStack);
+    private sealed class OwnOfferRow
+    {
+        public double Timestamp { get; set; }
+        public string State { get; set; } = string.Empty;
+        public uint OfferId { get; set; }
+        public int SpriteId { get; set; }
+        public int TotalPrice { get; set; }
+        public int LimitedNumber { get; set; }
+        public int LimitedStack { get; set; }
+    }
 
     public int CalculateComissionPrice(float price) => Convert.ToInt32(Math.Ceiling(price / 100 * 1));
 

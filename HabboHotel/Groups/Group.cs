@@ -72,11 +72,12 @@ public class Group
         foreach (var member in connection.Query<GroupMemberRow>(
                      "SELECT user_id AS UserId,`rank` AS Rank FROM group_memberships WHERE group_id=@id", new { id = Id }))
         {
-            if (member.Rank != 0)
+            var userId = checked((int)member.UserId);
+            if (int.Parse(member.Rank) != 0)
             {
-                if (!_administrators.Contains(member.UserId)) _administrators.Add(member.UserId);
+                if (!_administrators.Contains(userId)) _administrators.Add(userId);
             }
-            else if (!_members.Contains(member.UserId)) _members.Add(member.UserId);
+            else if (!_members.Contains(userId)) _members.Add(userId);
         }
         foreach (var userId in connection.Query<int>("SELECT user_id FROM group_requests WHERE group_id=@id", new { id = Id }))
         {
@@ -197,5 +198,9 @@ public class Group
         _administrators.Clear();
     }
 
-    private sealed record GroupMemberRow(int UserId, int Rank);
+    private sealed class GroupMemberRow
+    {
+        public uint UserId { get; set; }
+        public string Rank { get; set; } = string.Empty;
+    }
 }

@@ -102,8 +102,9 @@ public sealed class ModeratorHistoryService(
         var entries = new List<ModeratorChatEntry>();
         foreach (var row in rows)
         {
-            var user = GetUser(row.UserId);
-            if (user != null) entries.Add(new(row.UserId, user.Username, row.Message, FromUnixTime(row.Timestamp)));
+            var userId = checked((int)row.UserId);
+            var user = GetUser(userId);
+            if (user != null) entries.Add(new(userId, user.Username, row.Message, FromUnixTime(row.Timestamp)));
         }
         return entries.ToImmutableArray();
     }
@@ -112,7 +113,12 @@ public sealed class ModeratorHistoryService(
     private static DateTimeOffset FromUnixTime(double value) => DateTimeOffset.UnixEpoch.AddMilliseconds(value * 1000d);
     private static double ToUnixTime(DateTimeOffset value) => value.ToUnixTimeMilliseconds() / 1000d;
 
-    private sealed record ChatlogRow(int UserId, double Timestamp, string Message);
+    private sealed class ChatlogRow
+    {
+        public uint UserId { get; set; }
+        public double Timestamp { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
     private sealed record RoomVisitRow(uint RoomId, string? RoomName, double EntryTimestamp, double? ExitTimestamp);
     private sealed record RoomVisitSummaryRow(uint RoomId, string? RoomName, double EntryTimestamp);
 }
