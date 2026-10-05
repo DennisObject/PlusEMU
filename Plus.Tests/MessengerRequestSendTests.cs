@@ -67,7 +67,7 @@ public sealed class MessengerRequestSendTests
         var received = Assert.Single(target.Messenger.Requests.Values);
         Assert.Equal((sender.Habbo.Id, sender.Habbo.Username), (received.FromId, received.Username));
         Assert.Equal(new uint[] { ServerPacketHeader.NewBuddyRequestComposer }, target.Headers);
-        Assert.Equal(new[] { "Progress RequestFriend", "ProgressUserQuest SocialFriend" }, order);
+        Assert.Equal(new[] { $"Progress {RewardTrackActions.RequestFriend}", "ProgressUserQuest SocialFriend" }, order);
 
         // A repeat is refused from memory: no second store write, event, notification, or reward; the quest still counts the attempt.
         await communication.RequestFriend(sender.Client, "Bob");
@@ -76,7 +76,7 @@ public sealed class MessengerRequestSendTests
         Assert.Equal(new[] { target.Habbo.Id }, sender.Messenger.OutstandingFriendRequests);
         Assert.Equal(1, sentEvents);
         Assert.Equal(new uint[] { ServerPacketHeader.NewBuddyRequestComposer }, target.Headers);
-        Assert.Equal(new[] { "Progress RequestFriend", "ProgressUserQuest SocialFriend", "ProgressUserQuest SocialFriend" }, order);
+        Assert.Equal(new[] { $"Progress {RewardTrackActions.RequestFriend}", "ProgressUserQuest SocialFriend", "ProgressUserQuest SocialFriend" }, order);
     }
 
     private static object? Record(List<string> order, MethodInfo method, object?[]? args)
