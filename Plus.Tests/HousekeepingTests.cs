@@ -668,7 +668,7 @@ public class ClientPermissionWireTests
         var access = UserAccess.Create([new(new AccessRole(9, "developer", "Developer", 90, 7, "DEV", true,
             [PermissionKeys.Ambassador, PermissionKeys.CameraUse, PermissionKeys.HousekeepingAccess], new Dictionary<string, int>()))]);
         var packet = new RecordingPacket();
-        new UserRightsComposer(access).Compose(packet);
+        new UserRightsComposer(UserRightsSnapshot.Capture(access)).Compose(packet);
         Assert.Equal(new object[] { 0, 7, true, 9, "Developer", "DEV", 3, "ambassador", 1, "camera.use", 1, "housekeeping.access", 1 }, packet.Writes);
     }
 }

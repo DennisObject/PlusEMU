@@ -85,7 +85,7 @@ public class SSOTicketEvent : IPacketEvent
             session.Send(new NavigatorSettingsComposer(session.GetHabbo().HomeRoom));
             session.Send(new FavouritesComposer(session.GetHabbo().FavoriteRooms));
             session.Send(new FigureSetIdsComposer(session.GetHabbo().Clothing.GetClothingParts));
-            session.Send(new UserRightsComposer(session.GetHabbo().Access));
+            session.Send(new UserRightsComposer(UserRightsSnapshot.Capture(session.GetHabbo().Access)));
             _clientAccessLists.Send(session.GetHabbo());
             session.Send(new AvailabilityStatusComposer());
             session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats.AchievementPoints));

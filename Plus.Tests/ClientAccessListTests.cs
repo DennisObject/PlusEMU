@@ -103,7 +103,7 @@ public sealed class ClientAccessListTests
         Assert.Equal(new object[] { 1, 0 }, styles.Writes);
         Assert.Equal(3, new RoomModel("ragged", 0, 0, 0, 0, "00\r0", 0, 0, false).TileSize);
         var models = new HabbiconTestSupport.RecordingPacket();
-        new CreatableRoomModelsComposer(Models().GetCreatableModels(UserAccess.Empty)).Compose(models);
+        new CreatableRoomModelsComposer(CreatableRoomModelSnapshot.Capture(Models().GetCreatableModels(UserAccess.Empty))).Compose(models);
         Assert.Equal(new object[] { 1, "model_a", 3, 2, 2, 0 }, models.Writes);
     }
 }

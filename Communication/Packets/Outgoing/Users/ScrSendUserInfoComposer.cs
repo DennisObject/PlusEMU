@@ -13,8 +13,8 @@ public class ScrSendUserInfoComposer : IServerPacket
     public uint MessageId => ServerPacketHeader.ScrSendUserInfoComposer;
     public ScrSendUserInfoComposer(UserAccess access, int responseType = InfoResponse)
     {
-        _snapshot = access.Capture();
-        _now = access.Now;
+        _snapshot = access.Capture(out var now);
+        _now = now.ToUnixTimeSeconds();
         _responseType = responseType;
     }
     public void Compose(IOutgoingPacket packet)

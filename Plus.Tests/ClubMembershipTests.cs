@@ -53,7 +53,7 @@ public class ClubMembershipTests
         Assert.Equal(0, ClubAccess.LevelFor(access));
         Assert.False(style.CanUse(access)); Assert.False(model.CanCreate(access)); Assert.False(item.CanPurchase(habbo));
         var rights = new HabbiconTestSupport.RecordingPacket();
-        new UserRightsComposer(access).Compose(rights);
+        new UserRightsComposer(UserRightsSnapshot.Capture(access)).Compose(rights);
         Assert.Equal(0, rights.Writes[0]);
     }
     [Fact]

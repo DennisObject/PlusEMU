@@ -13,7 +13,6 @@ public sealed class UserAccess
     private readonly object _sync = new();
     private Snapshot _snapshot;
     private ClubMembership _membership;
-    internal long Now => _clock.GetUtcNow().ToUnixTimeSeconds();
     public ClubMembership Membership => Current.Membership;
 
 
@@ -50,6 +49,11 @@ public sealed class UserAccess
     }
 
     internal Snapshot Capture() => Current;
+    internal Snapshot Capture(out DateTimeOffset now)
+    {
+        now = _clock.GetUtcNow();
+        return ResolveAt(now);
+    }
     public IReadOnlySet<string> Keys => Current.Keys;
     public IReadOnlyList<AccessRole> Roles => Current.Roles;
     public AccessRole? PrimaryRole => Current.PrimaryRole;
@@ -61,20 +65,18 @@ public sealed class UserAccess
     public int Limit(string key, int fallback = 0) => Current.Limits.GetValueOrDefault(key, fallback);
     public bool Outranks(UserAccess target) => Weight > target.Weight;
 
-    private Snapshot Current
+    private Snapshot Current => ResolveAt(_clock.GetUtcNow());
+
+    private Snapshot ResolveAt(DateTimeOffset now)
     {
-        get
+        var snapshot = Volatile.Read(ref _snapshot);
+        if (snapshot.NextExpiry is not { } expiry || now < expiry) return snapshot;
+        lock (_sync)
         {
-            var snapshot = Volatile.Read(ref _snapshot);
-            var now = _clock.GetUtcNow();
-            if (snapshot.NextExpiry is not { } expiry || now < expiry) return snapshot;
-            lock (_sync)
-            {
-                snapshot = _snapshot;
-                if (snapshot.NextExpiry is { } next && now >= next)
-                    Volatile.Write(ref _snapshot, snapshot = Compile(now));
-                return snapshot;
-            }
+            snapshot = _snapshot;
+            if (snapshot.NextExpiry is { } next && now >= next)
+                Volatile.Write(ref _snapshot, snapshot = Compile(now));
+            return snapshot;
         }
     }
 

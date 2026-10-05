@@ -176,7 +176,7 @@ public sealed partial class AccessControl : IAccessControl, IDisposable, IStarta
         var client = _clients.GetClientByUserId(userId);
         if (client?.GetHabbo() is not { AccessClosed: false } habbo) return;
         habbo.Access = access;
-        client.Send(new UserRightsComposer(access));
+        client.Send(new UserRightsComposer(UserRightsSnapshot.Capture(access)));
         AccessChanged?.Invoke(habbo);
         _refreshAt[userId] = access.NextExpiry ?? DateTimeOffset.MaxValue;
     }

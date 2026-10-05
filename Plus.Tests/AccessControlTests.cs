@@ -155,7 +155,7 @@ public sealed class AccessControlTests
         var role = Role(9, 90, ["*"], 7);
         var access = Access(role, new UserPermissionOverride("moderation.*", true));
         var packet = new RecordingPacket();
-        new UserRightsComposer(access).Compose(packet);
+        new UserRightsComposer(UserRightsSnapshot.Capture(access)).Compose(packet);
         Assert.Equal(new object[] { 0, 7, true, 9, "Role 9", "B9", 3, "ambassador", 1, "camera.use", 1, "housekeeping.roles.manage", 1 }, packet.Writes);
     }
 
