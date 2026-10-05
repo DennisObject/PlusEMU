@@ -139,5 +139,5 @@ public sealed partial class CatalogAdminService
         return onPage.Any(offer => offer.OfferId == row.Id) ? CatalogOfferIndex.ClashingRowIdBase + row.Id : row.Id;
     }
 
-    private static string CatalogType(CatalogPageRow page) => CatalogAdminTypes.FromMode(page.CatalogMode);
+    private static string CatalogType(CatalogPageRow page) => CatalogAdminTypes.Normal;
 }

@@ -3,23 +3,11 @@ using System.Text.Json.Serialization;
 
 namespace Plus.HabboHotel.Catalog.Admin;
 
-// Catalog type names of Octane's catalog studio. PlusEMU stores them as catalog_pages.catalog_mode.
 public static class CatalogAdminTypes
 {
     public const string Normal = "NORMAL";
-    public const string Builder = "BUILDER";
 
-    public static string FromMode(string? mode) => mode == CatalogModes.BuildersClub ? Builder : Normal;
-
-    public static string ToMode(string type) => type == Builder ? CatalogModes.BuildersClub : CatalogModes.Normal;
-
-    // Accepts the studio names and PlusEMU's own mode names; anything else (e.g. BOTH) is unsupported.
-    public static string? Parse(string? value) => value switch
-    {
-        Normal => Normal,
-        Builder or CatalogModes.BuildersClub => Builder,
-        _ => null
-    };
+    public static string? Parse(string? value) => value == Normal ? Normal : null;
 
     public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 }
@@ -60,8 +48,6 @@ public sealed class CatalogPageRow
     public string PageLayout { get; set; } = string.Empty;
     public string PageStrings1 { get; set; } = string.Empty;
     public string PageStrings2 { get; set; } = string.Empty;
-    public string CatalogMode { get; set; } = CatalogModes.Normal;
-
     public CatalogPageRow Copy() => (CatalogPageRow)MemberwiseClone();
 }
 

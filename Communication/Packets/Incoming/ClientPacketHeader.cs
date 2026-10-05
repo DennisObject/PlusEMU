@@ -349,9 +349,6 @@ public static class ClientPacketHeader
 
     //catalog
     //public const uint GetBonusRareInfoEvent =;
-    //public const uint BuildersClubQueryFurniCountEvent =;
-    //public const uint BuildersClubPlaceWallItemEvent =;
-    //public const uint BuildersClubPlaceRoomItemEvent =;
     //public const uint GetBundleDiscountRulesetEvent =;
     //public const uint GetCatalogPageExpirationEvent =;
     //public const uint GetCatalogPageWithEarliestExpiryEvent =;

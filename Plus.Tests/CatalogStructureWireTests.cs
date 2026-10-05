@@ -1,4 +1,7 @@
+using Plus.Communication.Packets.Incoming.Catalog;
 using Plus.Communication.Packets.Outgoing.Catalog;
+using Plus.Communication.Packets.Outgoing;
+using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.Users;
 using Xunit;
@@ -7,9 +10,34 @@ namespace Plus.Tests;
 
 public class CatalogStructureWireTests
 {
-    private static CatalogPage Page(int id, int parentId, string mode = CatalogModes.Normal, bool enabled = true, string? requiredPermission = null, params int[] offerIds)
+    [Fact]
+    public void UserPerksDoNotAdvertiseBuildersClub()
     {
-        var page = new CatalogPage { Id = id, ParentId = parentId, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3", CatalogMode = mode, RequiredPermission = requiredPermission };
+        var packet = new HabbiconTestSupport.RecordingPacket();
+
+        new UserPerksComposer().Compose(packet);
+
+        Assert.Equal(14, packet.Writes[0]);
+        Assert.DoesNotContain("BUILDER_AT_WORK", packet.Writes);
+    }
+
+    [Fact]
+    public async Task UnsupportedCatalogModeFallsBackToTheNormalIndex()
+    {
+        var pages = new[] { Page(1, -1) };
+        var catalog = CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, _) => method == "get_Pages" ? pages : throw new InvalidOperationException(method));
+        var (client, sent) = HabbiconTestSupport.Client(EditorTestSupport.Player());
+        var packet = HabbiconTestSupport.Incoming("BUILDERS_CLUB");
+
+        await new GetCatalogIndexEvent(catalog, CatalogSnapshotTestSupport.Snapshots()).Parse(client, packet);
+
+        Assert.False(packet.HasDataRemaining());
+        Assert.Equal([ServerPacketHeader.CatalogIndexComposer, ServerPacketHeader.CatalogItemDiscountComposer], sent.Select(value => value.Header));
+    }
+
+    private static CatalogPage Page(int id, int parentId, bool enabled = true, string? requiredPermission = null, params int[] offerIds)
+    {
+        var page = new CatalogPage { Id = id, ParentId = parentId, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3", RequiredPermission = requiredPermission };
         foreach (var offerId in offerIds)
             page.Items[offerId * 10] = new CatalogItem { Id = offerId * 10, OfferId = offerId, PageId = id };
         new CatalogOfferIndex().Build([page]);
@@ -23,11 +51,11 @@ public class CatalogStructureWireTests
         CatalogPage[] pages =
         [
             Page(1, -1), Page(2, 1, offerIds: 7), Page(3, 2), Page(4, 3, enabled: false), Page(5, 4),
-            Page(6, 1, requiredPermission: EditorTestSupport.RestrictedPagePermission), Page(8, -1, CatalogModes.BuildersClub)
+            Page(6, 1, requiredPermission: EditorTestSupport.RestrictedPagePermission)
         ];
         var packet = new HabbiconTestSupport.RecordingPacket();
 
-        new CatalogIndexComposer(CatalogSnapshotTestSupport.Snapshots().CaptureIndex(client.GetHabbo(), pages, CatalogModes.Normal)).Compose(packet);
+        new CatalogIndexComposer(CatalogSnapshotTestSupport.Snapshots().CaptureIndex(client.GetHabbo(), pages)).Compose(packet);
 
         Assert.Equal(new List<object>
         {
@@ -38,22 +66,6 @@ public class CatalogStructureWireTests
             true, 4, -1, 3, "page4", "Page 4", 0, 1,
             true, 5, 5, 4, "page5", "Page 5", 0, 0,
             false, "NORMAL"
-        }, packet.Writes);
-    }
-
-    [Fact]
-    public void BuildersClubIndexOnlyHoldsBuildersClubPages()
-    {
-        var (client, _) = HabbiconTestSupport.Client(EditorTestSupport.Player());
-        var packet = new HabbiconTestSupport.RecordingPacket();
-
-        new CatalogIndexComposer(CatalogSnapshotTestSupport.Snapshots().CaptureIndex(client.GetHabbo(), [Page(1, -1), Page(8, -1, CatalogModes.BuildersClub)], CatalogModes.FromClient("BUILDERS_CLUB"))).Compose(packet);
-
-        Assert.Equal(new List<object>
-        {
-            true, 0, -1, -1, "root", "", 0, 1,
-            true, 8, 8, -1, "page8", "Page 8", 0, 0,
-            false, "BUILDERS_CLUB"
         }, packet.Writes);
     }
 
@@ -128,14 +140,12 @@ public class CatalogStructureWireTests
         var user = EditorTestSupport.Player();
         var staff = Page(1, -1, requiredPermission: EditorTestSupport.RestrictedPagePermission);
         var normal = Page(2, -1);
-        var builders = Page(3, -1, CatalogModes.BuildersClub);
         staff.Items = new() { [10] = Item(10, 6, 1) };
         normal.Items = new() { [20] = Item(20, 6, 2) };
-        builders.Items = new() { [30] = Item(30, 6, 3) };
         var index = new CatalogOfferIndex();
-        index.Build([staff, normal, builders]);
+        index.Build([staff, normal]);
 
-        Assert.All(new[] { staff, normal, builders }, page => Assert.True(page.Offers.ContainsKey(6)));
+        Assert.All(new[] { staff, normal }, page => Assert.True(page.Offers.ContainsKey(6)));
         Assert.True(index.TryGet(6, user, out var found, out var item));
         Assert.Equal(2, found.Id);
         Assert.Equal(20, item.Id);

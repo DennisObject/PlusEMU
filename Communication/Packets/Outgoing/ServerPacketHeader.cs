@@ -236,7 +236,6 @@ public static class ServerPacketHeader
     public const uint FavouritesComposer = 3267; //604
     public const uint TalentLevelUpComposer = 3150; //3538
 
-    public const uint BcBorrowedItemsComposer = 1043; //3424
     public const uint UserTagsComposer = 940; //774
     public const uint CampaignComposer = 2394; //3234
     public const uint RoomEventComposer = 1587; //2274
@@ -269,7 +268,6 @@ public static class ServerPacketHeader
     public const uint UpdateFreezeLivesComposer = 2998; //1395
     public const uint UnbanUserFromRoomComposer = 3710; //3472
     public const uint PetTrainingPanelComposer = 546; //1067
-    public const uint BuildersClubMembershipComposer = 820; //2357
     public const uint FlatAccessDeniedComposer = 797; //1582
     public const uint LatencyPingResponseComposer = 942; //3014
     public const uint HabboUserBadgesComposer = 3269; //1123

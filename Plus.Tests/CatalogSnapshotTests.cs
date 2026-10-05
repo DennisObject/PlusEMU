@@ -14,14 +14,14 @@ namespace Plus.Tests;
 public class CatalogSnapshotTests
 {
     // SHA-256 of the pre-migration catalog payloads for every case in GoldenPayloads.
-    private const string BaselineSha256 = "d12a6bc3e0e4237ff7f63ed95c6a626a34163fec71cb5ae640ce5f98115b7dee";
+    private const string BaselineSha256 = "40e4801d2c8e602ed6588d0b34c65a56eb3d6fdfd08be067795067a70543bb68";
 
     [Fact]
     public void ComposedCatalogPayloadsMatchPreMigrationBaseline()
     {
         var lines = GoldenPayloads();
 
-        Assert.Equal(18, lines.Count);
+        Assert.Equal(17, lines.Count);
         Assert.Equal(BaselineSha256, Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Concat(lines.Select(line => line + "\n"))))));
     }
 
@@ -147,9 +147,8 @@ public class CatalogSnapshotTests
         Add("page-frontpage", new CatalogPageComposer(snapshots.CapturePage(front, -1)));
 
         var client = HabbiconTestSupport.Client(EditorTestSupport.Player()).Client;
-        var pages = new List<CatalogPage> { Tree(1, -1), Tree(2, 1, offerIds: 7), Tree(3, 2), Tree(4, 3, enabled: false), Tree(8, -1, CatalogModes.BuildersClub) };
-        Add("index", new CatalogIndexComposer(snapshots.CaptureIndex(client.GetHabbo(), pages, CatalogModes.Normal)));
-        Add("index-bc", new CatalogIndexComposer(snapshots.CaptureIndex(client.GetHabbo(), pages, CatalogModes.FromClient("BUILDERS_CLUB"))));
+        var pages = new List<CatalogPage> { Tree(1, -1), Tree(2, 1, offerIds: 7), Tree(3, 2), Tree(4, 3, enabled: false) };
+        Add("index", new CatalogIndexComposer(snapshots.CaptureIndex(client.GetHabbo(), pages)));
 
         var gift1 = new CatalogItem { Id = 70, OfferId = 0, CatalogName = "club_a", Amount = 1, ClubLevel = 2, PreviewImage = "p.png", CostCredits = 99, IsLimited = true, Definition = Def(InteractionType.None, "i", sprite: 11, gift: true, type: ItemType.Floor) };
         gift1.WireOfferId = 700;
@@ -192,14 +191,14 @@ public class CatalogSnapshotTests
         InteractionType = interaction, ProductType = productType, ItemName = name, SpriteId = sprite, BehaviourData = behaviour, AllowGift = gift, Type = type,
     };
 
-    private static CatalogPage Page(int id, string layout, string mode = CatalogModes.Normal) => new()
+    private static CatalogPage Page(int id, string layout) => new()
     {
-        Id = id, ParentId = -1, Enabled = true, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = layout, CatalogMode = mode,
+        Id = id, ParentId = -1, Enabled = true, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = layout,
     };
 
-    private static CatalogPage Tree(int id, int parent, string mode = CatalogModes.Normal, bool enabled = true, params int[] offerIds)
+    private static CatalogPage Tree(int id, int parent, bool enabled = true, params int[] offerIds)
     {
-        var page = new CatalogPage { Id = id, ParentId = parent, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3", CatalogMode = mode };
+        var page = new CatalogPage { Id = id, ParentId = parent, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3" };
         foreach (var offerId in offerIds) page.Items[offerId * 10] = new CatalogItem { Id = offerId * 10, OfferId = offerId, PageId = id, Definition = Def(InteractionType.None, "i") };
         new CatalogOfferIndex().Build([page]);
         return page;

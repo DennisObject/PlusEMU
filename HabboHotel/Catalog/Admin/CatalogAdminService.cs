@@ -117,7 +117,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
             Reject(CatalogAdminValidation.Page(draft, null, actor.Access, store.Page));
             var row = CatalogAdminMapping.Apply(draft, null);
             if (draft.OrderNum < 0)
-                row.OrderNum = store.NextPageOrder(row.ParentId, row.CatalogMode);
+                row.OrderNum = store.NextPageOrder(row.ParentId);
             row.Id = store.InsertPage(row);
             var created = CatalogAdminMapping.ToPage(row);
             return new(new(PageEntity, created.CatalogType, row.Id, "CREATE", null, created), created, "Page created");
@@ -150,8 +150,8 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
         Mutate(actor, envelope, "movePage", PageEntity, pageId, store =>
         {
             var existing = RequirePage(store, pageId, actor);
-            Reject(CatalogAdminValidation.Move(pageId, parentId, CatalogAdminTypes.FromMode(existing.CatalogMode), actor.Access, store.Page));
-            var siblings = store.Children(parentId, existing.CatalogMode).Where(page => page.Id != pageId).ToList();
+            Reject(CatalogAdminValidation.Move(pageId, parentId, CatalogAdminTypes.Normal, actor.Access, store.Page));
+            var siblings = store.Children(parentId).Where(page => page.Id != pageId).ToList();
             var moved = existing.Copy();
             moved.ParentId = parentId;
             siblings.Insert(Math.Clamp(index, 0, siblings.Count), moved);
@@ -164,9 +164,9 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
             foreach (var (page, order) in renumbered)
                 store.SetPageOrder(page.Id, order);
             var before = new CatalogAdminMove(CatalogAdminMapping.ToPage(existing),
-                renumbered.Select(entry => new CatalogAdminOrder(entry.Page.Id, entry.Page.ParentId, entry.Page.CatalogMode, entry.Page.OrderNum)).ToList());
+                renumbered.Select(entry => new CatalogAdminOrder(entry.Page.Id, entry.Page.ParentId, CatalogAdminTypes.Normal, entry.Page.OrderNum)).ToList());
             var after = new CatalogAdminMove(CatalogAdminMapping.ToPage(moved),
-                renumbered.Select(entry => new CatalogAdminOrder(entry.Page.Id, entry.Page.ParentId, entry.Page.CatalogMode, entry.Order)).ToList());
+                renumbered.Select(entry => new CatalogAdminOrder(entry.Page.Id, entry.Page.ParentId, CatalogAdminTypes.Normal, entry.Order)).ToList());
             return new(new(PageEntity, after.Page.CatalogType, pageId, "MOVE", before, after), after.Page, "Page moved");
         });
 

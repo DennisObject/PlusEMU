@@ -10,7 +10,7 @@ public interface ICatalogSnapshotService
 {
     CatalogOfferSnapshot CaptureOffer(CatalogItem item);
     CatalogPageSnapshot CapturePage(CatalogPage page, int preselectOfferId);
-    CatalogIndexSnapshot CaptureIndex(Habbo habbo, ICollection<CatalogPage> pages, string mode);
+    CatalogIndexSnapshot CaptureIndex(Habbo habbo, ICollection<CatalogPage> pages);
     ClubGiftsSnapshot CaptureClubGifts(ClubGiftInfo info);
 }
 
@@ -35,14 +35,14 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
             .Select(promotion => new CatalogPromotionSnapshot(promotion.Position, promotion.Title, promotion.Image, promotion.ItemType,
                 promotion.OfferId, promotion.ProductCode, promotion.PageLink, promotion.SecondsLeft(now)))
             .ToImmutableArray();
-        return new CatalogPageSnapshot(page.Id, page.CatalogMode, page.Layout, page.PageStringsList1.ToImmutableArray(), page.PageStringsList2.ToImmutableArray(),
+        return new CatalogPageSnapshot(page.Id, CatalogModes.Normal, page.Layout, page.PageStringsList1.ToImmutableArray(), page.PageStringsList2.ToImmutableArray(),
             offers, preselectOfferId, promotions);
     }
 
-    public CatalogIndexSnapshot CaptureIndex(Habbo habbo, ICollection<CatalogPage> pages, string mode)
+    public CatalogIndexSnapshot CaptureIndex(Habbo habbo, ICollection<CatalogPage> pages)
     {
-        var children = pages.Where(page => page.CatalogMode == mode && page.IsAvailableTo(habbo)).ToLookup(page => page.ParentId);
-        return new CatalogIndexSnapshot(mode, children[-1].Select(page => IndexNode(children, page, 1)).ToImmutableArray());
+        var children = pages.Where(page => page.IsAvailableTo(habbo)).ToLookup(page => page.ParentId);
+        return new CatalogIndexSnapshot(CatalogModes.Normal, children[-1].Select(page => IndexNode(children, page, 1)).ToImmutableArray());
     }
 
     public ClubGiftsSnapshot CaptureClubGifts(ClubGiftInfo info) => new(

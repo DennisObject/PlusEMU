@@ -1,6 +1,5 @@
 ﻿using Plus.HabboHotel.Subscriptions;
 ﻿using Plus.Communication.Attributes;
-using Plus.Communication.Packets.Outgoing.BuildersClub;
 using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Inventory.Achievements;
 using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
@@ -90,7 +89,6 @@ public class SSOTicketEvent : IPacketEvent
             _clientAccessLists.Send(session.GetHabbo());
             session.Send(new AvailabilityStatusComposer());
             session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats.AchievementPoints));
-            session.Send(new BuildersClubMembershipComposer());
             session.Send(new CfhTopicsInitComposer(_moderationManager.UserActionPresets));
             _achievementShowcase.ShowDefinitions(session);
             session.Send(new SoundSettingsComposer(session.GetHabbo().ClientVolume, session.GetHabbo().ChatPreference, session.GetHabbo().AllowMessengerInvites,

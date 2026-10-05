@@ -17,14 +17,14 @@ public class CatalogAdminWireTests
     public void SavePageReadsEveryFieldAndTheDraftEnvelope()
     {
         var packet = EditorTestSupport.Incoming(42, "Guild shop", "guild_shop", "guild_furni", 145, "catalog.pages.guild", true, false, 9, 7,
-            "headline", "teaser", "details", "BUILDERS_CLUB", "BUILDER", "text one", 3, true, "special", "text two", "teaser text", 123, "1;2;3",
+            "headline", "teaser", "details", "NORMAL", "NORMAL", "text one", 3, true, "special", "text two", "teaser text", 123, "1;2;3",
             12, 7, "token-123", "Updated page: Guild shop", "save-page-1");
 
         var (page, envelope) = CatalogAdminPacketReader.SavePage(packet);
 
-        Assert.Equal(new CatalogAdminPage("BUILDER", 42, 7, "guild_shop", "Guild shop", "guild_furni", 3, 145, "catalog.pages.guild", 9, true, false, true, "BUILDER",
+        Assert.Equal(new CatalogAdminPage("NORMAL", 42, 7, "guild_shop", "Guild shop", "guild_furni", 3, 145, "catalog.pages.guild", 9, true, false, true, "NORMAL",
             "headline", "teaser", "special", "text one", "text two", "details", "teaser text", 123, "1;2;3"), page);
-        Assert.Equal(new CatalogAdminEnvelope("BUILDER", 12, 7, "token-123", "Updated page: Guild shop", "save-page-1"), envelope);
+        Assert.Equal(new CatalogAdminEnvelope("NORMAL", 12, 7, "token-123", "Updated page: Guild shop", "save-page-1"), envelope);
         Assert.False(packet.HasDataRemaining());
     }
 
@@ -96,13 +96,13 @@ public class CatalogAdminWireTests
     [Fact]
     public void SmartSaveFailureCarriesCodeAndFieldErrorsWithoutEntity()
     {
-        var outcome = new CatalogAdminOutcome(false, "VALIDATION_FAILED", "caption: Required.", 3, "OFFER", "BUILDER", 0, null, null,
+        var outcome = new CatalogAdminOutcome(false, "VALIDATION_FAILED", "caption: Required.", 3, "OFFER", "NORMAL", 0, null, null,
             new Dictionary<string, string> { ["catalogName"] = "Required." });
         var packet = new HabbiconTestSupport.RecordingPacket();
 
         new CatalogAdminResultComposer(false, outcome.Message, new("create-offer-1", "createOffer", outcome, "editor")).Compose(packet);
 
-        Assert.Equal(new object[] { false, "caption: Required.", 1, "create-offer-1", "createOffer", "VALIDATION_FAILED", 1, 3, "OFFER", "BUILDER", 0,
+        Assert.Equal(new object[] { false, "caption: Required.", 1, "create-offer-1", "createOffer", "VALIDATION_FAILED", 1, 3, "OFFER", "NORMAL", 0,
             "", "null", "{\"catalogName\":\"Required.\"}", 0 }, packet.Writes);
     }
 

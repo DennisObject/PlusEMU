@@ -24,7 +24,6 @@ public class CatalogPage
 
     public string Layout { get; set; } = string.Empty;
 
-    public string CatalogMode { get; set; } = CatalogModes.Normal;
 
     public string? PageStrings1 { get; set; }
 

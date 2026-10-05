@@ -17,8 +17,8 @@ internal class GetCatalogModeEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        var mode = packet.ReadString();
-        session.Send(new CatalogIndexComposer(_snapshots.CaptureIndex(session.GetHabbo(), _catalog.Pages, CatalogModes.FromClient(mode))));
+        packet.ReadString();
+        session.Send(new CatalogIndexComposer(_snapshots.CaptureIndex(session.GetHabbo(), _catalog.Pages)));
         return Task.CompletedTask;
     }
 }

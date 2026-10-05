@@ -12,7 +12,7 @@ public static class CatalogAdminMapping
     {
         var images = Split(row.PageStrings1);
         var texts = Split(row.PageStrings2);
-        var type = CatalogAdminTypes.FromMode(row.CatalogMode);
+        const string type = CatalogAdminTypes.Normal;
         return new(type, row.Id, row.ParentId, row.PageLink, row.Caption, row.PageLayout, 1, row.IconImage, row.RequiredPermission ?? string.Empty,
             row.OrderNum, row.Visible, row.Enabled, row.RequiredClubLevel > 0, type,
             At(images, 0), At(images, 1), At(images, 2), At(texts, 0), At(texts, 1), At(texts, 2), At(texts, 3), 0, string.Empty);
@@ -30,7 +30,6 @@ public static class CatalogAdminMapping
         row.RequiredClubLevel = page.ClubOnly ? 2 : 0;
         row.RequiredPermission = string.IsNullOrEmpty(page.RequiredPermission) ? null : page.RequiredPermission;
         row.PageLayout = page.PageLayout;
-        row.CatalogMode = CatalogAdminTypes.ToMode(CatalogAdminTypes.Parse(page.CatalogMode) ?? CatalogAdminTypes.Normal);
         row.PageStrings1 = SetStrings(row.PageStrings1, page.PageHeadline, page.PageTeaser, page.PageSpecial);
         row.PageStrings2 = SetStrings(row.PageStrings2, page.PageText1, page.PageText2, page.PageTextDetails, page.PageTextTeaser);
         if (page.OrderNum >= 0)
