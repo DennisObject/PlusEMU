@@ -30,7 +30,7 @@ public class FurniEditorImporterTests
     {
         var handler = new FakeHandler(answer);
         var configuration = new FurniEditorConfiguration { ImportUrl = url, ImportMaxBytes = maxBytes };
-        return (new FurniEditorTextImporter(Options.Create(configuration), handler), handler);
+        return (new FurniEditorTextImporter(Options.Create(configuration), TimeProvider.System, handler), handler);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class FurniEditorImporterTests
     public async Task OneDeadlineCoversTheBodySoAStalledImportCannotBlockTheNextOne()
     {
         var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new StalledStream()) });
-        var importer = new FurniEditorTextImporter(Options.Create(new FurniEditorConfiguration { ImportUrl = "https://www.habbo.com/f", ImportTimeoutSeconds = 1 }), handler);
+        var importer = new FurniEditorTextImporter(Options.Create(new FurniEditorConfiguration { ImportUrl = "https://www.habbo.com/f", ImportTimeoutSeconds = 1 }), TimeProvider.System, handler);
         var clock = System.Diagnostics.Stopwatch.StartNew();
 
         var results = await Task.WhenAll(importer.Find("a"), importer.Find("b"));

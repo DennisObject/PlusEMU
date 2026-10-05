@@ -33,7 +33,7 @@ public class EditorPermissionTests
         var refresher = DispatchProxy.Create<ICatalogCacheRefresher, Recorder>();
         return (new FurniEditorService(EditorTestSupport.UntouchableDatabase(), new FurnidataStore(Options.Create(new FurniEditorConfiguration())),
             DispatchProxy.Create<IFurniEditorTextImporter, Recorder>(), refresher, DispatchProxy.Create<IGameClientManager, Recorder>(),
-            NullLogger<FurniEditorService>.Instance), (Recorder)(object)refresher);
+            NullLogger<FurniEditorService>.Instance, TimeProvider.System), (Recorder)(object)refresher);
     }
 
     public static TheoryData<Habbo> Denied => new()
@@ -86,8 +86,8 @@ public class EditorPermissionTests
     public async Task ImportWithoutAnImportUrlSaysItIsNotConfigured()
     {
         var service = new FurniEditorService(EditorTestSupport.UntouchableDatabase(), new FurnidataStore(Options.Create(new FurniEditorConfiguration())),
-            new FurniEditorTextImporter(Options.Create(new FurniEditorConfiguration())), DispatchProxy.Create<ICatalogCacheRefresher, Recorder>(),
-            DispatchProxy.Create<IGameClientManager, Recorder>(), NullLogger<FurniEditorService>.Instance);
+            new FurniEditorTextImporter(Options.Create(new FurniEditorConfiguration()), TimeProvider.System), DispatchProxy.Create<ICatalogCacheRefresher, Recorder>(),
+            DispatchProxy.Create<IGameClientManager, Recorder>(), NullLogger<FurniEditorService>.Instance, TimeProvider.System);
         var refused = await Assert.ThrowsAsync<FurniEditorRejected>(() => service.ImportText(EditorTestSupport.Staff(), 41));
         Assert.Equal(("Import from Habbo is not configured", 41u), (refused.Message, refused.ItemId));
     }

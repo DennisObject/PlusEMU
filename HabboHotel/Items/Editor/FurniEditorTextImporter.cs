@@ -24,15 +24,17 @@ public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposa
 
     private readonly FurniEditorConfiguration _configuration;
     private readonly HttpClient _http;
+    private readonly TimeProvider _clock;
     private readonly SemaphoreSlim _fetch = new(1, 1);
-    private (DateTime LoadedAt, Dictionary<string, (string Name, string Description)> Texts)? _cache;
+    private (DateTimeOffset LoadedAt, Dictionary<string, (string Name, string Description)> Texts)? _cache;
 
-    public FurniEditorTextImporter(IOptions<FurniEditorConfiguration> configuration)
-        : this(configuration, new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false, ConnectCallback = ConnectPublic }) { }
+    public FurniEditorTextImporter(IOptions<FurniEditorConfiguration> configuration, TimeProvider clock)
+        : this(configuration, clock, new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false, ConnectCallback = ConnectPublic }) { }
 
-    internal FurniEditorTextImporter(IOptions<FurniEditorConfiguration> configuration, HttpMessageHandler handler)
+    internal FurniEditorTextImporter(IOptions<FurniEditorConfiguration> configuration, TimeProvider clock, HttpMessageHandler handler)
     {
         _configuration = configuration.Value;
+        _clock = clock;
         _http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
     }
 
@@ -113,13 +115,13 @@ public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposa
         }
         try
         {
-            if (_cache is { } cached && DateTime.UtcNow - cached.LoadedAt < CacheLifetime)
+            if (_cache is { } cached && _clock.GetUtcNow() - cached.LoadedAt < CacheLifetime)
                 return cached.Texts;
             var body = await Download(url, deadline.Token);
             if (body == null)
                 return null;
             var texts = Parse(body);
-            _cache = (DateTime.UtcNow, texts);
+            _cache = (_clock.GetUtcNow(), texts);
             return texts;
         }
         catch (Exception e) when (e is HttpRequestException or OperationCanceledException or JsonException or IOException)
