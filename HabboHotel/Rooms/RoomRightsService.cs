@@ -11,6 +11,7 @@ namespace Plus.HabboHotel.Rooms;
 
 public interface IRoomRightsService
 {
+    void Show(GameClient session);
     void Assign(Room room, GameClient session, int userId);
     void Remove(Room room, GameClient session, IReadOnlyList<int> userIds);
     void RemoveAll(Room room, GameClient session);
@@ -48,6 +49,20 @@ public sealed class RoomRightsStore(IDatabase database) : IRoomRightsStore
 
 public sealed class RoomRightsService(IRoomRightsStore store, ILanguageManager languageManager, ICacheManager cacheManager) : IRoomRightsService
 {
+    public void Show(GameClient session)
+    {
+        var habbo = session.GetHabbo();
+        var room = habbo.CurrentRoom;
+        if (!habbo.InRoom || room == null || !room.CheckRights(session))
+            return;
+        var holders = room.UsersWithRights.Select(cacheManager.GenerateUser)
+            .Select(user => user == null
+                ? new RoomRightHolder(0, "Unknown Error")
+                : new RoomRightHolder(user.Id, user.Username))
+            .ToArray();
+        session.Send(new RoomRightsListComposer(room.Id, holders));
+    }
+
     public void Assign(Room room, GameClient session, int userId)
     {
         if (!room.CheckRights(session, true)) return;
