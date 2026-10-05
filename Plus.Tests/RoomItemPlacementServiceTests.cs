@@ -14,6 +14,98 @@ namespace Plus.Tests;
 public partial class PlacedFurniRoomTests
 {
     [Fact]
+    public async Task WallMoveAndStickyPlacementHandlersFullyDecodeBeforeDelegating()
+    {
+        var calls = new List<string>();
+        var service = Proxy<IRoomItemPlacementService>((method, args) =>
+        {
+            Assert.Same(_room, args[0]);
+            Assert.Same(_client, args[1]);
+            Assert.Equal(30u, args[2]);
+            Assert.Equal(":w=1,1 l=0,0 l", args[3]);
+            calls.Add(method);
+            return null;
+        });
+        var move = ClientPacket(30, ":w=1,1 l=0,0 l");
+        await new MoveWallItemEvent(service).Parse(_room, _client, move);
+        var sticky = ClientPacket(30, ":w=1,1 l=0,0 l");
+        await new Plus.Communication.Packets.Incoming.Rooms.Furni.Stickys.AddStickyNoteEvent(service)
+            .Parse(_room, _client, sticky);
+        Assert.False(move.HasDataRemaining());
+        Assert.False(sticky.HasDataRemaining());
+        Assert.Equal(new[] { "MoveWall", "PlaceSticky" }, calls);
+        Assert.Empty(_client.Sent);
+    }
+
+    [Fact]
+    public void WallMoveUpdatesTheCapturedPositionAndMalformedInputKeepsIt()
+    {
+        Viewer();
+        var item = Furni(30, InteractionType.None, WiredBoxType.None, ItemType.Wall);
+        item.WallCoordinates = ":w=1,1 l=0,0 l";
+        Assert.True(_room.GetRoomItemHandler().SetWallItem(_client, item));
+        _client.Sent.Clear();
+        var service = PlacementService(() => throw new InvalidOperationException("Wall move must not progress placement rewards"));
+        service.MoveWall(_room, _client, 30, ":w=2,2 l=1,1 r");
+        Assert.Equal(":w=2,2 l=1,1 r", item.WallCoordinates);
+        Assert.Equal(ServerPacketHeader.ItemUpdateComposer, Assert.Single(_client.Sent));
+        _client.Sent.Clear();
+        service.MoveWall(_room, _client, 30, "malformed");
+        Assert.Equal(":w=2,2 l=1,1 r", item.WallCoordinates);
+        Assert.Empty(_client.Sent);
+    }
+
+    [Fact]
+    public void InvalidStickyLocationKeepsInventoryAndDoesNotPublish()
+    {
+        var item = new InventoryItem { Id = 30, Definition = Furni(30, InteractionType.Postit, WiredBoxType.None, ItemType.Wall).Definition };
+        Inventory(item);
+        PlacementService(() => throw new InvalidOperationException("Sticky placement must not progress ordinary placement rewards"))
+            .PlaceSticky(_room, _client, 30, "malformed");
+        Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+        Assert.Empty(_room.GetRoomItemHandler().GetWallAndFloor);
+        Assert.Empty(_client.Sent);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void StickyWallPersistencePrecedesConsumptionAndFailureKeepsInventory(bool fail)
+    {
+        var inventory = new InventoryItem { Id = 30, Definition = Furni(30, InteractionType.Postit, WiredBoxType.None, ItemType.Wall).Definition };
+        Inventory(inventory);
+        var writes = 0;
+        var store = Proxy<IRoomItemStore>((method, args) =>
+        {
+            Assert.Equal("PlaceWall", method);
+            Assert.Equal(30u, args[0]);
+            Assert.Same(inventory, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+            Assert.Null(_room.GetRoomItemHandler().GetItem(30));
+            Assert.Empty(_client.Sent);
+            writes++;
+            if (fail) throw new InvalidOperationException("wall persistence failed");
+            return null;
+        });
+        typeof(Room).GetField("_roomItemHandling", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .SetValue(_room, new RoomItemHandling(_room, store));
+        PlacementService(() => throw new InvalidOperationException("Sticky placement must not reward ordinary placement"))
+            .PlaceSticky(_room, _client, 30, ":w=1,1 l=0,0 l");
+        Assert.Equal(1, writes);
+        if (fail)
+        {
+            Assert.Same(inventory, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+            Assert.Null(_room.GetRoomItemHandler().GetItem(30));
+            Assert.Empty(_client.Sent);
+        }
+        else
+        {
+            Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
+            Assert.NotNull(_room.GetRoomItemHandler().GetItem(30));
+            Assert.Equal(ServerPacketHeader.FurniListRemoveComposer, Assert.Single(_client.Sent));
+        }
+    }
+
+    [Fact]
     public async Task PlacementHandlerReadsOnlyThePlacementStringAndDelegates()
     {
         var service = Proxy<IRoomItemPlacementService>((method, args) =>

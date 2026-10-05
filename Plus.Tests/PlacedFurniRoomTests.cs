@@ -168,7 +168,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         var sticky = Furni(31, InteractionType.Postit, WiredBoxType.None, ItemType.Wall);
         Inventory(new InventoryItem { Id = 31, Definition = sticky.Definition });
 
-        await new AddStickyNoteEvent().Parse(_room, _client, ClientPacket(31, ":w=1,1 l=0,0 l"));
+        await new AddStickyNoteEvent(PlacementService(() => { })).Parse(_room, _client, ClientPacket(31, ":w=1,1 l=0,0 l"));
 
         var placed = _room.GetRoomItemHandler().GetItem(31);
         Assert.Equal((7, "owner", 7u), (placed.UserId, placed.Username, placed.OwnerId));

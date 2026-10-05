@@ -15,6 +15,8 @@ public interface IRoomItemPlacementService
 {
     void Place(Room room, GameClient session, string rawData);
     void Move(Room room, GameClient session, uint itemId, int x, int y, int rotation);
+    void MoveWall(Room room, GameClient session, uint itemId, string location);
+    void PlaceSticky(Room room, GameClient session, uint itemId, string location);
 }
 
 public sealed class RoomItemPlacementService(ISettingsManager settings, IAchievementManager achievements,
@@ -144,6 +146,51 @@ public sealed class RoomItemPlacementService(ISettingsManager settings, IAchieve
                 session.Send(new RoomNotificationComposer("furni_placement_error", "message", "${room.error.cant_set_item}"));
         }
     }
+    public void MoveWall(Room room, GameClient session, uint itemId, string location)
+    {
+        if (!ReferenceEquals(session.GetHabbo().CurrentRoom, room) || !room.CheckRights(session))
+            return;
+        var item = room.GetRoomItemHandler().GetItem(itemId);
+        if (item == null || item.IsTemporary)
+            return;
+        try
+        {
+            item.WallCoordinates = room.GetRoomItemHandler().WallPositionCheck($":{location.Split(':')[1]}");
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Invalid wall move for {ItemId} in {RoomId}", itemId, room.Id);
+            return;
+        }
+        room.GetRoomItemHandler().UpdateItem(item);
+        room.SendPacket(new ItemUpdateComposer(RoomItemSnapshot.Capture(item)));
+    }
+
+    public void PlaceSticky(Room room, GameClient session, uint itemId, string location)
+    {
+        var habbo = session.GetHabbo();
+        if (!ReferenceEquals(habbo.CurrentRoom, room) || !room.CheckRights(session))
+            return;
+        var item = habbo.Inventory.Furniture.GetItem(itemId);
+        if (item == null)
+            return;
+        try
+        {
+            var position = room.GetRoomItemHandler().WallPositionCheck($":{location.Split(':')[1]}");
+            var placed = item.ToRoomObject(habbo);
+            placed.WallCoordinates = position;
+            if (room.GetRoomItemHandler().SetWallItem(session, placed))
+            {
+                habbo.Inventory.Furniture.RemoveItem(itemId);
+                session.Send(new FurniListRemoveComposer(itemId));
+            }
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Unable to place sticky {ItemId} for {UserId} in {RoomId}", itemId, habbo.Id, room.Id);
+        }
+    }
+
     public void Move(Room room, GameClient session, uint itemId, int x, int y, int rotation)
     {
         if (itemId == 0)
