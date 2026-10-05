@@ -189,7 +189,7 @@ public class RewardTrackTests
 
     private static RewardTrack ChatTrack()
     {
-        var track = new RewardTrack("introduction", "blue", 0, 0, 0, true, 1.5, 25, 0, 25);
+        var track = new RewardTrack("introduction", "blue", 0, null, null, true, 1.5, 25, 0, 25);
         track.AddTask(new RewardTrackTask("chat_with_users", RewardTrackActions.ChatWithSomeone, "", false, 1, new[]
         {
             new RewardTrackLevel(5, 10, false),

@@ -74,13 +74,13 @@ public sealed class RewardTrack
     private readonly List<RewardTrackTask> _tasks = new();
     private readonly List<RewardTrackPrize> _prizes = new();
 
-    public RewardTrack(string id, string theme, int sortOrder, int startsAt, int endsAt, bool hasPremium, double premiumTaskPointsBoost, int premiumInstantPoints, int premiumCostDiamonds, int premiumCostCredits)
+    public RewardTrack(string id, string theme, int sortOrder, DateTimeOffset? startsAt, DateTimeOffset? endsAt, bool hasPremium, double premiumTaskPointsBoost, int premiumInstantPoints, int premiumCostDiamonds, int premiumCostCredits)
     {
         Id = id;
         Theme = string.IsNullOrWhiteSpace(theme) ? "blue" : theme;
         SortOrder = sortOrder;
-        StartsAt = startsAt;
-        EndsAt = endsAt;
+        StartsAt = startsAt?.ToUniversalTime();
+        EndsAt = endsAt?.ToUniversalTime();
         HasPremium = hasPremium;
         PremiumTaskPointsBoost = premiumTaskPointsBoost;
         PremiumInstantPoints = premiumInstantPoints;
@@ -91,8 +91,9 @@ public sealed class RewardTrack
     public string Id { get; }
     public string Theme { get; }
     public int SortOrder { get; }
-    public int StartsAt { get; }
-    public int EndsAt { get; }
+    // A missing bound is unbounded on that side. The start is inclusive and the end is exclusive.
+    public DateTimeOffset? StartsAt { get; }
+    public DateTimeOffset? EndsAt { get; }
     public bool HasPremium { get; }
     public double PremiumTaskPointsBoost { get; }
     public int PremiumInstantPoints { get; }
@@ -101,7 +102,8 @@ public sealed class RewardTrack
     public IReadOnlyList<RewardTrackTask> Tasks => _tasks;
     public IReadOnlyList<RewardTrackPrize> Prizes => _prizes;
 
-    public bool IsActive(int now) => (StartsAt <= 0 || StartsAt <= now) && (EndsAt <= 0 || now < EndsAt);
+    public bool IsActiveAt(DateTimeOffset capturedUtcNow) =>
+        (StartsAt is not { } startsAt || startsAt <= capturedUtcNow) && (EndsAt is not { } endsAt || capturedUtcNow < endsAt);
 
     public void AddTask(RewardTrackTask task)
     {

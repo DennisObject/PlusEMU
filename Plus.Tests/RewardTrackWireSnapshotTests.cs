@@ -56,7 +56,7 @@ public class RewardTrackWireSnapshotTests
     [Fact]
     public void TrackWithoutPremiumIsPremiumCompleteOnceItIsNotPremium()
     {
-        var track = new RewardTrack("plain", "blue", 1, 0, 0, false, 0, 0, 0, 0);
+        var track = new RewardTrack("plain", "blue", 1, null, null, false, 0, 0, 0, 0);
         track.AddPrize(new RewardTrackPrize("p1", 5, 4, "badge", "ACH_1", 1, false, 1));
         var state = new UserRewardTrackState("plain", 0, false);
 
@@ -119,7 +119,7 @@ public class RewardTrackWireSnapshotTests
 
     private static RewardTrack Track()
     {
-        var track = new RewardTrack("track", "blue", 1, 0, 0, true, 1.5, 25, 0, 25);
+        var track = new RewardTrack("track", "blue", 1, null, null, true, 1.5, 25, 0, 25);
         track.AddTask(new RewardTrackTask("t1", "chat", "", false, 1, [new RewardTrackLevel(10, 20, false), new RewardTrackLevel(5, 10, false)]));
         track.AddPrize(new RewardTrackPrize("p1", 50, 4, "badge", "ACH_1", 1, false, 1));
         track.AddPrize(new RewardTrackPrize("p2", 200, 4, "badge", "ACH_2", 1, true, 2));

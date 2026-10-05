@@ -24972,8 +24972,8 @@ CREATE TABLE IF NOT EXISTS reward_tracks (
     id VARCHAR(64) NOT NULL,
     theme VARCHAR(64) NOT NULL DEFAULT 'blue',
     sort_order INT NOT NULL DEFAULT 0,
-    starts_at INT NOT NULL DEFAULT 0,
-    ends_at INT NOT NULL DEFAULT 0,
+    starts_at DATETIME(6) NULL DEFAULT NULL,
+    ends_at DATETIME(6) NULL DEFAULT NULL,
     has_premium TINYINT(1) NOT NULL DEFAULT 0,
     premium_task_points_boost DOUBLE NOT NULL DEFAULT 0,
     premium_instant_points INT NOT NULL DEFAULT 0,
@@ -25036,14 +25036,14 @@ CREATE TABLE IF NOT EXISTS users_reward_track_prizes (
     user_id INT NOT NULL,
     track_id VARCHAR(64) NOT NULL,
     prize_id VARCHAR(64) NOT NULL,
-    claimed_at INT NOT NULL DEFAULT 0,
+    claimed_at DATETIME(6) NULL DEFAULT NULL,
     PRIMARY KEY (user_id, track_id, prize_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO reward_tracks
 (id, theme, sort_order, starts_at, ends_at, has_premium, premium_task_points_boost,
  premium_instant_points, premium_cost_diamonds, premium_cost_credits, enabled)
-VALUES ('introduction', 'blue', 0, 0, 0, 1, 1.5, 25, 0, 25, 1);
+VALUES ('introduction', 'blue', 0, NULL, NULL, 1, 1.5, 25, 0, 25, 1);
 
 INSERT IGNORE INTO reward_track_tasks (track_id, id, action_type, parameter, premium, sort_order) VALUES
 ('introduction', 'chat_with_users', 'chat_with_someone', '', 0, 1),
