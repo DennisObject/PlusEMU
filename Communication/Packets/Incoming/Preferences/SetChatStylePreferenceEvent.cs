@@ -1,19 +1,13 @@
-﻿using Plus.HabboHotel.Rooms.Chat.Styles;
-using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users;
 
 namespace Plus.Communication.Packets.Incoming.Preferences;
 
-internal class SetChatStylePreferenceEvent(IChatStyleManager styles) : IPacketEvent
+internal class SetChatStylePreferenceEvent(IUserProfileService profiles) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        var chatBubbleId = packet.ReadInt();
-
-        if (chatBubbleId != 0 && (!styles.TryGetStyle(chatBubbleId, out var style) || !style.CanUse(session.GetHabbo().Access)))
-            return Task.CompletedTask;
-        session.GetHabbo().CustomBubbleId = chatBubbleId;
-        session.GetHabbo().SaveChatBubble(chatBubbleId.ToString());
-
-        return Task.CompletedTask;
+        var value = packet.ReadInt();
+        return profiles.SetChatStylePreference(session, value);
     }
 }

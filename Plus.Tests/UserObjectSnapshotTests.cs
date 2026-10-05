@@ -34,7 +34,7 @@ public sealed class UserObjectSnapshotTests
     {
         var user = new Habbo { Id = 7, HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
         var (session, sent) = HabbiconTestSupport.Client(user);
-        var service = new UserProfileService(null!, null!, null!, null!, null!, TimeProvider.System);
+        var service = new UserProfileService(null!, null!, null!, null!, null!, TimeProvider.System, null!);
         await new InfoRetrieveEvent(service).Parse(session, HabbiconTestSupport.Incoming());
         Assert.Equal([ServerPacketHeader.UserObjectComposer, ServerPacketHeader.UserPerksComposer], sent.Select(packet => packet.Header));
     }

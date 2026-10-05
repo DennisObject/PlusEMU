@@ -2,6 +2,7 @@ using System.Data;
 using Dapper;
 using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Moderation;
+using Plus.Communication.Packets.Outgoing.Sound;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Core.FigureData;
@@ -11,6 +12,8 @@ using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms.Chat.Filter;
+using Plus.HabboHotel.Rooms.Chat.Styles;
+using Plus.HabboHotel.Users.Messenger.FriendBar;
 using Plus.HabboHotel.Subscriptions;
 using Plus.Utilities;
 
@@ -30,6 +33,8 @@ public interface IUserProfileService
     void UpdateFigure(GameClient session, FigureUpdateRequest request);
     void ChangeMotto(GameClient session, string motto);
     void SetFocusPreference(GameClient session, bool enabled);
+    Task SetChatStylePreference(GameClient session, int bubbleId);
+    void SetFriendBarState(GameClient session, int state);
 }
 
 public sealed class UserProfileService(
@@ -37,7 +42,7 @@ public sealed class UserProfileService(
     IAchievementManager achievementManager,
     IQuestManager questManager,
     IWordFilterManager wordFilterManager,
-    IDatabase database, TimeProvider clock) : IUserProfileService
+    IDatabase database, TimeProvider clock, IChatStyleManager styles) : IUserProfileService
 {
     public void ShowUserObject(GameClient session)
     {
@@ -156,6 +161,27 @@ public sealed class UserProfileService(
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
         if (user?.GetClient() == null) return;
         room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
+    }
+
+    public async Task SetChatStylePreference(GameClient session, int bubbleId)
+    {
+        var habbo = session.GetHabbo();
+        if (bubbleId != 0 && (!styles.TryGetStyle(bubbleId, out var style) || !style.CanUse(habbo.Access)))
+            return;
+        using var connection = database.Connection();
+        var updated = await connection.ExecuteAsync("UPDATE users SET bubble_id=@bubbleId WHERE id=@userId LIMIT 1",
+            new { bubbleId, userId = habbo.Id });
+        if (updated != 1)
+            throw new DBConcurrencyException($"User {habbo.Id} no longer exists.");
+        habbo.CustomBubbleId = bubbleId;
+    }
+
+    public void SetFriendBarState(GameClient session, int state)
+    {
+        var habbo = session.GetHabbo();
+        habbo.FriendbarState = FriendBarStateUtility.GetEnum(state);
+        session.Send(new SoundSettingsComposer(habbo.ClientVolume, habbo.ChatPreference, habbo.AllowMessengerInvites,
+            habbo.FocusPreference, FriendBarStateUtility.GetInt(habbo.FriendbarState)));
     }
 
     public void SetFocusPreference(GameClient session, bool enabled)
