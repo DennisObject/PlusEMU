@@ -76,7 +76,7 @@ public sealed class UserPreferencePersistenceTests
             Persistence = CatalogSnapshotTestSupport.Proxy<IUserPersistenceService>((_, _) => null) };
         var (session, sent) = HabbiconTestSupport.Client(user);
         user.Save();
-        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!, null!, null!);
 
         await profiles.SetChatStylePreference(session, 0);
 
@@ -115,7 +115,7 @@ public sealed class UserPreferencePersistenceTests
                 Persistence = new UserPersistenceService(database, TimeProvider.System) };
             var (session, sent) = HabbiconTestSupport.Client(user);
             var profiles = new UserProfileService(null!, null!, null!, null!, database, TimeProvider.System,
-                new Styles(new ChatStyle(5, "Public", "")));
+                new Styles(new ChatStyle(5, "Public", "")), null!, null!);
             using var enteredWrite = new ManualResetEventSlim();
             using var releaseWrite = new ManualResetEventSlim();
             using var startedSave = new ManualResetEventSlim();
