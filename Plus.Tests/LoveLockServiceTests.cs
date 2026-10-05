@@ -27,7 +27,7 @@ public sealed class LoveLockServiceTests
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 1, CurrentRoom = room });
         var store = new RecordingStore();
 
-        new LoveLockService(store).Confirm(client, new(item.Id, true));
+        new LoveLockService(store, TimeProvider.System).Confirm(client, new(item.Id, true));
 
         Assert.Equal(0, item.InteractingUser);
         Assert.Equal(0, item.InteractingUser2);
@@ -46,7 +46,7 @@ public sealed class LoveLockServiceTests
         var item = AddItem(room, 1, 2);
         var store = new RecordingStore { Fail = true };
 
-        Assert.Throws<InvalidOperationException>(() => new LoveLockService(store).Confirm(twoClient, new(item.Id, true)));
+        Assert.Throws<InvalidOperationException>(() => new LoveLockService(store, TimeProvider.System).Confirm(twoClient, new(item.Id, true)));
 
         Assert.Equal(1, item.InteractingUser);
         Assert.Equal(2, item.InteractingUser2);
@@ -70,7 +70,7 @@ public sealed class LoveLockServiceTests
             Assert.Equal("", item.ExtraData.Serialize());
             Assert.Empty(twoSent);
         });
-        var service = new LoveLockService(store);
+        var service = new LoveLockService(store, new FixedTimeProvider(new DateTimeOffset(2040, 12, 31, 23, 0, 0, TimeSpan.Zero)));
 
         service.Confirm(oneClient, new(item.Id, true));
 
@@ -86,6 +86,8 @@ public sealed class LoveLockServiceTests
         Assert.Equal(0, item.InteractingUser);
         Assert.Equal(0, item.InteractingUser2);
         Assert.Contains(((char)5).ToString(), item.ExtraData.Serialize());
+        Assert.EndsWith("31/12/2040", item.ExtraData.Serialize());
+        Assert.Equal(item.ExtraData.Serialize(), store.Data);
         Assert.Equal(0, one.LlPartner);
         Assert.Equal(0, two.LlPartner);
         Assert.True(one.CanWalk);
@@ -103,12 +105,36 @@ public sealed class LoveLockServiceTests
         var item = AddItem(room, 1, 2, ownerId: 99);
         var store = new RecordingStore();
 
-        new LoveLockService(store).Confirm(oneClient, new(item.Id, true));
+        new LoveLockService(store, TimeProvider.System).Confirm(oneClient, new(item.Id, true));
 
         Assert.Equal(1, item.InteractingUser);
         Assert.Equal(2, item.InteractingUser2);
         Assert.Equal(0, store.Writes);
         Assert.Empty(sent);
+    }
+
+    [Fact]
+    public void NonParticipantCannotCancelActiveLoveLock()
+    {
+        var room = TestRoom();
+        var (oneClient, oneSent) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "one", CurrentRoom = room });
+        var (twoClient, twoSent) = HabbiconTestSupport.Client(new Habbo { Id = 2, Username = "two", CurrentRoom = room });
+        var (intruderClient, intruderSent) = HabbiconTestSupport.Client(new Habbo { Id = 3, Username = "intruder", CurrentRoom = room });
+        var one = AddUser(room, oneClient, 1); var two = AddUser(room, twoClient, 2); AddUser(room, intruderClient, 3);
+        one.LlPartner = 2; two.LlPartner = 1;
+        var item = AddItem(room, 1, 2);
+        var store = new RecordingStore();
+
+        new LoveLockService(store, TimeProvider.System).Confirm(intruderClient, new(item.Id, false));
+
+        Assert.Equal(1, item.InteractingUser);
+        Assert.Equal(2, item.InteractingUser2);
+        Assert.Equal(2, one.LlPartner);
+        Assert.Equal(1, two.LlPartner);
+        Assert.Equal(0, store.Writes);
+        Assert.Empty(oneSent);
+        Assert.Empty(twoSent);
+        Assert.Empty(intruderSent);
     }
 
     private static Room TestRoom()
@@ -139,6 +165,12 @@ public sealed class LoveLockServiceTests
     {
         public bool Fail { get; init; }
         public int Writes { get; private set; }
-        public void Lock(uint itemId, uint roomId, string data) { beforeLock?.Invoke(); Writes++; if (Fail) throw new InvalidOperationException("forced failure"); }
+        public string? Data { get; private set; }
+        public void Lock(uint itemId, uint roomId, string data) { beforeLock?.Invoke(); Writes++; Data = data; if (Fail) throw new InvalidOperationException("forced failure"); }
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }
