@@ -48,7 +48,7 @@ public class QuestManager : IQuestManager, IStartable
         {
             _quests.Add(quest.Id, new(quest.Id, quest.Category, quest.Number, (QuestType)quest.GoalType,
                 quest.GoalData, quest.Name, quest.Reward, quest.DataBit, quest.RewardType,
-                AsUtc(quest.UnlocksAt), AsUtc(quest.LocksAt)));
+                quest.UnlocksAt, quest.LocksAt));
             AddToCounter(quest.Category);
         }
         _logger.LogInformation("Quest Manager -> LOADED");
@@ -65,13 +65,10 @@ public class QuestManager : IQuestManager, IStartable
         public int Reward { get; set; }
         public string DataBit { get; set; } = string.Empty;
         public int RewardType { get; set; }
-        public DateTime? UnlocksAt { get; set; }
-        public DateTime? LocksAt { get; set; }
+        public DateTimeOffset? UnlocksAt { get; set; }
+        public DateTimeOffset? LocksAt { get; set; }
     }
 
-    private static DateTimeOffset? AsUtc(DateTime? value) => value is { } date
-        ? new DateTimeOffset(DateTime.SpecifyKind(date, DateTimeKind.Utc))
-        : null;
 
     private void AddToCounter(string category)
     {

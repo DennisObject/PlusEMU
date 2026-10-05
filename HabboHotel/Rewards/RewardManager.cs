@@ -40,7 +40,7 @@ public class RewardManager : IRewardManager, IStartable
         _rewards.Clear();
         _rewardLogs.Clear();
         foreach (var reward in rewards)
-            _rewards.TryAdd(reward.Id, new(AsUtc(reward.Start), AsUtc(reward.End), reward.Type, reward.Data, reward.Message));
+            _rewards.TryAdd(reward.Id, new(reward.Start, reward.End, reward.Type, reward.Data, reward.Message));
         foreach (var log in logs)
         {
             var userLogs = _rewardLogs.GetOrAdd(log.UserId, _ => new());
@@ -52,16 +52,13 @@ public class RewardManager : IRewardManager, IStartable
     private sealed class RewardRow
     {
         public int Id { get; set; }
-        public DateTime? Start { get; set; }
-        public DateTime? End { get; set; }
+        public DateTimeOffset? Start { get; set; }
+        public DateTimeOffset? End { get; set; }
         public string Type { get; set; } = string.Empty;
         public string Data { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
     }
 
-    private static DateTimeOffset? AsUtc(DateTime? value) => value is { } date
-        ? new DateTimeOffset(DateTime.SpecifyKind(date, DateTimeKind.Utc))
-        : null;
 
     private bool HasReward(int id, int rewardId)
     {

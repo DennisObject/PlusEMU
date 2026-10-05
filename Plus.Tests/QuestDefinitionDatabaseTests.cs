@@ -35,7 +35,7 @@ public sealed class QuestDefinitionDatabaseTests
                 "28_UseUtcQuestDefinitionTimes.sql")));
 
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(
-                Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!) { Database = schema }.ConnectionString);
+                Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString);
             var manager = new QuestManager(database, null!, TestLogging.For<QuestManager>(), null!);
             await manager.Start();
 

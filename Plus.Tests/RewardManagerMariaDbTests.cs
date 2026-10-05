@@ -21,7 +21,7 @@ public sealed class RewardManagerMariaDbTests
         server.Execute($"CREATE DATABASE `{schema}`");
         try
         {
-            var database = new RawDatabase(new MySqlConnectionStringBuilder(connectionString) { Database = schema }.ConnectionString);
+            var database = new RawDatabase(new MySqlConnectionStringBuilder(connectionString) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString);
             var boundary = new DateTimeOffset(2040, 1, 1, 0, 0, 0, TimeSpan.Zero).AddTicks(1234560);
             using (var connection = database.Connection())
             {
