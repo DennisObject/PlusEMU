@@ -17,6 +17,7 @@ using Xunit;
 
 namespace Plus.Tests;
 
+[Collection("Trade game fixture")]
 public sealed class TradeConfirmationServiceTests
 {
     [Fact]
@@ -229,7 +230,7 @@ public sealed class TradeConfirmationServiceTests
         Assert.False(alice.RoomUser.HasStatus("trd"));
     }
 
-    private sealed record Actor(Habbo Habbo, GameClient Session, List<(uint Header, byte[] Payload)> Packets, RoomUser RoomUser)
+    internal sealed record Actor(Habbo Habbo, GameClient Session, List<(uint Header, byte[] Payload)> Packets, RoomUser RoomUser)
     {
         public List<uint> Sent => Packets.Select(packet => packet.Header).ToList();
     }
@@ -242,9 +243,12 @@ public sealed class TradeConfirmationServiceTests
         public void Modify(GameClient session) => calls.Add("Modify");
         public void Cancel(GameClient session) => calls.Add("Cancel");
         public void CancelConfirmation(GameClient session) => calls.Add("CancelConfirmation");
+        public void OfferItem(GameClient session, uint itemId) => calls.Add("OfferItem");
+        public void OfferItems(GameClient session, int amount, uint itemId) => calls.Add("OfferItems");
+        public void RemoveItem(GameClient session, uint itemId) => calls.Add("RemoveItem");
     }
 
-    private sealed class RecordingTradeStore : ITradeStore
+    internal sealed class RecordingTradeStore : ITradeStore
     {
         public List<(int, int, string, string)> Logged { get; } = [];
         public Exception? LogFailure { get; set; }
@@ -264,7 +268,7 @@ public sealed class TradeConfirmationServiceTests
         public bool IsLocked(Habbo habbo) => false;
     }
 
-    private sealed class TradeFixture : IDisposable
+    internal sealed class TradeFixture : IDisposable
     {
         private static readonly FieldInfo GameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
         private readonly object? _originalGame;

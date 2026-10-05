@@ -14,6 +14,9 @@ public interface ITradeRequestService
     void Modify(GameClient session);
     void Cancel(GameClient session);
     void CancelConfirmation(GameClient session);
+    void OfferItem(GameClient session, uint itemId);
+    void OfferItems(GameClient session, int amount, uint itemId);
+    void RemoveItem(GameClient session, uint itemId);
 }
 
 public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITradeRequestService
@@ -156,6 +159,80 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
         if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade)) return;
         if (!TryGetTradeUser(trade, roomUser, out _)) return;
         trade.EndTrade(habbo.Id);
+    }
+
+    public void OfferItem(GameClient session, uint itemId)
+    {
+        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) return;
+        if (!roomUser.IsTrading)
+        {
+            session.Send(new TradingClosedComposer(habbo.Id));
+            return;
+        }
+        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade))
+        {
+            session.Send(new TradingClosedComposer(habbo.Id));
+            return;
+        }
+        var item = habbo.Inventory.Furniture.GetItem(itemId);
+        if (item == null) return;
+        if (!trade.CanChange) return;
+        if (!TryGetTradeUser(trade, roomUser, out var tradeUser)) return;
+        if (tradeUser.OfferedItems.ContainsKey(item.Id)) return;
+        trade.RemoveAccepted();
+        if (tradeUser.OfferedItems.Count <= 499)
+        {
+            var totalLtDs = tradeUser.OfferedItems.Count(x => x.Value.UniqueNumber > 0);
+            if (totalLtDs < 9)
+                tradeUser.OfferedItems.Add(item.Id, item);
+        }
+        trade.SendPacket(new TradingUpdateComposer(TradeOfferSnapshot.Capture(trade)));
+    }
+
+    public void OfferItems(GameClient session, int amount, uint itemId)
+    {
+        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) return;
+        if (!roomUser.IsTrading)
+        {
+            session.Send(new TradingClosedComposer(habbo.Id));
+            return;
+        }
+        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade))
+        {
+            session.Send(new TradingClosedComposer(habbo.Id));
+            return;
+        }
+        var item = habbo.Inventory.Furniture.GetItem(itemId);
+        if (item == null) return;
+        if (!trade.CanChange) return;
+        if (!TryGetTradeUser(trade, roomUser, out var tradeUser)) return;
+        var allItems = habbo.Inventory.Furniture.AllItems.Where(x => x.Definition.Id == item.Definition.Id).Take(amount).ToList();
+        foreach (var offered in allItems)
+        {
+            // A duplicate stops the batch without a packet, after earlier items in the batch were already added.
+            if (tradeUser.OfferedItems.ContainsKey(offered.Id)) return;
+            trade.RemoveAccepted();
+            tradeUser.OfferedItems.Add(offered.Id, offered);
+        }
+        trade.SendPacket(new TradingUpdateComposer(TradeOfferSnapshot.Capture(trade)));
+    }
+
+    public void RemoveItem(GameClient session, uint itemId)
+    {
+        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) return;
+        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade))
+        {
+            session.Send(new TradingClosedComposer(habbo.Id));
+            return;
+        }
+        var item = habbo.Inventory.Furniture.GetItem(itemId);
+        if (item == null) return;
+        if (!trade.CanChange) return;
+        if (!TryGetTradeUser(trade, roomUser, out var tradeUser)) return;
+        if (!tradeUser.OfferedItems.ContainsKey(item.Id)) return;
+        trade.RemoveAccepted();
+        tradeUser.OfferedItems.Remove(item.Id);
+        trade.SendPacket(new TradingUpdateComposer(TradeOfferSnapshot.Capture(trade)));
     }
 
     private static bool TryGetRoomUser(GameClient session, out Room room, out RoomUser roomUser, out Habbo habbo)
