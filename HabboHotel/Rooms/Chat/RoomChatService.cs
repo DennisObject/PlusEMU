@@ -66,7 +66,7 @@ public sealed class RoomChatService(
             session.Send(new MutedComposer(habbo.TimeMuted));
             return;
         }
-        if (!habbo.Access.Can(PermissionKeys.RoomIgnoreMute) && room.CheckMute(session))
+        if (!habbo.Access.Can(PermissionKeys.RoomIgnoreMute) && room.CheckMute(session, now))
         {
             session.SendWhisper("Oops, you're currently muted.");
             return;
@@ -116,7 +116,7 @@ public sealed class RoomChatService(
         if (room == null)
             return;
         var now = clock.GetUtcNow();
-        if (!habbo.Access.Can(PermissionKeys.ModerationTool) && room.CheckMute(session))
+        if (!habbo.Access.Can(PermissionKeys.ModerationTool) && room.CheckMute(session, now))
         {
             session.SendWhisper("Oops, you're currently muted.");
             return;

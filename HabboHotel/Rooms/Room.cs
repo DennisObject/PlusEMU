@@ -48,7 +48,7 @@ public class Room
     public bool MDisposed;
     public MoodlightData MoodlightData;
 
-    public Dictionary<int, double> MutedUsers;
+    public Dictionary<int, DateTimeOffset> MutedUsers;
 
     public Task ProcessTask;
     private bool _usesV2Movement;
@@ -509,11 +509,11 @@ public class Room
     }
 
 
-    public bool CheckMute(GameClient session)
+    public bool CheckMute(GameClient session, DateTimeOffset now)
     {
-        if (MutedUsers.ContainsKey(session.GetHabbo().Id))
+        if (MutedUsers.TryGetValue(session.GetHabbo().Id, out var mutedUntil))
         {
-            if (MutedUsers[session.GetHabbo().Id] < UnixTimestamp.GetNow())
+            if (now >= mutedUntil)
                 MutedUsers.Remove(session.GetHabbo().Id);
             else
                 return true;

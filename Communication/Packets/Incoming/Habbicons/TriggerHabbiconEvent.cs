@@ -19,7 +19,7 @@ public sealed class TriggerHabbiconEvent(IHabbiconService service, TimeProvider 
         var now = clock.GetUtcNow();
         if (Environment.TickCount64 - habbo.LastHabbiconTrigger < 1000) return Task.CompletedTask;
         if ((habbo.FloodUntil is { } floodUntil && now < floodUntil) || habbo.TimeMuted > 0 ||
-            (!habbo.Access.Can(PermissionKeys.RoomIgnoreMute) && room.CheckMute(session))) return Task.CompletedTask;
+            (!habbo.Access.Can(PermissionKeys.RoomIgnoreMute) && room.CheckMute(session, now))) return Task.CompletedTask;
         if (!habbo.Access.Can(PermissionKeys.ModerationTool) && user.IncrementAndCheckFlood(now, out var muteTime))
         {
             session.Send(new FloodControlComposer(muteTime));

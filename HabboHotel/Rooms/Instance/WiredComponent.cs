@@ -23,11 +23,13 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly WiredStackEngine _engine;
     private readonly WiredTargetResolver _targets;
     private readonly ILogger _logger;
+    private readonly TimeProvider _clock;
 
-    public WiredComponent(Room instance, ILogger logger) //, RoomItem Items)
+    public WiredComponent(Room instance, ILogger logger, TimeProvider clock) //, RoomItem Items)
     {
         _room = instance;
         _logger = logger;
+        _clock = clock;
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
             box => ReferenceEquals(_room.GetRoomItemHandler().GetItem(box.Item.Id), box.Item),
@@ -246,7 +248,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
             case WiredBoxType.EffectKickUser:
                 return new KickUserBox(_room, item);
             case WiredBoxType.EffectMuteTriggerer:
-                return new MuteTriggererBox(_room, item);
+                return new MuteTriggererBox(_room, item, _clock);
             case WiredBoxType.EffectGiveReward:
                 return new GiveRewardBox(_room, item);
             case WiredBoxType.EffectMatchPosition:

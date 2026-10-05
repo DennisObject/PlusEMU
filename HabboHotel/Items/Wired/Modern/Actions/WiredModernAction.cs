@@ -8,7 +8,6 @@ using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Rooms.Games.Teams;
-using Plus.Utilities;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
@@ -20,6 +19,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     private readonly WiredRoomLog _roomLog;
     private readonly WiredDirectionalActions _directions = new();
     private readonly ILogger _logger;
+    private readonly TimeProvider _clock;
     public static readonly IReadOnlySet<string> OtherNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "wf_act_control_clock", "wf_act_adjust_clock", "wf_act_reset_timers", "wf_act_call_stacks", "wf_act_neg_call_stacks",
@@ -30,12 +30,14 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     public static bool Supports(string name) => WiredTemporaryFurnitureActions.Supports(name) || WiredMovementActions.Names.Contains(name) || OtherNames.Contains(name) || WiredBotActions.Names.Contains(name);
     public bool IsNegative => Descriptor.CanonicalName is "wf_act_neg_call_stacks" or "wf_act_neg_send_signal" or "wf_act_neg_log";
     public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
-        Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog, ILogger logger) : base(room, item, descriptor)
+        Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog, ILogger logger,
+        TimeProvider clock) : base(room, item, descriptor)
     {
         if (!Supports(descriptor.CanonicalName)) throw new ArgumentException("Unknown action.", nameof(descriptor));
         _clocks = clocks; _publish = publish; _movement = new(walkTransition);
         _roomLog = roomLog;
         _logger = logger;
+        _clock = clock;
     }
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
@@ -156,13 +158,16 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                         score => _publish(score with { Actor = user }));
                 return changed;
             case "wf_act_kick_user": case "wf_act_mute_triggerer":
+                DateTimeOffset mutedUntil = default;
+                var now = name == "wf_act_mute_triggerer" ? _clock.GetUtcNow() : default;
+                if (name == "wf_act_mute_triggerer" && !RoomMuteDeadline.TryCreate(now, Param(config, 0), out mutedUntil)) return false;
                 foreach (var user in Users(context, config, "users").Where(user => !user.IsBot))
                 {
                     var client = user.GetClient(); var player = client?.GetHabbo();
                     if (player == null || client == null || player.Id == context.Room.OwnerId || player.Access.Can(PermissionKeys.ModerationTool)) continue;
                     if (config.Text.Length > 0) client.Send(new WiredChatComposer(user.VirtualId, FormatLegacyText(context, user, config.Text), 34, -1, true));
                     if (name == "wf_act_kick_user") context.Room.GetRoomUserManager().RemoveUserFromRoom(client, true, true);
-                    else context.Room.MutedUsers[player.Id] = UnixTimestamp.GetNow() + Param(config, 0) * 60;
+                    else context.Room.MutedUsers[player.Id] = mutedUntil;
                     changed = true;
                 }
                 return changed;

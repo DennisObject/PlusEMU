@@ -27,7 +27,7 @@ public sealed class WiredRuntimeFactoryTests
     [Fact]
     public void RegistryProbeReportsOnlyConcreteFactorySupport()
     {
-        var facade = new WiredComponent(Room(), TestLogging.Logger);
+        var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System);
         var boxes = WiredBoxRegistry.All.OrderBy(x => x.CanonicalName).Select((descriptor, index) =>
         {
             var item = new Item { Id = (uint)index + 1, Definition = new() { InteractionName = descriptor.CanonicalName } };
@@ -66,7 +66,7 @@ public sealed class WiredRuntimeFactoryTests
     [InlineData("wf_act_teleport_to")]
     public void DetachedPromotionCandidateAcceptsDescriptorOverride(string name)
     {
-        var facade = new WiredComponent(Room(), TestLogging.Logger);
+        var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System);
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
         var definition = new ItemDefinition { ItemName = "legacy_custom_name" };
         var candidate = facade.CreateConfiguredBox(new() { Id = 1, Definition = definition }, descriptor);
@@ -87,7 +87,7 @@ public sealed class WiredRuntimeFactoryTests
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handler)!;
         var item = new Item { Id = 10, Definition = new() { ItemName = "legacy_custom_name", WiredType = type } };
         floor[item.Id] = item;
-        var facade = new WiredComponent(room, TestLogging.Logger);
+        var facade = new WiredComponent(room, TestLogging.Logger, TimeProvider.System);
         var config = new WiredConfiguration { Text = text, IntParams = Enumerable.Repeat(0, count).ToImmutableArray() };
         var store = new SidecarStore(name, config);
         typeof(WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(facade, store);
@@ -111,7 +111,7 @@ public sealed class WiredRuntimeFactoryTests
     [Fact]
     public void CustomCommandCannotBePromotedToGenericSpeech()
     {
-        var facade = new WiredComponent(Room(), TestLogging.Logger);
+        var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System);
         Assert.True(WiredBoxRegistry.TryGet("wf_trg_says_something", out var descriptor));
         var item = new Item { Id = 1, Definition = new() { WiredType = WiredBoxType.TriggerUserSaysCommand } };
         var legacy = facade.GenerateNewBox(item);
@@ -127,7 +127,7 @@ public sealed class WiredRuntimeFactoryTests
     public void UnsavedLoadedDefinitionFirstPublishesOnlyAfterDurability(string name, string text, int first, int second)
     {
         var room = Room();
-        var facade = new WiredComponent(room, TestLogging.Logger);
+        var facade = new WiredComponent(room, TestLogging.Logger, TimeProvider.System);
         var item = new Item { Id = 10, Definition = new() { InteractionName = name } };
         var box = Assert.IsType<WiredVariableDefinitionBox>(WiredBoxLoading.Select(null, facade.CreateConfiguredBox(item), null));
         Assert.False(box.HasPersistedConfiguration);

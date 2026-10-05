@@ -60,7 +60,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance));
         Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System));
         TestRoomUserSnapshots.Install(_room);
-        var wired = new WiredComponent(_room, TestLogging.Logger);
+        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System);
         typeof(WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, new EmptyConfigurationStore());
         Set("_wiredComponent", wired);
         _room.GetGameMap().GenerateMaps();

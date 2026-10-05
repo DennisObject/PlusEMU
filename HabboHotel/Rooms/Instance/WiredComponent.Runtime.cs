@@ -61,7 +61,7 @@ public partial class WiredComponent
         }
         else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName))
         {
-            box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event), DispatchWalkTransition, _roomLog, _logger);
+            box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event), DispatchWalkTransition, _roomLog, _logger, _clock);
             defaults = WiredActionConfiguration.Defaults(descriptor.CanonicalName);
         }
         else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || WiredVariableMetadataBox.Supports(descriptor.CanonicalName)
