@@ -106,8 +106,8 @@ public sealed class RoomDecorationServiceTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 9; room.OwnerName = owner; room.Type = "private"; room.Wallpaper = "old"; room.UsersWithRights = [];
-        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room));
-        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = username == owner ? 1 : 2, Username = username, CurrentRoom = room });
         return (room, client, sent);
     }
@@ -120,7 +120,7 @@ public sealed class RoomDecorationServiceTests
     private static InventoryComponent InventoryWith(InventoryItem item) => new() { Furniture = new FurnitureInventoryComponent([item], []) };
 
     private static T Proxy<T>() where T : class => DispatchProxy.Create<T, EmptyProxy>();
-    private sealed class EmptyProxy : DispatchProxy { protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => targetMethod?.ReturnType == typeof(bool) ? false : null; }
+    public class EmptyProxy : DispatchProxy { protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => targetMethod?.ReturnType == typeof(bool) ? false : null; }
 
     private static IIncomingPacket Packet(params object[] values)
     {
