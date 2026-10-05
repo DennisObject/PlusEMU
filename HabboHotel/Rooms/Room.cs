@@ -39,6 +39,7 @@ public class Room
     private RoomItemHandling _roomItemHandling;
 
     private RoomUserManager _roomUserManager;
+    private TimeProvider _interactionClock;
     private IRoomUserSnapshotService _userSnapshots;
     private Soccer _soccer;
 
@@ -92,7 +93,7 @@ public class Room
     }
 
     internal void SetRuntime(Gamemap gamemap, RoomItemHandling items, RoomUserManager users,
-        FilterComponent filter, WiredComponent wired, IRoomUserSnapshotService userSnapshots)
+        FilterComponent filter, WiredComponent wired, IRoomUserSnapshotService userSnapshots, TimeProvider interactionClock)
     {
         IsLagging = 0;
         Unloaded = false;
@@ -106,6 +107,7 @@ public class Room
         _filterComponent = filter;
         _wiredComponent = wired;
         _userSnapshots = userSnapshots;
+        _interactionClock = interactionClock;
         LastRegeneration = DateTime.Now;
     }
 
@@ -114,6 +116,8 @@ public class Room
 
     internal ILogger<RoomNavigation> NavigationLogger => _navigationLogger;
     internal ILogger WiredLogger => _wiredLogger;
+    internal TimeProvider InteractionClock => _interactionClock
+        ?? throw new InvalidOperationException("The room interaction clock has not been initialized.");
 
     public uint Id { get => Data.Id; set => Data.Id = value; }
     public string Name { get => Data.Name; set => Data.Name = value; }

@@ -47,6 +47,9 @@ public partial class PlacedFurniRoomTests : IDisposable
     private readonly Room _room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
     private readonly TestClient _client = new();
     private readonly IDatabase _database;
+    private readonly InteractionTimeProvider _interactionClock = new(
+        new DateTimeOffset(2040, 2, 3, 4, 5, 6, TimeSpan.Zero),
+        TimeZoneInfo.CreateCustomTimeZone("interaction-plus-nine", TimeSpan.FromHours(9), "test", "test"));
 
     public PlacedFurniRoomTests()
     {
@@ -56,6 +59,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         _room.OwnerId = 7;
         _room.OwnerName = "owner";
         _room.Type = "private";
+        Set("_interactionClock", _interactionClock);
         Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false), TestLogging.Navigation));
         Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance));
         Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System));
@@ -228,6 +232,14 @@ public partial class PlacedFurniRoomTests : IDisposable
 
     private void Set(string field, object value) =>
         typeof(Room).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_room, value);
+
+    private sealed class InteractionTimeProvider(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = now;
+        public int Calls { get; set; }
+        public override TimeZoneInfo LocalTimeZone => zone;
+        public override DateTimeOffset GetUtcNow() { Calls++; return Now; }
+    }
 
     private static T Proxy<T>(Func<string, object?[], object?> call) where T : class
     {

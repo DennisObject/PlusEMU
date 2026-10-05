@@ -142,6 +142,7 @@ public class Item
 
     /// TODO @80O: Cleanup shit below
     private Room? _room;
+    private TimeProvider? _interactionClock;
     private bool _updateNeeded;
     [Obsolete]
     public int BaseItem;
@@ -369,7 +370,7 @@ public class Item
                 case InteractionType.Gate:
                     return new InteractorGate();
                 case InteractionType.Teleport:
-                    return new InteractorTeleport();
+                    return new InteractorTeleport(InteractionClock());
                 case InteractionType.Hopper:
                     return new InteractorHopper();
                 case InteractionType.Bottle:
@@ -381,7 +382,7 @@ public class Item
                 case InteractionType.LoveShuffler:
                     return new InteractorLoveShuffler();
                 case InteractionType.OneWayGate:
-                    return new InteractorOneWayGate();
+                    return new InteractorOneWayGate(InteractionClock());
                 case InteractionType.Alert:
                     return new InteractorAlert();
                 case InteractionType.VendingMachine:
@@ -428,6 +429,11 @@ public class Item
             }
         }
     }
+
+    private TimeProvider InteractionClock() => _interactionClock
+        ?? throw new InvalidOperationException("A room-bound interaction clock is required.");
+
+    internal void BindInteractionClock(TimeProvider clock) => _interactionClock = clock;
 
     public bool IsWired
     {
@@ -1345,6 +1351,8 @@ public class Item
     {
         if (!IsTemporary || RoomId != room.RoomId) throw new InvalidOperationException("Only a temporary item in this room can be bound.");
         _room = room;
+        if (Definition.InteractionType is InteractionType.Teleport or InteractionType.OneWayGate)
+            BindInteractionClock(room.InteractionClock);
     }
 
     [Obsolete]
@@ -1394,6 +1402,7 @@ public class Item
     {
         NavigationInputs?.Remove(this);
         _room = null;
+        _interactionClock = null;
         Definition = null;
         GetAffectedTiles.Clear();
     }

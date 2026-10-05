@@ -760,6 +760,8 @@ public class RoomItemHandling
     // that transaction shares NavSync; callbacks do not.
     internal bool AdmitFloorItem(Item item)
     {
+        if (item.Definition.InteractionType is InteractionType.Teleport or InteractionType.OneWayGate)
+            item.BindInteractionClock(_room.InteractionClock);
         var inputs = _room.GetGameMap().Navigation?.Inputs;
         if (inputs == null) return _floorItems.TryAdd(item.Id, item);
         item.EnableNavigationSynchronization();

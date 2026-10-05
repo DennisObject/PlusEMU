@@ -1,10 +1,9 @@
 ﻿using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.GameClients;
-using Plus.Utilities;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
-public class InteractorOneWayGate : IFurniInteractor
+public class InteractorOneWayGate(TimeProvider clock) : IFurniInteractor
 {
     public void OnPlace(GameClient? session, Item item)
     {
@@ -64,7 +63,8 @@ public class InteractorOneWayGate : IFurniInteractor
                 !itemRoom.GetGameMap().CanWalk(item.SquareBehind.X, item.SquareBehind.Y, false)
                 || !itemRoom.GetGameMap().SquareIsOpen(item.SquareBehind.X, item.SquareBehind.Y, false))
                 return;
-            if (user.LastInteraction - UnixTimestamp.GetNow() < 0 && user.InteractingGate &&
+            var now = clock.GetUtcNow();
+            if ((user.LastInteractionAt is not { } interactionAt || interactionAt < now) && user.InteractingGate &&
                 user.GateId == item.Id)
             {
                 user.InteractingGate = false;

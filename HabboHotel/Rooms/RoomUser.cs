@@ -61,7 +61,7 @@ public class RoomUser
     public bool IsSitting = false;
     public bool IsWalking;
     public int LastBubble = 0;
-    public double LastInteraction;
+    public DateTimeOffset? LastInteractionAt;
     public Item LastItem = null;
 
     public int LlPartner = 0;
@@ -126,7 +126,7 @@ public class RoomUser
         FreezeLives = 0;
         InteractingGate = false;
         GateId = 0;
-        LastInteraction = 0;
+        LastInteractionAt = null;
         LockedTilesCount = 0;
         IsJumping = false;
         TimeInRoom = 0;
