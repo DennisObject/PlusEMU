@@ -9,6 +9,8 @@ using Plus.HabboHotel.Users.Messenger;
 using Plus.Communication.Packets.Outgoing.FriendList;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets;
+using Plus.Communication.Revisions;
+using Plus.Communication.Packets.Outgoing;
 using Xunit;
 
 namespace Plus.Tests;
@@ -16,16 +18,29 @@ namespace Plus.Tests;
 public sealed class MessengerCommunicationServiceTests
 {
     [Fact]
-    public async Task MissingFriendNotifiesBeforeFilterAndNeverDelivers()
+    public async Task MissingFriendNotifiesBeforeFilteringAndNeverRaisesAMessengerEvent()
     {
         using var f = new MessengerFixture();
-        var (session, _) = f.Session(f.Messenger());
+        var messenger = f.Messenger();
+        var events = new List<int>();
+        // Would throw on a null friend, which is the crash the production synchronizer hit.
+        messenger.MessageSend += (_, args) => events.Add(args.Friend.Id);
+        var (session, sent) = f.RealSession(messenger);
+        var sentAtFilter = -1;
+        f.Filter.Output = "hello";
+        f.Filter.OnCheck = () => sentAtFilter = sent.Count;
 
-        await f.Service().SendMessage(session, 99, "hello");
+        await f.ServiceWithRealOutput().SendMessage(session, 99, "hello");
 
-        Assert.Equal(new[] { "error NotFriends 99" }, f.Output.Calls);
+        Assert.Equal(1, sentAtFilter); // the NotFriends notice is sent before the message is filtered
+        Assert.Equal(new[] { "hello" }, f.Filter.Checked);
+        Assert.Single(sent);
+        Assert.Equal(ServerPacketHeader.InstantMessageErrorComposer, sent[0].Header);
+        var expected = new HabbiconTestSupport.RecordingPacket();
+        new InstantMessageErrorComposer(MessengerMessageErrors.NotFriends, 99).Compose(expected);
+        Assert.Equal(expected.Writes, MessengerFixture.Decode(sent[0].Payload));
+        Assert.Empty(events);
         Assert.Empty(f.Rewards.Progressed);
-        Assert.Empty(f.Delivered);
     }
 
     [Fact]
@@ -276,12 +291,46 @@ public sealed class MessengerCommunicationServiceTests
             return (session, 0);
         }
 
-        public MessengerCommunicationService Service()
+        public (FlashGameClient Session, List<(uint Header, byte[] Payload)> Sent) RealSession(HabboMessenger messenger)
+        {
+            var sent = new List<(uint Header, byte[] Payload)>();
+            var session = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
+            {
+                Revision = new Revision { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
+                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id) },
+                SendCallback = args =>
+                {
+                    var bytes = args.MemoryBuffer.ToArray();
+                    sent.Add((System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
+                    return true;
+                }
+            };
+            session.SetHabbo(new Habbo { Id = 1, Username = "Alice", Messenger = messenger });
+            return (session, sent);
+        }
+
+        public MessengerCommunicationService ServiceWithRealOutput() =>
+            new(Filter, LoaderProxy(), Quests, Rewards, new MessengerCommunicationOutput());
+
+        public MessengerCommunicationService Service() => new(Filter, LoaderProxy(), Quests, Rewards, Output);
+
+        private IMessengerDataLoader LoaderProxy()
         {
             var loader = DispatchProxy.Create<IMessengerDataLoader, ServiceProxy>();
             ((ServiceProxy)(object)loader).Handler = (method, _) => method.Name == nameof(IMessengerDataLoader.CanReceiveFriendRequests)
                 ? Loader.Next : throw new NotSupportedException(method.Name);
-            return new MessengerCommunicationService(Filter, (IMessengerDataLoader)(object)loader, Quests, Rewards, Output);
+            return (IMessengerDataLoader)(object)loader;
+        }
+
+        internal static List<object> Decode(byte[] payload)
+        {
+            using var stream = new MemoryStream(payload);
+            using var reader = new BinaryReader(stream);
+            var writes = new List<object>();
+            writes.Add(System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(reader.ReadBytes(4)));
+            writes.Add(System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(reader.ReadBytes(4)));
+            writes.Add(System.Text.Encoding.UTF8.GetString(reader.ReadBytes(System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(reader.ReadBytes(2)))));
+            return writes;
         }
 
         public void Dispose() { }
@@ -290,8 +339,10 @@ public sealed class MessengerCommunicationServiceTests
     private sealed class FilterStub : IWordFilterManager
     {
         public string Output { get; set; } = "";
+        public Action? OnCheck { get; set; }
+        public List<string> Checked { get; } = [];
         public void Init() { }
-        public string CheckMessage(string message) => Output;
+        public string CheckMessage(string message) { Checked.Add(message); OnCheck?.Invoke(); return Output; }
         public bool CheckBannedWords(string message) => false;
         public bool IsFiltered(string message) => false;
     }
