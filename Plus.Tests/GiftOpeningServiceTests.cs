@@ -1,0 +1,135 @@
+using System.Collections.Concurrent;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using Plus.HabboHotel.Cache;
+using Plus.HabboHotel.Cache.Type;
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.DataFormat;
+using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Inventory;
+using Plus.HabboHotel.Users.Inventory.Furniture;
+using Xunit;
+
+namespace Plus.Tests;
+
+public sealed class GiftOpeningServiceTests
+{
+    [Fact]
+    public async Task ValidGiftPersistsBeforePublicationAndRepeatedOpenPaysOnce()
+    {
+        var (room, client, sent, gift) = Context();
+        var definition = Definition(200, InteractionType.None);
+        var store = new Store(() =>
+        {
+            Assert.Same(gift, room.GetRoomItemHandler().GetItem(gift.Id));
+            Assert.Equal(100, gift.BaseItem);
+            Assert.Empty(sent);
+        });
+        var service = Service(store, definition);
+
+        await service.OpenAsync(client, gift.Id);
+        await service.OpenAsync(client, gift.Id);
+
+        Assert.Equal(1, store.Opens);
+        Assert.Equal(200, gift.BaseItem);
+        Assert.Same(definition, gift.Definition);
+        Assert.Equal("blue", gift.LegacyDataString);
+        Assert.NotNull(client.GetHabbo().Inventory.Furniture.GetItem(gift.Id));
+        Assert.NotEmpty(sent);
+    }
+
+    [Fact]
+    public async Task MalformedGiftIsCleanedOnlyAfterTransactionalDelete()
+    {
+        var (room, client, sent, gift) = Context("broken");
+        var store = new Store(() =>
+        {
+            Assert.Same(gift, room.GetRoomItemHandler().GetItem(gift.Id));
+            Assert.Empty(sent);
+        });
+
+        await Service(store, Definition(200, InteractionType.None)).OpenAsync(client, gift.Id);
+
+        Assert.Equal(1, store.InvalidDeletes);
+        Assert.Null(room.GetRoomItemHandler().GetItem(gift.Id));
+        Assert.NotEmpty(sent);
+    }
+
+    [Fact]
+    public async Task NonOwnerAndTemporaryGiftsAreDeniedWithoutStoreCalls()
+    {
+        var (room, client, sent, gift) = Context();
+        var store = new Store();
+        gift.OwnerId = 99;
+        await Service(store, Definition(200, InteractionType.None)).OpenAsync(client, gift.Id);
+        var (temporaryRoom, temporaryClient, _, temporaryGift) = Context(temporary: true);
+        await Service(store, Definition(200, InteractionType.None)).OpenAsync(temporaryClient, temporaryGift.Id);
+
+        Assert.Equal(0, store.Opens);
+        Assert.Equal(0, store.InvalidDeletes);
+        Assert.Same(gift, room.GetRoomItemHandler().GetItem(gift.Id));
+        Assert.Same(temporaryGift, temporaryRoom.GetRoomItemHandler().GetItem(temporaryGift.Id));
+        Assert.Empty(sent);
+    }
+
+    [Fact]
+    public async Task PersistenceFailureLeavesGiftAndPacketsUnchanged()
+    {
+        var (room, client, sent, gift) = Context();
+        var originalDefinition = gift.Definition;
+        var store = new Store { FailOpen = true };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Service(store, Definition(200, InteractionType.None)).OpenAsync(client, gift.Id));
+
+        Assert.Same(gift, room.GetRoomItemHandler().GetItem(gift.Id));
+        Assert.Same(originalDefinition, gift.Definition);
+        Assert.Equal(100, gift.BaseItem);
+        Assert.Empty(sent);
+    }
+
+    private static GiftOpeningService Service(Store store, ItemDefinition definition) =>
+        new(store, new ItemCatalog(definition), new Cache());
+
+    private static (Room Room, Plus.HabboHotel.GameClients.GameClient Client, List<(uint Header, byte[] Payload)> Sent, Item Gift) Context(string data = "a\u0005b\u00052", bool temporary = false)
+    {
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
+        var gift = new Item { Id = 7, RoomId = 9, OwnerId = 1, BaseItem = 100, IsTemporary = temporary, Definition = Definition(100, InteractionType.Gift), ExtraData = new LegacyDataFormat { Data = data } };
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(gift, room);
+        var walls = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;
+        walls[gift.Id] = gift;
+        var inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([], []) };
+        var habbo = new Habbo { Id = 1, Username = "owner", CurrentRoom = room, Inventory = inventory };
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+        return (room, client, sent, gift);
+    }
+
+    private static ItemDefinition Definition(int id, InteractionType type) => new() { Id = (uint)id, Type = ItemType.Wall, InteractionType = type, SpriteId = id, ItemName = $"item-{id}" };
+
+    private sealed class Store(Action? before = null) : IGiftStore
+    {
+        public bool FailOpen; public int Opens; public int InvalidDeletes;
+        public GiftContent? Find(uint itemId) => new(200, "blue");
+        public void Open(uint itemId, int ownerId, uint roomId, GiftContent content) { before?.Invoke(); if (FailOpen) throw new InvalidOperationException("forced"); Opens++; }
+        public void DeleteInvalid(uint itemId, int ownerId, uint roomId) { before?.Invoke(); InvalidDeletes++; }
+    }
+    private sealed class ItemCatalog(ItemDefinition definition) : IItemDataManager
+    {
+        public Dictionary<int, uint> Gifts { get; } = [];
+        public Dictionary<uint, ItemDefinition> Items { get; } = new() { [(uint)definition.Id] = definition };
+        public void Init() { }
+        public ItemDefinition GetItemByName(string name) => definition;
+    }
+    private sealed class Cache : ICacheManager
+    {
+        public CachedUser? GenerateUser(int id) => new() { Id = id, Username = "buyer" };
+        public bool ContainsUser(int id) => true;
+        public bool TryRemoveUser(int id, out CachedUser cachedUser) { cachedUser = null!; return false; }
+        public bool TryGetUser(int id, out CachedUser cachedUser) { cachedUser = GenerateUser(id)!; return true; }
+        public ICollection<CachedUser> GetUserCache() => [];
+        public void Init() { }
+    }
+}
