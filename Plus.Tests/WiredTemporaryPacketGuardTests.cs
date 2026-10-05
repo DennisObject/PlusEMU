@@ -66,6 +66,8 @@ public class WiredTemporaryPacketGuardTests
             ? (object)new EnabledExchangeSettings()
             : parameter.ParameterType == typeof(Plus.HabboHotel.Catalog.IGnomePackageService)
                 ? new Plus.HabboHotel.Catalog.GnomePackageService(new Plus.HabboHotel.Catalog.GnomePackageStore(database, Microsoft.Extensions.Logging.Abstractions.NullLogger<Plus.HabboHotel.Catalog.GnomePackageStore>.Instance), null!, null!, TimeProvider.System)
+            : parameter.ParameterType == typeof(IRoomItemPlacementService)
+                ? new RoomItemPlacementService(null!, null!, null!, null!, TestLogging.For<RoomItemPlacementService>())
             : parameter.ParameterType == typeof(IRoomItemPickupService)
                 ? new RoomItemPickupService(null!, null!, new RoomItemPickupStore(database))
             : parameter.ParameterType == typeof(IGroupPresentationService)
@@ -182,6 +184,8 @@ public class WiredTemporaryPacketGuardTests
         using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
         if (name.Contains("PickupObject")) output.WriteInteger(0);
         output.WriteUInteger(7);
+        if (name == "Rooms.Engine.MoveObjectEvent")
+        { output.WriteInteger(4); output.WriteInteger(5); output.WriteInteger(2); }
         if (name.Contains("Gnome")) output.WriteString("Pixel");
         else if (name.Contains("MoveWall")) output.WriteString(":w=1,1 l=1,1 l");
         else if (name.Contains("UseFurniture")) output.WriteInteger(0);
