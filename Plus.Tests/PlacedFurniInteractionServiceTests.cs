@@ -2,6 +2,7 @@ using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Quests;
+using Plus.HabboHotel.Users.Inventory.Furniture;
 using Xunit;
 
 namespace Plus.Tests;
