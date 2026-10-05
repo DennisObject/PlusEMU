@@ -166,7 +166,7 @@ public class Habbo
 
     public bool HasSpoken { get; set; }
 
-    public double LastAdvertiseReport { get; set; }
+    public DateTimeOffset? AdvertisingReportAvailableAt { get; set; }
 
     public bool AdvertisingReported { get; set; }
 
