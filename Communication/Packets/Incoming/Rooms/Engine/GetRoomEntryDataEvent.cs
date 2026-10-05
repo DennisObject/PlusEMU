@@ -3,8 +3,6 @@ using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Quests;
-using Plus.Utilities;
-
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Engine;
@@ -12,10 +10,12 @@ namespace Plus.Communication.Packets.Incoming.Rooms.Engine;
 internal class GetRoomEntryDataEvent : IPacketEvent
 {
     private readonly IQuestManager _questManager;
+    private readonly TimeProvider _clock;
 
-    public GetRoomEntryDataEvent(IQuestManager questManager)
+    public GetRoomEntryDataEvent(IQuestManager questManager, TimeProvider clock)
     {
         _questManager = questManager;
+        _clock = clock;
     }
 
     public Task Parse(GameClient session, IIncomingPacket packet)
@@ -40,8 +40,12 @@ internal class GetRoomEntryDataEvent : IPacketEvent
         session.Send(new RoomEventComposer(RoomEventSnapshot.Capture(room.Data, room.Promotion)));
         if (room.GetWired() != null)
             room.GetWired().TriggerEvent(WiredBoxType.TriggerRoomEnter, session.GetHabbo());
-        if (UnixTimestamp.GetNow() < session.GetHabbo().FloodTime && session.GetHabbo().FloodTime != 0)
-            session.Send(new FloodControlComposer((int)session.GetHabbo().FloodTime - (int)UnixTimestamp.GetNow()));
+        var now = _clock.GetUtcNow();
+        if (session.GetHabbo().FloodUntil is { } floodUntil && now < floodUntil)
+            session.Send(new FloodControlComposer(RemainingFloodSeconds(now, floodUntil)));
         return Task.CompletedTask;
     }
+
+    internal static int RemainingFloodSeconds(DateTimeOffset now, DateTimeOffset floodUntil) =>
+        (int)Math.Clamp((long)Math.Ceiling((floodUntil - now).TotalSeconds), 0, int.MaxValue);
 }

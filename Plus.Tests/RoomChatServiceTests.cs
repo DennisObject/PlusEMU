@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Plus.Communication.Packets.Incoming.Habbicons;
 using Plus.Communication.Packets.Incoming.Rooms.Chat;
 using Plus.Core.Settings;
 using Plus.HabboHotel.GameClients;
@@ -46,7 +47,7 @@ public sealed class RoomChatServiceTests
     public async Task FloodDenialStopsLoggingCommandsAndPublication()
     {
         var world = new World(new ZonedClock(Now, TimeZoneInfo.Utc));
-        world.Sender.GetHabbo().FloodTime = Now.ToUnixTimeSeconds() + 1;
+        world.Sender.GetHabbo().FloodUntil = Now.AddSeconds(1);
 
         await world.Service.Chat(world.Sender, "blocked", 1);
 
@@ -129,29 +130,63 @@ public sealed class RoomChatServiceTests
     }
 
     [Fact]
-    public async Task TransitionalLocalFloodDeadlinePreservesBeforeExactAndAfterBoundaries()
+    public async Task UtcFloodDeadlinePreservesBeforeExactAndAfterBoundariesInNonUtcZone()
     {
         var zone = TimeZoneInfo.CreateCustomTimeZone("chat-test-plus-two", TimeSpan.FromHours(2), "test", "test");
         var deadlineUtc = Now.AddMilliseconds(500);
-        var deadline = deadlineUtc.ToUnixTimeMilliseconds() / 1000.0 + zone.GetUtcOffset(deadlineUtc).TotalSeconds;
-
         var before = new World(new ZonedClock(deadlineUtc.AddMilliseconds(-1), zone));
-        before.Sender.GetHabbo().FloodTime = deadline;
+        before.Sender.GetHabbo().FloodUntil = deadlineUtc;
         before.Commands.Handled = true;
         await before.Service.Chat(before.Sender, ":before", 1);
         Assert.Empty(before.Logs.Entries);
 
         var exact = new World(new ZonedClock(deadlineUtc, zone));
-        exact.Sender.GetHabbo().FloodTime = deadline;
+        exact.Sender.GetHabbo().FloodUntil = deadlineUtc;
         exact.Commands.Handled = true;
         await exact.Service.Chat(exact.Sender, ":exact", 1);
         Assert.Single(exact.Logs.Entries);
 
         var after = new World(new ZonedClock(deadlineUtc.AddMilliseconds(1), zone));
-        after.Sender.GetHabbo().FloodTime = deadline;
+        after.Sender.GetHabbo().FloodUntil = deadlineUtc;
         after.Commands.Handled = true;
         await after.Service.Chat(after.Sender, ":after", 1);
         Assert.Single(after.Logs.Entries);
+    }
+
+    [Fact]
+    public void SixthMessageSetsAndRefreshesUtcFloodDeadline()
+    {
+        var world = new World();
+        var first = Now.AddMilliseconds(125);
+
+        for (var i = 0; i < 5; i++)
+            Assert.False(world.SenderUser.IncrementAndCheckFlood(first, out _));
+        Assert.True(world.SenderUser.IncrementAndCheckFlood(first, out var firstMute));
+        Assert.Equal(first.AddSeconds(firstMute), world.Sender.GetHabbo().FloodUntil);
+
+        var refreshed = first.AddMinutes(1);
+        for (var i = 0; i < 5; i++)
+            Assert.False(world.SenderUser.IncrementAndCheckFlood(refreshed, out _));
+        Assert.True(world.SenderUser.IncrementAndCheckFlood(refreshed, out var refreshedMute));
+        Assert.Equal(refreshed.AddSeconds(refreshedMute), world.Sender.GetHabbo().FloodUntil);
+    }
+
+    [Fact]
+    public async Task HabbiconTriggerUsesOneUtcInstantForSixthMessageDeadline()
+    {
+        var now = Now.AddMilliseconds(375);
+        var clock = new ZonedClock(now, TimeZoneInfo.CreateCustomTimeZone("habbicon-plus-nine", TimeSpan.FromHours(9), "test", "test"));
+        var world = new World(clock);
+        world.SenderUser.ChatSpamCount = 5;
+        world.Sender.GetHabbo().LastHabbiconTrigger = Environment.TickCount64 - 2000;
+        clock.Calls = 0;
+
+        await new TriggerHabbiconEvent(new HabbiconTestSupport.Service(), clock)
+            .Parse(world.Sender, HabbiconTestSupport.Incoming(61));
+
+        Assert.Equal(1, clock.Calls);
+        Assert.NotNull(world.Sender.GetHabbo().FloodUntil);
+        Assert.Equal(now, world.Sender.GetHabbo().FloodUntil!.Value.AddSeconds(-20));
     }
 
     [Fact]
@@ -175,7 +210,7 @@ public sealed class RoomChatServiceTests
     }
 
     [Fact]
-    public async Task MalformedBotOrDisconnectedWhisperRecipientDoesNotPublish()
+    public async Task MalformedBotDisconnectedOrDepartedWhisperRecipientDoesNotPublish()
     {
         var world = new World();
 
@@ -196,6 +231,13 @@ public sealed class RoomChatServiceTests
         Assert.Empty(world.Logs.Entries);
         Assert.Empty(world.SenderPackets);
         Assert.Empty(world.RecipientPackets);
+
+        world.Clients.ByUserId[8] = world.Recipient;
+        world.Recipient.GetHabbo().CurrentRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        await world.Service.Whisper(world.Sender, "Bob message", 1);
+        Assert.Empty(world.Logs.Entries);
+        Assert.Empty(world.SenderPackets);
+        Assert.Empty(world.RecipientPackets);
     }
 
     private static string Text(byte[] packet) => Encoding.UTF8.GetString(packet);
@@ -205,6 +247,7 @@ public sealed class RoomChatServiceTests
         public GameClient Sender { get; }
         public GameClient Recipient { get; }
         public RoomUser RecipientUser { get; }
+        public RoomUser SenderUser { get; }
         public List<(uint Header, byte[] Payload)> SenderPackets { get; }
         public List<(uint Header, byte[] Payload)> RecipientPackets { get; }
         public RecordingLogs Logs { get; } = new();
@@ -245,7 +288,8 @@ public sealed class RoomChatServiceTests
                 Id = 8, Username = "Bob", CurrentRoom = _room, Effects = new EffectsComponent(clock),
                 IgnoresComponent = new([]), ReceiveWhispers = true
             });
-            Add(users, new RoomUser(7, 1, 11, _room), Sender);
+            SenderUser = new RoomUser(7, 1, 11, _room);
+            Add(users, SenderUser, Sender);
             RecipientUser = new RoomUser(8, 2, 12, _room);
             Add(users, RecipientUser, Recipient);
             var clientManager = ClientDirectory.Create(out var clients);

@@ -322,7 +322,7 @@ public class RoomUser
         }
     }
 
-    public bool IncrementAndCheckFlood(out int muteTime)
+    public bool IncrementAndCheckFlood(DateTimeOffset now, out int muteTime)
     {
         muteTime = 0;
         ChatSpamCount++;
@@ -331,7 +331,7 @@ public class RoomUser
         else if (ChatSpamCount >= 6)
         {
             muteTime = Math.Clamp(21 - GetClient().GetHabbo().Access.Limit("limit.flood_tolerance", 1), 1, 20);
-            GetClient().GetHabbo().FloodTime = UnixTimestamp.GetNow() + muteTime;
+            GetClient().GetHabbo().FloodUntil = now.AddSeconds(muteTime);
             ChatSpamCount = 0;
             return true;
         }

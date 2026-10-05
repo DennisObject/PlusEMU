@@ -6,19 +6,19 @@ using Plus.Communication.Packets.Outgoing.Habbicons;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Habbicons;
-using Plus.Utilities;
 
 namespace Plus.Communication.Packets.Incoming.FriendList;
 
 // The modern client sends Habicons through this header. Legacy text still uses SendMsgEvent.
 public sealed class SendMessengerMessageEvent(IHabbiconService habbicons, IDatabase database,
-    IGameClientManager clients, ILogger<SendMessengerMessageEvent> logger) : IPacketEvent
+    IGameClientManager clients, ILogger<SendMessengerMessageEvent> logger, TimeProvider clock) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         int conversationId = packet.ReadInt(), recipientId = packet.ReadInt(), confirmationId = packet.ReadInt(), type = packet.ReadInt();
         string message = packet.ReadString(), metadata = packet.ReadString();
         var sender = session.GetHabbo();
+        var now = clock.GetUtcNow();
         try
         {
             if (conversationId != 0 || recipientId <= 0 || recipientId == sender.Id || type != 4 ||
@@ -27,13 +27,13 @@ public sealed class SendMessengerMessageEvent(IHabbiconService habbicons, IDatab
             if (sender.Messenger.GetFriend(recipientId) == null || metadata.Length != 0) throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
             var item = habbicons.Load(sender.Id).RequireItem(id);
             if (!item.Owned) throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
-            if (sender.TimeMuted > 0 || UnixTimestamp.GetNow() < sender.FloodTime || !sender.Messenger.TrySendHabbicon())
+            if (sender.TimeMuted > 0 || (sender.FloodUntil is { } floodUntil && now < floodUntil) || !sender.Messenger.TrySendHabbicon())
                 throw new HabbiconRejected(HabbiconActionError.MessageRateLimited);
             var target = clients.GetClientByUserId(recipientId);
             if (target != null && (target.GetHabbo().TimeMuted > 0 || !target.GetHabbo().AllowConsoleMessages ||
                 target.GetHabbo().IgnoresComponent.IsIgnored(sender.Id) || target.GetHabbo().Messenger.GetFriend(sender.Id) == null))
                 throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
-            int createdAt = checked((int)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            int createdAt = checked((int)now.ToUnixTimeSeconds());
             // Plus retains its existing audit and offline text storage; no new messenger history schema.
             using var connection = database.Connection();
             connection.Open();

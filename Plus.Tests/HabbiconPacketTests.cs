@@ -178,7 +178,8 @@ public class HabbiconPacketTests
         var habbo = new Habbo { Id = 1, Messenger = new HabboHotel.Users.Messenger.HabboMessenger(new(), new(), new()) };
         var (client, sent) = Client(habbo);
         var handler = new Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent(service, null!, null!,
-            NullLogger<Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent>.Instance);
+            NullLogger<Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent>.Instance,
+            new FixedTimeProvider(FixedTimeProvider.Epoch));
         await handler.Parse(client, Incoming(conversation, recipient, 7, type, text, metadata));
         Assert.Equal(ServerPacketHeader.MessengerMessageFailedComposer, Assert.Single(sent).Header);
         var payload = new Communication.Flash.FlashIncomingPacket { Buffer = sent[0].Payload };

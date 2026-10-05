@@ -48,7 +48,6 @@ public sealed class RoomChatService(
         if (user == null)
             return;
         var now = clock.GetUtcNow();
-        var legacyNow = LegacyLocalEpoch(now);
         message = StringCharFilter.Escape(message);
         if (message.Length > 100)
             message = message[..100];
@@ -60,7 +59,7 @@ public sealed class RoomChatService(
             user.LastBubble = colour;
         else
             user.UnIdle();
-        if (legacyNow < habbo.FloodTime && habbo.FloodTime != 0)
+        if (habbo.FloodUntil is { } floodUntil && now < floodUntil)
             return;
         if (habbo.TimeMuted > 0)
         {
@@ -74,7 +73,7 @@ public sealed class RoomChatService(
         }
         if (!shout)
             user.LastBubble = colour;
-        if (!habbo.Access.Can(PermissionKeys.ModerationTool) && user.IncrementAndCheckFlood(out var muteTime))
+        if (!habbo.Access.Can(PermissionKeys.ModerationTool) && user.IncrementAndCheckFlood(now, out var muteTime))
         {
             session.Send(new FloodControlComposer(muteTime));
             return;
@@ -89,7 +88,7 @@ public sealed class RoomChatService(
             if (habbo.BannedPhraseCount >= Convert.ToInt32(settingsManager.TryGetValue("room.chat.filter.banned_phrases.chances")))
             {
                 await moderationManager.BanUser("System", ModerationBanType.Username, habbo.Username,
-                    $"Spamming banned phrases ({message})", legacyNow + 78892200);
+                    $"Spamming banned phrases ({message})", LegacyLocalEpoch(now) + 78892200);
                 session.Disconnect();
                 return;
             }
@@ -117,13 +116,12 @@ public sealed class RoomChatService(
         if (room == null)
             return;
         var now = clock.GetUtcNow();
-        var legacyNow = LegacyLocalEpoch(now);
         if (!habbo.Access.Can(PermissionKeys.ModerationTool) && room.CheckMute(session))
         {
             session.SendWhisper("Oops, you're currently muted.");
             return;
         }
-        if (legacyNow < habbo.FloodTime && habbo.FloodTime != 0)
+        if (habbo.FloodUntil is { } floodUntil && now < floodUntil)
             return;
         var separator = parameters.IndexOf(' ');
         if (separator <= 0)
@@ -138,7 +136,7 @@ public sealed class RoomChatService(
             return;
         var recipientClient = clientManager.GetClientByUserId(recipient.HabboId);
         var recipientHabbo = recipientClient?.GetHabbo();
-        if (recipientClient == null || recipientHabbo == null)
+        if (recipientClient == null || recipientHabbo == null || recipientHabbo.CurrentRoom != room)
             return;
         if (habbo.TimeMuted > 0)
         {
@@ -152,7 +150,7 @@ public sealed class RoomChatService(
         if (!chatStyleManager.TryGetStyle(colour, out var style) || !style.CanUse(habbo.Access))
             colour = 0;
         user.LastBubble = colour;
-        if (!habbo.Access.Can(PermissionKeys.ModerationTool) && user.IncrementAndCheckFlood(out var muteTime))
+        if (!habbo.Access.Can(PermissionKeys.ModerationTool) && user.IncrementAndCheckFlood(now, out var muteTime))
         {
             session.Send(new FloodControlComposer(muteTime));
             return;
@@ -169,7 +167,7 @@ public sealed class RoomChatService(
             if (habbo.BannedPhraseCount >= Convert.ToInt32(settingsManager.TryGetValue("room.chat.filter.banned_phrases.chances")))
             {
                 await moderationManager.BanUser("System", ModerationBanType.Username, habbo.Username,
-                    $"Spamming banned phrases ({message})", legacyNow + 78892200);
+                    $"Spamming banned phrases ({message})", LegacyLocalEpoch(now) + 78892200);
                 session.Disconnect();
                 return;
             }
@@ -188,7 +186,8 @@ public sealed class RoomChatService(
                 continue;
             var notifiableClient = clientManager.GetClientByUserId(notifiable.HabboId);
             var notifiableHabbo = notifiableClient?.GetHabbo();
-            if (notifiableClient != null && notifiableHabbo != null && !notifiableHabbo.IgnorePublicWhispers)
+            if (notifiableClient != null && notifiableHabbo != null && notifiableHabbo.CurrentRoom == room
+                && !notifiableHabbo.IgnorePublicWhispers)
                 notifiableClient.Send(new WhisperComposer(user.VirtualId, $"[Whisper to {toUser}] {message}", 0,
                     user.LastBubble));
         }

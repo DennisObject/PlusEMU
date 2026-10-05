@@ -132,7 +132,7 @@ public class Habbo
 
     public bool ChangingName { get; set; }
 
-    public double FloodTime { get; set; }
+    public DateTimeOffset? FloodUntil { get; set; }
 
     public int BannedPhraseCount { get; set; }
 

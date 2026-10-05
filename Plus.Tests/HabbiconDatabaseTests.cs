@@ -231,7 +231,8 @@ public class HabbiconDatabaseTests
         var clients = new Plus.HabboHotel.GameClients.GameClientManager(null!, null!);
         clients.RegisterClient(target, recipient.Id, "habicon_recipient");
         var handler = new Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent(_service, _database, clients,
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent>.Instance);
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent>.Instance,
+            new FixedTimeProvider(FixedTimeProvider.Epoch));
         await handler.Parse(client, HabbiconTestSupport.Incoming(0, 910002, 7, 4, "28", ""));
         Assert.Equal(Plus.Communication.Packets.Outgoing.ServerPacketHeader.MessengerMessageComposer, Assert.Single(received).Header);
         Assert.Single(sent, p => p.Header == Plus.Communication.Packets.Outgoing.ServerPacketHeader.MessengerMessageAckComposer);
