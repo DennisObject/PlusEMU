@@ -413,7 +413,7 @@ public partial class PlacedFurniRoomTests
     {
         var gate = ClosableGate(); ActorOn(new Point(0, 2)); _client.GetHabbo().Gender = "M"; _client.GetHabbo().Look = "hd-180-1.ch-210-66"; _client.GetHabbo().Clothing = new();
         var packet = figure ? ClientPacket((int)gate.Id) : ClientPacket((int)gate.Id, "renamed");
-        IPacketEvent handler = figure ? new SetMannequinFigureEvent(Proxy<Plus.Core.FigureData.IFigureDataManager>((_, args) => args[0])) : new SetMannequinNameEvent(_database);
+        IPacketEvent handler = figure ? new SetMannequinFigureEvent(Proxy<Plus.Core.FigureData.IFigureDataManager>((_, args) => args[0])) : new SetMannequinNameEvent(new RoomItemMetadataService(Proxy<IRoomItemMetadataStore>((_, _) => null)));
         handler.Parse(_client, packet).Wait();
         Assert.Equal("1", gate.LegacyDataString);
     }
@@ -426,7 +426,7 @@ public partial class PlacedFurniRoomTests
         var mannequin = ClosableGate(InteractionType.Mannequin, state: $"m{(char)5}.ch-1{(char)5}Default");
         _client.GetHabbo().Gender = "F"; _client.GetHabbo().Look = "hd-180-1.ch-210-66"; _client.GetHabbo().Clothing = new();
         var packet = figure ? ClientPacket((int)mannequin.Id) : ClientPacket((int)mannequin.Id, "renamed");
-        IPacketEvent handler = figure ? new SetMannequinFigureEvent(Proxy<Plus.Core.FigureData.IFigureDataManager>((_, args) => args[0])) : new SetMannequinNameEvent(_database);
+        IPacketEvent handler = figure ? new SetMannequinFigureEvent(Proxy<Plus.Core.FigureData.IFigureDataManager>((_, args) => args[0])) : new SetMannequinNameEvent(new RoomItemMetadataService(Proxy<IRoomItemMetadataStore>((_, _) => null)));
         handler.Parse(_client, packet).Wait();
         Assert.NotEqual($"m{(char)5}.ch-1{(char)5}Default", mannequin.LegacyDataString);
     }
