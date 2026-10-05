@@ -18,7 +18,8 @@ public static class WiredVariablePredicates
         var values = holders.Select(holder => (holder, value: reads.Read(reference, holder, frame)))
             .Where(x => x.value is not null)
             .Select(x => (x.holder, key: sort < 2 ? x.value!.Value : sort < 4
-                ? x.value!.CreatedAt?.ToUnixTimeMilliseconds() ?? 0 : x.value!.UpdatedAt?.ToUnixTimeMilliseconds() ?? 0));
+                ? x.value!.CreatedAt?.UtcTicks ?? DateTimeOffset.UnixEpoch.UtcTicks
+                : x.value!.UpdatedAt?.UtcTicks ?? DateTimeOffset.UnixEpoch.UtcTicks));
         // Polaris puts highest value first at 0, but oldest timestamp first at 2 and 4.
         var ordered = sort is 0 or 3 or 5 ? values.OrderByDescending(x => x.key) : values.OrderBy(x => x.key);
         return ordered.ThenBy(x => x.holder.EntityId).Take(Math.Clamp(count, 0, 10000)).Select(x => x.holder).ToArray();

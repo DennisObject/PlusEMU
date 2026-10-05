@@ -62,7 +62,7 @@ public sealed class WiredRoomLogPageComposer(WiredRoomLogPage page, int levelFil
             packet.WriteInteger(unchecked((int)(entry.Id >> 32))); packet.WriteInteger(unchecked((int)entry.Id));
             packet.WriteByte((byte)entry.Level); packet.WriteByte((byte)entry.Source);
             packet.WriteString(entry.Message);
-            WiredVariableHoldersPageComposer.WriteTimestamp(packet, entry.Timestamp.ToUnixTimeMilliseconds());
+            WiredVariableHoldersPageComposer.WriteTimestamp(packet, entry.Timestamp);
         }
         packet.WriteBoolean(levelFilter >= 0);
         if (levelFilter >= 0) packet.WriteByte((byte)levelFilter);

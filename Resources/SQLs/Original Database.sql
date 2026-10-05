@@ -25501,7 +25501,7 @@ CREATE TABLE IF NOT EXISTS `wired_variable_values` (
     PRIMARY KEY (`definition_id`, `target_kind`, `holder_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS `wired_reward_state` (
-    `item_id` int unsigned NOT NULL,
-    `state_json` mediumtext NOT NULL,
+    `item_id` INT UNSIGNED NOT NULL,
+    `claims` LONGTEXT NOT NULL,
     PRIMARY KEY (`item_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

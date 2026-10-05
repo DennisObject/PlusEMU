@@ -4,13 +4,13 @@ ALTER TABLE wired_variable_values
 
 UPDATE wired_variable_values
 SET created_at_utc = CASE
-        WHEN created_at_ms <= 0 THEN NULL
+        WHEN created_at_ms <= 0 OR created_at_ms > 253402300799999 THEN NULL
         ELSE DATE_ADD(
             DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL FLOOR(created_at_ms / 1000) SECOND),
             INTERVAL MOD(created_at_ms, 1000) * 1000 MICROSECOND)
     END,
     updated_at_utc = CASE
-        WHEN updated_at_ms <= 0 THEN NULL
+        WHEN updated_at_ms <= 0 OR updated_at_ms > 253402300799999 THEN NULL
         ELSE DATE_ADD(
             DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL FLOOR(updated_at_ms / 1000) SECOND),
             INTERVAL MOD(updated_at_ms, 1000) * 1000 MICROSECOND)

@@ -73,7 +73,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
         {
             // Octane duration units: milliseconds, seconds, minutes, hours, days, weeks, months, years.
             long[] units = [1, 1000, 60000, 3600000, 86400000, 604800000, 2592000000, 31536000000];
-            var duration = (long)p[3] * units[p[4]];
+            var durationTicks = (decimal)p[3] * units[p[4]] * TimeSpan.TicksPerMillisecond;
             var now = clock.GetUtcNow();
             return Quantify(targets.Select(target =>
             {
@@ -81,8 +81,8 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
                 if (current is null) return false;
                 var timestamp = p[1] == 1 ? current.UpdatedAt : current.CreatedAt;
                 if (timestamp is null) return false;
-                var ageMilliseconds = now <= timestamp.Value ? 0 : (now - timestamp.Value).TotalMilliseconds;
-                return p[2] == 0 ? ageMilliseconds < duration : ageMilliseconds > duration;
+                var ageTicks = now <= timestamp.Value ? 0 : (now - timestamp.Value).Ticks;
+                return p[2] == 0 ? ageTicks < durationTicks : ageTicks > durationTicks;
             }), p[^1]);
         }
         var operands = new List<(WiredVariableHolder Holder, int Value)>();

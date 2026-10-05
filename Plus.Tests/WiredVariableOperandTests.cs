@@ -105,22 +105,54 @@ public sealed class WiredVariableOperandTests
     }
 
     [Fact]
+    public void AgeConditionComparesLongDurationsAtExactTickBoundariesWithoutOverflow()
+    {
+        var holder = new WiredVariableHolder(WiredVariableTarget.User, 900, 1);
+        var frame = new WiredVariableFrame(1, [holder]); frame.Selector.Add(holder);
+        var store = new MemoryWiredVariableStore();
+        var now = new DateTimeOffset(2200, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        const long hundredYearsInTicks = 100L * 31536000000 * TimeSpan.TicksPerMillisecond;
+        var module = new WiredVariableModule(1, new AgeDirectory(), store, new FixedTimeProvider(now));
+        var clock = new CountingClock(now);
+        var executor = new WiredVariableExecutors(module, clock);
+        var less = new WiredConfiguration { IntParams = [0, 0, 0, 100, 7, 200, 200, 0], Text = "custom:10" };
+        var greater = less with { IntParams = [0, 0, 2, 100, 7, 200, 200, 0] };
+
+        store.Mutate(new(10, holder.Target, holder.StableId), _ => new(1, now.AddTicks(-hundredYearsInTicks), null));
+        Assert.False(executor.Execute("wf_cnd_var_age_match", less, frame));
+        Assert.False(executor.Execute("wf_cnd_var_age_match", greater, frame));
+        store.Mutate(new(10, holder.Target, holder.StableId), _ => new(1, now.AddTicks(-hundredYearsInTicks + 1), null));
+        Assert.True(executor.Execute("wf_cnd_var_age_match", less, frame));
+        store.Mutate(new(10, holder.Target, holder.StableId), _ => new(1, now.AddTicks(-hundredYearsInTicks - 1), null));
+        Assert.True(executor.Execute("wf_cnd_var_age_match", greater, frame));
+
+        var huge = less with { IntParams = [0, 0, 0, 1000000, 7, 200, 200, 0] };
+        Assert.True(executor.Execute("wf_cnd_var_age_match", huge, frame));
+        var rejected = less with { IntParams = [0, 0, 0, int.MaxValue, 7, 200, 200, 0] };
+        Assert.False(executor.Execute("wf_cnd_var_age_match", rejected, frame));
+        Assert.Equal(5, clock.Reads);
+    }
+
+    [Fact]
     public void TimestampSortingKeepsUnknownAtLegacyZeroInBothDirections()
     {
-        var holders = Enumerable.Range(1, 3)
-            .Select(i => new WiredVariableHolder(WiredVariableTarget.User, i, 900 + i)).ToArray();
+        var holders = Enumerable.Range(1, 4)
+            .Select(i => new WiredVariableHolder(WiredVariableTarget.User, i, 900 + i))
+            .Append(new(WiredVariableTarget.User, 5, 800)).ToArray();
         var frame = new WiredVariableFrame(1, holders);
         var store = new MemoryWiredVariableStore();
         store.Mutate(new(10, WiredVariableTarget.User, 1), _ => new(1, null, null));
-        store.Mutate(new(10, WiredVariableTarget.User, 2), _ => new(1, DateTimeOffset.FromUnixTimeMilliseconds(100), null));
-        store.Mutate(new(10, WiredVariableTarget.User, 3), _ => new(1, DateTimeOffset.FromUnixTimeMilliseconds(200), null));
+        store.Mutate(new(10, WiredVariableTarget.User, 2), _ => new(1, DateTimeOffset.FromUnixTimeMilliseconds(100).AddTicks(9), null));
+        store.Mutate(new(10, WiredVariableTarget.User, 3), _ => new(1, DateTimeOffset.FromUnixTimeMilliseconds(100).AddTicks(1), null));
+        store.Mutate(new(10, WiredVariableTarget.User, 4), _ => new(1, DateTimeOffset.FromUnixTimeMilliseconds(200), null));
+        store.Mutate(new(10, WiredVariableTarget.User, 5), _ => new(1, DateTimeOffset.FromUnixTimeMilliseconds(200), null));
         var module = new WiredVariableModule(1, new AgeDirectory(), store,
             new FixedTimeProvider(DateTimeOffset.UnixEpoch));
 
-        Assert.Equal(new long[] { 1, 2, 3 }, WiredVariablePredicates.Filter(module,
-            new(WiredVariableTarget.User, "custom:10"), holders, frame, 2, 3).Select(x => x.StableId));
-        Assert.Equal(new long[] { 3, 2, 1 }, WiredVariablePredicates.Filter(module,
-            new(WiredVariableTarget.User, "custom:10"), holders, frame, 3, 3).Select(x => x.StableId));
+        Assert.Equal(new long[] { 1, 3, 2, 5, 4 }, WiredVariablePredicates.Filter(module,
+            new(WiredVariableTarget.User, "custom:10"), holders, frame, 2, 5).Select(x => x.StableId));
+        Assert.Equal(new long[] { 5, 4, 2, 3, 1 }, WiredVariablePredicates.Filter(module,
+            new(WiredVariableTarget.User, "custom:10"), holders, frame, 3, 5).Select(x => x.StableId));
     }
     private static WiredConfiguration Config(WiredVariableTarget target, WiredVariableTarget reference) => new()
     { IntParams = [(int)target, 0, 1, 0, (int)reference, 200, 200, 200, 200], Text = "custom:10\tcustom:11\t" };
