@@ -2,6 +2,7 @@ using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.Cache;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Groups;
 
@@ -29,12 +30,12 @@ public interface IGroupInfoSnapshotService
     GroupInfoSnapshot Capture(Group group, int viewerId);
 }
 
-public sealed class GroupInfoSnapshotService(IGameClientManager clientManager, ICacheManager cacheManager, IDatabase database) : IGroupInfoSnapshotService
+public sealed class GroupInfoSnapshotService(IGameClientManager clientManager, ICacheManager cacheManager, IDatabase database, IRoomDataLoader rooms) : IGroupInfoSnapshotService
 {
     public GroupInfoSnapshot Capture(Group group, int viewerId)
     {
         var origin = (group.CreatedAt ?? DateTimeOffset.UnixEpoch).UtcDateTime;
-        var room = group.GetRoom();
+        rooms.TryGetData(group.RoomId, out var room);
         var viewerIsCreator = group.CreatorId == viewerId;
         var viewerIsAdmin = group.IsAdmin(viewerId);
         return new GroupInfoSnapshot(

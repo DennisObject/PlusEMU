@@ -452,10 +452,6 @@ public class GroupManagementTests : IDisposable
         var group = new Group(9, "Crew", "desc", "b01014s02024", 42, 7,
             DateTimeOffset.FromUnixTimeSeconds(1_700_000_000), 0, 3, 4, 0,
             hasForum, GroupMembershipSnapshot.Empty);
-        var room = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
-        room.Id = 42;
-        room.Name = "HQ";
-        typeof(Group).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(group, room);
         return group;
     }
 
@@ -492,7 +488,16 @@ public class GroupManagementTests : IDisposable
         var clients = Proxy<IGameClientManager>((method, args) =>
             method == "GetClientByUserId" ? _clients.GetValueOrDefault((int)args[0]!) : throw new InvalidOperationException(method));
         var cache = Proxy<ICacheManager>((method, _) => method == "GenerateUser" ? null : throw new InvalidOperationException(method));
-        return new GroupInfoSnapshotService(clients, cache, _database);
+        return new GroupInfoSnapshotService(clients, cache, _database,
+            Proxy<IRoomDataLoader>((method, args) =>
+            {
+                Assert.Equal(nameof(IRoomDataLoader.TryGetData), method);
+                var data = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
+                data.Id = (uint)args[0]!;
+                data.Name = "HQ";
+                args[1] = data;
+                return true;
+            }));
     }
 
     private IGroupAppearanceService Appearance(Group group) => new GroupAppearanceService(

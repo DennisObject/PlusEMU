@@ -27,6 +27,7 @@ public class GroupInfoSnapshotTests : IDisposable
     private readonly object? _previousDatabase;
     private readonly GroupManagementTests.RecordingDatabase _database = new();
     private readonly Dictionary<int, GameClient> _clients = new();
+    private readonly Dictionary<uint, RoomData> _rooms = new();
 
     public GroupInfoSnapshotTests()
     {
@@ -101,7 +102,14 @@ public class GroupInfoSnapshotTests : IDisposable
             method == "GetClientByUserId" ? clients.GetValueOrDefault((int)args[0]!) : throw new InvalidOperationException(method));
         var cache = Proxy<ICacheManager>((method, args) =>
             method == "GenerateUser" ? users((int)args[0]!) : throw new InvalidOperationException(method));
-        return new GroupInfoSnapshotService(clientManager, cache, _database);
+        return new GroupInfoSnapshotService(clientManager, cache, _database,
+            Proxy<IRoomDataLoader>((method, args) =>
+            {
+                Assert.Equal(nameof(IRoomDataLoader.TryGetData), method);
+                var found = _rooms.TryGetValue((uint)args[0]!, out var room);
+                args[1] = room;
+                return found;
+            }));
     }
 
     private static string Writes(GroupInfoSnapshot snapshot, bool newWindow)
@@ -137,7 +145,7 @@ public class GroupInfoSnapshotTests : IDisposable
         return false;
     });
 
-    private static Group NewGroup(int type, bool forum, int adminOnly, bool withRoom = true)
+    private Group NewGroup(int type, bool forum, int adminOnly, bool withRoom = true)
     {
         var group = new Group(9, "Crew", "desc", "b01014s02024", 42, 7,
             DateTimeOffset.FromUnixTimeSeconds(1_700_000_000), type, 3, 4, adminOnly, forum,
@@ -147,8 +155,10 @@ public class GroupInfoSnapshotTests : IDisposable
             var room = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
             room.Id = 42;
             room.Name = "HQ";
-            typeof(Group).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(group, room);
+            _rooms[room.Id] = room;
         }
+        else
+            _rooms.Remove(group.RoomId);
         group.AddMember(4);
         group.MakeAdmin(4);
         group.AddMember(3);

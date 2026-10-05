@@ -9,7 +9,6 @@ public class Group
     private readonly List<int> _members;
     private readonly List<int> _requests;
 
-    private RoomData _room;
     public bool HasForum;
 
     public Group(int id, string name, string description, string badge, uint roomId, int owner,
@@ -129,19 +128,6 @@ public class Group
         if (_requests.Contains(id))
             _requests.Remove(id);
     }
-
-    public RoomData? GetRoom()
-    {
-        if (_room == null)
-        {
-            if (!RoomFactory.TryGetData(RoomId, out var data))
-                return null;
-            _room = data;
-            return data;
-        }
-        return _room;
-    }
-
 
     public void ClearRequests()
     {
