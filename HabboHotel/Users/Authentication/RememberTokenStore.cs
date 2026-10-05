@@ -13,23 +13,29 @@ public class RememberTokenStore : IRememberTokenStore
 
     private readonly IDatabase _database;
     private readonly TimeProvider _time;
-    private readonly int _lifetimeSeconds;
-    private readonly int _graceSeconds;
+    private readonly TimeSpan _lifetime;
+    private readonly TimeSpan _grace;
 
     public RememberTokenStore(IDatabase database, TimeProvider time, IOptions<AuthApiConfiguration> options)
     {
         _database = database;
         _time = time;
-        _lifetimeSeconds = options.Value.RememberTokenLifetimeDays * 24 * 60 * 60;
-        _graceSeconds = options.Value.RememberReuseGraceSeconds;
+        _lifetime = TimeSpan.FromDays(options.Value.RememberTokenLifetimeDays);
+        _grace = TimeSpan.FromSeconds(options.Value.RememberReuseGraceSeconds);
+        if (_lifetime <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(options), "Remember token lifetime must be positive.");
+        if (_grace < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(options), "Remember reuse grace must not be negative.");
     }
 
     public async Task<IssuedToken> Issue(int userId, CredentialScope? scope = null)
     {
+        var now = _time.GetUtcNow();
+        var token = NewToken(now);
         var sessionId = CredentialGenerations.NewSessionId();
         using var owned = scope == null ? _database.Connection() : null;
-        await CredentialGenerations.StartSession(scope?.Connection ?? owned!, scope?.Transaction, sessionId, userId);
-        return await Continue(userId, sessionId, scope);
+        await CredentialGenerations.StartSession(scope?.Connection ?? owned!, scope?.Transaction, sessionId, userId, now);
+        return await ContinueAt(userId, sessionId, now, token, scope);
     }
 
     public async Task<RememberRotation> Rotate(string token, Func<int, CredentialScope, Task>? onReuse = null)
@@ -38,6 +44,7 @@ public class RememberTokenStore : IRememberTokenStore
             return new(RememberRotationStatus.Invalid);
 
         var hash = SecureToken.Hash(token);
+        var now = _time.GetUtcNow();
         using var connection = _database.Connection();
         var userId = await connection.ExecuteScalarAsync<int?>("SELECT `user_id` FROM `user_remember_tokens` WHERE `token_hash` = @hash", new { hash });
         if (userId == null)
@@ -54,9 +61,9 @@ public class RememberTokenStore : IRememberTokenStore
 
         // Revoked (incl. an earlier reuse) or expired tokens change nothing, so replaying an old
         // token cannot keep signing the account out.
-        if (row.RevokedAt != null || row.ExpiresAt <= Now() || generation < 0)
+        if (row.RevokedAt != null || row.ExpiresAt <= now || generation < 0)
             return new(RememberRotationStatus.Invalid);
-        if (row.UsedAt != null && Now() - row.UsedAt < _graceSeconds && row.GraceUses < MaxGraceRetries)
+        if (row.UsedAt != null && now - row.UsedAt < _grace && row.GraceUses < MaxGraceRetries)
         {
             // Presented again moments after its use: the client most likely lost the response or
             // a second tab raced it. Its family gets another successor; the first one stays valid.
@@ -75,21 +82,27 @@ public class RememberTokenStore : IRememberTokenStore
             return new(RememberRotationStatus.Reused, userId.Value, row.FamilyId);
         }
 
-        await connection.ExecuteAsync("UPDATE `user_remember_tokens` SET `used_at` = @now WHERE `token_hash` = @hash", new { now = Now(), hash }, transaction);
+        await connection.ExecuteAsync("UPDATE `user_remember_tokens` SET `used_at` = @now WHERE `token_hash` = @hash", new { now = now.UtcDateTime, hash }, transaction);
         transaction.Commit();
         return new(RememberRotationStatus.Rotated, userId.Value, row.FamilyId, generation);
     }
 
     public async Task<IssuedToken> Continue(int userId, string familyId, CredentialScope? scope = null)
     {
-        var now = Now();
-        var token = new IssuedToken(SecureToken.Generate(), now + _lifetimeSeconds);
+        var now = _time.GetUtcNow();
+        return await ContinueAt(userId, familyId, now, NewToken(now), scope);
+    }
+
+    private async Task<IssuedToken> ContinueAt(int userId, string familyId, DateTimeOffset now, IssuedToken token, CredentialScope? scope)
+    {
         using var owned = scope == null ? _database.Connection() : null;
         await (scope?.Connection ?? owned!).ExecuteAsync(
             "INSERT INTO `user_remember_tokens` (`user_id`, `family_id`, `token_hash`, `created_at`, `expires_at`) VALUES (@userId, @familyId, @hash, @now, @expiresAt)",
-            new { userId, familyId, hash = SecureToken.Hash(token.Value), now, expiresAt = token.ExpiresAt }, scope?.Transaction);
+            new { userId, familyId, hash = SecureToken.Hash(token.Value), now = now.UtcDateTime, expiresAt = token.ExpiresAt.UtcDateTime }, scope?.Transaction);
         return token;
     }
+
+    private IssuedToken NewToken(DateTimeOffset now) => new(SecureToken.Generate(), now.Add(_lifetime));
 
     public async Task<CredentialOwner?> FindOwner(string token)
     {
@@ -102,29 +115,27 @@ public class RememberTokenStore : IRememberTokenStore
 
     public Task RevokeSession(string sessionId, CredentialScope scope) =>
         scope.Connection.ExecuteAsync("UPDATE `user_remember_tokens` SET `revoked_at` = @now WHERE `family_id` = @sessionId AND `revoked_at` IS NULL",
-            new { now = Now(), sessionId }, scope.Transaction);
+            new { now = _time.GetUtcNow().UtcDateTime, sessionId }, scope.Transaction);
 
     public async Task RevokeAll(int userId, CredentialScope? scope = null)
     {
         using var owned = scope == null ? _database.Connection() : null;
         await (scope?.Connection ?? owned!).ExecuteAsync(new CommandDefinition("UPDATE `user_remember_tokens` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
-            new { now = Now(), userId }, scope?.Transaction, cancellationToken: scope?.CancellationToken ?? default));
+            new { now = _time.GetUtcNow().UtcDateTime, userId }, scope?.Transaction, cancellationToken: scope?.CancellationToken ?? default));
     }
 
-    public async Task<int> Prune(long cutoff, int batch)
+    public async Task<int> Prune(DateTimeOffset cutoff, int batch)
     {
         using var connection = _database.Connection();
-        return await connection.ExecuteAsync("DELETE FROM `user_remember_tokens` WHERE `expires_at` < @cutoff LIMIT @batch", new { cutoff, batch });
+        return await connection.ExecuteAsync("DELETE FROM `user_remember_tokens` WHERE `expires_at` < @cutoff LIMIT @batch", new { cutoff = cutoff.UtcDateTime, batch });
     }
-
-    private long Now() => _time.GetUtcNow().ToUnixTimeSeconds();
 
     private sealed class RememberRow
     {
         public string FamilyId { get; set; } = "";
-        public long ExpiresAt { get; set; }
-        public long? UsedAt { get; set; }
+        public DateTimeOffset ExpiresAt { get; set; }
+        public DateTimeOffset? UsedAt { get; set; }
         public int GraceUses { get; set; }
-        public long? RevokedAt { get; set; }
+        public DateTimeOffset? RevokedAt { get; set; }
     }
 }

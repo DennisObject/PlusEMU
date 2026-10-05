@@ -170,7 +170,7 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
     {
         foreach (var old in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
             Live.Remove(old);
-        var token = new IssuedToken(SecureToken.Generate(), 1000);
+        var token = new IssuedToken(SecureToken.Generate(), DateTimeOffset.FromUnixTimeSeconds(1000));
         Live[token.Value] = userId;
         _sessions[token.Value] = sessionId;
         return Task.FromResult(token);
@@ -226,7 +226,7 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
 
     public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null)
     {
-        var token = new IssuedToken(SecureToken.Generate(), 2000);
+        var token = new IssuedToken(SecureToken.Generate(), DateTimeOffset.FromUnixTimeSeconds(2000));
         Live[token.Value] = userId;
         _sessions[token.Value] = sessionId;
         return Task.FromResult(token);
@@ -243,7 +243,7 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
         return Task.CompletedTask;
     }
 
-    public Task<int> Prune(long cutoff, int batch) => Task.FromResult(0);
+    public Task<int> Prune(DateTimeOffset cutoff, int batch) => Task.FromResult(0);
 
     public Task RevokeAll(int userId, CredentialScope? scope = null) => RemoveWhere(p => p.Value == userId);
 
@@ -315,7 +315,7 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
 
     public Task<IssuedToken> Continue(int userId, string familyId, CredentialScope? scope = null) => Task.FromResult(Add(userId, familyId));
 
-    public Task<int> Prune(long cutoff, int batch) => Task.FromResult(0);
+    public Task<int> Prune(DateTimeOffset cutoff, int batch) => Task.FromResult(0);
 
     public async Task<RememberRotation> Rotate(string token, Func<int, CredentialScope, Task>? onReuse = null)
     {
@@ -351,7 +351,7 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
 
     private IssuedToken Add(int userId, string family)
     {
-        var token = new IssuedToken(SecureToken.Generate(), 3000);
+        var token = new IssuedToken(SecureToken.Generate(), DateTimeOffset.FromUnixTimeSeconds(3000));
         _rows[token.Value] = new(userId, family, false, false);
         return token;
     }
@@ -405,7 +405,7 @@ internal sealed class FakeGenerations : ICredentialGenerations
 
     public Task StartSession(int userId, string sessionId, CredentialScope scope) => Task.CompletedTask;
 
-    public Task<int> PruneSessions(long cutoff, int batch) => Task.FromResult(0);
+    public Task<int> PruneSessions(DateTimeOffset cutoff, int batch) => Task.FromResult(0);
 }
 
 /// <summary>Blocks every hash until released, counting how many ran.</summary>

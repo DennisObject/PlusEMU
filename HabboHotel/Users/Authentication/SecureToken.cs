@@ -17,4 +17,4 @@ public static class SecureToken
     public static string Hash(string token) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 }
 
-public readonly record struct IssuedToken(string Value, long ExpiresAt);
+public readonly record struct IssuedToken(string Value, DateTimeOffset ExpiresAt);

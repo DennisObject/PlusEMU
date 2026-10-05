@@ -25296,7 +25296,7 @@ UPDATE catalog_promotions SET position = id WHERE position = 0;
 
 -- SSO tickets are single-use and short-lived. A consumed ticket is cleared to ''
 -- (the stock dump declares auth_ticket NOT NULL).
-ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_expires_at` int(11) unsigned NULL DEFAULT NULL AFTER `auth_ticket`;
+ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_expires_at` DATETIME(6) NULL DEFAULT NULL AFTER `auth_ticket`;
 -- Bumped whenever all of a user's credentials are revoked; logins that started before it
 -- changed write nothing.
 ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `credential_generation` int(11) unsigned NOT NULL DEFAULT 0;
@@ -25313,8 +25313,8 @@ UPDATE `users` SET `auth_ticket` = '', `auth_ticket_expires_at` = NULL, `auth_ti
 CREATE TABLE IF NOT EXISTS `user_sessions` (
     `id` char(32) NOT NULL,
     `user_id` int(11) NOT NULL,
-    `created_at` int(11) unsigned NOT NULL,
-    `revoked_at` int(11) unsigned NULL DEFAULT NULL,
+    `created_at` DATETIME(6) NULL DEFAULT NULL,
+    `revoked_at` DATETIME(6) NULL DEFAULT NULL,
     PRIMARY KEY (`id`),
     KEY `user_id` (`user_id`),
     KEY `created_at` (`created_at`)
@@ -25327,9 +25327,9 @@ CREATE TABLE IF NOT EXISTS `user_access_tokens` (
     `user_id` int(11) NOT NULL,
     `session_id` char(32) NULL DEFAULT NULL,
     `token_hash` char(64) NOT NULL,
-    `created_at` int(11) unsigned NOT NULL,
-    `expires_at` int(11) unsigned NOT NULL,
-    `revoked_at` int(11) unsigned NULL DEFAULT NULL,
+    `created_at` DATETIME(6) NULL DEFAULT NULL,
+    `expires_at` DATETIME(6) NULL DEFAULT NULL,
+    `revoked_at` DATETIME(6) NULL DEFAULT NULL,
     PRIMARY KEY (`id`),
     UNIQUE KEY `token_hash` (`token_hash`),
     KEY `user_id` (`user_id`),
@@ -25346,11 +25346,11 @@ CREATE TABLE IF NOT EXISTS `user_remember_tokens` (
     `user_id` int(11) NOT NULL,
     `family_id` char(32) NOT NULL,
     `token_hash` char(64) NOT NULL,
-    `created_at` int(11) unsigned NOT NULL,
-    `expires_at` int(11) unsigned NOT NULL,
-    `used_at` int(11) unsigned NULL DEFAULT NULL,
+    `created_at` DATETIME(6) NULL DEFAULT NULL,
+    `expires_at` DATETIME(6) NULL DEFAULT NULL,
+    `used_at` DATETIME(6) NULL DEFAULT NULL,
     `grace_uses` tinyint(3) unsigned NOT NULL DEFAULT 0,
-    `revoked_at` int(11) unsigned NULL DEFAULT NULL,
+    `revoked_at` DATETIME(6) NULL DEFAULT NULL,
     PRIMARY KEY (`id`),
     UNIQUE KEY `token_hash` (`token_hash`),
     KEY `user_id` (`user_id`),

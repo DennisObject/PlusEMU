@@ -26,7 +26,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
 
         var token = await _store.Issue(userId);
 
-        Assert.Equal(_time.Now.ToUnixTimeSeconds() + 30 * 86400, token.ExpiresAt);
+        Assert.Equal(_time.Now.AddDays(30), token.ExpiresAt);
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
         Assert.Equal(SecureToken.Hash(token.Value), connection.QuerySingle<string>("SELECT token_hash FROM user_remember_tokens WHERE user_id = @userId", new { userId }));
     }
@@ -45,7 +45,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
         Assert.Equal(RememberRotationStatus.Rotated, rotation.Status);
         Assert.Equal(userId, rotation.UserId);
         Assert.NotEqual(first.Value, successor.Value);
-        Assert.Equal(_time.Now.ToUnixTimeSeconds() + 30 * 86400, successor.ExpiresAt);
+        Assert.Equal(_time.Now.AddDays(30), successor.ExpiresAt);
         Assert.Equal(rotation.FamilyId, again.FamilyId);
     }
 

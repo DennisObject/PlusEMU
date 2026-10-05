@@ -96,7 +96,7 @@ public class HousekeepingDatabaseTests : IDisposable
 
     private SessionIssuer Sessions() =>
         new(new SsoTicketStore(_database, TimeProvider.System, AuthOptions), new AccessTokenStore(_database, TimeProvider.System, AuthOptions),
-            new RememberTokenStore(_database, TimeProvider.System, AuthOptions), new CredentialGenerations(_database),
+            new RememberTokenStore(_database, TimeProvider.System, AuthOptions), new CredentialGenerations(_database, TimeProvider.System),
             new AccountStore(_database, TimeProvider.System, AuthOptions), new BanLookup(_database, TimeProvider.System));
 
     private static Habbo Staff(int rank = 9) => new() { Id = Owner, Username = "hk_owner", Access = HousekeepingPolicyTests.Access(rank * 10, PermissionKeys.HousekeepingEconomy, PermissionKeys.HousekeepingRolesManage) };

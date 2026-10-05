@@ -34,7 +34,7 @@ public interface IRememberTokenStore
     Task RevokeAll(int userId, CredentialScope? scope = null);
 
     /// <summary>Deletes up to <paramref name="batch"/> rows that expired before <paramref name="cutoff"/>.</summary>
-    Task<int> Prune(long cutoff, int batch);
+    Task<int> Prune(DateTimeOffset cutoff, int batch);
 }
 
 public enum RememberRotationStatus

@@ -25,5 +25,5 @@ public interface IAccessTokenStore
     Task RevokeSession(string sessionId, CredentialScope scope);
 
     /// <summary>Deletes up to <paramref name="batch"/> tokens that expired before <paramref name="cutoff"/>.</summary>
-    Task<int> Prune(long cutoff, int batch);
+    Task<int> Prune(DateTimeOffset cutoff, int batch);
 }

@@ -498,7 +498,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     private int LiveAccessTokens(int userId) => Scalar<int>($"SELECT COUNT(*) FROM user_access_tokens WHERE user_id = {userId} AND revoked_at IS NULL");
 
     private SessionIssuer Sessions(ISsoTicketStore? tickets = null, IRememberTokenStore? remember = null) =>
-        new(tickets ?? _tickets, new AccessTokenStore(_database, TimeProvider.System, _options), remember ?? _remember, new CredentialGenerations(_database),
+        new(tickets ?? _tickets, new AccessTokenStore(_database, TimeProvider.System, _options), remember ?? _remember, new CredentialGenerations(_database, TimeProvider.System),
             new AccountStore(_database, TimeProvider.System, _options), new BanLookup(_database, TimeProvider.System));
 
     private LoginService Login(IBoundedPasswordHasher? hasher = null) =>
@@ -558,7 +558,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         public Task<CredentialOwner?> FindOwner(string token) => inner.FindOwner(token);
         public Task RevokeSession(string sessionId, CredentialScope scope) => inner.RevokeSession(sessionId, scope);
         public Task RevokeAll(int userId, CredentialScope? scope = null) => inner.RevokeAll(userId, scope);
-        public Task<int> Prune(long cutoff, int batch) => inner.Prune(cutoff, batch);
+        public Task<int> Prune(DateTimeOffset cutoff, int batch) => inner.Prune(cutoff, batch);
     }
 
     private sealed class AfterExchange(ISsoTicketStore inner, Action hook) : ISsoTicketStore
