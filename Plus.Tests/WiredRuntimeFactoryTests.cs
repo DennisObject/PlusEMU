@@ -118,6 +118,7 @@ public sealed class WiredRuntimeFactoryTests
         public int Reads { get; private set; }
         public WiredConfiguration? Load(uint id, WiredBoxDescriptor descriptor)
         { Reads++; throw new InvalidDataException("Saved bytes are unreadable."); }
+        public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
         public void Save(uint id, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new NotSupportedException();
     }
 
@@ -127,6 +128,7 @@ public sealed class WiredRuntimeFactoryTests
         public WiredConfiguration? Load(uint id, WiredBoxDescriptor descriptor)
         { Assert.Equal(10u, id); Assert.Equal(name, descriptor.CanonicalName); WasRead = true; return config; }
         public void Save(uint id, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new NotSupportedException();
+        public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
     }
 
     [Fact]

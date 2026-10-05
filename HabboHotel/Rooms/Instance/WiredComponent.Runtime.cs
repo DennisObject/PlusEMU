@@ -134,6 +134,20 @@ public partial class WiredComponent
         return true;
     });
 
+    /// <summary>
+    /// Boxes leaving the room for good (pickup, eject, room deletion) are placed again with default settings. Their saved
+    /// settings are dropped first, so if that fails nothing changes and the boxes stay placed with their settings. Done in an
+    /// engine pass: a save already on its way then finds the box detached and does not write the settings back.
+    /// </summary>
+    public void ResetRoomItems(IEnumerable<Item> items) => _engine.Mutate(() =>
+    {
+        var boxes = items.Where(item => item.IsWired && !item.IsTemporary).ToList();
+        if (boxes.Count == 0) return false;
+        ConfigurationStore.Reset(boxes.Select(item => item.Id).ToArray());
+        foreach (var box in boxes) DetachRoomItem(box);
+        return true;
+    });
+
     public bool TryUseCounter(Item item, int parameter) => _engine.Mutate(() =>
     {
         if (!WiredCounterController.Recognizes(item) || !ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)) return false;

@@ -36,13 +36,17 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
             return;
         if (!user.IsBot)
             room.GetWired().Dispatch(new(WiredEventKind.ClickTile) { Actor = user, X = x, Y = y });
-        if (!user.CanWalk || x == user.X && y == user.Y)
+        if (!user.CanWalk)
             return;
         if (room.UsesV2Movement)
         {
+            if (x == user.X && y == user.Y && !user.SetStep)
+                return;
             user.MoveTo(x, y);
             return;
         }
+        if (x == user.X && y == user.Y)
+            return;
         if (user.RidingHorse)
         {
             var horse = room.GetRoomUserManager().GetRoomUserByVirtualId(user.HorseId);
