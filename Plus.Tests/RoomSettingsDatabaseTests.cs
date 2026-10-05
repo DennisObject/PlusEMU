@@ -47,6 +47,17 @@ public sealed class RoomSettingsDatabaseTests
             connection.Execute("UPDATE rooms SET owner='8'");
             Assert.Throws<InvalidOperationException>(() => settings.Save(request with { Name = "Rejected" }, 7, RoomAccess.Open));
             Assert.Equal("Updated", connection.QuerySingle<string>("SELECT caption FROM rooms"));
+            var promotionStore = new RoomPromotionStore(database);
+            connection.Execute("CREATE TABLE room_promotions (room_id INT PRIMARY KEY, title VARCHAR(100), description VARCHAR(255), timestamp_start DATETIME(6), timestamp_expire DATETIME(6), category_id INT)");
+            var instant = new DateTimeOffset(2040,12,31,23,0,0,TimeSpan.Zero);
+            var promotion = new RoomPromotion("title","details",9,instant,instant.AddHours(2),TimeProvider.System);
+            promotionStore.Save(42,8,promotion);
+            Assert.Equal(instant.UtcDateTime, connection.QuerySingle<DateTime>("SELECT timestamp_start FROM room_promotions"));
+            Assert.Equal(instant.AddHours(2).UtcDateTime, connection.QuerySingle<DateTime>("SELECT timestamp_expire FROM room_promotions"));
+            Assert.Throws<InvalidOperationException>(() => promotionStore.Save(42,7,promotion));
+            Assert.Throws<InvalidOperationException>(() => promotionStore.Edit(42,7,"rejected","rejected"));
+            promotionStore.Edit(42,8,"edited","more details");
+            Assert.Equal("edited", connection.QuerySingle<string>("SELECT title FROM room_promotions"));
             var metadata = new RoomItemMetadataStore(database);
             metadata.SetToner(92,42,0,255,1);
             Assert.Equal((1,0,255,1), connection.QuerySingle<(int,int,int,int)>("SELECT enabled,data1,data2,data3 FROM room_items_toner"));
