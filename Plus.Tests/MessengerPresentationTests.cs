@@ -82,6 +82,29 @@ public class MessengerPresentationTests
     }
 
     [Fact]
+    public void ModificationListIsCopiedAtConstructionSoSourceMutationDoesNotChangeOutput()
+    {
+        var source = new List<MessengerBuddyModification>
+        {
+            MessengerBuddyModification.Capture(Buddy(4, "Gone", online: true, allowsFollowing: true, relationship: 0), BuddyModificationType.Removed),
+        };
+        var composer = new FriendListUpdateComposer(source);
+        var before = new HabbiconTestSupport.RecordingPacket();
+        composer.Compose(before);
+
+        source.Add(MessengerBuddyModification.Capture(Buddy(5, "Late", online: false, allowsFollowing: true, relationship: 0), BuddyModificationType.Added));
+        source[0] = MessengerBuddyModification.Capture(Buddy(6, "Swapped", online: true, allowsFollowing: true, relationship: 0), BuddyModificationType.Removed);
+        var after = new HabbiconTestSupport.RecordingPacket();
+        composer.Compose(after);
+        var again = new HabbiconTestSupport.RecordingPacket();
+        composer.Compose(again);
+
+        Assert.Equal(new object[] { 0, 1, (int)BuddyModificationType.Removed, 4 }, before.Writes);
+        Assert.Equal(before.Writes, after.Writes);
+        Assert.Equal(before.Writes, again.Writes);
+    }
+
+    [Fact]
     public void AddedModificationWritesTypeThenTheBuddyEntry()
     {
         var added = MessengerBuddyModification.Capture(Buddy(5, "New", online: false, allowsFollowing: true, relationship: 0), BuddyModificationType.Added);
