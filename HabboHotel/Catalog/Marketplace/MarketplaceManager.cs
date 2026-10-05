@@ -105,7 +105,7 @@ public class MarketplaceManager : IMarketplaceManager
     // Column types as MariaDB stores them; the state enum arrives as text.
     private sealed class OwnOfferRow
     {
-        public DateTime? ListedAt { get; set; }
+        public DateTimeOffset? ListedAt { get; set; }
         public string State { get; set; } = "";
         public uint OfferId { get; set; }
         public int SpriteId { get; set; }
@@ -115,12 +115,12 @@ public class MarketplaceManager : IMarketplaceManager
     }
 
     // A NULL listing time is unknown and counts as expired; far-future listings clamp to the int wire range instead of overflowing.
-    private static int MinutesRemaining(DateTime? listedAt, DateTimeOffset now)
+    private static int MinutesRemaining(DateTimeOffset? listedAt, DateTimeOffset now)
     {
         if (listedAt is not { } listed) return 0;
         // Epoch arithmetic instead of DateTimeOffset: a listing in the last days of year 9999 would overflow adding its lifetime.
-        var expiresAt = (listed - DateTime.UnixEpoch).TotalSeconds + 172800;
-        var minutes = Math.Floor((expiresAt - (now.UtcDateTime - DateTime.UnixEpoch).TotalSeconds) / 60.0);
+        var expiresAt = (listed - DateTimeOffset.UnixEpoch).TotalSeconds + 172800;
+        var minutes = Math.Floor((expiresAt - (now - DateTimeOffset.UnixEpoch).TotalSeconds) / 60.0);
         return (int)Math.Clamp(minutes, int.MinValue, int.MaxValue);
     }
 

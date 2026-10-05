@@ -29,7 +29,7 @@ public sealed class MarketplaceOfferSearchService(IDatabase database, IMarketpla
     {
         var sql = filterMode == 1 ? NewestFirst : CheapestFirst;
         // Offers listed before this instant are past their two-day lifetime and drop out of the market.
-        var threshold = time.GetUtcNow().UtcDateTime.AddSeconds(-172800);
+        var threshold = time.GetUtcNow().AddSeconds(-172800);
         List<MarketplaceOfferRow> rows;
         using (var connection = database.Connection())
             rows = connection.Query<MarketplaceOfferRow>(sql, new { threshold, minCost, maxCost }).ToList();

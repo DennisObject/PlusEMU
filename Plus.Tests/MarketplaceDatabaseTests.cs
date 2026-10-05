@@ -32,13 +32,14 @@ public sealed class MarketplaceDatabaseTests
     private const int SellerId = 7;
     private const int BuyerId = 8;
     private static readonly DateTimeOffset Now = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000);
-    private readonly string _connectionString = Environment.GetEnvironmentVariable("PLUS_MARKETPLACE_PROBE_CONNECTION_STRING")!;
+    private readonly string _connectionString = ProductionConnectionString();
 
     public MarketplaceDatabaseTests()
     {
         if (!new MySqlConnectionStringBuilder(_connectionString).Database.StartsWith("task_refactor_tests_marketplace_", StringComparison.Ordinal))
             throw new InvalidOperationException("Marketplace probe tests require a disposable task_refactor_tests_marketplace_ schema.");
         Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
+        SqlMapper.AddTypeHandler(new Plus.Database.UtcDateTimeOffsetHandler());
         using var connection = new MySqlConnection(_connectionString);
         connection.Execute("DELETE FROM `catalog_marketplace_offers`");
         connection.Execute("DELETE FROM `items`");
@@ -83,8 +84,11 @@ public sealed class MarketplaceDatabaseTests
         var manager = new Manager();
 
         var snapshot = Search(manager, -1, -1, 0);
+        var runtime = new MarketplaceManager(new MySqlDatabase(_connectionString), ItemData(), CatalogSnapshotTestSupport.Proxy<IItemFactory>((method, _) => throw new InvalidOperationException(method)), new FixedClock(Now));
+        var own = runtime.OwnOffers(BuyerId);
 
         Assert.Single(snapshot.Offers);
+        Assert.True(Assert.Single(own.Offers).MinutesRemaining > 0);
         using var connection = new MySqlConnection(_connectionString);
         Assert.Equal(future, connection.ExecuteScalar<DateTime>("SELECT `listed_at` FROM `catalog_marketplace_offers` WHERE `offer_id` = 1"));
     }
@@ -100,6 +104,19 @@ public sealed class MarketplaceDatabaseTests
 
         Assert.Equal(new[] { (1, 5), (2, 0) }, own.Offers.Select(offer => (offer.OfferId, offer.MinutesRemaining)).ToArray());
         Assert.Equal(new[] { 1, 3 }, own.Offers.Select(offer => offer.State).ToArray());
+    }
+
+    [MarketplaceDatabaseFact]
+    public void OwnOffersPreserveFractionalListingTimes()
+    {
+        Insert(1, sprite: 100, asking: 50, total: 55, state: "1", timestamp: Now.ToUnixTimeSeconds() - 172800 + 60, seller: SellerId);
+        using (var connection = new MySqlConnection(_connectionString))
+            connection.Execute("UPDATE `catalog_marketplace_offers` SET `listed_at` = DATE_ADD(`listed_at`, INTERVAL 500000 MICROSECOND) WHERE `offer_id` = 1");
+        var manager = new MarketplaceManager(new MySqlDatabase(_connectionString), ItemData(), CatalogSnapshotTestSupport.Proxy<IItemFactory>((method, _) => throw new InvalidOperationException(method)), new FixedClock(Now));
+
+        var own = manager.OwnOffers(SellerId);
+
+        Assert.Equal(1, Assert.Single(own.Offers).MinutesRemaining);
     }
 
     [MarketplaceDatabaseFact]
@@ -134,16 +151,16 @@ public sealed class MarketplaceDatabaseTests
                          .Replace("`catalog_marketplace_offers`", $"`{table}`").Split(";\n", StringSplitOptions.RemoveEmptyEntries))
                 connection.Execute(statement);
 
-            var rows = connection.Query<(uint Id, DateTime? ListedAt)>($"SELECT `offer_id` AS Id, `listed_at` AS ListedAt FROM `{table}` ORDER BY `offer_id`").ToArray();
+            var rows = connection.Query<(uint Id, DateTimeOffset? ListedAt)>($"SELECT `offer_id` AS Id, `listed_at` AS ListedAt FROM `{table}` ORDER BY `offer_id`").ToArray();
             var dropped = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = @table AND column_name = 'timestamp'", new { table });
             connection.Execute($"DROP TABLE `{table}`");
 
             Assert.Equal(new uint[] { 1, 2, 3, 4, 5 }, rows.Select(row => row.Id).ToArray());
             Assert.Null(rows[0].ListedAt);
             Assert.Null(rows[1].ListedAt);
-            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1_700_000_000).UtcDateTime, rows[2].ListedAt);
-            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).UtcDateTime, rows[3].ListedAt);
-            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).UtcDateTime.AddTicks(2_500_000), rows[4].ListedAt);
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1_700_000_000), rows[2].ListedAt);
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000), rows[3].ListedAt);
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).AddTicks(2_500_000), rows[4].ListedAt);
             Assert.Equal(0, dropped);
         }
     }
@@ -153,6 +170,16 @@ public sealed class MarketplaceDatabaseTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Plus Emulator.csproj"))) dir = dir.Parent;
         return dir!.FullName;
+    }
+
+    private static string ProductionConnectionString()
+    {
+        var builder = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("PLUS_MARKETPLACE_PROBE_CONNECTION_STRING")!)
+        {
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true,
+        };
+        return builder.ConnectionString;
     }
 
     private static IItemDataManager ItemData() => CatalogSnapshotTestSupport.Proxy<IItemDataManager>((method, _) => method == "get_Items" ? new Dictionary<uint, ItemDefinition>() : throw new InvalidOperationException(method));
@@ -393,7 +420,7 @@ public sealed class MarketplaceDatabaseTests
         var definition = new ItemDefinition { Id = 900, SpriteId = 55, PublicName = "probe", ItemName = "probe", Type = ItemType.Floor };
 
         // The definition resolves and the claim is valid; only building the delivered furni fails, as on unparsable extra data.
-        Assert.Throws<InvalidOperationException>(() => store.Claim(new MarketplacePurchaseRequest(1, BuyerId, 1000, Now.UtcDateTime.AddSeconds(-172800),
+        Assert.Throws<InvalidOperationException>(() => store.Claim(new MarketplacePurchaseRequest(1, BuyerId, 1000, Now.AddSeconds(-172800),
             _ => definition, _ => throw new InvalidOperationException("forced delivery parsing failure"))));
 
         AssertNothingChanged();
@@ -405,7 +432,7 @@ public sealed class MarketplaceDatabaseTests
         Insert(1, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 77);
         var store = new MarketplacePurchaseStore(new MySqlDatabase(_connectionString));
 
-        Assert.Throws<InvalidOperationException>(() => store.Claim(new MarketplacePurchaseRequest(1, BuyerId, 1000, Now.UtcDateTime.AddSeconds(-172800),
+        Assert.Throws<InvalidOperationException>(() => store.Claim(new MarketplacePurchaseRequest(1, BuyerId, 1000, Now.AddSeconds(-172800),
             _ => throw new InvalidOperationException("forced definition failure"), _ => throw new InvalidOperationException("unreached"))));
 
         AssertNothingChanged();

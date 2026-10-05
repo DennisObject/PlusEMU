@@ -10,7 +10,7 @@ public enum MarketplacePurchaseRefusal { NotFound, Sold, Expired, UnknownItem, O
 // Everything the delivered furni needs, already converted to its unsigned wire types.
 public sealed record MarketplaceDelivery(uint FurniId, uint ItemId, string ExtraData, uint LimitedNumber, uint LimitedStack, ItemDefinition Definition);
 
-public sealed record MarketplacePurchaseRequest(int OfferId, int BuyerId, int BuyerCredits, DateTime ListedBefore,
+public sealed record MarketplacePurchaseRequest(int OfferId, int BuyerId, int BuyerCredits, DateTimeOffset ListedBefore,
     Func<uint, ItemDefinition?> DefinitionOf, Func<MarketplaceDelivery, InventoryItem> Prepare);
 
 public sealed record MarketplaceClaimedOffer(int TotalPrice, int SpriteId, InventoryItem Delivery);
@@ -29,7 +29,7 @@ public sealed class MarketplacePurchaseStore(IDatabase database) : IMarketplaceP
     private sealed class OfferRow
     {
         public string State { get; set; } = "";
-        public DateTime? ListedAt { get; set; }
+        public DateTimeOffset? ListedAt { get; set; }
         public int TotalPrice { get; set; }
         public string ExtraData { get; set; } = "";
         public uint ItemId { get; set; }

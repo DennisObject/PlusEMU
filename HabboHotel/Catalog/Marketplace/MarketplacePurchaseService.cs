@@ -32,7 +32,7 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
         lock (habbo.WalletSync)
         {
             if (habbo.WalletClosed) return MarketplacePurchaseOutcome.WalletClosed;
-            var listedBefore = time.GetUtcNow().UtcDateTime.AddSeconds(-OfferLifetimeSeconds);
+            var listedBefore = time.GetUtcNow().AddSeconds(-OfferLifetimeSeconds);
             MarketplacePurchaseResult result;
             lock (Sales)
             {
