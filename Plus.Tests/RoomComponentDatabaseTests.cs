@@ -41,6 +41,9 @@ public sealed class RoomComponentDatabaseTests
                 CREATE TABLE room_promotions (
                     room_id INT UNSIGNED NOT NULL, title VARCHAR(100) NOT NULL, description VARCHAR(255) NOT NULL,
                     timestamp_start DOUBLE NULL, timestamp_expire DOUBLE NULL, category_id INT NOT NULL);
+                CREATE TABLE room_bans (
+                    user_id INT UNSIGNED NOT NULL, room_id INT UNSIGNED NOT NULL, expire DOUBLE NULL,
+                    PRIMARY KEY (user_id, room_id));
                 CREATE TABLE items (id INT UNSIGNED PRIMARY KEY, user_id INT NOT NULL, room_id INT UNSIGNED NOT NULL DEFAULT 0,
                     x INT NOT NULL DEFAULT 0, y INT NOT NULL DEFAULT 0, z DOUBLE NOT NULL DEFAULT 0, rot INT NOT NULL DEFAULT 0,
                     extra_data TEXT, wall_pos VARCHAR(100), base_item INT UNSIGNED NOT NULL DEFAULT 0,
@@ -65,6 +68,7 @@ public sealed class RoomComponentDatabaseTests
                 INSERT INTO room_promotions VALUES (43, 'Future', 'Beyond 2038', 2200000000, 2200003600, 4);
                 INSERT INTO room_promotions VALUES (44, 'Unknown', 'Legacy zero', 0, 0, 5);
                 INSERT INTO room_promotions VALUES (45, 'Missing', 'Legacy null', NULL, NULL, 6);
+                INSERT INTO room_bans VALUES (20, 42, 2200000000), (21, 42, 0), (22, 42, NULL);
                 INSERT INTO items (id, user_id) VALUES (90, 1), (91, 1);
                 INSERT INTO users VALUES (7, 'owner');
                 INSERT INTO items (id, user_id, room_id, x, y, z, rot, extra_data, wall_pos, base_item, limited_number, limited_stack)
@@ -120,6 +124,25 @@ public sealed class RoomComponentDatabaseTests
             Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_003_600), futurePromotion.ExpiresAt);
             Assert.Null(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 44, TimeProvider.System));
             Assert.Null(RoomPromotionLoader.Load(new ProbeDatabase(databaseConnection), 45, TimeProvider.System));
+            var banMigration = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory,
+                "../../../../Database/Migrations/22_UseUtcRoomBanExpiry.sql")));
+            connection.Execute(banMigration);
+            Assert.Equal(("datetime", 6L), connection.QuerySingle<(string, long)>("""
+                SELECT DATA_TYPE, DATETIME_PRECISION FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'room_bans' AND column_name = 'expire'
+                """));
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).UtcDateTime,
+                DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT expire FROM room_bans WHERE user_id = 20"), DateTimeKind.Utc));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT expire FROM room_bans WHERE user_id = 21"));
+            Assert.Null(connection.QuerySingleOrDefault<DateTime?>("SELECT expire FROM room_bans WHERE user_id = 22"));
+            var banStore = (IRoomBanStore)new RoomBansComponent(new ProbeDatabase(databaseConnection), TimeProvider.System);
+            var loadedBan = Assert.Single(banStore.Load(42));
+            Assert.Equal((20, DateTimeOffset.FromUnixTimeSeconds(2_200_000_000)), (loadedBan.UserId, loadedBan.ExpiresAt));
+            var savedExpiry = DateTimeOffset.FromUnixTimeSeconds(2_200_003_600);
+            banStore.Save(42, 23, savedExpiry);
+            Assert.Equal(savedExpiry.UtcDateTime,
+                DateTime.SpecifyKind(connection.QuerySingle<DateTime>("SELECT expire FROM room_bans WHERE user_id = 23"), DateTimeKind.Utc));
+            Assert.Equal([20, 23], banStore.ActiveUserIds(42).Order().ToArray());
             var tradeStore = (ITradeStore)new RoomTradingComponent(new ProbeDatabase(databaseConnection));
             tradeStore.TransferItem(90, 2);
             tradeStore.DeleteItem(91);

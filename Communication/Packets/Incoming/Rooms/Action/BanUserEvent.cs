@@ -32,14 +32,14 @@ internal class BanUserEvent : IPacketEvent
             return Task.CompletedTask;
         if (!RoomModerationPolicy.CanTarget(session.GetHabbo().Access, user.GetClient().GetHabbo().Access))
             return Task.CompletedTask;
-        long time = 0;
+        var duration = TimeSpan.Zero;
         if (r.ToLower().Contains("hour"))
-            time = 3600;
+            duration = TimeSpan.FromHours(1);
         else if (r.ToLower().Contains("day"))
-            time = 86400;
+            duration = TimeSpan.FromDays(1);
         else if (r.ToLower().Contains("perm"))
-            time = 78892200;
-        room.GetBans().Ban(user, time);
+            duration = TimeSpan.FromSeconds(78892200);
+        room.GetBans().Ban(user, duration);
         _achievementManager.ProgressAchievement(session, "ACH_SelfModBanSeen", 1);
         return Task.CompletedTask;
     }

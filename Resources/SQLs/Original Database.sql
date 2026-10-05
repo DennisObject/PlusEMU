@@ -25180,7 +25180,7 @@ DROP TABLE IF EXISTS `room_bans`;
 CREATE TABLE `room_bans` (
   `user_id` int(11) unsigned NOT NULL DEFAULT '0',
   `room_id` int(11) unsigned NOT NULL DEFAULT '0',
-  `expire` int(11) NOT NULL DEFAULT '0',
+  `expire` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`user_id`,`room_id`),
   KEY `user_id` (`user_id`),
   KEY `room_id` (`room_id`)
