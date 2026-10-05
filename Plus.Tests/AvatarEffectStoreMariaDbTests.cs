@@ -9,7 +9,7 @@ namespace Plus.Tests;
 
 public sealed class AvatarEffectStoreMariaDbTests
 {
-    [RoomComponentDatabaseFact]
+    [FoundationSchemaDatabaseFact]
     public void MaterializesNativeSchemaAndRefusesPublicationAfterRowRemoval()
     {
         var serverConnection = Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!;

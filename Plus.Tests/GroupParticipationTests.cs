@@ -3,6 +3,7 @@ using Plus.Communication.Packets.Incoming;
 using Plus.Communication.Packets.Incoming.Groups;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -426,6 +427,63 @@ public class GroupParticipationTests
 
         Assert.Equal(group.Id, habbo.HabboStats.FavouriteGroupId);
         Assert.Empty(sent);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FavouritePublicationIsAtomicWithTheFinalSave(bool remove)
+    {
+        var group = NewGroup();
+        var original = remove ? group.Id : 0;
+        var target = remove ? 0 : group.Id;
+        var habbo = new Habbo { Id = 8, HabboStats = Stats(original), Access = UserAccess.Empty };
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+        var persisted = original;
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var saving = new ManualResetEventSlim();
+        var store = new FakeParticipationStore { OnFavourite = (_, value) =>
+        {
+            persisted = value;
+            entered.Set();
+            Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
+            return true;
+        }};
+        habbo.Persistence = CatalogSnapshotTestSupport.Proxy<IUserPersistenceService>((method, _) =>
+        {
+            Assert.Equal(nameof(IUserPersistenceService.Save), method);
+            persisted = habbo.HabboStats.FavouriteGroupId;
+            return null;
+        });
+        var service = Service(store, group);
+        Task Change() => remove ? service.RemoveFavourite(client) : service.SetFavourite(client, group.Id);
+        var change = Task.Run(Change);
+        Task? save = null;
+        try
+        {
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Equal(original, habbo.HabboStats.FavouriteGroupId);
+            Assert.Empty(sent);
+            save = Task.Run(() => { saving.Set(); habbo.Save(); });
+            Assert.True(saving.Wait(TimeSpan.FromSeconds(5)));
+            Assert.NotSame(save, await Task.WhenAny(save, Task.Delay(150)));
+        }
+        finally
+        {
+            release.Set();
+            try { await change.WaitAsync(TimeSpan.FromSeconds(10)); } catch { }
+            if (save != null) { try { await save.WaitAsync(TimeSpan.FromSeconds(10)); } catch { } }
+        }
+        await change;
+        await save!;
+        Assert.Equal(target, habbo.HabboStats.FavouriteGroupId);
+        Assert.Equal(target, persisted);
+        Assert.Single(store.Favourites);
+        Assert.Single(sent);
+        await Change(); // Saved sessions cannot write or acknowledge another preference.
+        Assert.Single(store.Favourites);
+        Assert.Single(sent);
     }
 
     private static GroupParticipationService Service(FakeParticipationStore store, Group group, List<Group>? memberships = null, List<GameClient>? clients = null) =>

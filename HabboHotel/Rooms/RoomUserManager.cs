@@ -1413,10 +1413,14 @@ public class RoomUserManager
         {
             if (UsesV2Movement) _room.GetGameMap()?.Navigation?.Shutdown();
             foreach (var user in users) _room.GetWired()?.BeforeActorLeaves(user);
-            UpdatePets();
-            UpdateBots();
+            // Keep each save independent so a failed write cannot skip the remaining teardown.
+            try { UpdatePets(); }
+            catch (Exception e) { ExceptionLogger.LogCriticalException(e); }
+            try { UpdateBots(); }
+            catch (Exception e) { ExceptionLogger.LogCriticalException(e); }
             _room.UsersNow = 0;
-            _store.UpdateUserCount(_room.Id, 0);
+            try { _store.UpdateUserCount(_room.Id, 0); }
+            catch (Exception e) { ExceptionLogger.LogCriticalException(e); }
         }
         finally
         {

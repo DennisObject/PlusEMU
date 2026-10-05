@@ -107,9 +107,9 @@ public sealed class ModeratorHistoryService(
         var entries = new List<ModeratorChatEntry>();
         foreach (var row in rows)
         {
-            var user = GetUser(row.UserId);
+            var user = GetUser(checked((int)row.UserId));
             if (user != null && row.Timestamp is { } createdAt)
-                entries.Add(new(row.UserId, user.Username, row.Message, createdAt));
+                entries.Add(new(checked((int)row.UserId), user.Username, row.Message, createdAt));
         }
         return entries.ToImmutableArray();
     }
@@ -117,7 +117,7 @@ public sealed class ModeratorHistoryService(
     private Users.Habbo? GetUser(int userId) => userLookup.GetById(userId);
     private sealed class ChatlogRow
     {
-        public int UserId { get; set; }
+        public uint UserId { get; set; }
         public DateTimeOffset? Timestamp { get; set; }
         public string Message { get; set; } = string.Empty;
     }

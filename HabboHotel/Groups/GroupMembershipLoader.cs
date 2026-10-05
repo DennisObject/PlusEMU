@@ -29,12 +29,12 @@ public sealed class GroupMembershipLoader(IDatabase database) : IGroupMembership
             SELECT user_id AS UserId, `rank` <> '0' AS IsAdministrator
             FROM group_memberships WHERE group_id = @groupId ORDER BY id
             """, new { groupId }, transaction).ToArray();
-        var memberIds = memberships.Where(row => !row.IsAdministrator).Select(row => row.UserId).Distinct().ToImmutableArray();
-        var administratorIds = memberships.Where(row => row.IsAdministrator).Select(row => row.UserId).Distinct().ToImmutableArray();
+        var memberIds = memberships.Where(row => !row.IsAdministrator).Select(row => checked((int)row.UserId)).Distinct().ToImmutableArray();
+        var administratorIds = memberships.Where(row => row.IsAdministrator).Select(row => checked((int)row.UserId)).Distinct().ToImmutableArray();
         var participantIds = memberIds.Concat(administratorIds).ToHashSet();
-        var requests = connection.Query<int>("""
+        var requests = connection.Query<uint>("""
             SELECT user_id FROM group_requests WHERE group_id = @groupId ORDER BY user_id
-            """, new { groupId }, transaction).Distinct().ToArray();
+            """, new { groupId }, transaction).Select(userId => checked((int)userId)).Distinct().ToArray();
         var staleRequests = requests.Where(participantIds.Contains).ToArray();
         if (staleRequests.Length > 0)
             connection.Execute("""
@@ -46,7 +46,7 @@ public sealed class GroupMembershipLoader(IDatabase database) : IGroupMembership
 
     private sealed class MembershipRow
     {
-        public int UserId { get; set; }
+        public uint UserId { get; set; }
         public bool IsAdministrator { get; set; }
     }
 }
