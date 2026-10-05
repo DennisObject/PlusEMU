@@ -43,7 +43,7 @@ public partial class PlacedFurniRoomTests
 
     private RoomUser Viewer(int x = 3, int y = 3)
     {
-        _client.GetHabbo().Effects = new Plus.HabboHotel.Users.Effects.EffectsComponent();
+        _client.GetHabbo().Effects = new Plus.HabboHotel.Users.Effects.EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch));
         _client.GetHabbo().HabboStats = new Plus.HabboHotel.Users.HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
         _client.GetHabbo().Inventory ??= new Plus.HabboHotel.Users.Inventory.InventoryComponent { Furniture = new Plus.HabboHotel.Users.Inventory.Furniture.FurnitureInventoryComponent([], []) };
         var user = new RoomUser(7, RoomId, 1, _room) { X = x, Y = y };

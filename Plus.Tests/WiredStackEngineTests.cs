@@ -787,7 +787,7 @@ public class WiredStackEngineTests
             SendCallback = args => { packets.Add(BinaryPrimitives.ReadUInt16BigEndian(args.MemoryBuffer.Span.Slice(4, 2))); return true; }
         };
         var player = new Habbo { Id = 1, Username = "actor", CurrentRoom = room, Client = client,
-            Access = EditorTestSupport.Access(protectedActor ? [PermissionKeys.ModerationTool] : []), Effects = new EffectsComponent() };
+            Access = EditorTestSupport.Access(protectedActor ? [PermissionKeys.ModerationTool] : []), Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)) };
         client.SetHabbo(player);
         SetPrivate(player.Effects, "_habbo", player);
         var visit = new RoomUser(player.Id, 0, 0, room);

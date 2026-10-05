@@ -1,10 +1,14 @@
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets;
 using Plus.Communication.Packets.Incoming.Inventory.AvatarEffect;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Effects;
 using Xunit;
@@ -13,13 +17,13 @@ namespace Plus.Tests;
 
 public class AvatarEffectServiceTests
 {
-    private static readonly DateTimeOffset Now = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000);
+    private static readonly DateTimeOffset Now = FixedTimeProvider.Epoch;
 
     [Fact]
     public async Task ActivationPersistsBeforeTheModelAndPacketChange()
     {
         var store = new RecordingStore();
-        var (habbo, effect) = Owner(sprite: 42, duration: 3600, activated: false);
+        var (habbo, effect) = Owner(sprite: 42, duration: 3600, activated: false, store: store, clock: new FixedTimeProvider(Now));
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         store.OnActivate = _ =>
         {
@@ -27,37 +31,28 @@ public class AvatarEffectServiceTests
             Assert.Empty(sent);
         };
 
-        await Activated(store).Parse(client, Packet(42));
+        await Activated(Now).Parse(client, Packet(42));
 
         Assert.Equal(new[] { (effect.Id, Now) }, store.Activations);
         Assert.True(effect.Activated);
         Assert.Equal(Now, effect.ActivatedAt);
-        var message = Assert.Single(sent);
-        Assert.Equal(ServerPacketHeader.AvatarEffectActivatedComposer, message.Header);
+        Assert.Equal(ServerPacketHeader.AvatarEffectActivatedComposer, Assert.Single(sent).Header);
     }
 
     [Fact]
-    public async Task ActivatedWireCarriesSpriteDurationAndNotPermanent()
+    public void ActivatedWireCarriesSpriteDurationAndNotPermanent()
     {
-        var store = new RecordingStore();
-        var (habbo, _) = Owner(sprite: 42, duration: 3600, activated: false);
-        var (client, sent) = HabbiconTestSupport.Client(habbo);
-
-        await Activated(store).Parse(client, Packet(42));
-
         Assert.Equal(new object[] { 42, 3600, false }, Writes(new AvatarEffectActivatedComposer(new AvatarEffectActivation(42, 3600))));
-        Assert.Equal(3, Writes(new AvatarEffectActivatedComposer(new AvatarEffectActivation(42, 3600))).Count);
-        Assert.Single(sent);
     }
 
     [Fact]
     public async Task StoreFailureLeavesTheEffectAndThePacketUntouched()
     {
         var store = new RecordingStore { Fail = true };
-        var (habbo, effect) = Owner(sprite: 42, duration: 3600, activated: false);
+        var (habbo, effect) = Owner(sprite: 42, duration: 3600, activated: false, store: store, clock: new FixedTimeProvider(Now));
         var (client, sent) = HabbiconTestSupport.Client(habbo);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Activated(store).Parse(client, Packet(42)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Activated(Now).Parse(client, Packet(42)));
 
         Assert.False(effect.Activated);
         Assert.Null(effect.ActivatedAt);
@@ -70,10 +65,10 @@ public class AvatarEffectServiceTests
     public async Task AlreadyActiveOrUnownedEffectsAreIgnored(string reason)
     {
         var store = new RecordingStore();
-        var (habbo, _) = Owner(sprite: 42, duration: 3600, activated: reason == "already-active", activatedAt: Now.AddSeconds(-10));
+        var (habbo, _) = Owner(sprite: 42, duration: 3600, activated: reason == "already-active", activatedAt: Now.AddSeconds(-10), store: store, clock: new FixedTimeProvider(Now));
         var (client, sent) = HabbiconTestSupport.Client(habbo);
 
-        await Activated(store).Parse(client, Packet(reason == "not-owned" ? 99 : 42));
+        await Activated(Now).Parse(client, Packet(reason == "not-owned" ? 99 : 42));
 
         Assert.Empty(store.Activations);
         Assert.Empty(sent);
@@ -86,15 +81,17 @@ public class AvatarEffectServiceTests
     }
 
     [Fact]
-    public void ExpiryModelSendsTheSpriteAndDecrementsQuantity()
+    public void ExpiryPersistsTheLowerQuantityAndThenSendsTheSprite()
     {
         var store = new RecordingStore();
-        var (habbo, effect) = Owner(sprite: 42, duration: 10, activated: true, activatedAt: Now.AddSeconds(-20), quantity: 2, store: store);
+        var (habbo, effect) = Owner(sprite: 42, duration: 10, activated: true, activatedAt: Now.AddSeconds(-20), quantity: 2, store: store, clock: new FixedTimeProvider(Now));
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
+        store.OnSave = _ => Assert.Equal(2, effect.Quantity);
 
         habbo.Effects.CheckEffectExpiry(habbo);
 
+        Assert.Equal(new[] { (effect.Id, 1, false) }, store.Saves);
         Assert.Equal(1, effect.Quantity);
         Assert.False(effect.Activated);
         var message = Assert.Single(sent);
@@ -103,39 +100,64 @@ public class AvatarEffectServiceTests
     }
 
     [Fact]
+    public void ExpiryStoreFailureLeavesTheModelAndThePacketUnchanged()
+    {
+        var store = new RecordingStore { FailSave = true };
+        var (habbo, effect) = Owner(sprite: 42, duration: 10, activated: true, activatedAt: Now.AddSeconds(-20), quantity: 2, store: store, clock: new FixedTimeProvider(Now));
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+
+        Assert.Throws<InvalidOperationException>(() => habbo.Effects.CheckEffectExpiry(habbo));
+
+        Assert.Equal(2, effect.Quantity);
+        Assert.True(effect.Activated);
+        Assert.Equal(Now.AddSeconds(-20), effect.ActivatedAt);
+        Assert.Empty(sent);
+    }
+
+    [Fact]
     public void EffectsWireCarriesQuantityAndRemainingTimeForActiveAndIdleEffects()
     {
-        var active = new AvatarEffectEntry(1, 3600, 2, true, 3000);
-        var idle = new AvatarEffectEntry(2, 60, 1, false, -1);
-
-        Assert.Equal(new List<object> { 1, 0, 3600, 2, 3000, false }, Writes(new AvatarEffectsComposer([active])).Skip(1).ToList());
-        Assert.Equal(new List<object> { 2, 0, 60, 1, -1, false }, Writes(new AvatarEffectsComposer([idle])).Skip(1).ToList());
-        Assert.Equal(1, Writes(new AvatarEffectsComposer([active])).First());
+        Assert.Equal(new List<object> { 1, 0, 3600, 2, 3000, false }, Writes(new AvatarEffectsComposer([new AvatarEffectEntry(1, 3600, 2, true, 3000)])).Skip(1).ToList());
+        Assert.Equal(new List<object> { 2, 0, 60, 1, -1, false }, Writes(new AvatarEffectsComposer([new AvatarEffectEntry(2, 60, 1, false, -1)])).Skip(1).ToList());
+        Assert.Equal(1, Writes(new AvatarEffectsComposer([new AvatarEffectEntry(1, 3600, 2, true, 3000)])).First());
     }
 
     [Fact]
     public void CapturedRemainingTimeFollowsTheInjectedClockAtTheBoundary()
     {
-        var (habbo, _) = Owner(sprite: 1, duration: 100, activated: true, activatedAt: Now.AddSeconds(-100));
-        var service = new AvatarEffectService(new RecordingStore(), new FixedClock(Now));
+        var clock = new MutableClock(Now);
+        var (habbo, effect) = Owner(sprite: 1, duration: 100, activated: true, activatedAt: Now.AddSeconds(-100), clock: clock);
+        var service = new AvatarEffectService(clock);
         Assert.Equal(0, service.Capture(habbo).Single().RemainingSeconds);
 
-        habbo.Effects.GetAllEffects.Single().ActivatedAt = Now.AddSeconds(-99);
+        effect.ActivatedAt = Now.AddSeconds(-99);
         Assert.Equal(1, service.Capture(habbo).Single().RemainingSeconds);
 
-        habbo.Effects.GetAllEffects.Single().ActivatedAt = Now.AddSeconds(-150);
+        effect.ActivatedAt = Now.AddSeconds(-150);
         Assert.Equal(0, service.Capture(habbo).Single().RemainingSeconds);
 
-        habbo.Effects.GetAllEffects.Single().Activated = false;
+        effect.Activated = false;
         Assert.Equal(-1, service.Capture(habbo).Single().RemainingSeconds);
+    }
+
+    [Fact]
+    public void GatingUsesTheSameInstantAtAFutureClock()
+    {
+        var clock = new MutableClock(Now);
+        var (habbo, _) = Owner(sprite: 42, duration: 100, activated: true, activatedAt: Now.AddSeconds(-50), clock: clock);
+
+        Assert.True(habbo.Effects.HasEffect(42, true));
+        clock.Now = Now.AddSeconds(60);
+        Assert.False(habbo.Effects.HasEffect(42, true));
+        Assert.True(habbo.Effects.HasEffectAt(42, Now.AddSeconds(49), true));
+        Assert.False(habbo.Effects.HasEffectAt(42, Now.AddSeconds(50), true));
     }
 
     [Fact]
     public void CapturedEffectsDoNotFollowLaterMutationOfTheModel()
     {
-        var (habbo, effect) = Owner(sprite: 42, duration: 3600, activated: true, activatedAt: Now.AddSeconds(-600), quantity: 2);
-        var service = new AvatarEffectService(new RecordingStore(), new FixedClock(Now));
-        var captured = service.Capture(habbo);
+        var (habbo, effect) = Owner(sprite: 42, duration: 3600, activated: true, activatedAt: Now.AddSeconds(-600), quantity: 2, clock: new FixedTimeProvider(Now));
+        var captured = new AvatarEffectService(new FixedTimeProvider(Now)).Capture(habbo);
         var before = Writes(new AvatarEffectsComposer(captured));
 
         effect.Quantity = 9;
@@ -147,29 +169,84 @@ public class AvatarEffectServiceTests
     }
 
     [Fact]
-    public async Task NegativeSelectionAndNoRoomAreSilentNoOps()
+    public async Task RoomSelectionAppliesOnlyAnActiveOwnedEffect()
     {
-        var (habbo, _) = Owner(sprite: 42, duration: 3600, activated: true, activatedAt: Now.AddSeconds(-10));
-        var (client, sent) = HabbiconTestSupport.Client(habbo);
+        var clock = new FixedTimeProvider(Now);
+        var (habbo, _) = Owner(sprite: 42, duration: 3600, activated: true, activatedAt: Now.AddSeconds(-10), clock: clock);
+        var (client, _) = InRoom(habbo);
 
-        await new AvatarEffectSelectedEvent(new AvatarEffectService(new RecordingStore(), new FixedClock(Now))).Parse(client, Packet(-5));
-        await new AvatarEffectSelectedEvent(new AvatarEffectService(new RecordingStore(), new FixedClock(Now))).Parse(client, Packet(42));
+        await new AvatarEffectSelectedEvent(new AvatarEffectService(clock)).Parse(client, Packet(42));
 
-        Assert.Empty(sent);
+        Assert.Equal(42, habbo.Effects.CurrentEffect);
     }
 
-    private static Plus.Communication.Packets.Incoming.Inventory.AvatarEffect.AvatarEffectActivatedEvent Activated(IAvatarEffectStore store) =>
-        new(new AvatarEffectService(store, new FixedClock(Now)));
+    [Fact]
+    public async Task RoomSelectionIgnoresAnExpiredEffectAtTheDeadline()
+    {
+        var clock = new FixedTimeProvider(Now);
+        var (habbo, _) = Owner(sprite: 42, duration: 10, activated: true, activatedAt: Now.AddSeconds(-10), clock: clock);
+        var (client, _) = InRoom(habbo);
+
+        await new AvatarEffectSelectedEvent(new AvatarEffectService(clock)).Parse(client, Packet(42));
+
+        Assert.Equal(0, habbo.Effects.CurrentEffect);
+    }
+
+    [Fact]
+    public async Task RoomSelectionOfANegativeIdIsANoOp()
+    {
+        var clock = new FixedTimeProvider(Now);
+        var (habbo, _) = Owner(sprite: 42, duration: 3600, activated: true, activatedAt: Now.AddSeconds(-10), clock: clock);
+        var (client, _) = InRoom(habbo);
+
+        await new AvatarEffectSelectedEvent(new AvatarEffectService(clock)).Parse(client, Packet(-5));
+
+        Assert.Equal(0, habbo.Effects.CurrentEffect);
+    }
+
+    [Fact]
+    public async Task ActivatedEventDecodesOneIntAndSendsOnlyTheActivation()
+    {
+        var store = new RecordingStore();
+        var (habbo, _) = Owner(sprite: 42, duration: 60, activated: false, store: store, clock: new FixedTimeProvider(Now));
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+
+        await Activated(Now).Parse(client, Packet(42));
+
+        var message = Assert.Single(sent);
+        Assert.Equal(ServerPacketHeader.AvatarEffectActivatedComposer, message.Header);
+        Assert.Equal(42, BinaryPrimitives.ReadInt32BigEndian(message.Payload));
+        Assert.Equal(60, BinaryPrimitives.ReadInt32BigEndian(message.Payload.AsSpan(4)));
+    }
+
+    private static AvatarEffectActivatedEvent Activated(DateTimeOffset clock) => new(new AvatarEffectService(new FixedTimeProvider(clock)));
 
     private static (Habbo Habbo, AvatarEffect Effect) Owner(int sprite, double duration, bool activated, DateTimeOffset? activatedAt = null, int quantity = 1,
-        IAvatarEffectStore? store = null)
+        IAvatarEffectStore? store = null, TimeProvider? clock = null)
     {
         var habbo = new Habbo { Id = 7, Username = "owner" };
-        habbo.Effects = new EffectsComponent();
+        habbo.Effects = new EffectsComponent(clock ?? new FixedTimeProvider(Now));
         habbo.Effects.Init(habbo);
-        var effect = new AvatarEffect(501, 7, sprite, duration, activated, activatedAt, quantity, store);
+        var effect = new AvatarEffect(501, 7, sprite, duration, activated, activatedAt, quantity, store ?? new RecordingStore());
         habbo.Effects.TryAdd(effect);
         return (habbo, effect);
+    }
+
+    // A room with one registered user whose client is the owner, so selection reaches the effect component.
+    private static (GameClient Client, RoomUser User) InRoom(Habbo habbo)
+    {
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        room.Id = 42;
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, new FixedTimeProvider(Now)));
+        var (client, _) = HabbiconTestSupport.Client(habbo);
+        habbo.CurrentRoom = room;
+        var user = new RoomUser(7, room.Id, 1, room);
+        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(user, client);
+        var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(room.GetRoomUserManager())!;
+        users.TryAdd(7, user);
+        return (client, user);
     }
 
     private static List<object> Writes(IServerPacket composer)
@@ -189,8 +266,11 @@ public class AvatarEffectServiceTests
     private sealed class RecordingStore : IAvatarEffectStore
     {
         public List<(int Id, DateTimeOffset At)> Activations { get; } = new();
+        public List<(int Id, int Quantity, bool Activated)> Saves { get; } = new();
         public bool Fail { get; set; }
+        public bool FailSave { get; set; }
         public Action<int>? OnActivate { get; set; }
+        public Action<int>? OnSave { get; set; }
 
         public IReadOnlyList<AvatarEffect> Load(int userId) => [];
         public AvatarEffect Create(int userId, int spriteId, double duration) => throw new NotSupportedException();
@@ -202,11 +282,18 @@ public class AvatarEffectServiceTests
             Activations.Add((id, timestamp));
         }
 
-        public void SaveQuantity(int id, int quantity, bool activated, DateTimeOffset? activatedAt) { }
+        public void SaveQuantity(int id, int quantity, bool activated, DateTimeOffset? activatedAt)
+        {
+            OnSave?.Invoke(quantity);
+            if (FailSave) throw new InvalidOperationException("forced save failure");
+            Saves.Add((id, quantity, activated));
+        }
     }
 
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    private sealed class MutableClock(DateTimeOffset now) : TimeProvider
     {
-        public override DateTimeOffset GetUtcNow() => now;
+        public DateTimeOffset Now { get; set; } = now;
+
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 }

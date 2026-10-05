@@ -271,7 +271,7 @@ public class WiredAvatarPacketHookTests
                     return true;
                 }
             };
-            Client.SetHabbo(new Habbo { Id = 42, Username = "actor", CurrentRoom = Room, Client = Client, Effects = new EffectsComponent() });
+            Client.SetHabbo(new Habbo { Id = 42, Username = "actor", CurrentRoom = Room, Client = Client, Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)) });
             Actor = new RoomUser(42, 1, 7, Room); Set(Actor, "_mClient", Client);
             _users = (ConcurrentDictionary<int, RoomUser>)Get(Users, "_users");
             AddActor();

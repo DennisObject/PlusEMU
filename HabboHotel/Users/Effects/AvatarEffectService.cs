@@ -13,27 +13,25 @@ public sealed record AvatarEffectEntry(int SpriteId, int Duration, int Quantity,
 
 public interface IAvatarEffectService
 {
-    // Persists the activation before the in-memory effect and the packet change.
+    // Looks up, checks and activates against one captured instant; the activation persists before the packet is sent.
     void Activate(GameClient session, int effectId);
 
-    // A negative id selects nothing; only an owned, active effect in the room is applied.
+    // Looks up against one captured instant; a negative id selects nothing, and only an owned, active effect in the room is applied.
     void Select(GameClient session, int effectId);
 
-    // The full effects list at the captured instant, with remaining time measured against the injected clock.
+    // The full effects list at one captured instant, with remaining time measured against that instant.
     ImmutableArray<AvatarEffectEntry> Capture(Habbo habbo);
 }
 
-public sealed class AvatarEffectService(IAvatarEffectStore store, TimeProvider time) : IAvatarEffectService
+public sealed class AvatarEffectService(TimeProvider time) : IAvatarEffectService
 {
     public void Activate(GameClient session, int effectId)
     {
         var habbo = session.GetHabbo();
-        var effect = habbo.Effects.GetEffectNullable(effectId, false, true);
-        if (effect == null || habbo.Effects.HasEffect(effectId, true)) return;
         var now = time.GetUtcNow();
-        store.Activate(effect.Id, now);
-        effect.Activated = true;
-        effect.ActivatedAt = now;
+        var effect = habbo.Effects.GetEffectNullableAt(effectId, now, false, true);
+        if (effect == null || habbo.Effects.HasEffectAt(effectId, now, true)) return;
+        effect.Activate(now);
         session.Send(new AvatarEffectActivatedComposer(new AvatarEffectActivation(effect.SpriteId, (int)effect.Duration)));
     }
 
@@ -46,7 +44,8 @@ public sealed class AvatarEffectService(IAvatarEffectStore store, TimeProvider t
         if (room == null) return;
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
         if (user == null) return;
-        if (selected != 0 && habbo.Effects.HasEffect(selected, true))
+        var now = time.GetUtcNow();
+        if (selected != 0 && habbo.Effects.HasEffectAt(selected, now, true))
             user.ApplyEffect(selected);
     }
 
@@ -55,14 +54,7 @@ public sealed class AvatarEffectService(IAvatarEffectStore store, TimeProvider t
         var now = time.GetUtcNow();
         return habbo.Effects.GetAllEffects
             .Select(effect => new AvatarEffectEntry(effect.SpriteId, (int)effect.Duration, effect.Activated ? effect.Quantity - 1 : effect.Quantity,
-                effect.Activated, effect.Activated ? (int)RemainingSeconds(effect, now) : -1))
+                effect.Activated, effect.Activated ? (int)effect.TimeLeftAt(now) : -1))
             .ToImmutableArray();
-    }
-
-    // Same rule as AvatarEffect.TimeLeft, measured against the captured instant and never negative.
-    private static double RemainingSeconds(AvatarEffect effect, DateTimeOffset now)
-    {
-        var used = effect.ActivatedAt is { } activatedAt ? (now - activatedAt).TotalSeconds : 0;
-        return Math.Max(0, effect.Duration - used);
     }
 }

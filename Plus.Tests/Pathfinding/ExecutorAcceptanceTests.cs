@@ -209,7 +209,7 @@ public partial class PlacedFurniRoomTests
     {
         var client = new TestClient();
         client.SetHabbo(new Habbo { Id = id, Username = $"member{id}", CurrentRoom = _room, Client = client,
-            Effects = new EffectsComponent(), Access = Plus.HabboHotel.Permissions.UserAccess.Empty,
+            Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)), Access = Plus.HabboHotel.Permissions.UserAccess.Empty,
             HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) });
         var actor = new RoomUser(id, RoomId, id, _room) { X = 3, Y = 3, Team = Team.Blue, InternalRoomId = id };
         typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(actor, client);

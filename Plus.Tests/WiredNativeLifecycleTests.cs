@@ -391,7 +391,7 @@ public sealed class WiredNativeLifecycleTests
                 SendCallback = _ => true
             };
             var habbo = new Habbo { Id = 42, Username = "viewer", Motto = "", Look = "test", Gender = "M", CurrentRoom = Room, Client = client,
-                HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0), Effects = new EffectsComponent(), Access = EditorTestSupport.Access([]) };
+                HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0), Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)), Access = EditorTestSupport.Access([]) };
             client.SetHabbo(habbo);
             var user = new RoomUser(42, 1, 1, Room); Set(user, "_mClient", client); _users[user.VirtualId] = user; return user;
         }

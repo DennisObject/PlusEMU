@@ -187,7 +187,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
                 new Gamemap(liveRoom, new RoomModel("wired-sql-probe", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation));
             fxPlayer.Username = "probe-viewer"; fxPlayer.Motto = ""; fxPlayer.Look = "test"; fxPlayer.Gender = "M";
             fxPlayer.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
-            fxPlayer.Effects = new(); fxPlayer.Access = EditorTestSupport.Access([]);
+            fxPlayer.Effects = new(new FixedTimeProvider(FixedTimeProvider.Epoch)); fxPlayer.Access = EditorTestSupport.Access([]);
             fxClient.Revision.InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
                 .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id);
             var failSnapshot = false; var failFx = false; var failedFx = false;
