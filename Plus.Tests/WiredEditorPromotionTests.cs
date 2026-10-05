@@ -29,6 +29,41 @@ namespace Plus.Tests;
 [Collection("Modern Wired database seam")]
 public class WiredEditorPromotionTests
 {
+    private static IWiredConfigurationService Service(IDatabase database, IFigureDataManager? figures = null) =>
+        new WiredConfigurationService(new WiredConfigurationStore(database),
+            figures ?? DispatchProxy.Create<IFigureDataManager, UnusedFigure>(), TestLogging.For<WiredConfigurationService>());
+
+    public class UnusedFigure : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? method, object?[]? args) =>
+            throw new InvalidOperationException($"Unexpected figure lookup: {method?.Name}");
+    }
+
+    [Fact]
+    public async Task SaveHandlersDecodeCompleteTypedRequestsAndRejectMalformedOrTrailingFrames()
+    {
+        var service = new RecordingConfigurationService();
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
+
+        await new SaveWiredTriggerConfigEvent(service).Parse(client, Packet(0, [0, 1, 0], "trigger"));
+        await new SaveWiredConditionConfigEvent(service).Parse(client, Packet(3, [2, 8, 0], "condition"));
+        await new SaveWiredEffectConfigEvent(service).Parse(client, Packet(1, [0, 0, 34, -1], "action"));
+
+        Assert.Collection(service.Requests,
+            request => Assert.Equal((7u, WiredBoxCategory.Trigger, "trigger", 0),
+                (request.ItemId, request.Envelope, request.Configuration.Text, request.Configuration.Delay)),
+            request => Assert.Equal((7u, WiredBoxCategory.Condition, "condition", 0),
+                (request.ItemId, request.Envelope, request.Configuration.Text, request.Configuration.Delay)),
+            request => Assert.Equal((7u, WiredBoxCategory.Action, "action", 7),
+                (request.ItemId, request.Envelope, request.Configuration.Text, request.Configuration.Delay)));
+
+        await new SaveWiredEffectConfigEvent(service).Parse(client, new FlashIncomingPacket { Buffer = new byte[3] });
+        var valid = Packet(1, [0, 0, 34, -1], "action").Buffer.ToArray();
+        await new SaveWiredEffectConfigEvent(service).Parse(client,
+            new FlashIncomingPacket { Buffer = valid.Concat(new byte[] { 1 }).ToArray() });
+        Assert.Equal(3, service.Requests.Count);
+    }
+
     [Theory]
     [InlineData(false, false)] [InlineData(false, true)]
     [InlineData(true, false)] [InlineData(true, true)]
@@ -46,7 +81,7 @@ public class WiredEditorPromotionTests
         client.GetHabbo().Clothing = new Plus.HabboHotel.Users.Clothing.ClothingComponent();
         client.GetHabbo().Access = UserAccess.Create([], member ? [new(PermissionKeys.ClubAccess, false)] : []);
         var figures = DispatchProxy.Create<IFigureDataManager, SavingFigure>();
-        await new SaveWiredEffectConfigEvent(database, figures, TestLogging.For<SaveWiredConfigEvent>()).Parse(client, Packet(1, [100], "Bot\thd-10-20."));
+        await new SaveWiredEffectConfigEvent(Service(database, figures)).Parse(client, Packet(1, [100], "Bot\thd-10-20."));
         Assert.Equal(new uint[] { 1155 }, packets);
         Assert.Equal(member ? 2 : 0, ((SavingFigure)(object)figures).Level);
         Assert.True(wired.TryGet(7, out var saved));
@@ -89,7 +124,7 @@ public class WiredEditorPromotionTests
             Length = 1, Width = 1, Stackable = true, Walkable = true }, 42, 1, 1, 0, 0, "prototype-state")!;
         Assert.True(room.GetRoomItemHandler().OwnsTemporary(prototype));
         var packets = new List<uint>(); var client = SaveClient(room, packets);
-        var handler = new SaveWiredEffectConfigEvent(database, null!, TestLogging.For<SaveWiredConfigEvent>());
+        var handler = new SaveWiredEffectConfigEvent(Service(database));
         database.FailWrites = true;
         await handler.Parse(client, ActionPacket([32, 2, 0, 0, 0, 0], [prototype.Id]));
         Assert.Equal(new uint[] { 156 }, packets); Assert.Same(initial, box.Configuration); Assert.Empty(database.Rows);
@@ -127,10 +162,28 @@ public class WiredEditorPromotionTests
         var high = new Item { Id = uint.MaxValue - 10, IsTemporary = temporary, Definition = new() { Type = ItemType.Floor } };
         Floor(room).TryAdd(high.Id, high);
         var prior = box.Configuration; var packets = new List<uint>();
-        await new SaveWiredEffectConfigEvent(database, null!, TestLogging.For<SaveWiredConfigEvent>()).Parse(SaveClient(room, packets), ActionPacket([0, 100], [high.Id]));
+        await new SaveWiredEffectConfigEvent(Service(database)).Parse(SaveClient(room, packets), ActionPacket([0, 100], [high.Id]));
         Assert.Equal(new uint[] { temporary ? 156u : 1155u }, packets);
         if (temporary) { Assert.Same(prior, box.Configuration); Assert.Empty(database.Rows); }
         else { Assert.Equal(new uint[] { high.Id }, box.Configuration.SelectedItems); Assert.Single(database.Rows); }
+    }
+
+    [Fact]
+    public async Task SaveServiceRejectsMismatchedEnvelopeWithoutPersistenceOrSuccess()
+    {
+        var database = new MemoryDatabase(); var (room, wired, _) = Room();
+        var item = new Item { Id = 7, ExtraData = new LegacyDataFormat { Data = "1" }, Definition = new()
+            { ItemName = "wf_trg_says_something", WiredType = WiredBoxType.TriggerUserSays, InteractionType = InteractionType.WiredTrigger } };
+        Floor(room).TryAdd(7, item); Assert.True(wired.AddBox(wired.GenerateNewBox(item)!));
+        var packets = new List<uint>();
+
+        await new SaveWiredEffectConfigEvent(Service(database)).Parse(SaveClient(room, packets),
+            ActionPacket([0, 0, 34, -1], []));
+
+        Assert.Equal(new uint[] { 156 }, packets);
+        Assert.Empty(database.Rows);
+        Assert.True(wired.TryGet(7, out var retained));
+        Assert.IsNotAssignableFrom<IWiredConfiguredItem>(retained);
     }
 
     [Fact]
@@ -143,7 +196,7 @@ public class WiredEditorPromotionTests
         Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0, 0], ScoreQuotaPerGame = 3 }, out var prior, out var error), error);
         box.ApplyConfiguration(prior); Assert.True(wired.AddBox(box));
         var packets = new List<uint>();
-        await new SaveWiredEffectConfigEvent(database, null!, TestLogging.For<SaveWiredConfigEvent>()).Parse(SaveClient(room, packets), ActionPacket([4, 1, 0], []));
+        await new SaveWiredEffectConfigEvent(Service(database)).Parse(SaveClient(room, packets), ActionPacket([4, 1, 0], []));
         Assert.Equal(new uint[] { 1155 }, packets); Assert.Equal(3, box.Configuration.ScoreQuotaPerGame);
         Assert.Equal(new[] { 4, 1, 0 }, box.Configuration.IntParams);
     }
@@ -183,7 +236,7 @@ public class WiredEditorPromotionTests
             SendCallback = args => { error = new FlashIncomingPacket { Buffer = args.MemoryBuffer[6..].ToArray() }.ReadString(); return true; }
         };
         client.SetHabbo(new Habbo { Username = "owner", CurrentRoom = room, Access = EditorTestSupport.Access(staff ? ["moderation.tool"] : []) });
-        await new SaveWiredEffectConfigEvent(new MemoryDatabase(), null!, TestLogging.For<SaveWiredConfigEvent>()).Parse(client, Packet(1, [0, 0, 0, 1, 0], ""));
+        await new SaveWiredEffectConfigEvent(Service(new MemoryDatabase())).Parse(client, Packet(1, [0, 0, 0, 1, 0], ""));
         Assert.Equal(staff, box.Validated);
         Assert.Equal(staff ? "Rejected by concrete reward validation." : "You do not have permission to configure Wired rewards.", error);
     }
@@ -221,8 +274,8 @@ public class WiredEditorPromotionTests
                 SendCallback = args => { packets.Add((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2))); return true; }
             };
             client.SetHabbo(new Habbo { Username = "owner", CurrentRoom = room, Access = EditorTestSupport.Access([]) });
-            var handler = kind == 0 ? (SaveWiredConfigEvent)new SaveWiredTriggerConfigEvent(database, null!, TestLogging.For<SaveWiredConfigEvent>())
-                : kind == 3 ? new SaveWiredConditionConfigEvent(database, null!, TestLogging.For<SaveWiredConfigEvent>()) : new SaveWiredEffectConfigEvent(database, null!, TestLogging.For<SaveWiredConfigEvent>());
+            var handler = kind == 0 ? (SaveWiredConfigEvent)new SaveWiredTriggerConfigEvent(Service(database))
+                : kind == 3 ? new SaveWiredConditionConfigEvent(Service(database)) : new SaveWiredEffectConfigEvent(Service(database));
             var parameters = kind switch { 0 => new[] { 0, 1, 0 }, 1 => [0, 0, 34, -1], 2 => [0, 0, 0], 3 => [2, 8, 0], _ => [1, 1, 1, 1, 100] };
             var text = kind is 0 or 1 ? "new text" : "";
             database.FailWrites = true;
@@ -349,5 +402,11 @@ public class WiredEditorPromotionTests
         public static T Create<T>(Func<MethodInfo, object?[]?, object?> invoke) where T : class
         { var value = Create<T, Proxy>(); ((Proxy)(object)value)._invoke = invoke; return value; }
         protected override object? Invoke(MethodInfo? method, object?[]? args) => _invoke(method!, args);
+    }
+
+    private sealed class RecordingConfigurationService : IWiredConfigurationService
+    {
+        public List<WiredConfigurationSaveRequest> Requests { get; } = [];
+        public void Save(GameClient session, WiredConfigurationSaveRequest request) => Requests.Add(request);
     }
 }

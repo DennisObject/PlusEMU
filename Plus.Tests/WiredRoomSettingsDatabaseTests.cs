@@ -8,6 +8,7 @@ using System.Text.Json;
 using Dapper;
 using MySqlConnector;
 using Plus.Communication.Flash;
+using Plus.Core.FigureData;
 using Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
 using Plus.Communication.Packets.Incoming.WiredVariables;
 using Plus.Communication.Packets.Outgoing;
@@ -97,7 +98,9 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             guest.Packets.Clear(); await new OpenWiredEvent().Parse(room, guest.Client, ItemPacket(itemId, false));
             Assert.Equal(1428u, Assert.Single(guest.Packets).Id); Assert.Same(original, box.Configuration);
             room.UsersWithRights.Add((int)guestId); Assert.True(room.CheckRights(guest.Client, false, true));
-            guest.Packets.Clear(); await new SaveWiredEffectConfigEvent(database, null!, TestLogging.For<SaveWiredConfigEvent>()).Parse(guest.Client, ItemPacket(itemId, true));
+            var configurationService = new WiredConfigurationService(new WiredConfigurationStore(database),
+                DispatchProxy.Create<IFigureDataManager, WiredEditorPromotionTests.UnusedFigure>(), TestLogging.For<WiredConfigurationService>());
+            guest.Packets.Clear(); await new SaveWiredEffectConfigEvent(configurationService).Parse(guest.Client, ItemPacket(itemId, true));
             Assert.Empty(guest.Packets); Assert.Same(original, box.Configuration);
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_item_configurations WHERE item_id=@Id", new { Id = itemId }));
             await new WiredRoomSettingsSaveEvent(settingsService).Parse(room, owner.Client, Packet(0, 2));
