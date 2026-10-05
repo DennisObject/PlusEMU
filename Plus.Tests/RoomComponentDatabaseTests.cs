@@ -54,7 +54,7 @@ public sealed class RoomComponentDatabaseTests
                 CREATE TABLE items_groups (id INT UNSIGNED PRIMARY KEY, group_id INT NOT NULL);
                 CREATE TABLE users (id INT PRIMARY KEY, username VARCHAR(100));
                 CREATE TABLE logs_client_trade (
-                    id INT AUTO_INCREMENT PRIMARY KEY, `1id` INT, `2id` INT, `1items` TEXT, `2items` TEXT, `timestamp` CHAR(20));
+                    id INT AUTO_INCREMENT PRIMARY KEY, `1id` INT, `2id` INT, `1items` TEXT, `2items` TEXT, `timestamp` DATETIME(6) NULL);
                 CREATE TABLE rooms (id INT UNSIGNED PRIMARY KEY, caption VARCHAR(100) NOT NULL DEFAULT '',
                     users_now INT NOT NULL DEFAULT 0 CHECK (users_now >= 0));
                 CREATE TABLE user_roomvisits (
@@ -233,7 +233,7 @@ public sealed class RoomComponentDatabaseTests
             var userChatlog = Assert.IsType<Plus.HabboHotel.Moderation.ModeratorUserChatlog>(history.GetUserChatlog(7));
             Assert.Equal(["written", "inside visit"],
                 Assert.Single(userChatlog.Rooms).Entries.Select(entry => entry.Message).ToArray());
-            var tradeStore = (ITradeStore)new RoomTradingComponent(new ProbeDatabase(databaseConnection));
+            var tradeStore = (ITradeStore)new RoomTradingComponent(new ProbeDatabase(databaseConnection), visitClock);
             tradeStore.TransferItem(90, 2);
             tradeStore.DeleteItem(91);
             tradeStore.Log(1, 2, "90;", "91;");

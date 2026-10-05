@@ -22020,7 +22020,7 @@ CREATE TABLE `logs_client_trade` (
   `2id` int(11) DEFAULT '0',
   `1items` text,
   `2items` text,
-  `timestamp` char(20) DEFAULT '',
+  `timestamp` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 

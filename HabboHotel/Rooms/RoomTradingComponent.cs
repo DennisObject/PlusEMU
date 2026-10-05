@@ -11,7 +11,7 @@ internal interface ITradeStore
     void Log(int firstUserId, int secondUserId, string firstItems, string secondItems);
 }
 
-public sealed class RoomTradingComponent(IDatabase database) : IRoomComponent, ITradeStore
+public sealed class RoomTradingComponent(IDatabase database, TimeProvider clock) : IRoomComponent, ITradeStore
 {
     public int Order => 10;
     public void Initiate(Room room)
@@ -35,9 +35,10 @@ public sealed class RoomTradingComponent(IDatabase database) : IRoomComponent, I
     void ITradeStore.Log(int firstUserId, int secondUserId, string firstItems, string secondItems)
     {
         using var connection = database.Connection();
+        var now = clock.GetUtcNow();
         connection.Execute("""
             INSERT INTO logs_client_trade (`1id`, `2id`, `1items`, `2items`, `timestamp`)
-            VALUES (@firstUserId, @secondUserId, @firstItems, @secondItems, UNIX_TIMESTAMP())
-            """, new { firstUserId, secondUserId, firstItems, secondItems });
+            VALUES (@firstUserId, @secondUserId, @firstItems, @secondItems, @createdAt)
+            """, new { firstUserId, secondUserId, firstItems, secondItems, createdAt = now.UtcDateTime });
     }
 }
