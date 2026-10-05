@@ -12,14 +12,16 @@ public class Group
     private RoomData _room;
     public bool HasForum;
 
-    public Group(int id, string name, string description, string badge, uint roomId, int owner, int time, int type, int colour1, int colour2, int adminOnlyDeco, bool hasForum, GroupMembershipSnapshot membership)
+    public Group(int id, string name, string description, string badge, uint roomId, int owner,
+        DateTimeOffset? createdAt, int type, int colour1, int colour2, int adminOnlyDeco, bool hasForum,
+        GroupMembershipSnapshot membership)
     {
         Id = id;
         Name = name;
         Description = description;
         RoomId = roomId;
         Badge = badge;
-        CreateTime = time;
+        CreatedAt = createdAt?.ToUniversalTime();
         CreatorId = owner;
         Colour1 = colour1 == 0 ? 1 : colour1;
         Colour2 = colour2 == 0 ? 1 : colour2;
@@ -36,7 +38,7 @@ public class Group
     public string Name { get; set; }
     public int AdminOnlyDeco { get; set; }
     public string Badge { get; set; }
-    public int CreateTime { get; set; }
+    public DateTimeOffset? CreatedAt { get; set; }
     public int CreatorId { get; set; }
     public string Description { get; set; }
     public uint RoomId { get; set; }

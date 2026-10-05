@@ -119,6 +119,17 @@ public class GroupInfoSnapshotTests : IDisposable
         Assert.Equal("No room found..", snapshot.RoomName);
     }
 
+    [Fact]
+    public void CreationDatePreservesWireFormatAndUnknownPolicy()
+    {
+        var group = NewGroup(type: 0, forum: false, adminOnly: 0);
+        group.CreatedAt = null;
+        Assert.Equal("1-1-1970", Service(_clients, _ => null).Capture(group, 9).CreatedOn);
+
+        group.CreatedAt = new DateTimeOffset(2040, 1, 2, 3, 4, 5, TimeSpan.Zero).AddTicks(1_234_560);
+        Assert.Equal("2-1-2040", Service(_clients, _ => null).Capture(group, 9).CreatedOn);
+    }
+
     private static IRoomManager UnloadedRooms() => Proxy<IRoomManager>((method, args) =>
     {
         Assert.Equal("TryGetRoom", method);
@@ -128,7 +139,9 @@ public class GroupInfoSnapshotTests : IDisposable
 
     private static Group NewGroup(int type, bool forum, int adminOnly, bool withRoom = true)
     {
-        var group = new Group(9, "Crew", "desc", "b01014s02024", 42, 7, 1_700_000_000, type, 3, 4, adminOnly, forum, GroupMembershipSnapshot.Empty);
+        var group = new Group(9, "Crew", "desc", "b01014s02024", 42, 7,
+            DateTimeOffset.FromUnixTimeSeconds(1_700_000_000), type, 3, 4, adminOnly, forum,
+            GroupMembershipSnapshot.Empty);
         if (withRoom)
         {
             var room = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));

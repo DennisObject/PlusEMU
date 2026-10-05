@@ -22616,7 +22616,7 @@ CREATE TABLE `groups` (
   `desc` varchar(255) NOT NULL,
   `badge` varchar(50) NOT NULL,
   `owner_id` int(11) unsigned NOT NULL,
-  `created` int(50) NOT NULL,
+  `created` datetime(6) NULL DEFAULT NULL,
   `room_id` int(10) unsigned NOT NULL DEFAULT '0',
   `state` enum('0','1','2') NOT NULL DEFAULT '0',
   `colour1` int(11) NOT NULL DEFAULT '242424',

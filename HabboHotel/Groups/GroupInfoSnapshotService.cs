@@ -33,7 +33,7 @@ public sealed class GroupInfoSnapshotService(IGameClientManager clientManager, I
 {
     public GroupInfoSnapshot Capture(Group group, int viewerId)
     {
-        var origin = DateTime.UnixEpoch.AddSeconds(group.CreateTime);
+        var origin = (group.CreatedAt ?? DateTimeOffset.UnixEpoch).UtcDateTime;
         var room = group.GetRoom();
         var viewerIsCreator = group.CreatorId == viewerId;
         var viewerIsAdmin = group.IsAdmin(viewerId);
