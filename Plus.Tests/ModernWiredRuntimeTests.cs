@@ -1294,12 +1294,12 @@ public class ModernWiredRuntimeTests
         foreach (var code in new[] { "credits#5", "pixels#5", "diamonds#5", "points5#5" })
             Assert.False(WiredRewards.TryValidate(config with { Text = "1," + code + ",100" }, out _, out _));
         Assert.False(WiredRewards.TryValidate(config with { Text = string.Join(';', Enumerable.Repeat("0,A,100", 21)) }, out _, out _));
-        var claim = new WiredRewardClaim { Count = 1, LastClaimUnix = 100 };
-        Assert.False(WiredRewards.IntervalOpen(claim, 0, 1, long.MaxValue));
+        var claim = new WiredRewardClaim { Count = 1, LastClaimAt = DateTimeOffset.FromUnixTimeSeconds(100) };
+        Assert.False(WiredRewards.IntervalOpen(claim, 0, 1, DateTimeOffset.MaxValue));
         foreach (var pair in new[] { (1, 86400), (2, 3600), (3, 60) })
         {
-            Assert.False(WiredRewards.IntervalOpen(claim, pair.Item1, 2, 100 + 2 * pair.Item2 - 1));
-            Assert.True(WiredRewards.IntervalOpen(claim, pair.Item1, 2, 100 + 2 * pair.Item2));
+            Assert.False(WiredRewards.IntervalOpen(claim, pair.Item1, 2, DateTimeOffset.FromUnixTimeSeconds(100 + 2 * pair.Item2 - 1)));
+            Assert.True(WiredRewards.IntervalOpen(claim, pair.Item1, 2, DateTimeOffset.FromUnixTimeSeconds(100 + 2 * pair.Item2)));
         }
     }
 
@@ -1327,7 +1327,7 @@ public class ModernWiredRuntimeTests
         var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]); ctx.Triggering.UserIds.Add(f.User.VirtualId);
         Assert.True(WiredRewards.TryValidate(WiredRewards.Defaults() with { Text = "0,BADGE1,100" }, out var config, out _));
         Assert.True(rewards.Execute(MakeItem(100, "wf_act_give_reward"), ctx, config));
-        Assert.Equal(new long[] { 1234 }, store.Times); Assert.Equal(1, clock.Reads);
+        Assert.Equal(new[] { DateTimeOffset.FromUnixTimeSeconds(1234) }, store.Times); Assert.Equal(1, clock.Reads);
         Assert.Equal(new[] { 0 }, store.SentAtClaim); // Nothing reaches the client before the store commits.
         Assert.True(sent > 0); Assert.True(f.Habbo.Inventory.Badges.HasBadge("BADGE1"));
     }
@@ -1343,8 +1343,10 @@ public class ModernWiredRuntimeTests
         var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]); ctx.Triggering.UserIds.Add(f.User.VirtualId);
         Assert.True(WiredRewards.TryValidate(WiredRewards.Defaults() with { Text = "0,BADGE1,100" }, out var config, out _));
         Assert.False(rewards.Execute(MakeItem(100, "wf_act_give_reward"), ctx, config));
-        Assert.Equal(new long[] { 1234 }, store.Times); Assert.Equal(0, sent); Assert.False(f.Habbo.Inventory.Badges.HasBadge("BADGE1"));
+        Assert.Equal(new[] { DateTimeOffset.FromUnixTimeSeconds(1234) }, store.Times); Assert.Equal(0, sent); Assert.False(f.Habbo.Inventory.Badges.HasBadge("BADGE1"));
     }
+
+    private static DateTimeOffset At(long seconds) => DateTimeOffset.FromUnixTimeSeconds(seconds);
 
     private sealed class RewardClock(DateTimeOffset now) : TimeProvider
     {
@@ -1354,9 +1356,10 @@ public class ModernWiredRuntimeTests
 
     private sealed class RecordingRewardStore(Func<int> sent, WiredRewardGrant? grant, Exception? failure = null) : IWiredRewardStore
     {
-        public List<long> Times { get; } = [];
+        public List<DateTimeOffset> Times { get; } = [];
         public List<int> SentAtClaim { get; } = [];
-        public WiredRewardGrant ClaimAndGrant(Item box, uint roomId, Habbo habbo, WiredConfiguration configuration, IItemDataManager definitions, long now)
+        public WiredRewardGrant ClaimAndGrant(Item box, uint roomId, Habbo habbo, WiredConfiguration configuration,
+            IItemDataManager definitions, DateTimeOffset now)
         {
             Times.Add(now); SentAtClaim.Add(sent());
             if (failure != null) throw failure;
@@ -1390,48 +1393,48 @@ public class ModernWiredRuntimeTests
             var config = WiredRewards.Defaults() with { Text = $"1,furni#{baseId},100" };
             var loadedOwner = box.OwnerId;
             box.OwnerId = userId + 1;
-            Assert.Equal(8, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 100).Reason);
+            Assert.Equal(8, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(100)).Reason);
             Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
             box.OwnerId = loadedOwner;
-            var grant = store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 100);
+            var grant = store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(100));
             Assert.Equal(5, grant.Reason); Assert.Equal(0, sent); Assert.Empty(f.Habbo.Inventory.Furniture.GetItems);
             Assert.Equal(1, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE id=@id AND user_id=@user AND room_id=0", new { id = grant.Furniture!.Id, user = userId }));
             WiredRewards.Publish(f.Habbo, grant); Assert.True(sent > 0); Assert.Single(f.Habbo.Inventory.Furniture.GetItems);
-            Assert.Equal(2, new WiredRewardStore(database).ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 200).Reason);
+            Assert.Equal(2, new WiredRewardStore(database).ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(200)).Reason);
             config = config with { IntParams = [3, 0, 0, 1, 0] };
-            Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 159).Reason);
-            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 160).Reason);
+            Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(159)).Reason);
+            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(160)).Reason);
             admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
             config = config with { IntParams = [3, 0, 1, 1, 0] };
-            var tasks = Enumerable.Range(0, 4).Select(_ => Task.Run(() => new WiredRewardStore(database).ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 1000)));
+            var tasks = Enumerable.Range(0, 4).Select(_ => Task.Run(() => new WiredRewardStore(database).ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(1000))));
             var results = await Task.WhenAll(tasks); Assert.Single(results, result => result.Reason == 5); Assert.Equal(3, results.Count(result => result.Reason == 1));
             admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
             var unique = config with { IntParams = [3, 1, 0, 1, 0], Text = $"1,furni#{baseId},100;1,probe_product,100" };
-            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, 1000).Reason);
-            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, 1060).Reason);
-            Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, 1120).Reason);
+            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, At(1000)).Reason);
+            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, At(1060)).Reason);
+            Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, At(1120)).Reason);
             var state = System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, WiredRewardClaim>>(admin.QuerySingle<string>("SELECT claims FROM wired_reward_state WHERE item_id=@boxId", new { boxId }))!;
             Assert.Equal(2, state[f.Habbo.Id].Count); Assert.Contains("probe_product", state[f.Habbo.Id].ReceivedCodes); Assert.Contains($"furni#{baseId}", state[f.Habbo.Id].ReceivedCodes);
             unique = unique with { Text = "1,new_product_after_edit,100" };
-            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, 1120).Reason); // Existing claims survive edits; new codes become available.
+            Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, At(1120)).Reason); // Existing claims survive edits; new codes become available.
             admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
             var before = admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE user_id=@user", new { user = userId });
             database.FailSqlPrefix = "UPDATE wired_reward_state";
-            Assert.Throws<ModernWiredDatabaseProbe.InjectedCommandFailure>(() => store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, 2000));
+            Assert.Throws<ModernWiredDatabaseProbe.InjectedCommandFailure>(() => store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(2000)));
             Assert.Equal(before, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE user_id=@user", new { user = userId }));
             Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
             database.FailSqlPrefix = null;
             admin.Execute("INSERT INTO badge_definitions(code,required_right) VALUES (@badgeCode,'')", new { badgeCode });
             var badgeConfig = WiredRewards.Defaults() with { Text = "0," + badgeCode + ",100" };
             database.FailSqlPrefix = "UPDATE wired_reward_state";
-            Assert.Throws<ModernWiredDatabaseProbe.InjectedCommandFailure>(() => store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, 2000));
+            Assert.Throws<ModernWiredDatabaseProbe.InjectedCommandFailure>(() => store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, At(2000)));
             Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM user_badges WHERE user_id=@userId", new { userId }));
             Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
             database.FailSqlPrefix = null;
-            var badgeGrant = store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, 2000); Assert.Equal(4, badgeGrant.Reason);
+            var badgeGrant = store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, At(2000)); Assert.Equal(4, badgeGrant.Reason);
             Assert.False(f.Habbo.Inventory.Badges.HasBadge(badgeCode)); WiredRewards.Publish(f.Habbo, badgeGrant); Assert.True(f.Habbo.Inventory.Badges.HasBadge(badgeCode));
             admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
-            Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, 2100).Reason);
+            Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, At(2100)).Reason);
             Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
         }
         finally
