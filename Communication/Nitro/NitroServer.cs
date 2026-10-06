@@ -11,9 +11,9 @@ namespace Plus.Communication.Nitro;
 
 public class NitroServerConfiguration : IGameServerOptions
 {
-    public string Name { get; set; }
+    public string Name { get; set; } = "Nitro";
     public int Port { get; set; }
-    public string Hostname { get; set; }
+    public string Hostname { get; set; } = "127.0.0.1";
 }
 
 public interface INitroServer : IGameServer { }
