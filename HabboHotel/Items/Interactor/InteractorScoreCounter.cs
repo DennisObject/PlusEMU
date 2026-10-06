@@ -5,17 +5,20 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 public class InteractorScoreCounter : IFurniInteractor
 {
-    public void OnPlace(GameClient session, Item item)
+    public void OnPlace(GameClient? session, Item item)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         if (item.Team == Team.None)
             return;
-        item.LegacyDataString = item.GetRoom().GetGameManager().Points[Convert.ToInt32(item.Team)].ToString();
+        item.LegacyDataString = itemRoom.GetGameManager().Points[Convert.ToInt32(item.Team)].ToString();
         item.UpdateState(false, true);
     }
 
-    public void OnRemove(GameClient session, Item item) { }
+    public void OnRemove(GameClient? session, Item item) { }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
         if (!hasRights) return;
         var oldValue = 0;

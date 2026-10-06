@@ -23,7 +23,7 @@ public class Vector2D
         return dx * dx + dy * dy;
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         if (obj is Vector2D)
         {

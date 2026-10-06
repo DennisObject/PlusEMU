@@ -5,11 +5,11 @@ namespace Plus.Communication.Packets.Outgoing.Quests;
 public sealed class RewardTrackPremiumPurchaseResultComposer : IServerPacket
 {
     private readonly string _trackId;
-    private readonly int _resultCode;
+    private readonly Plus.HabboHotel.Quests.RewardTrackResults _resultCode;
     private readonly int _points;
     public uint MessageId => ServerPacketHeader.RewardTrackPremiumPurchaseResultComposer;
 
-    public RewardTrackPremiumPurchaseResultComposer(string trackId, int resultCode, int points)
+    public RewardTrackPremiumPurchaseResultComposer(string trackId, Plus.HabboHotel.Quests.RewardTrackResults resultCode, int points)
     {
         _trackId = trackId ?? "";
         _resultCode = resultCode;
@@ -19,7 +19,7 @@ public sealed class RewardTrackPremiumPurchaseResultComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteString(_trackId);
-        packet.WriteInteger(_resultCode);
+        packet.WriteInteger((int)_resultCode);
         packet.WriteInteger(_points);
     }
 }

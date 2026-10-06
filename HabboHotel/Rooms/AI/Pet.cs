@@ -70,7 +70,7 @@ public class Pet
         OwnerName = PlusEnvironment.Game.ClientManager.GetNameById(OwnerId).Result;
     }
 
-    public Room Room
+    public Room? Room
     {
         get
         {

@@ -20,7 +20,10 @@ public class PetBot : BotAi
 
     private void RemovePetStatus()
     {
-        var pet = GetRoomUser();
+        var botUser = GetRoomUser();
+        if (botUser == null) return;
+
+        var pet = botUser;
         if (pet != null)
         {
             foreach (var kvp in pet.Statusses.ToList())
@@ -33,8 +36,13 @@ public class PetBot : BotAi
 
     public override void OnSelfEnterRoom()
     {
-        if (GetRoomUser() != null && GetRoom().GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
-            GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y);
+        var botRoom = GetRoom();
+        if (botRoom == null) return;
+        var botUser = GetRoomUser();
+        if (botUser == null) return;
+
+        if (botUser != null && botRoom.GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
+            botUser.MoveTo(nextCoord.X, nextCoord.Y);
     }
 
     public override void OnSelfLeaveRoom(bool kicked) { }
@@ -42,12 +50,17 @@ public class PetBot : BotAi
 
     public override void OnUserEnterRoom(RoomUser user)
     {
-        if (user.GetClient() != null && user.GetClient().GetHabbo() != null)
+        var botUser = GetRoomUser();
+        if (botUser == null) return;
+        var speakerSession = user?.GetClient();
+        if (speakerSession == null) return;
+
+        if (speakerSession != null && speakerSession.GetHabbo() != null)
         {
-            var pet = GetRoomUser();
+            var pet = botUser;
             if (pet != null)
             {
-                if (user.GetClient().GetHabbo().Username == pet.PetData.OwnerName)
+                if (speakerSession.GetHabbo().Username == pet.PetData.OwnerName)
                 {
                     var speech = PlusEnvironment.Game.ChatManager.GetPetLocale().GetValue($"welcome.speech.pet{pet.PetData.Type}");
                     var rSpeech = speech[Random.Shared.Next(0, speech.Length)];
@@ -63,7 +76,12 @@ public class PetBot : BotAi
 
     public override void OnTimerTick()
     {
-        var pet = GetRoomUser();
+        var botRoom = GetRoom();
+        if (botRoom == null) return;
+        var botUser = GetRoomUser();
+        if (botUser == null) return;
+
+        var pet = botUser;
         if (pet == null)
             return;
         if (_speechTimer <= 0)
@@ -89,13 +107,13 @@ public class PetBot : BotAi
             try
             {
                 RemovePetStatus();
-                _actionTimer = Random.Shared.Next(15, 40 + GetRoomUser().PetData.VirtualId + 1);
-                if (!GetRoomUser().RidingHorse)
+                _actionTimer = Random.Shared.Next(15, 40 + botUser.PetData.VirtualId + 1);
+                if (!botUser.RidingHorse)
                 {
                     // Remove Status
                     RemovePetStatus();
-                    if (GetRoomUser().CanWalk && GetRoom().GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
-                        GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y);
+                    if (botUser.CanWalk && botRoom.GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
+                        botUser.MoveTo(nextCoord.X, nextCoord.Y);
                 }
             }
             catch (Exception e)
@@ -117,9 +135,16 @@ public class PetBot : BotAi
 
     public override void OnUserSay(RoomUser user, string message)
     {
+        var botRoom = GetRoom();
+        if (botRoom == null) return;
+        var botUser = GetRoomUser();
+        if (botUser == null) return;
+        var speakerSession = user?.GetClient();
+        if (speakerSession == null) return;
+
         if (user == null)
             return;
-        var pet = GetRoomUser();
+        var pet = botUser;
         if (pet == null)
             return;
         if (pet.PetData.DbState != PetDatabaseUpdateState.NeedsInsert)
@@ -132,7 +157,7 @@ public class PetBot : BotAi
 
         //if (!Pet.Statusses.ContainsKey("gst thr"))
         //    Pet.Statusses.Add("gst thr", TextHandling.GetString(Pet.Z));
-        if (message.ToLower().StartsWith($"{pet.PetData.Name.ToLower()} ") && user.GetClient().GetHabbo().Username.ToLower() == pet.PetData.OwnerName.ToLower() ||
+        if (message.ToLower().StartsWith($"{pet.PetData.Name.ToLower()} ") && speakerSession.GetHabbo().Username.ToLower() == pet.PetData.OwnerName.ToLower() ||
             message.ToLower().StartsWith($"{pet.PetData.Name.ToLower()} ") &&
             PlusEnvironment.Game.ChatManager.GetPetCommands().TryInvoke(message.Substring(pet.PetData.Name.ToLower().Length + 1)) == 8)
         {
@@ -147,9 +172,9 @@ public class PetBot : BotAi
                     case 1:
                         RemovePetStatus();
 
-                        //int randomX = PlusEnvironment.GetRandomNumber(0, GetRoom().Model.MapSizeX);
-                        //int randomY = PlusEnvironment.GetRandomNumber(0, GetRoom().Model.MapSizeY);
-                        if (GetRoom().GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
+                        //int randomX = PlusEnvironment.GetRandomNumber(0, botRoom.Model.MapSizeX);
+                        //int randomY = PlusEnvironment.GetRandomNumber(0, botRoom.Model.MapSizeY);
+                        if (botRoom.GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
                             pet.MoveTo(nextCoord.X, nextCoord.Y);
                         pet.PetData.Addexperience(10); // Give XP
                         break;

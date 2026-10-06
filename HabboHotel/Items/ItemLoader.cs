@@ -52,7 +52,7 @@ public static class ItemLoader
 
     public static List<InventoryItem> GetItemsForUser(uint userId)
     {
-        DataTable items = null;
+        DataTable? items = null;
         var I = new List<InventoryItem>();
         using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
         dbClient.SetQuery(

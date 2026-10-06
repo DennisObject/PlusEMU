@@ -1,4 +1,5 @@
-﻿using Dapper;
+﻿using System.Diagnostics.CodeAnalysis;
+using Dapper;
 using Microsoft.Extensions.Logging;
 using Plus.Core;
 using Plus.Database;
@@ -40,12 +41,20 @@ public class CatalogManager : ICatalogManager, IStartable
         _logger = logger;
     }
 
-    public async Task Start() => await Init();
+    public int StartOrder => 30;
+
+    public Task Start() => Load();
 
     public async Task Init()
     {
         _voucherManager.Init();
         _clothingManager.Init();
+        _petRaceManager.Init();
+        await Load();
+    }
+
+    private async Task Load()
+    {
         var pagesById = new Dictionary<int, CatalogPage>();
         var botPresets = new Dictionary<uint, CatalogBot>();
         var itemsByPage = new Dictionary<int, Dictionary<int, CatalogItem>>();
@@ -158,18 +167,16 @@ public class CatalogManager : ICatalogManager, IStartable
         _promotions = promotionsById;
         _offers = offerIndex;
         _clubOffers = clubOffersById;
-        _petRaceManager.Init();
-        _clothingManager.Init();
         _logger.LogInformation("Catalog Manager -> LOADED");
     }
 
-    public bool TryGetBot(uint itemId, out CatalogBot bot) => _botPresets.TryGetValue(itemId, out bot);
+    public bool TryGetBot(uint itemId, [NotNullWhen(true)] out CatalogBot? bot) => _botPresets.TryGetValue(itemId, out bot);
 
-    public bool TryGetPage(int pageId, out CatalogPage page) => _pages.TryGetValue(pageId, out page);
+    public bool TryGetPage(int pageId, [NotNullWhen(true)] out CatalogPage? page) => _pages.TryGetValue(pageId, out page);
 
-    public bool TryGetDeal(int dealId, out CatalogDeal deal) => _deals.TryGetValue(dealId, out deal);
+    public bool TryGetDeal(int dealId, [NotNullWhen(true)] out CatalogDeal? deal) => _deals.TryGetValue(dealId, out deal);
 
-    public bool TryGetOffer(int offerId, Habbo habbo, out CatalogPage page, out CatalogItem item) => _offers.TryGet(offerId, habbo, out page, out item);
+    public bool TryGetOffer(int offerId, Habbo habbo, [NotNullWhen(true)] out CatalogPage? page, [NotNullWhen(true)] out CatalogItem? item) => _offers.TryGet(offerId, habbo, out page, out item);
 
     public ICollection<CatalogPage> Pages => _pages.Values;
 
@@ -177,7 +184,7 @@ public class CatalogManager : ICatalogManager, IStartable
 
     public ICollection<ClubOffer> ClubOffers => _clubOffers.Values;
 
-    public bool TryGetClubOffer(int offerId, out ClubOffer offer) => _clubOffers.TryGetValue(offerId, out offer);
+    public bool TryGetClubOffer(int offerId, [NotNullWhen(true)] out ClubOffer? offer) => _clubOffers.TryGetValue(offerId, out offer);
 
     public IMarketplaceManager Marketplace => _marketplace;
 

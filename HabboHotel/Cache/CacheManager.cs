@@ -1,4 +1,6 @@
-﻿using System.Collections.Concurrent;
+﻿using Plus.Core;
+using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 using Dapper;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
@@ -8,7 +10,7 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Cache;
 
-public class CacheManager : ICacheManager
+public class CacheManager : ICacheManager, IStartable
 {
     private readonly ILogger<CacheManager> _logger;
     private readonly IProcessComponent _process;
@@ -23,6 +25,13 @@ public class CacheManager : ICacheManager
         _gameClientManager = gameClientManager;
         _logger = logger;
         _usersCached = new();
+    }
+
+    public int StartOrder => 90;
+    public Task Start()
+    {
+        Init();
+        return Task.CompletedTask;
     }
 
     public void Init()
@@ -56,9 +65,9 @@ public class CacheManager : ICacheManager
         return cachedUser;
     }
 
-    public bool TryRemoveUser(int id, out CachedUser cachedUser) => _usersCached.TryRemove(id, out cachedUser);
+    public bool TryRemoveUser(int id, [NotNullWhen(true)] out CachedUser? cachedUser) => _usersCached.TryRemove(id, out cachedUser);
 
-    public bool TryGetUser(int id, out CachedUser cachedUser) => _usersCached.TryGetValue(id, out cachedUser);
+    public bool TryGetUser(int id, [NotNullWhen(true)] out CachedUser? cachedUser) => _usersCached.TryGetValue(id, out cachedUser);
 
     public ICollection<CachedUser> GetUserCache() => _usersCached.Values;
 }

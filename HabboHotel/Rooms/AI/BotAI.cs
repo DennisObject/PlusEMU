@@ -4,9 +4,9 @@ namespace Plus.HabboHotel.Rooms.AI;
 
 public abstract class BotAi
 {
-    private Room _room;
+    private Room? _room;
     private uint _roomId;
-    private RoomUser _roomUser;
+    private RoomUser? _roomUser;
     private int _roomUserId;
     public int BaseId;
 
@@ -19,17 +19,11 @@ public abstract class BotAi
         _room = room;
     }
 
-    public Room GetRoom() => _room;
+    public Room? GetRoom() => _room;
 
-    public RoomUser GetRoomUser() => _roomUser;
+    public RoomUser? GetRoomUser() => _roomUser;
 
-    public RoomBot GetBotData()
-    {
-        var user = GetRoomUser();
-        if (user == null)
-            return null;
-        return GetRoomUser().BotData;
-    }
+    public RoomBot? GetBotData() => _roomUser?.BotData;
 
     public abstract void OnSelfEnterRoom();
     public abstract void OnSelfLeaveRoom(bool kicked);

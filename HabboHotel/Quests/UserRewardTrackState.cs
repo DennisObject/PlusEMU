@@ -50,4 +50,4 @@ public sealed class UserRewardTrackState
 
 public readonly record struct RewardTrackStep(bool Changed, string TaskId, int Count, int Peak, int PointsGranted, int TotalPoints);
 
-public readonly record struct PremiumQuote(int Result, int Credits, int Diamonds, int Points);
+public readonly record struct PremiumQuote(RewardTrackResults Result, int Credits, int Diamonds, int Points);

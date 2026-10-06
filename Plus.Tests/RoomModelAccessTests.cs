@@ -1,9 +1,10 @@
 using System.Data;
+using System.Data.Common;
 using System.Reflection;
 using Microsoft.Extensions.Logging.Abstractions;
+using MySqlConnector;
 using Plus.Communication.Packets.Incoming.Navigator;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Navigator;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
@@ -136,18 +137,7 @@ public sealed class RoomModelAccessTests
             return null; // Room persistence belongs to RoomManager; this test observes the call boundary.
         });
         var navigator = Proxy<INavigatorManager>((method, _) => method == "TryGetSearchResultList" ? false : throw new InvalidOperationException(method));
-        var query = Proxy<IQueryAdapter>((method, _) => method switch
-        {
-            "GetTable" => new DataTable(),
-            "SetQuery" or "AddParameter" or "Dispose" => null,
-            _ => throw new InvalidOperationException("Unexpected query operation: " + method)
-        });
-        var database = Proxy<IDatabase>((method, _) =>
-        {
-            Assert.Equal("GetQueryReactor", method);
-            databaseReads++;
-            return query;
-        });
+        var database = ReaderDatabase(new DataTable(), () => databaseReads++);
         var habbo = new Habbo { Id = 7001, Access = Access(staffModels), Messenger = new HabboMessenger(new(), new(), new()) };
         habbo.Messenger.StatusUpdated += (_, _) => friendUpdates++;
         var previousDatabase = DatabaseField.GetValue(null);
@@ -170,18 +160,10 @@ public sealed class RoomModelAccessTests
     public void ManagerLoadsAuthoritativeRequirementsForStandardAndCustomModels(bool custom)
     {
         var data = new DataTable();
-        foreach (var name in new[] { "id", "door_x", "door_y", "door_z", "door_dir", "heightmap", "wall_height", "required_club_level", "required_permission" })
-            data.Columns.Add(name, name == "door_z" ? typeof(double) : typeof(object));
+        foreach (var name in new[] { "Id", "DoorX", "DoorY", "DoorZ", "DoorDir", "Heightmap", "WallHeight", "RequiredClubLevel", "RequiredPermission" })
+            data.Columns.Add(name, name == "DoorZ" ? typeof(double) : name is "Id" or "Heightmap" or "RequiredPermission" ? typeof(string) : typeof(int));
         data.Rows.Add("test_model", 0, 0, 0d, 0, "00\r00", 0, -1, ExtraPermission);
-        var query = Proxy<IQueryAdapter>((method, _) => method switch
-        {
-            "GetTable" => data,
-            "GetRow" => data.Rows[0],
-            "SetQuery" or "AddParameter" or "Dispose" => null,
-            _ => throw new InvalidOperationException(method)
-        });
-        var manager = new RoomManager(NullLogger<RoomManager>.Instance,
-            Proxy<IDatabase>((method, _) => method == "GetQueryReactor" ? query : throw new InvalidOperationException(method)), null!, TimeProvider.System);
+        var manager = new RoomManager(NullLogger<RoomManager>.Instance, ReaderDatabase(data), null!, TimeProvider.System);
         if (custom)
             Assert.True(manager.LoadModel("test_model"));
         else
@@ -192,6 +174,47 @@ public sealed class RoomModelAccessTests
         Assert.Equal(ExtraPermission, model.RequiredPermission);
         Assert.False(model.CanCreate(Access(true)));
         Assert.True(model.CanCreate(Access(true, [new UserPermissionOverride(ExtraPermission, false)])));
+    }
+
+    private static IDatabase ReaderDatabase(DataTable data, Action? read = null) =>
+        Proxy<IDatabase>((method, _) => method == "Connection" ? new ReaderConnection(data, read) : throw new InvalidOperationException(method));
+
+    private sealed class ReaderConnection(DataTable data, Action? read) : DbConnection
+    {
+        private ConnectionState _state;
+        public override string ConnectionString { get; set; } = "room-model-memory";
+        public override string Database => "room-model-memory";
+        public override string DataSource => "room-model-memory";
+        public override string ServerVersion => "1";
+        public override ConnectionState State => _state;
+        public override void Open() => _state = ConnectionState.Open;
+        public override void Close() => _state = ConnectionState.Closed;
+        public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
+        protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => throw new NotSupportedException();
+        protected override DbCommand CreateDbCommand() => new ReaderCommand(this, data, read);
+    }
+
+    private sealed class ReaderCommand(DbConnection connection, DataTable data, Action? read) : DbCommand
+    {
+        private readonly MySqlParameterCollection _parameters = new MySqlCommand().Parameters;
+        public override string CommandText { get; set; } = "";
+        public override int CommandTimeout { get; set; }
+        public override CommandType CommandType { get; set; }
+        public override bool DesignTimeVisible { get; set; }
+        public override UpdateRowSource UpdatedRowSource { get; set; }
+        protected override DbConnection? DbConnection { get; set; } = connection;
+        protected override DbTransaction? DbTransaction { get; set; }
+        protected override DbParameterCollection DbParameterCollection => _parameters;
+        protected override DbParameter CreateDbParameter() => new MySqlParameter();
+        public override void Cancel() { }
+        public override void Prepare() { }
+        public override int ExecuteNonQuery() => throw new NotSupportedException();
+        public override object? ExecuteScalar() => throw new NotSupportedException();
+        protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
+        {
+            read?.Invoke();
+            return data.CreateDataReader();
+        }
     }
 
     private static IWordFilterManager Filter() => Proxy<IWordFilterManager>((method, arguments) =>

@@ -4,16 +4,19 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 internal class InteractorFreezeTimer : IFurniInteractor
 {
-    public void OnPlace(GameClient session, Item item)
+    public void OnPlace(GameClient? session, Item item)
     {
         item.LegacyDataString = "30";
         item.UpdateState();
     }
 
-    public void OnRemove(GameClient session, Item item) { }
+    public void OnRemove(GameClient? session, Item item) { }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         if (!hasRights) return;
         var oldValue = 0;
         if (!int.TryParse(item.LegacyDataString, out oldValue))
@@ -25,7 +28,7 @@ internal class InteractorFreezeTimer : IFurniInteractor
             oldValue = 30;
         else if (request == 2)
         {
-            if (item.GetRoom().GetFreeze().GameIsStarted && item.PendingReset && oldValue > 0)
+            if (itemRoom.GetFreeze().GameIsStarted && item.PendingReset && oldValue > 0)
             {
                 oldValue = 0;
                 item.PendingReset = false;
@@ -56,16 +59,16 @@ internal class InteractorFreezeTimer : IFurniInteractor
                 item.LegacyDataString = "30";
                 oldValue = 30;
             }
-            if (!item.GetRoom().GetFreeze().GameIsStarted)
+            if (!itemRoom.GetFreeze().GameIsStarted)
             {
                 item.UpdateNeeded = !item.UpdateNeeded;
-                if (item.UpdateNeeded) item.GetRoom().GetFreeze().StartGame();
+                if (item.UpdateNeeded) itemRoom.GetFreeze().StartGame();
                 item.PendingReset = true;
             }
             else
             {
                 item.UpdateNeeded = !item.UpdateNeeded;
-                if (item.UpdateNeeded) item.GetRoom().GetFreeze().StopGame(true);
+                if (item.UpdateNeeded) itemRoom.GetFreeze().StopGame(true);
                 item.PendingReset = true;
             }
         }
@@ -75,12 +78,15 @@ internal class InteractorFreezeTimer : IFurniInteractor
 
     public void OnWiredTrigger(Item item)
     {
-        if (item.GetRoom().GetFreeze().GameIsStarted)
-            item.GetRoom().GetFreeze().StopGame(true);
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
+        if (itemRoom.GetFreeze().GameIsStarted)
+            itemRoom.GetFreeze().StopGame(true);
         item.PendingReset = true;
         item.UpdateNeeded = true;
         item.LegacyDataString = "30";
         item.UpdateState();
-        item.GetRoom().GetFreeze().StartGame();
+        itemRoom.GetFreeze().StartGame();
     }
 }

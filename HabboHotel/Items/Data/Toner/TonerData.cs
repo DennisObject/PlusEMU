@@ -27,7 +27,7 @@ public class TonerData
             dbClient.SetQuery($"SELECT enabled,data1,data2,data3 FROM room_items_toner WHERE id={ItemId} LIMIT 1");
             row = dbClient.GetRow();
         }
-        Enabled = int.Parse(row[0].ToString());
+        Enabled = Convert.ToInt32(row[0]);
         Hue = Convert.ToInt32(row[1]);
         Saturation = Convert.ToInt32(row[2]);
         Lightness = Convert.ToInt32(row[3]);

@@ -1,5 +1,5 @@
-﻿using System.Collections.Concurrent;
-using System.Data;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.Users.Clothing.Parts;
 
 namespace Plus.HabboHotel.Users.Clothing;
@@ -11,6 +11,16 @@ public sealed class ClothingComponent
     /// </summary>
     private readonly ConcurrentDictionary<int, ClothingParts> _allClothing = new();
     private Habbo _habbo;
+    private readonly IClothingStore? _store;
+
+    public ClothingComponent() { }
+
+    internal ClothingComponent(IEnumerable<ClothingParts> clothing, Habbo habbo, IClothingStore store)
+    {
+        foreach (var part in clothing) _allClothing.TryAdd(part.PartId, part);
+        _habbo = habbo;
+        _store = store;
+    }
 
     public ICollection<ClothingParts> GetClothingParts => _allClothing.Values;
 
@@ -22,23 +32,6 @@ public sealed class ClothingComponent
     {
         if (_allClothing.Count > 0)
             return false;
-        DataTable getClothing = null;
-        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-        {
-            dbClient.SetQuery("SELECT `id`,`part_id`,`part` FROM `user_clothing` WHERE `user_id` = @id;");
-            dbClient.AddParameter("id", habbo.Id);
-            getClothing = dbClient.GetTable();
-            if (getClothing != null)
-            {
-                foreach (DataRow row in getClothing.Rows)
-                {
-                    if (_allClothing.TryAdd(Convert.ToInt32(row["part_id"]), new(Convert.ToInt32(row["id"]), Convert.ToInt32(row["part_id"]), Convert.ToString(row["part"]))))
-                    {
-                        //umm?
-                    }
-                }
-            }
-        }
         _habbo = habbo;
         return true;
     }
@@ -49,21 +42,13 @@ public sealed class ClothingComponent
         {
             if (!_allClothing.ContainsKey(partId))
             {
-                var newId = 0;
-                using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-                {
-                    dbClient.SetQuery("INSERT INTO `user_clothing` (`user_id`,`part_id`,`part`) VALUES (@UserId, @PartId, @Part)");
-                    dbClient.AddParameter("UserId", _habbo.Id);
-                    dbClient.AddParameter("PartId", partId);
-                    dbClient.AddParameter("Part", clothingName);
-                    newId = Convert.ToInt32(dbClient.InsertQuery());
-                }
+                var newId = (_store ?? throw new InvalidOperationException("Clothing persistence is not configured.")).Add(_habbo.Id, partId, clothingName);
                 _allClothing.TryAdd(partId, new(newId, partId, clothingName));
             }
         }
     }
 
-    public bool TryGet(int partId, out ClothingParts clothingPart) => _allClothing.TryGetValue(partId, out clothingPart);
+    public bool TryGet(int partId, [NotNullWhen(true)] out ClothingParts? clothingPart) => _allClothing.TryGetValue(partId, out clothingPart);
 
     /// <summary>
     /// Disposes the ClothingComponent.
@@ -72,4 +57,5 @@ public sealed class ClothingComponent
     {
         _allClothing.Clear();
     }
+
 }

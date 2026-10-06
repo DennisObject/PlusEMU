@@ -37,6 +37,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
     private readonly IItemFactory _itemFactory;
     private readonly IClubMembershipService _clubMemberships;
     private readonly IClubRewards _clubRewards;
+    private readonly IAvatarEffectStore _avatarEffects;
     // Window id the client's club purchase page requests offers for.
     private const int ClubWindow = 1;
 
@@ -48,7 +49,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         IBadgeManager badgeManager,
         IItemFactory itemFactory,
         IHabbiconService habbicons,
-        IClubMembershipService clubMemberships, IClubRewards clubRewards)
+        IClubMembershipService clubMemberships, IClubRewards clubRewards, IAvatarEffectStore avatarEffects)
     {
         _catalogManager = catalogManager;
         _habbicons = habbicons;
@@ -60,6 +61,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         _itemFactory = itemFactory;
         _clubMemberships = clubMemberships;
         _clubRewards = clubRewards;
+        _avatarEffects = avatarEffects;
     }
     public async Task Parse(GameClient session, IIncomingPacket packet)
     {
@@ -78,7 +80,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             return;
         if (page.Layout is "club_buy" or "vip_buy" or "loyalty_vip_buy")
         {
-            if (amount != 1) { session.Send(new PurchaseErrorComposer(0)); return; }
+            if (amount != 1) { session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable)); return; }
             PurchaseClubOffer(session, itemId);
             return;
         }
@@ -89,19 +91,19 @@ public class PurchaseFromCatalogEvent : IPacketEvent
         {
             try
             {
-                if (amount != 1 || item.Amount != 1 || item.IsLimited) throw new HabbiconRejected(1);
+                if (amount != 1 || item.Amount != 1 || item.IsLimited) throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
                 var change = _habbicons.BuyCatalog(session.GetHabbo(), item.HabbiconId, item.CostCredits, item.CostPixels, item.CostDiamonds);
                 HabbiconMessages.Publish(session, change);
-                session.Send(new PurchaseOkComposer());
+                session.Send(new PurchaseOKComposer());
             }
             catch (HabbiconRejected rejected)
             {
-                session.Send(new PurchaseErrorComposer(rejected.Code));
+                session.Send(new PurchaseErrorComposer((PurchaseError)rejected.Code));
             }
             catch (MySqlConnector.MySqlException exception)
             {
                 ExceptionLogger.LogException(exception);
-                session.Send(new PurchaseErrorComposer(5));
+                session.Send(new PurchaseErrorComposer(PurchaseError.DeliveryFailed));
             }
             return;
         }
@@ -167,7 +169,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             {
                 if (session.GetHabbo().Inventory.Badges.HasBadge(item.Definition.ItemName))
                 {
-                    session.Send(new PurchaseErrorComposer(1));
+                    session.Send(new PurchaseErrorComposer(PurchaseError.Rejected));
                     return;
                 }
                 break;
@@ -194,7 +196,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                 if (soldOut)
                 {
                     session.SendNotification("This item has sold out! You have not been charged.");
-                    session.Send(new CatalogUpdatedComposer()); session.Send(new PurchaseOkComposer());
+                    session.Send(new CatalogUpdatedComposer()); session.Send(new PurchaseOKComposer());
                 }
                 return false;
             }
@@ -323,7 +325,11 @@ public class PurchaseFromCatalogEvent : IPacketEvent
                     if (effect != null) effect.AddToQuantity();
                 }
                 else
-                    effect = AvatarEffectFactory.CreateNullable(session.GetHabbo(), item.Definition.SpriteId, 3600);
+                {
+                    var habbo = session.GetHabbo();
+                    effect = _avatarEffects.Create(habbo.Id, item.Definition.SpriteId, 3600);
+                    habbo.Effects.TryAdd(effect);
+                }
                 if (effect != null) // && Session.GetHabbo().Effects().TryAdd(Effect))
                     session.Send(new AvatarEffectAddedComposer(item.Definition.SpriteId, 3600));
                 break;
@@ -378,7 +384,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             _badgeManager.Badges.TryGetValue(item.Badge, out var badge) &&
             (string.IsNullOrEmpty(badge.RequiredRight) || session.GetHabbo().Access.Can(badge.RequiredRight)))
             await _badgeManager.GiveBadge(session.GetHabbo(), badge.Code);
-        session.Send(new PurchaseOkComposer(item, item.Definition));
+        session.Send(new PurchaseOKComposer(item, item.Definition));
         session.Send(new FurniListUpdateComposer());
     }
 
@@ -390,7 +396,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             expiry = _clubMemberships.Purchase(habbo, offer);
         if (expiry == null)
         {
-            session.Send(new PurchaseErrorComposer(0));
+            session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable));
             return;
         }
         if (offer.Credits > 0)
@@ -399,7 +405,7 @@ public class PurchaseFromCatalogEvent : IPacketEvent
             session.Send(offer.PointsType == 5
                 ? new HabboActivityPointNotificationComposer(habbo.Diamonds, -offer.Points, 5)
                 : new HabboActivityPointNotificationComposer(habbo.Duckets, -offer.Points));
-        session.Send(new PurchaseOkComposer());
+        session.Send(new PurchaseOKComposer());
         var membershipEnd = DateTimeOffset.FromUnixTimeSeconds(expiry.Value).UtcDateTime;
         // The client caches offers; resend them so the next confirmation shows the new end date.
         session.Send(new HabboClubOffersComposer(_catalogManager.ClubOffers, ClubWindow, membershipEnd));

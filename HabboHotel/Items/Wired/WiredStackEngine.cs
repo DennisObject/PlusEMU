@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Runtime;
@@ -76,9 +77,9 @@ internal sealed partial class WiredStackEngine
         }
     }
 
-    public bool TryGet(uint id, out IWiredItem box)
+    public bool TryGet(uint id, [NotNullWhen(true)] out IWiredItem? box)
     {
-        lock (_sync) return _items.TryGetValue(id, out box!);
+        lock (_sync) return _items.TryGetValue(id, out box);
     }
 
     public void Clear()

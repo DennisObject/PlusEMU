@@ -361,7 +361,7 @@ public class Freeze
 
     public void RemoveFreezeTile(uint itemId)
     {
-        Item item = null;
+        Item? item = null;
         if (_freezeTiles.ContainsKey(itemId))
             _freezeTiles.TryRemove(itemId, out item);
     }
@@ -374,7 +374,7 @@ public class Freeze
 
     public void RemoveFreezeBlock(uint itemId)
     {
-        Item item = null;
+        Item? item = null;
         _freezeBlocks.TryRemove(itemId, out item);
     }
 

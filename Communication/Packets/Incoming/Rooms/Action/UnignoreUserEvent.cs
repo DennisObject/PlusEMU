@@ -2,11 +2,11 @@
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Action;
 
-internal class UnIgnoreUserEvent : IPacketEvent
+internal class UnignoreUserEvent : IPacketEvent
 {
     private readonly IGameClientManager _gameClientManager;
 
-    public UnIgnoreUserEvent(IGameClientManager gameClientManager)
+    public UnignoreUserEvent(IGameClientManager gameClientManager)
     {
         _gameClientManager = gameClientManager;
     }

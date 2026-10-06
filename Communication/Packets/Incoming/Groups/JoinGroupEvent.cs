@@ -40,7 +40,16 @@ internal class JoinGroupEvent : IPacketEvent
         }
         else
         {
-            session.Send(new GroupFurniConfigComposer(_groupManager.GetGroupsForUser(session.GetHabbo().Id)));
+            session.Send(new GroupFurniConfigComposer(_groupManager.GetGroupsForUser(session.GetHabbo().Id)
+                .Select(memberGroup => new GroupFurniConfig(
+                    memberGroup.Id,
+                    memberGroup.Name,
+                    memberGroup.Badge,
+                    _groupManager.GetColourCode(memberGroup.Colour1, true),
+                    _groupManager.GetColourCode(memberGroup.Colour2, false),
+                    memberGroup.CreatorId,
+                    memberGroup.ForumEnabled))
+                .ToArray()));
             session.Send(new GroupInfoComposer(group, session));
             if (session.GetHabbo().CurrentRoom != null)
                 session.GetHabbo().CurrentRoom.SendPacket(new RefreshFavouriteGroupComposer(session.GetHabbo().Id));

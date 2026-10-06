@@ -9,6 +9,8 @@ namespace Plus.HabboHotel.Permissions;
 
 public sealed class ClientAccessLists(IAccessControl permissions, IChatStyleManager styles, IRoomManager rooms) : IStartable, IDisposable
 {
+    public int StartOrder => 80;
+
     public Task Start()
     {
         permissions.AccessChanged += Send;

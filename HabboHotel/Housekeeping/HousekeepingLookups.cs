@@ -37,16 +37,15 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
         if (record == null) return null;
         var online = _clients.Online(record.Id)?.GetHabbo();
         var role = (online?.Access ?? _permissions.Resolve(record.Id)).PrimaryRole;
-        // Ban and trade lock expiries are stored on the emulator's local clock (UnixTimestamp.GetNow).
-        var now = UnixTimestamp.GetNow();
+        var now = DateTimeOffset.UtcNow;
         // Email and IP are personal data; only ranks granted the private-data right see them.
         var showPrivate = actor.Access.Can(HousekeepingRights.PrivateData);
         return new(record.Id, record.Username, online?.Motto ?? record.Motto, online?.Look ?? record.Look, role?.Id ?? 0,
-            role?.Name ?? string.Empty, online != null, record.LastOnline,
+            role?.Name ?? string.Empty, online != null, (int)Math.Clamp(record.LastOnlineAt?.ToUnixTimeSeconds() ?? 0, 0, int.MaxValue),
             online?.Credits ?? record.Credits, online?.Duckets ?? record.Duckets, online?.Diamonds ?? record.Diamonds,
             showPrivate ? record.Mail : string.Empty, showPrivate ? record.IpLast : string.Empty,
             _moderation.IsBanned(record.Username, out _), (online?.TimeMuted ?? record.TimeMuted) > 0,
-            (online?.TradingLockExpiry ?? record.TradingLocked) > now);
+            (online != null ? online.TradingLockExpiresAt : record.TradingLockExpiresAt) > now);
     }
 
     public HousekeepingDashboard Dashboard()

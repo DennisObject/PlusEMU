@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.Rooms.Trading;
 
 namespace Plus.HabboHotel.Rooms.Instance;
@@ -23,11 +24,11 @@ public class TradingComponent
         return _activeTrades.TryAdd(_currentId, trade);
     }
 
-    public bool TryGetTrade(int tradeId, out Trade trade) => _activeTrades.TryGetValue(tradeId, out trade);
+    public bool TryGetTrade(int tradeId, [NotNullWhen(true)] out Trade? trade) => _activeTrades.TryGetValue(tradeId, out trade);
 
     public bool RemoveTrade(int id)
     {
-        Trade trade = null;
+        Trade? trade = null;
         return _activeTrades.TryRemove(id, out trade);
     }
 

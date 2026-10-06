@@ -4,11 +4,11 @@ namespace Plus.Communication.Packets.Outgoing.Rooms.Action;
 
 public class IgnoreStatusComposer : IServerPacket
 {
-    private readonly int _status;
+    private readonly IgnoreStatus _status;
     private readonly string _username;
     public uint MessageId => ServerPacketHeader.IgnoreStatusComposer;
 
-    public IgnoreStatusComposer(int status, string username)
+    public IgnoreStatusComposer(IgnoreStatus status, string username)
     {
         _status = status;
         _username = username;
@@ -16,7 +16,7 @@ public class IgnoreStatusComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_status);
+        packet.WriteInteger((int)_status);
         packet.WriteString(_username);
     }
 }

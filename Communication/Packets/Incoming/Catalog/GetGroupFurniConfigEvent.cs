@@ -15,7 +15,16 @@ internal class GetGroupFurniConfigEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        session.Send(new GroupFurniConfigComposer(_groupManager.GetGroupsForUser(session.GetHabbo().Id)));
+        session.Send(new GroupFurniConfigComposer(_groupManager.GetGroupsForUser(session.GetHabbo().Id)
+            .Select(group => new GroupFurniConfig(
+                group.Id,
+                group.Name,
+                group.Badge,
+                _groupManager.GetColourCode(group.Colour1, true),
+                _groupManager.GetColourCode(group.Colour2, false),
+                group.CreatorId,
+                group.ForumEnabled))
+            .ToArray()));
         return Task.CompletedTask;
     }
 }

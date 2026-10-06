@@ -108,7 +108,7 @@ internal sealed class RoomPerformanceFixture
             }
             else
             {
-                var client = new FlashGameClient(null!, factory) { Revision = revision, SendCallback = _ => false };
+                var client = new FlashGameClient(TestGameServer.Instance, factory) { Revision = revision, SendCallback = _ => false };
                 var habbo = (Habbo)RuntimeHelpers.GetUninitializedObject(typeof(Habbo));
                 habbo.CurrentRoom = room;
                 client.SetHabbo(habbo);

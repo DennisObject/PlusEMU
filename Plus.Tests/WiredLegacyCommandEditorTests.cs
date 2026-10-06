@@ -133,7 +133,7 @@ public class WiredLegacyCommandEditorTests
         private Habbo AddUser(int id, int virtualId, RoomUserManager users)
         {
             var packets = new List<byte[]>(); _packets[id] = packets;
-            var client = new FlashGameClient(null!, new FlashPacketFactory())
+            var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
             {
                 Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [ServerPacketHeader.WhisperComposer] = 100 } },
                 SendCallback = args => { packets.Add(args.MemoryBuffer.ToArray()); return true; }

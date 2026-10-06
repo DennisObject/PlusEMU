@@ -16,9 +16,12 @@ public class GenericBot : BotAi
 
     public override void OnSelfEnterRoom()
     {
-        if (GetBotData().IsTemporary)
+        var botData = GetBotData();
+        if (botData == null) return;
+
+        if (botData.IsTemporary)
         {
-            _speechTimer = Random.Shared.Next(1, GetBotData().SpeakingInterval + 1);
+            _speechTimer = Random.Shared.Next(1, botData.SpeakingInterval + 1);
             _actionTimer = Random.Shared.Next(1, 15);
         }
     }
@@ -35,49 +38,56 @@ public class GenericBot : BotAi
 
     public override void OnTimerTick()
     {
-        if (GetBotData() == null)
+        var botRoom = GetRoom();
+        if (botRoom == null) return;
+        var botUser = GetRoomUser();
+        if (botUser == null) return;
+        var botData = GetBotData();
+        if (botData == null) return;
+
+        if (botData == null)
             return;
         if (_speechTimer <= 0)
         {
-            if (GetBotData().RandomSpeech.Count > 0)
+            if (botData.RandomSpeech.Count > 0)
             {
-                if (GetBotData().AutomaticChat == false)
+                if (botData.AutomaticChat == false)
                     return;
-                var speech = GetBotData().GetRandomSpeech();
+                var speech = botData.GetRandomSpeech();
                 var @string = PlusEnvironment.Game.ChatManager.GetFilter().CheckMessage(speech.Message);
                 if (@string.Contains("<img src") || @string.Contains("<font ") || @string.Contains("</font>") || @string.Contains("</a>") || @string.Contains("<i>"))
                     @string = "I really shouldn't be using HTML within bot speeches.";
-                GetRoomUser().Chat(@string, GetBotData().ChatBubble);
+                botUser.Chat(@string, botData.ChatBubble);
             }
-            _speechTimer = GetBotData().SpeakingInterval;
+            _speechTimer = botData.SpeakingInterval;
         }
         else
             _speechTimer--;
         if (_actionTimer <= 0)
         {
-            switch (GetBotData().WalkingMode.ToLower())
+            switch (botData.WalkingMode.ToLower())
             {
                 default:
                 case "stand":
                     // (8) Why is my life so boring?
                     break;
                 case "freeroam":
-                    if (GetBotData().ForcedMovement)
+                    if (botData.ForcedMovement)
                     {
-                        if (GetRoomUser().Coordinate == GetBotData().TargetCoordinate)
+                        if (botUser.Coordinate == botData.TargetCoordinate)
                         {
-                            GetBotData().ForcedMovement = false;
-                            GetBotData().TargetCoordinate = new();
-                            GetRoomUser().MoveTo(GetBotData().TargetCoordinate.X, GetBotData().TargetCoordinate.Y);
+                            botData.ForcedMovement = false;
+                            botData.TargetCoordinate = new();
+                            botUser.MoveTo(botData.TargetCoordinate.X, botData.TargetCoordinate.Y);
                         }
                     }
-                    else if (GetBotData().ForcedUserTargetMovement > 0)
+                    else if (botData.ForcedUserTargetMovement > 0)
                     {
-                        var target = GetRoom().GetRoomUserManager().GetRoomUserByHabbo(GetBotData().ForcedUserTargetMovement);
+                        var target = botRoom.GetRoomUserManager().GetRoomUserByHabbo(botData.ForcedUserTargetMovement);
                         if (target == null)
                         {
-                            GetBotData().ForcedUserTargetMovement = 0;
-                            GetRoomUser().ClearMovement(true);
+                            botData.ForcedUserTargetMovement = 0;
+                            botUser.ClearMovement(true);
                         }
                         else
                         {
@@ -89,13 +99,13 @@ public class GenericBot : BotAi
                             else if (target.RotBody == 4)
                                 sq.Y++;
                             else if (target.RotBody == 6) sq.X--;
-                            GetRoomUser().MoveTo(sq);
+                            botUser.MoveTo(sq);
                         }
                     }
-                    else if (GetBotData().TargetUser == 0)
+                    else if (botData.TargetUser == 0)
                     {
-                        if (GetRoom().GetGameMap().TryGetRandomWalkableSquare(GetBotData().IsTemporary, out var nextCoord))
-                            GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y, GetBotData().IsTemporary);
+                        if (botRoom.GetGameMap().TryGetRandomWalkableSquare(botData.IsTemporary, out var nextCoord))
+                            botUser.MoveTo(nextCoord.X, nextCoord.Y, botData.IsTemporary);
                     }
                     break;
                 case "specified_range":

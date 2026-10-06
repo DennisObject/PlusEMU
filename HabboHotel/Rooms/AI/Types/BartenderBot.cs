@@ -28,23 +28,30 @@ internal class BartenderBot : BotAi
 
     public override void OnUserSay(RoomUser user, string message)
     {
-        if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null)
+        var botUser = GetRoomUser();
+        if (botUser == null) return;
+        var botData = GetBotData();
+        if (botData == null) return;
+        var speakerSession = user?.GetClient();
+        if (speakerSession == null) return;
+
+        if (user == null || speakerSession == null || speakerSession.GetHabbo() == null)
             return;
-        if (Gamemap.TileDistance(GetRoomUser().X, GetRoomUser().Y, user.X, user.Y) > 8)
+        if (Gamemap.TileDistance(botUser.X, botUser.Y, user.X, user.Y) > 8)
             return;
-        var response = PlusEnvironment.Game.BotManager.GetResponse(GetBotData().AiType, message);
+        var response = PlusEnvironment.Game.BotManager.GetResponse(botData.AiType, message);
         if (response == null)
             return;
         switch (response.ResponseType.ToLower())
         {
             case "say":
-                GetRoomUser().Chat(response.ResponseText.Replace("{username}", user.GetClient().GetHabbo().Username));
+                botUser.Chat(response.ResponseText.Replace("{username}", speakerSession.GetHabbo().Username));
                 break;
             case "shout":
-                GetRoomUser().Chat(response.ResponseText.Replace("{username}", user.GetClient().GetHabbo().Username));
+                botUser.Chat(response.ResponseText.Replace("{username}", speakerSession.GetHabbo().Username));
                 break;
             case "whisper":
-                user.GetClient().Send(new WhisperComposer(GetRoomUser().VirtualId, response.ResponseText.Replace("{username}", user.GetClient().GetHabbo().Username), 0, 0));
+                speakerSession.Send(new WhisperComposer(botUser.VirtualId, response.ResponseText.Replace("{username}", speakerSession.GetHabbo().Username), 0, 0));
                 break;
         }
         if (response.BeverageIds.Count > 0) user.CarryItem(response.BeverageIds[Random.Shared.Next(0, response.BeverageIds.Count)]);
@@ -52,23 +59,30 @@ internal class BartenderBot : BotAi
 
     public override void OnUserShout(RoomUser user, string message)
     {
-        if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null)
+        var botUser = GetRoomUser();
+        if (botUser == null) return;
+        var botData = GetBotData();
+        if (botData == null) return;
+        var speakerSession = user?.GetClient();
+        if (speakerSession == null) return;
+
+        if (user == null || speakerSession == null || speakerSession.GetHabbo() == null)
             return;
-        if (Gamemap.TileDistance(GetRoomUser().X, GetRoomUser().Y, user.X, user.Y) > 8)
+        if (Gamemap.TileDistance(botUser.X, botUser.Y, user.X, user.Y) > 8)
             return;
-        var response = PlusEnvironment.Game.BotManager.GetResponse(GetBotData().AiType, message);
+        var response = PlusEnvironment.Game.BotManager.GetResponse(botData.AiType, message);
         if (response == null)
             return;
         switch (response.ResponseType.ToLower())
         {
             case "say":
-                GetRoomUser().Chat(response.ResponseText.Replace("{username}", user.GetClient().GetHabbo().Username));
+                botUser.Chat(response.ResponseText.Replace("{username}", speakerSession.GetHabbo().Username));
                 break;
             case "shout":
-                GetRoomUser().Chat(response.ResponseText.Replace("{username}", user.GetClient().GetHabbo().Username));
+                botUser.Chat(response.ResponseText.Replace("{username}", speakerSession.GetHabbo().Username));
                 break;
             case "whisper":
-                user.GetClient().Send(new WhisperComposer(GetRoomUser().VirtualId, response.ResponseText.Replace("{username}", user.GetClient().GetHabbo().Username), 0, 0));
+                speakerSession.Send(new WhisperComposer(botUser.VirtualId, response.ResponseText.Replace("{username}", speakerSession.GetHabbo().Username), 0, 0));
                 break;
         }
         if (response.BeverageIds.Count > 0) user.CarryItem(response.BeverageIds[Random.Shared.Next(0, response.BeverageIds.Count)]);
@@ -76,49 +90,56 @@ internal class BartenderBot : BotAi
 
     public override void OnTimerTick()
     {
-        if (GetBotData() == null)
+        var botRoom = GetRoom();
+        if (botRoom == null) return;
+        var botUser = GetRoomUser();
+        if (botUser == null) return;
+        var botData = GetBotData();
+        if (botData == null) return;
+
+        if (botData == null)
             return;
         if (_speechTimer <= 0)
         {
-            if (GetBotData().RandomSpeech.Count > 0)
+            if (botData.RandomSpeech.Count > 0)
             {
-                if (GetBotData().AutomaticChat == false)
+                if (botData.AutomaticChat == false)
                     return;
-                var speech = GetBotData().GetRandomSpeech();
+                var speech = botData.GetRandomSpeech();
                 var @string = PlusEnvironment.Game.ChatManager.GetFilter().CheckMessage(speech.Message);
                 if (@string.Contains("<img src") || @string.Contains("<font ") || @string.Contains("</font>") || @string.Contains("</a>") || @string.Contains("<i>"))
                     @string = "I really shouldn't be using HTML within bot speeches.";
-                GetRoomUser().Chat(@string, GetBotData().ChatBubble);
+                botUser.Chat(@string, botData.ChatBubble);
             }
-            _speechTimer = GetBotData().SpeakingInterval;
+            _speechTimer = botData.SpeakingInterval;
         }
         else
             _speechTimer--;
         if (_actionTimer <= 0)
         {
-            switch (GetBotData().WalkingMode.ToLower())
+            switch (botData.WalkingMode.ToLower())
             {
                 default:
                 case "stand":
                     // (8) Why is my life so boring?
                     break;
                 case "freeroam":
-                    if (GetBotData().ForcedMovement)
+                    if (botData.ForcedMovement)
                     {
-                        if (GetRoomUser().Coordinate == GetBotData().TargetCoordinate)
+                        if (botUser.Coordinate == botData.TargetCoordinate)
                         {
-                            GetBotData().ForcedMovement = false;
-                            GetBotData().TargetCoordinate = new();
-                            GetRoomUser().MoveTo(GetBotData().TargetCoordinate.X, GetBotData().TargetCoordinate.Y);
+                            botData.ForcedMovement = false;
+                            botData.TargetCoordinate = new();
+                            botUser.MoveTo(botData.TargetCoordinate.X, botData.TargetCoordinate.Y);
                         }
                     }
-                    else if (GetBotData().ForcedUserTargetMovement > 0)
+                    else if (botData.ForcedUserTargetMovement > 0)
                     {
-                        var target = GetRoom().GetRoomUserManager().GetRoomUserByHabbo(GetBotData().ForcedUserTargetMovement);
+                        var target = botRoom.GetRoomUserManager().GetRoomUserByHabbo(botData.ForcedUserTargetMovement);
                         if (target == null)
                         {
-                            GetBotData().ForcedUserTargetMovement = 0;
-                            GetRoomUser().ClearMovement(true);
+                            botData.ForcedUserTargetMovement = 0;
+                            botUser.ClearMovement(true);
                         }
                         else
                         {
@@ -130,13 +151,13 @@ internal class BartenderBot : BotAi
                             else if (target.RotBody == 4)
                                 sq.Y++;
                             else if (target.RotBody == 6) sq.X--;
-                            GetRoomUser().MoveTo(sq);
+                            botUser.MoveTo(sq);
                         }
                     }
-                    else if (GetBotData().TargetUser == 0)
+                    else if (botData.TargetUser == 0)
                     {
-                        if (GetRoom().GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
-                            GetRoomUser().MoveTo(nextCoord.X, nextCoord.Y);
+                        if (botRoom.GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
+                            botUser.MoveTo(nextCoord.X, nextCoord.Y);
                     }
                     break;
                 case "specified_range":

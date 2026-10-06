@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.Users;
+﻿using System.Diagnostics.CodeAnalysis;
+using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Navigator.SavedSearches;
 
 namespace Plus.HabboHotel.Navigator;
@@ -12,9 +13,9 @@ public interface INavigatorManager
     IReadOnlyCollection<SearchResultList> EventCategories { get; }
     IReadOnlyCollection<TopLevelItem> TopLevelItems { get; }
     IReadOnlyCollection<SearchResultList> SearchResultLists { get; }
-    bool TryGetTopLevelItem(int id, out TopLevelItem topLevelItem);
-    bool TryGetSearchResultList(int id, out SearchResultList searchResultList);
-    bool TryGetFeaturedRoom(uint roomId, out FeaturedRoom publicRoom);
+    bool TryGetTopLevelItem(int id, [NotNullWhen(true)] out TopLevelItem? topLevelItem);
+    bool TryGetSearchResultList(int id, [NotNullWhen(true)] out SearchResultList? searchResultList);
+    bool TryGetFeaturedRoom(uint roomId, [NotNullWhen(true)] out FeaturedRoom? publicRoom);
     IReadOnlyCollection<FeaturedRoom> FeaturedRooms { get; }
     Task<Dictionary<int, SavedSearch>> LoadUserNavigatorPreferences(int habboId);
     Task SaveHomeRoom(Habbo habbo, uint roomId);

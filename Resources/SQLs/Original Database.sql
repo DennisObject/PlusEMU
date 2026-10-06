@@ -5875,7 +5875,7 @@ CREATE TABLE `bots` (
   `dance` int(11) NOT NULL DEFAULT '0',
   `automatic_chat` enum('false','true') NOT NULL DEFAULT 'false',
   `speaking_interval` int(8) NOT NULL DEFAULT '30',
-  `mix_sentences` enum('0','1') NOT NULL DEFAULT '0',
+  `mix_sentences` tinyint(1) NOT NULL DEFAULT '0',
   `chat_bubble` int(11) NOT NULL DEFAULT '2',
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`) USING BTREE,
@@ -6009,7 +6009,7 @@ CREATE TABLE `bots_speech` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `bot_id` int(10) unsigned NOT NULL,
   `text` varchar(200) NOT NULL,
-  `shout` enum('0','1') NOT NULL DEFAULT '0',
+  `shout` tinyint(1) NOT NULL DEFAULT '0',
   `type` enum('normal','rentable') DEFAULT 'normal',
   PRIMARY KEY (`id`),
   KEY `bot_id` (`bot_id`)
@@ -6220,7 +6220,7 @@ CREATE TABLE `catalog_items` (
   `amount` int(11) NOT NULL DEFAULT '1',
   `limited_sells` int(11) NOT NULL DEFAULT '0',
   `limited_stack` int(11) NOT NULL DEFAULT '0',
-  `offer_active` enum('0','1') NOT NULL DEFAULT '1',
+  `offer_active` tinyint(1) NOT NULL DEFAULT '1',
   `extradata` varchar(255) NOT NULL DEFAULT '',
   `badge` varchar(5) NOT NULL DEFAULT '',
   `offer_id` int(11) NOT NULL DEFAULT '-1',
@@ -14085,8 +14085,8 @@ CREATE TABLE `catalog_pages` (
   `parent_id` int(11) NOT NULL DEFAULT '-1',
   `caption` varchar(35) NOT NULL,
   `icon_image` int(11) NOT NULL DEFAULT '1',
-  `visible` enum('0','1') NOT NULL DEFAULT '1',
-  `enabled` enum('0','1') NOT NULL DEFAULT '1',
+  `visible` tinyint(1) NOT NULL DEFAULT '1',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   `required_permission` varchar(191) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
   `order_num` int(11) NOT NULL,
   `page_link` varchar(35) NOT NULL DEFAULT '',
@@ -14404,8 +14404,8 @@ CREATE TABLE `catalog_pet_races` (
   `raceid` int(255) DEFAULT NULL,
   `color1` int(255) DEFAULT NULL,
   `color2` int(255) DEFAULT NULL,
-  `has1color` enum('1','0') DEFAULT NULL,
-  `has2color` enum('1','0') DEFAULT NULL
+  `has1color` tinyint(1) DEFAULT NULL,
+  `has2color` tinyint(1) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- ----------------------------
@@ -14699,7 +14699,7 @@ CREATE TABLE `catalog_vouchers` (
   `value` int(11) NOT NULL DEFAULT '100',
   `current_uses` int(11) NOT NULL DEFAULT '0',
   `max_uses` int(11) NOT NULL DEFAULT '1',
-  `enabled` enum('0','1') DEFAULT '1',
+  `enabled` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`voucher`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -15361,15 +15361,15 @@ CREATE TABLE `furniture` (
   `width` int(11) NOT NULL DEFAULT '1',
   `length` int(11) NOT NULL DEFAULT '1',
   `stack_height` double NOT NULL DEFAULT '0',
-  `can_stack` enum('0','1') NOT NULL DEFAULT '1',
-  `can_sit` enum('0','1') NOT NULL DEFAULT '0',
-  `is_walkable` enum('0','1') NOT NULL DEFAULT '0',
+  `can_stack` tinyint(1) NOT NULL DEFAULT '1',
+  `can_sit` tinyint(1) NOT NULL DEFAULT '0',
+  `is_walkable` tinyint(1) NOT NULL DEFAULT '0',
   `sprite_id` int(11) NOT NULL DEFAULT '0',
-  `allow_recycle` enum('0','1') NOT NULL DEFAULT '1',
-  `allow_trade` enum('0','1') NOT NULL DEFAULT '1',
-  `allow_marketplace_sell` enum('0','1') NOT NULL DEFAULT '1',
-  `allow_gift` enum('0','1') NOT NULL DEFAULT '1',
-  `allow_inventory_stack` enum('0','1') NOT NULL DEFAULT '1',
+  `allow_recycle` tinyint(1) NOT NULL DEFAULT '1',
+  `allow_trade` tinyint(1) NOT NULL DEFAULT '1',
+  `allow_marketplace_sell` tinyint(1) NOT NULL DEFAULT '1',
+  `allow_gift` tinyint(1) NOT NULL DEFAULT '1',
+  `allow_inventory_stack` tinyint(1) NOT NULL DEFAULT '1',
   `interaction_type` varchar(25) NOT NULL DEFAULT 'default',
   `behaviour_data` int(11) NOT NULL DEFAULT '0',
   `interaction_modes_count` int(11) NOT NULL DEFAULT '1',
@@ -15377,9 +15377,9 @@ CREATE TABLE `furniture` (
   `height_adjustable` varchar(50) NOT NULL DEFAULT '0',
   `effect_id` int(3) NOT NULL DEFAULT '0',
   `wired_id` int(11) NOT NULL DEFAULT '0',
-  `is_rare` enum('0','1') NOT NULL DEFAULT '0',
+  `is_rare` tinyint(1) NOT NULL DEFAULT '0',
   `clothing_id` int(11) NOT NULL DEFAULT '0',
-  `extra_rot` enum('0','1') NOT NULL DEFAULT '0',
+  `extra_rot` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`) USING BTREE,
   KEY `sprite_id` (`sprite_id`) USING BTREE
@@ -22595,7 +22595,7 @@ CREATE TABLE `games_config` (
   `game_server_host` varchar(25) NOT NULL DEFAULT '',
   `game_server_port` varchar(25) NOT NULL DEFAULT '',
   `socket_policy_port` varchar(25) NOT NULL DEFAULT '',
-  `game_enabled` enum('0','1') DEFAULT '1',
+  `game_enabled` tinyint(1) DEFAULT '1',
   `last_reset` double DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`)
@@ -22621,8 +22621,8 @@ CREATE TABLE `groups` (
   `state` enum('0','1','2') NOT NULL DEFAULT '0',
   `colour1` int(11) NOT NULL DEFAULT '242424',
   `colour2` int(11) NOT NULL DEFAULT '242424',
-  `admindeco` enum('0','1') NOT NULL DEFAULT '1',
-  `forum_enabled` enum('0','1') NOT NULL DEFAULT '0',
+  `admindeco` tinyint(1) NOT NULL DEFAULT '1',
+  `forum_enabled` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`) USING BTREE,
   KEY `room_id` (`room_id`),
@@ -22642,7 +22642,7 @@ CREATE TABLE `groups_items` (
   `id` int(255) NOT NULL,
   `firstvalue` varchar(255) NOT NULL,
   `secondvalue` varchar(2000) NOT NULL,
-  `enabled` enum('0','1') NOT NULL DEFAULT '1',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   PRIMARY KEY (`id`,`type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
@@ -23218,7 +23218,7 @@ CREATE TABLE `items_youtube` (
   `youtube_id` varchar(35) NOT NULL DEFAULT '',
   `title` varchar(50) NOT NULL DEFAULT '',
   `description` varchar(150) NOT NULL DEFAULT '',
-  `enabled` enum('0','1') NOT NULL DEFAULT '1',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -23524,7 +23524,7 @@ CREATE TABLE `navigator_categories` (
   `required_permission` varchar(191) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
   `category_type` varchar(25) NOT NULL DEFAULT 'category',
   `search_allowance` enum('NOTHING','SHOW_MORE') NOT NULL DEFAULT 'SHOW_MORE',
-  `enabled` enum('0','1') NOT NULL DEFAULT '1',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   `order_id` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -23572,7 +23572,7 @@ CREATE TABLE `navigator_publics` (
   `description` varchar(150) NOT NULL,
   `image_url` text NOT NULL,
   `order_num` int(11) NOT NULL DEFAULT '1',
-  `enabled` enum('0','1') NOT NULL DEFAULT '1',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   PRIMARY KEY (`room_id`),
   KEY `ordernum` (`order_num`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -25135,15 +25135,15 @@ CREATE TABLE `rooms` (
   `wallpaper` varchar(10) NOT NULL DEFAULT '0.0',
   `floor` varchar(10) NOT NULL DEFAULT '0.0',
   `landscape` varchar(10) NOT NULL DEFAULT '0.0',
-  `allow_pets` enum('0','1') NOT NULL DEFAULT '0',
-  `allow_pets_eat` enum('0','1') NOT NULL DEFAULT '0',
-  `room_blocking_disabled` enum('0','1') NOT NULL DEFAULT '0',
-  `allow_hidewall` enum('0','1') NOT NULL DEFAULT '0',
+  `allow_pets` tinyint(1) NOT NULL DEFAULT '0',
+  `allow_pets_eat` tinyint(1) NOT NULL DEFAULT '0',
+  `room_blocking_disabled` tinyint(1) NOT NULL DEFAULT '0',
+  `allow_hidewall` tinyint(1) NOT NULL DEFAULT '0',
   `wallthick` int(1) NOT NULL DEFAULT '0',
   `floorthick` int(1) NOT NULL DEFAULT '0',
   `group_id` int(11) unsigned NOT NULL DEFAULT '0',
-  `mute_settings` enum('0','1') NOT NULL DEFAULT '1',
-  `ban_settings` enum('0','1') NOT NULL DEFAULT '1',
+  `mute_settings` tinyint(1) NOT NULL DEFAULT '1',
+  `ban_settings` tinyint(1) NOT NULL DEFAULT '1',
   `kick_settings` enum('0','1','2') NOT NULL DEFAULT '1',
   `chat_mode` int(11) NOT NULL DEFAULT '0',
   `chat_size` int(11) NOT NULL DEFAULT '0',
@@ -25151,13 +25151,13 @@ CREATE TABLE `rooms` (
   `chat_extra_flood` int(11) NOT NULL DEFAULT '0',
   `chat_hearing_distance` int(11) NOT NULL DEFAULT '14',
   `trade_settings` int(11) NOT NULL DEFAULT '2',
-  `push_enabled` enum('0','1') NOT NULL DEFAULT '1',
-  `pull_enabled` enum('0','1') NOT NULL DEFAULT '1',
-  `enables_enabled` enum('0','1') NOT NULL DEFAULT '1',
-  `respect_notifications_enabled` enum('0','1') NOT NULL DEFAULT '1',
-  `pet_morphs_allowed` enum('0','1') NOT NULL DEFAULT '1',
-  `spull_enabled` enum('0','1') NOT NULL DEFAULT '1',
-  `spush_enabled` enum('0','1') NOT NULL DEFAULT '1',
+  `push_enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `pull_enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `enables_enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `respect_notifications_enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `pet_morphs_allowed` tinyint(1) NOT NULL DEFAULT '1',
+  `spull_enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `spush_enabled` tinyint(1) NOT NULL DEFAULT '1',
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`),
   KEY `owner` (`owner`),
@@ -25330,7 +25330,7 @@ DROP TABLE IF EXISTS `room_items_moodlight`;
 CREATE TABLE `room_items_moodlight` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `item_id` int(10) unsigned NOT NULL,
-  `enabled` enum('0','1') NOT NULL DEFAULT '0',
+  `enabled` tinyint(1) NOT NULL DEFAULT '0',
   `current_preset` int(11) NOT NULL,
   `preset_one` text NOT NULL,
   `preset_two` text NOT NULL,
@@ -25366,7 +25366,7 @@ CREATE TABLE `room_items_tele_links` (
 DROP TABLE IF EXISTS `room_items_toner`;
 CREATE TABLE `room_items_toner` (
   `id` int(11) unsigned NOT NULL,
-  `enabled` enum('0','1') DEFAULT '0',
+  `enabled` tinyint(1) DEFAULT '0',
   `data1` int(11) NOT NULL,
   `data2` int(11) NOT NULL,
   `data3` int(11) NOT NULL,
@@ -25394,7 +25394,7 @@ CREATE TABLE `room_models` (
   `required_club_level` int NOT NULL DEFAULT 0,
   `required_permission` varchar(191) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
   `poolmap` varchar(100) NOT NULL DEFAULT '',
-  `custom` enum('0','1') NOT NULL DEFAULT '0',
+  `custom` tinyint(1) NOT NULL DEFAULT '0',
   `wall_height` int(11) NOT NULL DEFAULT '-1',
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`)
@@ -25531,7 +25531,7 @@ CREATE TABLE `server_rewards` (
   `reward_type` enum('credits','badge','diamonds','duckets','none') NOT NULL DEFAULT 'none',
   `reward_data` varchar(255) NOT NULL,
   `message` varchar(255) NOT NULL,
-  `enabled` enum('1','0') NOT NULL DEFAULT '1',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
@@ -25666,33 +25666,17 @@ CREATE TABLE `users` (
   `look` char(255) DEFAULT NULL,
   `gender` enum('M','F') DEFAULT 'M',
   `motto` char(50) DEFAULT NULL,
-  `account_created` char(12) DEFAULT '0',
-  `last_online` int(11) DEFAULT '0',
-  `online` enum('0','1') DEFAULT '0',
+  `account_created` datetime DEFAULT NULL,
+  `last_online` datetime DEFAULT NULL,
+  `online` tinyint(1) DEFAULT '0',
   `ip_last` varchar(45) DEFAULT '',
   `ip_reg` varchar(45) DEFAULT NULL,
-  `home_room` int(10) DEFAULT '0',
-  `is_muted` enum('0','1') DEFAULT '0',
-  `block_newfriends` enum('0','1') DEFAULT '0',
-  `hide_online` enum('0','1') DEFAULT '0',
-  `hide_inroom` enum('0','1') DEFAULT '0',
-  `vip` enum('0','1') DEFAULT '1',
-  `volume` varchar(15) DEFAULT '100,100,100',
-  `last_change` int(20) DEFAULT '0',
+  `vip` tinyint(1) DEFAULT '1',
+  `last_change` datetime DEFAULT NULL,
   `machine_id` varchar(125) DEFAULT '',
-  `focus_preference` enum('0','1') DEFAULT '0',
-  `chat_preference` enum('0','1') DEFAULT '0',
-  `pets_muted` enum('0','1') DEFAULT '0',
-  `bots_muted` enum('0','1') DEFAULT '0',
-  `advertising_report_blocked` enum('0','1') DEFAULT '0',
   `gotw_points` int(11) DEFAULT '0',
-  `ignore_invites` enum('0','1') DEFAULT '0',
   `time_muted` double DEFAULT '0',
-  `allow_gifts` enum('0','1') DEFAULT '1',
   `trading_locked` double DEFAULT '0',
-  `friend_bar_state` enum('0','1') NOT NULL DEFAULT '1',
-  `disable_forced_effects` enum('0','1') NOT NULL DEFAULT '0',
-  `allow_mimic` enum('1','0') NOT NULL DEFAULT '1',
   PRIMARY KEY (`id`,`auth_ticket`),
   UNIQUE KEY `id` (`id`) USING BTREE,
   UNIQUE KEY `username` (`username`) USING BTREE,
@@ -25706,8 +25690,30 @@ CREATE TABLE `users` (
   KEY `machine_id` (`machine_id`),
   KEY `auth_ticket` (`auth_ticket`),
   KEY `last_online` (`last_online`),
-  KEY `home_room` (`home_room`),
   KEY `messenger` (`id`,`username`,`look`,`motto`,`last_online`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS `users_settings`;
+CREATE TABLE `users_settings` (
+  `user_id` int(11) NOT NULL,
+  `home_room` int(10) unsigned NOT NULL DEFAULT '0',
+  `is_muted` tinyint(1) NOT NULL DEFAULT '0',
+  `block_newfriends` tinyint(1) NOT NULL DEFAULT '0',
+  `hide_online` tinyint(1) NOT NULL DEFAULT '0',
+  `hide_inroom` tinyint(1) NOT NULL DEFAULT '0',
+  `volume` varchar(15) NOT NULL DEFAULT '100,100,100',
+  `focus_preference` tinyint(1) NOT NULL DEFAULT '0',
+  `chat_preference` tinyint(1) NOT NULL DEFAULT '0',
+  `pets_muted` tinyint(1) NOT NULL DEFAULT '0',
+  `bots_muted` tinyint(1) NOT NULL DEFAULT '0',
+  `advertising_report_blocked` tinyint(1) NOT NULL DEFAULT '0',
+  `ignore_invites` tinyint(1) NOT NULL DEFAULT '0',
+  `allow_gifts` tinyint(1) NOT NULL DEFAULT '1',
+  `friend_bar_state` tinyint(1) NOT NULL DEFAULT '1',
+  `disable_forced_effects` tinyint(1) NOT NULL DEFAULT '0',
+  `allow_mimic` tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`user_id`),
+  CONSTRAINT `fk_users_settings_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- ----------------------------
@@ -25775,8 +25781,8 @@ CREATE TABLE `user_effects` (
   `user_id` int(10) unsigned DEFAULT NULL,
   `effect_id` int(11) DEFAULT '1',
   `total_duration` int(11) DEFAULT '3600',
-  `is_activated` enum('0','1') DEFAULT '0',
-  `activated_stamp` double DEFAULT '0',
+  `is_activated` tinyint(1) DEFAULT '0',
+  `activated_stamp` datetime DEFAULT NULL,
   `quantity` int(11) DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`)
@@ -25832,7 +25838,7 @@ CREATE TABLE `user_info` (
   `login_timestamp` double NOT NULL DEFAULT '0',
   `cfhs` int(11) NOT NULL DEFAULT '0',
   `cfhs_abusive` int(11) NOT NULL DEFAULT '0',
-  `trading_locked` double NOT NULL DEFAULT '0',
+  `trading_locked` datetime DEFAULT NULL,
   `trading_locks_count` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `user_id` (`user_id`)
@@ -26010,7 +26016,7 @@ CREATE TABLE `wired_items` (
   `items` varchar(5000) NOT NULL,
   `delay` int(11) NOT NULL,
   `string` varchar(5000) NOT NULL,
-  `bool` enum('0','1') NOT NULL DEFAULT '0',
+  `bool` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -26026,9 +26032,9 @@ DROP TABLE IF EXISTS `wordfilter`;
 CREATE TABLE `wordfilter` (
   `word` varchar(100) NOT NULL,
   `replacement` varchar(255) NOT NULL DEFAULT 'Habboon',
-  `strict` enum('1','0') NOT NULL DEFAULT '1',
+  `strict` tinyint(1) NOT NULL DEFAULT '1',
   `addedby` varchar(100) NOT NULL DEFAULT '',
-  `bannable` enum('0','1') NOT NULL DEFAULT '0',
+  `bannable` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`word`),
   UNIQUE KEY `word` (`word`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -26047,7 +26053,7 @@ CREATE TABLE `wordfilter` (
 -- 2_AddMissingRoomColumns
 ALTER TABLE `rooms` 
 	ADD `sale_price` INT(5) NOT NULL DEFAULT '0' AFTER `spush_enabled`, 
-	ADD `lay_enabled` ENUM('0','1') NOT NULL DEFAULT '0' AFTER `sale_price`;
+	ADD `lay_enabled` BOOL NOT NULL DEFAULT FALSE AFTER `sale_price`;
 
 -- 3_RefactorMessenger
 ALTER TABLE `messenger_friendships` DROP `id`;
@@ -26079,62 +26085,13 @@ CREATE TABLE `ambassador_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- 8_AddBubbleIDToUsersTable
-ALTER TABLE `users` ADD COLUMN `bubble_id` TINYINT NOT NULL DEFAULT '0' AFTER `allow_mimic`;
-
--- 9_ChangeRoomDataToBooleans
-ALTER TABLE `rooms` CHANGE `allow_pets` `allow_pets` BOOLEAN NOT NULL DEFAULT FALSE, 
-CHANGE `allow_pets_eat` `allow_pets_eat` BOOLEAN NOT NULL DEFAULT FALSE, 
-CHANGE `room_blocking_disabled` `room_blocking_disabled` BOOLEAN NOT NULL DEFAULT FALSE, 
-CHANGE `allow_hidewall` `allow_hidewall` BOOLEAN NOT NULL DEFAULT FALSE; 
-
--- 10_UserDataToBooleans
-ALTER TABLE `users` CHANGE `online` `online` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `is_muted` `is_muted` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `block_newfriends` `block_newfriends` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `hide_online` `hide_online` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `hide_inroom` `hide_inroom` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `vip` `vip` BOOLEAN NULL DEFAULT TRUE,
-CHANGE `focus_preference` `focus_preference` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `chat_preference` `chat_preference` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `pets_muted` `pets_muted` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `bots_muted` `bots_muted` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `advertising_report_blocked` `advertising_report_blocked` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `ignore_invites` `ignore_invites` BOOLEAN NULL DEFAULT FALSE,
-CHANGE `allow_gifts` `allow_gifts` BOOLEAN NULL DEFAULT TRUE,
-CHANGE `disable_forced_effects` `disable_forced_effects` BOOLEAN NOT NULL DEFAULT FALSE,
-CHANGE `allow_mimic` `allow_mimic` BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE `users` ADD COLUMN `bubble_id` TINYINT NOT NULL DEFAULT '0' AFTER `time_muted`;
 
 -- 11_ChangeCatalogPagesEnumToBit
 ALTER TABLE `catalog_pages` DROP `visible`;
 ALTER TABLE `catalog_pages` ADD `visible` bit(1) NOT NULL DEFAULT b'1';
 ALTER TABLE `catalog_pages` DROP `enabled`;
 ALTER TABLE `catalog_pages` ADD `enabled` bit(1) NOT NULL DEFAULT b'1';
-
--- 12_ChangeIntToBoolRoomData
-ALTER TABLE `rooms` 
-    CHANGE `allow_pets` `allow_pets_old` ENUM('0','1') NOT NULL DEFAULT '0',
-    CHANGE `allow_pets_eat` `allow_pets_eat_old` ENUM('0','1') NOT NULL DEFAULT '0',
-    CHANGE `room_blocking_disabled` `room_blocking_disabled_old` ENUM('0','1') NOT NULL DEFAULT '0',
-    CHANGE `allow_hidewall` `allow_hidewall_old` ENUM('0','1') NOT NULL DEFAULT '0';
-
-ALTER TABLE `rooms`
-    ADD `allow_pets` BOOLEAN NOT NULL DEFAULT 0,
-    ADD `allow_pets_eat` BOOLEAN NOT NULL DEFAULT 0,
-    ADD `room_blocking_disabled` BOOLEAN NOT NULL DEFAULT 0,
-    ADD `allow_hidewall` BOOLEAN NOT NULL DEFAULT 0;
-
-UPDATE `rooms`
-SET
-    `allow_pets` = `allow_pets_old` = '1',
-    `allow_pets_eat` = `allow_pets_eat_old` = '1',
-    `room_blocking_disabled` = `room_blocking_disabled_old` = '1',
-    `allow_hidewall` = `allow_hidewall_old` = '1';
-
-ALTER TABLE `rooms`
-    DROP `allow_pets_old`,
-    DROP `allow_pets_eat_old`,
-    DROP `room_blocking_disabled_old`,
-    DROP `allow_hidewall_old`;
 
 -- 13_DeletePrimaryKeyAuthTicket
 ALTER TABLE `users`

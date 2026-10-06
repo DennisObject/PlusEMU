@@ -8,22 +8,25 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 public class InteractorWired : IFurniInteractor
 {
-    public void OnPlace(GameClient session, Item item) { }
+    public void OnPlace(GameClient? session, Item item) { }
 
-    public void OnRemove(GameClient session, Item item)
+    public void OnRemove(GameClient? session, Item item)
     {
         //Room Room = Item.GetRoom();
         //Room.GetWiredHandler().RemoveWired(Item);
     }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         if (session == null || item == null)
             return;
-        if (!WiredRoomSettings.For(item.GetRoom()).CanInspect(session))
+        if (!WiredRoomSettings.For(itemRoom).CanInspect(session))
             return;
-        IWiredItem box = null;
-        if (!item.GetRoom().GetWired().TryGet(item.Id, out box))
+        IWiredItem? box = null;
+        if (!itemRoom.GetWired().TryGet(item.Id, out box))
             return;
         if (box is IWiredConfiguredItem configured)
         {
@@ -38,9 +41,9 @@ public class InteractorWired : IFurniInteractor
             if (WiredLegacyEditorProjection.TryGetConfiguration(box, out var descriptor, out var configuration))
             {
                 var blockedItems = descriptor.Envelope == WiredBoxCategory.Trigger
-                    ? WiredBoxTypeUtility.ContainsBlockedEffect(box, item.GetRoom().GetWired().GetEffects(box))
+                    ? WiredBoxTypeUtility.ContainsBlockedEffect(box, itemRoom.GetWired().GetEffects(box))
                     : descriptor.Envelope == WiredBoxCategory.Action
-                        ? WiredBoxTypeUtility.ContainsBlockedTrigger(box, item.GetRoom().GetWired().GetTriggers(box)) : [];
+                        ? WiredBoxTypeUtility.ContainsBlockedTrigger(box, itemRoom.GetWired().GetTriggers(box)) : [];
                 session.Send(new WiredConfiguredConfigComposer(item, descriptor, configuration,
                     WiredLegacyCustomEditor.IsCustom(box) ? 0 : WiredConfigurationLimits.SelectedItems, blockedItems));
             }
@@ -53,17 +56,17 @@ public class InteractorWired : IFurniInteractor
         item.RequestUpdate(2, true);
         if (item.Definition.WiredType == WiredBoxType.AddonRandomEffect)
             return;
-        if (item.GetRoom().GetWired().IsTrigger(item))
+        if (itemRoom.GetWired().IsTrigger(item))
         {
-            var blockedItems = WiredBoxTypeUtility.ContainsBlockedEffect(box, item.GetRoom().GetWired().GetEffects(box));
+            var blockedItems = WiredBoxTypeUtility.ContainsBlockedEffect(box, itemRoom.GetWired().GetEffects(box));
             session.Send(new WiredTriggeRconfigComposer(box, blockedItems));
         }
-        else if (item.GetRoom().GetWired().IsEffect(item))
+        else if (itemRoom.GetWired().IsEffect(item))
         {
-            var blockedItems = WiredBoxTypeUtility.ContainsBlockedTrigger(box, item.GetRoom().GetWired().GetTriggers(box));
+            var blockedItems = WiredBoxTypeUtility.ContainsBlockedTrigger(box, itemRoom.GetWired().GetTriggers(box));
             session.Send(new WiredEffectConfigComposer(box, blockedItems));
         }
-        else if (item.GetRoom().GetWired().IsCondition(item))
+        else if (itemRoom.GetWired().IsCondition(item))
             session.Send(new WiredConditionConfigComposer(box));
     }
 

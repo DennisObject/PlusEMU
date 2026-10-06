@@ -8,9 +8,12 @@ public class InteractorHopper : IFurniInteractor, IApproachInteractor
 {
     public int ActionKind => ApproachActionKind.Hopper;
 
-    public void OnPlace(GameClient session, Item item)
+    public void OnPlace(GameClient? session, Item item)
     {
-        item.GetRoom().GetRoomItemHandler().HopperCount++;
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
+        itemRoom.GetRoomItemHandler().HopperCount++;
         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
         {
             dbClient.SetQuery("INSERT INTO items_hopper (hopper_id, room_id) VALUES (@hopperid, @roomid);");
@@ -20,7 +23,7 @@ public class InteractorHopper : IFurniInteractor, IApproachInteractor
         }
         if (item.InteractingUser != 0)
         {
-            var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
+            var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
             if (user != null)
             {
                 user.ClearMovement(true);
@@ -31,28 +34,34 @@ public class InteractorHopper : IFurniInteractor, IApproachInteractor
         }
     }
 
-    public void OnRemove(GameClient session, Item item)
+    public void OnRemove(GameClient? session, Item item)
     {
-        item.GetRoom().GetRoomItemHandler().HopperCount--;
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
+        itemRoom.GetRoomItemHandler().HopperCount--;
         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
         {
-            dbClient.SetQuery($"DELETE FROM items_hopper WHERE item_id=@hid OR room_id={item.GetRoom().RoomId} LIMIT 1");
+            dbClient.SetQuery($"DELETE FROM items_hopper WHERE item_id=@hid OR room_id={itemRoom.RoomId} LIMIT 1");
             dbClient.AddParameter("hid", item.Id);
             dbClient.RunQuery();
         }
         if (item.InteractingUser != 0)
         {
-            var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
+            var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
             if (user != null) user.UnlockWalking();
             item.InteractingUser = 0;
         }
     }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (item == null || item.GetRoom() == null || session == null || session.GetHabbo() == null)
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
+        if (item == null || itemRoom == null || session == null || session.GetHabbo() == null)
             return;
-        var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
+        var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         if (user == null) return;
 
         // Alright. But is this user in the right position?

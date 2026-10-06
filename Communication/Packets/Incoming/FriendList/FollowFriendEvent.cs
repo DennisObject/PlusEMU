@@ -23,7 +23,7 @@ internal class FollowFriendEvent : IPacketEvent
             return Task.CompletedTask;
         if (!client.GetHabbo().InRoom)
         {
-            session.Send(new FollowFriendFailedComposer(2));
+            session.Send(new FollowFriendFailedComposer(FriendFollowError.Unavailable));
             return Task.CompletedTask;
         }
         if (session.GetHabbo().CurrentRoom?.RoomId == client.GetHabbo().CurrentRoom?.RoomId)

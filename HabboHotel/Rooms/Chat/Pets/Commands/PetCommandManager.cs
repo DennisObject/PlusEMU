@@ -1,9 +1,10 @@
-﻿using System.Data;
+﻿using Dapper;
+using Plus.Core;
 using Plus.Database;
 
 namespace Plus.HabboHotel.Rooms.Chat.Pets.Commands;
 
-public class PetCommandManager : IPetCommandManager
+public class PetCommandManager : IPetCommandManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly Dictionary<string, string> _commandDatabase;
@@ -18,29 +19,23 @@ public class PetCommandManager : IPetCommandManager
         _commandDatabase = new();
     }
 
-    public void Init()
+    public int StartOrder => 20;
+    public Task Start() => Load();
+    public void Init() => Load().GetAwaiter().GetResult();
+
+    private async Task Load()
     {
+        using var connection = _database.Connection();
+        var commands = await connection.QueryAsync<(int Id, string Title, string Input)>("SELECT id, input_title, COALESCE(input, '') FROM bots_pet_commands");
         _petCommands.Clear();
         _commandRegister.Clear();
         _commandDatabase.Clear();
-        DataTable table = null;
-        using (var dbClient = _database.GetQueryReactor())
+        foreach (var row in commands)
         {
-            dbClient.SetQuery("SELECT * FROM `bots_pet_commands`");
-            table = dbClient.GetTable();
-            if (table != null)
-            {
-                foreach (DataRow row in table.Rows)
-                {
-                    _commandRegister.Add(Convert.ToInt32(row[0]), row[1].ToString());
-                    _commandDatabase.Add($"{row[1]}.input", row[2].ToString());
-                }
-            }
-        }
-        foreach (var (commandId, commandStringedId) in _commandRegister)
-        {
-            var commandInput = _commandDatabase[$"{commandStringedId}.input"].Split(',');
-            foreach (var command in commandInput) _petCommands.Add(command, new(commandId, command));
+            _commandRegister.Add(row.Id, row.Title);
+            _commandDatabase.Add($"{row.Title}.input", row.Input);
+            foreach (var command in row.Input.Split(','))
+                _petCommands.Add(command, new(row.Id, command));
         }
     }
 

@@ -6,7 +6,7 @@ public static class ClientPacketHeader
     public const uint InitDiffieHandshakeEvent = 3392; //316
     public const uint GenerateSecretKeyEvent = 3622; //3847
     public const uint UniqueIdEvent = 3521; //1471
-    public const uint SsoTicketEvent = 1989; //1778
+    public const uint SSOTicketEvent = 1989; //1778
     public const uint InfoRetrieveEvent = 2629; //186
 
     // Avatar
@@ -240,7 +240,7 @@ public static class ClientPacketHeader
     public const uint GetMoodlightConfigEvent = 2906; //3472
     public const uint GetGroupInfoEvent = 681; //3211
     public const uint CreateFlatEvent = 92; //3077
-    public const uint LatencyTestEvent = 878; //1789
+    public const uint LatencyPingRequestEvent = 878; //1789
     public const uint GetSelectedBadgesEvent = 2735; //2226
     public const uint AddStickyNoteEvent = 3891; //425
     public const uint RideHorseEvent = 3387; //1440
@@ -250,7 +250,7 @@ public static class ClientPacketHeader
     public const uint UpdateGroupIdentityEvent = 1375; //1062
     public const uint UpdateStickyNoteEvent = 3120; //342
     public const uint UnbanUserFromRoomEvent = 2050; //3060
-    public const uint UnIgnoreUserEvent = 981; //3023
+    public const uint UnignoreUserEvent = 981; //3023
     public const uint OpenGiftEvent = 349; //1515
     public const uint ApplyDecorationEvent = 2729; //728
     public const uint GetRecipeConfigEvent = 2428; //3654

@@ -59,6 +59,7 @@ public class HousekeepingDatabaseTests : IDisposable
 
     public HousekeepingDatabaseTests()
     {
+        SqlMapper.AddTypeHandler(new Plus.Database.UtcDateTimeOffsetHandler());
         var connectionString = Environment.GetEnvironmentVariable("PLUS_HOUSEKEEPING_TEST_CONNECTION_STRING")!;
         if (!new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_housekeeping_tests_", StringComparison.Ordinal))
             throw new InvalidOperationException("Housekeeping database tests require a disposable task_housekeeping_tests_ schema.");
@@ -69,12 +70,14 @@ public class HousekeepingDatabaseTests : IDisposable
         Execute("INSERT INTO users (id, username, auth_ticket, `rank`, credits, activity_points, vip_points, mail, ip_last, online) VALUES " +
                 $"({Owner}, 'hk_owner', '', 9, 0, 0, 0, 'owner@hotel', '10.0.0.1', 0), ({Target}, 'hk_o''brien', 'old-ticket', 1, 100, 50, 5, 'target@hotel', '10.0.0.2', 0), " +
                 $"({Peer}, 'hk_peer', '', 9, 0, 0, 0, '', '', 1)");
-        Execute($"INSERT INTO user_info (user_id, trading_locked) VALUES ({Target}, 0)");
+        Execute($"INSERT INTO user_info (user_id, trading_locked) VALUES ({Target}, NULL)");
         Execute($"INSERT INTO user_roles (user_id, role_id) VALUES ({Owner}, 9), ({Target}, 1), ({Peer}, 9)");
         _users = new(_database);
         _permissions = new(_database, _clients, NullLogger<AccessControl>.Instance, TimeProvider.System);
         _permissions.Init();
     }
+
+    private ITradingLockService TradeLocks(IAccountSessionGate? gate = null) => new TradingLockService(_database, _clients, gate ?? new AccountSessionGate(), TimeProvider.System);
 
     private void Execute(string sql, object? parameters = null)
     {
@@ -192,7 +195,7 @@ public class HousekeepingDatabaseTests : IDisposable
     public void PasswordResetStoresOnlyAHashAndRevokesTheSsoTicket()
     {
         var hasher = new Argon2idPasswordHasher();
-        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, new AccountSessionGate(), Sessions());
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, new AccountSessionGate(), Sessions(), TradeLocks());
         var outcome = actions.ResetPassword(Staff(), Target);
         Assert.True(outcome.Ok);
         var stored = Scalar<string>($"SELECT password FROM users WHERE id = {Target}");
@@ -206,14 +209,14 @@ public class HousekeepingDatabaseTests : IDisposable
     [HousekeepingDatabaseFact]
     public void OfflineSanctionsPersistMuteAndTradeLock()
     {
-        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, null!, _database, new AccountSessionGate(), null!);
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, null!, _database, new AccountSessionGate(), null!, TradeLocks());
         Assert.True(actions.Mute(Staff(), Target, "", 15).Ok);
         Assert.Equal(900, Scalar<double>($"SELECT time_muted FROM users WHERE id = {Target}"));
         Assert.True(actions.TradeLock(Staff(), Target, 2, "").Ok);
-        Assert.True(Scalar<double>($"SELECT trading_locked FROM user_info WHERE user_id = {Target}") > UnixTimestamp.GetNow() + 7000);
+        Assert.True(Scalar<DateTime>($"SELECT trading_locked FROM user_info WHERE user_id = {Target}") > DateTime.UtcNow.AddSeconds(7000));
         Assert.Equal(1, Scalar<int>($"SELECT trading_locks_count FROM user_info WHERE user_id = {Target}"));
         var record = _users.Find(Target)!;
-        Assert.True(record.TimeMuted > 0 && record.TradingLocked > 0);
+        Assert.True(record.TimeMuted > 0 && record.TradingLockExpiresAt > DateTimeOffset.UtcNow);
     }
 
     [HousekeepingDatabaseFact]
@@ -265,7 +268,7 @@ public class HousekeepingDatabaseTests : IDisposable
         var (login, release, session, gate) = StartLogin();
         var disconnected = false;
         session.DisconnectRequested = () => disconnected = true;
-        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, gate, Sessions());
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, gate, Sessions(), TradeLocks(gate));
         var reset = Task.Run(() => actions.ResetPassword(Staff(), Target));
         await Task.Delay(300);
         Assert.False(reset.IsCompleted);
@@ -279,7 +282,7 @@ public class HousekeepingDatabaseTests : IDisposable
     public async Task PasswordResetAfterTheTicketResolvedRejectsTheLogin()
     {
         var gate = new AccountSessionGate();
-        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, gate, Sessions());
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, gate, Sessions(), TradeLocks(gate));
         HousekeepingOutcome? reset = null;
         // The staff reset lands right after the login has used up its ticket, before it reaches the gate.
         var authenticator = Authenticator(new SlowLogin(_users, Task.CompletedTask), gate, afterConsume: () => reset = actions.ResetPassword(Staff(), Target));
@@ -313,7 +316,7 @@ public class HousekeepingDatabaseTests : IDisposable
     {
         var gate = new AccountSessionGate();
         var authenticator = Authenticator(new SlowLogin(_users, Task.CompletedTask), gate);
-        var handler = new SsoTicketEvent(authenticator, _ticket);
+        var handler = new SSOTicketEvent(authenticator, _ticket);
         var (session, _) = HabbiconTestSupport.Client(null!);
         var disconnected = false;
         session.DisconnectRequested = () =>
@@ -323,7 +326,7 @@ public class HousekeepingDatabaseTests : IDisposable
         };
         using var manager = new PacketManager([handler], NullLogger<PacketManager>.Instance);
         var held = gate.Enter(Target);
-        await manager.TryExecutePacket(session, ClientPacketHeader.SsoTicketEvent, new FlashIncomingPacket { Buffer = Array.Empty<byte>() });
+        await manager.TryExecutePacket(session, ClientPacketHeader.SSOTicketEvent, new FlashIncomingPacket { Buffer = Array.Empty<byte>() });
         Assert.True(disconnected);
         held.Dispose();
         Assert.Equal(AuthenticationError.SessionClosed, await handler.Attempt!);
@@ -332,7 +335,7 @@ public class HousekeepingDatabaseTests : IDisposable
     }
 
     [NoAuthenticationRequired]
-    private sealed class SsoTicketEvent(IAuthenticator authenticator, string ticket) : IPacketEvent
+    private sealed class SSOTicketEvent(IAuthenticator authenticator, string ticket) : IPacketEvent
     {
         public Task<AuthenticationError?>? Attempt { get; private set; }
         public Task Parse(GameClient session, IIncomingPacket packet) => Attempt = authenticator.AuthenticateUsingSSO(session, ticket);

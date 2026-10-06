@@ -1,14 +1,16 @@
-﻿using System.Data;
+﻿using Plus.Core;
+using System.Data;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Users.Inventory.Furniture;
+using Dapper;
 
 namespace Plus.HabboHotel.Items;
 
-public class ItemDataManager : IItemDataManager
+public class ItemDataManager : IItemDataManager, IStartable
 {
     private readonly ILogger<ItemDataManager> _logger;
     private readonly IDatabase _database;
@@ -21,11 +23,25 @@ public class ItemDataManager : IItemDataManager
         _database = database;
     }
 
-    public void Init()
+    public int StartOrder => 10;
+    public Task Start() => LoadAsync();
+
+    public void Init() => LoadAsync().GetAwaiter().GetResult();
+
+    private async Task LoadAsync()
     {
-        using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("SELECT * FROM `furniture`");
-        Load(dbClient.GetTable());
+        using var connection = _database.Connection();
+        var rows = await connection.QueryAsync("SELECT * FROM `furniture`");
+        var table = new DataTable();
+        foreach (var values in rows.Cast<IDictionary<string, object?>>())
+        {
+            if (table.Columns.Count == 0)
+                foreach (var name in values.Keys) table.Columns.Add(name, typeof(object));
+            var row = table.NewRow();
+            foreach (var value in values) row[value.Key] = value.Value ?? DBNull.Value;
+            table.Rows.Add(row);
+        }
+        Load(table);
     }
 
     // Builds new tables and swaps them in, so a reload never shows readers a half-loaded furniture table.
@@ -51,14 +67,14 @@ public class ItemDataManager : IItemDataManager
                         Width = Convert.ToInt32(row["width"]),
                         Length = Convert.ToInt32(row["length"]),
                         Height = FurnitureNumbers.FromCell(row["stack_height"]),
-                        Stackable = row["can_stack"].ToString() == "1",
-                        Walkable = row["is_walkable"].ToString() == "1",
-                        IsSeat = row["can_sit"].ToString() == "1",
-                        AllowEcotronRecycle = row["allow_recycle"].ToString() == "1",
-                        AllowTrade = row["allow_trade"].ToString() == "1",
-                        AllowMarketplaceSell = row["allow_marketplace_sell"].ToString() == "1",
-                        AllowGift = row["allow_gift"].ToString() == "1",
-                        AllowInventoryStack = row["allow_inventory_stack"].ToString() == "1",
+                        Stackable = FurnitureNumbers.BooleanFromCell(row["can_stack"]),
+                        Walkable = FurnitureNumbers.BooleanFromCell(row["is_walkable"]),
+                        IsSeat = FurnitureNumbers.BooleanFromCell(row["can_sit"]),
+                        AllowEcotronRecycle = FurnitureNumbers.BooleanFromCell(row["allow_recycle"]),
+                        AllowTrade = FurnitureNumbers.BooleanFromCell(row["allow_trade"]),
+                        AllowMarketplaceSell = FurnitureNumbers.BooleanFromCell(row["allow_marketplace_sell"]),
+                        AllowGift = FurnitureNumbers.BooleanFromCell(row["allow_gift"]),
+                        AllowInventoryStack = FurnitureNumbers.BooleanFromCell(row["allow_inventory_stack"]),
                         InteractionType = ReadInteractionType(Convert.ToString(row["item_name"]), Convert.ToString(row["interaction_type"]), ReadWiredType(row["wired_id"])),
                         WiredType = ReadWiredType(row["wired_id"]),
                         InteractionName = Convert.ToString(row["interaction_type"]) ?? string.Empty,
@@ -71,8 +87,8 @@ public class ItemDataManager : IItemDataManager
                             ? Convert.ToString(row["height_adjustable"]).Split(",").Select(FurnitureNumbers.Parse).ToList()
                             : new(0),
                         EffectId = Convert.ToInt32(row["effect_id"]),
-                        IsRare = row["is_rare"].ToString() == "1",
-                        ExtraRot = row["extra_rot"].ToString() == "1",
+                        IsRare = FurnitureNumbers.BooleanFromCell(row["is_rare"]),
+                        ExtraRot = FurnitureNumbers.BooleanFromCell(row["extra_rot"]),
                     };
 
                     gifts.TryAdd(definition.SpriteId, definition.Id);
@@ -90,7 +106,7 @@ public class ItemDataManager : IItemDataManager
         _logger.LogInformation("Item Manager -> LOADED");
     }
 
-    public ItemDefinition GetItemByName(string name)
+    public ItemDefinition? GetItemByName(string name)
     {
         foreach (var entry in Items)
         {

@@ -80,6 +80,14 @@ public class MarketplaceManager : IMarketplaceManager
         return 0;
     }
 
+    public MarketplaceItemStats ItemStats(uint spriteId)
+    {
+        using var connection = _database.Connection();
+        var averagePrice = connection.ExecuteScalar<int?>(
+            "SELECT `avgprice` FROM `catalog_marketplace_data` WHERE `sprite` = @spriteId LIMIT 1", new { spriteId }) ?? 0;
+        return new(averagePrice, OfferCountForSprite(spriteId));
+    }
+
     public int CalculateComissionPrice(float price) => Convert.ToInt32(Math.Ceiling(price / 100 * 1));
 
     public async Task<bool> TryCancelOffer(Habbo habbo, uint offerId)

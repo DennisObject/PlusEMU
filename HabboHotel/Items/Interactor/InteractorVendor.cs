@@ -8,31 +8,40 @@ public class InteractorVendor : IFurniInteractor, IApproachInteractor
 {
     public int ActionKind => ApproachActionKind.VendingMachine;
 
-    public void OnPlace(GameClient session, Item item)
+    public void OnPlace(GameClient? session, Item item)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         item.LegacyDataString = "0";
         item.UpdateNeeded = true;
         if (item.InteractingUser > 0)
         {
-            var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
+            var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
             if (user != null) user.CanWalk = true;
         }
     }
 
-    public void OnRemove(GameClient session, Item item)
+    public void OnRemove(GameClient? session, Item item)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         item.LegacyDataString = "0";
         if (item.InteractingUser > 0)
         {
-            var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
+            var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
             if (user != null) user.CanWalk = true;
         }
     }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         if (!CanDispense(item) || session == null) return;
-        var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
+        var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         if (user == null) return;
         if (!Gamemap.TilesTouching(user.X, user.Y, item.GetX, item.GetY))
         {

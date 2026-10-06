@@ -1,11 +1,12 @@
-﻿using System.Data;
+﻿using Dapper;
+using Plus.Core;
 using System.Text.RegularExpressions;
 using Plus.Database;
 using Plus.Utilities;
 
 namespace Plus.HabboHotel.Rooms.Chat.Filter;
 
-public sealed class WordFilterManager : IWordFilterManager
+public sealed class WordFilterManager : IWordFilterManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly List<WordFilter> _filteredWords;
@@ -16,28 +17,16 @@ public sealed class WordFilterManager : IWordFilterManager
         _filteredWords = new();
     }
 
-    public void Init()
+    public int StartOrder => 20;
+    public Task Start() => Load();
+    public void Init() => Load().GetAwaiter().GetResult();
+
+    private async Task Load()
     {
-        if (_filteredWords.Count > 0)
-            _filteredWords.Clear();
-        DataTable data = null;
-        using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("SELECT * FROM `wordfilter`");
-        data = dbClient.GetTable();
-        if (data != null)
-        {
-            foreach (DataRow row in data.Rows)
-            {
-                var isStrict = ConvertExtensions.EnumToBool(row["strict"].ToString());
-                var isBannable = ConvertExtensions.EnumToBool(row["bannable"].ToString());
-                _filteredWords.Add(new(
-                    row["word"].ToString(), 
-                    row["replacement"].ToString(), 
-                    isStrict,
-                    isBannable)
-                );
-            }
-        }
+        using var connection = _database.Connection();
+        var filters = await connection.QueryAsync<WordFilter>("SELECT word, replacement, strict, bannable FROM wordfilter");
+        _filteredWords.Clear();
+        _filteredWords.AddRange(filters);
     }
 
     public string CheckMessage(string message)

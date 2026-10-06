@@ -23,16 +23,16 @@ public sealed class SendMessengerMessageEvent(IHabbiconService habbicons, IDatab
         {
             if (conversationId != 0 || recipientId <= 0 || recipientId == sender.Id || type != 4 ||
                 !int.TryParse(message, out int id) || id <= 0 || id > 1000000)
-                throw new HabbiconRejected(1);
-            if (sender.Messenger.GetFriend(recipientId) == null || metadata.Length != 0) throw new HabbiconRejected(6);
+                throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+            if (sender.Messenger.GetFriend(recipientId) == null || metadata.Length != 0) throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
             var item = habbicons.Load(sender.Id).RequireItem(id);
-            if (!item.Owned) throw new HabbiconRejected(6);
+            if (!item.Owned) throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
             if (sender.TimeMuted > 0 || UnixTimestamp.GetNow() < sender.FloodTime || !sender.Messenger.TrySendHabbicon())
-                throw new HabbiconRejected(7);
+                throw new HabbiconRejected(HabbiconActionError.MessageRateLimited);
             var target = clients.GetClientByUserId(recipientId);
             if (target != null && (target.GetHabbo().TimeMuted > 0 || !target.GetHabbo().AllowConsoleMessages ||
                 target.GetHabbo().IgnoresComponent.IsIgnored(sender.Id) || target.GetHabbo().Messenger.GetFriend(sender.Id) == null))
-                throw new HabbiconRejected(6);
+                throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
             int createdAt = checked((int)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
             // Plus retains its existing audit and offline text storage; no new messenger history schema.
             using var connection = database.Connection();

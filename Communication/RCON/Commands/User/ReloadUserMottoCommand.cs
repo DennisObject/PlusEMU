@@ -1,5 +1,6 @@
 ﻿using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Database;
+using Dapper;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.RCON.Commands.User;
@@ -26,12 +27,10 @@ internal class ReloadUserMottoCommand : IRconCommand
         var client = _gameClientManager.GetClientByUserId(userId);
         if (client == null || client.GetHabbo() == null)
             return Task.FromResult(false);
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery("SELECT `motto` FROM `users` WHERE `id` = @userID LIMIT 1");
-            dbClient.AddParameter("userID", userId);
-            client.GetHabbo().Motto = dbClient.GetString();
-        }
+        using var connection = _database.Connection();
+        var motto = connection.QuerySingleOrDefault<string?>("SELECT `motto` FROM `users` WHERE `id` = @userId", new { userId });
+        if (motto == null) return Task.FromResult(false);
+        client.GetHabbo().Motto = motto;
 
         // If we're in a room, we cannot really send the packets, so flag this as completed successfully, since we already updated it.
         if (!client.GetHabbo().InRoom)

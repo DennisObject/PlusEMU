@@ -8,4 +8,6 @@ public interface IGameServer
     bool Stop();
 
     Task PacketReceived(GameClient client, uint messageId, IIncomingPacket packet);
+    bool ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet);
+    bool HasOutgoingPacketInjectors(uint messageId);
 }

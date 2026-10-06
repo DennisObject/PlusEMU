@@ -47,7 +47,7 @@ internal class ChangeUserNameEvent : IPacketEvent
             session.Send(new UpdateUsernameComposer(newName));
             return;
         }
-        if (!NameChangePolicy.CanChange(session.GetHabbo(), UnixTimestamp.GetNow()))
+        if (!NameChangePolicy.CanChange(session.GetHabbo(), DateTimeOffset.UtcNow))
         {
             session.SendNotification("Oops, it appears you currently cannot change your username!");
             return;

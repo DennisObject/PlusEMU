@@ -25,7 +25,7 @@ using Plus.HabboHotel.Users.Messenger.FriendBar;
 namespace Plus.Communication.Packets.Incoming.Handshake;
 
 [NoAuthenticationRequired]
-public class SsoTicketEvent : IPacketEvent
+public class SSOTicketEvent : IPacketEvent
 {
     private readonly ClientAccessLists _clientAccessLists;
     private readonly IAuthenticator _authenticate;
@@ -39,7 +39,7 @@ public class SsoTicketEvent : IPacketEvent
     private readonly IRewardManager _rewardManager;
     private readonly ClubLifecycle _clubLifecycle;
 
-    public SsoTicketEvent(IAuthenticator authenticate,
+    public SSOTicketEvent(IAuthenticator authenticate,
         IBadgeManager badgeManager,
         IModerationManager moderationManager,
         IAchievementManager achievementManager,
@@ -105,7 +105,7 @@ public class SsoTicketEvent : IPacketEvent
                     _moderationManager.GetTickets));
             }
             if (_settingsManager.TryGetValue("user.login.message.enabled") == "1")
-                session.Send(new MotdNotificationComposer(_languageManager.TryGetValue("user.login.message")));
+                session.Send(new MOTDNotificationComposer(_languageManager.TryGetValue("user.login.message")));
             await _rewardManager.CheckRewards(session);
             RewardTrackManager.Current?.SendTracks(session);
         }

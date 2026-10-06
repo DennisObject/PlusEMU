@@ -6,10 +6,10 @@ public sealed class RewardTrackClaimResultComposer : IServerPacket
 {
     private readonly string _trackId;
     private readonly string _rewardId;
-    private readonly int _resultCode;
+    private readonly Plus.HabboHotel.Quests.RewardTrackResults _resultCode;
     public uint MessageId => ServerPacketHeader.RewardTrackClaimResultComposer;
 
-    public RewardTrackClaimResultComposer(string trackId, string rewardId, int resultCode)
+    public RewardTrackClaimResultComposer(string trackId, string rewardId, Plus.HabboHotel.Quests.RewardTrackResults resultCode)
     {
         _trackId = trackId ?? "";
         _rewardId = rewardId ?? "";
@@ -20,6 +20,6 @@ public sealed class RewardTrackClaimResultComposer : IServerPacket
     {
         packet.WriteString(_trackId);
         packet.WriteString(_rewardId);
-        packet.WriteInteger(_resultCode);
+        packet.WriteInteger((int)_resultCode);
     }
 }

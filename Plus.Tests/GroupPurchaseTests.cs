@@ -166,7 +166,7 @@ public class GroupPurchaseTests : IDisposable
     private sealed class TestClient : GameClient
     {
         public List<uint> Sent { get; } = new();
-        public TestClient() : base(null!, new FlashPacketFactory())
+        public TestClient() : base(TestGameServer.Instance, new FlashPacketFactory())
         {
             Revision = new Revision
             {

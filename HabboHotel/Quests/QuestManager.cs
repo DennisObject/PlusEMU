@@ -1,4 +1,6 @@
-﻿using System.Data;
+﻿using Dapper;
+using Plus.Core;
+using System.Data;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Incoming;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
@@ -10,7 +12,7 @@ using Plus.HabboHotel.Users.Messenger;
 
 namespace Plus.HabboHotel.Quests;
 
-public class QuestManager : IQuestManager
+public class QuestManager : IQuestManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly IMessengerDataLoader _messengerDataLoader;
@@ -28,35 +30,38 @@ public class QuestManager : IQuestManager
         _questCount = new();
     }
 
-    public void Init()
+    public int StartOrder => 20;
+    public Task Start() => Load();
+
+    public void Init() => Load().GetAwaiter().GetResult();
+
+    private async Task Load()
     {
-        if (_quests.Count > 0)
-            _quests.Clear();
-        using (var dbClient = _database.GetQueryReactor())
+        using var connection = _database.Connection();
+        var quests = await connection.QueryAsync<QuestRow>("SELECT id, type AS Category, level_num AS Number, goal_type AS GoalType, goal_data AS GoalData, action AS Name, pixel_reward AS Reward, data_bit AS DataBit, reward_type AS RewardType, timestamp_unlock AS TimeUnlock, timestamp_lock AS TimeLock FROM quests");
+        _quests.Clear();
+        _questCount.Clear();
+        foreach (var quest in quests)
         {
-            dbClient.SetQuery("SELECT `id`,`type`,`level_num`,`goal_type`,`goal_data`,`action`,`pixel_reward`,`data_bit`,`reward_type`,`timestamp_unlock`,`timestamp_lock` FROM `quests`");
-            var dTable = dbClient.GetTable();
-            if (dTable != null)
-            {
-                foreach (DataRow dRow in dTable.Rows)
-                {
-                    var id = Convert.ToInt32(dRow["id"]);
-                    var category = Convert.ToString(dRow["type"]);
-                    var num = Convert.ToInt32(dRow["level_num"]);
-                    var type = Convert.ToInt32(dRow["goal_type"]);
-                    var goalData = Convert.ToInt32(dRow["goal_data"]);
-                    var name = Convert.ToString(dRow["action"]);
-                    var reward = Convert.ToInt32(dRow["pixel_reward"]);
-                    var dataBit = Convert.ToString(dRow["data_bit"]);
-                    var rewardtype = Convert.ToInt32(dRow["reward_type"].ToString());
-                    var time = Convert.ToInt32(dRow["timestamp_unlock"]);
-                    var locked = Convert.ToInt32(dRow["timestamp_lock"]);
-                    _quests.Add(id, new(id, category, num, (QuestType)type, goalData, name, reward, dataBit, rewardtype, time, locked));
-                    AddToCounter(category);
-                }
-            }
+            _quests.Add(quest.Id, new(quest.Id, quest.Category, quest.Number, (QuestType)quest.GoalType, quest.GoalData, quest.Name, quest.Reward, quest.DataBit, quest.RewardType, quest.TimeUnlock, quest.TimeLock));
+            AddToCounter(quest.Category);
         }
         _logger.LogInformation("Quest Manager -> LOADED");
+    }
+
+    private sealed class QuestRow
+    {
+        public int Id { get; set; }
+        public string Category { get; set; } = string.Empty;
+        public int Number { get; set; }
+        public int GoalType { get; set; }
+        public int GoalData { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int Reward { get; set; }
+        public string DataBit { get; set; } = string.Empty;
+        public int RewardType { get; set; }
+        public int TimeUnlock { get; set; }
+        public int TimeLock { get; set; }
     }
 
     private void AddToCounter(string category)
@@ -68,7 +73,7 @@ public class QuestManager : IQuestManager
             _questCount.Add(category, 1);
     }
 
-    public Quest GetQuest(int id)
+    public Quest? GetQuest(int id)
     {
         _quests.TryGetValue(id, out var quest);
         return quest;
@@ -144,7 +149,7 @@ public class QuestManager : IQuestManager
         }
     }
 
-    public Quest GetNextQuestInSeries(string category, int number)
+    public Quest? GetNextQuestInSeries(string category, int number)
     {
         foreach (var quest in _quests.Values)
             if (quest.Category == category && quest.Number == number)

@@ -151,7 +151,7 @@ public class WiredEditorPromotionTests
 
     private static FlashGameClient SaveClient(Room room, List<uint> packets)
     {
-        var client = new FlashGameClient(null!, new FlashPacketFactory())
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
         {
             Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
                 { [ServerPacketHeader.WiredValidationErrorComposer] = 156, [ServerPacketHeader.HideWiredConfigComposer] = 1155 } },
@@ -178,7 +178,7 @@ public class WiredEditorPromotionTests
         Floor(room).TryAdd(7, item);
         var box = new RewardValidationProbe(room, item); Assert.True(wired.AddBox(box));
         string? error = null;
-        var client = new FlashGameClient(null!, new FlashPacketFactory())
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
         {
             Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [ServerPacketHeader.WiredValidationErrorComposer] = 156 } },
             SendCallback = args => { error = new FlashIncomingPacket { Buffer = args.MemoryBuffer[6..].ToArray() }.ReadString(); return true; }
@@ -215,7 +215,7 @@ public class WiredEditorPromotionTests
             Assert.True(wired.AddBox(original));
             var oldText = original.StringData; var oldSelected = original.SetItems;
             var packets = new List<uint>();
-            var client = new FlashGameClient(null!, new FlashPacketFactory())
+            var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
             {
                 Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
                     { [ServerPacketHeader.WiredValidationErrorComposer] = 156, [ServerPacketHeader.HideWiredConfigComposer] = 1155 } },

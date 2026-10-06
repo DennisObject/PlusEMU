@@ -6,15 +6,18 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 internal class InteractorSwitch : IFurniInteractor
 {
-    public void OnPlace(GameClient session, Item item) { }
+    public void OnPlace(GameClient? session, Item item) { }
 
-    public void OnRemove(GameClient session, Item item) { }
+    public void OnRemove(GameClient? session, Item item) { }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         if (session == null)
             return;
-        var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
+        var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         if (user == null)
             return;
         if (Gamemap.TilesTouching(item.GetX, item.GetY, user.X, user.Y))

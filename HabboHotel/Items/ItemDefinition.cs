@@ -8,8 +8,8 @@ public class ItemDefinition
 {
     public uint Id { get; set; }
     public int SpriteId { get; set; }
-    public string ItemName { get; set; }
-    public string PublicName { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string PublicName { get; set; } = string.Empty;
     public ItemType Type { get; set; }
 
     /// <summary>The furniture row's type letter: s, i, p, e, r or b. Purchase reads this; <see cref="Type"/> only distinguishes floor and wall.</summary>
@@ -34,8 +34,8 @@ public class ItemDefinition
         || WiredBoxRegistry.TryGet(ItemName, out descriptor) ? descriptor : null;
     public int BehaviourData { get; set; }
     public int Modes { get; set; }
-    public List<int> VendingIds { get; set; }
-    public List<double> AdjustableHeights { get; set; }
+    public List<int> VendingIds { get; set; } = new();
+    public List<double> AdjustableHeights { get; set; } = new();
     public int EffectId { get; set; }
 
     /// TODO @80O: Should be removed, use unique interaction name instead.

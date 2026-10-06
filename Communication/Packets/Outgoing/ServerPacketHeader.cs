@@ -20,7 +20,7 @@ public static class ServerPacketHeader
     // Catalog
     public const uint CatalogIndexComposer = 2140; //2018
     public const uint CatalogItemDiscountComposer = 796; //3322
-    public const uint PurchaseOkComposer = 1450; //2843
+    public const uint PurchaseOKComposer = 1450; //2843
     public const uint CatalogOfferComposer = 1757; //3848
     public const uint CatalogPageComposer = 3277; //3477
     public const uint CatalogUpdatedComposer = 1411; //885
@@ -120,7 +120,7 @@ public static class ServerPacketHeader
 
     // Messenger
     public const uint BuddyListComposer = 2900; //3394
-    public const uint BuddyRequestsComposer = 177; //2757
+    public const uint FriendRequestsComposer = 177; //2757
     public const uint NewBuddyRequestComposer = 1525; //2981
 
     // Moderation
@@ -248,7 +248,7 @@ public static class ServerPacketHeader
     public const uint RentableSpaceComposer = 2323; //2660
     public const uint GetYouTubePlaylistComposer = 1354; //763
     public const uint RespectNotificationComposer = 1818; //474
-    public const uint RecyclerRewardsComposer = 1604; //2457
+    public const uint RecyclerPrizesComposer = 1604; //2457
     public const uint GetRoomBannedUsersComposer = 1810; //3580
     public const uint RoomRatingComposer = 2454; //3464
     public const uint PlayableGamesComposer = 3076; //549
@@ -271,7 +271,7 @@ public static class ServerPacketHeader
     public const uint PetTrainingPanelComposer = 546; //1067
     public const uint BuildersClubMembershipComposer = 820; //2357
     public const uint FlatAccessDeniedComposer = 797; //1582
-    public const uint LatencyResponseComposer = 942; //3014
+    public const uint LatencyPingResponseComposer = 942; //3014
     public const uint HabboUserBadgesComposer = 3269; //1123
     public const uint HeightMapUpdateComposer = 48007;
     public const uint HeightMapComposer = 1232; //207
@@ -305,7 +305,7 @@ public static class ServerPacketHeader
     public const uint RoomEntryInfoComposer = 3675; //3378
     public const uint RoomNotificationComposer = 3152; //2419
     public const uint ClubGiftsComposer = 2992; //1549
-    public const uint MotdNotificationComposer = 1368; //1829
+    public const uint MOTDNotificationComposer = 1368; //1829
     public const uint PopularRoomTagsResultComposer = 1002; //234
     public const uint NewConsoleMessageComposer = 984; //2121
     public const uint RoomPropertyComposer = 1897; //1328

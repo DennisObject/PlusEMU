@@ -10,7 +10,7 @@ public class GameField : IPathNode
     private readonly bool _diagonal;
     private readonly Queue<FieldUpdate> _newEntries; // = new Queue<FieldUpdate>();
     private byte[,] _currentField;
-    private FieldUpdate _currentlyChecking;
+    private FieldUpdate? _currentlyChecking;
 
     public GameField(byte[,] theArray, bool diagonalAllowed)
     {
@@ -34,9 +34,10 @@ public class GameField : IPathNode
 
     public bool IsBlocked(int x, int y, bool lastTile)
     {
-        if (_currentlyChecking.X == x && _currentlyChecking.Y == y)
+        var update = _currentlyChecking;
+        if (update == null || update.X == x && update.Y == y)
             return true;
-        return GetValue(x, y) != _currentlyChecking.Value;
+        return GetValue(x, y) != update.Value;
     }
 
     public void UpdateLocation(int x, int y, byte value)
@@ -49,10 +50,9 @@ public class GameField : IPathNode
         var returnList = new List<PointField>();
         while (_newEntries.Count > 0)
         {
-            _currentlyChecking = _newEntries.Dequeue();
-            var pointList = GetConnectedItems(_currentlyChecking);
-            if (pointList == null)
-                return null;
+            var update = _newEntries.Dequeue();
+            _currentlyChecking = update;
+            var pointList = GetConnectedItems(update);
             if (pointList.Count > 1)
             {
                 var routeList = HandleListOfConnectedPoints(pointList);
@@ -60,19 +60,19 @@ public class GameField : IPathNode
                 {
                     if (nodeList.Count >= 4)
                     {
-                        var field = FindClosed(nodeList);
+                        var field = FindClosed(nodeList, update);
                         if (field != null) returnList.Add(field);
                     }
                 }
             }
-            _currentField[_currentlyChecking.Y, _currentlyChecking.X] = _currentlyChecking.Value;
+            _currentField[update.Y, update.X] = update.Value;
         }
         return returnList;
     }
 
-    private PointField FindClosed(IEnumerable<AStarSolver<GameField>.PathNode> nodeList)
+    private PointField? FindClosed(IEnumerable<AStarSolver<GameField>.PathNode> nodeList, FieldUpdate update)
     {
-        var returnList = new PointField(_currentlyChecking.Value);
+        var returnList = new PointField(update.Value);
         var minX = int.MaxValue;
         var maxX = int.MinValue;
         var minY = int.MaxValue;
@@ -92,7 +92,7 @@ public class GameField : IPathNode
         var middleY = Convert.ToInt32(Math.Ceiling((maxY - minY) / 2f) + minY);
         //Console.WriteLine("Middle: x:[{0}]  y:[{1}]", middleX, middleY);
         var toFill = new List<Point>();
-        var checkedItems = new List<Point> { new(_currentlyChecking.X, _currentlyChecking.Y) };
+        var checkedItems = new List<Point> { new(update.X, update.Y) };
         toFill.Add(new(middleX, middleY));
         while (toFill.Count > 0)
         {
@@ -162,8 +162,6 @@ public class GameField : IPathNode
 
     private List<Point> GetConnectedItems(FieldUpdate update)
     {
-        if (update == null)
-            return null;
         var connectedItems = new List<Point>();
         var x = update.X;
         var y = update.Y;
@@ -192,7 +190,8 @@ public class GameField : IPathNode
 
     public void Dispose()
     {
-        _currentField = null;
+        _currentField = new byte[0, 0];
+        _currentlyChecking = null;
         if (_newEntries != null)
             _newEntries.Clear();
     }

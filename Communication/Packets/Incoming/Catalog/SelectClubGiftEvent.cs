@@ -10,7 +10,7 @@ internal class SelectClubGiftEvent(IClubRewards rewards) : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var claim = rewards.Claim(session.GetHabbo(), packet.ReadString());
-        if (claim == null) { session.Send(new PurchaseErrorComposer(0)); return Task.CompletedTask; }
+        if (claim == null) { session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable)); return Task.CompletedTask; }
         session.Send(new ClubGiftReceivedComposer(claim.Gift.Item));
         foreach (var item in claim.Items) session.Send(new FurniListNotificationComposer(item.Id, 1));
         session.Send(new FurniListUpdateComposer());

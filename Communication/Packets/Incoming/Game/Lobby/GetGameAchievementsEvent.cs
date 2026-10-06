@@ -4,11 +4,11 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Game.Lobby;
 
-internal class GetPlayableGamesEvent : IPacketEvent
+internal class GetGameAchievementsEvent : IPacketEvent
 {
     private readonly IAchievementManager _achievementManager;
 
-    public GetPlayableGamesEvent(IAchievementManager achievementManager)
+    public GetGameAchievementsEvent(IAchievementManager achievementManager)
     {
         _achievementManager = achievementManager;
     }

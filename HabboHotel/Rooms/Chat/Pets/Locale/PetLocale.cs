@@ -1,25 +1,30 @@
-﻿using System.Data;
+﻿using Dapper;
+using Plus.Database;
+using Plus.Core;
 
 namespace Plus.HabboHotel.Rooms.Chat.Pets.Locale;
 
-public class PetLocale : IPetLocale
+public class PetLocale : IPetLocale, IStartable
 {
     private Dictionary<string, string[]> _values;
 
-    public PetLocale()
+    private readonly IDatabase _database;
+
+    public PetLocale(IDatabase database)
     {
+        _database = database;
         _values = new();
     }
 
-    public void Init()
+    public int StartOrder => 20;
+    public Task Start() => Load();
+    public void Init() => Load().GetAwaiter().GetResult();
+
+    private async Task Load()
     {
-        _values = new();
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.SetQuery("SELECT * FROM `bots_pet_responses`");
-        var pets = dbClient.GetTable();
-        if (pets != null)
-            foreach (DataRow row in pets.Rows)
-                _values.Add(row[0].ToString(), row[1].ToString().Split(';'));
+        using var connection = _database.Connection();
+        var responses = await connection.QueryAsync<(string Key, string Responses)>("SELECT pet_id, responses FROM bots_pet_responses");
+        _values = responses.ToDictionary(row => row.Key, row => row.Responses.Split(';'));
     }
 
     public string[] GetValue(string key)

@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.Permissions;
+﻿using System.Diagnostics.CodeAnalysis;
+using Plus.HabboHotel.Permissions;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Data;
@@ -53,7 +54,7 @@ public class GameClientManager : IGameClientManager
 
     public GameClient? GetClientByUsername(string username) => _usernameRegister.ContainsKey(username.ToLower()) ? _usernameRegister[username.ToLower()] : null;
 
-    public bool TryGetClient(Guid clientId, out GameClient client) => _clients.TryGetValue(clientId, out client);
+    public bool TryGetClient(Guid clientId, [NotNullWhen(true)] out GameClient? client) => _clients.TryGetValue(clientId, out client);
 
     public bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername)
     {
@@ -140,7 +141,7 @@ public class GameClientManager : IGameClientManager
             if (client == null || client.GetHabbo() == null)
                 continue;
             if (client.GetHabbo().Access.Can(PermissionKeys.ModerationTool) && !client.GetHabbo().Access.Can(PermissionKeys.StaffIgnoreAdvertisementReports))
-                client.Send(new MotdNotificationComposer(builder.ToString()));
+                client.Send(new MOTDNotificationComposer(builder.ToString()));
         }
     }
 
@@ -206,10 +207,7 @@ public class GameClientManager : IGameClientManager
             {
                 try
                 {
-                    using (var dbClient = _database.GetQueryReactor())
-                    {
-                        dbClient.RunQuery(client.GetHabbo().GetQueryString);
-                    }
+                    client.GetHabbo().Save();
                     Console.Clear();
                     _logger.LogInformation("<<- SERVER SHUTDOWN ->> IVNENTORY IS SAVING");
                 }
@@ -294,7 +292,7 @@ public class GameClientManager : IGameClientManager
             {
                 while (_timedOutConnections.Count > 0)
                 {
-                    GameClient client = null;
+                    GameClient? client = null;
                     if (_timedOutConnections.Count > 0)
                         client = (GameClient)_timedOutConnections.Dequeue();
                     if (client != null)

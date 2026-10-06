@@ -6,16 +6,18 @@ namespace Plus.Communication.Packets.Outgoing.Groups;
 public class GroupCreationWindowComposer : IServerPacket
 {
     private readonly ICollection<RoomData> _rooms;
+    private readonly int _price;
     public uint MessageId => ServerPacketHeader.GroupCreationWindowComposer;
 
-    public GroupCreationWindowComposer(ICollection<RoomData> rooms)
+    public GroupCreationWindowComposer(ICollection<RoomData> rooms, int price)
     {
         _rooms = rooms;
+        _price = price;
     }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(Convert.ToInt32(PlusEnvironment.SettingsManager.TryGetValue("catalog.group.purchase.cost"))); //Price // TODO @80O: Pass via constructor
+        packet.WriteInteger(_price);
         packet.WriteInteger(_rooms.Count); //Room count that the user has.
         foreach (var room in _rooms)
         {

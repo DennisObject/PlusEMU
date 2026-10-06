@@ -6,11 +6,11 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 public class InteractorGenericSwitch : IFurniInteractor
 {
-    public void OnPlace(GameClient session, Item item) { }
+    public void OnPlace(GameClient? session, Item item) { }
 
-    public void OnRemove(GameClient session, Item item) { }
+    public void OnRemove(GameClient? session, Item item) { }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
         var modes = item.Definition.Modes - 1;
         if (session == null || !hasRights || modes <= 0) return;

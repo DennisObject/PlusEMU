@@ -21,7 +21,7 @@ public abstract class HabbiconRequest(IHabbiconService service, ILogger<Habbicon
             if (Action is { } action)
             {
                 HabbiconMessages.Publish(session, service.Change(session.GetHabbo(), action, id));
-                if (purchase) session.Send(new PurchaseOkComposer());
+                if (purchase) session.Send(new PurchaseOKComposer());
             }
             else if (Info) session.Send(new HabbiconInfoComposer(service.Load(session.GetHabbo().Id).RequireItem(id)));
             else
@@ -33,12 +33,12 @@ public abstract class HabbiconRequest(IHabbiconService service, ILogger<Habbicon
         }
         catch (HabbiconRejected rejected)
         {
-            if (purchase) session.Send(new PurchaseErrorComposer(rejected.Code));
+            if (purchase) session.Send(new PurchaseErrorComposer((PurchaseError)rejected.Code));
         }
         catch (MySqlException exception)
         {
             logger.LogError(exception, "Unable to process Habbicon request for {UserId}", session.GetHabbo().Id);
-            if (purchase) session.Send(new PurchaseErrorComposer(5));
+            if (purchase) session.Send(new PurchaseErrorComposer(PurchaseError.DeliveryFailed));
         }
         return Task.CompletedTask;
     }

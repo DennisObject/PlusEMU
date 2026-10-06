@@ -1,6 +1,4 @@
-﻿using System.Data;
-
-namespace Plus.HabboHotel.Users.Calendar;
+﻿namespace Plus.HabboHotel.Users.Calendar;
 
 /// <summary>
 /// Permissions for a specific Player.
@@ -30,23 +28,9 @@ public sealed class CalendarComponent
             _lateBoxes.Clear();
         if (_openedBoxes.Count > 0)
             _openedBoxes.Clear();
-        DataTable getData = null;
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.SetQuery("SELECT * FROM `user_xmas15_calendar` WHERE `user_id` = @id;");
-        dbClient.AddParameter("id", player.Id);
-        getData = dbClient.GetTable();
-        if (getData != null)
-        {
-            foreach (DataRow row in getData.Rows)
-            {
-                if (Convert.ToInt32(row["status"]) == 0)
-                    _lateBoxes.Add(Convert.ToInt32(row["day"]));
-                else
-                    _openedBoxes.Add(Convert.ToInt32(row["day"]));
-            }
-        }
         return true;
     }
+
 
     public List<int> GetOpenedBoxes() => _openedBoxes;
 

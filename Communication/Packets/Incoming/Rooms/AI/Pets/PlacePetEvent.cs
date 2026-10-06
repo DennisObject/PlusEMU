@@ -29,12 +29,12 @@ internal class PlacePetEvent : RoomPacketEvent
     {
         if (!room.AllowPets && !room.CheckRights(session, true))
         {
-            session.Send(new RoomErrorNotifComposer(1));
+            session.Send(new RoomErrorNotifComposer(PetPlacementError.RoomDisallowsPets));
             return Task.CompletedTask;
         }
         if (room.GetRoomUserManager().PetCount >= Convert.ToInt32(_settingsManager.TryGetValue("room.pets.placement_limit")))
         {
-            session.Send(new RoomErrorNotifComposer(2)); //5 = I have too many.
+            session.Send(new RoomErrorNotifComposer(PetPlacementError.RoomLimitReached)); //5 = I have too many.
             return Task.CompletedTask;
         }
         if (!session.GetHabbo().Inventory.Pets.Pets.TryGetValue(packet.ReadInt(), out var pet) || pet.PetId <= 0)
@@ -48,7 +48,7 @@ internal class PlacePetEvent : RoomPacketEvent
         var y = packet.ReadInt();
         if (!room.GetGameMap().ValidTile(x, y) || !room.GetGameMap().SquareIsOpen(x, y, false) || !room.GetGameMap().CanWalk(x, y, false))
         {
-            session.Send(new RoomErrorNotifComposer(4));
+            session.Send(new RoomErrorNotifComposer(PetPlacementError.InvalidTile));
             return Task.CompletedTask;
         }
         var z = room.GetGameMap().SqAbsoluteHeight(x, y);

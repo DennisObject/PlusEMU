@@ -1,12 +1,14 @@
-﻿using System.Data;
+﻿using Plus.Core;
+using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
 using Plus.Utilities;
+using Dapper;
 
 namespace Plus.HabboHotel.Items.Televisions;
 
-public class TelevisionManager : ITelevisionManager
+public class TelevisionManager : ITelevisionManager, IStartable
 {
     private readonly ILogger<TelevisionManager> _logger;
     private readonly IDatabase _database;
@@ -22,26 +24,26 @@ public class TelevisionManager : ITelevisionManager
 
     public ICollection<TelevisionItem> TelevisionList => Televisions.Values;
 
-    public void Init()
+    public int StartOrder => 20;
+    public Task Start() => LoadAsync();
+    public void Init() => LoadAsync().GetAwaiter().GetResult();
+
+    private async Task LoadAsync()
     {
         if (Televisions.Count > 0)
             Televisions.Clear();
-        using (var dbClient = _database.GetQueryReactor())
+        using (var connection = _database.Connection())
         {
-            dbClient.SetQuery("SELECT * FROM `items_youtube` ORDER BY `id` DESC");
-            var getData = dbClient.GetTable();
-            if (getData != null)
+            var rows = await connection.QueryAsync<TelevisionRow>("SELECT `id`, `youtube_id` AS YoutubeId, `title`, `description`, `enabled` FROM `items_youtube` ORDER BY `id` DESC");
+            foreach (var row in rows)
             {
-                foreach (DataRow row in getData.Rows)
-                {
-                    Televisions.Add(Convert.ToInt32(row["id"]),
-                        new(Convert.ToInt32(row["id"]), row["youtube_id"].ToString(), row["title"].ToString(), row["description"].ToString(),
-                            ConvertExtensions.EnumToBool(row["enabled"].ToString())));
-                }
+                Televisions.Add(row.Id, new(row.Id, row.YoutubeId, row.Title, row.Description, row.Enabled));
             }
         }
         _logger.LogInformation("Television Items -> LOADED");
     }
+
+    private sealed record TelevisionRow(int Id, string YoutubeId, string Title, string Description, bool Enabled);
 
     public bool TryGet(int itemId, [NotNullWhen(true)] out TelevisionItem? televisionItem)
     {

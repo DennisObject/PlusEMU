@@ -1,5 +1,6 @@
-﻿using System.Collections.Concurrent;
-using System.Data;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
+using Dapper;
 using Microsoft.Extensions.Logging;
 using Plus.Core;
 using Plus.Core.Language;
@@ -9,14 +10,16 @@ using Plus.Utilities;
 
 namespace Plus.HabboHotel.Rooms;
 
-public class RoomManager : IRoomManager
+public class RoomManager : IRoomManager, IStartable
 {
     private readonly ILogger<RoomManager> _logger;
     private readonly IDatabase _database;
     private readonly ILanguageManager _languageManager;
 
     private readonly object _roomLoadingSync;
+    private readonly HashSet<uint> _unloadingRooms = new();
     private readonly TimeProvider _clock;
+    private readonly IRoomFactory _roomFactory;
 
     private readonly Dictionary<string, RoomModel> _roomModels;
 
@@ -27,12 +30,13 @@ public class RoomManager : IRoomManager
     private readonly ConcurrentDictionary<uint, Room> _fastWiredRooms = new();
 
 
-    public RoomManager(ILogger<RoomManager> logger, IDatabase database, ILanguageManager languageManager, TimeProvider clock)
+    public RoomManager(ILogger<RoomManager> logger, IDatabase database, ILanguageManager languageManager, TimeProvider clock, IRoomFactory? roomFactory = null)
     {
         _logger = logger;
         _database = database;
         _languageManager = languageManager;
         _clock = clock;
+        _roomFactory = roomFactory ?? new LegacyRoomFactory();
         _roomModels = new();
         _rooms = new();
         _roomLoadingSync = new();
@@ -84,24 +88,21 @@ public class RoomManager : IRoomManager
         }
     }
 
-    public void LoadModels()
+    private const string SelectModel = "SELECT id, door_x AS DoorX, door_y AS DoorY, door_z AS DoorZ, door_dir AS DoorDir, " +
+        "heightmap, required_club_level AS RequiredClubLevel, required_permission AS RequiredPermission, wall_height AS WallHeight FROM room_models ";
+
+    public int StartOrder => 20;
+    public Task Start() => LoadModelsAsync();
+
+    public void LoadModels() => LoadModelsAsync().GetAwaiter().GetResult();
+
+    private async Task LoadModelsAsync()
     {
-        if (_roomModels.Count > 0)
-            _roomModels.Clear();
-        using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("SELECT id,door_x,door_y,door_z,door_dir,heightmap,required_club_level,required_permission,poolmap,`wall_height` FROM `room_models` WHERE `custom` = '0'");
-        var data = dbClient.GetTable();
-        if (data == null)
-            return;
-        foreach (DataRow row in data.Rows)
-        {
-            var model = Convert.ToString(row["id"]);
-            _roomModels.Add(model, new(model, Convert.ToInt32(row["door_x"]), Convert.ToInt32(row["door_y"]), (double)row["door_z"], Convert.ToInt32(row["door_dir"]),
-                Convert.ToString(row["heightmap"]), Convert.ToInt32(row["required_club_level"]), Convert.ToInt32(row["wall_height"]), false)
-            {
-                RequiredPermission = row.IsNull("required_permission") ? null : Convert.ToString(row["required_permission"])
-            });
-        }
+        using var connection = _database.Connection();
+        var models = await connection.QueryAsync<ModelRow>(SelectModel + "WHERE custom = FALSE");
+        _roomModels.Clear();
+        foreach (var row in models)
+            _roomModels.Add(row.Id, CreateModel(row, false));
     }
 
     public IReadOnlyList<RoomModel> GetCreatableModels(Plus.HabboHotel.Permissions.UserAccess access) =>
@@ -109,23 +110,28 @@ public class RoomManager : IRoomManager
 
     public bool LoadModel(string id)
     {
-        DataRow row = null;
-        using var dbClient = _database.GetQueryReactor();
-        dbClient.SetQuery("SELECT id,door_x,door_y,door_z,door_dir,heightmap,required_club_level,required_permission,poolmap,`wall_height` FROM `room_models` WHERE `custom` = '1' AND `id` = @modelId LIMIT 1");
-        dbClient.AddParameter("modelId", id);
-        row = dbClient.GetRow();
+        using var connection = _database.Connection();
+        var row = connection.QuerySingleOrDefault<ModelRow>(SelectModel + "WHERE custom = TRUE AND id = @id LIMIT 1", new { id });
         if (row == null)
             return false;
-        var model = Convert.ToString(row["id"]);
-        if (!_roomModels.ContainsKey(model))
-        {
-            _roomModels.Add(model, new(model, Convert.ToInt32(row["door_x"]), Convert.ToInt32(row["door_y"]), Convert.ToDouble(row["door_z"]), Convert.ToInt32(row["door_dir"]),
-                Convert.ToString(row["heightmap"]), Convert.ToInt32(row["required_club_level"]), Convert.ToInt32(row["wall_height"]), true)
-            {
-                RequiredPermission = row.IsNull("required_permission") ? null : Convert.ToString(row["required_permission"])
-            });
-        }
+        _roomModels.TryAdd(row.Id, CreateModel(row, true));
         return true;
+    }
+
+    private static RoomModel CreateModel(ModelRow row, bool custom) => new(row.Id, row.DoorX, row.DoorY, row.DoorZ,
+        row.DoorDir, row.Heightmap, row.RequiredClubLevel, row.WallHeight, custom) { RequiredPermission = row.RequiredPermission };
+
+    private sealed class ModelRow
+    {
+        public string Id { get; set; } = string.Empty;
+        public int DoorX { get; set; }
+        public int DoorY { get; set; }
+        public double DoorZ { get; set; }
+        public int DoorDir { get; set; }
+        public string Heightmap { get; set; } = string.Empty;
+        public int RequiredClubLevel { get; set; }
+        public string? RequiredPermission { get; set; }
+        public int WallHeight { get; set; }
     }
 
     public void ReloadModel(string id)
@@ -139,7 +145,7 @@ public class RoomManager : IRoomManager
         LoadModel(id);
     }
 
-    public bool TryGetModel(string id, out RoomModel model)
+    public bool TryGetModel(string id, [NotNullWhen(true)] out RoomModel? model)
     {
         if (_roomModels.ContainsKey(id))
         {
@@ -162,17 +168,41 @@ public class RoomManager : IRoomManager
 
     public void UnloadRoom(uint roomId)
     {
-        if (_rooms.TryRemove(roomId, out var room))
+        Room room;
+        lock (_roomLoadingSync)
+        {
+            if (!_rooms.TryRemove(roomId, out room!)) return;
+            _unloadingRooms.Add(roomId);
+        }
+        Exception? failure = null;
+        try
         {
             room.GetWired().ObserveFastWork(null);
             _fastWiredRooms.TryRemove(roomId, out _);
             room.Dispose();
         }
+        catch (Exception exception)
+        {
+            failure = exception;
+            throw;
+        }
+        finally
+        {
+            try { _roomFactory.Dispose(roomId); }
+            catch (Exception exception) when (failure != null)
+            {
+                _logger.LogError(exception, "Dependency scope cleanup failed for room {RoomId}", roomId);
+            }
+            finally
+            {
+                lock (_roomLoadingSync) _unloadingRooms.Remove(roomId);
+            }
+        }
     }
 
-    public bool TryLoadRoom(uint roomId, out Room room)
+    public bool TryLoadRoom(uint roomId, [NotNullWhen(true)] out Room? room)
     {
-        Room inst = null;
+        Room? inst = null;
         if (_rooms.TryGetValue(roomId, out inst))
         {
             if (!inst.Unloaded)
@@ -185,6 +215,11 @@ public class RoomManager : IRoomManager
         }
         lock (_roomLoadingSync)
         {
+            if (_unloadingRooms.Contains(roomId))
+            {
+                room = null;
+                return false;
+            }
             if (_rooms.TryGetValue(roomId, out inst))
             {
                 if (!inst.Unloaded)
@@ -200,7 +235,7 @@ public class RoomManager : IRoomManager
                 room = null;
                 return false;
             }
-            var myInstance = new Room(data);
+            var myInstance = _roomFactory.Create(data);
             if (_rooms.TryAdd(roomId, myInstance))
             {
                 myInstance.GetWired().ObserveFastWork(required =>
@@ -212,6 +247,8 @@ public class RoomManager : IRoomManager
                 room = myInstance;
                 return true;
             }
+            myInstance.Dispose();
+            _roomFactory.Dispose(roomId);
             room = null;
             return false;
         }
@@ -270,15 +307,15 @@ public class RoomManager : IRoomManager
         return _rooms.Values.Where(x => ids.Contains(x.Id) && x.Access != RoomAccess.Invisible).OrderByDescending(x => x.UsersNow).Take(amount).ToList();
     }
 
-    public Room TryGetRandomLoadedRoom()
+    public Room? TryGetRandomLoadedRoom()
     {
         return _rooms.Values.Where(x => x.UsersNow > 0 && x.Access != RoomAccess.Invisible && x.UsersNow < x.UsersMax).OrderByDescending(x => x.UsersNow).FirstOrDefault();
     }
 
 
-    public bool TryGetRoom(uint roomId, out Room room) => _rooms.TryGetValue(roomId, out room);
+    public bool TryGetRoom(uint roomId, [NotNullWhen(true)] out Room? room) => _rooms.TryGetValue(roomId, out room);
 
-    public RoomData CreateRoom(GameClient session, string name, string description, int category, int maxVisitors, int tradeSettings, RoomModel model, string wallpaper = "0.0", string floor = "0.0",
+    public RoomData? CreateRoom(GameClient session, string name, string description, int category, int maxVisitors, int tradeSettings, RoomModel model, string wallpaper = "0.0", string floor = "0.0",
         string landscape = "0.0", int wallthick = 0, int floorthick = 0)
     {
         if (name.Length < 3)
@@ -286,20 +323,11 @@ public class RoomManager : IRoomManager
             session.SendNotification(_languageManager.TryGetValue("room.creation.name.too_short"));
             return null;
         }
-        var roomId = 0u;
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery(
-                "INSERT INTO `rooms` (`roomtype`,`caption`,`description`,`owner`,`model_name`,`category`,`users_max`,`trade_settings`) VALUES ('private',@caption,@description,@UserId,@model,@category,@usersmax,@tradesettings)");
-            dbClient.AddParameter("caption", name);
-            dbClient.AddParameter("description", description);
-            dbClient.AddParameter("UserId", session.GetHabbo().Id);
-            dbClient.AddParameter("model", model.Id);
-            dbClient.AddParameter("category", category);
-            dbClient.AddParameter("usersmax", maxVisitors);
-            dbClient.AddParameter("tradesettings", tradeSettings);
-            roomId = Convert.ToUInt32(dbClient.InsertQuery());
-        }
+        using var connection = _database.Connection();
+        var roomId = connection.QuerySingle<uint>(
+            "INSERT INTO `rooms` (`roomtype`,`caption`,`description`,`owner`,`model_name`,`category`,`users_max`,`trade_settings`) " +
+            "VALUES ('private',@name,@description,@ownerId,@modelId,@category,@maxVisitors,@tradeSettings); SELECT LAST_INSERT_ID()",
+            new { name, description, ownerId = session.GetHabbo().Id, modelId = model.Id, category, maxVisitors, tradeSettings });
         var data = new RoomData(roomId, name, model.Id, session.GetHabbo().Username, session.GetHabbo().Id, "", 0, "public", "open", 0, maxVisitors, category, description, string.Empty,
             floor, landscape, true, true, false, false, wallthick, floorthick, wallpaper, 1, 1, 1, 1, 1, 1, 1, 8, tradeSettings, true, true, true, true, true, true, true, 0, 0, true, model);
         return data;

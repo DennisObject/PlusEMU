@@ -58,9 +58,9 @@ internal class PurchaseGroupEvent : IPacketEvent
             session.GetHabbo().Credits -= groupCost;
             session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
         }
-        session.Send(new PurchaseOkComposer());
+        session.Send(new PurchaseOKComposer());
         room.Group = group;
-        if (session.GetHabbo().CurrentRoom != room)
+        if (session.GetHabbo().CurrentRoom?.Data != room)
             session.Send(new RoomForwardComposer(room.Id));
         session.Send(new NewGroupInfoComposer(roomId, group.Id));
         return Task.CompletedTask;

@@ -337,7 +337,7 @@ public class RewardTrackLiveTests
         private readonly List<byte[]> _bodies = new();
         public List<uint> Sent { get; } = new();
 
-        public TestClient(Revision revision) : base(null!, new FlashPacketFactory())
+        public TestClient(Revision revision) : base(TestGameServer.Instance, new FlashPacketFactory())
         {
             Revision = revision;
             SendCallback = args =>
@@ -348,10 +348,10 @@ public class RewardTrackLiveTests
         }
 
         /// <summary>Result code of the last RewardTrackClaimResult: string track, string prize, int result.</summary>
-        public int ClaimResult()
+        public RewardTrackResults ClaimResult()
         {
             var body = _bodies[Sent.LastIndexOf(9451)];
-            return BinaryPrimitives.ReadInt32BigEndian(body.AsSpan(body.Length - 4));
+            return (RewardTrackResults)BinaryPrimitives.ReadInt32BigEndian(body.AsSpan(body.Length - 4));
         }
 
         internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer) =>

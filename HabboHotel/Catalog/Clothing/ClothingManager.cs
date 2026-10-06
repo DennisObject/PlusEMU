@@ -1,9 +1,11 @@
-﻿using Dapper;
+﻿using Plus.Core;
+using System.Diagnostics.CodeAnalysis;
+using Dapper;
 using Plus.Database;
 
 namespace Plus.HabboHotel.Catalog.Clothing;
 
-public class ClothingManager : IClothingManager
+public class ClothingManager : IClothingManager, IStartable
 {
     private readonly IDatabase _database;
     private Dictionary<int, ClothingItem> _clothing = new();
@@ -15,17 +17,17 @@ public class ClothingManager : IClothingManager
 
     public ICollection<ClothingItem> GetClothingAllParts => _clothing.Values;
 
-    // Synchronous and swapped in whole: the catalog reload calls this twice, and an async void reload could
-    // fill the same dictionary twice at once and crash the process with an unhandled duplicate key.
-    public void Init()
+    // Publish a complete replacement so simultaneous reloads cannot populate the same dictionary.
+    public int StartOrder => 20;
+    public Task Start() => Load();
+    public void Init() => Load().GetAwaiter().GetResult();
+
+    private async Task Load()
     {
         using var connection = _database.Connection();
-        var data = connection.Query<(int Id, string ClothingName, string PartIds)>("SELECT `id`,`clothing_name`,`clothing_parts` FROM `catalog_clothing`");
-        var clothing = new Dictionary<int, ClothingItem>();
-        foreach (var row in data)
-            clothing.Add(row.Id, new(row.Id, row.ClothingName, row.PartIds));
-        _clothing = clothing;
+        var data = await connection.QueryAsync<(int Id, string ClothingName, string PartIds)>("SELECT id, clothing_name, clothing_parts FROM catalog_clothing");
+        _clothing = data.ToDictionary(row => row.Id, row => new ClothingItem(row.Id, row.ClothingName, row.PartIds));
     }
 
-    public bool TryGetClothing(int itemId, out ClothingItem clothing) => _clothing.TryGetValue(itemId, out clothing);
+    public bool TryGetClothing(int itemId, [NotNullWhen(true)] out ClothingItem? clothing) => _clothing.TryGetValue(itemId, out clothing);
 }

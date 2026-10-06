@@ -1,3 +1,4 @@
+using Plus.Communication.Packets;
 using System.Buffers.Binary;
 using System.Reflection;
 using System.Text;
@@ -17,7 +18,7 @@ internal static class HabbiconTestSupport
         var sent = new List<(uint, byte[])>();
         var headers = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
             .Select(field => (uint)field.GetRawConstantValue()!).Where(id => id > 0).ToDictionary(id => id, id => id);
-        var client = new FlashGameClient(null!, new FlashPacketFactory())
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
         {
             Revision = new Revision { InternalIdToOutgoingIdMapping = headers },
             SendCallback = args =>
@@ -76,7 +77,7 @@ internal static class HabbiconTestSupport
         public HabbiconChange Change(Habbo habbo, HabbiconAction action, int id)
         {
             Actions.Add((action, id));
-            if (Rejection is { } code) throw new HabbiconRejected(code);
+            if (Rejection is { } code) throw new HabbiconRejected((HabbiconActionError)code);
             return new(Data, new[] { Data.RequireItem(61) }, null);
         }
         public HabbiconChange BuyCatalog(Habbo habbo, int id, int credits, int duckets, int diamonds) => throw new NotImplementedException();

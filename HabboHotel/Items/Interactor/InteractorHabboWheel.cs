@@ -4,18 +4,18 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 public class InteractorHabboWheel : IFurniInteractor
 {
-    public void OnPlace(GameClient session, Item item)
+    public void OnPlace(GameClient? session, Item item)
     {
         item.LegacyDataString = "-1";
         item.RequestUpdate(10, true);
     }
 
-    public void OnRemove(GameClient session, Item item)
+    public void OnRemove(GameClient? session, Item item)
     {
         item.LegacyDataString = "-1";
     }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
         if (!hasRights) return;
         if (item.LegacyDataString != "-1")

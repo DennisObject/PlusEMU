@@ -19,26 +19,26 @@ public class CheckPetNameEvent : IPacketEvent
         var petName = packet.ReadString();
         if (petName.Length < 2)
         {
-            session.Send(new CheckPetNameComposer(2, "2"));
+            session.Send(new CheckPetNameComposer(PetNameError.TooShort, "2"));
             return Task.CompletedTask;
         }
         if (petName.Length > 15)
         {
-            session.Send(new CheckPetNameComposer(1, "15"));
+            session.Send(new CheckPetNameComposer(PetNameError.TooLong, "15"));
             return Task.CompletedTask;
         }
         if (!PetUtility.CheckPetName(petName))
         {
-            session.Send(new CheckPetNameComposer(3, string.Empty));
+            session.Send(new CheckPetNameComposer(PetNameError.InvalidCharacters, string.Empty));
             return Task.CompletedTask;
         }
 
         if (_wordFilterManager.IsFiltered(petName))
         {
-            session.Send(new CheckPetNameComposer(4, string.Empty));
+            session.Send(new CheckPetNameComposer(PetNameError.Filtered, string.Empty));
             return Task.CompletedTask;
         }
-        session.Send(new CheckPetNameComposer(0, string.Empty));
+        session.Send(new CheckPetNameComposer(PetNameError.None, string.Empty));
         return Task.CompletedTask;
     }
 }

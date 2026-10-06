@@ -29,7 +29,7 @@ internal class KickBotsCommand : IChatCommand
         {
             if (user == null || user.IsPet || !user.IsBot || user.BotData.IsTemporary)
                 continue;
-            RoomUser botUser = null;
+            RoomUser? botUser = null;
             if (!room.GetRoomUserManager().TryGetBot(user.BotData.Id, out botUser))
                 return;
             using (var dbClient = _database.GetQueryReactor())

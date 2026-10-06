@@ -6,15 +6,18 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 internal class InteractorFreezeTile : IFurniInteractor
 {
-    public void OnPlace(GameClient session, Item item) { }
+    public void OnPlace(GameClient? session, Item item) { }
 
-    public void OnRemove(GameClient session, Item item) { }
+    public void OnRemove(GameClient? session, Item item) { }
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
+        var itemRoom = item.GetRoom();
+        if (itemRoom == null) return;
+
         if (session == null || !session.GetHabbo().InRoom || item == null || item.InteractingUser > 0)
             return;
-        var user = item.GetRoom().GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
+        var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         if (user == null)
             return;
         if (user.Team != Team.None)
@@ -24,7 +27,7 @@ internal class InteractorFreezeTile : IFurniInteractor
             if (item.Definition.InteractionType == InteractionType.FreezeTileBlock)
             {
                 if (Gamemap.TileDistance(user.X, user.Y, item.GetX, item.GetY) < 2)
-                    item.GetRoom().GetFreeze().OnFreezeTiles(item, item.FreezePowerUp);
+                    itemRoom.GetFreeze().OnFreezeTiles(item, item.FreezePowerUp);
             }
         }
     }

@@ -14,6 +14,7 @@ public abstract class GameClient
     private readonly IGameServer _server;
     private readonly IPacketFactory _packetFactory;
     private readonly SemaphoreSlim _receiveLock = new(1, 1);
+    private readonly object _sendLock = new();
     private static readonly ILogger Log = LogManager.GetLogger("Plus.HabboHotel.GameClients.GameClient");
     private Habbo? _habbo;
     private readonly object _lifecycle = new();
@@ -21,6 +22,8 @@ public abstract class GameClient
 
     public RecyclableMemoryStream? _incompleteStream;
     public Arc4? Rc4Client { get; set; }
+    private Arc4? _outgoingRc4;
+    protected virtual bool SupportsLegacyCrypto => false;
 
     public bool IsAuthenticated { get; set; } = false;
     public DateTime TimeConnected { get; set; }
@@ -103,6 +106,8 @@ public abstract class GameClient
         await _receiveLock.WaitAsync();
         try
         {
+            var decrypted = SupportsLegacyCrypto && Rc4Client != null;
+            if (decrypted) Rc4Client!.Transform(received);
             await using var stream = PlusMemoryStream.GetStream(received);
             var memory = stream.GetBuffer().AsMemory().Slice(0, (int)stream.Length);
 
@@ -130,7 +135,8 @@ public abstract class GameClient
                 {
                     if (Revision.IncomingIdToInternalIdMapping.TryGetValue(messageId, out var internalMessageId))
                     {
-                        await _server.PacketReceived(this, internalMessageId, _packetFactory.CreateIncomingPacket(memory.Slice(headerLength, length)));
+                        await using var packetStream = PlusMemoryStream.GetStream(memory.Slice(headerLength, length).Span);
+                        await _server.PacketReceived(this, internalMessageId, _packetFactory.CreateIncomingPacket(packetStream));
                     }
                     else
                     {
@@ -142,6 +148,11 @@ public abstract class GameClient
                     Log.Error(e, $"Error handling packet {messageId}");
                 }
                 memory = memory.Slice(headerLength + length);
+                if (!decrypted && SupportsLegacyCrypto && Rc4Client != null && !memory.IsEmpty)
+                {
+                    Rc4Client.Transform(memory.Span);
+                    decrypted = true;
+                }
             }
 
             if (memory.Length == 0)
@@ -174,7 +185,9 @@ public abstract class GameClient
     public void Send(IServerPacket composer)
     {
         var outgoingMessageId = Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
-        SendEncoded(EncodePacket(composer, outgoingMessageId));
+        var encoded = EncodePacket(composer, outgoingMessageId);
+        if (encoded == null) return;
+        SendEncoded(encoded);
         LogPacket(composer, outgoingMessageId);
     }
 
@@ -186,28 +199,55 @@ public abstract class GameClient
         {
             var outgoingMessageId = client.Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
             var key = (client.Revision, client._packetFactory, client.GetType(), outgoingMessageId);
-            if (!encodedPackets.TryGetValue(key, out var buffer))
+            byte[] buffer;
+            if (client._server.HasOutgoingPacketInjectors(composer.MessageId) || !encodedPackets.TryGetValue(key, out buffer!))
             {
-                buffer = client.EncodePacket(composer, outgoingMessageId);
-                encodedPackets.Add(key, buffer);
+                buffer = client.EncodePacket(composer, outgoingMessageId)!;
+                if (buffer == null) continue;
+                if (!client._server.HasOutgoingPacketInjectors(composer.MessageId)) encodedPackets.Add(key, buffer);
             }
             client.SendEncoded(buffer, canSend == null ? null : () => canSend(client));
             client.LogPacket(composer, outgoingMessageId);
         }
     }
 
-    private byte[] EncodePacket(IServerPacket composer, uint outgoingMessageId)
+    private byte[]? EncodePacket(IServerPacket composer, uint outgoingMessageId)
     {
         using var stream = PlusMemoryStream.GetStream();
         var packet = _packetFactory.CreateOutgoingPacket(stream);
+        packet.MessageId = checked((int)composer.MessageId);
         composer.Compose(packet);
+        if (!_server.ModifyOutgoingPacket(this, packet)) return null;
         var memory = stream.GetBuffer().AsMemory(0, (int)stream.Length);
         CreateHeader(memory, outgoingMessageId);
         // Socket.SendAsync can outlive this stream; never hand its pooled buffer to a send.
         return memory.ToArray();
     }
 
+    public void ActivateLegacyCrypto(byte[] key)
+    {
+        if (!SupportsLegacyCrypto) return;
+        lock (_sendLock)
+        {
+            Rc4Client = new Arc4(key);
+            _outgoingRc4 = new Arc4(key);
+        }
+    }
+
     private void SendEncoded(byte[] buffer, Func<bool>? canSend = null)
+    {
+        if (!SupportsLegacyCrypto || _outgoingRc4 == null)
+        {
+            SendEncodedCore(buffer, canSend);
+            return;
+        }
+        lock (_sendLock)
+        {
+            SendEncodedCore(buffer, canSend);
+        }
+    }
+
+    private void SendEncodedCore(byte[] buffer, Func<bool>? canSend)
     {
         var args = new SocketAsyncEventArgs();
         args.SetBuffer(buffer.AsMemory());
@@ -220,6 +260,12 @@ public abstract class GameClient
             {
                 args.Dispose();
                 return;
+            }
+            if (SupportsLegacyCrypto && _outgoingRc4 != null)
+            {
+                buffer = buffer.ToArray();
+                _outgoingRc4.Transform(buffer);
+                args.SetBuffer(buffer.AsMemory());
             }
             if (!SendCallback(args))
                 args.Dispose();

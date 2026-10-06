@@ -1,4 +1,5 @@
 ﻿using Plus.Database;
+using Dapper;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.RCON.Commands.User;
@@ -40,39 +41,27 @@ internal class SyncUserCurrencyCommand : IRconCommand
                 case "coins":
                 case "credits":
                 {
-                    using var dbClient = _database.GetQueryReactor();
-                    dbClient.SetQuery("UPDATE `users` SET `credits` = @credits WHERE `id` = @id LIMIT 1");
-                    dbClient.AddParameter("credits", client.GetHabbo().Credits);
-                    dbClient.AddParameter("id", userId);
-                    dbClient.RunQuery();
+                    using var connection = _database.Connection();
+                    connection.Execute("UPDATE `users` SET `credits` = @credits WHERE `id` = @id", new { credits = client.GetHabbo().Credits, id = userId });
                     break;
                 }
                 case "pixels":
                 case "duckets":
                 {
-                    using var dbClient = _database.GetQueryReactor();
-                    dbClient.SetQuery("UPDATE `users` SET `activity_points` = @duckets WHERE `id` = @id LIMIT 1");
-                    dbClient.AddParameter("duckets", client.GetHabbo().Duckets);
-                    dbClient.AddParameter("id", userId);
-                    dbClient.RunQuery();
+                    using var connection = _database.Connection();
+                    connection.Execute("UPDATE `users` SET `activity_points` = @duckets WHERE `id` = @id", new { duckets = client.GetHabbo().Duckets, id = userId });
                     break;
                 }
                 case "diamonds":
                 {
-                    using var dbClient = _database.GetQueryReactor();
-                    dbClient.SetQuery("UPDATE `users` SET `vip_points` = @diamonds WHERE `id` = @id LIMIT 1");
-                    dbClient.AddParameter("diamonds", client.GetHabbo().Diamonds);
-                    dbClient.AddParameter("id", userId);
-                    dbClient.RunQuery();
+                    using var connection = _database.Connection();
+                    connection.Execute("UPDATE `users` SET `vip_points` = @diamonds WHERE `id` = @id", new { diamonds = client.GetHabbo().Diamonds, id = userId });
                     break;
                 }
                 case "gotw":
                 {
-                    using var dbClient = _database.GetQueryReactor();
-                    dbClient.SetQuery("UPDATE `users` SET `gotw_points` = @gotw WHERE `id` = @id LIMIT 1");
-                    dbClient.AddParameter("gotw", client.GetHabbo().GotwPoints);
-                    dbClient.AddParameter("id", userId);
-                    dbClient.RunQuery();
+                    using var connection = _database.Connection();
+                    connection.Execute("UPDATE `users` SET `gotw_points` = @gotw WHERE `id` = @id", new { gotw = client.GetHabbo().GotwPoints, id = userId });
                     break;
                 }
             }

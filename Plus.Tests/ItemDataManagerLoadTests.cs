@@ -7,6 +7,18 @@ namespace Plus.Tests;
 
 public class ItemDataManagerLoadTests
 {
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData("1", true)]
+    [InlineData("0", false)]
+    [InlineData("True", true)]
+    [InlineData("False", false)]
+    [InlineData(1, true)]
+    [InlineData(0, false)]
+    public void FurnitureBooleanCellsSupportNativeAndLegacyValues(object value, bool expected) =>
+        Assert.Equal(expected, FurnitureNumbers.BooleanFromCell(value));
+
     [Fact]
     public void ABadRowIsLoggedAndSkippedWithoutWaitingForTheConsole()
     {

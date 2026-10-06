@@ -25,7 +25,7 @@ public struct ThreeDCoord : IEquatable<ThreeDCoord>
 
     public override int GetHashCode() => X ^ Y ^ Z;
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         if (obj == null)
             return false;

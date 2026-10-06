@@ -209,7 +209,7 @@ public class Group
             _requests.Remove(id);
     }
 
-    public RoomData GetRoom()
+    public RoomData? GetRoom()
     {
         if (_room == null)
         {

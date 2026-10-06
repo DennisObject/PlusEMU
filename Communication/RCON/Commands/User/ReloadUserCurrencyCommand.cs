@@ -1,5 +1,6 @@
 ﻿using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.Database;
+using Dapper;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.RCON.Commands.User;
@@ -41,55 +42,39 @@ internal class ReloadUserCurrencyCommand : IRconCommand
                 case "coins":
                 case "credits":
                 {
-                    int credits;
-                    using (var dbClient = _database.GetQueryReactor())
-                    {
-                        dbClient.SetQuery("SELECT `credits` FROM `users` WHERE `id` = @id LIMIT 1");
-                        dbClient.AddParameter("id", userId);
-                        credits = dbClient.GetInteger();
-                    }
-                    client.GetHabbo().Credits = credits;
+                    using var connection = _database.Connection();
+                    var credits = connection.QuerySingleOrDefault<int?>("SELECT `credits` FROM `users` WHERE `id` = @id", new { id = userId });
+                    if (!credits.HasValue) return Task.FromResult(false);
+                    client.GetHabbo().Credits = credits.Value;
                     client.Send(new CreditBalanceComposer(client.GetHabbo().Credits));
                     break;
                 }
                 case "pixels":
                 case "duckets":
                 {
-                    int duckets;
-                    using (var dbClient = _database.GetQueryReactor())
-                    {
-                        dbClient.SetQuery("SELECT `activity_points` FROM `users` WHERE `id` = @id LIMIT 1");
-                        dbClient.AddParameter("id", userId);
-                        duckets = dbClient.GetInteger();
-                    }
-                    client.GetHabbo().Duckets = duckets;
-                    client.Send(new HabboActivityPointNotificationComposer(client.GetHabbo().Duckets, duckets));
+                    using var connection = _database.Connection();
+                    var duckets = connection.QuerySingleOrDefault<int?>("SELECT `activity_points` FROM `users` WHERE `id` = @id", new { id = userId });
+                    if (!duckets.HasValue) return Task.FromResult(false);
+                    client.GetHabbo().Duckets = duckets.Value;
+                    client.Send(new HabboActivityPointNotificationComposer(client.GetHabbo().Duckets, duckets.Value));
                     break;
                 }
                 case "diamonds":
                 {
-                    int diamonds;
-                    using (var dbClient = _database.GetQueryReactor())
-                    {
-                        dbClient.SetQuery("SELECT `vip_points` FROM `users` WHERE `id` = @id LIMIT 1");
-                        dbClient.AddParameter("id", userId);
-                        diamonds = dbClient.GetInteger();
-                    }
-                    client.GetHabbo().Diamonds = diamonds;
-                    client.Send(new HabboActivityPointNotificationComposer(diamonds, 0, 5));
+                    using var connection = _database.Connection();
+                    var diamonds = connection.QuerySingleOrDefault<int?>("SELECT `vip_points` FROM `users` WHERE `id` = @id", new { id = userId });
+                    if (!diamonds.HasValue) return Task.FromResult(false);
+                    client.GetHabbo().Diamonds = diamonds.Value;
+                    client.Send(new HabboActivityPointNotificationComposer(diamonds.Value, 0, 5));
                     break;
                 }
                 case "gotw":
                 {
-                    int gotw;
-                    using (var dbClient = _database.GetQueryReactor())
-                    {
-                        dbClient.SetQuery("SELECT `gotw_points` FROM `users` WHERE `id` = @id LIMIT 1");
-                        dbClient.AddParameter("id", userId);
-                        gotw = dbClient.GetInteger();
-                    }
-                    client.GetHabbo().GotwPoints = gotw;
-                    client.Send(new HabboActivityPointNotificationComposer(gotw, 0, 103));
+                    using var connection = _database.Connection();
+                    var gotw = connection.QuerySingleOrDefault<int?>("SELECT `gotw_points` FROM `users` WHERE `id` = @id", new { id = userId });
+                    if (!gotw.HasValue) return Task.FromResult(false);
+                    client.GetHabbo().GotwPoints = gotw.Value;
+                    client.Send(new HabboActivityPointNotificationComposer(gotw.Value, 0, 103));
                     break;
                 }
             }

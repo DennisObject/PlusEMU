@@ -7,7 +7,7 @@ internal sealed class InteractorCrackable : IFurniInteractor
 {
     private const int RequiredEffect = 158;
 
-    public void OnTrigger(GameClient session, Item item, int request, bool hasRights)
+    public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
         if (session?.GetHabbo()?.Effects == null || session.GetHabbo().Effects.CurrentEffect != RequiredEffect)
             return;

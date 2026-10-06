@@ -1,10 +1,13 @@
-﻿using System.Data;
+﻿using Dapper;
+using Plus.Core;
+using System.Diagnostics.CodeAnalysis;
+using System.Data;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
 
 namespace Plus.HabboHotel.Games;
 
-public class GameDataManager : IGameDataManager
+public class GameDataManager : IGameDataManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly ILogger<GameDataManager> _logger;
@@ -20,32 +23,38 @@ public class GameDataManager : IGameDataManager
 
     public ICollection<GameData> GameData => _games.Values;
 
-    public void Init()
+    public int StartOrder => 20;
+    public Task Start() => Load();
+
+    public void Init() => Load().GetAwaiter().GetResult();
+
+    private async Task Load()
     {
-        if (_games.Count > 0)
-            _games.Clear();
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            DataTable data = null;
-            dbClient.SetQuery(
-                "SELECT `id`,`name`,`colour_one`,`colour_two`,`resource_path`,`string_three`,`game_swf`,`game_assets`,`game_server_host`,`game_server_port`,`socket_policy_port`,`game_enabled` FROM `games_config`");
-            data = dbClient.GetTable();
-            if (data != null)
-            {
-                foreach (DataRow row in data.Rows)
-                {
-                    _games.Add(Convert.ToInt32(row["id"]),
-                        new(Convert.ToInt32(row["id"]), Convert.ToString(row["name"]), Convert.ToString(row["colour_one"]), Convert.ToString(row["colour_two"]),
-                            Convert.ToString(row["resource_path"]), Convert.ToString(row["string_three"]), Convert.ToString(row["game_swf"]), Convert.ToString(row["game_assets"]),
-                            Convert.ToString(row["game_server_host"]), Convert.ToString(row["game_server_port"]), Convert.ToString(row["socket_policy_port"]),
-                           PlusEnvironment.EnumToBool(row["game_enabled"].ToString())));
-                }
-            }
-        }
+        using var connection = _database.Connection();
+        var games = await connection.QueryAsync<GameRow>("SELECT id, name, colour_one AS ColourOne, colour_two AS ColourTwo, resource_path AS ResourcePath, string_three AS StringThree, game_swf AS Swf, game_assets AS Assets, game_server_host AS ServerHost, game_server_port AS ServerPort, socket_policy_port AS SocketPolicyPort, game_enabled AS Enabled FROM games_config");
+        _games.Clear();
+        foreach (var game in games)
+            _games.Add(game.Id, new(game.Id, game.Name, game.ColourOne, game.ColourTwo, game.ResourcePath, game.StringThree, game.Swf, game.Assets, game.ServerHost, game.ServerPort, game.SocketPolicyPort, game.Enabled));
         _logger.LogInformation("Game Data Manager -> LOADED");
     }
 
-    public bool TryGetGame(int gameId, out GameData data) => _games.TryGetValue(gameId, out data);
+    private sealed class GameRow
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string ColourOne { get; set; } = string.Empty;
+        public string ColourTwo { get; set; } = string.Empty;
+        public string ResourcePath { get; set; } = string.Empty;
+        public string StringThree { get; set; } = string.Empty;
+        public string Swf { get; set; } = string.Empty;
+        public string Assets { get; set; } = string.Empty;
+        public string ServerHost { get; set; } = string.Empty;
+        public string ServerPort { get; set; } = string.Empty;
+        public string SocketPolicyPort { get; set; } = string.Empty;
+        public bool Enabled { get; set; }
+    }
+
+    public bool TryGetGame(int gameId, [NotNullWhen(true)] out GameData? data) => _games.TryGetValue(gameId, out data);
 
     public int GetCount()
     {

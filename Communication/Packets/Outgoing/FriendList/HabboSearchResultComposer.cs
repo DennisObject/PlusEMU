@@ -1,15 +1,16 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using System.Globalization;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Messenger;
 
 namespace Plus.Communication.Packets.Outgoing.FriendList;
 
 public class HabboSearchResultComposer : IServerPacket
 {
-    private readonly List<SearchResult> _friends;
-    private readonly List<SearchResult> _otherUsers;
+    private readonly IReadOnlyList<HabboSearchEntry> _friends;
+    private readonly IReadOnlyList<HabboSearchEntry> _otherUsers;
     public uint MessageId => ServerPacketHeader.HabboSearchResultComposer;
 
-    public HabboSearchResultComposer(List<SearchResult> friends, List<SearchResult> otherUsers)
+    public HabboSearchResultComposer(IReadOnlyList<HabboSearchEntry> friends, IReadOnlyList<HabboSearchEntry> otherUsers)
     {
         _friends = friends;
         _otherUsers = otherUsers;
@@ -18,9 +19,10 @@ public class HabboSearchResultComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_friends.Count);
-        foreach (var friend in _friends.ToList())
+        foreach (var entry in _friends)
         {
-            var online = PlusEnvironment.Game.ClientManager.GetClientByUserId(friend.UserId) != null;
+            var friend = entry.User;
+            var online = entry.Online;
             packet.WriteInteger(friend.UserId);
             packet.WriteString(friend.Username);
             packet.WriteString(friend.Motto);
@@ -29,12 +31,13 @@ public class HabboSearchResultComposer : IServerPacket
             packet.WriteString(string.Empty);
             packet.WriteInteger(0);
             packet.WriteString(online ? friend.Figure : "");
-            packet.WriteString(friend.LastOnline);
+            packet.WriteString(friend.LastOnlineAt?.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture) ?? "0");
         }
         packet.WriteInteger(_otherUsers.Count);
-        foreach (var otherUser in _otherUsers.ToList())
+        foreach (var entry in _otherUsers)
         {
-            var online = PlusEnvironment.Game.ClientManager.GetClientByUserId(otherUser.UserId) != null;
+            var otherUser = entry.User;
+            var online = entry.Online;
             packet.WriteInteger(otherUser.UserId);
             packet.WriteString(otherUser.Username);
             packet.WriteString(otherUser.Motto);
@@ -43,8 +46,10 @@ public class HabboSearchResultComposer : IServerPacket
             packet.WriteString(string.Empty);
             packet.WriteInteger(0);
             packet.WriteString(online ? otherUser.Figure : "");
-            packet.WriteString(otherUser.LastOnline);
+            packet.WriteString(otherUser.LastOnlineAt?.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture) ?? "0");
         }
 
     }
 }
+
+public sealed record HabboSearchEntry(SearchResult User, bool Online);

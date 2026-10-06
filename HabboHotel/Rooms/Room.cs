@@ -21,15 +21,16 @@ using Plus.Utilities;
 
 namespace Plus.HabboHotel.Rooms;
 
-public class Room : RoomData
+public class Room
 {
-    private readonly BansComponent _bansComponent;
-
-    private readonly FilterComponent _filterComponent;
-
-    private readonly Dictionary<uint, List<RoomUser>> _tents;
-    private readonly TradingComponent _tradingComponent;
-    private readonly WiredComponent _wiredComponent;
+    private readonly IReadOnlyList<IRoomComponent> _components;
+    private int _initiated;
+    private RoomData? _data;
+    private BansComponent _bansComponent;
+    private FilterComponent _filterComponent;
+    private Dictionary<uint, List<RoomUser>> _tents;
+    private TradingComponent _tradingComponent;
+    private WiredComponent _wiredComponent;
     private BattleBanzai _banzai;
     private Freeze _freeze;
     private GameItemHandler _gameItemHandler;
@@ -64,8 +65,27 @@ public class Room : RoomData
 
     public List<int> UsersWithRights;
 
-    public Room(RoomData data)
-        : base(data)
+    public Room(RoomData data, IEnumerable<IRoomComponent>? components = null)
+    {
+        _data = data;
+        _components = (components ?? [new RoomRuntimeComponent(), new RoomDataComponent()]).ToArray();
+    }
+
+    public RoomData Data => _data ??= new RoomData();
+    public static implicit operator RoomData(Room room) => room.Data;
+    internal IReadOnlyList<IRoomComponent> Components => _components;
+
+    public void Initiate()
+    {
+        if (Interlocked.Exchange(ref _initiated, 1) != 0)
+            throw new InvalidOperationException($"Room {Data.Id} has already been initiated.");
+        foreach (var component in _components)
+            component.Initiate(this);
+        foreach (var component in _components)
+            component.Initiated();
+    }
+
+    internal void InitializeRuntime()
     {
         IsLagging = 0;
         Unloaded = false;
@@ -73,22 +93,64 @@ public class Room : RoomData
         RoomMuted = false;
         MutedUsers = new();
         _tents = new();
-        _gamemap = new(this, data.Model);
+        _gamemap = new(this, Data.Model);
         _roomItemHandling = new(this);
         _roomUserManager = new(this);
         _filterComponent = new(this);
         _wiredComponent = new(this);
         _bansComponent = new(this);
         _tradingComponent = new(this);
-        GetRoomItemHandler().LoadFurniture();
-        GetGameMap().GenerateMaps();
-        LoadPromotions();
-        LoadRights();
-        LoadFilter();
-        InitBots();
-        InitPets();
         LastRegeneration = DateTime.Now;
     }
+
+    public uint Id { get => Data.Id; set => Data.Id = value; }
+    public string Name { get => Data.Name; set => Data.Name = value; }
+    public string ModelName { get => Data.ModelName; set => Data.ModelName = value; }
+    public string OwnerName { get => Data.OwnerName; set => Data.OwnerName = value; }
+    public int OwnerId { get => Data.OwnerId; set => Data.OwnerId = value; }
+    public string Password { get => Data.Password; set => Data.Password = value; }
+    public int Score { get => Data.Score; set => Data.Score = value; }
+    public RoomAccess Access { get => Data.Access; set => Data.Access = value; }
+    public string Type { get => Data.Type; set => Data.Type = value; }
+    public int UsersMax { get => Data.UsersMax; set => Data.UsersMax = value; }
+    public int UsersNow { get => Data.UsersNow; set => Data.UsersNow = value; }
+    public int Category { get => Data.Category; set => Data.Category = value; }
+    public string Description { get => Data.Description; set => Data.Description = value; }
+    public List<string> Tags => Data.Tags;
+    public string Floor { get => Data.Floor; set => Data.Floor = value; }
+    public string Landscape { get => Data.Landscape; set => Data.Landscape = value; }
+    public bool AllowPets { get => Data.AllowPets; set => Data.AllowPets = value; }
+    public bool AllowPetsEating { get => Data.AllowPetsEating; set => Data.AllowPetsEating = value; }
+    public bool RoomBlockingEnabled { get => Data.RoomBlockingEnabled; set => Data.RoomBlockingEnabled = value; }
+    public bool Hidewall { get => Data.Hidewall; set => Data.Hidewall = value; }
+    public int WallThickness { get => Data.WallThickness; set => Data.WallThickness = value; }
+    public int FloorThickness { get => Data.FloorThickness; set => Data.FloorThickness = value; }
+    public string Wallpaper { get => Data.Wallpaper; set => Data.Wallpaper = value; }
+    public int WhoCanMute { get => Data.WhoCanMute; set => Data.WhoCanMute = value; }
+    public int WhoCanBan { get => Data.WhoCanBan; set => Data.WhoCanBan = value; }
+    public int WhoCanKick { get => Data.WhoCanKick; set => Data.WhoCanKick = value; }
+    public int ChatMode { get => Data.ChatMode; set => Data.ChatMode = value; }
+    public int ChatSize { get => Data.ChatSize; set => Data.ChatSize = value; }
+    public int ChatSpeed { get => Data.ChatSpeed; set => Data.ChatSpeed = value; }
+    public int ExtraFlood { get => Data.ExtraFlood; set => Data.ExtraFlood = value; }
+    public int ChatDistance { get => Data.ChatDistance; set => Data.ChatDistance = value; }
+    public int TradeSettings { get => Data.TradeSettings; set => Data.TradeSettings = value; }
+    public bool PushEnabled { get => Data.PushEnabled; set => Data.PushEnabled = value; }
+    public bool PullEnabled { get => Data.PullEnabled; set => Data.PullEnabled = value; }
+    public bool SuperPushEnabled { get => Data.SuperPushEnabled; set => Data.SuperPushEnabled = value; }
+    public bool SuperPullEnabled { get => Data.SuperPullEnabled; set => Data.SuperPullEnabled = value; }
+    public bool EnablesEnabled { get => Data.EnablesEnabled; set => Data.EnablesEnabled = value; }
+    public bool RespectNotificationsEnabled { get => Data.RespectNotificationsEnabled; set => Data.RespectNotificationsEnabled = value; }
+    public bool PetMorphsAllowed { get => Data.PetMorphsAllowed; set => Data.PetMorphsAllowed = value; }
+    public int SalePrice { get => Data.SalePrice; set => Data.SalePrice = value; }
+    public bool ReverseRollers { get => Data.ReverseRollers; set => Data.ReverseRollers = value; }
+    public bool LayEnabled { get => Data.LayEnabled; set => Data.LayEnabled = value; }
+    public RoomModel Model { get => Data.Model; set => Data.Model = value; }
+    public RoomPromotion Promotion { get => Data.Promotion; set => Data.Promotion = value; }
+    public Plus.HabboHotel.Groups.Group Group { get => Data.Group; set => Data.Group = value; }
+    public bool HasActivePromotion => Data.HasActivePromotion;
+    public void LoadPromotions() => Data.LoadPromotions();
+    public void EndPromotion() => Data.EndPromotion();
 
     public int IsLagging { get; set; }
     public bool Unloaded { get; set; }
@@ -239,7 +301,7 @@ public class Room : RoomData
         UsersWithRights = new();
         if (Group != null)
             return;
-        DataTable data = null;
+        DataTable? data = null;
         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
         {
             dbClient.SetQuery("SELECT room_rights.user_id FROM room_rights WHERE room_id = @roomid");
@@ -251,10 +313,10 @@ public class Room : RoomData
                 UsersWithRights.Add(Convert.ToInt32(row["user_id"]));
     }
 
-    private void LoadFilter()
+    internal void LoadFilter()
     {
         WordFilterList = new();
-        DataTable data = null;
+        DataTable? data = null;
         using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
         {
             dbClient.SetQuery("SELECT * FROM `room_filter` WHERE `room_id` = @roomid;");
@@ -307,8 +369,8 @@ public class Room : RoomData
 
     public void OnUserShoot(RoomUser user, Item ball)
     {
-        Func<Item, bool> predicate = null;
-        string key = null;
+        Func<Item, bool>? predicate = null;
+        string? key = null;
         foreach (var item in GetRoomItemHandler().GetFurniObjects(ball.GetX, ball.GetY).ToList())
         {
             if (item.Definition.ItemName.StartsWith("fball_goal_"))

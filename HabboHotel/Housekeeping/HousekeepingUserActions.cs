@@ -36,12 +36,13 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     private readonly IBoundedPasswordHasher _passwordHasher;
     private readonly ISessionIssuer _sessions;
     private readonly IDatabase _database;
+    private readonly ITradingLockService _tradingLocks;
     // Held for every write to an account so it cannot interleave with that account's login.
     private readonly IAccountSessionGate _sessionGate;
 
     public HousekeepingUserActions(IHousekeepingUserStore users, IGameClientManager clients, IModerationManager moderation, IAccessControl permissions,
         IBoundedPasswordHasher passwordHasher, IDatabase database, IAccountSessionGate sessionGate,
-        ISessionIssuer sessions)
+        ISessionIssuer sessions, ITradingLockService tradingLocks)
     {
         _users = users;
         _clients = clients;
@@ -51,6 +52,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         _database = database;
         _sessionGate = sessionGate;
         _sessions = sessions;
+        _tradingLocks = tradingLocks;
     }
 
     public async Task<HousekeepingOutcome> Ban(Habbo actor, int userId, string reason, int hours)
@@ -126,14 +128,10 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         reason = HousekeepingLimits.Normalize(reason);
         if (!HousekeepingLimits.InRange(hours, 1, HousekeepingLimits.MaxTradeLockHours) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
-        using var account = _sessionGate.Enter(userId);
         if (_users.Target(actor, userId, _permissions, out var user) is { } denied) return denied;
-        var until = UnixTimestamp.GetNow() + hours * 3600.0;
-        Execute("INSERT INTO `user_info` (`user_id`, `trading_locked`, `trading_locks_count`) VALUES (@userId, @until, 1) " +
-                "ON DUPLICATE KEY UPDATE `trading_locked` = @until, `trading_locks_count` = `trading_locks_count` + 1", new { userId, until });
+        _tradingLocks.Set(userId, TimeSpan.FromHours(hours));
         if (_clients.Online(userId) is { } client)
         {
-            client.GetHabbo().TradingLockExpiry = until;
             client.SendNotification(reason.Length > 0 ? $"You have been trade banned for {hours} hour(s)!\r\rReason:\r\r{reason}" : $"You have been trade banned for {hours} hour(s)!");
         }
         return HousekeepingOutcome.Success(Label(user), $"hours={hours} reason={HousekeepingLimits.AuditValue(reason)}");

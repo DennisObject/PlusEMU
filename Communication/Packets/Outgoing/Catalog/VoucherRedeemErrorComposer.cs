@@ -4,10 +4,10 @@ namespace Plus.Communication.Packets.Outgoing.Catalog;
 
 public class VoucherRedeemErrorComposer : IServerPacket
 {
-    private readonly int _type;
+    private readonly VoucherRedeemError _type;
     public uint MessageId => ServerPacketHeader.VoucherRedeemErrorComposer;
 
-    public VoucherRedeemErrorComposer(int type) => _type = type; // TODO @80O: Extract enum with all errors
+    public VoucherRedeemErrorComposer(VoucherRedeemError type) => _type = type;
 
-    public void Compose(IOutgoingPacket packet) => packet.WriteString(_type.ToString());
+    public void Compose(IOutgoingPacket packet) => packet.WriteString(((int)_type).ToString(System.Globalization.CultureInfo.InvariantCulture));
 }

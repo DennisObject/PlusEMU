@@ -24,7 +24,7 @@ internal class CloseTicketEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        var result = packet.ReadInt(); // 1 = useless, 2 = abusive, 3 = resolved
+        var result = (SupportTicketResult)packet.ReadInt(); // 1 = useless, 2 = abusive, 3 = resolved
         packet.ReadInt(); //junk
         var ticketId = packet.ReadInt();
         if (!_moderationManager.TryGetTicket(ticketId, out var ticket))
@@ -33,7 +33,7 @@ internal class CloseTicketEvent : IPacketEvent
             return Task.CompletedTask;
         var client = _clientManager.GetClientByUserId(ticket.Sender.Id);
         if (client != null) client.Send(new ModeratorSupportTicketResponseComposer(result));
-        if (result == 2)
+        if (result == SupportTicketResult.Abusive)
         {
             using var connection = _database.Connection();
             connection.Execute("UPDATE `user_info` SET `cfhs_abusive` = `cfhs_abusive` + 1 WHERE `user_id` = @senderId LIMIT 1",

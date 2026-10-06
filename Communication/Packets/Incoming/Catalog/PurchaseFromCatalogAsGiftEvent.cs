@@ -73,11 +73,11 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
         {
             var receiver = _gameClientManager.GetClientByUsername(giftUser)?.GetHabbo();
             if (receiver == null || !receiver.AllowGifts || !_catalogManager.TryGetClubOffer(itemId, out var offer) || !offer.Giftable || _clubMemberships.Purchase(session.GetHabbo(), offer, receiver.Id) == null)
-            { session.Send(new PurchaseErrorComposer(0)); return Task.CompletedTask; }
+            { session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable)); return Task.CompletedTask; }
             session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
             session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, -offer.Points, 0));
             session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, -offer.Points, 5));
-            session.Send(new PurchaseOkComposer());
+            session.Send(new PurchaseOKComposer());
             return Task.CompletedTask;
         }
         if (!page.Offers.TryGetValue(itemId, out var item))
@@ -183,7 +183,7 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
             giveItem = new Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem { Id = newItemId, OwnerId = (uint)habbo.Id,
                 Definition = presentData, ExtraData = FurniExtraData.Load(presentData, extra_data, keepLegacy: true) };
             return true;
-        }, ClubRewards.EligibleCatalogPurchase(item.CatalogName))) { session.Send(new PurchaseErrorComposer(0)); return Task.CompletedTask; }
+        }, ClubRewards.EligibleCatalogPurchase(item.CatalogName))) { session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable)); return Task.CompletedTask; }
         if (giveItem != null)
         {
             var receiver = _gameClientManager.GetClientByUserId(habbo.Id);
@@ -191,7 +191,7 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
             {
                 receiver.GetHabbo().Inventory.Furniture.AddItem(giveItem);
                 receiver.Send(new FurniListNotificationComposer(giveItem.Id, 1));
-                receiver.Send(new PurchaseOkComposer());
+                receiver.Send(new PurchaseOKComposer());
                 receiver.Send(new FurniListAddComposer(giveItem));
                 receiver.Send(new FurniListUpdateComposer());
             }
@@ -204,7 +204,7 @@ public class PurchaseFromCatalogAsGiftEvent : IPacketEvent
                 _questManager.ProgressUserQuest(session, QuestType.GiftOthers);
             }
         }
-        session.Send(new PurchaseOkComposer(item, presentData));
+        session.Send(new PurchaseOKComposer(item, presentData));
         if (item.CostCredits > 0) session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
         if (item.CostPixels > 0) session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, -item.CostPixels));
         if (item.CostDiamonds > 0) session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, -item.CostDiamonds, 5));

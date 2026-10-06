@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
+using Dapper;
 using Plus.Core;
 using Plus.Database.Interfaces;
 
@@ -12,6 +13,7 @@ public sealed class Database : IDatabase
 
     public Database(IOptions<DatabaseConfiguration> configuration)
     {
+        SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
         _connectionStr = new MySqlConnectionStringBuilder
         {
             ConnectionTimeout = 10,

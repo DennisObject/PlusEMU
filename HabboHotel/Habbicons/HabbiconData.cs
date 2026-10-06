@@ -1,3 +1,4 @@
+using Plus.Communication.Packets;
 namespace Plus.HabboHotel.Habbicons;
 
 public enum HabbiconAction { Buy, BuyCollection, Claim, Favorite, Unfavorite }
@@ -20,13 +21,14 @@ public sealed record HabbiconCollection(int Id, string Name, bool Completed, int
 public sealed record HabbiconSnapshot(IReadOnlyList<HabbiconCollection> Collections,
     IReadOnlyDictionary<int, HabbiconItem> Items, IReadOnlyList<int> Recent, IReadOnlyList<int> Unseen)
 {
-    public HabbiconItem RequireItem(int id) => Items.TryGetValue(id, out var item) ? item : throw new HabbiconRejected(1);
+    public HabbiconItem RequireItem(int id) => Items.TryGetValue(id, out var item) ? item : throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
 }
 
 public sealed record HabbiconBalances(int Credits, int Duckets, int Diamonds);
 public sealed record HabbiconChange(HabbiconSnapshot Snapshot, IReadOnlyList<HabbiconItem> Changed, HabbiconBalances? Balances);
 
-public sealed class HabbiconRejected(int code) : InvalidOperationException($"Habbicon action rejected: {code}")
+public sealed class HabbiconRejected(HabbiconActionError error) : InvalidOperationException($"Habbicon action rejected: {(int)error}")
 {
-    public int Code { get; } = code;
+    public HabbiconActionError Error { get; } = error;
+    public int Code => (int)Error;
 }

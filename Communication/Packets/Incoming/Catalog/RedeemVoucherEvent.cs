@@ -23,7 +23,7 @@ public class RedeemVoucherEvent : IPacketEvent
         var code = packet.ReadString().Replace("\r", "");
         if (!_voucherManager.TryGetVoucher(code, out var voucher))
         {
-            session.Send(new VoucherRedeemErrorComposer(0));
+            session.Send(new VoucherRedeemErrorComposer(VoucherRedeemError.InvalidCode));
             return Task.CompletedTask;
         }
         if (voucher.CurrentUses >= voucher.MaxUses)

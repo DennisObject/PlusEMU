@@ -1,7 +1,5 @@
 ﻿using System.Collections.Concurrent;
-using System.Data;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
-using Plus.Utilities;
 
 namespace Plus.HabboHotel.Users.Effects;
 
@@ -12,6 +10,14 @@ public sealed class EffectsComponent
     /// </summary>
     private readonly ConcurrentDictionary<int, AvatarEffect> _effects = new();
     private Habbo _habbo;
+
+    public EffectsComponent() { }
+
+    internal EffectsComponent(IEnumerable<AvatarEffect> effects, Habbo habbo)
+    {
+        foreach (var effect in effects) _effects.TryAdd(effect.Id, effect);
+        _habbo = habbo;
+    }
 
     public ICollection<AvatarEffect> GetAllEffects => _effects.Values;
 
@@ -24,28 +30,11 @@ public sealed class EffectsComponent
     {
         if (_effects.Count > 0)
             return false;
-        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-        {
-            dbClient.SetQuery("SELECT * FROM `user_effects` WHERE `user_id` = @id;");
-            dbClient.AddParameter("id", habbo.Id);
-            var getEffects = dbClient.GetTable();
-            if (getEffects != null)
-            {
-                foreach (DataRow row in getEffects.Rows)
-                {
-                    if (_effects.TryAdd(Convert.ToInt32(row["id"]),
-                            new(Convert.ToInt32(row["id"]), Convert.ToInt32(row["user_id"]), Convert.ToInt32(row["effect_id"]), Convert.ToDouble(row["total_duration"]),
-                                ConvertExtensions.EnumToBool(row["is_activated"].ToString()), Convert.ToDouble(row["activated_stamp"]), Convert.ToInt32(row["quantity"]))))
-                    {
-                        //umm?
-                    }
-                }
-            }
-        }
         _habbo = habbo;
         CurrentEffect = 0;
         return true;
     }
+
 
     public bool TryAdd(AvatarEffect effect) => _effects.TryAdd(effect.Id, effect);
 
@@ -65,7 +54,7 @@ public sealed class EffectsComponent
     /// <param name="activatedOnly"></param>
     /// <param name="unactivatedOnly"></param>
     /// <returns></returns>
-    public AvatarEffect GetEffectNullable(int spriteId, bool activatedOnly = false, bool unactivatedOnly = false)
+    public AvatarEffect? GetEffectNullable(int spriteId, bool activatedOnly = false, bool unactivatedOnly = false)
     {
         foreach (var effect in _effects.Values.ToList())
             if (!effect.HasExpired && effect.SpriteId == spriteId && (!activatedOnly || effect.Activated) && (!unactivatedOnly || !effect.Activated))

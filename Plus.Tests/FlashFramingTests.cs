@@ -1,6 +1,8 @@
 using Plus.Communication.Flash;
 using Plus.Communication.Revisions;
 using Plus.HabboHotel.GameClients;
+using Plus.Communication.Encryption.Crypto.Prng;
+using Plus.Communication.Packets;
 using Xunit;
 
 namespace Plus.Tests;
@@ -85,6 +87,205 @@ public class FlashFramingTests
         Assert.Equal(new uint[] { 1, 2 }, server.MessageIds);
     }
 
+    [Fact]
+    public void LegacyCryptoDecryptsIncomingFrames()
+    {
+        var server = new FakeServer();
+        var client = Client(server, 1u);
+        var key = new byte[] { 1, 2, 3, 4 };
+        client.ActivateLegacyCrypto(key);
+        var frame = new byte[] { 0, 0, 0, 2, 0, 1 };
+        new Arc4(key).Encrypt(ref frame);
+
+        client.OnReceived(frame, 0, frame.Length);
+
+        Assert.Equal(new uint[] { 1 }, server.MessageIds);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CiphertextStartingWithPolicyMarkerIsDelivered(bool afterHandshake)
+    {
+        var server = new FakeServer();
+        var client = Client(server, 1u, 2u);
+        var disconnected = 0;
+        var sends = 0;
+        client.DisconnectRequested = () => disconnected++;
+        client.SendCallback = _ => { sends++; return false; };
+        if (afterHandshake) client.OnReceived(new byte[] { 0, 0, 0, 2, 0, 1 }, 0, 6);
+        var key = new byte[] { 64 };
+        client.ActivateLegacyCrypto(key);
+        var encrypted = new byte[] { 0, 0, 0, 2, 0, 2 };
+        new Arc4(key).Encrypt(ref encrypted);
+        Assert.Equal((byte)'<', encrypted[0]);
+
+        client.OnReceived(encrypted, 0, 1);
+        client.OnReceived(encrypted, 1, encrypted.Length - 1);
+
+        Assert.Equal(afterHandshake ? new uint[] { 1, 2 } : new uint[] { 2 }, server.MessageIds);
+        Assert.Equal(0, disconnected);
+        Assert.Equal(0, sends);
+    }
+
+    [Fact]
+    public void PlaintextPayloadFragmentStartingWithPolicyMarkerIsDelivered()
+    {
+        var server = new FakeServer();
+        var client = Client(server, 1u);
+        var disconnected = 0;
+        var sends = 0;
+        client.DisconnectRequested = () => disconnected++;
+        client.SendCallback = _ => { sends++; return false; };
+        var payloads = new List<byte>();
+        server.Receive = (_, packet) => payloads.Add(packet.ReadByte());
+        var frame = new byte[] { 0, 0, 0, 3, 0, 1, (byte)'<' };
+
+        client.OnReceived(frame, 0, 6);
+        client.OnReceived(frame, 6, 1);
+
+        Assert.Equal(new byte[] { (byte)'<' }, payloads);
+        Assert.Equal(0, disconnected);
+        Assert.Equal(0, sends);
+    }
+
+    [Fact]
+    public void InitialPolicyRequestAfterAnEmptyReceiveStillRespondsAndDisconnects()
+    {
+        var server = new FakeServer();
+        var client = Client(server);
+        var disconnected = 0;
+        byte[]? policy = null;
+        client.DisconnectRequested = () => disconnected++;
+        client.SendCallback = args => { policy = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray(); return false; };
+
+        client.OnReceived(Array.Empty<byte>(), 0, 0);
+        client.OnReceived(new byte[] { (byte)'<' }, 0, 1);
+
+        Assert.StartsWith("<?xml version=\"1.0\"?>", System.Text.Encoding.UTF8.GetString(Assert.IsType<byte[]>(policy)));
+        Assert.Equal(1, disconnected);
+        Assert.Empty(server.MessageIds);
+    }
+
+    [Fact]
+    public void LegacyCryptoEncryptsOutgoingFramesAfterInjection()
+    {
+        var server = new FakeServer { Modify = packet => packet.WriteByte(7) };
+        var client = Client(server);
+        client.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        var key = new byte[] { 1, 2, 3, 4 };
+        client.ActivateLegacyCrypto(key);
+        byte[]? sent = null;
+        client.SendCallback = args => { sent = args.MemoryBuffer.ToArray(); return false; };
+
+        client.Send(new TestComposer());
+
+        Assert.NotNull(sent);
+        new Arc4(key).Decrypt(ref sent!);
+        Assert.Equal(new byte[] { 0, 0, 0, 4, 0, 20, 5, 7 }, sent);
+    }
+
+    [Fact]
+    public void RejectedEncryptedBroadcastDoesNotAdvanceCipher()
+    {
+        var server = new FakeServer();
+        var client = Client(server);
+        client.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        var key = new byte[] { 1, 2, 3, 4 };
+        client.ActivateLegacyCrypto(key);
+        byte[]? sent = null;
+        client.SendCallback = args => { sent = args.MemoryBuffer.ToArray(); return false; };
+        var admitted = false;
+
+        GameClient.SendBroadcast(new TestComposer(), new[] { client, client }, _ => admitted = !admitted);
+
+        Assert.NotNull(sent);
+        new Arc4(key).Decrypt(ref sent!);
+        Assert.Equal(new byte[] { 0, 0, 0, 3, 0, 20, 5 }, sent);
+    }
+
+    [Fact]
+    public void PacketReadsDoNotMutateRewoundPayload()
+    {
+        using var stream = PlusMemoryStream.GetStream(new byte[] { 1, 2, 3, 4 });
+        var packet = new FlashIncomingPacket(stream);
+
+        Assert.Equal(0x01020304, packet.ReadInt());
+        packet.Stream.Position = 0;
+        Assert.Equal(0x01020304, packet.ReadInt());
+    }
+
+    [Fact]
+    public void CryptoActivatedByHandshakeDecryptsCoalescedRemainder()
+    {
+        var key = new byte[] { 1, 2, 3, 4 };
+        var server = new FakeServer();
+        var client = Client(server, 1u, 2u);
+        server.Receive = (messageId, _) =>
+        {
+            if (messageId == 1) client.ActivateLegacyCrypto(key);
+        };
+        var encrypted = new byte[] { 0, 0, 0, 2, 0, 2 };
+        new Arc4(key).Encrypt(ref encrypted);
+        var coalesced = new byte[] { 0, 0, 0, 2, 0, 1 }.Concat(encrypted).ToArray();
+
+        client.OnReceived(coalesced, 0, coalesced.Length);
+
+        Assert.Equal(new uint[] { 1, 2 }, server.MessageIds);
+    }
+
+    [Fact]
+    public void BroadcastInjectorsReceiveIsolatedRecipientPayloads()
+    {
+        var firstServer = new FakeServer { Modify = packet => packet.WriteByte(7) };
+        var secondServer = new FakeServer { Modify = packet => packet.WriteByte(8) };
+        var first = Client(firstServer);
+        var second = Client(secondServer);
+        first.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        second.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        byte[]? firstBytes = null;
+        byte[]? secondBytes = null;
+        first.SendCallback = args => { firstBytes = args.MemoryBuffer.ToArray(); return false; };
+        second.SendCallback = args => { secondBytes = args.MemoryBuffer.ToArray(); return false; };
+
+        GameClient.SendBroadcast(new TestComposer(), new[] { first, second });
+
+        Assert.Equal(new byte[] { 0, 0, 0, 4, 0, 20, 5, 7 }, firstBytes);
+        Assert.Equal(new byte[] { 0, 0, 0, 4, 0, 20, 5, 8 }, secondBytes);
+    }
+
+    [Fact]
+    public void IncomingFramesHaveIsolatedRecyclableStreams()
+    {
+        var server = new FakeServer();
+        var client = Client(server, 1u, 2u);
+        var payloads = new List<byte>();
+        server.Receive = (_, packet) =>
+        {
+            payloads.Add(packet.ReadByte());
+            packet.Stream.GetBuffer()[0] = 99;
+        };
+        var frames = new byte[] { 0, 0, 0, 3, 0, 1, 7, 0, 0, 0, 3, 0, 2, 8 };
+
+        client.OnReceived(frames, 0, frames.Length);
+
+        Assert.Equal(new byte[] { 7, 8 }, payloads);
+    }
+
+    [Fact]
+    public void RejectedOutgoingInjectionDoesNotTransmitPartialPacket()
+    {
+        var server = new FakeServer { Modify = packet => packet.WriteByte(7), RejectModification = true };
+        var client = Client(server);
+        client.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        var sends = 0;
+        client.SendCallback = _ => { sends++; return false; };
+
+        client.Send(new TestComposer());
+
+        Assert.Equal(0, sends);
+    }
+
     private static FlashGameClient Client(FakeServer server, params uint[] messageIds)
     {
         var client = new FlashGameClient(server, new FlashPacketFactory())
@@ -103,6 +304,9 @@ public class FlashFramingTests
         public Task? Hold { get; init; }
         public int Count => MessageIds.Count;
         public List<uint> MessageIds { get; } = new();
+        public Action<IOutgoingPacket>? Modify { get; init; }
+        public Action<uint, IIncomingPacket>? Receive { get; set; }
+        public bool RejectModification { get; init; }
 
         public bool Start() => true;
         public bool Stop() => true;
@@ -110,7 +314,22 @@ public class FlashFramingTests
         public Task PacketReceived(GameClient client, uint messageId, IIncomingPacket packet)
         {
             MessageIds.Add(messageId);
+            Receive?.Invoke(messageId, packet);
             return Hold ?? Task.CompletedTask;
         }
+
+        public bool ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet)
+        {
+            Modify?.Invoke(packet);
+            return !RejectModification;
+        }
+        public bool HasOutgoingPacketInjectors(uint messageId) => Modify != null;
+    }
+
+
+    private sealed class TestComposer : IServerPacket
+    {
+        public uint MessageId => 10;
+        public void Compose(IOutgoingPacket packet) => packet.WriteByte(5);
     }
 }

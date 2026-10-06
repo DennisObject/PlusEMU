@@ -17,9 +17,9 @@ internal class BotMovesToFurniBox : IWiredItem
     public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.EffectBotMovesToFurniBox;
     public ConcurrentDictionary<uint, Item> SetItems { get; set; }
-    public string StringData { get; set; }
+    public string StringData { get; set; } = string.Empty;
     public bool BoolData { get; set; }
-    public string ItemsData { get; set; }
+    public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
     {
@@ -53,7 +53,7 @@ internal class BotMovesToFurniBox : IWiredItem
             return false;
         if (!Instance.GetRoomItemHandler().GetFloor.Contains(item))
         {
-            SetItems.TryRemove(item.Id, out item);
+            SetItems.TryRemove(item.Id, out _);
             if (items.Contains(item))
                 items.Remove(item);
             if (SetItems.Count == 0 || items.Count == 0)

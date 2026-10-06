@@ -190,7 +190,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
     private static (FlashGameClient Client, List<(uint Id, FlashIncomingPacket Payload)> Packets) Client(Room room, int id, string name, RoomUserManager manager, int virtualId)
     {
         var packets = new List<(uint, FlashIncomingPacket)>();
-        var client = new FlashGameClient(null!, new FlashPacketFactory())
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
         {
             Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [ServerPacketHeader.WiredRoomSettingsDataComposer] = 5102,
                 [ServerPacketHeader.WiredEffectConfigComposer] = 1428, [ServerPacketHeader.WiredValidationErrorComposer] = 156,

@@ -10,18 +10,30 @@ public class UserDataFactory : IUserDataFactory
     private readonly BadgeManager _badgeManager;
     private readonly IDatabase _database;
     private readonly IEnumerable<IUserDataLoadingTask> _userDataLoadingTasks;
+    private readonly IUserPersistenceService _persistence;
+    private readonly IUserComponentLoader _components;
+    private readonly Clothing.IClothingStore _clothingStore;
 
-    public UserDataFactory(BadgeManager badgeManager, IDatabase database, IEnumerable<IUserDataLoadingTask> userDataLoadingTasks)
+    public UserDataFactory(BadgeManager badgeManager, IDatabase database, IEnumerable<IUserDataLoadingTask> userDataLoadingTasks, IUserPersistenceService persistence, IUserComponentLoader components, Clothing.IClothingStore clothingStore)
     {
         _badgeManager = badgeManager;
         _database = database;
         _userDataLoadingTasks = userDataLoadingTasks;
+        _persistence = persistence;
+        _components = components;
+        _clothingStore = clothingStore;
     }
 
     public async Task<Habbo?> Create(int userId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var habbo = await LoadHabboInfo(userId);
+        if (habbo == null) return null;
+        habbo.Persistence = _persistence;
+        habbo.SessionStartedAt = DateTimeOffset.UtcNow;
+        var components = _components.Load(userId);
+        habbo.Clothing = new(components.Clothing, habbo, _clothingStore);
+        habbo.Effects = new(components.Effects, habbo);
 
         foreach (var task in _userDataLoadingTasks)
         {
@@ -52,13 +64,15 @@ public class UserDataFactory : IUserDataFactory
 
     public async Task<Habbo?> GetUserDataByIdAsync(int userId) => await LoadHabboInfo(userId);
 
-    private async Task<Habbo> LoadHabboInfo(int userId)
+    private async Task<Habbo?> LoadHabboInfo(int userId)
     {
         using var connection = _database.Connection();
         var habbo = await connection.QuerySingleOrDefaultAsync<Habbo>(
-            "SELECT u.`id`, u.`username`, u.`motto`, u.`look`, u.`gender`, u.`last_online`, u.`credits`, u.`activity_points` as Duckets, u.`home_room`, u.`block_newfriends` = true as AllowFriendRequests, u.`hide_online` = true as AppearOffline, u.`hide_inroom` = true as AllowPublicRoomStatus, u.`vip`, u.`account_created`, u.`vip_points` as Diamonds, u.`chat_preference` = true as `chat_preference`, u.`focus_preference` = true as `focus_preference`, u.`pets_muted` = true as AllowPetSpeech, u.`bots_muted` = true as AllowBotSpeech, u.`advertising_report_blocked` = true as advertising_report_blocked, u.`last_change` as LastNameChange, u.`gotw_points`, u.`ignore_invites` = true as AllowMessengerInvites, u.`time_muted`, u.`allow_gifts` = true as `allow_gifts`, u.`friend_bar_state`, u.`disable_forced_effects` = true as `disable_forced_effects`, u.`allow_mimic` = true as `allow_mimic`, u.`bubble_id` as CustomBubbleId, s.`AchievementScore` as AchievementPoints, s.`groupid` as FavouriteGroupId " +
+            "SELECT u.`id`, u.`username`, u.`motto`, u.`look`, u.`gender`, u.`last_online` AS LastOnlineAt, u.`credits`, u.`activity_points` as Duckets, us.`home_room`, us.`block_newfriends` as AllowFriendRequests, us.`hide_online` as AppearOffline, us.`hide_inroom` as AllowPublicRoomStatus, u.`vip`, u.`account_created` AS AccountCreatedAt, u.`vip_points` as Diamonds, us.`chat_preference`, us.`focus_preference`, us.`pets_muted` as AllowPetSpeech, us.`bots_muted` as AllowBotSpeech, us.`advertising_report_blocked`, u.`last_change` as LastNameChangedAt, u.`gotw_points`, us.`ignore_invites` as AllowMessengerInvites, u.`time_muted`, us.`allow_gifts`, us.`friend_bar_state`, us.`disable_forced_effects`, us.`allow_mimic`, u.`bubble_id` as CustomBubbleId, s.`AchievementScore` as AchievementPoints, s.`groupid` as FavouriteGroupId, i.`trading_locked` AS TradingLockExpiresAt " +
             "FROM `users` u " +
+            "INNER JOIN `users_settings` us ON us.user_id = u.id " +
             "LEFT JOIN `user_statistics` s ON u.id = s.id " +
+            "LEFT JOIN `user_info` i ON u.id = i.user_id " +
             "WHERE u.`id` = @userId LIMIT 1",
             new { userId });
         return habbo;
