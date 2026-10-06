@@ -117,8 +117,8 @@ public partial class WiredComponent
     {
         if (frame.RoomId != _room.Id || !_targets.IsAttached(item)) return false;
         var context = frame.RuntimeContext;
-        var actor = context?.Event.Kind == WiredEventKind.Leave ? null : context?.Event.Actor;
-        if (actor != null && !ReferenceEquals(_room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId), actor)) return false;
+        // The write already happened and this completion took it: a user who left is not named, the change stays.
+        var actor = FurnitureStateEvents.Present(_room, context?.Event.Kind == WiredEventKind.Leave ? null : context?.Event.Actor);
         QueueRuntimeEvent(new(WiredEventKind.StateChanged) { EventItem = item, Actor = actor }, frame.Depth + 1);
         return true;
     });

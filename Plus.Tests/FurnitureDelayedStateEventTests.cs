@@ -6,6 +6,9 @@ using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Interactor;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
+using Plus.HabboHotel.Items.Wired.Variables;
+using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms.Instance;
 using Xunit;
 
@@ -305,6 +308,37 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(2, QueuedStateWrites());
         _room.GetWired().Cleanup();
         Assert.Equal(0, QueuedStateWrites());
+    }
+
+    [Fact]
+    public void QueuedBuiltinGateStateWriteIsReportedOnceAfterItsUserLeft()
+    {
+        _room.EnableV2Movement();
+        var gate = ClosableGate();
+        WatchState(gate);
+        WhisperOnChange(104, gate);
+        var actor = ExecutorActor(0, 2);
+        var module = new WiredVariableModule(_room.Id, new GateDirectory(_room.Id), new MemoryWiredVariableStore(),
+            new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)),
+            new RoomWiredBuiltinVariables(_room, stateChanged: _room.GetWired().PublishBuiltinStateChanged));
+        var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var context = new WiredRuntimeContext(_room, new(WiredEventKind.Use) { Actor = actor },
+            new(() => _room.GetRoomItemHandler().GetFloor, () => _room.GetRoomUserManager().GetUserList()), _room.GetWired());
+        var frame = new WiredVariableFrame(_room.Id, [holder]) { RuntimeContext = context, Depth = 1 };
+
+        // A close from another thread waits for the room's owner; the user leaves before it lands.
+        Assert.True(Task.Run(() => module.Mutate(StateReference, holder, WiredVariableMutation.Set, 0, frame, origin: 2)).GetAwaiter().GetResult());
+        Assert.Equal("1", gate.LegacyDataString);
+        _room.GetRoomUserManager().RemoveUserFromRoom(_client, false, false);
+        _client.Sent.Clear();
+        using (RoomOwnerScope.Enter(_room)) Gates.Drain();
+        Cycle();
+
+        Assert.Equal("0", gate.LegacyDataString);
+        Assert.Equal((0, 1), StateLines());
+        Assert.Equal(0, Whispers());
+        Cycle();
+        Assert.Equal((0, 1), StateLines());
     }
 
     private Item PlacedFurni(uint id, InteractionType kind, int modes)
