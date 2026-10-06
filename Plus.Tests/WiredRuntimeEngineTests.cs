@@ -325,6 +325,31 @@ public class WiredRuntimeEngineTests
     }
 
     [Fact]
+    public void SignalReceiverTriggersFromAntennaAndKeepsForwardedFurniInSignalSource()
+    {
+        var f = new Fixture();
+        var item = f.Furni();
+        var antenna = f.Furni("antenna", x: 2);
+        var user = f.User(1);
+        f.Trigger();
+        f.Trigger(WiredEventKind.Signal, x: 2);
+        var receiver = f.Action(ctx =>
+        {
+            Assert.Equal(new[] { antenna }, ctx.Targets.ResolveFurni(ctx, [], WiredSources.Trigger));
+            Assert.Equal(new[] { item }, ctx.Targets.ResolveFurni(ctx, [], WiredSources.Signal));
+            Assert.Equal(new[] { user }, ctx.Targets.ResolveUsers(ctx, [], WiredSources.Trigger));
+            Assert.Equal(new[] { user }, ctx.Targets.ResolveUsers(ctx, [], WiredSources.Signal));
+
+            return true;
+        }, x: 2);
+        f.Action(ctx => ctx.Operations.SendSignal(ctx, [antenna], new([item.Id], [user.VirtualId])));
+        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter));
+        f.Engine.OnFastCycle();
+        Assert.Equal(1, receiver.Calls);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
     public void DispatchCapturesRoomIdentityOnceForMultipleTriggers()
     {
         var f = new Fixture();

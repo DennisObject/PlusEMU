@@ -248,8 +248,9 @@ internal sealed partial class WiredStackEngine
 
             var child = parent.Fork(new(WiredEventKind.Signal) { Actor = parent.Event.Kind == WiredEventKind.Leave ? null : parent.Event.Actor, EventItem = receiver, Code = unchecked((int)receiver.Id) }, parent.Depth + 1);
             child.Signal = new(selection, parent.Values);
-            child.Triggering = selection.Copy();
-            child.Selected = selection.Copy();
+            // The antenna is the triggering furni; forwarded furni are reachable only through the signal source.
+            child.Triggering = new([receiver.Id], selection.UserIds);
+            child.Selected = child.Triggering.Copy();
             var dispatch = new PendingDispatch(child.Event, child.Depth, new(receiver, receiver.MovementGeneration, child, negative));
             SnapshotDispatch(dispatch);
 
