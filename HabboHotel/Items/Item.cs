@@ -81,7 +81,7 @@ public class Item
         {
             if (!Volatile.Read(ref _navigationSynchronized))
             {
-                if (_extraData is LegacyDataFormat data) { var before = data.Data; var changed = before != value; data.Data = value; if (changed) { MarkInteractionStateChanged(); NoteStateWrite(before, value); } }
+                if (_extraData is LegacyDataFormat data) { var before = data.Data; var changed = before != value; data.Data = value; if (changed) { MarkInteractionStateChanged(); NoteStateWrite(); } }
                 return;
             }
             SetNavigationState(value);
@@ -100,7 +100,7 @@ public class Item
                 var before = data.Data;
                 var different = before != value;
                 data.StoreWithoutNotification(value);
-                if (different) { MarkInteractionStateChanged(); NoteStateWrite(before, value); }
+                if (different) { MarkInteractionStateChanged(); NoteStateWrite(); }
                 changed = data;
             }
             if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
@@ -117,7 +117,7 @@ public class Item
             var before = plain.Data;
             var different = before != value;
             plain.StoreWithoutNotification(value);
-            if (different) { MarkInteractionStateChanged(); NoteStateWrite(before, value); }
+            if (different) { MarkInteractionStateChanged(); NoteStateWrite(); }
             return plain;
         }
         LegacyDataFormat? changed = null;
@@ -128,7 +128,7 @@ public class Item
                 var before = data.Data;
                 var different = before != value;
                 data.StoreWithoutNotification(value);
-                if (different) { MarkInteractionStateChanged(); NoteStateWrite(before, value); }
+                if (different) { MarkInteractionStateChanged(); NoteStateWrite(); }
                 changed = data;
             }
             if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
@@ -145,16 +145,16 @@ public class Item
         MarkInteractionStateChanged();
         // Only a legacy state replaced by another legacy state is a state change; format swaps are not.
         if (previous is LegacyDataFormat before && value is LegacyDataFormat after
-            && !string.Equals(before.Data, after.Data, StringComparison.Ordinal)) NoteStateWrite(before.Data, after.Data);
+            && !string.Equals(before.Data, after.Data, StringComparison.Ordinal)) NoteStateWrite();
     }
 
     // Store first, then bump: a click that captured the old generation can only be invalidated, never wrongly kept.
     private void MarkInteractionStateChanged() => Interlocked.Increment(ref _stateGeneration);
 
     // Every actual legacy state write, for Wired to report once. Callers may hold NavSync: this only enqueues.
-    private void NoteStateWrite(string before, string after)
+    private void NoteStateWrite()
     {
-        if (_room is { } room) FurnitureStateEvents.Record(room, this, before, after);
+        if (_room is { } room) FurnitureStateEvents.Record(room, this);
     }
 
     /// TODO @80O: Cleanup shit below

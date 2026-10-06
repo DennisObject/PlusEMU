@@ -5,15 +5,13 @@ using Plus.HabboHotel.Rooms;
 namespace Plus.HabboHotel.Items;
 
 /// <summary>One actual write of a room furni's legacy state during one placement. It is reported once.</summary>
-internal sealed class FurnitureStateTransition(Item item, long placement, long sequence, string before, string after)
+internal sealed class FurnitureStateTransition(Item item, long placement, long sequence)
 {
     private int _taken;
     public Item Item { get; } = item;
     public long Placement { get; } = placement;
     // The writing thread's write counter; 0 for writes a request captured.
     public long Sequence { get; } = sequence;
-    public string Before { get; } = before;
-    public string After { get; } = after;
     public bool TryTake() => Interlocked.Exchange(ref _taken, 1) == 0;
 }
 
@@ -37,7 +35,7 @@ internal static class FurnitureStateEvents
         session?.GetHabbo() is { } habbo ? room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id) : null;
 
     // Called by the item for each actual write, possibly under its NavSync: reads and enqueues only.
-    public static void Record(Room room, Item item, string before, string after)
+    public static void Record(Room room, Item item)
     {
         if (item.IsWired) return;
         for (var placing = _placing; placing != null; placing = placing.Previous)
@@ -45,8 +43,8 @@ internal static class FurnitureStateEvents
         // Writes before admission or after removal are not this room's state changes.
         if (!ReferenceEquals(room.GetRoomItemHandler()?.GetItem(item.Id), item)) return;
         for (var capture = _capture; capture != null; capture = capture.Previous)
-            if (ReferenceEquals(capture.Room, room)) { capture.Add(new(item, item.Placement, 0, before, after)); return; }
-        var transition = new FurnitureStateTransition(item, item.Placement, ++_sequence, before, after);
+            if (ReferenceEquals(capture.Room, room)) { capture.Add(new(item, item.Placement, 0)); return; }
+        var transition = new FurnitureStateTransition(item, item.Placement, ++_sequence);
         var recent = _recent ??= new FurnitureStateTransition?[RecentWrites];
         recent[_recentNext] = transition;
         _recentNext = (_recentNext + 1) % RecentWrites;
