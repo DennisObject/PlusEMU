@@ -41,17 +41,17 @@ WHERE `action_type` = 'place_builders_club_furni' OR `id` = 'place_builders_club
 DELETE `progress`
 FROM `users_reward_track_tasks` AS `progress`
 INNER JOIN `removed_builders_club_tasks` AS `task`
-    ON `task`.`track_id` = `progress`.`track_id` AND `task`.`id` = `progress`.`task_id`;
+    ON BINARY `task`.`track_id` = BINARY `progress`.`track_id` AND BINARY `task`.`id` = BINARY `progress`.`task_id`;
 
 DELETE `level`
 FROM `reward_track_task_levels` AS `level`
 INNER JOIN `removed_builders_club_tasks` AS `task`
-    ON `task`.`track_id` = `level`.`track_id` AND `task`.`id` = `level`.`task_id`;
+    ON BINARY `task`.`track_id` = BINARY `level`.`track_id` AND BINARY `task`.`id` = BINARY `level`.`task_id`;
 
 DELETE `task`
 FROM `reward_track_tasks` AS `task`
 INNER JOIN `removed_builders_club_tasks` AS `removed`
-    ON `removed`.`track_id` = `task`.`track_id` AND `removed`.`id` = `task`.`id`;
+    ON BINARY `removed`.`track_id` = BINARY `task`.`track_id` AND BINARY `removed`.`id` = BINARY `task`.`id`;
 
 DROP TEMPORARY TABLE `removed_builders_club_tasks`;
 
