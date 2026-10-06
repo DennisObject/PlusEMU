@@ -12,7 +12,7 @@ public sealed class BuildersClubRemovalDatabaseTests
         using var connection = new MySqlConnection(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE"));
         connection.Open();
         var schema = "builders_club_removal_" + Guid.NewGuid().ToString("N");
-        connection.Execute($"CREATE DATABASE `{schema}`");
+        connection.Execute($"CREATE DATABASE `{schema}` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
         try
         {
             connection.Execute($"USE `{schema}`");
@@ -25,13 +25,13 @@ public sealed class BuildersClubRemovalDatabaseTests
                 CREATE TABLE items (id INT PRIMARY KEY, user_id INT NOT NULL, base_item INT NOT NULL);
                 CREATE TABLE reward_track_tasks (
                     track_id VARCHAR(64) NOT NULL, id VARCHAR(64) NOT NULL, action_type VARCHAR(64) NOT NULL,
-                    PRIMARY KEY (track_id, id));
+                    PRIMARY KEY (track_id, id)) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
                 CREATE TABLE reward_track_task_levels (
                     track_id VARCHAR(64) NOT NULL, task_id VARCHAR(64) NOT NULL, level INT NOT NULL,
                     PRIMARY KEY (track_id, task_id, level));
                 CREATE TABLE users_reward_track_tasks (
                     user_id INT NOT NULL, track_id VARCHAR(64) NOT NULL, task_id VARCHAR(64) NOT NULL,
-                    PRIMARY KEY (user_id, track_id, task_id));
+                    PRIMARY KEY (user_id, track_id, task_id)) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
                 CREATE TABLE catalog_admin_log (
                     id INT PRIMARY KEY, catalog_type ENUM('NORMAL','BUILDER') NOT NULL);
 
