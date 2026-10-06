@@ -299,6 +299,65 @@ public sealed class UserPreferencePersistenceTests
         }
     }
 
+    [RoomComponentDatabaseFact]
+    public void FinalSaveAccumulatesOnlineTimePastTheOldIntegerLimit()
+    {
+        var root = Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!;
+        var schema = "task_logout_duration_" + Guid.NewGuid().ToString("N");
+        using var server = new MySqlConnection(root);
+        server.Execute($"CREATE DATABASE `{schema}`");
+        try
+        {
+            var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root) { Database = schema }.ConnectionString);
+            using var connection = database.Connection();
+            var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+            foreach (var table in new[] { "users", "users_settings", "user_stats" })
+            {
+                var definition = System.Text.RegularExpressions.Regex.Match(pristine,
+                    $@"CREATE TABLE `{table}` \([\s\S]*?\) ENGINE=[^;]+;").Value;
+                Assert.NotEmpty(definition);
+                connection.Execute(definition);
+            }
+            connection.Execute("ALTER TABLE users ADD bubble_id TINYINT NOT NULL DEFAULT 0; " +
+                "ALTER TABLE user_stats RENAME TO user_statistics; " +
+                "ALTER TABLE user_statistics MODIFY OnlineTime INT NOT NULL DEFAULT 0; " +
+                "INSERT INTO users(id,username,auth_ticket,credits) VALUES(7,'DurationUser','ticket',11); " +
+                "INSERT INTO users_settings(user_id) VALUES(7); " +
+                "INSERT INTO user_statistics(id,OnlineTime) VALUES(7,2147483647)");
+            var now = new DateTimeOffset(2042, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var user = new Habbo { Id = 7, Credits = 25, SessionStartedAt = now.AddSeconds(-12),
+                HabboStats = new(0, int.MaxValue, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
+            var clock = new SaveClock(now);
+            var persistence = new UserPersistenceService(database, clock);
+
+            Assert.Throws<MySqlException>(() => persistence.Save(user));
+            Assert.Equal(11, connection.ExecuteScalar<int>("SELECT credits FROM users WHERE id=7"));
+            var migration = File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/44_WidenOnlineTime.sql"));
+            connection.Execute(migration);
+            connection.Execute(migration);
+            Assert.Equal((long)int.MaxValue, connection.ExecuteScalar<long>("SELECT OnlineTime FROM user_statistics WHERE id=7"));
+            var reads = clock.Reads;
+            persistence.Save(user);
+
+            Assert.Equal(reads + 1, clock.Reads);
+            Assert.Equal((long)int.MaxValue + 12, connection.ExecuteScalar<long>("SELECT OnlineTime FROM user_statistics WHERE id=7"));
+            Assert.Equal(25, connection.ExecuteScalar<int>("SELECT credits FROM users WHERE id=7"));
+            Assert.Equal(now.UtcDateTime, connection.ExecuteScalar<DateTime>("SELECT last_online FROM users WHERE id=7"));
+            Assert.Equal("bigint", connection.ExecuteScalar<string>(
+                "SELECT DATA_TYPE FROM information_schema.columns WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_statistics' AND COLUMN_NAME='OnlineTime'"));
+        }
+        finally
+        {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
+    }
+
+    private sealed class SaveClock(DateTimeOffset now) : TimeProvider
+    {
+        public int Reads { get; private set; }
+        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+    }
+
     [Theory]
     [InlineData("0,50,100", 0, 50, 100)]
     [InlineData("-1,200,garbage", 100, 100, 100)]

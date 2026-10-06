@@ -24693,7 +24693,7 @@ DROP TABLE IF EXISTS `user_stats`;
 CREATE TABLE `user_stats` (
   `id` int(7) NOT NULL,
   `RoomVisits` int(7) NOT NULL DEFAULT '0',
-  `OnlineTime` int(7) NOT NULL DEFAULT '0',
+  `OnlineTime` bigint NOT NULL DEFAULT '0',
   `Respect` int(6) NOT NULL DEFAULT '0',
   `RespectGiven` int(6) NOT NULL DEFAULT '0',
   `GiftsGiven` int(6) NOT NULL DEFAULT '0',

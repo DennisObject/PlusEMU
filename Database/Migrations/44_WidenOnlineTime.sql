@@ -1,0 +1,1 @@
+ALTER TABLE `user_statistics` MODIFY COLUMN `OnlineTime` BIGINT NOT NULL DEFAULT 0;

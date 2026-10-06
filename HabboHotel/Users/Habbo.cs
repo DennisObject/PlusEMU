@@ -262,10 +262,16 @@ public class Habbo
         }
         finally
         {
-            PlusEnvironment.Game.ClientManager.UnregisterClient(Client, Id, Username);
+            try
+            {
+                PlusEnvironment.Game.ClientManager.UnregisterClient(Client, Id, Username);
+                Dispose();
+            }
+            finally
+            {
+                Client = null;
+            }
         }
-        Dispose();
-        Client = null;
     }
 
     public void Dispose()
