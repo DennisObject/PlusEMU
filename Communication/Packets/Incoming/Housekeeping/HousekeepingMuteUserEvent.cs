@@ -22,6 +22,7 @@ internal class HousekeepingMuteUserEvent : IPacketEvent
         var reason = packet.ReadString();
         var minutes = packet.ReadInt();
         _runner.Run(session, "user.mute", HousekeepingRights.Sanction, actor => _users.Mute(actor, userId, reason, minutes));
+
         return Task.CompletedTask;
     }
 }

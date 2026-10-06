@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Permissions;
 using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
@@ -16,11 +16,12 @@ internal class FlagMeCommand(TimeProvider clock) : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (!NameChangePolicy.CanChange(session.GetHabbo(), clock.GetUtcNow()))
-        {
+        if (!NameChangePolicy.CanChange(session.GetHabbo(), clock.GetUtcNow())) {
             session.SendWhisper("Sorry, it seems you currently do not have the option to change your username!");
+
             return;
         }
+
         session.GetHabbo().ChangingName = true;
         session.SendNotification("Please be aware that if your username is deemed as inappropriate, you will be banned without question.\r\rAlso note that Staff will NOT change your username again should you have an issue with what you have chosen.\r\rClose this window and click yourself to begin choosing a new username!");
         session.Send(new UserObjectComposer(UserObjectSnapshot.Capture(session.GetHabbo())));

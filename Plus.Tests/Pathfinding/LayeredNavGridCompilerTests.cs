@@ -39,9 +39,13 @@ public class LayeredNavGridCompilerTests
         compiler.ApplyNow();
         Assert.True(grid.Layered);
         Assert.Equal([(0d, NavFlags.Transit, 0u, SurfaceKind.Floor), (2.5, NavFlags.Transit, 10u, SurfaceKind.Top)], Surfaces(grid, 1));
-        Assert.Equal(1, grid.SurfaceAt(1, 0)); Assert.Equal(3, grid.SurfaceAt(1, 1));
-        Assert.Equal(1, grid.TileOf(3)); Assert.Equal(1, grid.Ordinal[3]); Assert.Equal(0, grid.Ordinal[1]);
-        Assert.Equal(4, grid.SlotCapacity); Assert.Equal(4, grid.ActiveNodeCount);
+        Assert.Equal(1, grid.SurfaceAt(1, 0));
+        Assert.Equal(3, grid.SurfaceAt(1, 1));
+        Assert.Equal(1, grid.TileOf(3));
+        Assert.Equal(1, grid.Ordinal[3]);
+        Assert.Equal(0, grid.Ordinal[1]);
+        Assert.Equal(4, grid.SlotCapacity);
+        Assert.Equal(4, grid.ActiveNodeCount);
         Assert.Equal(new SurfaceRef(1, 10, SurfaceKind.Top), grid.Reference(3));
         Assert.Equal(3, grid.SlotOf(new SurfaceRef(1, 10, SurfaceKind.Top)));
         Assert.Equal(1, grid.SlotOf(new SurfaceRef(1, 0, SurfaceKind.Floor)));
@@ -52,14 +56,18 @@ public class LayeredNavGridCompilerTests
     [Fact]
     public void SeatUnderARaisedBlockerKeepsTheSeatOnlyInLayeringMode()
     {
-        foreach (var layered in new[] { true, false })
-        {
+        foreach (var layered in new[] { true, false }) {
             var (grid, inputs, compiler) = layered ? Layered() : NavTest.Create(3, 1);
             inputs.Publish(NavTest.Record(10, 1, [1], h: 1, walkable: false, seat: true));
             inputs.Publish(NavTest.Record(11, 2, [1], z: 2, h: 1, walkable: false));
             compiler.ApplyNow();
-            if (layered) Assert.Equal([(0d, NavFlags.GoalOnlySeat, 10u, SurfaceKind.SeatBase)], Surfaces(grid, 1));
-            else Assert.False(grid.Active(1));
+
+            if (layered) {
+                Assert.Equal([(0d, NavFlags.GoalOnlySeat, 10u, SurfaceKind.SeatBase)], Surfaces(grid, 1));
+            }
+            else {
+                Assert.False(grid.Active(1));
+            }
         }
     }
 
@@ -78,18 +86,21 @@ public class LayeredNavGridCompilerTests
     public void CoincidentFloorAndRugsCoalesceIntoOneSurfaceWithBothContacts()
     {
         var (grid, inputs, compiler) = Layered();
-        inputs.Publish(NavTest.Record(10, 1, [1])); inputs.Publish(NavTest.Record(11, 2, [1]));
+        inputs.Publish(NavTest.Record(10, 1, [1]));
+        inputs.Publish(NavTest.Record(11, 2, [1]));
         compiler.ApplyNow();
         Assert.Equal([(0d, NavFlags.Transit, 11u, SurfaceKind.Top)], Surfaces(grid, 1));
         Assert.Equal(new uint[] { 10, 11 }, Contacts(grid, 1, 0));
-        Assert.Equal(3, grid.ActiveNodeCount); Assert.Equal(3, grid.SlotCapacity);
+        Assert.Equal(3, grid.ActiveNodeCount);
+        Assert.Equal(3, grid.SlotCapacity);
     }
 
     [Fact]
     public void SupportsAtDistinctHeightsAreNotMergedAndTheExactClimbStaysLegal()
     {
         var (grid, inputs, compiler) = Layered(k: 3);
-        inputs.Publish(NavTest.Record(10, 1, [1], z: 1.5)); inputs.Publish(NavTest.Record(11, 2, [1], z: 1.5004));
+        inputs.Publish(NavTest.Record(10, 1, [1], z: 1.5));
+        inputs.Publish(NavTest.Record(11, 2, [1], z: 1.5004));
         compiler.ApplyNow();
         Assert.Equal([(0d, NavFlags.Transit, 0u, SurfaceKind.Floor), (1.5, NavFlags.Transit, 10u, SurfaceKind.Top),
             (1.5004, NavFlags.Transit, 11u, SurfaceKind.Top)], Surfaces(grid, 1));
@@ -103,9 +114,12 @@ public class LayeredNavGridCompilerTests
     public void CoalescedAccessRolesFollowPrecedenceAndHigherItemIds()
     {
         var (grid, inputs, compiler) = Layered();
-        inputs.Publish(NavTest.Record(11, 1, [0])); inputs.Publish(NavTest.Record(10, 2, [0], walkable: false, seat: true));
-        inputs.Publish(NavTest.Record(13, 3, [1])); inputs.Publish(NavTest.Record(12, 4, [1], walkable: false, interaction: InteractionType.GuildGate, group: 9));
-        inputs.Publish(NavTest.Record(14, 5, [2])); inputs.Publish(NavTest.Record(15, 6, [2]));
+        inputs.Publish(NavTest.Record(11, 1, [0]));
+        inputs.Publish(NavTest.Record(10, 2, [0], walkable: false, seat: true));
+        inputs.Publish(NavTest.Record(13, 3, [1]));
+        inputs.Publish(NavTest.Record(12, 4, [1], walkable: false, interaction: InteractionType.GuildGate, group: 9));
+        inputs.Publish(NavTest.Record(14, 5, [2]));
+        inputs.Publish(NavTest.Record(15, 6, [2]));
         compiler.ApplyNow();
         Assert.Equal([(0d, NavFlags.GoalOnlySeat, 10u, SurfaceKind.SeatBase)], Surfaces(grid, 0));
         Assert.Equal([(0d, NavFlags.Transit | NavFlags.GuildGate, 12u, SurfaceKind.GateBase)], Surfaces(grid, 1));
@@ -124,17 +138,22 @@ public class LayeredNavGridCompilerTests
         ];
         string? expected = null;
         var random = new Random(6);
-        for (var run = 0; run < 24; run++)
-        {
+
+        for (var run = 0; run < 24; run++) {
             var (grid, inputs, compiler) = Layered(k: 4);
             var version = 1;
-            foreach (var record in records.OrderBy(_ => random.Next())) inputs.Publish(record with { Version = version++ });
+
+            foreach (var record in records.OrderBy(_ => random.Next())) {
+                inputs.Publish(record with { Version = version++ });
+            }
+
             compiler.ApplyNow();
             var compiled = string.Join("|", Enumerable.Range(0, grid.SurfaceCount(1)).Select(o =>
                 $"{Surfaces(grid, 1)[o]}:{string.Join(",", Contacts(grid, 1, o))}"));
             expected ??= compiled;
             Assert.Equal(expected, compiled);
         }
+
         Assert.Equal("(0, Transit, 10, Top):10|(2.5, GoalOnlySeat, 13, SeatBase):11,12,13,14", expected);
     }
 
@@ -142,8 +161,10 @@ public class LayeredNavGridCompilerTests
     public void CoalescingRunsBeforeTheCapAndTheCapKeepsTheHighest()
     {
         var (grid, inputs, compiler) = Layered(k: 2);
-        inputs.Publish(NavTest.Record(10, 1, [1])); inputs.Publish(NavTest.Record(11, 2, [1], z: 2));
-        inputs.Publish(NavTest.Record(12, 3, [2], z: 2)); inputs.Publish(NavTest.Record(13, 4, [2], z: 4));
+        inputs.Publish(NavTest.Record(10, 1, [1]));
+        inputs.Publish(NavTest.Record(11, 2, [1], z: 2));
+        inputs.Publish(NavTest.Record(12, 3, [2], z: 2));
+        inputs.Publish(NavTest.Record(13, 4, [2], z: 4));
         compiler.ApplyNow();
         Assert.Equal([(0d, NavFlags.Transit, 10u, SurfaceKind.Top), (2d, NavFlags.Transit, 11u, SurfaceKind.Top)], Surfaces(grid, 1));
         Assert.Equal([(2d, NavFlags.Transit, 12u, SurfaceKind.Top), (4d, NavFlags.Transit, 13u, SurfaceKind.Top)], Surfaces(grid, 2));
@@ -152,14 +173,19 @@ public class LayeredNavGridCompilerTests
     [Fact]
     public void OverflowCapKeepsPinnedSurfacesBeforeTheHighest()
     {
-        foreach (var pinFloor in new[] { true, false })
-        {
+        foreach (var pinFloor in new[] { true, false }) {
             var (grid, inputs, compiler) = Layered(k: 2);
-            inputs.Publish(NavTest.Record(10, 1, [1], z: 2)); compiler.ApplyNow();
+            inputs.Publish(NavTest.Record(10, 1, [1], z: 2));
+            compiler.ApplyNow();
             compiler.SurfacePinned = surface => pinFloor && surface == new SurfaceRef(1, 0, SurfaceKind.Floor);
-            inputs.Publish(NavTest.Record(11, 2, [1], z: 4)); compiler.ApplyNow();
+            inputs.Publish(NavTest.Record(11, 2, [1], z: 4));
+            compiler.ApplyNow();
             Assert.Equal(pinFloor ? [0d, 4d] : [2d, 4d], Surfaces(grid, 1).Select(s => s.Z));
-            if (pinFloor) Assert.Equal(1, grid.SlotOf(new SurfaceRef(1, 0, SurfaceKind.Floor)));
+
+            if (pinFloor) {
+                Assert.Equal(1, grid.SlotOf(new SurfaceRef(1, 0, SurfaceKind.Floor)));
+            }
+
             Assert.Empty(grid.ForcedOffGraph);
         }
     }
@@ -169,7 +195,11 @@ public class LayeredNavGridCompilerTests
     {
         var (grid, inputs, compiler) = Layered(k: 2);
         compiler.SurfacePinned = _ => true;
-        for (uint id = 10; id < 14; id++) inputs.Publish(NavTest.Record(id, id, [1], z: (id - 9) * 2));
+
+        for (uint id = 10; id < 14; id++) {
+            inputs.Publish(NavTest.Record(id, id, [1], z: (id - 9) * 2));
+        }
+
         compiler.ApplyNow();
         Assert.Equal([2d, 4d, 6d, 8d], Surfaces(grid, 1).Select(s => s.Z));
         Assert.Equal(new[] { new SurfaceRef(1, 0, SurfaceKind.Floor) }, grid.ForcedOffGraph);
@@ -179,18 +209,31 @@ public class LayeredNavGridCompilerTests
     public void OverflowSlotsAreStableReuseFreedHolesAndNeverCompact()
     {
         var (grid, inputs, compiler) = Layered(w: 4);
-        for (uint id = 10; id < 13; id++) inputs.Publish(NavTest.Record(id, id, [(int)id - 10], z: 2));
+
+        for (uint id = 10; id < 13; id++) {
+            inputs.Publish(NavTest.Record(id, id, [(int)id - 10], z: 2));
+        }
+
         compiler.ApplyNow();
         Assert.Equal([4, 5, 6], new[] { 0, 1, 2 }.Select(t => grid.SurfaceAt(t, 1)));
-        Assert.Equal(7, grid.SlotCapacity); Assert.Equal(7, grid.ActiveNodeCount);
-        inputs.Publish(NavTest.Record(11, 20, [1], z: 2, removed: true)); compiler.ApplyNow();
-        Assert.Equal(1, grid.SurfaceCount(1)); Assert.False(grid.Active(5));
-        Assert.Equal(7, grid.SlotCapacity); Assert.Equal(6, grid.ActiveNodeCount);
+        Assert.Equal(7, grid.SlotCapacity);
+        Assert.Equal(7, grid.ActiveNodeCount);
+        inputs.Publish(NavTest.Record(11, 20, [1], z: 2, removed: true));
+        compiler.ApplyNow();
+        Assert.Equal(1, grid.SurfaceCount(1));
+        Assert.False(grid.Active(5));
+        Assert.Equal(7, grid.SlotCapacity);
+        Assert.Equal(6, grid.ActiveNodeCount);
         Assert.Equal((4, 6), (grid.SurfaceAt(0, 1), grid.SurfaceAt(2, 1)));
-        inputs.Publish(NavTest.Record(13, 21, [3], z: 2)); compiler.ApplyNow();
-        Assert.Equal(5, grid.SurfaceAt(3, 1)); Assert.Equal(3, grid.TileOf(5)); Assert.Equal(7, grid.SlotCapacity);
-        inputs.Publish(NavTest.Record(10, 22, [0], z: 3)); compiler.ApplyNow();
-        Assert.Equal(4, grid.SlotOf(new SurfaceRef(0, 10, SurfaceKind.Top))); Assert.Equal(3, grid.WalkZ[4]);
+        inputs.Publish(NavTest.Record(13, 21, [3], z: 2));
+        compiler.ApplyNow();
+        Assert.Equal(5, grid.SurfaceAt(3, 1));
+        Assert.Equal(3, grid.TileOf(5));
+        Assert.Equal(7, grid.SlotCapacity);
+        inputs.Publish(NavTest.Record(10, 22, [0], z: 3));
+        compiler.ApplyNow();
+        Assert.Equal(4, grid.SlotOf(new SurfaceRef(0, 10, SurfaceKind.Top)));
+        Assert.Equal(3, grid.WalkZ[4]);
         Assert.Equal(7, grid.ActiveNodeCount);
     }
 
@@ -198,12 +241,18 @@ public class LayeredNavGridCompilerTests
     public void RebuildNeverRemapsSlotsOutsideTheDirtySet()
     {
         var (grid, inputs, compiler) = Layered(w: 4, k: 4);
-        for (uint id = 10; id < 14; id++) inputs.Publish(NavTest.Record(id, id, [(int)id - 10], z: 2));
-        inputs.Publish(NavTest.Record(20, 20, [0], z: 4)); inputs.Publish(NavTest.Record(21, 21, [3], z: 4));
+
+        for (uint id = 10; id < 14; id++) {
+            inputs.Publish(NavTest.Record(id, id, [(int)id - 10], z: 2));
+        }
+
+        inputs.Publish(NavTest.Record(20, 20, [0], z: 4));
+        inputs.Publish(NavTest.Record(21, 21, [3], z: 4));
         compiler.ApplyNow();
         var before = Snapshot(grid, 0, 2, 3);
         inputs.Publish(NavTest.Record(11, 30, [1], z: 2, removed: true));
-        inputs.Publish(NavTest.Record(22, 31, [1], z: 4)); inputs.Publish(NavTest.Record(23, 32, [1], z: 6));
+        inputs.Publish(NavTest.Record(22, 31, [1], z: 4));
+        inputs.Publish(NavTest.Record(23, 32, [1], z: 6));
         compiler.ApplyNow();
         Assert.Equal(before, Snapshot(grid, 0, 2, 3));
         Assert.Equal([0d, 4d, 6d], Surfaces(grid, 1).Select(s => s.Z));
@@ -217,9 +266,13 @@ public class LayeredNavGridCompilerTests
         compiler.ApplyNow();
         Assert.Equal([(0.5, NavFlags.Transit | NavFlags.GuildGate, 10u, SurfaceKind.GateBase)], Surfaces(grid, 1));
         var rules = new MovementRules(grid, new());
-        var member = new ActorProfile(); member.SetMembership(9, true);
-        foreach (var slot in Enumerable.Range(0, grid.SurfaceCount(1)).Select(o => grid.SurfaceAt(1, o)))
+        var member = new ActorProfile();
+        member.SetMembership(9, true);
+
+        foreach (var slot in Enumerable.Range(0, grid.SurfaceCount(1)).Select(o => grid.SurfaceAt(1, o))) {
             Assert.Equal(StepReason.GateDenied, rules.CanStep(new(), grid.Position(0), grid.Position(slot), StepPurpose.Goal, OccupancyView.Execution).Reason);
+        }
+
         Assert.True(rules.CanStep(member, grid.Position(0), grid.Position(grid.SurfaceAt(1, 0)), StepPurpose.Goal, OccupancyView.Execution).Ok);
     }
 
@@ -250,7 +303,8 @@ public class LayeredNavGridCompilerTests
         inputs.Publish(NavTest.Record(10, 1, [1], z: 2, h: 0.5));
         compiler.ApplyNow();
         Assert.False(grid.Layered);
-        Assert.Equal(1, grid.SurfaceCount(1)); Assert.Equal(1, grid.SurfaceAt(1, 0));
+        Assert.Equal(1, grid.SurfaceCount(1));
+        Assert.Equal(1, grid.SurfaceAt(1, 0));
         Assert.Equal((2.5, NavFlags.Transit), (grid.WalkZ[1], grid.Flags[1]));
         Assert.Equal(3, grid.SlotCapacity);
     }
@@ -286,7 +340,8 @@ public class LayeredNavGridCompilerTests
         inputs.Publish(NavTest.Record(11, 2, [1], z: 2));
         compiler.ApplyNow();
         Assert.Equal([(0d, NavFlags.GoalOnlySeat, 10u, SurfaceKind.SeatBase), (2d, NavFlags.Transit, 11u, SurfaceKind.Top)], Surfaces(grid, 1));
-        Assert.Equal(new uint[] { 10 }, Contacts(grid, 1, 0)); Assert.Equal(new uint[] { 11 }, Contacts(grid, 1, 1));
+        Assert.Equal(new uint[] { 10 }, Contacts(grid, 1, 0));
+        Assert.Equal(new uint[] { 11 }, Contacts(grid, 1, 1));
         Assert.Equal(grid.SurfaceAt(1, 0), grid.OwnerOf(1, 10));
     }
 
@@ -294,17 +349,20 @@ public class LayeredNavGridCompilerTests
     public void RugAtBridgeHeightBelongsToTheBridge()
     {
         var (grid, inputs, compiler) = Layered();
-        inputs.Publish(NavTest.Record(11, 1, [1], z: 1.5, h: 0.5)); inputs.Publish(NavTest.Record(12, 2, [1], z: 2));
+        inputs.Publish(NavTest.Record(11, 1, [1], z: 1.5, h: 0.5));
+        inputs.Publish(NavTest.Record(12, 2, [1], z: 2));
         compiler.ApplyNow();
         Assert.Equal([(0d, NavFlags.Transit, 0u, SurfaceKind.Floor), (2d, NavFlags.Transit, 12u, SurfaceKind.Top)], Surfaces(grid, 1));
-        Assert.Empty(Contacts(grid, 1, 0)); Assert.Equal(new uint[] { 11, 12 }, Contacts(grid, 1, 1));
+        Assert.Empty(Contacts(grid, 1, 0));
+        Assert.Equal(new uint[] { 11, 12 }, Contacts(grid, 1, 1));
     }
 
     [Fact]
     public void ItemsWithoutTheirOwnSurfaceAreOwnedByTheSurfaceTheyRestOn()
     {
         var (grid, inputs, compiler) = Layered();
-        inputs.Publish(NavTest.Record(11, 1, [1], z: 2)); inputs.Publish(NavTest.Record(12, 2, [1], z: 4, h: 1, walkable: false));
+        inputs.Publish(NavTest.Record(11, 1, [1], z: 2));
+        inputs.Publish(NavTest.Record(12, 2, [1], z: 4, h: 1, walkable: false));
         inputs.Publish(NavTest.Record(13, 3, [1], z: 3.6, walkable: false));
         compiler.ApplyNow();
         Assert.Equal([0d, 2d], Surfaces(grid, 1).Select(s => s.Z));

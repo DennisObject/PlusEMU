@@ -13,18 +13,28 @@ public sealed record WiredMovementComposer(int Type, int Id, int FromX, int From
     public uint MessageId => ServerPacketHeader.WiredMovementsComposer;
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(1); packet.WriteInteger(Type);
-        packet.WriteInteger(FromX); packet.WriteInteger(FromY); packet.WriteInteger(ToX); packet.WriteInteger(ToY);
-        packet.WriteString(FromZ.ToString(CultureInfo.InvariantCulture)); packet.WriteString(ToZ.ToString(CultureInfo.InvariantCulture));
+        packet.WriteInteger(1);
+        packet.WriteInteger(Type);
+        packet.WriteInteger(FromX);
+        packet.WriteInteger(FromY);
+        packet.WriteInteger(ToX);
+        packet.WriteInteger(ToY);
+        packet.WriteString(FromZ.ToString(CultureInfo.InvariantCulture));
+        packet.WriteString(ToZ.ToString(CultureInfo.InvariantCulture));
         packet.WriteInteger(Id);
-        if (Type == 1)
-        {
-            packet.WriteInteger(BodyRotation); packet.WriteInteger(DurationMs);
-            packet.WriteInteger(0); packet.WriteInteger(0); packet.WriteInteger(0);
+
+        if (Type == 1) {
+            packet.WriteInteger(BodyRotation);
+            packet.WriteInteger(DurationMs);
+            packet.WriteInteger(0);
+            packet.WriteInteger(0);
+            packet.WriteInteger(0);
         }
-        else
-        {
-            packet.WriteInteger(1); packet.WriteInteger(BodyRotation); packet.WriteInteger(HeadRotation); packet.WriteInteger(DurationMs);
+        else {
+            packet.WriteInteger(1);
+            packet.WriteInteger(BodyRotation);
+            packet.WriteInteger(HeadRotation);
+            packet.WriteInteger(DurationMs);
         }
     }
 }
@@ -34,8 +44,12 @@ public sealed record WiredMoveStyleComposer(int Id, int Style, int Intensity, in
     public uint MessageId => ServerPacketHeader.WiredFurniMoveStyleComposer;
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(1); packet.WriteInteger(Id); packet.WriteInteger(Style); packet.WriteInteger(Intensity);
-        packet.WriteInteger(Overshoot); packet.WriteInteger(Avatar ? 1 : 0);
+        packet.WriteInteger(1);
+        packet.WriteInteger(Id);
+        packet.WriteInteger(Style);
+        packet.WriteInteger(Intensity);
+        packet.WriteInteger(Overshoot);
+        packet.WriteInteger(Avatar ? 1 : 0);
     }
 }
 
@@ -43,7 +57,11 @@ public sealed record WiredClickSettingsComposer(int UserOption, int FurniOption)
 {
     // Internal ID differs from the active wire ID (2288 is already the old trading packet).
     public uint MessageId => ServerPacketHeader.WiredClickSettingsComposer;
-    public void Compose(IOutgoingPacket packet) { packet.WriteInteger(UserOption); packet.WriteInteger(FurniOption); }
+    public void Compose(IOutgoingPacket packet)
+    {
+        packet.WriteInteger(UserOption);
+        packet.WriteInteger(FurniOption);
+    }
 }
 
 /// <summary>The official chat packet with the wired bubble width as its optional trailing int.</summary>

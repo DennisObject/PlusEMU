@@ -49,7 +49,11 @@ public sealed class WiredEditorSnapshotTests
     {
         var composer = new WiredConditionConfigComposer(WiredEditorSnapshot.Condition(Box(type, text)));
         var expected = new List<object> { false, 5, 1, 8u, 91, 7u, text, count, first };
-        if (count == 2) expected.Add(second);
+
+        if (count == 2) {
+            expected.Add(second);
+        }
+
         expected.AddRange([0, code]);
         Recompose(composer, expected);
     }
@@ -71,7 +75,8 @@ public sealed class WiredEditorSnapshotTests
     private static CycleBox Box(WiredBoxType type, string text) => new(type)
     {
         Item = new() { Id = 7, Definition = new() { SpriteId = 91 } },
-        StringData = text, Delay = 9,
+        StringData = text,
+        Delay = 9,
         SetItems = new(new[] { new KeyValuePair<uint, Item>(8, new() { Id = 8 }) })
     };
 
@@ -88,8 +93,7 @@ public sealed class WiredEditorSnapshotTests
 
     private static void Recompose(IServerPacket composer, IEnumerable<object> expected)
     {
-        for (var index = 0; index < 2; index++)
-        {
+        for (var index = 0; index < 2; index++) {
             var output = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(output);
             Assert.Equal(expected, output.Writes);

@@ -8,6 +8,7 @@ internal sealed class GetCurrentQuestEvent(IQuestProgressService quests) : IPack
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         quests.StartNext(session);
+
         return Task.CompletedTask;
     }
 }

@@ -34,6 +34,7 @@ public static class WiredVariableRuntimeFrames
             ChatText = context.Event.Kind == WiredEventKind.Speech ? context.Event.Message : null
         };
         frame.Selector.AddRange(Select(WiredVariableTarget.Furni, WiredSources.Selector, []).Concat(Select(WiredVariableTarget.User, WiredSources.Selector, [])));
+
         return frame;
     }
     public static WiredVariableFrame Fork(WiredRuntimeContext child, WiredVariableFrame parent) => Create(child, parent);

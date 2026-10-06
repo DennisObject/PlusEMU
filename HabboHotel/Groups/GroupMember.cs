@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Groups;
+namespace Plus.HabboHotel.Groups;
 
 public class GroupMember
 {

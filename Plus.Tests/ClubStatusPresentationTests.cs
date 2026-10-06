@@ -127,6 +127,7 @@ public sealed class ClubStatusPresentationTests
                 Assert.Same(habbo, target);
                 Assert.Empty(sent);
                 reads++;
+
                 return new(7, "01-10-2040", .25, 2, 3, 40, 5, 10, 60);
             }
         };
@@ -163,6 +164,7 @@ public sealed class ClubStatusPresentationTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes.ToArray();
     }
 
@@ -170,7 +172,12 @@ public sealed class ClubStatusPresentationTests
     {
         public DateTimeOffset Now { get; set; } = new(2040, 10, 1, 0, 0, 0, TimeSpan.FromHours(5));
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
 
     private sealed class RecordingService : IClubCatalogService
@@ -178,8 +185,18 @@ public sealed class ClubStatusPresentationTests
         public TaskCompletionSource Pending { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public List<string> Types { get; } = [];
         public int KickbackRequests { get; private set; }
-        public Task ShowStatus(GameClient session, string type) { Types.Add(type); return Pending.Task; }
-        public Task ShowKickback(GameClient session) { KickbackRequests++; return Pending.Task; }
+        public Task ShowStatus(GameClient session, string type)
+        {
+            Types.Add(type);
+
+            return Pending.Task;
+        }
+        public Task ShowKickback(GameClient session)
+        {
+            KickbackRequests++;
+
+            return Pending.Task;
+        }
         public Task ShowGifts(GameClient session) => throw new NotSupportedException();
         public Task ClaimGift(GameClient session, string productCode) => throw new NotSupportedException();
         public Task PurchaseMembership(GameClient session, int offerId) => throw new NotSupportedException();

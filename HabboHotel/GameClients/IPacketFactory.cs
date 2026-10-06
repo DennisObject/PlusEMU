@@ -1,4 +1,4 @@
-﻿using Microsoft.IO;
+using Microsoft.IO;
 using Plus.Utilities.DependencyInjection;
 
 namespace Plus.HabboHotel.GameClients;

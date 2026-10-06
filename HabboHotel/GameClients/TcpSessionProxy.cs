@@ -1,4 +1,4 @@
-﻿using NetCoreServer;
+using NetCoreServer;
 
 namespace Plus.HabboHotel.GameClients;
 
@@ -11,14 +11,17 @@ public class TcpSessionProxy : TcpSession
         _client.Id = Id;
         _client.SendCallback = args =>
         {
-            if (!Socket.Connected) return false;
-            try
-            {
+            if (!Socket.Connected) {
+                return false;
+            }
+
+            try {
                 return Socket.SendAsync(args);
             }
             catch (Exception e) // TODO 80O: Maybe handle some potential errors.
             {
             }
+
             return false;
         };
         _client.DisconnectRequested = () => Disconnect();

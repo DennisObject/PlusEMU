@@ -23,24 +23,29 @@ public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnu
             WiredSources.AllRoom => AllFurni().Select(x => x.Id),
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unknown furniture source")
         };
+
         // Static editor picks never acquire ownership of transient furniture, including after ID reuse.
-        if (source is WiredSources.Selected or WiredSources.Snapshot)
+        if (source is WiredSources.Selected or WiredSources.Snapshot) {
             ids = ids.Where(id => context.FurniIdentity.TryGetValue(id, out var picked) && !picked.IsTemporary);
-        if (!raw && source != WiredSources.Selector && context.Policy.Addons.FurniLimit is > 0 and var limit)
-        {
+        }
+
+        if (!raw && source != WiredSources.Selector && context.Policy.Addons.FurniLimit is > 0 and var limit) {
             var key = (source, string.Join(',', savedIds), limit);
-            if (!context.FurniSubsets.TryGetValue(key, out var subset))
-            {
+
+            if (!context.FurniSubsets.TryGetValue(key, out var subset)) {
                 subset = ids.Distinct().ToArray();
                 Random.Shared.Shuffle(subset);
                 subset = subset.Take(limit).ToArray();
                 context.FurniSubsets[key] = subset;
             }
+
             ids = subset;
         }
+
         var wanted = ids.ToHashSet();
         var candidates = findFurni == null ? AllFurni().Where(x => wanted.Contains(x.Id))
             : wanted.Select(findFurni).OfType<Item>();
+
         return candidates.Where(x => wanted.Contains(x.Id) && (source is not (WiredSources.Selected or WiredSources.Snapshot) || !x.IsTemporary)
             && context.FurniIdentity.TryGetValue(x.Id, out var original)
             && ReferenceEquals(x, original)).ToArray();
@@ -69,22 +74,25 @@ public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnu
             WiredSources.AllRoom => roomUsers.Select(x => x.VirtualId),
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unknown avatar source")
         };
-        if (!raw && source != WiredSources.Selector && context.Policy.Addons.UserLimit is > 0 and var limit)
-        {
+
+        if (!raw && source != WiredSources.Selector && context.Policy.Addons.UserLimit is > 0 and var limit) {
             var key = (source, string.Join(',', savedIds), name, limit,
                 source == WiredSources.Trigger ? string.Join(',', ids.Order()) : "");
-            if (!context.UserSubsets.TryGetValue(key, out var subset))
-            {
+
+            if (!context.UserSubsets.TryGetValue(key, out var subset)) {
                 subset = ids.Distinct().ToArray();
                 Random.Shared.Shuffle(subset);
                 subset = subset.Take(limit).ToArray();
                 context.UserSubsets[key] = subset;
             }
+
             ids = subset;
         }
+
         var wanted = ids.ToHashSet();
         var candidates = findUser == null ? (roomUsers.Length > 0 ? roomUsers : AllUsers()).Where(x => wanted.Contains(x.VirtualId))
             : wanted.Select(findUser).OfType<RoomUser>();
+
         return candidates.Where(x => wanted.Contains(x.VirtualId) && context.UserIdentity.TryGetValue(x.VirtualId, out var original)
             && ReferenceEquals(x, original)).ToArray();
     }

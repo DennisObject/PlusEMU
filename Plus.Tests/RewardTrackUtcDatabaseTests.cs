@@ -18,8 +18,7 @@ public class RewardTrackUtcDatabaseTests
     {
         await WithSchema(async connectionString =>
         {
-            using (var connection = new MySqlConnection(connectionString))
-            {
+            using (var connection = new MySqlConnection(connectionString)) {
                 connection.Open();
                 connection.Execute("CREATE TABLE badge_definitions (code VARCHAR(64) PRIMARY KEY, required_right VARCHAR(64) NOT NULL DEFAULT '') ENGINE=InnoDB");
                 connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/15_IntroductionRewardTrack.sql")));
@@ -52,8 +51,7 @@ public class RewardTrackUtcDatabaseTests
     {
         await WithSchema(async connectionString =>
         {
-            using (var connection = new MySqlConnection(connectionString))
-            {
+            using (var connection = new MySqlConnection(connectionString)) {
                 connection.Open();
                 connection.Execute("CREATE TABLE badge_definitions (code VARCHAR(64) PRIMARY KEY, required_right VARCHAR(64) NOT NULL DEFAULT '') ENGINE=InnoDB");
                 connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/15_IntroductionRewardTrack.sql")));
@@ -62,6 +60,7 @@ public class RewardTrackUtcDatabaseTests
                 connection.Execute("INSERT INTO reward_track_prizes (track_id, id, required_points, product_item_type_id, reward_type, extra_params, reward_amount, premium, sort_order) VALUES ('open', 'coins', 10, 0, 'duckets', '', 3, 0, 1)");
                 connection.Execute("INSERT INTO users_reward_tracks (user_id, track_id, points, premium) VALUES (7, 'open', 60, 0)");
             }
+
             var captured = new DateTimeOffset(2040, 1, 2, 3, 4, 5, TimeSpan.Zero).AddTicks(1_234_560);
             var manager = new RewardTrackManager(NullLogger<RewardTrackManager>.Instance, new HabbiconDatabaseTests.TestDatabase(connectionString), NoBadges(), new FixedTimeProvider(captured));
             await manager.Start();
@@ -70,8 +69,8 @@ public class RewardTrackUtcDatabaseTests
 
             // The users table is absent, so the duckets credit fails and the claim row must roll back with it.
             await manager.Claim(client, "open", "coins");
-            using (var connection = new MySqlConnection(connectionString))
-            {
+
+            using (var connection = new MySqlConnection(connectionString)) {
                 connection.Open();
                 Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM users_reward_track_prizes WHERE prize_id = 'coins'"));
                 connection.Execute("CREATE TABLE users (id INT PRIMARY KEY, credits INT NOT NULL DEFAULT 0, activity_points INT NOT NULL DEFAULT 0, vip_points INT NOT NULL DEFAULT 0)");
@@ -103,8 +102,8 @@ public class RewardTrackUtcDatabaseTests
 
             Assert.Equal("NULL", connection.ExecuteScalar<string>("SELECT IFNULL(CAST(starts_at AS CHAR), 'NULL') FROM reward_tracks WHERE id = 'introduction'"));
             Assert.Equal("NULL", connection.ExecuteScalar<string>("SELECT IFNULL(CAST(ends_at AS CHAR), 'NULL') FROM reward_tracks WHERE id = 'introduction'"));
-            foreach (var (table, column) in new[] { ("reward_tracks", "starts_at"), ("reward_tracks", "ends_at"), ("users_reward_track_prizes", "claimed_at") })
-            {
+
+            foreach (var (table, column) in new[] { ("reward_tracks", "starts_at"), ("reward_tracks", "ends_at"), ("users_reward_track_prizes", "claimed_at") }) {
                 var row = connection.QuerySingle<(string Type, string Nullable, string? Default, int Precision)>(
                     "SELECT DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, DATETIME_PRECISION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table AND COLUMN_NAME = @column",
                     new { table, column });
@@ -116,7 +115,11 @@ public class RewardTrackUtcDatabaseTests
     private static string Statement(string dump, string opening)
     {
         var start = dump.IndexOf(opening, StringComparison.Ordinal);
-        if (start < 0) throw new InvalidOperationException($"Pristine dump has no statement starting {opening}.");
+
+        if (start < 0) {
+            throw new InvalidOperationException($"Pristine dump has no statement starting {opening}.");
+        }
+
         return dump[start..(dump.IndexOf(';', start) + 1)];
     }
 
@@ -131,17 +134,16 @@ public class RewardTrackUtcDatabaseTests
         var server = Environment.GetEnvironmentVariable("PLUS_REWARD_TRACK_TEST_CONNECTION_STRING")!;
         var schema = "task_reward_track_tests_" + Guid.NewGuid().ToString("N")[..12];
         var options = new MySqlConnectionStringBuilder(server) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true };
-        using (var admin = new MySqlConnection(server))
-        {
+
+        using (var admin = new MySqlConnection(server)) {
             admin.Open();
             admin.Execute($"CREATE DATABASE `{schema}`");
         }
-        try
-        {
+
+        try {
             await body(options.ConnectionString);
         }
-        finally
-        {
+        finally {
             using var admin = new MySqlConnection(server);
             admin.Open();
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
@@ -153,7 +155,8 @@ public sealed class RewardTrackUtcDatabaseFactAttribute : Xunit.FactAttribute
 {
     public RewardTrackUtcDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_REWARD_TRACK_TEST_CONNECTION_STRING")))
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_REWARD_TRACK_TEST_CONNECTION_STRING"))) {
             Skip = "Set PLUS_REWARD_TRACK_TEST_CONNECTION_STRING to a server that can create and drop disposable task_reward_track_tests_ schemas.";
+        }
     }
 }

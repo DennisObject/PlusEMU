@@ -19,7 +19,8 @@ public sealed class WiredVariableDefinitionBoxTests
     [InlineData("wf_cnd_var_age_match", 8)]
     public void ScalarDraftOpensWithClientShapeButCannotExecuteWithoutSelection(string name, int count)
     {
-        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1;
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        room.Id = 1;
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
         var module = new WiredVariableModule(1, new EmptyDirectory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         var box = new WiredVariableConfiguredBox(room, new Item { Id = 10 }, descriptor, new(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1))));
@@ -43,7 +44,9 @@ public sealed class WiredVariableDefinitionBoxTests
     [InlineData("wf_var_reference", "{\"variableName\":\"alias\",\"sourceTargetType\":0,\"sourceRoomId\":2,\"sourceVariableItemId\":20,\"readOnly\":true}", -1, -1)]
     public void PassiveDefinitionValidatesWithoutPublishingOrExecutingAnAction(string name, string text, int first, int second)
     {
-        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1; room.OwnerId = 5;
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        room.Id = 1;
+        room.OwnerId = 5;
         var item = new Item { Id = 10, Definition = new() { ItemName = "arbitrary_catalog_name", InteractionName = name } };
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
         var box = new WiredVariableDefinitionBox(room, item, descriptor);
@@ -55,7 +58,8 @@ public sealed class WiredVariableDefinitionBoxTests
         Assert.True(box.TryValidateConfiguration(proposed, out var valid, out var error), error);
         Assert.Equal(draft, box.Configuration); // Pure validation has no publication or persistence side effects.
         box.ApplyConfiguration(valid);
-        Assert.Equal(proposed, box.Configuration); Assert.False(box.Execute());
+        Assert.Equal(proposed, box.Configuration);
+        Assert.False(box.Execute());
         Assert.True(box.HasPersistedConfiguration);
         Assert.False(box.TryValidateConfiguration(proposed with { Text = "invalid name with spaces" }, out _, out _));
         Assert.Equal(proposed, box.Configuration);

@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 
 namespace Plus.HabboHotel.Items.Data.Moodlight;
 
@@ -25,21 +25,28 @@ public class MoodlightData
     public static MoodlightPreset GeneratePreset(string data)
     {
         var bits = data.Split(',');
-        if (!IsValidColor(bits[0])) bits[0] = "#000000";
+
+        if (!IsValidColor(bits[0])) {
+            bits[0] = "#000000";
+        }
+
         return new(bits[0], int.Parse(bits[1]), bits[2] == "1");
     }
 
     public MoodlightPreset GetPreset(int i)
     {
         i--;
-        if (Presets[i] != null) return Presets[i];
+
+        if (Presets[i] != null) {
+            return Presets[i];
+        }
+
         return new("#000000", 255, false);
     }
 
     public static bool IsValidColor(string colorCode)
     {
-        switch (colorCode)
-        {
+        switch (colorCode) {
             case "#000000":
             case "#0053F7":
             case "#EA4532":
@@ -55,7 +62,10 @@ public class MoodlightData
 
     public static bool IsValidIntensity(int intensity)
     {
-        if (intensity < 0 || intensity > 255) return false;
+        if (intensity < 0 || intensity > 255) {
+            return false;
+        }
+
         return true;
     }
 
@@ -74,6 +84,7 @@ public class MoodlightData
         sb.Append(preset.ColorCode);
         sb.Append(",");
         sb.Append(preset.ColorIntensity);
+
         return sb.ToString();
     }
 

@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Cache.Type;
+namespace Plus.HabboHotel.Cache.Type;
 
 public sealed class CachedUser
 {

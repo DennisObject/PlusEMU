@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Items.Televisions;
+namespace Plus.HabboHotel.Items.Televisions;
 
 public class TelevisionItem
 {

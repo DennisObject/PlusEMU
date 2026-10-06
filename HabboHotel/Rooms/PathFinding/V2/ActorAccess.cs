@@ -10,6 +10,8 @@ public sealed class ActorAccess
 
     internal void SetMembership(int groupId, bool member)
     {
-        if (member ? _groups.Add(groupId) : _groups.Remove(groupId)) CapabilityVersion++;
+        if (member ? _groups.Add(groupId) : _groups.Remove(groupId)) {
+            CapabilityVersion++;
+        }
     }
 }

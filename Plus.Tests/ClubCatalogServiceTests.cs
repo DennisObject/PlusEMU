@@ -147,6 +147,7 @@ public sealed class ClubCatalogServiceTests
             : [];
         var memberships = new RecordingMembership(membershipSucceeds);
         var service = new ClubCatalogService(rewards, new SnapshotService(), catalog, memberships);
+
         return new(service, client, habbo, sent, rewards, memberships);
     }
 
@@ -193,18 +194,21 @@ public sealed class ClubCatalogServiceTests
         public Task ShowGifts(GameClient session)
         {
             GiftViews++;
+
             return Task.CompletedTask;
         }
 
         public Task ClaimGift(GameClient session, string productCode)
         {
             ProductCode = productCode;
+
             return Task.CompletedTask;
         }
 
         public Task PurchaseMembership(GameClient session, int offerId)
         {
             OfferIds.Add(offerId);
+
             return Task.CompletedTask;
         }
     }
@@ -218,12 +222,14 @@ public sealed class ClubCatalogServiceTests
         public ClubGiftInfo Gifts(Habbo habbo)
         {
             GiftReads++;
+
             return new ClubGiftInfo(3, 1, 40, [new ClubGift(_item, 1)]);
         }
 
         public ClubGiftClaim? Claim(Habbo habbo, string productCode)
         {
             Claims++;
+
             return claimSucceeds
                 ? new ClubGiftClaim(new ClubGift(_item, 1), [new InventoryItem { Id = 700 }])
                 : null;
@@ -245,10 +251,14 @@ public sealed class ClubCatalogServiceTests
         public DateTimeOffset? Purchase(Habbo habbo, ClubOffer offer, int? recipientId = null)
         {
             Purchases++;
-            if (!succeeds)
+
+            if (!succeeds) {
                 return null;
+            }
+
             habbo.Credits -= offer.Credits;
             habbo.Diamonds -= offer.Points;
+
             return new DateTimeOffset(2040, 3, 5, 4, 5, 6, TimeSpan.Zero);
         }
 
@@ -263,13 +273,16 @@ public sealed class ClubCatalogServiceTests
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == "get_Pages")
+            if (targetMethod?.Name == "get_Pages") {
                 return Pages;
-            if (targetMethod?.Name == nameof(ICatalogManager.TryGetClubOffer))
-            {
+            }
+
+            if (targetMethod?.Name == nameof(ICatalogManager.TryGetClubOffer)) {
                 args![1] = HasOffer ? Offer : null;
+
                 return HasOffer && (int)args[0]! == Offer.Id;
             }
+
             throw new NotSupportedException(targetMethod?.Name);
         }
     }

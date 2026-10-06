@@ -83,10 +83,22 @@ public class MarketplaceListingTests
     {
         var store = new RecordingStore();
         var (habbo, item) = Owner(ItemType.Floor);
-        if (reason == "foreign-owner") item.OwnerId = 8;
-        if (reason == "trade-locked") item.Definition.AllowTrade = false;
-        if (reason == "not-marketable") item.Definition.AllowMarketplaceSell = false;
-        if (reason == "closed-wallet") typeof(Habbo).GetField("_disconnected", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(habbo, true);
+
+        if (reason == "foreign-owner") {
+            item.OwnerId = 8;
+        }
+
+        if (reason == "trade-locked") {
+            item.Definition.AllowTrade = false;
+        }
+
+        if (reason == "not-marketable") {
+            item.Definition.AllowMarketplaceSell = false;
+        }
+
+        if (reason == "closed-wallet") {
+            typeof(Habbo).GetField("_disconnected", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(habbo, true);
+        }
 
         Assert.False(new MarketplaceListingService(store, Manager(), new FixedClock(Now)).TryList(habbo, item.Id, 100));
 
@@ -175,22 +187,28 @@ public class MarketplaceListingTests
     {
         var item = new InventoryItem
         {
-            Id = 41, OwnerId = 7, ExtraData = FurniObjectData.Empty, UniqueNumber = 3, UniqueSeries = 4,
+            Id = 41,
+            OwnerId = 7,
+            ExtraData = FurniObjectData.Empty,
+            UniqueNumber = 3,
+            UniqueSeries = 4,
             Definition = new ItemDefinition { Id = 900, SpriteId = 55, PublicName = "Rare Chair", ItemName = "chair", Type = type, AllowTrade = true, AllowMarketplaceSell = true },
         };
         var furniture = new FurnitureInventoryComponent(type == ItemType.Floor ? [item] : [], type == ItemType.Wall ? [item] : []);
+
         return (new Habbo { Id = 7, Username = "seller", Inventory = new InventoryComponent { Furniture = furniture } }, item);
     }
 
     private static FlashIncomingPacket Packet(params int[] values)
     {
         using var stream = new MemoryStream();
-        foreach (var value in values)
-        {
+
+        foreach (var value in values) {
             var bytes = new byte[4];
             BinaryPrimitives.WriteInt32BigEndian(bytes, value);
             stream.Write(bytes);
         }
+
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 
@@ -204,7 +222,11 @@ public class MarketplaceListingTests
         public void ListFurni(MarketplaceListing listing)
         {
             BeforeWrite?.Invoke();
-            if (Fail) throw new InvalidOperationException("forced persistence failure");
+
+            if (Fail) {
+                throw new InvalidOperationException("forced persistence failure");
+            }
+
             Listings.Add(listing);
         }
 

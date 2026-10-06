@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Items;
@@ -7,7 +7,10 @@ internal static class ItemBehaviourUtility
 {
     public static bool ShouldStackInInventory(this InventoryItem item)
     {
-        if (item.IsLimited()) return false;
+        if (item.IsLimited()) {
+            return false;
+        }
+
         return item.Definition.AllowInventoryStack;
     }
 

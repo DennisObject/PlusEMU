@@ -10,14 +10,15 @@ public sealed class BadgesComposer(BadgeInventorySnapshot snapshot) : IServerPac
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(snapshot.Codes.Length);
-        foreach (var code in snapshot.Codes)
-        {
+
+        foreach (var code in snapshot.Codes) {
             packet.WriteInteger(1);
             packet.WriteString(code);
         }
+
         packet.WriteInteger(snapshot.Equipped.Length);
-        foreach (var badge in snapshot.Equipped)
-        {
+
+        foreach (var badge in snapshot.Equipped) {
             packet.WriteInteger(badge.Slot);
             packet.WriteString(badge.Code);
         }

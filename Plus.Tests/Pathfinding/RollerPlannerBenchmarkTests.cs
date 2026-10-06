@@ -30,51 +30,63 @@ public partial class PlacedFurniRoomTests
     public void MeasureRollerPlannerScaling(PathfindingEngine engine, bool loop, int size)
     {
         var output = Environment.GetEnvironmentVariable("PLUSEMU_ROLLER_BENCHMARK");
-        if (string.IsNullOrEmpty(output)) return;
+
+        if (string.IsNullOrEmpty(output)) {
+            return;
+        }
+
         var tiles = loop ? BenchmarkLoop(size) : BenchmarkChain(size);
         InstallRollerChainEngine(engine);
         PlannerActor(1, 0, 0, 0);
-        ExecutorTick(); ExecutorTick();
+        ExecutorTick();
+        ExecutorTick();
         var planning = "plan_us=n/a";
-        if (engine == PathfindingEngine.V2)
-        {
+
+        if (engine == PathfindingEngine.V2) {
             var us = MinimumPlanningMicroseconds();
             planning = FormattableString.Invariant($"plan_us={us:F0} plan_us_per_roller={us / tiles:F2}");
         }
-        EnableExecutorRollers(); ExecutorTick();
+
+        EnableExecutorRollers();
+        ExecutorTick();
         var cycle = MedianTickMicroseconds();
-        lock (typeof(PlacedFurniRoomTests))
+
+        lock (typeof(PlacedFurniRoomTests)) {
             File.AppendAllLines(output, [FormattableString.Invariant(
                 $"{engine} {(loop ? "full loop" : "loaded chain")} rollers={tiles} {planning} cycle_median_us={cycle:F0}")]);
+        }
     }
 
     // Snapshot and planning are pure, so they can be repeated on the same room state.
     private double MinimumPlanningMicroseconds()
     {
-        var navigation = _room.GetGameMap().Navigation!; var context = navigation.Executor.Context;
+        var navigation = _room.GetGameMap().Navigation!;
+        var context = navigation.Executor.Context;
         var transport = new RollerTransport(navigation, context, new(_room, navigation, context, new(context)));
         var loads = new RollerLoadBuilder(_room, transport);
         var planner = new RollerTransportPlanner(new(new RollerAdmission(_room, transport)), new());
         var rollers = _room.GetRoomItemHandler().GetRollers().ToList();
         var best = double.MaxValue;
-        for (var repetition = 0; repetition < 60; repetition++)
-        {
+
+        for (var repetition = 0; repetition < 60; repetition++) {
             var start = Stopwatch.GetTimestamp();
             Assert.NotEmpty(planner.Plan(loads.Build(rollers)));
             best = Math.Min(best, Stopwatch.GetElapsedTime(start).TotalMicroseconds);
         }
+
         return best;
     }
 
     private double MedianTickMicroseconds()
     {
         var samples = new double[15];
-        for (var cycle = 0; cycle < samples.Length; cycle++)
-        {
+
+        for (var cycle = 0; cycle < samples.Length; cycle++) {
             var start = Stopwatch.GetTimestamp();
             ExecutorTick();
             samples[cycle] = Stopwatch.GetElapsedTime(start).TotalMicroseconds;
         }
+
         return samples.Order().ElementAt(samples.Length / 2);
     }
 
@@ -82,7 +94,11 @@ public partial class PlacedFurniRoomTests
     private int BenchmarkChain(int length)
     {
         PrepareRollerChain(length + 1, false);
-        for (var x = 0; x < length; x++) PlannerCargo((uint)(1000 + x), x, 1);
+
+        for (var x = 0; x < length; x++) {
+            PlannerCargo((uint)(1000 + x), x, 1);
+        }
+
         return length;
     }
 
@@ -93,20 +109,32 @@ public partial class PlacedFurniRoomTests
         Set("_gamemap", new Gamemap(_room, new RoomModel("roller-loop", 0, 0, 0, 0, rows, 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
         _room.GetGameMap().GenerateMaps();
         var perimeter = LoopPerimeter(side).ToList();
-        for (var index = 0; index < perimeter.Count; index++)
-        {
+
+        for (var index = 0; index < perimeter.Count; index++) {
             var (tile, rotation) = perimeter[index];
             PlannerRoller((uint)(10 + index), tile.X, tile.Y, rotation);
             PlannerCargo((uint)(5000 + index), tile.X, tile.Y);
         }
+
         return perimeter.Count;
     }
 
     private static IEnumerable<(Point Tile, int Rotation)> LoopPerimeter(int side)
     {
-        for (var x = 1; x < side; x++) yield return (new(x, 1), 2);
-        for (var y = 1; y < side; y++) yield return (new(side, y), 4);
-        for (var x = side; x > 1; x--) yield return (new(x, side), 6);
-        for (var y = side; y > 1; y--) yield return (new(1, y), 0);
+        for (var x = 1; x < side; x++) {
+            yield return (new(x, 1), 2);
+        }
+
+        for (var y = 1; y < side; y++) {
+            yield return (new(side, y), 4);
+        }
+
+        for (var x = side; x > 1; x--) {
+            yield return (new(x, side), 6);
+        }
+
+        for (var y = side; y > 1; y--) {
+            yield return (new(1, y), 0);
+        }
     }
 }

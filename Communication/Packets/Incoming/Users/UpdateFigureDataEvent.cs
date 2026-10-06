@@ -8,6 +8,7 @@ internal class UpdateFigureDataEvent(IUserProfileService profiles) : IPacketEven
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         profiles.UpdateFigure(session, new(packet.ReadString(), packet.ReadString()));
+
         return Task.CompletedTask;
     }
 }

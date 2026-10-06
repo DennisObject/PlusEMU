@@ -88,6 +88,7 @@ public sealed class UserSocialShowcaseTests
             Assert.Equal(nameof(IMessengerDataLoader.GetRelationshipsForUserAsync), method.Name);
             Assert.Equal(18, args![0]);
             loads++;
+
             return Task.FromResult(new Dictionary<int, (MessengerBuddy buddy, int count)>
             {
                 [1] = (new() { Id = 20, Username = "Stored", Look = "stored" }, 4)
@@ -118,6 +119,7 @@ public sealed class UserSocialShowcaseTests
         {
             Assert.Equal(nameof(IIgnoredUsersService.GetIgnoredUsersByName), method.Name);
             Assert.Equal(new[] { 7, 8 }, (IReadOnlyCollection<int>)args![0]!);
+
             return Task.FromResult(new List<string> { "Alice", "Bob" });
         });
         var service = new UserSocialShowcaseService(Unused<IMessengerDataLoader>(), Unused<IGameClientManager>(), ignored, Unused<IGroupManager>());
@@ -134,6 +136,7 @@ public sealed class UserSocialShowcaseTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes.ToArray();
     }
 
@@ -146,6 +149,7 @@ public sealed class UserSocialShowcaseTests
         {
             var instance = DispatchProxy.Create<T, Proxy>();
             ((Proxy)(object)instance).Callback = callback;
+
             return instance;
         }
         protected override object? Invoke(MethodInfo? method, object?[]? args) => Callback(method!, args);
@@ -156,8 +160,23 @@ public sealed class UserSocialShowcaseTests
         public int UserId { get; private set; }
         public int IgnoredViews { get; private set; }
         public int GroupViews { get; private set; }
-        public Task ShowRelationships(GameClient session, int userId) { UserId = userId; return Task.CompletedTask; }
-        public Task ShowIgnoredUsers(GameClient session) { IgnoredViews++; return Task.CompletedTask; }
-        public Task ShowGroupBadges(GameClient session) { GroupViews++; return Task.CompletedTask; }
+        public Task ShowRelationships(GameClient session, int userId)
+        {
+            UserId = userId;
+
+            return Task.CompletedTask;
+        }
+        public Task ShowIgnoredUsers(GameClient session)
+        {
+            IgnoredViews++;
+
+            return Task.CompletedTask;
+        }
+        public Task ShowGroupBadges(GameClient session)
+        {
+            GroupViews++;
+
+            return Task.CompletedTask;
+        }
     }
 }

@@ -113,21 +113,32 @@ public class ValidPrefixFinderTests
 
         public LayeredGraph Surface(int x, int y, double z, uint support)
         {
-            if (!_tiles.TryGetValue((x, y), out var list)) _tiles[(x, y)] = list = new();
+            if (!_tiles.TryGetValue((x, y), out var list)) {
+                _tiles[(x, y)] = list = new();
+            }
+
             list.Add(new(x, y, z, support, list.Count));
+
             return this;
         }
 
         public int Candidates(int x, int y, Span<PrefixCandidate> into)
         {
-            if (!_tiles.TryGetValue((x, y), out var list)) return 0;
-            for (var i = 0; i < list.Count; i++) into[i] = list[i];
+            if (!_tiles.TryGetValue((x, y), out var list)) {
+                return 0;
+            }
+
+            for (var i = 0; i < list.Count; i++) {
+                into[i] = list[i];
+            }
+
             return list.Count;
         }
 
         public bool CanStep(in PrefixCandidate from, in PrefixCandidate to, StepPurpose purpose)
         {
             Checked.Add((to.X, purpose));
+
             return Math.Abs(to.X - from.X) <= 1 && Math.Abs(to.Y - from.Y) <= 1
                 && !Denied.Contains((to.X, to.Y)) && !DeniedSurfaces.Contains((to.X, to.SupportItem))
                 && to.Z - from.Z <= 1.5;

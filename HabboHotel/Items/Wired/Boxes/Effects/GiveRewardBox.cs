@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -11,8 +11,10 @@ internal class GiveRewardBox : IWiredItem
         Instance = instance;
         Item = item;
         SetItems = new();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
     }
 
     public Room Instance { get; set; }
@@ -25,8 +27,10 @@ internal class GiveRewardBox : IWiredItem
 
     public void HandleSave(IIncomingPacket packet)
     {
-        if (SetItems.Count > 0)
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
+
         var unknown = packet.ReadInt();
         var time = packet.ReadInt();
         var message = packet.ReadString();

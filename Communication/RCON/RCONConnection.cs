@@ -1,4 +1,4 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -45,64 +45,93 @@ public sealed class RconConnection : IDisposable
 
     private void Receive()
     {
-        try { _socket?.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, OnCallBack, null); }
-        catch { Dispose(); }
+        try {
+            _socket?.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, OnCallBack, null);
+        }
+        catch {
+            Dispose();
+        }
     }
 
     internal void OnCallBack(IAsyncResult asyncResult)
     {
-        try
-        {
+        try {
             var socket = _socket;
-            if (socket == null) return;
+
+            if (socket == null) {
+                return;
+            }
+
             var bytes = socket.EndReceive(asyncResult);
-            lock (_gate)
-            {
-                if (_state != RequestState.Pending) return;
-                if (bytes == 0)
-                {
-                    if (_jsonRequest && _request.Length > 0) ProcessJsonRequest();
-                    else Dispose();
+
+            lock (_gate) {
+                if (_state != RequestState.Pending) {
                     return;
                 }
 
-                if (_request.Length == 0)
-                {
+                if (bytes == 0) {
+                    if (_jsonRequest && _request.Length > 0) {
+                        ProcessJsonRequest();
+                    }
+                    else {
+                        Dispose();
+                    }
+
+                    return;
+                }
+
+                if (_request.Length == 0) {
                     var marker = FirstNonWhitespace(_buffer.AsSpan(0, bytes));
-                    if (marker == 0)
-                    {
+
+                    if (marker == 0) {
                         _jsonRequest = true;
                         _request.Write(_buffer, 0, bytes);
                         Receive();
+
                         return;
                     }
+
                     _jsonRequest = marker == (byte)'{';
                 }
-                if (!_jsonRequest)
-                {
+
+                if (!_jsonRequest) {
                     _state = RequestState.Processing;
                     var data = Encoding.Default.GetString(_buffer, 0, bytes);
-                    if (!Commands.Parse(data)) _logger.LogError("Failed to execute a MUS command. Raw data: {Data}", data);
+
+                    if (!Commands.Parse(data)) {
+                        _logger.LogError("Failed to execute a MUS command. Raw data: {Data}", data);
+                    }
+
                     Dispose();
+
                     return;
                 }
-                if (_request.Length + bytes > MaxRequestBytes)
-                {
+
+                if (_request.Length + bytes > MaxRequestBytes) {
                     _state = RequestState.Processing;
                     Reject("RCON request exceeds the maximum size.");
+
                     return;
                 }
+
                 _request.Write(_buffer, 0, bytes);
-                if (_request.GetBuffer().AsSpan(0, (int)_request.Length).IndexOf((byte)'\n') >= 0) ProcessJsonRequest();
-                else Receive();
+
+                if (_request.GetBuffer().AsSpan(0, (int)_request.Length).IndexOf((byte)'\n') >= 0) {
+                    ProcessJsonRequest();
+                }
+                else {
+                    Receive();
+                }
             }
         }
-        catch (Exception exception)
-        {
+        catch (Exception exception) {
             _logger.LogWarning(exception, "Failed to read an RCON request.");
-            lock (_gate)
-            {
-                if (_state != RequestState.Pending) return;
+
+            lock (_gate) {
+                if (_state != RequestState.Pending) {
+                    return;
+                }
+
                 _state = RequestState.Processing;
                 Reject("Malformed RCON request.");
             }
@@ -115,37 +144,46 @@ public sealed class RconConnection : IDisposable
     {
         _state = RequestState.Processing;
         _timeout.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-        try
-        {
+
+        try {
             var bytes = _request.GetBuffer().AsSpan(0, (int)_request.Length);
             var newline = bytes.IndexOf((byte)'\n');
-            if (newline >= 0)
-            {
-                if (!OnlyWhitespace(bytes[(newline + 1)..]))
-                {
+
+            if (newline >= 0) {
+                if (!OnlyWhitespace(bytes[(newline + 1)..])) {
                     Reject("Only one RCON request is allowed per connection.");
+
                     return;
                 }
+
                 bytes = bytes[..newline];
             }
+
             var request = JsonSerializer.Deserialize<AcknowledgedRequest>(StrictUtf8.GetString(bytes), JsonOptions);
-            if (!Valid(request))
-            {
+
+            if (!Valid(request)) {
                 Reject("Invalid RCON request.");
+
                 return;
             }
+
             var legacy = request!.Command + Convert.ToChar(1) + string.Join(':', request.Parameters!);
-            if (!Commands.Parse(legacy))
-            {
+
+            if (!Commands.Parse(legacy)) {
                 Reject($"RCON command '{request.Command}' was rejected.");
+
                 return;
             }
+
             Respond(0, "OK");
         }
-        catch (JsonException) { Reject("Malformed RCON JSON."); }
-        catch (DecoderFallbackException) { Reject("RCON request is not valid UTF-8."); }
-        catch (Exception exception)
-        {
+        catch (JsonException) {
+            Reject("Malformed RCON JSON.");
+        }
+        catch (DecoderFallbackException) {
+            Reject("RCON request is not valid UTF-8.");
+        }
+        catch (Exception exception) {
             _logger.LogWarning(exception, "Failed to execute an acknowledged RCON request.");
             Reject("RCON command failed.");
         }
@@ -153,23 +191,37 @@ public sealed class RconConnection : IDisposable
 
     private static bool Valid(AcknowledgedRequest? request)
     {
-        if (request?.Command == null || request.Parameters == null || !AcknowledgedCommands.Contains(request.Command)) return false;
-        if (request.Parameters.Length > 8) return false;
+        if (request?.Command == null || request.Parameters == null || !AcknowledgedCommands.Contains(request.Command)) {
+            return false;
+        }
+
+        if (request.Parameters.Length > 8) {
+            return false;
+        }
+
         return request.Parameters.All(parameter => parameter is { Length: <= 1024 }
             && parameter.IndexOfAny([':', Convert.ToChar(1), '\r', '\n', '\0']) < 0);
     }
 
     private static byte FirstNonWhitespace(ReadOnlySpan<byte> bytes)
     {
-        foreach (var value in bytes)
-            if (value is not ((byte)' ' or (byte)'\t' or (byte)'\r' or (byte)'\n')) return value;
+        foreach (var value in bytes) {
+            if (value is not ((byte)' ' or (byte)'\t' or (byte)'\r' or (byte)'\n')) {
+                return value;
+            }
+        }
+
         return 0;
     }
 
     private static bool OnlyWhitespace(ReadOnlySpan<byte> bytes)
     {
-        foreach (var value in bytes)
-            if (value is not ((byte)' ' or (byte)'\t' or (byte)'\r' or (byte)'\n')) return false;
+        foreach (var value in bytes) {
+            if (value is not ((byte)' ' or (byte)'\t' or (byte)'\r' or (byte)'\n')) {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -177,9 +229,11 @@ public sealed class RconConnection : IDisposable
 
     private void TimeoutRequest()
     {
-        lock (_gate)
-        {
-            if (_state != RequestState.Pending) return;
+        lock (_gate) {
+            if (_state != RequestState.Pending) {
+                return;
+            }
+
             _state = RequestState.TimedOut;
             Reject("RCON request timed out.");
         }
@@ -187,40 +241,55 @@ public sealed class RconConnection : IDisposable
 
     private void Respond(int status, string message)
     {
-        try
-        {
+        try {
             var socket = _socket;
-            if (socket == null) return;
+
+            if (socket == null) {
+                return;
+            }
+
             var response = JsonSerializer.SerializeToUtf8Bytes(new { status, message });
             var framed = new byte[response.Length + 1];
             response.CopyTo(framed, 0);
             framed[^1] = (byte)'\n';
             var sent = 0;
-            while (sent < framed.Length)
-            {
+
+            while (sent < framed.Length) {
                 var written = socket.Send(framed, sent, framed.Length - sent, SocketFlags.None);
-                if (written == 0) break;
+
+                if (written == 0) {
+                    break;
+                }
+
                 sent += written;
             }
         }
         catch (SocketException) { }
-        finally { Dispose(); }
+        finally {
+            Dispose();
+        }
     }
 
     public void Dispose()
     {
-        lock (_gate)
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        lock (_gate) {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) {
+                return;
+            }
+
             _state = RequestState.Disposed;
             _timeout.Dispose();
             var socket = Interlocked.Exchange(ref _socket, null);
-            if (socket != null)
-            {
-                try { socket.Shutdown(SocketShutdown.Both); }
+
+            if (socket != null) {
+                try {
+                    socket.Shutdown(SocketShutdown.Both);
+                }
                 catch (SocketException) { }
+
                 socket.Dispose();
             }
+
             _request.Dispose();
         }
     }
@@ -233,5 +302,8 @@ public sealed class RconConnection : IDisposable
         public string[]? Parameters { get; init; }
     }
 
-    private enum RequestState { Pending, Processing, TimedOut, Disposed }
+    private enum RequestState
+    {
+        Pending, Processing, TimedOut, Disposed
+    }
 }

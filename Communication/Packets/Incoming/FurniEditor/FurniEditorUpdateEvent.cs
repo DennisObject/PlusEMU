@@ -18,6 +18,7 @@ public class FurniEditorUpdateEvent : IPacketEvent
         uint id = packet.ReadUInt();
         string json = packet.ReadString();
         session.Send(new FurniEditorResultComposer(_furniEditor.Update(session.GetHabbo(), id, json)));
+
         return Task.CompletedTask;
     }
 }

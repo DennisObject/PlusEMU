@@ -27,8 +27,8 @@ public sealed class LandingViewSnapshotTests
         promotion.ButtonLink = "changed";
         promotion.ImageLink = "changed";
         source.Clear();
-        for (var index = 0; index < 2; index++)
-        {
+
+        for (var index = 0; index < 2; index++) {
             var packet = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(packet);
             Assert.Equal(new object[] { 1, 7, "title", "body", "button", 3, "link", "image" }, packet.Writes);

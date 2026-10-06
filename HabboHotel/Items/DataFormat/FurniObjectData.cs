@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Items.DataFormat;
+namespace Plus.HabboHotel.Items.DataFormat;
 
 public abstract class FurniObjectData : IFurniObjectData
 {

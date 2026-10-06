@@ -19,12 +19,18 @@ public sealed class NavigatorFavoriteService(IDatabase database, IRoomManager ro
     public void Add(GameClient session, uint roomId)
     {
         using var connection = database.Connection();
-        if (!RoomExists(connection, roomId)) return;
+
+        if (!RoomExists(connection, roomId)) {
+            return;
+        }
 
         var habbo = session.GetHabbo();
-        lock (habbo.FavoriteRooms.SyncRoot)
-        {
-            if (habbo.FavoriteRooms.Count >= MaximumFavorites || habbo.FavoriteRooms.Contains(roomId)) return;
+
+        lock (habbo.FavoriteRooms.SyncRoot) {
+            if (habbo.FavoriteRooms.Count >= MaximumFavorites || habbo.FavoriteRooms.Contains(roomId)) {
+                return;
+            }
+
             connection.Execute("INSERT INTO user_favorites (user_id, room_id) VALUES (@userId, @roomId)",
                 new { userId = habbo.Id, roomId });
             habbo.FavoriteRooms.Add(roomId);
@@ -35,8 +41,8 @@ public sealed class NavigatorFavoriteService(IDatabase database, IRoomManager ro
     public void Remove(GameClient session, uint roomId)
     {
         var habbo = session.GetHabbo();
-        lock (habbo.FavoriteRooms.SyncRoot)
-        {
+
+        lock (habbo.FavoriteRooms.SyncRoot) {
             using var connection = database.Connection();
             connection.Execute("DELETE FROM user_favorites WHERE user_id=@userId AND room_id=@roomId LIMIT 1",
                 new { userId = habbo.Id, roomId });
@@ -47,10 +53,14 @@ public sealed class NavigatorFavoriteService(IDatabase database, IRoomManager ro
 
     private bool RoomExists(System.Data.IDbConnection connection, uint roomId)
     {
-        if (roomManager.TryGetRoom(roomId, out _)) return true;
+        if (roomManager.TryGetRoom(roomId, out _)) {
+            return true;
+        }
+
         var modelName = connection.QuerySingleOrDefault<string?>(
             "SELECT rooms.model_name FROM rooms INNER JOIN users ON users.id=rooms.owner WHERE rooms.id=@roomId LIMIT 1",
             new { roomId });
+
         return modelName != null && roomManager.TryGetModel(modelName, out _);
     }
 }

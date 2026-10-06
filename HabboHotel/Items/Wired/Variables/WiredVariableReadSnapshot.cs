@@ -7,12 +7,20 @@ public sealed class WiredVariableReadSnapshot : IDisposable
     private readonly Dictionary<(WiredVariableReference, WiredVariableHolder), WiredVariableValue> _values;
     private bool _disposed;
     internal WiredVariableReadSnapshot(uint roomId, Dictionary<(WiredVariableReference, WiredVariableHolder), WiredVariableValue> values)
-    { _roomId = roomId; _values = values; }
+    {
+        _roomId = roomId;
+        _values = values;
+    }
     public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+
         return frame.RoomId == _roomId && reference.Target == holder.Target && frame.Contains(holder)
             ? _values.GetValueOrDefault((reference, holder)) : null;
     }
-    public void Dispose() { _disposed = true; _values.Clear(); }
+    public void Dispose()
+    {
+        _disposed = true;
+        _values.Clear();
+    }
 }

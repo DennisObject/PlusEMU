@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Options;
 using NetCoreServer;
 using Plus.Communication.Packets;
 using Plus.HabboHotel.GameClients;
@@ -36,15 +36,14 @@ public abstract class TcpGameServer<TGameServerOptions> : TcpServer, IGameServer
 
     protected override void OnConnected(TcpSession session)
     {
-        if (session is not TcpSessionProxy gameClient)
-        {
+        if (session is not TcpSessionProxy gameClient) {
             session.Disconnect();
+
             //_logger.LogWarning("Expected {TGameClient} to be connected. Got {type}", typeof(TGameClient), session.GetType());
             return;
         }
 
-        if (!_connectedClients.TryAdd(gameClient.Id, gameClient))
-        {
+        if (!_connectedClients.TryAdd(gameClient.Id, gameClient)) {
             //_logger.LogWarning("Failed to cache client. {id} {ip}", gameClient.Id, gameClient.Socket.RemoteEndPoint?.ToString());
             gameClient.Disconnect();
         }
@@ -58,9 +57,13 @@ public abstract class TcpGameServer<TGameServerOptions> : TcpServer, IGameServer
     public Task PacketReceived(GameClient client, uint messageId, IIncomingPacket packet)
     {
         packet.MessageId = messageId;
-        if (!InvokeInjectors(_incomingInjectors, messageId, injector => injector.ModifyIncomingPacket(this, client, packet)))
+
+        if (!InvokeInjectors(_incomingInjectors, messageId, injector => injector.ModifyIncomingPacket(this, client, packet))) {
             return Task.CompletedTask;
+        }
+
         packet.Stream.Position = 0;
+
         return _packetManager.TryExecutePacket(client, messageId, packet);
     }
 
@@ -71,16 +74,21 @@ public abstract class TcpGameServer<TGameServerOptions> : TcpServer, IGameServer
 
     private bool InvokeInjectors<T>(IReadOnlyDictionary<uint, T[]> injectors, uint messageId, Action<T> invoke)
     {
-        if (!injectors.TryGetValue(messageId, out var matches)) return true;
-        foreach (var injector in matches)
-        {
-            try { invoke(injector); }
-            catch (Exception exception)
-            {
+        if (!injectors.TryGetValue(messageId, out var matches)) {
+            return true;
+        }
+
+        foreach (var injector in matches) {
+            try {
+                invoke(injector);
+            }
+            catch (Exception exception) {
                 _logger.LogError(exception, "Packet injector {InjectorType} failed for message {MessageId}; packet aborted", injector!.GetType().Name, messageId);
+
                 return false;
             }
         }
+
         return true;
     }
 }

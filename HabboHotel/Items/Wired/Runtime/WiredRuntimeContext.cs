@@ -36,11 +36,26 @@ public sealed class WiredRuntimeContext
         Event = @event;
         Targets = targets;
         Operations = operations;
-        foreach (var item in targets.AllFurni()) FurniIdentity[item.Id] = item;
-        foreach (var user in targets.AllUsers()) UserIdentity[user.VirtualId] = user;
-        if (@event.Actor != null) UserIdentity[@event.Actor.VirtualId] = @event.Actor;
-        if (@event.TargetUser != null) UserIdentity[@event.TargetUser.VirtualId] = @event.TargetUser;
-        if (@event.EventItem != null) FurniIdentity[@event.EventItem.Id] = @event.EventItem;
+
+        foreach (var item in targets.AllFurni()) {
+            FurniIdentity[item.Id] = item;
+        }
+
+        foreach (var user in targets.AllUsers()) {
+            UserIdentity[user.VirtualId] = user;
+        }
+
+        if (@event.Actor != null) {
+            UserIdentity[@event.Actor.VirtualId] = @event.Actor;
+        }
+
+        if (@event.TargetUser != null) {
+            UserIdentity[@event.TargetUser.VirtualId] = @event.TargetUser;
+        }
+
+        if (@event.EventItem != null) {
+            FurniIdentity[@event.EventItem.Id] = @event.EventItem;
+        }
     }
 
     private WiredRuntimeContext(WiredRuntimeContext parent, WiredRuntimeEvent @event, bool shareFiring = false)
@@ -51,8 +66,8 @@ public sealed class WiredRuntimeContext
         Operations = parent.Operations;
         FurniIdentity = parent.FurniIdentity;
         UserIdentity = parent.UserIdentity;
-        if (shareFiring)
-        {
+
+        if (shareFiring) {
             _configurations = parent._configurations;
             Policy = parent.Policy;
             SelectorPool = parent.SelectorPool;
@@ -68,21 +83,33 @@ public sealed class WiredRuntimeContext
 
     internal void Capture(IEnumerable<IWiredItem> stack)
     {
-        foreach (var box in stack.OfType<IWiredConfiguredItem>()) _configurations[box.Item.Id] = box.Configuration;
+        foreach (var box in stack.OfType<IWiredConfiguredItem>()) {
+            _configurations[box.Item.Id] = box.Configuration;
+        }
     }
 
     internal WiredRuntimeContext ForActor(RoomUser actor)
     {
         var context = new WiredRuntimeContext(this, Event with { Actor = actor }, shareFiring: true)
         {
-            Depth = Depth, NowMilliseconds = NowMilliseconds, Trigger = Trigger,
-            Triggering = Triggering.Copy(), Selected = Selected.Copy(), SelectorKinds = SelectorKinds,
-            Signal = Signal, VariableFrame = VariableFrame, SelectorWorldSnapshot = SelectorWorldSnapshot
+            Depth = Depth,
+            NowMilliseconds = NowMilliseconds,
+            Trigger = Trigger,
+            Triggering = Triggering.Copy(),
+            Selected = Selected.Copy(),
+            SelectorKinds = SelectorKinds,
+            Signal = Signal,
+            VariableFrame = VariableFrame,
+            SelectorWorldSnapshot = SelectorWorldSnapshot
         };
         context.Triggering.UserIds.Clear();
         context.Triggering.UserIds.Add(actor.VirtualId);
-        if (!SelectorKinds.HasFlag(WiredSelectionKind.Users))
-        { context.Selected.UserIds.Clear(); context.Selected.UserIds.Add(actor.VirtualId); }
+
+        if (!SelectorKinds.HasFlag(WiredSelectionKind.Users)) {
+            context.Selected.UserIds.Clear();
+            context.Selected.UserIds.Add(actor.VirtualId);
+        }
+
         return context;
     }
 
@@ -91,7 +118,11 @@ public sealed class WiredRuntimeContext
         // One identity snapshot per dispatch; children share it and revalidate only targets.
         var child = new WiredRuntimeContext(this, @event) { Depth = depth, NowMilliseconds = NowMilliseconds };
         child.VariableFrame = VariableFrame;
-        foreach (var pair in Values) child.Values[pair.Key] = pair.Value;
+
+        foreach (var pair in Values) {
+            child.Values[pair.Key] = pair.Value;
+        }
+
         return child;
     }
 }

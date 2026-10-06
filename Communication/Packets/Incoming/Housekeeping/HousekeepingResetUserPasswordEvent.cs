@@ -21,6 +21,7 @@ internal class HousekeepingResetUserPasswordEvent : IPacketEvent
     {
         var userId = packet.ReadInt();
         _runner.Run(session, "user.reset_password", HousekeepingRights.Password, actor => _users.ResetPassword(actor, userId));
+
         return Task.CompletedTask;
     }
 }

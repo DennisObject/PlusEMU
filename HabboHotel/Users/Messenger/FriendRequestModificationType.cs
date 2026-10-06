@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Users.Messenger;
+namespace Plus.HabboHotel.Users.Messenger;
 
 public enum FriendRequestModificationType
 {

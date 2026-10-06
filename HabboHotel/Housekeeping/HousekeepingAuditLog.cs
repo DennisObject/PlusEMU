@@ -58,6 +58,7 @@ public sealed class HousekeepingAuditLog : IHousekeepingAuditLog
     public IReadOnlyList<HousekeepingAuditEntry> List(int limit)
     {
         using var connection = _database.Connection();
+
         return connection.Query<HousekeepingAuditEntry>(
             "SELECT `id`, `timestamp` AS CreatedAt, `actor_id` AS ActorId, `actor_name` AS ActorName, `target_type` AS TargetType, `target_id` AS TargetId, " +
             "`target_label` AS TargetLabel, `action`, `detail`, `success` FROM `housekeeping_log` ORDER BY `id` DESC LIMIT @limit",

@@ -43,8 +43,9 @@ public sealed class FoundationRuntimeDatabaseFactAttribute : FactAttribute
 {
     public FoundationRuntimeDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FOUNDATION_RUNTIME_DATABASE")))
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FOUNDATION_RUNTIME_DATABASE"))) {
             Skip = "Opt-in isolated foundation login and room-entry MariaDB smoke.";
+        }
     }
 }
 
@@ -65,16 +66,18 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
             output.WriteLine("Starting the real services used by login and room initialization.");
             await services.GetRequiredService<ISettingsManager>().Reload();
             await services.GetRequiredService<ILanguageManager>().Reload();
+
             foreach (var type in new[] { typeof(ItemDataManager), typeof(FigureDataManager), typeof(RoomManager),
                          typeof(AccessControl), typeof(ModerationManager), typeof(AchievementManager), typeof(BadgeManager),
-                         typeof(PetLocale), typeof(ChatStyleManager), typeof(ClothingManager), typeof(RewardManager) })
+                         typeof(PetLocale), typeof(ChatStyleManager), typeof(ClothingManager), typeof(RewardManager) }) {
                 await ((IStartable)services.GetRequiredService(type)).Start();
+            }
 
             output.WriteLine("Login tasks: " + string.Join(", ", services.GetServices<IUserDataLoadingTask>().Select(task => task.GetType().Name)));
             var (client, sent) = Client(services.GetRequiredService<ILogger<GameClient>>());
             var rooms = services.GetRequiredService<IRoomManager>();
-            try
-            {
+
+            try {
                 var ticket = await services.GetRequiredService<ISsoTicketStore>().Issue(7);
                 output.WriteLine("Calling the public SSO packet handler with a real single-use ticket.");
                 await services.GetRequiredService<SSOTicketEvent>().Parse(client, HabbiconTestSupport.Incoming(ticket.Value));
@@ -155,11 +158,17 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
                 Assert.Null(moderation.Find(7)!.TradingLockExpiresAt);
                 Assert.Null(housekeeping.Find(7)!.TradingLockExpiresAt);
             }
-            finally
-            {
-                try { client.OnDisconnected(); }
-                finally { if (rooms.TryGetRoom(42, out _)) rooms.UnloadRoom(42); }
+            finally {
+                try {
+                    client.OnDisconnected();
+                }
+                finally {
+                    if (rooms.TryGetRoom(42, out _)) {
+                        rooms.UnloadRoom(42);
+                    }
+                }
             }
+
             Assert.False(client.IsAuthenticated);
             Assert.Null(services.GetRequiredService<IGameClientManager>().GetClientByUserId(7));
             Assert.Equal(0, rooms.Count);
@@ -194,6 +203,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
         var sent = new List<(uint, byte[])>();
         var headers = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
             .Select(field => (uint)field.GetRawConstantValue()!).Where(id => id > 0).ToDictionary(id => id, id => id);
+
         return (new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), logger)
         {
             Id = Guid.NewGuid(),
@@ -202,6 +212,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
             {
                 var bytes = args.MemoryBuffer.ToArray();
                 sent.Add((BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
+
                 return false;
             }
         }, sent);
@@ -217,28 +228,34 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
 
         public Runtime(IDatabase database)
         {
-            foreach (var type in new[] { typeof(PlusEnvironment), typeof(ExceptionLogger) })
+            foreach (var type in new[] { typeof(PlusEnvironment), typeof(ExceptionLogger) }) {
                 foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
-                             .Where(field => !field.IsInitOnly && !field.IsLiteral))
+                             .Where(field => !field.IsInitOnly && !field.IsLiteral)) {
                     _globals[field] = field.GetValue(null);
+                }
+            }
+
             var serviceCollection = new ServiceCollection();
             var defaults = typeof(Program).GetField("_defaultTypes", BindingFlags.Static | BindingFlags.NonPublic)!;
             var previous = defaults.GetValue(null);
-            try
-            {
+
+            try {
                 defaults.SetValue(null, new Dictionary<ServiceLifetime, IEnumerable<Type>>
-                    { [ServiceLifetime.Singleton] = [], [ServiceLifetime.Scoped] = [] });
+                { [ServiceLifetime.Singleton] = [], [ServiceLifetime.Scoped] = [] });
                 typeof(Program).GetMethod("AddDefaultRules", BindingFlags.Static | BindingFlags.NonPublic)!
                     .Invoke(null, [serviceCollection, typeof(Program).Assembly]);
             }
-            finally { defaults.SetValue(null, previous); }
+            finally {
+                defaults.SetValue(null, previous);
+            }
+
             serviceCollection.RemoveAll<IDatabase>();
             serviceCollection.AddSingleton(database);
             serviceCollection.AddSingleton(TimeProvider.System);
             serviceCollection.AddOptions();
             serviceCollection.AddLogging(logging => logging.AddProvider(_logs));
-            try
-            {
+
+            try {
                 Services = serviceCollection.BuildServiceProvider();
                 ExceptionLogger.Configure(Services.GetRequiredService<ILoggerFactory>());
                 Set("_database", database);
@@ -252,8 +269,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
                 DefaultTypeMap.MatchNamesWithUnderscores = true;
                 SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
             }
-            catch
-            {
+            catch {
                 Dispose();
                 throw;
             }
@@ -264,10 +280,14 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
 
         public void Dispose()
         {
-            try { Services?.Dispose(); }
-            finally
-            {
-                foreach (var (field, value) in _globals) field.SetValue(null, value);
+            try {
+                Services?.Dispose();
+            }
+            finally {
+                foreach (var (field, value) in _globals) {
+                    field.SetValue(null, value);
+                }
+
                 DefaultTypeMap.MatchNamesWithUnderscores = _matchUnderscores;
             }
         }
@@ -277,7 +297,9 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
     {
         public ConcurrentQueue<string> Errors { get; } = new();
         public ILogger CreateLogger(string categoryName) => new ErrorLogger(Errors);
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class ErrorLogger(ConcurrentQueue<string> errors) : ILogger
@@ -286,7 +308,9 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
         public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Error;
         public void Log<TState>(LogLevel level, EventId id, TState state, Exception? error, Func<TState, Exception?, string> formatter)
         {
-            if (IsEnabled(level)) errors.Enqueue(formatter(state, error) + " " + error);
+            if (IsEnabled(level)) {
+                errors.Enqueue(formatter(state, error) + " " + error);
+            }
         }
     }
 }

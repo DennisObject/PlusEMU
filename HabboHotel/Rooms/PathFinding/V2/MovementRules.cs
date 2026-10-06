@@ -2,9 +2,18 @@ using System.Runtime.CompilerServices;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
-public enum StepPurpose { Transit, Goal, Roller, Interaction }
-public enum OccupancyView { Planning, Execution }
-public enum StepReason { Ok, BoundsOrAdjacency, InteractionDenied, NotStandable, FloorLocked, TooHigh, TooLow, CornerVoid, CornerBlocked, GateDenied, Occupied }
+public enum StepPurpose
+{
+    Transit, Goal, Roller, Interaction
+}
+public enum OccupancyView
+{
+    Planning, Execution
+}
+public enum StepReason
+{
+    Ok, BoundsOrAdjacency, InteractionDenied, NotStandable, FloorLocked, TooHigh, TooLow, CornerVoid, CornerBlocked, GateDenied, Occupied
+}
 public readonly record struct StepResult(StepReason Reason)
 {
     public bool Ok => Reason == StepReason.Ok;
@@ -27,11 +36,26 @@ public static class ClaimMatrix
 {
     public static TargetOccupancy BlockingMask(ActorProfile actor, NavFlags target, StepPurpose purpose, OccupancyView view)
     {
-        if (actor.LegacyOverride || purpose == StepPurpose.Interaction) return TargetOccupancy.None;
-        if (purpose == StepPurpose.Roller) return (TargetOccupancy)127;
-        if (actor.IgnoreUsers || (target & NavFlags.Door) != 0) return TargetOccupancy.RollerClaim;
-        if (!actor.Walkthrough) return view == OccupancyView.Execution ? (TargetOccupancy)127 : TargetOccupancy.Stationary | TargetOccupancy.OffGraph;
-        if (purpose != StepPurpose.Goal) return TargetOccupancy.RollerClaim;
+        if (actor.LegacyOverride || purpose == StepPurpose.Interaction) {
+            return TargetOccupancy.None;
+        }
+
+        if (purpose == StepPurpose.Roller) {
+            return (TargetOccupancy)127;
+        }
+
+        if (actor.IgnoreUsers || (target & NavFlags.Door) != 0) {
+            return TargetOccupancy.RollerClaim;
+        }
+
+        if (!actor.Walkthrough) {
+            return view == OccupancyView.Execution ? (TargetOccupancy)127 : TargetOccupancy.Stationary | TargetOccupancy.OffGraph;
+        }
+
+        if (purpose != StepPurpose.Goal) {
+            return TargetOccupancy.RollerClaim;
+        }
+
         return view == OccupancyView.Execution
             ? TargetOccupancy.Stationary | TargetOccupancy.GoalClaim | TargetOccupancy.RollerClaim | TargetOccupancy.OffGraph
             : TargetOccupancy.Stationary | TargetOccupancy.OffGraph;
@@ -47,7 +71,10 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
     public StepResult CanStep(ActorProfile actor, in NavPosition from, in NavPosition to,
         StepPurpose purpose, OccupancyView view, PlanningOccupancy? occupancy = null)
     {
-        if (!Adjacent(from, to)) return new(StepReason.BoundsOrAdjacency);
+        if (!Adjacent(from, to)) {
+            return new(StepReason.BoundsOrAdjacency);
+        }
+
         return CanStepKnownNeighbour(actor, from, to, to.Slot >= 0 ? to.Slot : grid.Tile(to.X, to.Y), purpose, view, occupancy);
     }
 
@@ -57,18 +84,24 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
     public StepResult CanRollOntoVacatedRoller(ActorProfile actor, in NavPosition from, in NavPosition to,
         PlanningOccupancy occupancy, bool floorStatusReleased = false)
     {
-        if (!Adjacent(from, to)) return new(StepReason.BoundsOrAdjacency);
+        if (!Adjacent(from, to)) {
+            return new(StepReason.BoundsOrAdjacency);
+        }
+
         // The target surface supplies flags and occupancy; the floor lock is tile-scoped.
         var slot = to.Slot >= 0 ? to.Slot : grid.Tile(to.X, to.Y);
         var locked = floorStatusReleased ? Volatile.Read(ref grid.FloorLocks[grid.TileOf(slot)]) != 0
             : (grid.Flags[slot] & NavFlags.FloorLocked) != 0;
         var flags = (locked ? NavFlags.FloorLocked : NavFlags.None) | NavFlags.Transit | NavFlags.Roller;
+
         return CanEnter(actor, from, to, slot, flags, StepPurpose.Roller, OccupancyView.Execution, occupancy);
     }
 
     private bool Adjacent(in NavPosition from, in NavPosition to)
     {
-        var dx = to.X - from.X; var dy = to.Y - from.Y;
+        var dx = to.X - from.X;
+        var dy = to.Y - from.Y;
+
         return grid.InBounds(from.X, from.Y) && grid.InBounds(to.X, to.Y)
             && Math.Abs(dx) <= 1 && Math.Abs(dy) <= 1 && (dx != 0 || dy != 0);
     }
@@ -83,23 +116,46 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
     private StepResult CanEnter(ActorProfile actor, in NavPosition from, in NavPosition to,
         int slot, NavFlags flags, StepPurpose purpose, OccupancyView view, PlanningOccupancy? occupancy)
     {
-        if (actor.LegacyOverride) return new(StepReason.Ok);
-        if (purpose == StepPurpose.Interaction)
+        if (actor.LegacyOverride) {
+            return new(StepReason.Ok);
+        }
+
+        if (purpose == StepPurpose.Interaction) {
             return new(actor.Interaction?.Allows(from, to) == true ? StepReason.Ok : StepReason.InteractionDenied);
-        if (!IsStandable(flags, slot, purpose)) return new(StepReason.NotStandable);
-        if ((flags & NavFlags.FloorLocked) != 0) return new(StepReason.FloorLocked);
-        if (!actor.IgnoreStepHeight && purpose != StepPurpose.Roller)
-        {
+        }
+
+        if (!IsStandable(flags, slot, purpose)) {
+            return new(StepReason.NotStandable);
+        }
+
+        if ((flags & NavFlags.FloorLocked) != 0) {
+            return new(StepReason.FloorLocked);
+        }
+
+        if (!actor.IgnoreStepHeight && purpose != StepPurpose.Roller) {
             var height = HeightReason(grid.WalkZ[slot] - from.Z);
-            if (height != StepReason.Ok) return new(height);
+
+            if (height != StepReason.Ok) {
+                return new(height);
+            }
         }
-        if (from.X != to.X && from.Y != to.Y && _cornerRule != CornerRule.None)
-        {
+
+        if (from.X != to.X && from.Y != to.Y && _cornerRule != CornerRule.None) {
             var corner = CornerReason(actor, from, to);
-            if (corner != StepReason.Ok) return new(corner);
+
+            if (corner != StepReason.Ok) {
+                return new(corner);
+            }
         }
-        if ((flags & NavFlags.GuildGate) != 0 && !_access.CanEnterGuildGate(actor, grid.GroupId[slot])) return new(StepReason.GateDenied);
-        if (occupancy != null && (occupancy.Targets[slot] & ClaimMatrix.BlockingMask(actor, flags, purpose, view)) != 0) return new(StepReason.Occupied);
+
+        if ((flags & NavFlags.GuildGate) != 0 && !_access.CanEnterGuildGate(actor, grid.GroupId[slot])) {
+            return new(StepReason.GateDenied);
+        }
+
+        if (occupancy != null && (occupancy.Targets[slot] & ClaimMatrix.BlockingMask(actor, flags, purpose, view)) != 0) {
+            return new(StepReason.Occupied);
+        }
+
         return new(StepReason.Ok);
     }
 
@@ -108,6 +164,7 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
     {
         var required = purpose == StepPurpose.Transit ? NavFlags.Transit
             : NavFlags.Transit | NavFlags.GoalOnlySeat | NavFlags.GoalOnlyBed | NavFlags.Door;
+
         return purpose == StepPurpose.Roller
             ? (flags & NavFlags.Transit) != 0 || grid.LegacyFloorStatus[grid.TileOf(slot)] != 0
             : (flags & required) != 0;
@@ -116,19 +173,31 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private StepReason CornerReason(ActorProfile actor, in NavPosition from, in NavPosition to)
     {
-        var a = grid.Tile(to.X, from.Y); var b = grid.Tile(from.X, to.Y);
+        var a = grid.Tile(to.X, from.Y);
+        var b = grid.Tile(from.X, to.Y);
+
         // Official requires both flanks to exist even when the first is open.
-        if (_cornerRule == CornerRule.Official && (grid.TileVoid[a] || grid.TileVoid[b])) return StepReason.CornerVoid;
+        if (_cornerRule == CornerRule.Official && (grid.TileVoid[a] || grid.TileVoid[b])) {
+            return StepReason.CornerVoid;
+        }
+
         var openA = CanFlankKnownTile(actor, from.Z, a);
+
         if (_cornerRule == CornerRule.Strict
             ? !openA || !CanFlankKnownTile(actor, from.Z, b)
-            : !openA && !CanFlankKnownTile(actor, from.Z, b)) return StepReason.CornerBlocked;
+            : !openA && !CanFlankKnownTile(actor, from.Z, b)) {
+            return StepReason.CornerBlocked;
+        }
+
         return StepReason.Ok;
     }
 
     public bool CanFlank(ActorProfile actor, in NavPosition from, int x, int y)
     {
-        if (!grid.InBounds(x, y)) return false;
+        if (!grid.InBounds(x, y)) {
+            return false;
+        }
+
         return CanFlankKnownTile(actor, from.Z, grid.Tile(x, y));
     }
 
@@ -136,14 +205,19 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool CanFlankKnownTile(ActorProfile actor, double fromZ, int t)
     {
-        for (var ordinal = 0; ordinal < grid.SurfaceCount(t); ordinal++)
-            if (FlankSurfaceOpen(actor, fromZ, grid.SurfaceAt(t, ordinal))) return true;
+        for (var ordinal = 0; ordinal < grid.SurfaceCount(t); ordinal++) {
+            if (FlankSurfaceOpen(actor, fromZ, grid.SurfaceAt(t, ordinal))) {
+                return true;
+            }
+        }
+
         return false;
     }
 
     private bool FlankSurfaceOpen(ActorProfile actor, double fromZ, int slot)
     {
         var flags = grid.Flags[slot];
+
         return (flags & NavFlags.Transit) != 0 && (flags & NavFlags.FloorLocked) == 0
             && ((flags & NavFlags.GuildGate) == 0 || _access.CanEnterGuildGate(actor, grid.GroupId[slot]))
             && (actor.IgnoreStepHeight || HeightReason(grid.WalkZ[slot] - fromZ) == StepReason.Ok);

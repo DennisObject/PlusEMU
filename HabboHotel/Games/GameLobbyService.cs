@@ -30,8 +30,10 @@ public sealed class GameLobbyService(IGameDataManager games) : IGameLobbyService
 
     public void JoinQueue(GameClient session, int gameId)
     {
-        if (!games.TryGetGame(gameId, out var game))
+        if (!games.TryGetGame(gameId, out var game)) {
             return;
+        }
+
         var snapshot = GameLoadSnapshot.Capture(game);
         var ticket = $"HABBOON-Fastfood-{GenerateSso(32)}-{session.GetHabbo().Id}";
         session.Send(new JoinQueueComposer(snapshot.Id));
@@ -42,7 +44,11 @@ public sealed class GameLobbyService(IGameDataManager games) : IGameLobbyService
     {
         const string characters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         var result = new StringBuilder(length);
-        for (var index = 0; index < length; index++) result.Append(characters[Random.Shared.Next(characters.Length)]);
+
+        for (var index = 0; index < length; index++) {
+            result.Append(characters[Random.Shared.Next(characters.Length)]);
+        }
+
         return result.ToString();
     }
 }

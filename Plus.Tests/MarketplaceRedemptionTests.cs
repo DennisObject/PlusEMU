@@ -95,8 +95,11 @@ public class MarketplaceRedemptionTests
         var table = new DataTable();
         table.Columns.Add("OfferId", typeof(uint));
         table.Columns.Add("AskingPrice", typeof(int));
-        for (var i = 0; i < values.Length; i += 2)
+
+        for (var i = 0; i < values.Length; i += 2) {
             table.Rows.Add(values[i], values[i + 1]);
+        }
+
         return table;
     }
 
@@ -109,8 +112,13 @@ public class MarketplaceRedemptionTests
         public int? ClaimSold(int userId, Func<int, bool> accepts)
         {
             var owed = Sold.Sum();
-            if (!accepts(owed)) return null;
+
+            if (!accepts(owed)) {
+                return null;
+            }
+
             Sold.Clear();
+
             return owed;
         }
     }

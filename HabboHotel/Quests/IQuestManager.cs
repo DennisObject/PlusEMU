@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Incoming;
+using Plus.Communication.Packets.Incoming;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Quests;

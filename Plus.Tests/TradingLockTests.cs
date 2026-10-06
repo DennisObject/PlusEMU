@@ -15,9 +15,14 @@ public class TradingLockTests
         var packet = new HabbiconTestSupport.RecordingPacket();
         var data = new ModerationUserData
         {
-            Id = 42, Username = "target", Look = "figure", Mail = "user@example.com",
-            AccountCreatedAt = now.AddDays(-1), LastOnlineAt = null,
-            TradingLockExpiresAt = new DateTimeOffset(2042, 1, 3, 12, 0, 0, TimeSpan.FromHours(2)), TradingLockCount = 2
+            Id = 42,
+            Username = "target",
+            Look = "figure",
+            Mail = "user@example.com",
+            AccountCreatedAt = now.AddDays(-1),
+            LastOnlineAt = null,
+            TradingLockExpiresAt = new DateTimeOffset(2042, 1, 3, 12, 0, 0, TimeSpan.FromHours(2)),
+            TradingLockCount = 2
         };
 
         new ModeratorUserInfoComposer(data, true, now).Compose(packet);
@@ -80,7 +85,12 @@ public class TradingLockTests
         public readonly DateTimeOffset Expiry = new(2042, 4, 1, 12, 0, 0, TimeSpan.Zero);
         public (int, TimeSpan)? Lock;
         public int? Cleared;
-        public DateTimeOffset Set(int userId, TimeSpan duration) { Lock = (userId, duration); return Expiry; }
+        public DateTimeOffset Set(int userId, TimeSpan duration)
+        {
+            Lock = (userId, duration);
+
+            return Expiry;
+        }
         public void Clear(int userId) => Cleared = userId;
         public bool IsLocked(Habbo habbo) => throw new NotSupportedException();
     }

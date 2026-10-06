@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Plus.Core;
 using System.Diagnostics.CodeAnalysis;
 using Plus.Database;
@@ -25,8 +25,10 @@ public class VoucherManager : IVoucherManager, IStartable
         using var connection = _database.Connection();
         var vouchers = await connection.QueryAsync<Voucher>("SELECT voucher AS Code, type, value, current_uses AS CurrentUses, max_uses AS MaxUses FROM catalog_vouchers WHERE enabled = TRUE");
         _vouchers.Clear();
-        foreach (var voucher in vouchers)
+
+        foreach (var voucher in vouchers) {
             _vouchers.Add(voucher.Code, voucher);
+        }
     }
 
     public bool TryGetVoucher(string code, [NotNullWhen(true)] out Voucher? voucher) => _vouchers.TryGetValue(code, out voucher);

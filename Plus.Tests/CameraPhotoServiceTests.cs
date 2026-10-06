@@ -24,6 +24,7 @@ public sealed class CameraPhotoServiceTests
         var service = CatalogSnapshotTestSupport.Proxy<ICameraPhotoService>((method, args) =>
         {
             calls.Add((method, (Guid?)args[1]));
+
             return null;
         });
         await new PurchasePhotoEvent(service).Parse(null!, HabbiconTestSupport.Incoming(MediaId.ToString("D")));
@@ -46,6 +47,7 @@ public sealed class CameraPhotoServiceTests
             Assert.Empty(habbo.Inventory.Furniture.AllItems);
             Assert.Empty(sent);
             habbo.Credits = 95;
+
             return new CameraCheckoutResult(true, Item: item);
         }, (_, _) => { achievementCalls++; return false; });
 
@@ -113,8 +115,10 @@ public sealed class CameraPhotoServiceTests
         {
             Assert.Equal("Checkout", method);
             Assert.Equal(MediaId, args[1]);
+
             return ((Func<CameraCheckoutMedia, CameraCheckoutResult>)args[2]!)(new(MediaId, 2, DateTimeOffset.UnixEpoch));
         });
+
         return new(camera, CatalogSnapshotTestSupport.Proxy<ICameraCheckoutService>(checkout),
             CatalogSnapshotTestSupport.Proxy<IAchievementManager>(achievements ?? ((_, _) => throw new NotSupportedException())),
             CatalogSnapshotTestSupport.Proxy<IRewardTrackManager>(rewards ?? ((_, _) => throw new NotSupportedException())),
@@ -123,7 +127,9 @@ public sealed class CameraPhotoServiceTests
 
     private static Habbo Actor() => new()
     {
-        Id = 1, Credits = 100, CurrentRoom = new Room(new RoomData { Id = 2 }, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused),
+        Id = 1,
+        Credits = 100,
+        CurrentRoom = new Room(new RoomData { Id = 2 }, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused),
         Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([], []) }
     };
 }

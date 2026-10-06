@@ -30,6 +30,7 @@ internal static class CatalogAdminPacketReader
         var type = CatalogType(targetType);
         var page = new CatalogAdminPage(type, pageId, parentId, captionSave, caption, layout, iconColor, iconImage, requiredPermission, orderNum,
             visible, enabled, clubOnly, catalogMode, headline, teaser, special, text1, text2, textDetails, textTeaser, roomId, includes);
+
         return (page, Envelope(packet, type));
     }
 
@@ -50,6 +51,7 @@ internal static class CatalogAdminPacketReader
         var type = CatalogType(targetType);
         var page = new CatalogAdminPage(type, 0, parentId, captionSave, caption, layout, iconColor, iconImage, requiredPermission, orderNum,
             visible, enabled, clubOnly, catalogMode, headline, teaser, special, text1, text2, textDetails, textTeaser, roomId, includes);
+
         return (page, Envelope(packet, type));
     }
 
@@ -67,6 +69,7 @@ internal static class CatalogAdminPacketReader
         var type = CatalogType(packet.ReadString());
         var offer = new CatalogAdminOffer(type, offerId, itemIds, pageId, catalogName, costCredits, costPoints, pointsType, amount,
             limitedStack, orderNumber, offerIdGroup, songId, extradata, haveOffer, clubOnly != 0);
+
         return (offer, Envelope(packet, type));
     }
 
@@ -74,6 +77,7 @@ internal static class CatalogAdminPacketReader
     public static (int Id, CatalogAdminEnvelope Envelope) Target(IIncomingPacket packet)
     {
         int id = packet.ReadInt();
+
         return (id, Envelope(packet, CatalogType(packet.ReadString())));
     }
 
@@ -82,6 +86,7 @@ internal static class CatalogAdminPacketReader
     {
         int pageId = packet.ReadInt();
         bool value = packet.ReadBool();
+
         return (pageId, value, Envelope(packet, CatalogType(packet.ReadString())));
     }
 
@@ -89,11 +94,17 @@ internal static class CatalogAdminPacketReader
     public static (List<(int OfferId, int OrderNumber)> Orders, CatalogAdminEnvelope Envelope)? ReorderOffers(IIncomingPacket packet)
     {
         int count = packet.ReadInt();
-        if (count is < 1 or > MaxReorderCount)
+
+        if (count is < 1 or > MaxReorderCount) {
             return null;
+        }
+
         var orders = new List<(int, int)>(count);
-        for (int i = 0; i < count; i++)
+
+        for (int i = 0; i < count; i++) {
             orders.Add((packet.ReadInt(), packet.ReadInt()));
+        }
+
         return (orders, Envelope(packet, CatalogType(packet.ReadString())));
     }
 

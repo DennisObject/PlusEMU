@@ -24,6 +24,7 @@ internal class HousekeepingSearchRoomsEvent : IPacketEvent
         var limit = packet.ReadInt();
         var valid = query.Length > 0 && HousekeepingLimits.IsText(query, HousekeepingLimits.MaxLookupLength);
         session.Send(new HousekeepingRoomListComposer(valid ? _rooms.Search(query, exactMatch, limit) : Array.Empty<HousekeepingRoom>()));
+
         return Task.CompletedTask;
     }
 }

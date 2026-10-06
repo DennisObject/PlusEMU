@@ -11,6 +11,7 @@ internal static class TestWiredClients
     {
         var clients = DispatchProxy.Create<IGameClientManager, CountProxy>();
         ((CountProxy)(object)clients).ReadCount = count;
+
         return clients;
     }
 

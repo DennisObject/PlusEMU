@@ -50,15 +50,18 @@ public sealed class RoomCreationService(
         using var account = await accounts.EnterAsync(habbo.Id);
         var name = wordFilter.CheckMessage(request.Name);
         var description = wordFilter.CheckMessage(request.Description);
+
         if (name.Length is < 3 or > 25 ||
             !rooms.TryGetModel(request.ModelName, out var model) ||
-            !model.CanCreate(habbo.Access))
+            !model.CanCreate(habbo.Access)) {
             return;
+        }
 
         var roomLimit = ClubLimits.For(habbo.Access, "rooms", settings);
-        if (roomData.GetRoomsDataByOwnerSortByName(habbo.Id).Count >= roomLimit)
-        {
+
+        if (roomData.GetRoomsDataByOwnerSortByName(habbo.Id).Count >= roomLimit) {
             session.Send(new CanCreateRoomComposer(true, roomLimit));
+
             return;
         }
 
@@ -72,11 +75,12 @@ public sealed class RoomCreationService(
         var tradeSettings = request.TradeSettings is < 0 or > 2 ? 0 : request.TradeSettings;
         var created = rooms.CreateRoom(
             session, name, description, categoryId, maxVisitors, tradeSettings, model);
-        if (created != null)
-        {
+
+        if (created != null) {
             session.Send(new FlatCreatedComposer(created.Id, name));
             rewards.Progress(session, RewardTrackActions.CreateRoom);
         }
+
         habbo.Messenger.NotifyChangesToFriends();
     }
 }

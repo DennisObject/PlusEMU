@@ -16,6 +16,7 @@ public class CatalogAdminSetPageVisibleEvent : IPacketEvent
     {
         var (pageId, visible, envelope) = CatalogAdminPacketReader.PageFlag(packet);
         CatalogAdminResponder.Send(session, "toggleVisible", envelope, _catalogAdmin.SetPageVisible(session.GetHabbo(), envelope, pageId, visible));
+
         return Task.CompletedTask;
     }
 }

@@ -20,29 +20,52 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
     public void SendInformation(GameClient session, int petId)
     {
         var habbo = session.GetHabbo();
-        if (!habbo.InRoom || habbo.CurrentRoom == null) return;
-        var room = habbo.CurrentRoom;
-        if (room.GetRoomUserManager().TryGetPet(petId, out var pet))
-        {
-            if (pet.RoomId != room.RoomId || pet.PetData == null) return;
-            session.Send(new PetInformationComposer(Capture(pet.PetData)));
+
+        if (!habbo.InRoom || habbo.CurrentRoom == null) {
             return;
         }
+
+        var room = habbo.CurrentRoom;
+
+        if (room.GetRoomUserManager().TryGetPet(petId, out var pet)) {
+            if (pet.RoomId != room.RoomId || pet.PetData == null) {
+                return;
+            }
+
+            session.Send(new PetInformationComposer(Capture(pet.PetData)));
+
+            return;
+        }
+
         var target = room.GetRoomUserManager().GetRoomUserByHabbo(petId)?.GetClient()?.GetHabbo();
-        if (target != null) session.Send(new PetInformationComposer(Capture(target, clock.GetUtcNow())));
+
+        if (target != null) {
+            session.Send(new PetInformationComposer(Capture(target, clock.GetUtcNow())));
+        }
     }
 
     public void SendTrainingPanel(GameClient session, int petId)
     {
         var room = session.GetHabbo().CurrentRoom;
-        if (room == null) return;
-        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet))
-        {
-            var target = room.GetRoomUserManager().GetRoomUserByHabbo(petId)?.GetClient()?.GetHabbo();
-            if (target != null) session.SendWhisper("Maybe one day, boo boo.");
+
+        if (room == null) {
             return;
         }
-        if (pet.RoomId != room.RoomId || pet.PetData == null) return;
+
+        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet)) {
+            var target = room.GetRoomUserManager().GetRoomUserByHabbo(petId)?.GetClient()?.GetHabbo();
+
+            if (target != null) {
+                session.SendWhisper("Maybe one day, boo boo.");
+            }
+
+            return;
+        }
+
+        if (pet.RoomId != room.RoomId || pet.PetData == null) {
+            return;
+        }
+
         session.Send(new PetTrainingPanelComposer(pet.PetData.PetId, pet.PetData.Level));
     }
 
@@ -51,6 +74,7 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
         var now = clock.GetUtcNow();
         var age = pet.CreatedAt is { } createdAt ? (now - createdAt).Ticks / TimeSpan.TicksPerDay : 0;
         var days = (int)Math.Clamp(age, 0, int.MaxValue);
+
         return new(pet.PetId, pet.Name, pet.Level, Pet.MaxLevel, pet.Experience, pet.ExperienceGoal,
             pet.Energy, Pet.MaxEnergy, pet.Nutrition, Pet.MaxNutrition, pet.Respect, pet.OwnerId,
             days, pet.OwnerName, pet.Saddle > 0, pet.AnyoneCanRide);
@@ -60,6 +84,7 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
     {
         var days = habbo.AccountCreatedAt is { } createdAt ? (now - createdAt).Ticks / TimeSpan.TicksPerDay : 0;
         var age = (int)Math.Clamp(days, 0, int.MaxValue);
+
         return new(habbo.Id, habbo.Username, habbo.Access.SecurityLevel, 10, 0, 0, 100, 100, 100, 100,
             habbo.HabboStats.Respect, habbo.Id, age, habbo.Username, false, 0);
     }

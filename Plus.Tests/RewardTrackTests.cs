@@ -198,19 +198,24 @@ public class RewardTrackTests
         }));
         track.AddPrize(new RewardTrackPrize("track_champ", 50, 4, "badge", "ACH_RewardTracksCompleted1", 1, false, 1));
         track.AddPrize(new RewardTrackPrize("track_champ_premium", 200, 4, "badge", "ACH_RewardTracksCompleted2", 1, true, 2));
+
         return track;
     }
 
     private static string RevisionPath(string fileName)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null)
-        {
+
+        while (dir != null) {
             var candidate = Path.Combine(dir.FullName, "Resources", "Revisions", fileName);
-            if (File.Exists(candidate))
+
+            if (File.Exists(candidate)) {
                 return candidate;
+            }
+
             dir = dir.Parent;
         }
+
         throw new FileNotFoundException(fileName);
     }
 

@@ -14,25 +14,32 @@ public sealed class RoomFilterService(IAchievementManager achievements) : IRoomF
 {
     public void Show(GameClient session)
     {
-        if (!TryGetAuthorizedRoom(session, out var room))
+        if (!TryGetAuthorizedRoom(session, out var room)) {
             return;
+        }
+
         session.Send(new GetRoomFilterListComposer(room.WordFilterList));
         achievements.ProgressAchievement(session, "ACH_SelfModRoomFilterSeen", 1);
     }
 
     public void Modify(GameClient session, int roomId, bool added, string word)
     {
-        if (!TryGetAuthorizedRoom(session, out var room) || roomId < 0 || room.Id != (uint)roomId)
+        if (!TryGetAuthorizedRoom(session, out var room) || roomId < 0 || room.Id != (uint)roomId) {
             return;
-        if (added)
+        }
+
+        if (added) {
             room.GetFilter().AddFilter(word);
-        else
+        }
+        else {
             room.GetFilter().RemoveFilter(word);
+        }
     }
 
     private static bool TryGetAuthorizedRoom(GameClient session, out Room room)
     {
         room = session.GetHabbo().CurrentRoom!;
+
         return room != null && room.CheckRights(session);
     }
 }

@@ -32,6 +32,7 @@ public sealed class WiredSelectorTests
         var signal = new WiredSelectedIds();
         signal.FurniIds.Add(3);
         signal.UserIds.Add(2);
+
         return new(triggering, new(), signal, ClickedUserId: 4,
             FurniVariablePredicate: (_, _, id) => id == 3,
             UserVariablePredicate: (_, _, id) => id == 4);

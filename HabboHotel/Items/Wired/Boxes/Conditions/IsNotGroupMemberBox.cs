@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -30,15 +30,24 @@ internal class IsNotGroupMemberBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length == 0)
+        if (@params.Length == 0) {
             return false;
+        }
+
         var player = (Habbo)@params[0];
-        if (player == null)
+
+        if (player == null) {
             return false;
-        if (Instance.Group == null)
+        }
+
+        if (Instance.Group == null) {
             return false;
-        if (Instance.Group.IsMember(player.Id))
+        }
+
+        if (Instance.Group.IsMember(player.Id)) {
             return false;
+        }
+
         return true;
     }
 }

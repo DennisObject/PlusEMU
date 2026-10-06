@@ -8,6 +8,7 @@ internal sealed class GetHabboClubWindowEvent(IClubOfferSnapshotService offers) 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         offers.ShowOffers(session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

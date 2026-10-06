@@ -14,6 +14,7 @@ public static class RoomOwnerScope
     {
         var scope = new Scope(_currentOwner);
         _currentOwner = room;
+
         return scope;
     }
 
@@ -23,7 +24,10 @@ public static class RoomOwnerScope
 
         public void Dispose()
         {
-            if (_disposed) return;
+            if (_disposed) {
+                return;
+            }
+
             _currentOwner = previous;
             _disposed = true;
         }

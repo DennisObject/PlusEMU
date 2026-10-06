@@ -13,9 +13,15 @@ public sealed class WiredVariableDefinitionBox : IWiredConfiguredItem, IWiredEdi
     public WiredVariableDefinitionBox(Room room, Item item, WiredBoxDescriptor descriptor,
         WiredVariableConfigurationPersistence? persistence = null, WiredVariableEditor? editor = null)
     {
-        if (!WiredVariableDefinitions.Supports(descriptor.CanonicalName)) throw new ArgumentException("Unsupported variable definition.", nameof(descriptor));
-        Instance = room; Item = item; Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
-        _persistence = persistence; _editor = editor;
+        if (!WiredVariableDefinitions.Supports(descriptor.CanonicalName)) {
+            throw new ArgumentException("Unsupported variable definition.", nameof(descriptor));
+        }
+
+        Instance = room;
+        Item = item;
+        Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
+        _persistence = persistence;
+        _editor = editor;
         Configuration = WiredVariableDefaults.Create(descriptor.CanonicalName);
     }
     public Room Instance { get; set; }
@@ -34,11 +40,17 @@ public sealed class WiredVariableDefinitionBox : IWiredConfiguredItem, IWiredEdi
     public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         validated = proposed;
+
         return WiredVariableDefinitions.TryDecode(Descriptor.CanonicalName, Item.Id, Instance.Id,
             Instance.OwnerId > 0 ? (uint)Instance.OwnerId : 0, proposed, out _, out error);
     }
     public void ApplyConfiguration(WiredConfiguration validated)
-    { Configuration = validated; HasPersistedConfiguration = true; StringData = validated.Text; ItemsData = string.Join(';', validated.SelectedItems); }
+    {
+        Configuration = validated;
+        HasPersistedConfiguration = true;
+        StringData = validated.Text;
+        ItemsData = string.Join(';', validated.SelectedItems);
+    }
     public bool Execute(params object[] arguments) => false;
     public void HandleSave(IIncomingPacket packet) => throw new InvalidOperationException("Variable definitions require validated configuration persistence.");
 }

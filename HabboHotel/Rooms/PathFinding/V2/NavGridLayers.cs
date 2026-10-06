@@ -30,29 +30,43 @@ public sealed partial class NavGrid
     public int TopSlot(int tile)
     {
         var count = SurfaceCount(tile);
+
         return count == 0 ? tile : SurfaceAt(tile, count - 1);
     }
 
     public int SlotOf(SurfaceRef surface)
     {
-        if ((uint)surface.Tile >= (uint)TileCount) return -1;
-        if (Layered)
-            for (var ordinal = 0; ordinal < _tileSurfaceCount[surface.Tile]; ordinal++)
-            {
+        if ((uint)surface.Tile >= (uint)TileCount) {
+            return -1;
+        }
+
+        if (Layered) {
+            for (var ordinal = 0; ordinal < _tileSurfaceCount[surface.Tile]; ordinal++) {
                 var slot = _tileSlots[surface.Tile * MaxSurfacesPerTile + ordinal];
-                if (SupportItem[slot] == surface.SupportItemId && Kind[slot] == surface.Kind) return slot;
+
+                if (SupportItem[slot] == surface.SupportItemId && Kind[slot] == surface.Kind) {
+                    return slot;
+                }
             }
+        }
+
         return Reference(surface.Tile) == surface ? surface.Tile : -1;
     }
 
     public int OwnerOf(int tile, uint itemId)
     {
-        if (!Layered) return -1;
-        for (var ordinal = 0; ordinal < _tileSurfaceCount[tile]; ordinal++)
-        {
-            var slot = _tileSlots[tile * MaxSurfacesPerTile + ordinal];
-            if (Array.IndexOf(_contacts[slot], itemId) >= 0) return slot;
+        if (!Layered) {
+            return -1;
         }
+
+        for (var ordinal = 0; ordinal < _tileSurfaceCount[tile]; ordinal++) {
+            var slot = _tileSlots[tile * MaxSurfacesPerTile + ordinal];
+
+            if (Array.IndexOf(_contacts[slot], itemId) >= 0) {
+                return slot;
+            }
+        }
+
         return -1;
     }
 
@@ -61,33 +75,44 @@ public sealed partial class NavGrid
 
     internal void EnterLayers()
     {
-        if (_tileSlots.Length == 0)
-        {
+        if (_tileSlots.Length == 0) {
             _tileSlots = new int[TileCount * MaxSurfacesPerTile];
             _tileSurfaceCount = new byte[TileCount];
         }
-        for (var t = 0; t < TileCount; t++)
-        {
+
+        for (var t = 0; t < TileCount; t++) {
             _tileSlots[t * MaxSurfacesPerTile] = t;
             _tileSurfaceCount[t] = (byte)(Active(t) ? 1 : 0);
         }
+
         Layered = true;
     }
 
     internal void LeaveLayers()
     {
-        for (var t = 0; t < TileCount; t++)
-            foreach (var slot in TileSurfaces(t))
-                if (slot != t) ReleaseSlot(slot);
-                else _leftPrimaries[t] = Reference(t);
+        for (var t = 0; t < TileCount; t++) {
+            foreach (var slot in TileSurfaces(t)) {
+                if (slot != t) {
+                    ReleaseSlot(slot);
+                }
+                else {
+                    _leftPrimaries[t] = Reference(t);
+                }
+            }
+        }
+
         Layered = false;
     }
 
     // After the K=1 recompile, a primary slot that now holds a different surface is released too.
     internal void SettleLeftPrimaries()
     {
-        foreach (var (slot, previous) in _leftPrimaries)
-            if (!Active(slot) || Reference(slot) != previous) _releasedSlots.TryAdd(slot, previous);
+        foreach (var (slot, previous) in _leftPrimaries) {
+            if (!Active(slot) || Reference(slot) != previous) {
+                _releasedSlots.TryAdd(slot, previous);
+            }
+        }
+
         _leftPrimaries.Clear();
     }
 
@@ -100,45 +125,80 @@ public sealed partial class NavGrid
     internal int AllocateOverflow(int tile)
     {
         int slot;
-        if (_freeOverflow.Count > 0) { slot = _freeOverflow.Min; _freeOverflow.Remove(slot); }
-        else { slot = TileCount + _overflowHighWater++; EnsureSlotCapacity(slot + 1); }
+
+        if (_freeOverflow.Count > 0) {
+            slot = _freeOverflow.Min;
+            _freeOverflow.Remove(slot);
+        }
+        else {
+            slot = TileCount + _overflowHighWater++;
+            EnsureSlotCapacity(slot + 1);
+        }
+
         _overflowTile[slot - TileCount] = tile;
+
         return slot;
     }
 
     internal void ReleaseSlot(int slot)
     {
-        if (Active(slot)) ActiveNodeCount--;
+        if (Active(slot)) {
+            ActiveNodeCount--;
+        }
+
         _releasedSlots.TryAdd(slot, Reference(slot));
-        Flags[slot] = NavFlags.None; _contacts[slot] = [];
-        if (slot >= TileCount) _freeOverflow.Add(slot);
+        Flags[slot] = NavFlags.None;
+        _contacts[slot] = [];
+
+        if (slot >= TileCount) {
+            _freeOverflow.Add(slot);
+        }
     }
 
     internal void WriteSurface(int slot, double z, NavFlags flags, uint support, SurfaceKind kind,
         int group, byte ordinal, int[] pillows, uint[] contacts)
     {
         var wasActive = Active(slot);
-        WalkZ[slot] = z; Flags[slot] = flags; SupportItem[slot] = support; Kind[slot] = kind;
-        GroupId[slot] = group; Ordinal[slot] = ordinal; PillowTiles[slot] = pillows; _contacts[slot] = contacts;
+        WalkZ[slot] = z;
+        Flags[slot] = flags;
+        SupportItem[slot] = support;
+        Kind[slot] = kind;
+        GroupId[slot] = group;
+        Ordinal[slot] = ordinal;
+        PillowTiles[slot] = pillows;
+        _contacts[slot] = contacts;
         ActiveNodeCount += (Active(slot) ? 1 : 0) - (wasActive ? 1 : 0);
     }
 
-    internal void BeginPublish() { _forcedOffGraph.Clear(); _releasedSlots.Clear(); }
+    internal void BeginPublish()
+    {
+        _forcedOffGraph.Clear();
+        _releasedSlots.Clear();
+    }
     internal void ForceOffGraph(SurfaceRef surface) => _forcedOffGraph.Add(surface);
 
     private void EnsureSlotCapacity(int slots)
     {
-        if (slots <= WalkZ.Length) return;
+        if (slots <= WalkZ.Length) {
+            return;
+        }
+
         var length = Math.Max(slots, TileCount + Math.Max(16, (WalkZ.Length - TileCount) * 2));
-        WalkZ = Grow(WalkZ, length); Flags = Grow(Flags, length); SupportItem = Grow(SupportItem, length);
-        Ordinal = Grow(Ordinal, length); Kind = Grow(Kind, length); GroupId = Grow(GroupId, length);
-        PillowTiles = Grow(PillowTiles, length); _contacts = Grow(_contacts, length);
+        WalkZ = Grow(WalkZ, length);
+        Flags = Grow(Flags, length);
+        SupportItem = Grow(SupportItem, length);
+        Ordinal = Grow(Ordinal, length);
+        Kind = Grow(Kind, length);
+        GroupId = Grow(GroupId, length);
+        PillowTiles = Grow(PillowTiles, length);
+        _contacts = Grow(_contacts, length);
         _overflowTile = Grow(_overflowTile, length - TileCount);
     }
 
     private static T[] Grow<T>(T[] array, int length)
     {
         Array.Resize(ref array, length);
+
         return array;
     }
 }

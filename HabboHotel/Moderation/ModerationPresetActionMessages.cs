@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Moderation;
+namespace Plus.HabboHotel.Moderation;
 
 public class ModerationPresetActionMessages
 {

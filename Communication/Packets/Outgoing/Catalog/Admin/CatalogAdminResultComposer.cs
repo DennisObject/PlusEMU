@@ -38,8 +38,11 @@ public sealed class CatalogAdminResultComposer : IServerPacket
     {
         packet.WriteBoolean(_success);
         packet.WriteString(_message);
-        if (_smartSave is not { } save)
+
+        if (_smartSave is not { } save) {
             return;
+        }
+
         var outcome = save.Outcome;
         packet.WriteInteger(SmartSaveProtocol);
         packet.WriteString(save.OperationId);

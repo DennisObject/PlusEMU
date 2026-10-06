@@ -8,30 +8,57 @@ public static class WiredActionConfiguration
     // Raw current-editor fields; the concrete box validates and decodes named roles before publication.
     public static WiredConfiguration Defaults(string name)
     {
-        if (name == "wf_act_give_reward") return WiredRewards.Defaults();
-        if (WiredTemporaryFurnitureActions.Supports(name)) return WiredTemporaryFurnitureActions.Defaults(name);
-        if (name == "wf_act_teleport_to_room") return WiredRoomForwarding.Defaults();
-        if (WiredBotActions.Names.Contains(name)) return WiredBotActions.Defaults(name);
+        if (name == "wf_act_give_reward") {
+            return WiredRewards.Defaults();
+        }
+
+        if (WiredTemporaryFurnitureActions.Supports(name)) {
+            return WiredTemporaryFurnitureActions.Defaults(name);
+        }
+
+        if (name == "wf_act_teleport_to_room") {
+            return WiredRoomForwarding.Defaults();
+        }
+
+        if (WiredBotActions.Names.Contains(name)) {
+            return WiredBotActions.Defaults(name);
+        }
+
         ImmutableArray<int> parameters = name switch
         {
-            "wf_act_join_team" => [0, 1, 0, 0], "wf_act_leave_team" or "wf_act_kick_user" => [0],
-            "wf_act_give_score" => [1, 0, 0], "wf_act_give_score_tm" => [1, 0, 1], "wf_act_mute_triggerer" => [1, 0],
-            "wf_act_freeze" => [218, 0, 0], "wf_act_unfreeze" => [0],
-            "wf_act_chase" or "wf_act_flee" => [100], "wf_act_move_to_dir" => [0, 0, 100, 0],
+            "wf_act_join_team" => [0, 1, 0, 0],
+            "wf_act_leave_team" or "wf_act_kick_user" => [0],
+            "wf_act_give_score" => [1, 0, 0],
+            "wf_act_give_score_tm" => [1, 0, 1],
+            "wf_act_mute_triggerer" => [1, 0],
+            "wf_act_freeze" => [218, 0, 0],
+            "wf_act_unfreeze" => [0],
+            "wf_act_chase" or "wf_act_flee" => [100],
+            "wf_act_move_to_dir" => [0, 0, 100, 0],
             "wf_act_move_rotate_user" => [-1, -1, 0],
-            "wf_act_rel_mov" => [1, 0, 1, 0, 100], "wf_act_set_altitude" => [2, 100],
-            "wf_act_move_rotate" => [-1, 0, 100, 0], "wf_act_move_furni_as_group" => [0, 100],
-            "wf_act_furni_to_furni" => [0, 100], "wf_act_furni_to_user" => [100, 0],
-            "wf_act_move_furni_to" => [0, 1, 100], "wf_act_match_to_sshot" => [0, 0, 0, 0, 100],
-            "wf_act_toggle_state" => [0, 100], "wf_act_toggle_to_rnd" => [100],
-            "wf_act_teleport_to" => [0, 100, 0], "wf_act_user_to_furni" => [100, 0, 1],
-            "wf_act_control_clock" => [0, 100], "wf_act_adjust_clock" => [0, 100, 0, 0],
-            "wf_act_reset_timers" => [], "wf_act_call_stacks" or "wf_act_neg_call_stacks" => [100],
+            "wf_act_rel_mov" => [1, 0, 1, 0, 100],
+            "wf_act_set_altitude" => [2, 100],
+            "wf_act_move_rotate" => [-1, 0, 100, 0],
+            "wf_act_move_furni_as_group" => [0, 100],
+            "wf_act_furni_to_furni" => [0, 100],
+            "wf_act_furni_to_user" => [100, 0],
+            "wf_act_move_furni_to" => [0, 1, 100],
+            "wf_act_match_to_sshot" => [0, 0, 0, 0, 100],
+            "wf_act_toggle_state" => [0, 100],
+            "wf_act_toggle_to_rnd" => [100],
+            "wf_act_teleport_to" => [0, 100, 0],
+            "wf_act_user_to_furni" => [100, 0, 1],
+            "wf_act_control_clock" => [0, 100],
+            "wf_act_adjust_clock" => [0, 100, 0, 0],
+            "wf_act_reset_timers" => [],
+            "wf_act_call_stacks" or "wf_act_neg_call_stacks" => [100],
             "wf_act_send_signal" or "wf_act_neg_send_signal" => [0, 100, 0, 0, 0, 0],
-            "wf_act_log" or "wf_act_neg_log" => [1, 0], "wf_act_show_message" => [0, 0, 34, -1],
+            "wf_act_log" or "wf_act_neg_log" => [1, 0],
+            "wf_act_show_message" => [0, 0, 34, -1],
             "wf_act_click_conf" => [0, 0, 0],
             _ => throw new ArgumentException("Unknown action.", nameof(name))
         };
+
         return new() { IntParams = parameters, Text = name == "wf_act_set_altitude" ? "0" : "" };
     }
 }

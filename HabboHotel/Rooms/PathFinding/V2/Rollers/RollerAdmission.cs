@@ -11,8 +11,12 @@ internal sealed class RollerAdmission(Room room, RollerTransport transport)
     {
         var destination = move.Destination;
         var departing = departures.At(destination);
+
         if (!room.GetGameMap().CanRollItemHere(destination.X, destination.Y)
-            || !NextRollerClear(destination, departing)) return false;
+            || !NextRollerClear(destination, departing)) {
+            return false;
+        }
+
         return move.Cargo is { } cargo
             ? AdmitsCargo(cargo, move, departures) && transport.AdmitsCargo(move, departures)
             : transport.AdmitsActor(move, departing);
@@ -23,8 +27,13 @@ internal sealed class RollerAdmission(Room room, RollerTransport transport)
     {
         var items = room.GetGameMap().GetAllRoomItemForSquare(tile.X, tile.Y);
         var rollers = items.Where(RollerIdentity.IsRoller).ToList();
-        if (rollers.Count == 0) return true;
+
+        if (rollers.Count == 0) {
+            return true;
+        }
+
         var top = rollers.Max(roller => roller.TotalHeight);
+
         return items.All(item => item.TotalHeight <= top || departing.Items.Contains(item.Id));
     }
 
@@ -32,6 +41,7 @@ internal sealed class RollerAdmission(Room room, RollerTransport transport)
     private bool AdmitsCargo(Item cargo, RollerMove move, IRollerDepartureView departures)
     {
         var destination = move.Destination;
+
         return departures.At(destination).AllUsersLeave(room.GetGameMap().GetRoomUsers(destination))
             && room.GetRoomItemHandler().CanMoveFloorItem(cargo, destination.X, destination.Y, move.CarriedZ,
                 cargo.IsTemporary ? PlanLocalCollision(cargo, destination, departures) : null);
@@ -42,6 +52,7 @@ internal sealed class RollerAdmission(Room room, RollerTransport transport)
     {
         var footprint = WiredRoomOperations.Footprint(cargo, destination.X, destination.Y, cargo.Rotation)
             .Select(departures.At).ToList();
+
         return new(footprint.SelectMany(tile => tile.Items).ToHashSet(),
             footprint.SelectMany(tile => tile.Users).Select(user => user.VirtualId).ToHashSet(), new HashSet<uint>());
     }

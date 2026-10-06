@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.Items;
 
 namespace Plus.HabboHotel.Rooms.Games;
@@ -23,30 +23,30 @@ public class GameItemHandler
 
     private void CyclePyramids()
     {
-        foreach (var item in _banzaiPyramids.Values.ToList())
-        {
-            if (item == null)
+        foreach (var item in _banzaiPyramids.Values.ToList()) {
+            if (item == null) {
                 continue;
-            if (item.InteractionCountHelper == 0 && item.LegacyDataString == "1")
-            {
+            }
+
+            if (item.InteractionCountHelper == 0 && item.LegacyDataString == "1") {
                 _room.GetGameMap().RemoveFromMap(item, false);
                 item.InteractionCountHelper = 1;
             }
-            if (string.IsNullOrEmpty(item.LegacyDataString))
+
+            if (string.IsNullOrEmpty(item.LegacyDataString)) {
                 item.LegacyDataString = "0";
+            }
+
             var randomNumber = Random.Shared.Next(0, 30);
-            if (randomNumber == 15)
-            {
-                if (item.LegacyDataString == "0")
-                {
+
+            if (randomNumber == 15) {
+                if (item.LegacyDataString == "0") {
                     item.LegacyDataString = "1";
                     item.UpdateState();
                     _room.GetGameMap().RemoveFromMap(item, false);
                 }
-                else
-                {
-                    if (_room.GetGameMap().ItemCanBePlaced(item.GetX, item.GetY))
-                    {
+                else {
+                    if (_room.GetGameMap().ItemCanBePlaced(item.GetX, item.GetY)) {
                         item.LegacyDataString = "0";
                         item.UpdateState();
                         _room.GetGameMap().AddItemToMap(item);
@@ -58,10 +58,12 @@ public class GameItemHandler
 
     public void AddPyramid(Item item, uint itemId)
     {
-        if (_banzaiPyramids.ContainsKey(itemId))
+        if (_banzaiPyramids.ContainsKey(itemId)) {
             _banzaiPyramids[itemId] = item;
-        else
+        }
+        else {
             _banzaiPyramids.TryAdd(itemId, item);
+        }
     }
 
     public void RemovePyramid(uint itemId)
@@ -71,10 +73,12 @@ public class GameItemHandler
 
     public void AddTeleport(Item item, uint itemId)
     {
-        if (_banzaiTeleports.ContainsKey(itemId))
+        if (_banzaiTeleports.ContainsKey(itemId)) {
             _banzaiTeleports[itemId] = item;
-        else
+        }
+        else {
             _banzaiTeleports.TryAdd(itemId, item);
+        }
     }
 
     public void RemoveTeleport(uint itemId)
@@ -88,14 +92,17 @@ public class GameItemHandler
         var count = items.Count();
         var countId = Random.Shared.Next(0, count);
         var countAmount = 0;
-        if (count == 0)
+
+        if (count == 0) {
             return;
-        foreach (var i in items.ToList())
-        {
-            if (i == null)
+        }
+
+        foreach (var i in items.ToList()) {
+            if (i == null) {
                 continue;
-            if (countAmount == countId)
-            {
+            }
+
+            if (countAmount == countId) {
                 i.LegacyDataString = "1";
                 i.UpdateNeeded = true;
                 _room.GetGameMap().TeleportToItem(user, i);
@@ -104,16 +111,21 @@ public class GameItemHandler
                 i.UpdateState();
                 i.UpdateState();
             }
+
             countAmount++;
         }
     }
 
     public void Dispose()
     {
-        if (_banzaiTeleports != null)
+        if (_banzaiTeleports != null) {
             _banzaiTeleports.Clear();
-        if (_banzaiPyramids != null)
+        }
+
+        if (_banzaiPyramids != null) {
             _banzaiPyramids.Clear();
+        }
+
         _banzaiPyramids = null;
         _banzaiTeleports = null;
         _room = null;

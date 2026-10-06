@@ -18,8 +18,8 @@ public sealed class PlayerProfileSnapshotTests
             12, 3, false, true, false, [new(42, "Group", "badge", "red", "blue", true, true)], 90);
         var composer = new ProfileInformationComposer(profile);
         var oldCulture = CultureInfo.CurrentCulture;
-        try
-        {
+
+        try {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ar-SA");
             var packet = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(packet);
@@ -31,7 +31,9 @@ public sealed class PlayerProfileSnapshotTests
             composer.Compose(repeated);
             Assert.Equal(packet.Writes, repeated.Writes);
         }
-        finally { CultureInfo.CurrentCulture = oldCulture; }
+        finally {
+            CultureInfo.CurrentCulture = oldCulture;
+        }
     }
 
     [Theory]
@@ -41,8 +43,14 @@ public sealed class PlayerProfileSnapshotTests
     [InlineData(-62_135_596_800L, int.MaxValue)]
     public async Task ProfileServiceCapturesAndBoundsElapsedTime(long? lastOnline, int expected)
     {
-        var habbo = new Habbo { Id = 7, Username = "Alice", Look = "hd-1", Motto = "hello",
-            LastOnlineAt = lastOnline.HasValue ? DateTimeOffset.FromUnixTimeSeconds(lastOnline.Value) : null };
+        var habbo = new Habbo
+        {
+            Id = 7,
+            Username = "Alice",
+            Look = "hd-1",
+            Motto = "hello",
+            LastOnlineAt = lastOnline.HasValue ? DateTimeOffset.FromUnixTimeSeconds(lastOnline.Value) : null
+        };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         var clients = new HousekeepingActionTests.FakeClients();
         clients.Online[7] = client;

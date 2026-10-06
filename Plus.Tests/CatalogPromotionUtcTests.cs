@@ -24,8 +24,13 @@ public sealed class CatalogPromotionUtcTests
         var catalog = CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, _) =>
             method == "get_Promotions" ? new[] { promotion } : throw new InvalidOperationException(method));
         var page = new CatalogSnapshotService(catalog, new FixedTimeProvider(now)).CapturePage(new() { Layout = "frontpage" }, -1);
-        if (expired) Assert.Empty(page.Promotions);
-        else Assert.Equal(seconds, Assert.Single(page.Promotions).SecondsLeft);
+
+        if (expired) {
+            Assert.Empty(page.Promotions);
+        }
+        else {
+            Assert.Equal(seconds, Assert.Single(page.Promotions).SecondsLeft);
+        }
     }
 
     [Fact]
@@ -113,12 +118,13 @@ public sealed class CatalogPromotionUtcTests
     private static void CreateCatalogTables(MySqlConnection connection)
     {
         var pristine = Read("Resources/SQLs/Original Database.sql");
-        foreach (var table in new[] { "catalog_items", "catalog_deals", "catalog_pages", "catalog_bot_presets", "catalog_promotions" })
-        {
+
+        foreach (var table in new[] { "catalog_items", "catalog_deals", "catalog_pages", "catalog_bot_presets", "catalog_promotions" }) {
             var statement = Regex.Match(pristine, $@"CREATE TABLE `{table}` \(.*?;", RegexOptions.Singleline);
             Assert.True(statement.Success);
             connection.Execute(statement.Value);
         }
+
         connection.Execute("""
             ALTER TABLE catalog_pages ADD COLUMN required_club_level INT NOT NULL DEFAULT 0;
             ALTER TABLE catalog_items ADD COLUMN habbicon_id INT NOT NULL DEFAULT 0;
@@ -156,14 +162,16 @@ public sealed class CatalogPromotionUtcTests
         admin.Open();
         var schema = "task_catalog_promotion_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             options.Database = schema;
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
             await run(connection, new ProbeDatabase(options.ConnectionString));
         }
-        finally { admin.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            admin.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private static string Read(string path) => File.ReadAllText(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../", path)));

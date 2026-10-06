@@ -37,8 +37,12 @@ public sealed class MessengerNavigationServiceTests
     [Fact]
     public void SearchNormalizesOnceAndKeepsFriendAndOtherOrderAndOnlineWireFields()
     {
-        var (client, sent) = Client(new Habbo { Id = 1, Messenger = new HabboMessenger(
-            new() { [3] = new MessengerBuddy { Id = 3 }, [4] = new MessengerBuddy { Id = 4 } }, new(), [], TimeProvider.System) });
+        var (client, sent) = Client(new Habbo
+        {
+            Id = 1,
+            Messenger = new HabboMessenger(
+            new() { [3] = new MessengerBuddy { Id = 3 }, [4] = new MessengerBuddy { Id = 4 } }, new(), [], TimeProvider.System)
+        });
         var search = new RecordingSearch
         {
             Results = [new(2, "Other", "o", "look2", null), new(3, "Friend", "f", "look3", DateTimeOffset.FromUnixTimeSeconds(2200000000)),
@@ -48,6 +52,7 @@ public sealed class MessengerNavigationServiceTests
         var service = new MessengerNavigationService(search, Clients(id =>
         {
             lookups.Add(id);
+
             return id == 3 ? client : null;
         }));
         service.Search(client, "%Ali\n\u0001ce%");
@@ -87,6 +92,7 @@ public sealed class MessengerNavigationServiceTests
         var service = new MessengerNavigationService(new RecordingSearch(), Clients(id =>
         {
             lookups++;
+
             return id == 2 ? target : null;
         }));
         service.Follow(client, 0);
@@ -124,8 +130,8 @@ public sealed class MessengerNavigationServiceTests
         server.Open();
         var schema = "task_refactor_tests_search_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             var connectionString = new MySqlConnectionStringBuilder(root)
             { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString;
             using var connection = new MySqlConnection(connectionString);
@@ -142,14 +148,22 @@ public sealed class MessengerNavigationServiceTests
             Assert.Equal("b", future.Motto);
             Assert.Empty(search.GetSearchResult("nobody"));
         }
-        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private static void ReadSearchRow(FlashIncomingPacket wire, int id, string name, string motto, bool online, string look, string lastOnline)
     {
-        Assert.Equal(id, wire.ReadInt()); Assert.Equal(name, wire.ReadString()); Assert.Equal(motto, wire.ReadString());
-        Assert.Equal(online, wire.ReadBool()); Assert.False(wire.ReadBool()); Assert.Equal("", wire.ReadString());
-        Assert.Equal(0, wire.ReadInt()); Assert.Equal(look, wire.ReadString()); Assert.Equal(lastOnline, wire.ReadString());
+        Assert.Equal(id, wire.ReadInt());
+        Assert.Equal(name, wire.ReadString());
+        Assert.Equal(motto, wire.ReadString());
+        Assert.Equal(online, wire.ReadBool());
+        Assert.False(wire.ReadBool());
+        Assert.Equal("", wire.ReadString());
+        Assert.Equal(0, wire.ReadInt());
+        Assert.Equal(look, wire.ReadString());
+        Assert.Equal(lastOnline, wire.ReadString());
     }
 
     private static (FlashGameClient Client, List<(uint Header, byte[] Payload)> Sent) Client(Habbo habbo)
@@ -159,8 +173,10 @@ public sealed class MessengerNavigationServiceTests
         {
             var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
             sent.Add((BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
+
             return true;
         };
+
         return (client, sent);
     }
 
@@ -168,6 +184,7 @@ public sealed class MessengerNavigationServiceTests
     {
         var proxy = DispatchProxy.Create<IGameClientManager, ClientProxy>();
         ((ClientProxy)(object)proxy).Lookup = lookup;
+
         return proxy;
     }
 
@@ -181,7 +198,12 @@ public sealed class MessengerNavigationServiceTests
     {
         public List<SearchResult> Results = [];
         public List<string> Queries = [];
-        public List<SearchResult> GetSearchResult(string query) { Queries.Add(query); return Results; }
+        public List<SearchResult> GetSearchResult(string query)
+        {
+            Queries.Add(query);
+
+            return Results;
+        }
     }
     private sealed class RecordingNavigation : IMessengerNavigationService
     {

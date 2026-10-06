@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.HabboHotel.Catalog;
@@ -43,6 +43,7 @@ public class CatalogPage
     public bool IsAvailableTo(Habbo habbo)
     {
         var access = habbo.Access.Capture(out var now);
+
         return (string.IsNullOrEmpty(RequiredPermission) || access.Keys.Contains(RequiredPermission)) &&
             ClubAccess.LevelFor(access, now) >= RequiredClubLevel;
     }
@@ -51,8 +52,10 @@ public class CatalogPage
 
     public CatalogItem? GetItem(int pId)
     {
-        if (Items.ContainsKey(pId))
+        if (Items.ContainsKey(pId)) {
             return Items[pId];
+        }
+
         return null;
     }
 }

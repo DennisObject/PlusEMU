@@ -33,6 +33,7 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
             var result = new WiredSelectedIds();
             result.FurniIds.UnionWith(context.Targets.ResolveFurni(context, [], source, raw: true).Select(x => x.Id));
             result.UserIds.UnionWith(context.Targets.ResolveUsers(context, [], source, raw: true).Select(x => x.VirtualId));
+
             return result;
         }
         var input = new WiredSelectorInputs(Selection(RuntimeSources.Trigger), Selection(RuntimeSources.Selector),
@@ -41,14 +42,22 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
             context.Event.Kind == WiredEventKind.AvatarAction ? context.Event.Action : null, context.Event.Code,
             variables?.FurniPredicate, variables?.UserPredicate,
             (context.SelectorKinds & WiredSelectionKind.Furni) != 0, (context.SelectorKinds & WiredSelectionKind.Users) != 0, world.IncludeWired);
+
         return new(world, input, variables?.ReadOperand,
             (source, configuration) => context.Targets.ResolveFurni(context, configuration.SelectedItems, source).Select(x => x.Id),
             source => context.Targets.ResolveUsers(context, [], source).Select(x => x.VirtualId));
     }
 
     public WiredSelectorRuntimeInput WithVariables(WiredSelectorVariableQueries? variables) => variables is null ? this
-        : this with { Selection = Selection with { FurniVariablePredicate = variables.FurniPredicate,
-            UserVariablePredicate = variables.UserPredicate }, ReadVariable = variables.ReadOperand };
+        : this with
+        {
+            Selection = Selection with
+            {
+                FurniVariablePredicate = variables.FurniPredicate,
+                UserVariablePredicate = variables.UserPredicate
+            },
+            ReadVariable = variables.ReadOperand
+        };
 
     private static WiredSelectorWorld CaptureWorld(WiredRuntimeContext context, WiredSelectorRoomState state,
         IGroupManager groupManager)
@@ -56,13 +65,21 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
         var items = context.Targets.ResolveFurni(context, [], RuntimeSources.AllRoom, raw: true);
         var users = context.Targets.ResolveUsers(context, [], RuntimeSources.AllRoom, raw: true);
         var remotes = new Dictionary<uint, WiredRemoteSelector>();
-        foreach (var item in items)
+
+        foreach (var item in items) {
             if (context.Room.GetWired().TryGet(item.Id, out var box) && box is IWiredConfiguredItem configured
-                && configured.Descriptor.Category == WiredBoxCategory.Selector)
+                && configured.Descriptor.Category == WiredBoxCategory.Selector) {
                 remotes[item.Id] = new(configured.Descriptor.CanonicalName, context.ConfigurationOf(configured));
+            }
+        }
+
         var groupIds = remotes.Values.Where(x => x.Name == "wf_slc_users_group")
             .Select(x => WiredSelectorSources.Param(x.Configuration, 1)).Where(x => x > 0).ToHashSet();
-        if (context.Room.Group is { } roomGroup) groupIds.Add(roomGroup.Id);
+
+        if (context.Room.Group is { } roomGroup) {
+            groupIds.Add(roomGroup.Id);
+        }
+
         var groups = groupIds.Select(id => groupManager.TryGetGroup(id, out var group) ? group : null)
             .Where(x => x != null).ToArray();
         var furni = items.Select(item => new WiredSelectorFurniture(item.Id, checked((int)item.Definition.Id),
@@ -74,6 +91,7 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
             var action = state.Read(user);
             var name = user.IsBot ? user.BotData.Name : user.GetClient()?.GetHabbo()?.Username ?? "";
             var memberships = user.IsBot ? new HashSet<int>() : groups.Where(x => x!.IsMember(user.HabboId)).Select(x => x!.Id).ToHashSet();
+
             return new WiredSelectorAvatar(user.VirtualId, name,
                 user.IsPet ? WiredSelectorEntityKind.Pet : user.IsBot ? WiredSelectorEntityKind.Bot : WiredSelectorEntityKind.Player,
                 user.X, user.Y, (int)user.Team, memberships, user.CarryItemId,
@@ -86,6 +104,7 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
             && item.GetY == trigger.Item.GetY && context.Room.GetWired().TryGet(item.Id, out var candidate)
             && candidate is IWiredConfiguredItem configured && configured.Descriptor.CanonicalName == "wf_xtra_or_eval"
             && WiredSelectorSources.Param(context.ConfigurationOf(configured), 1) == RuntimeSources.Selector);
+
         return new(model.MapSizeX, model.MapSizeY, furni, avatars, context.Room.Group?.Id ?? 0, remotes, includeWired);
     }
 }

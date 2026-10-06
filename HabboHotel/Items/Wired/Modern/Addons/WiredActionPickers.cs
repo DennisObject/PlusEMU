@@ -6,19 +6,28 @@ public sealed class WiredRandomActionPicker(int amount, int skipExecutions, Rand
 
     public IReadOnlyList<uint> Pick(IReadOnlyList<uint> actionIds)
     {
-        if (actionIds.Count == 0) return [];
+        if (actionIds.Count == 0) {
+            return [];
+        }
+
         var candidates = actionIds.Distinct().ToArray();
         random.Shuffle(candidates);
         var recent = _recent.SelectMany(x => x).ToHashSet();
         var count = Math.Min(Math.Clamp(amount, 1, 1000), candidates.Length);
         var result = candidates.Where(x => !recent.Contains(x)).Take(count).ToList();
-        if (result.Count < count)
+
+        if (result.Count < count) {
             result.AddRange(candidates.Where(x => !result.Contains(x)).Take(count - result.Count));
-        if (skipExecutions > 0)
-        {
-            _recent.Enqueue(result.ToArray());
-            while (_recent.Count > Math.Clamp(skipExecutions, 0, 1000)) _recent.Dequeue();
         }
+
+        if (skipExecutions > 0) {
+            _recent.Enqueue(result.ToArray());
+
+            while (_recent.Count > Math.Clamp(skipExecutions, 0, 1000)) {
+                _recent.Dequeue();
+            }
+        }
+
         return result;
     }
 
@@ -32,16 +41,24 @@ public sealed class WiredUnseenActionPicker : IWiredActionPicker
 
     public IReadOnlyList<uint> Pick(IReadOnlyList<uint> actionIds)
     {
-        if (actionIds.Count == 0) return [];
+        if (actionIds.Count == 0) {
+            return [];
+        }
+
         var unseen = actionIds.Where(x => !_seen.Contains(x)).Take(1).ToArray();
-        if (unseen.Length == 0)
-        {
+
+        if (unseen.Length == 0) {
             Reset();
             unseen = [actionIds[0]];
         }
-        if (_seen.Count >= 1000) _seen.Remove(_insertionOrder.Dequeue());
+
+        if (_seen.Count >= 1000) {
+            _seen.Remove(_insertionOrder.Dequeue());
+        }
+
         _seen.Add(unseen[0]);
         _insertionOrder.Enqueue(unseen[0]);
+
         return unseen;
     }
 

@@ -88,8 +88,15 @@ public partial class PlacedFurniRoomTests
         var item = denial == "temporary" ? FloorTemporary(23) : PlacedBranding(23, InteractionType.Background);
         Recipient();
         item.ExtraData = new MapDataFormat(new() { ["old"] = "value" });
-        if (denial == "right") _room.OwnerName = "someone-else";
-        if (denial == "permission") _client.GetHabbo().Access = UserAccess.Empty;
+
+        if (denial == "right") {
+            _room.OwnerName = "someone-else";
+        }
+
+        if (denial == "permission") {
+            _client.GetHabbo().Access = UserAccess.Empty;
+        }
+
         var values = denial switch
         {
             "image" => Pairs("url", "https://example.invalid/x.png"),
@@ -134,6 +141,7 @@ public partial class PlacedFurniRoomTests
         MovedItems().Clear();
         _client.Sent.Clear();
         _client.Packets.Clear();
+
         return item;
     }
 
@@ -143,6 +151,7 @@ public partial class PlacedFurniRoomTests
         var user = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         users.TryAdd(1, user);
+
         return user;
     }
 
@@ -155,14 +164,15 @@ public partial class PlacedFurniRoomTests
     private static byte[] Encode(params string[] values)
     {
         using var stream = new MemoryStream();
-        foreach (var value in values)
-        {
+
+        foreach (var value in values) {
             var bytes = Encoding.UTF8.GetBytes(value);
             var length = new byte[2];
             BinaryPrimitives.WriteUInt16BigEndian(length, checked((ushort)bytes.Length));
             stream.Write(length);
             stream.Write(bytes);
         }
+
         return stream.ToArray();
     }
 
@@ -172,6 +182,7 @@ public partial class PlacedFurniRoomTests
         var item = new Item { Id = id, RoomId = _room.Id, OwnerId = 7, IsTemporary = true, Definition = new ItemDefinition { InteractionType = InteractionType.Background, Type = ItemType.Floor } };
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomItemHandler())!;
         floor[id] = item;
+
         return item;
     }
 
@@ -193,7 +204,10 @@ public partial class PlacedFurniRoomTests
             beforeWrite?.Invoke();
             Writes++;
             (ItemId, RoomId, Data) = (itemId, roomId, data);
-            if (Fail) throw new InvalidOperationException("forced failure");
+
+            if (Fail) {
+                throw new InvalidOperationException("forced failure");
+            }
         }
         public void SetMannequinData(uint itemId, uint roomId, string data) => throw new NotSupportedException();
         public void SetToner(uint itemId, uint roomId, int hue, int saturation, int lightness) => throw new NotSupportedException();

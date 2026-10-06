@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Quests;
+namespace Plus.HabboHotel.Quests;
 
 public class Quest
 {
@@ -36,8 +36,7 @@ public class Quest
 
     public bool IsCompleted(int progress)
     {
-        switch (GoalType)
-        {
+        switch (GoalType) {
             default:
                 return progress >= GoalData;
             case QuestType.ExploreFindItem:

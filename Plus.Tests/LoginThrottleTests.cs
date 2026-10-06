@@ -51,8 +51,9 @@ public class LoginThrottleTests
     {
         var throttle = Throttle(perAccount: 100, perAddress: 5);
 
-        for (var i = 0; i < 5; i++)
+        for (var i = 0; i < 5; i++) {
             throttle.RecordFailure(LoginThrottle.AccountKey(i), "10.0.0.1");
+        }
 
         Assert.True(Blocked(throttle, LoginThrottle.AccountKey(99), "10.0.0.1"));
         Assert.False(Blocked(throttle, LoginThrottle.AccountKey(99), "10.0.0.2"));
@@ -63,8 +64,10 @@ public class LoginThrottleTests
     {
         var throttle = Throttle();
         var key = LoginThrottle.AccountKey(7);
-        for (var i = 0; i < 3; i++)
+
+        for (var i = 0; i < 3; i++) {
             throttle.RecordFailure(key, "10.0.0.1");
+        }
 
         _time.Advance(TimeSpan.FromMinutes(14));
         Assert.True(Blocked(throttle, key, "10.0.0.1"));
@@ -80,8 +83,10 @@ public class LoginThrottleTests
     {
         var throttle = Throttle();
         var key = LoginThrottle.AccountKey(7);
-        for (var i = 0; i < 3; i++)
+
+        for (var i = 0; i < 3; i++) {
             throttle.RecordFailure(key, "10.0.0.1");
+        }
 
         _time.Advance(TimeSpan.FromMinutes(5));
 
@@ -111,8 +116,9 @@ public class LoginThrottleTests
         var throttle = Throttle(perAccount: 1000, perAddress: 1000);
         var clock = Stopwatch.StartNew();
 
-        for (var i = 0; i < 30_000; i++)
+        for (var i = 0; i < 30_000; i++) {
             throttle.RecordFailure(LoginThrottle.UnknownNameKey("name" + i), "10.0." + i / 250 + "." + i % 250);
+        }
 
         Assert.True(clock.Elapsed < TimeSpan.FromSeconds(3), $"30k failures took {clock.Elapsed}");
     }

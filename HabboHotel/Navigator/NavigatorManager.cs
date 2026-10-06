@@ -1,4 +1,4 @@
-﻿using Plus.Core;
+using Plus.Core;
 using Plus.Communication.Packets.Outgoing.Navigator;
 using Plus.HabboHotel.GameClients;
 using System.Diagnostics.CodeAnalysis;
@@ -50,10 +50,15 @@ public sealed class NavigatorManager : INavigatorManager, IStartable
         var publics = await connection.QueryAsync<FeaturedRoom>("SELECT room_id AS RoomId, caption, description, image_url AS Images FROM navigator_publics WHERE enabled = TRUE ORDER BY order_num");
         _searchResultLists.Clear();
         _featuredRooms.Clear();
-        foreach (var category in categories)
+
+        foreach (var category in categories) {
             _searchResultLists.TryAdd(category.Id, new(category.Id, category.Category, category.CategoryIdentifier, category.PublicName, true, -1, category.RequiredPermission, NavigatorViewModeUtility.GetViewModeByString(category.ViewMode), category.CategoryType, category.SearchAllowance, category.OrderId));
-        foreach (var featured in publics)
+        }
+
+        foreach (var featured in publics) {
             _featuredRooms.TryAdd((uint)featured.RoomId, featured);
+        }
+
         _logger.LogInformation("Navigator -> LOADED");
     }
 
@@ -93,6 +98,7 @@ public sealed class NavigatorManager : INavigatorManager, IStartable
     public async Task<Dictionary<int, SavedSearch>> LoadUserNavigatorPreferences(int userId)
     {
         using var connection = _database.Connection();
+
         return (await connection.QueryAsync<SavedSearch>("SELECT `id`,`filter`,`search_code` as search FROM `user_saved_searches` WHERE `user_id` = @userId", new { userId })).ToDictionary(search => search.Id);
     }
 
@@ -100,21 +106,28 @@ public sealed class NavigatorManager : INavigatorManager, IStartable
     {
         var habbo = session.GetHabbo();
         var exists = _rooms.TryGetData(roomId, out _);
-        lock (habbo.WalletSync)
-        {
-            if (habbo.WalletClosed) return Task.CompletedTask;
-            if (exists)
-            {
+
+        lock (habbo.WalletSync) {
+            if (habbo.WalletClosed) {
+                return Task.CompletedTask;
+            }
+
+            if (exists) {
                 using var connection = _database.Connection();
                 var updated = connection.Execute(
                     "UPDATE users_settings SET home_room = @roomId WHERE user_id = @userId LIMIT 1",
                     new { roomId, userId = habbo.Id });
-                if (updated != 1)
+
+                if (updated != 1) {
                     throw new DBConcurrencyException($"Settings for user {habbo.Id} no longer exist.");
+                }
+
                 habbo.HomeRoom = roomId;
             }
         }
+
         session.Send(new NavigatorSettingsComposer(roomId));
+
         return Task.CompletedTask;
     }
 }

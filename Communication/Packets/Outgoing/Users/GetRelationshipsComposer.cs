@@ -11,8 +11,8 @@ public sealed class GetRelationshipsComposer(RelationshipSnapshot snapshot) : IS
     {
         packet.WriteInteger(snapshot.UserId);
         packet.WriteInteger(snapshot.Entries.Length);
-        foreach (var relationship in snapshot.Entries)
-        {
+
+        foreach (var relationship in snapshot.Entries) {
             packet.WriteInteger(relationship.Type);
             packet.WriteInteger(relationship.Count);
             packet.WriteInteger(relationship.UserId);

@@ -14,8 +14,10 @@ internal static class FloorPlanRequest
     public static Body Read(IIncomingPacket packet)
     {
         var map = packet.ReadString();
-        if (!packet.HasDataRemaining())
+
+        if (!packet.HasDataRemaining()) {
             return new Body(map, false, false, default);
+        }
 
         var requested = new FloorPlanSave.Layout(
             packet.ReadInt(),
@@ -26,8 +28,10 @@ internal static class FloorPlanRequest
             -1);
         // The wall-height int is absent when class_2506 was given -1. Do not read past the five ints.
         var wallHeightPresent = packet.Buffer.Length >= sizeof(int);
-        if (wallHeightPresent)
+
+        if (wallHeightPresent) {
             requested = requested with { WallHeight = packet.ReadInt() };
+        }
 
         return new Body(map, true, wallHeightPresent, requested);
     }

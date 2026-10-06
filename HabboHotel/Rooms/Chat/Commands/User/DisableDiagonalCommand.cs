@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 
@@ -12,11 +12,12 @@ internal class DisableDiagonalCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (!room.CheckRights(session, true))
-        {
+        if (!room.CheckRights(session, true)) {
             session.SendWhisper("Oops, only the owner of this room can run this command!");
+
             return;
         }
+
         room.GetGameMap().DiagonalEnabled = !room.GetGameMap().DiagonalEnabled;
         session.SendWhisper("Successfully updated the diagonal boolean value for this room.");
     }

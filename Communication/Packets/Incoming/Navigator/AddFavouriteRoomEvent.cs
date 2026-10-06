@@ -8,6 +8,7 @@ public class AddFavouriteRoomEvent(INavigatorFavoriteService favorites) : IPacke
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         favorites.Add(session, packet.ReadUInt());
+
         return Task.CompletedTask;
     }
 }

@@ -159,7 +159,8 @@ public sealed class WiredAddonTests
     {
         var policy = new WiredAddonPolicy
         {
-            AnimationTimeMs = 750, Curve = new(7, 100, 80),
+            AnimationTimeMs = 750,
+            Curve = new(7, 100, 80),
             Projectile = new(new HashSet<uint> { 1 }, 0, 2, -50, WiredProjectileDistance.Fixed, 7),
             Physics = new(true, new HashSet<uint>(), new HashSet<int>(), new HashSet<uint>())
         };

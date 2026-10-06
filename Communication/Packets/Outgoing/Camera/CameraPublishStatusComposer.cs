@@ -10,6 +10,9 @@ public sealed class CameraPublishStatusComposer(bool ok, int secondsToWait, stri
     {
         packet.WriteBoolean(ok);
         packet.WriteInteger(secondsToWait);
-        if (ok) packet.WriteString(id);
+
+        if (ok) {
+            packet.WriteString(id);
+        }
     }
 }

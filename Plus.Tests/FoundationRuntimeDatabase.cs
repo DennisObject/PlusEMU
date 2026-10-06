@@ -12,14 +12,18 @@ internal static class FoundationRuntimeDatabase
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("FOUNDATION_RUNTIME_DATABASE"))
         {
-            Database = "mysql", Pooling = false, AllowZeroDateTime = true, ConvertZeroDateTime = true, AllowUserVariables = true
+            Database = "mysql",
+            Pooling = false,
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true,
+            AllowUserVariables = true
         };
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         var schema = "foundation_runtime_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             options.Database = schema;
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
@@ -28,7 +32,9 @@ internal static class FoundationRuntimeDatabase
             AssertShippedShapes(connection);
             await test(new HabbiconDatabaseTests.TestDatabase(options.ConnectionString), connection);
         }
-        finally { admin.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            admin.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private static async Task ImportPristine(MySqlConnectionStringBuilder options)
@@ -36,29 +42,35 @@ internal static class FoundationRuntimeDatabase
         Assert.True(Path.IsPathRooted(options.Server), "The smoke fixture requires an explicitly supplied Unix socket.");
         var start = new ProcessStartInfo("mariadb")
         {
-            RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
         };
+
         foreach (var argument in new[] { "--protocol=SOCKET", "--socket=" + options.Server, "--user=" + options.UserID,
-                     "--database=" + options.Database, "--default-character-set=utf8mb4" })
+                     "--database=" + options.Database, "--default-character-set=utf8mb4" }) {
             start.ArgumentList.Add(argument);
+        }
+
         start.Environment["MYSQL_PWD"] = options.Password;
         using var import = Process.Start(start)!;
         var stdout = import.StandardOutput.ReadToEndAsync();
         var stderr = import.StandardError.ReadToEndAsync();
-        try
-        {
-            await using (var pristine = File.OpenRead(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql")))
+
+        try {
+            await using (var pristine = File.OpenRead(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"))) {
                 await pristine.CopyToAsync(import.StandardInput.BaseStream);
+            }
+
             import.StandardInput.Close();
             await import.WaitForExitAsync();
             var errors = await stderr;
             await stdout;
             Assert.True(import.ExitCode == 0, errors);
         }
-        finally
-        {
-            if (!import.HasExited)
-            {
+        finally {
+            if (!import.HasExited) {
                 import.Kill(entireProcessTree: true);
                 await import.WaitForExitAsync();
             }

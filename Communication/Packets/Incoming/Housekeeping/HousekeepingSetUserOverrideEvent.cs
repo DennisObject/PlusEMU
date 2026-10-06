@@ -19,8 +19,10 @@ internal sealed class HousekeepingSetUserOverrideEvent(IAccessControl access, IH
         runner.Run(session, "permission.save", PermissionKeys.HousekeepingRolesManage, actor =>
         {
             var result = access.Apply(actor, revision, new SaveAccessOverride(username, key, deny, reason, expiresAt));
+
             return new HousekeepingOutcome(result.Ok, result.Id, result.Message, HousekeepingTarget.Hotel, "permission.save");
         });
+
         return Task.CompletedTask;
     }
 }

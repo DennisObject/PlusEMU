@@ -84,10 +84,20 @@ public sealed class GroupManagementSnapshotTests
     private static Group GroupFixture(int creatorId)
     {
         var group = (Group)RuntimeHelpers.GetUninitializedObject(typeof(Group));
-        group.Id = 7; group.CreatorId = creatorId; group.Name = "group"; group.Description = "description"; group.Badge = "b0101";
-        group.RoomId = 0; group.Colour1 = 1; group.Colour2 = 2; group.Type = GroupType.Open;
-        foreach (var field in new[] { "_members", "_administrators", "_requests" })
+        group.Id = 7;
+        group.CreatorId = creatorId;
+        group.Name = "group";
+        group.Description = "description";
+        group.Badge = "b0101";
+        group.RoomId = 0;
+        group.Colour1 = 1;
+        group.Colour2 = 2;
+        group.Type = GroupType.Open;
+
+        foreach (var field in new[] { "_members", "_administrators", "_requests" }) {
             typeof(Group).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(group, new List<int>());
+        }
+
         return group;
     }
 
@@ -95,6 +105,7 @@ public sealed class GroupManagementSnapshotTests
     {
         var proxy = DispatchProxy.Create<IGroupManager, GroupManagerProxy>();
         ((GroupManagerProxy)(object)proxy).Group = group;
+
         return proxy;
     }
 
@@ -103,15 +114,24 @@ public sealed class GroupManagementSnapshotTests
         public Group Group { get; set; } = null!;
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
-            if (method?.Name != nameof(IGroupManager.TryGetGroup)) throw new NotSupportedException(method?.Name);
+            if (method?.Name != nameof(IGroupManager.TryGetGroup)) {
+                throw new NotSupportedException(method?.Name);
+            }
+
             args![1] = Group;
+
             return (int)args[0]! == Group.Id;
         }
     }
 
     private sealed class MissingRoomLoader : IRoomDataLoader
     {
-        public bool TryGetData(uint roomId, out RoomData? data) { data = null; return false; }
+        public bool TryGetData(uint roomId, out RoomData? data)
+        {
+            data = null;
+
+            return false;
+        }
         public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId) => [];
     }
 }

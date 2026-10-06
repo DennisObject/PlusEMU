@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Groups;
+using Plus.HabboHotel.Groups;
 
 namespace Plus.HabboHotel.Rooms;
 
@@ -173,8 +173,10 @@ public class RoomData
 
     public void EndPromotion()
     {
-        if (!HasActivePromotion)
+        if (!HasActivePromotion) {
             return;
+        }
+
         Promotion = null;
     }
 }

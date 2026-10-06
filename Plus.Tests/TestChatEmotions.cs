@@ -12,6 +12,7 @@ internal sealed class TestChatEmotions(Func<string, int>? resolve = null) : ICha
     public int GetEmotionsForText(string text)
     {
         Messages.Add(text);
+
         return resolve?.Invoke(text) ?? 0;
     }
 }

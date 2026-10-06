@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni.Stickys;
@@ -9,6 +9,7 @@ internal class GetStickyNoteEvent(IRoomInteractionService interactions) : RoomPa
     {
         var itemId = packet.ReadUInt();
         interactions.ShowSticky(room, session, itemId);
+
         return Task.CompletedTask;
     }
 }

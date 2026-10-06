@@ -1,9 +1,12 @@
-﻿using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Moderation;
 
-public enum ModerationTicketStatus { Open = 1, Assigned = 2, ClosedOrAssignedElsewhere = 3 }
+public enum ModerationTicketStatus
+{
+    Open = 1, Assigned = 2, ClosedOrAssignedElsewhere = 3
+}
 
 public class ModerationTicket
 {
@@ -39,12 +42,18 @@ public class ModerationTicket
 
     public ModerationTicketStatus GetStatus(int id)
     {
-        if (Moderator == null)
+        if (Moderator == null) {
             return ModerationTicketStatus.Open;
-        if (Moderator.Id == id && !Answered)
+        }
+
+        if (Moderator.Id == id && !Answered) {
             return ModerationTicketStatus.Assigned;
-        if (Answered)
+        }
+
+        if (Answered) {
             return ModerationTicketStatus.ClosedOrAssignedElsewhere;
+        }
+
         return ModerationTicketStatus.ClosedOrAssignedElsewhere;
     }
 }

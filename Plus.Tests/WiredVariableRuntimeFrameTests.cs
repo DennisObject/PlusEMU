@@ -18,7 +18,8 @@ public sealed class WiredVariableRuntimeFrameTests
         var items = Enumerable.Range(1, 3).Select(id => new Item { Id = (uint)id, OwnerId = 5 }).ToList();
         var users = Enumerable.Range(1, 3).Select(id => new RoomUser(100 + id, 0, id, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)).ToList();
         var context = new WiredRuntimeContext(room, new(WiredEventKind.Enter), new(() => items, () => users), new UnusedOperations());
-        context.Policy.Addons.FurniLimit = 1; context.Policy.Addons.UserLimit = 1;
+        context.Policy.Addons.FurniLimit = 1;
+        context.Policy.Addons.UserLimit = 1;
 
         var frame = WiredVariableRuntimeFrames.Create(context);
         Assert.Same(context, frame.RuntimeContext);
@@ -40,7 +41,8 @@ public sealed class WiredVariableRuntimeFrameTests
     [InlineData(true)]
     public void CapturedWallTriggerAndSignalCanHoldVariablesWithoutJoiningAllRoomSelection(bool signal)
     {
-        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1;
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        room.Id = 1;
         var floor = new Item { Id = 1, OwnerId = 5, Definition = new() { Type = ItemType.Floor } };
         var wall = new Item { Id = 2, OwnerId = 5, Definition = new() { Type = ItemType.Wall } };
         var live = new Dictionary<uint, Item> { [floor.Id] = floor, [wall.Id] = wall };
@@ -48,7 +50,11 @@ public sealed class WiredVariableRuntimeFrameTests
             new(() => [floor], () => [], id => live.GetValueOrDefault(id)), new UnusedOperations());
         parent.Triggering.FurniIds.UnionWith([floor.Id, wall.Id]);
         var context = signal ? parent.Fork(new(WiredEventKind.Signal) { EventItem = floor }, 1) : parent;
-        if (signal) context.Signal = new(new([wall.Id]), new Dictionary<string, long>());
+
+        if (signal) {
+            context.Signal = new(new([wall.Id]), new Dictionary<string, long>());
+        }
+
         context.Policy.Addons.FurniLimit = 1;
         var frame = WiredVariableRuntimeFrames.Create(context);
         var holder = WiredVariableRuntimeFrames.FurniHolder(wall);

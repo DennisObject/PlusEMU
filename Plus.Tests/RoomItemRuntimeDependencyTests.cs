@@ -105,6 +105,7 @@ public partial class PlacedFurniRoomTests
         {
             Assert.Equal(new[] { "clear:90" }, events);
             events.Add($"lookup:{id}");
+
             return _client;
         });
         var handler = Handler(store, clients);
@@ -132,6 +133,7 @@ public partial class PlacedFurniRoomTests
         {
             Assert.Equal(7, id);
             Assert.Equal(1, store.ClearCount);
+
             return null;
         }));
         var sent = CaptureTransport(_client);
@@ -215,6 +217,7 @@ public partial class PlacedFurniRoomTests
             }), interactors, travel, TestItemRuntime.Rewards);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(_room, handler);
+
         return handler;
     }
 
@@ -223,6 +226,7 @@ public partial class PlacedFurniRoomTests
         var item = Furni(id, InteractionType.None, WiredBoxType.None);
         item.UserId = 7;
         item.SetState(99, 99, 0, new Dictionary<int, ThreeDCoord>());
+
         return item;
     }
 
@@ -231,14 +235,13 @@ public partial class PlacedFurniRoomTests
         var languageField = typeof(PlusEnvironment).GetField("_languageManager", BindingFlags.Static | BindingFlags.NonPublic)!;
         var previousGame = _gameField.GetValue(null);
         var previousLanguage = languageField.GetValue(null);
-        try
-        {
+
+        try {
             _gameField.SetValue(null, Proxy<IGame>((method, _) => throw new InvalidOperationException($"global game:{method}")));
             languageField.SetValue(null, Proxy<ILanguageManager>((method, _) => throw new InvalidOperationException($"global language:{method}")));
             action();
         }
-        finally
-        {
+        finally {
             _gameField.SetValue(null, previousGame);
             languageField.SetValue(null, previousLanguage);
         }
@@ -252,8 +255,10 @@ public partial class PlacedFurniRoomTests
             beforeCapture?.Invoke();
             var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
             sent.Add(new((uint)FlashGameClient.DecodeInt16(bytes.AsMemory(4, 2)), bytes));
+
             return false;
         };
+
         return sent;
     }
 
@@ -274,10 +279,20 @@ public partial class PlacedFurniRoomTests
         public int ClearCount { get; private set; }
         public int FloorPlacements { get; private set; }
         public int WallPlacements { get; private set; }
-        public void AssignOwner(uint itemId, int userId) { }
-        public void ClearRoom(uint itemId) { ClearCount++; Clear?.Invoke(itemId); }
-        public void SaveWallPosition(uint itemId, string wallPosition) { }
-        public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
+        public void AssignOwner(uint itemId, int userId)
+        {
+        }
+        public void ClearRoom(uint itemId)
+        {
+            ClearCount++;
+            Clear?.Invoke(itemId);
+        }
+        public void SaveWallPosition(uint itemId, string wallPosition)
+        {
+        }
+        public void SaveMoved(IReadOnlyList<RoomItemSave> items)
+        {
+        }
         public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) => FloorPlacements++;
         public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) => WallPlacements++;
     }

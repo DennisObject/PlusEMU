@@ -85,6 +85,7 @@ public sealed class EventAlertCommandTests : IDisposable
         {
             Assert.Equal("SendPacket", method);
             send(Assert.IsType<BroadcastMessageAlertComposer>(arguments![0]));
+
             return null;
         });
 
@@ -99,6 +100,7 @@ public sealed class EventAlertCommandTests : IDisposable
         var user = new RoomUser(7, 1, 11, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { UserId = 7 };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         users[user.VirtualId] = user;
+
         return (client, room, sent);
     }
 
@@ -106,6 +108,11 @@ public sealed class EventAlertCommandTests : IDisposable
     {
         public DateTimeOffset Now = now;
         public int Reads;
-        public override DateTimeOffset GetUtcNow() { Interlocked.Increment(ref Reads); return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Interlocked.Increment(ref Reads);
+
+            return Now;
+        }
     }
 }

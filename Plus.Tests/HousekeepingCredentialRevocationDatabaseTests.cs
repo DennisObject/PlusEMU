@@ -24,7 +24,10 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var access in _accessControls) access.Dispose();
+        foreach (var access in _accessControls) {
+            access.Dispose();
+        }
+
         StaticDatabase.SetValue(null, _originalStaticDatabase);
     }
 
@@ -44,14 +47,21 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     public HousekeepingCredentialRevocationDatabaseTests()
     {
         var connectionString = Environment.GetEnvironmentVariable("PLUS_HOUSEKEEPING_TEST_CONNECTION_STRING") ?? "";
-        if (connectionString.Length > 0 && !new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_housekeeping_tests_", StringComparison.Ordinal))
+
+        if (connectionString.Length > 0 && !new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_housekeeping_tests_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("Housekeeping database tests require a disposable task_housekeeping_tests_ schema.");
+        }
+
         _database = new(connectionString);
         _hasher = new(new Argon2idPasswordHasher(), _options);
         _tickets = new(_database, TimeProvider.System, _options);
         _remember = new(_database, TimeProvider.System, _options);
         _sessions = Sessions();
-        if (connectionString.Length == 0) return;
+
+        if (connectionString.Length == 0) {
+            return;
+        }
+
         Execute("DELETE FROM user_roles WHERE user_id BETWEEN 940000 AND 940099; DELETE FROM users WHERE id BETWEEN 940000 AND 940099; DELETE FROM user_info WHERE user_id BETWEEN 940000 AND 940099; " +
                 "DELETE FROM user_access_tokens WHERE user_id BETWEEN 940000 AND 940099; DELETE FROM user_remember_tokens WHERE user_id BETWEEN 940000 AND 940099; " +
                 "DELETE FROM bans WHERE value LIKE 'cr\\_%' OR value LIKE 'cr-%' OR value LIKE '10.94.%'");
@@ -221,21 +231,24 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         using var locker = new MySqlConnection(Environment.GetEnvironmentVariable("PLUS_HOUSEKEEPING_TEST_CONNECTION_STRING"));
         locker.Open();
         var transaction = locker.BeginTransaction();
-        try
-        {
+
+        try {
             locker.Execute($"SELECT id FROM users WHERE id = {Locked} FOR UPDATE", transaction: transaction);
             var ban = Task.Run(() => Moderation().BanUser("System", ModerationBanType.Username, "cr_locked", "auto-ban", DateTimeOffset.UtcNow.AddHours(1)));
             await Task.Delay(500);
             Assert.True(target.Closed.IsCancellationRequested);
             await ban.WaitAsync(TimeSpan.FromSeconds(4.5));
         }
-        finally
-        {
+        finally {
             transaction.Rollback();
         }
+
         var deadline = DateTime.UtcNow.AddSeconds(20);
-        while (LiveAccessTokens(Locked) > 0 && DateTime.UtcNow < deadline)
+
+        while (LiveAccessTokens(Locked) > 0 && DateTime.UtcNow < deadline) {
             await Task.Delay(250);
+        }
+
         AssertSignedOut(Locked);
     }
 
@@ -405,12 +418,11 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         locker.Open();
         using var transaction = locker.BeginTransaction();
         locker.Execute(lockSql, transaction: transaction);
-        try
-        {
+
+        try {
             await whileLocked();
         }
-        finally
-        {
+        finally {
             transaction.Rollback();
         }
     }
@@ -418,8 +430,11 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     private static async Task Eventually(Func<bool> condition)
     {
         var deadline = DateTime.UtcNow.AddSeconds(20);
-        while (!condition() && DateTime.UtcNow < deadline)
+
+        while (!condition() && DateTime.UtcNow < deadline) {
             await Task.Delay(250);
+        }
+
         Assert.True(condition());
     }
 
@@ -438,6 +453,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         // Like production: a disconnected session unregisters.
         client.DisconnectRequested = () => _clients.Online.Remove(userId);
         _clients.Online[userId] = client;
+
         return client;
     }
 
@@ -447,6 +463,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     {
         // Habbo.Init loads effects and clothing through the static database.
         StaticDatabase.SetValue(null, _database);
+
         return new(Array.Empty<IAuthenticationTask>(), _clients, factory, tickets ?? _tickets, _gate);
     }
 
@@ -460,6 +477,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
             var habbo = new Habbo { Id = userId, Username = "cr_target", Access = HousekeepingPolicyTests.Access(10) };
             Loaded.TrySetResult();
             await release;
+
             return habbo;
         }
 
@@ -476,6 +494,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         {
             var userId = await inner.Consume(ticket);
             hook();
+
             return userId;
         }
 
@@ -515,6 +534,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         var permissions = new AccessControl(_database, _clients, NullLogger<AccessControl>.Instance, TimeProvider.System);
         permissions.Init();
         _accessControls.Add(permissions);
+
         return permissions;
     }
 
@@ -532,6 +552,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     private T Scalar<T>(string sql)
     {
         using var connection = _database.Connection();
+
         return connection.ExecuteScalar<T>(sql)!;
     }
 
@@ -543,6 +564,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         {
             var result = await inner.Verify(password, stored, cancellationToken);
             hook();
+
             return result;
         }
     }
@@ -553,6 +575,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         {
             var rotation = await inner.Rotate(token, onReuse);
             hook();
+
             return rotation;
         }
 
@@ -560,6 +583,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         {
             var rotation = await inner.RotateAt(token, instant, onReuse);
             hook();
+
             return rotation;
         }
 
@@ -578,6 +602,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         {
             var owner = await inner.Exchange(ticket);
             hook();
+
             return owner;
         }
 
@@ -585,6 +610,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         {
             var owner = await inner.ExchangeAt(ticket, instant);
             hook();
+
             return owner;
         }
 

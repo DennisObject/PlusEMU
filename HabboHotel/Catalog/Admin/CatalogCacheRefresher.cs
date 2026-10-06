@@ -33,42 +33,46 @@ public sealed class CatalogCacheRefresher : ICatalogCacheRefresher
 
     public void Schedule(bool reloadItems = false)
     {
-        lock (_sync)
-        {
+        lock (_sync) {
             _pendingItems |= reloadItems;
             _pending = true;
-            if (_running)
+
+            if (_running) {
                 return;
+            }
+
             _running = true;
         }
+
         _ = Task.Run(RunAsync);
     }
 
     // Saves made while a reload runs are picked up by one more reload, not one per save.
     private async Task RunAsync()
     {
-        while (true)
-        {
+        while (true) {
             bool reloadItems;
-            lock (_sync)
-            {
-                if (!_pending)
-                {
+
+            lock (_sync) {
+                if (!_pending) {
                     _running = false;
+
                     return;
                 }
+
                 reloadItems = _pendingItems;
                 _pending = _pendingItems = false;
             }
-            try
-            {
-                if (reloadItems)
+
+            try {
+                if (reloadItems) {
                     _itemDataManager.Init();
+                }
+
                 await _catalogManager.Init();
                 _gameClientManager.SendPacket(new CatalogUpdatedComposer());
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 _logger.LogError(e, "Catalog editor cache refresh failed");
             }
         }

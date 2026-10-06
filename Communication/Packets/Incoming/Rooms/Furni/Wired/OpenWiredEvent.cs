@@ -9,22 +9,29 @@ internal sealed class OpenWiredEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanInspect(session))
+        if (!room.GetWired().Settings.CanInspect(session)) {
             return Task.CompletedTask;
+        }
+
         uint id;
-        try
-        {
+
+        try {
             id = packet.ReadUInt();
         }
-        catch (ArgumentException)
-        {
+        catch (ArgumentException) {
             return Task.CompletedTask;
         }
-        if (packet.HasDataRemaining())
+
+        if (packet.HasDataRemaining()) {
             return Task.CompletedTask;
+        }
+
         var item = room.GetRoomItemHandler().GetItem(id);
-        if (item is { IsWired: true, IsTemporary: false })
+
+        if (item is { IsWired: true, IsTemporary: false }) {
             item.Interactor.OnTrigger(session, item, 0, true);
+        }
+
         return Task.CompletedTask;
     }
 }

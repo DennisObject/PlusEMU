@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Users;
+namespace Plus.HabboHotel.Users;
 
 public class HabboStats
 {

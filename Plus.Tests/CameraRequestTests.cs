@@ -237,6 +237,7 @@ public class CameraRequestTests
         public Task Handle(GameClient session, CameraRequestPayload payload, bool thumbnail)
         {
             Requests.Add((payload, thumbnail));
+
             return Task.CompletedTask;
         }
         public CameraCheckoutResult Checkout(GameClient session, Guid mediaId,
@@ -258,6 +259,7 @@ public class CameraRequestTests
     {
         var length = new byte[2];
         BinaryPrimitives.WriteUInt16BigEndian(length, (ushort)payload.Length);
+
         return new FlashIncomingPacket { Buffer = length.Concat(payload).ToArray() };
     }
 }

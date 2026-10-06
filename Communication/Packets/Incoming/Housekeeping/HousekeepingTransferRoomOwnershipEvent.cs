@@ -21,6 +21,7 @@ internal class HousekeepingTransferRoomOwnershipEvent : IPacketEvent
         var roomId = packet.ReadInt();
         var newOwnerId = packet.ReadInt();
         _runner.Run(session, "room.transfer", HousekeepingRights.RoomOwnership, actor => _rooms.TransferOwnership(actor, roomId, newOwnerId));
+
         return Task.CompletedTask;
     }
 }

@@ -22,6 +22,7 @@ internal class HousekeepingTradeLockUserEvent : IPacketEvent
         var hours = packet.ReadInt();
         var reason = packet.ReadString();
         _runner.Run(session, "user.trade_lock", HousekeepingRights.Sanction, actor => _users.TradeLock(actor, userId, hours, reason));
+
         return Task.CompletedTask;
     }
 }

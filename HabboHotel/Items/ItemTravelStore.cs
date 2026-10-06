@@ -18,6 +18,7 @@ public sealed class ItemTravelStore(IDatabase database) : IItemTravelStore
     public uint FindOtherHopperRoom(uint roomId)
     {
         using var connection = database.Connection();
+
         return connection.QuerySingleOrDefault<uint>(
             "SELECT room_id FROM items_hopper WHERE room_id<>@curRoom ORDER BY room_id ASC LIMIT 1", new { curRoom = roomId });
     }
@@ -25,12 +26,14 @@ public sealed class ItemTravelStore(IDatabase database) : IItemTravelStore
     public uint FindHopper(uint roomId)
     {
         using var connection = database.Connection();
+
         return connection.QuerySingleOrDefault<uint>("SELECT hopper_id FROM items_hopper WHERE room_id=@nextRoom LIMIT 1", new { nextRoom = roomId });
     }
 
     public uint FindLinkedTeleporter(uint itemId)
     {
         using var connection = database.Connection();
+
         return connection.QuerySingleOrDefault<uint>(
             "SELECT tele_two_id FROM room_items_tele_links WHERE tele_one_id=@teleId LIMIT 1", new { teleId = itemId });
     }
@@ -38,6 +41,7 @@ public sealed class ItemTravelStore(IDatabase database) : IItemTravelStore
     public uint FindItemRoom(uint itemId)
     {
         using var connection = database.Connection();
+
         return connection.QuerySingleOrDefault<uint>("SELECT room_id FROM items WHERE id=@teleId LIMIT 1", new { teleId = itemId });
     }
 

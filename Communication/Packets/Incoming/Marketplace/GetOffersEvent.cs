@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Marketplace;
+using Plus.Communication.Packets.Outgoing.Marketplace;
 using Plus.HabboHotel.Catalog.Marketplace;
 using Plus.HabboHotel.GameClients;
 
@@ -13,6 +13,7 @@ internal class GetOffersEvent(IMarketplaceOfferSearchService search) : IPacketEv
         var searchQuery = packet.ReadString();
         var filterMode = packet.ReadInt();
         session.Send(new MarketPlaceOffersComposer(search.Search(minCost, maxCost, searchQuery, filterMode)));
+
         return Task.CompletedTask;
     }
 }

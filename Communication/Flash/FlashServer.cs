@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Options;
 using Plus.Communication.Abstractions;
 using Plus.Communication.Packets;
 using Microsoft.Extensions.Logging;

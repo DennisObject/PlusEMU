@@ -21,7 +21,10 @@ public class HabboStatsService : IHabboStatsService
               FROM `user_statistics` WHERE `id` = @id LIMIT 1",
             new { id = userId });
 
-        if (statRow != null) return HabboStatsMaterializer.ToHabboStats(statRow);
+        if (statRow != null) {
+            return HabboStatsMaterializer.ToHabboStats(statRow);
+        }
+
         await connection.ExecuteAsync(
             "INSERT INTO `user_statistics` (`id`) VALUES (@id) ON DUPLICATE KEY UPDATE `id` = VALUES(`id`)",
             new { id = userId });

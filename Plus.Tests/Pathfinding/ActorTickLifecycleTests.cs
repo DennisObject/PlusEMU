@@ -9,13 +9,15 @@ public partial class PlacedFurniRoomTests
     public void ExecutorDiscardsAnActorWhoseClientLeavesTheRoomWhileABatchIsPending()
     {
         var actor = ExecutorActor(0, 1);
-        actor.MoveTo(3, 1); ExecutorTick();
+        actor.MoveTo(3, 1);
+        ExecutorTick();
         _client.GetHabbo().CurrentRoom = null!;
         ExecutorTick();
         Assert.Equal(NavState.Removing, actor.Movement.State);
         Assert.Equal((0, 1), (actor.X, actor.Y));
         Assert.Equal(0, actor.Movement.PendingCount);
-        Assert.False(actor.Movement.HasIntent); Assert.False(actor.HasStatus("mv"));
+        Assert.False(actor.Movement.HasIntent);
+        Assert.False(actor.HasStatus("mv"));
         Assert.DoesNotContain(actor, _room.GetRoomUserManager().GetUserList());
         Assert.DoesNotContain(actor, _room.GetGameMap().GetRoomUsers(new(0, 1)));
     }
@@ -24,8 +26,10 @@ public partial class PlacedFurniRoomTests
     public void ExecutorAutokickRemovesTheActorBeforeItsPendingLanding()
     {
         var actor = ExecutorActor(0, 1);
-        actor.MoveTo(3, 1); ExecutorTick();
-        _room.OwnerId = 99; actor.IdleTime = 7200;
+        actor.MoveTo(3, 1);
+        ExecutorTick();
+        _room.OwnerId = 99;
+        actor.IdleTime = 7200;
         ExecutorTick();
         Assert.Equal(NavState.Removing, actor.Movement.State);
         Assert.Equal((0, 1), (actor.X, actor.Y));
@@ -40,7 +44,8 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(1, _room.GetRoomUserManager().UserCount);
         Assert.Equal(1, _room.UsersNow);
         actor.ClearMovement(true);
-        _room.GetGameMap().Navigation!.Remove(actor); ExecutorTick();
+        _room.GetGameMap().Navigation!.Remove(actor);
+        ExecutorTick();
         Assert.Equal(0, _room.GetRoomUserManager().UserCount);
         Assert.Equal(0, _room.UsersNow);
     }

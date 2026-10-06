@@ -121,6 +121,7 @@ public sealed class RconConnectionTests
         using var stream = new NetworkStream(socket, ownsSocket: false);
         using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
         var line = await reader.ReadLineAsync().WaitAsync(timeout ?? TimeSpan.FromSeconds(2));
+
         return JsonDocument.Parse(line!).RootElement.Clone();
     }
 
@@ -131,6 +132,7 @@ public sealed class RconConnectionTests
         public bool Parse(string data)
         {
             Request = data;
+
             return result;
         }
     }
@@ -144,6 +146,7 @@ public sealed class RconConnectionTests
         {
             Entered.SetResult();
             Release.Task.GetAwaiter().GetResult();
+
             return true;
         }
     }
@@ -162,6 +165,7 @@ public sealed class RconConnectionTests
             var connect = client.ConnectAsync(listener.LocalEndPoint!);
             var server = await listener.AcceptAsync();
             await connect;
+
             return new ConnectedSockets(client, server);
         }
 

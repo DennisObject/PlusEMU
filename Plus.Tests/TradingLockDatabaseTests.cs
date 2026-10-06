@@ -13,8 +13,9 @@ public sealed class TradingLockDatabaseFactAttribute : FactAttribute
 {
     public TradingLockDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_REFACTOR_TEST_CONNECTION_STRING")))
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_REFACTOR_TEST_CONNECTION_STRING"))) {
             Skip = "Set PLUS_REFACTOR_TEST_CONNECTION_STRING to a disposable task_refactor_tests_ database with the Plus user schema.";
+        }
     }
 }
 
@@ -29,8 +30,11 @@ public sealed class TradingLockDatabaseTests : IDisposable
     public TradingLockDatabaseTests()
     {
         var connectionString = Environment.GetEnvironmentVariable("PLUS_REFACTOR_TEST_CONNECTION_STRING")!;
-        if (!new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_refactor_tests_", StringComparison.Ordinal))
+
+        if (!new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_refactor_tests_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("Trading lock tests require a disposable task_refactor_tests_ schema.");
+        }
+
         SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
         Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
         _database = new(connectionString);
@@ -102,6 +106,7 @@ public sealed class TradingLockDatabaseTests : IDisposable
         var habbo = new Habbo { Id = UserId };
         var (client, _) = HabbiconTestSupport.Client(habbo);
         _clients.Online[UserId] = client;
+
         return habbo;
     }
 
@@ -109,6 +114,11 @@ public sealed class TradingLockDatabaseTests : IDisposable
     {
         public DateTimeOffset Now = new(2042, 1, 1, 12, 0, 0, TimeSpan.FromHours(2));
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
 }

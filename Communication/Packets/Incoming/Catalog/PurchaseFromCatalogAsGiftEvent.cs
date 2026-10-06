@@ -17,6 +17,7 @@ public sealed class PurchaseFromCatalogAsGiftEvent(ICatalogGiftPurchaseService p
             packet.ReadInt(),
             packet.ReadInt(),
             packet.ReadBool());
+
         return purchases.Purchase(session, request);
     }
 }

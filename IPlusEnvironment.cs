@@ -1,4 +1,4 @@
-﻿namespace Plus;
+namespace Plus;
 
 public interface IPlusEnvironment
 {

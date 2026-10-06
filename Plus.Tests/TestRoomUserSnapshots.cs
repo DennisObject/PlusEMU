@@ -17,6 +17,7 @@ internal sealed class TestRoomUserSnapshots : IRoomUserSnapshotService
         ((Lookup)(object)clients).Client = user.IsBot
             ? HabbiconTestSupport.Client(new Habbo { Id = user.BotData.OwnerId, Username = "owner" }).Client
             : user.GetClient();
+
         return new RoomUserSnapshotService(null!, clients, null!, null!).Capture(user);
     }
 

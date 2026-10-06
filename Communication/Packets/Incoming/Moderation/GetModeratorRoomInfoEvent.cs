@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Attributes;
+using Plus.Communication.Attributes;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
@@ -11,6 +11,7 @@ internal class GetModeratorRoomInfoEvent(IModeratorRoomInfoService service) : IP
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         service.Show(session, packet.ReadUInt());
+
         return Task.CompletedTask;
     }
 }

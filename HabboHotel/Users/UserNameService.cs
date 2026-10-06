@@ -38,27 +38,32 @@ public sealed class UserNameService(
         var habbo = session.GetHabbo();
         var inUse = await users.HabboExists(name);
         var lowerName = name.ToLower();
+
         if (lowerName.Any(character => !AllowedCharacters.Contains(character)) ||
-            wordFilter.IsFiltered(name) || HasReservedCheckPrefix(habbo, lowerName))
-        {
+            wordFilter.IsFiltered(name) || HasReservedCheckPrefix(habbo, lowerName)) {
             session.Send(new NameChangeUpdateComposer(name, NameChangeError.InvalidName));
+
             return;
         }
-        if (name.Length > 15)
-        {
+
+        if (name.Length > 15) {
             session.Send(new NameChangeUpdateComposer(name, NameChangeError.TooLong));
+
             return;
         }
-        if (name.Length < 3)
-        {
+
+        if (name.Length < 3) {
             session.Send(new NameChangeUpdateComposer(name, NameChangeError.TooShort));
+
             return;
         }
-        if (inUse)
-        {
+
+        if (inUse) {
             session.Send(new NameChangeUpdateComposer(name, NameChangeError.InUse, ["100", "101", "102"]));
+
             return;
         }
+
         session.Send(new NameChangeUpdateComposer(name, NameChangeError.None));
     }
 
@@ -66,47 +71,65 @@ public sealed class UserNameService(
     {
         var habbo = session.GetHabbo();
         var room = habbo.CurrentRoom;
-        if (room == null)
+
+        if (room == null) {
             return;
+        }
+
         var roomUser = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Username);
-        if (roomUser == null)
+
+        if (roomUser == null) {
             return;
+        }
 
         var oldName = habbo.Username;
         var changedAt = clock.GetUtcNow();
-        if (newName == oldName)
-        {
-            if (!Persist(habbo.Id, oldName, newName, changedAt, false))
+
+        if (newName == oldName) {
+            if (!Persist(habbo.Id, oldName, newName, changedAt, false)) {
                 return;
+            }
+
             habbo.LastNameChangedAt = changedAt;
             session.Send(new UpdateUsernameComposer(newName));
+
             return;
         }
-        if (!NameChangePolicy.CanChange(habbo, changedAt))
-        {
+
+        if (!NameChangePolicy.CanChange(habbo, changedAt)) {
             session.SendNotification("Oops, it appears you currently cannot change your username!");
+
             return;
         }
-        if (await users.HabboExists(newName))
+
+        if (await users.HabboExists(newName)) {
             return;
+        }
 
         var lowerName = newName.ToLower();
+
         if (lowerName.Any(character => !AllowedCharacters.Contains(character)) ||
-            HasReservedChangePrefix(habbo, lowerName) || newName.Length is > 15 or < 3)
+            HasReservedChangePrefix(habbo, lowerName) || newName.Length is > 15 or < 3) {
             return;
+        }
 
         if (!ReferenceEquals(habbo.CurrentRoom, room) ||
-            room.GetRoomUserManager().GetRoomUserByHabbo(oldName) != roomUser)
+            room.GetRoomUserManager().GetRoomUserByHabbo(oldName) != roomUser) {
             return;
+        }
+
         var persistenceAttempted = false;
+
         if (!clients.TryChangeClientUsername(session, oldName, newName, () =>
             {
                 persistenceAttempted = true;
+
                 return Persist(habbo.Id, oldName, newName, changedAt, true);
-            }))
-        {
-            if (!persistenceAttempted)
+            })) {
+            if (!persistenceAttempted) {
                 session.SendNotification("Oops! An issue occoured whilst updating your username.");
+            }
+
             return;
         }
 
@@ -117,26 +140,28 @@ public sealed class UserNameService(
         habbo.Messenger.NotifyChangesToFriends();
         session.Send(new UpdateUsernameComposer(newName));
         room.SendPacket(new UserNameChangeComposer(room.Id, roomUser.VirtualId, newName));
-        foreach (var ownedRoom in rooms.GetRooms().ToList())
-        {
-            if (ownedRoom == null || ownedRoom.OwnerId != habbo.Id || ownedRoom.OwnerName == newName)
+
+        foreach (var ownedRoom in rooms.GetRooms().ToList()) {
+            if (ownedRoom == null || ownedRoom.OwnerId != habbo.Id || ownedRoom.OwnerName == newName) {
                 continue;
+            }
+
             ownedRoom.OwnerName = newName;
             ownedRoom.SendPacket(new RoomInfoUpdatedComposer(ownedRoom.Id));
         }
+
         achievements.ProgressAchievement(session, "ACH_Name", 1);
         session.Send(new RoomForwardComposer(room.Id));
     }
 
     private bool Persist(int userId, string oldName, string newName, DateTimeOffset changedAt, bool writeLog)
     {
-        try
-        {
+        try {
             return store.Change(userId, oldName, newName, changedAt, writeLog);
         }
-        catch (Exception exception)
-        {
+        catch (Exception exception) {
             logger.LogError(exception, "Failed to persist username change for user {UserId}", userId);
+
             return false;
         }
     }

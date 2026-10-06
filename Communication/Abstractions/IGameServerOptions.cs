@@ -1,4 +1,4 @@
-﻿namespace Plus.Communication.Abstractions;
+namespace Plus.Communication.Abstractions;
 
 public interface IGameServerOptions
 {

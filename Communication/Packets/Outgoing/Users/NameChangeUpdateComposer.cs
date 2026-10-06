@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Users;
 
@@ -29,6 +29,9 @@ public class NameChangeUpdateComposer : IServerPacket
         packet.WriteInteger((int)_error);
         packet.WriteString(_name);
         packet.WriteInteger(_tags.Count);
-        foreach (var tag in _tags) packet.WriteString(_name + tag);
+
+        foreach (var tag in _tags) {
+            packet.WriteString(_name + tag);
+        }
     }
 }

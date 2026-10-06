@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Users.Clothing.Parts;
+namespace Plus.HabboHotel.Users.Clothing.Parts;
 
 public sealed class ClothingParts
 {

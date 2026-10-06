@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms.Chat.Emotions;
+namespace Plus.HabboHotel.Rooms.Chat.Emotions;
 
 public sealed class ChatEmotionsManager : IChatEmotionsManager
 {
@@ -50,9 +50,12 @@ public sealed class ChatEmotionsManager : IChatEmotionsManager
     /// <returns></returns>
     public int GetEmotionsForText(string text)
     {
-        foreach (var kvp in _emotions)
-            if (text.ToLower().Contains(kvp.Key.ToLower()))
+        foreach (var kvp in _emotions) {
+            if (text.ToLower().Contains(kvp.Key.ToLower())) {
                 return GetEmoticonPacketNum(kvp.Value);
+            }
+        }
+
         return 0;
     }
 
@@ -63,8 +66,7 @@ public sealed class ChatEmotionsManager : IChatEmotionsManager
     /// <returns></returns>
     private static int GetEmoticonPacketNum(ChatEmotions e)
     {
-        switch (e)
-        {
+        switch (e) {
             case ChatEmotions.Smile:
                 return 1;
             case ChatEmotions.Angry:

@@ -8,6 +8,7 @@ internal class SetUserFocusPreferenceEvent(IUserProfileService profiles) : IPack
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         profiles.SetFocusPreference(session, packet.ReadBool());
+
         return Task.CompletedTask;
     }
 }

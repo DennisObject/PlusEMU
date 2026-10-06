@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users;
 
 namespace Plus.Communication.RCON.Commands.User;
 
@@ -17,8 +17,10 @@ internal class ReloadUserCurrencyCommand : IRconCommand
 
     public Task<bool> TryExecute(string[] parameters)
     {
-        if (parameters.Length < 2 || !int.TryParse(parameters[0], out var userId))
+        if (parameters.Length < 2 || !int.TryParse(parameters[0], out var userId)) {
             return Task.FromResult(false);
+        }
+
         return _maintenance.ReloadCurrency(userId, parameters[1]);
     }
 }

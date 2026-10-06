@@ -1,4 +1,4 @@
-﻿using Plus.Communication.RCON.Commands;
+using Plus.Communication.RCON.Commands;
 
 namespace Plus.Communication.RCON;
 

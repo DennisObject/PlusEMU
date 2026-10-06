@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Permissions;
 using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
@@ -16,8 +16,10 @@ internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay, IWiredF
         Item = item;
         SetItems = new();
         TickCount = Delay;
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
     }
 
     public int TickCount { get; set; }
@@ -37,8 +39,10 @@ internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay, IWiredF
 
     public void HandleSave(IIncomingPacket packet)
     {
-        if (SetItems.Count > 0)
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
+
         var unknown = packet.ReadInt();
         var message = packet.ReadString();
         StringData = message;
@@ -46,27 +50,39 @@ internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay, IWiredF
 
     public bool Prepare(params object[] @params)
     {
-        if (@params.Length != 1 || @params[0] is not Habbo player || player.CurrentRoom != Instance)
-            return false;
-        var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
-        if (user == null)
-            return false;
-        if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id)
-        {
-            player.Client.Send(new WhisperComposer(user.VirtualId, "Wired Kick Exception: Unkickable Player", 0, 0));
+        if (@params.Length != 1 || @params[0] is not Habbo player || player.CurrentRoom != Instance) {
             return false;
         }
+
+        var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
+
+        if (user == null) {
+            return false;
+        }
+
+        if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id) {
+            player.Client.Send(new WhisperComposer(user.VirtualId, "Wired Kick Exception: Unkickable Player", 0, 0));
+
+            return false;
+        }
+
         player.Client.Send(new WhisperComposer(user.VirtualId, StringData, 0, 0));
+
         return true;
     }
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length != 1 || @params[0] is not Habbo player || player.CurrentRoom != Instance)
+        if (@params.Length != 1 || @params[0] is not Habbo player || player.CurrentRoom != Instance) {
             return false;
-        if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id)
+        }
+
+        if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id) {
             return false;
+        }
+
         Instance.GetRoomUserManager().RemoveUserFromRoom(player.Client, true);
+
         return true;
     }
 }

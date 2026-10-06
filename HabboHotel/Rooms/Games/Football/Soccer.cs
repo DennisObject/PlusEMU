@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
@@ -26,8 +26,10 @@ public class Soccer
     public void StopGame(bool triggeredByUser = false)
     {
         GameIsStarted = false;
-        if (!triggeredByUser)
+
+        if (!triggeredByUser) {
             _room.GetWired().TriggerEvent(WiredBoxType.TriggerGameEnds, null);
+        }
     }
 
     public void StartGame()
@@ -47,95 +49,80 @@ public class Soccer
 
     public void OnUserWalk(RoomUser user)
     {
-        if (user == null)
+        if (user == null) {
             return;
-        foreach (var item in _balls.Values.ToList())
-        {
+        }
+
+        foreach (var item in _balls.Values.ToList()) {
             var newX = 0;
             var newY = 0;
             var differenceX = user.X - item.GetX;
             var differenceY = user.Y - item.GetY;
-            if (differenceX == 0 && differenceY == 0)
-            {
-                if (user.RotBody == 4)
-                {
+
+            if (differenceX == 0 && differenceY == 0) {
+                if (user.RotBody == 4) {
                     newX = user.X;
                     newY = user.Y + 2;
                 }
-                else if (user.RotBody == 6)
-                {
+                else if (user.RotBody == 6) {
                     newX = user.X - 2;
                     newY = user.Y;
                 }
-                else if (user.RotBody == 0)
-                {
+                else if (user.RotBody == 0) {
                     newX = user.X;
                     newY = user.Y - 2;
                 }
-                else if (user.RotBody == 2)
-                {
+                else if (user.RotBody == 2) {
                     newX = user.X + 2;
                     newY = user.Y;
                 }
-                else if (user.RotBody == 1)
-                {
+                else if (user.RotBody == 1) {
                     newX = user.X + 2;
                     newY = user.Y - 2;
                 }
-                else if (user.RotBody == 7)
-                {
+                else if (user.RotBody == 7) {
                     newX = user.X - 2;
                     newY = user.Y - 2;
                 }
-                else if (user.RotBody == 3)
-                {
+                else if (user.RotBody == 3) {
                     newX = user.X + 2;
                     newY = user.Y + 2;
                 }
-                else if (user.RotBody == 5)
-                {
+                else if (user.RotBody == 5) {
                     newX = user.X - 2;
                     newY = user.Y + 2;
                 }
-                if (!_room.GetRoomItemHandler().CheckPosItem(item, newX, newY, item.Rotation))
-                {
-                    if (user.RotBody == 0)
-                    {
+
+                if (!_room.GetRoomItemHandler().CheckPosItem(item, newX, newY, item.Rotation)) {
+                    if (user.RotBody == 0) {
                         newX = user.X;
                         newY = user.Y + 1;
                     }
-                    else if (user.RotBody == 2)
-                    {
+                    else if (user.RotBody == 2) {
                         newX = user.X - 1;
                         newY = user.Y;
                     }
-                    else if (user.RotBody == 4)
-                    {
+                    else if (user.RotBody == 4) {
                         newX = user.X;
                         newY = user.Y - 1;
                     }
-                    else if (user.RotBody == 6)
-                    {
+                    else if (user.RotBody == 6) {
                         newX = user.X + 1;
                         newY = user.Y;
                     }
-                    else if (user.RotBody == 5)
-                    {
+                    else if (user.RotBody == 5) {
                         newX = user.X + 1;
                         newY = user.Y - 1;
                     }
-                    else if (user.RotBody == 3)
-                    {
+                    else if (user.RotBody == 3) {
                         newX = user.X - 1;
                         newY = user.Y - 1;
                     }
-                    else if (user.RotBody == 7)
-                    {
+                    else if (user.RotBody == 7) {
                         newX = user.X + 1;
                         newY = user.Y + 1;
                     }
-                    else if (user.RotBody == 1)
-                    {
+                    else if (user.RotBody == 1) {
                         newX = user.X - 1;
                         newY = user.Y + 1;
                     }
@@ -149,7 +136,10 @@ public class Soccer
                 newX = newX + item.GetX;
                 newY = newY + item.GetY;
             }
-            if (item.GetRoom().GetGameMap().ValidTile(newX, newY)) MoveBall(item, newX, newY, user);
+
+            if (item.GetRoom().GetGameMap().ValidTile(newX, newY)) {
+                MoveBall(item, newX, newY, user);
+            }
         }
     }
 
@@ -157,23 +147,19 @@ public class Soccer
 
     public void RegisterGate(Item item)
     {
-        if (_gates[0] == null)
-        {
+        if (_gates[0] == null) {
             item.Team = Team.Blue;
             _gates[0] = item;
         }
-        else if (_gates[1] == null)
-        {
+        else if (_gates[1] == null) {
             item.Team = Team.Red;
             _gates[1] = item;
         }
-        else if (_gates[2] == null)
-        {
+        else if (_gates[2] == null) {
             item.Team = Team.Green;
             _gates[2] = item;
         }
-        else if (_gates[3] == null)
-        {
+        else if (_gates[3] == null) {
             item.Team = Team.Yellow;
             _gates[3] = item;
         }
@@ -181,71 +167,68 @@ public class Soccer
 
     public void UnRegisterGate(Item item)
     {
-        switch (item.Team)
-        {
-            case Team.Blue:
-            {
-                _gates[0] = null;
-                break;
-            }
-            case Team.Red:
-            {
-                _gates[1] = null;
-                break;
-            }
-            case Team.Green:
-            {
-                _gates[2] = null;
-                break;
-            }
-            case Team.Yellow:
-            {
-                _gates[3] = null;
-                break;
-            }
+        switch (item.Team) {
+            case Team.Blue: {
+                    _gates[0] = null;
+                    break;
+                }
+            case Team.Red: {
+                    _gates[1] = null;
+                    break;
+                }
+            case Team.Green: {
+                    _gates[2] = null;
+                    break;
+                }
+            case Team.Yellow: {
+                    _gates[3] = null;
+                    break;
+                }
         }
     }
 
     public void OnGateRemove(Item item)
     {
-        switch (item.Definition.InteractionType)
-        {
+        switch (item.Definition.InteractionType) {
             case InteractionType.FootballGoalRed:
-            case InteractionType.Footballcounterred:
-            {
-                _room.GetGameManager().RemoveFurnitureFromTeam(item, Team.Red);
-                break;
-            }
+            case InteractionType.Footballcounterred: {
+                    _room.GetGameManager().RemoveFurnitureFromTeam(item, Team.Red);
+                    break;
+                }
             case InteractionType.FootballGoalGreen:
-            case InteractionType.Footballcountergreen:
-            {
-                _room.GetGameManager().RemoveFurnitureFromTeam(item, Team.Green);
-                break;
-            }
+            case InteractionType.Footballcountergreen: {
+                    _room.GetGameManager().RemoveFurnitureFromTeam(item, Team.Green);
+                    break;
+                }
             case InteractionType.FootballGoalBlue:
-            case InteractionType.Footballcounterblue:
-            {
-                _room.GetGameManager().RemoveFurnitureFromTeam(item, Team.Blue);
-                break;
-            }
+            case InteractionType.Footballcounterblue: {
+                    _room.GetGameManager().RemoveFurnitureFromTeam(item, Team.Blue);
+                    break;
+                }
             case InteractionType.FootballGoalYellow:
-            case InteractionType.Footballcounteryellow:
-            {
-                _room.GetGameManager().RemoveFurnitureFromTeam(item, Team.Yellow);
-                break;
-            }
+            case InteractionType.Footballcounteryellow: {
+                    _room.GetGameManager().RemoveFurnitureFromTeam(item, Team.Yellow);
+                    break;
+                }
         }
     }
 
     public void MoveBall(Item item, int newX, int newY, RoomUser user)
     {
-        if (item == null || user == null)
+        if (item == null || user == null) {
             return;
-        if (!_room.GetGameMap().ItemCanBePlaced(newX, newY))
+        }
+
+        if (!_room.GetGameMap().ItemCanBePlaced(newX, newY)) {
             return;
+        }
+
         var oldRoomCoord = item.Coordinate;
-        if (oldRoomCoord.X == newX && oldRoomCoord.Y == newY)
+
+        if (oldRoomCoord.X == newX && oldRoomCoord.Y == newY) {
             return;
+        }
+
         double newZ = _room.GetGameMap().Model.SqFloorHeight[newX, newY];
         _room.SendPacket(new SlideObjectBundleComposer(item.Coordinate.X, item.Coordinate.Y, item.GetZ, newX, newY, newZ, item.Id, (int)item.Id, item.Id));
         item.LegacyDataString = "11";

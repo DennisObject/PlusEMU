@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Chat;
+using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Chat.Commands;
@@ -40,23 +40,33 @@ internal class UserSaysCommandBox : IWiredItem
     public bool Execute(params object[] @params)
     {
         var player = (Habbo)@params[0];
-        if (player == null || player.CurrentRoom == null || !player.InRoom)
+
+        if (player == null || player.CurrentRoom == null || !player.InRoom) {
             return false;
+        }
+
         var user = player.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(player.Username);
-        if (user == null)
+
+        if (user == null) {
             return false;
-        if (BoolData && Instance.OwnerId != player.Id || string.IsNullOrWhiteSpace(StringData))
+        }
+
+        if (BoolData && Instance.OwnerId != player.Id || string.IsNullOrWhiteSpace(StringData)) {
             return false;
-        if (!_commands.TryGetCommand(StringData.Replace(":", "").ToLower(), out var chatCommand))
+        }
+
+        if (!_commands.TryGetCommand(StringData.Replace(":", "").ToLower(), out var chatCommand)) {
             return false;
-        if (player.ChatCommand == chatCommand)
-        {
+        }
+
+        if (player.ChatCommand == chatCommand) {
             return Instance.GetWired().RunStack(this, [player], () =>
             {
                 player.WiredInteraction = true;
                 player.Client.Send(new WhisperComposer(user.VirtualId, StringData, 0, 0));
             });
         }
+
         return false;
     }
 

@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.Utilities;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Engine;
@@ -38,16 +38,21 @@ public class SlideObjectBundleComposer : IServerPacket
         packet.WriteInteger(_toX);
         packet.WriteInteger(_toY);
         packet.WriteInteger(isItem ? 1 : 0);
-        if (isItem)
+
+        if (isItem) {
             packet.WriteUInteger(_itemId);
-        else
-        {
+        }
+        else {
             packet.WriteUInteger(_rollerId);
             packet.WriteInteger(2);
             packet.WriteInteger(_avatarId);
         }
+
         packet.WriteString(TextHandling.GetString(_fromZ));
         packet.WriteString(TextHandling.GetString(_toZ));
-        if (isItem) packet.WriteUInteger(_rollerId);
+
+        if (isItem) {
+            packet.WriteUInteger(_rollerId);
+        }
     }
 }

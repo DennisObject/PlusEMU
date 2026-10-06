@@ -26,6 +26,7 @@ public class AccountStore : IAccountStore
     public async Task<AccountCredentials?> FindByUsername(string username)
     {
         using var connection = _database.Connection();
+
         return await connection.QuerySingleOrDefaultAsync<AccountCredentials>(
             "SELECT `id` AS Id, `username` AS Username, `password` AS Password, CAST(`credential_generation` AS SIGNED) AS Generation FROM `users` WHERE `username` = @username LIMIT 1", new { username });
     }
@@ -40,18 +41,21 @@ public class AccountStore : IAccountStore
     public async Task<string?> UsernameById(int userId)
     {
         using var connection = _database.Connection();
+
         return await connection.ExecuteScalarAsync<string?>("SELECT `username` FROM `users` WHERE `id` = @userId", new { userId });
     }
 
     public async Task<bool> UsernameExists(string username)
     {
         using var connection = _database.Connection();
+
         return await connection.ExecuteScalarAsync<int>("SELECT COUNT(0) FROM `users` WHERE `username` = @username", new { username }) != 0;
     }
 
     public async Task<bool> EmailExists(string email)
     {
         using var connection = _database.Connection();
+
         return await connection.ExecuteScalarAsync<int>("SELECT COUNT(0) FROM `users` WHERE `mail` = @email", new { email }) != 0;
     }
 
@@ -66,8 +70,8 @@ public class AccountStore : IAccountStore
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        try
-        {
+
+        try {
             var userId = await connection.ExecuteScalarAsync<int>(
                 "INSERT INTO `users` (`username`, `password`, `mail`, `auth_ticket`, `rank`, `look`, `gender`, `motto`, `credits`, `activity_points`, `vip`, " +
                 "`account_created`, `last_online`, `ip_reg`, `ip_last`, `bubble_id`, `credential_generation`) " +
@@ -75,8 +79,17 @@ public class AccountStore : IAccountStore
                 "@Now, @Now, @Address, @Address, 0, @Generation); SELECT LAST_INSERT_ID();",
                 new
                 {
-                    account.Username, account.PasswordHash, account.Email, account.Look, account.Gender, account.Address,
-                    Rank = 1, _defaults.Motto, _defaults.Credits, _defaults.ActivityPoints, _defaults.HomeRoom,
+                    account.Username,
+                    account.PasswordHash,
+                    account.Email,
+                    account.Look,
+                    account.Gender,
+                    account.Address,
+                    Rank = 1,
+                    _defaults.Motto,
+                    _defaults.Credits,
+                    _defaults.ActivityPoints,
+                    _defaults.HomeRoom,
                     Vip = _defaults.Vip ? "1" : "0",
                     Now = _time.GetUtcNow().UtcDateTime,
                     Generation = NewAccountGeneration
@@ -84,22 +97,24 @@ public class AccountStore : IAccountStore
             await connection.ExecuteAsync("INSERT INTO `users_settings` (`user_id`, `home_room`) VALUES (@userId, @homeRoom)",
                 new { userId, homeRoom = _defaults.HomeRoom }, transaction);
             await connection.ExecuteAsync("INSERT INTO `user_statistics` (`id`) VALUES (@userId)", new { userId }, transaction);
-            foreach (var slug in _defaults.Roles.Distinct(StringComparer.Ordinal))
-            {
+
+            foreach (var slug in _defaults.Roles.Distinct(StringComparer.Ordinal)) {
                 var roleId = await connection.ExecuteScalarAsync<int?>("SELECT id FROM roles WHERE slug = @slug", new { slug }, transaction)
                     ?? throw new InvalidOperationException($"Registration role '{slug}' does not exist.");
                 await connection.ExecuteAsync("INSERT INTO user_roles (user_id, role_id) VALUES (@userId, @roleId)", new { userId, roleId }, transaction);
                 await connection.ExecuteAsync("INSERT INTO acl_audit_log (actor_id, action, target_type, target_id, payload) " +
                     "VALUES (NULL, 'registration.role', 'user', @userId, @payload)", new { userId, payload = JsonSerializer.Serialize(new { roleId, slug }) }, transaction);
             }
+
             await connection.ExecuteAsync("UPDATE users SET `rank` = COALESCE((SELECT MAX(r.security_level) FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @userId), 1) " +
                 "WHERE id = @userId", new { userId }, transaction);
             transaction.Commit();
+
             return userId;
         }
-        catch (MySqlException e) when (e.ErrorCode == MySqlErrorCode.DuplicateKeyEntry)
-        {
+        catch (MySqlException e) when (e.ErrorCode == MySqlErrorCode.DuplicateKeyEntry) {
             transaction.Rollback();
+
             return null;
         }
     }

@@ -12,7 +12,8 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
     // Non-transient announce failure, or a partial or zero-prefix commit.
     public void OnRouteBlocked(RoomUser actor)
     {
-        actor.RemoveStatus("mv"); actor.UpdateNeeded = true;
+        actor.RemoveStatus("mv");
+        actor.UpdateNeeded = true;
         Suspect(actor);
         RecomputePrefix(actor);
     }
@@ -21,23 +22,41 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
     public void OnRouteInvalidated(RoomUser actor)
     {
         var state = actor.Movement;
-        if (state.Fallback.State != RouteState.Normal) return;
-        if (state.Cursor < state.Route.Count) { Suspect(actor); return; }
+
+        if (state.Fallback.State != RouteState.Normal) {
+            return;
+        }
+
+        if (state.Cursor < state.Route.Count) {
+            Suspect(actor);
+
+            return;
+        }
+
         // No route installed yet: the command's own search is simply replaced.
-        state.GoalRevision++; state.AcceptedGoal = null;
+        state.GoalRevision++;
+        state.AcceptedGoal = null;
         context.Replan(actor);
     }
 
     public void RecomputePrefix(RoomUser actor)
     {
-        var state = actor.Movement; var machine = state.Fallback;
-        if (machine.State == RouteState.Normal) return;
+        var state = actor.Movement;
+        var machine = state.Fallback;
+
+        if (machine.State == RouteState.Normal) {
+            return;
+        }
+
         machine.Consume(state.Cursor);
         var prefix = _finder.Find(Start(actor), machine.Retained, Graph(actor));
         machine.Shorten(prefix.Length);
         RouteRetention.Install(state, prefix, machine.Retained, Grid);
         machine.Rebind();
-        if (machine.State == RouteState.Truncated && prefix.Length == 0) cancellation.Cancel(actor);
+
+        if (machine.State == RouteState.Truncated && prefix.Length == 0) {
+            cancellation.Cancel(actor);
+        }
     }
 
     public bool OwnsSearch(RoomUser actor) => actor.Movement.Fallback.State == RouteState.Suspect;
@@ -46,7 +65,8 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
     {
         var state = actor.Movement;
         state.Fallback.Found();
-        state.Route.CopyFrom(found); state.Route.CaptureAdvisory(Grid);
+        state.Route.CopyFrom(found);
+        state.Route.CaptureAdvisory(Grid);
         state.Cursor = 0;
     }
 
@@ -63,6 +83,7 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
     public bool AwaitsUnstartedSearch(RoomUser actor)
     {
         var state = actor.Movement;
+
         return state.Fallback.State == RouteState.Suspect && state.PendingCount == 0
             && state.Cursor >= state.Route.Count && context.Scheduler.Contains(actor);
     }
@@ -74,8 +95,13 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
     private void Suspect(RoomUser actor)
     {
         var state = actor.Movement;
-        if (!state.Fallback.Suspect(RouteRetention.Capture(state, Grid), state.Cursor)) return;
-        state.GoalRevision++; state.AcceptedGoal = null;
+
+        if (!state.Fallback.Suspect(RouteRetention.Capture(state, Grid), state.Cursor)) {
+            return;
+        }
+
+        state.GoalRevision++;
+        state.AcceptedGoal = null;
         context.Scheduler.Enqueue(actor, state.LifetimeId, state.GoalRevision);
     }
 
@@ -83,13 +109,18 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
     {
         var current = actor.Movement.CurrentRef;
         var slot = current is not { } surface ? -1 : Grid.Layered ? Grid.SlotOf(surface) : surface.Tile;
+
         return new(actor.X, actor.Y, actor.Movement.SupportZ, current?.SupportItemId ?? 0, slot);
     }
 
     private NavPrefixGraph Graph(RoomUser actor)
     {
         var occupancy = context.Occupancy(actor);
-        for (var slot = 0; slot < occupancy.Targets.Length; slot++) occupancy.Targets[slot] &= NavPrefixGraph.Kept;
+
+        for (var slot = 0; slot < occupancy.Targets.Length; slot++) {
+            occupancy.Targets[slot] &= NavPrefixGraph.Kept;
+        }
+
         return new(Grid, _rules, context.Profiles.Refresh(actor), occupancy);
     }
 }

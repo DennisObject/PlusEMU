@@ -1,4 +1,4 @@
-﻿namespace Plus.Communication.Revisions;
+namespace Plus.Communication.Revisions;
 
 public interface IRevisionsCache
 {

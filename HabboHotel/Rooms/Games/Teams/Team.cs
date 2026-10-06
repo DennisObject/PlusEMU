@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms.Games.Teams;
+namespace Plus.HabboHotel.Rooms.Games.Teams;
 
 public enum Team
 {

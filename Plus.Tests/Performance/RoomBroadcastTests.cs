@@ -22,13 +22,19 @@ public class RoomBroadcastTests
     {
         var fixture = RoomPerformanceFixture.Create(0, 500);
         var received = new List<ReadOnlyMemory<byte>>();
-        var changedRevision = new Revision { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
+        var changedRevision = new Revision
         {
-            [ServerPacketHeader.UserUpdateComposer] = 999
-        } };
+            InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
+            {
+                [ServerPacketHeader.UserUpdateComposer] = 999
+            }
+        };
         fixture.Clients[^1].Revision = changedRevision;
-        foreach (var client in fixture.Clients)
+
+        foreach (var client in fixture.Clients) {
             client.SendCallback = args => { received.Add(args.MemoryBuffer); return true; };
+        }
+
         var composer = new CountingPacket(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(fixture.Users)));
         var expected = Encode(fixture.Clients[0], composer);
         composer.Count = 0;
@@ -37,7 +43,11 @@ public class RoomBroadcastTests
 
         Assert.Equal(2, composer.Count);
         Assert.Equal(500, received.Count);
-        foreach (var buffer in received.Take(499)) Assert.Equal(expected, buffer.ToArray());
+
+        foreach (var buffer in received.Take(499)) {
+            Assert.Equal(expected, buffer.ToArray());
+        }
+
         Assert.Equal(999, FlashGameClient.DecodeInt16(received[^1].Slice(4)));
         Assert.Equal(expected.AsSpan(6).ToArray(), received[^1].Slice(6).ToArray());
         Assert.True(MemoryMarshal.TryGetArray(received[0], out var first));
@@ -70,11 +80,12 @@ public class RoomBroadcastTests
             new AlternateHeaderClient(sharedFactory)
         };
         var received = new List<byte[]>();
-        foreach (var client in clients)
-        {
+
+        foreach (var client in clients) {
             client.Revision = revision;
             client.SendCallback = args => { received.Add(args.MemoryBuffer.ToArray()); return false; };
         }
+
         var composer = new CountingPacket(new ChatComposer(1, "hello", 0, 2));
         GameClient.SendBroadcast(composer, clients);
         Assert.Equal(3, composer.Count);
@@ -91,11 +102,12 @@ public class RoomBroadcastTests
         var composer = new ChatComposer(1, "pending async TCP send", 0, 2);
         client.Send(composer);
         var expected = pending.ToArray();
-        for (var i = 0; i < 10; i++)
-        {
+
+        for (var i = 0; i < 10; i++) {
             using var stream = PlusMemoryStream.GetStream();
             stream.Write(new byte[expected.Length]);
         }
+
         Assert.Equal(expected, pending.ToArray());
     }
 
@@ -115,6 +127,7 @@ public class RoomBroadcastTests
         {
             websocket = args;
             queued = args.MemoryBuffer.ToArray();
+
             // WsSessionProxy reports no pending args even when the WebSocket queue accepts data.
             return false;
         };
@@ -180,7 +193,11 @@ public class RoomBroadcastTests
     public void StatusCollectionSendsEachChangedAvatarOnceAndClearsItsFlag()
     {
         var fixture = RoomPerformanceFixture.Create(500, 1);
-        foreach (var user in fixture.Users) user.UpdateNeeded = false;
+
+        foreach (var user in fixture.Users) {
+            user.UpdateNeeded = false;
+        }
+
         var received = new List<byte[]>();
         fixture.Clients[0].SendCallback = args => { received.Add(args.MemoryBuffer.ToArray()); return false; };
         fixture.Manager.SerializeStatusUpdates();
@@ -201,7 +218,12 @@ public class RoomBroadcastTests
         fixture.Manager.OnCycle();
         Assert.All(fixture.Bots, bot => Assert.Equal(2, bot.X));
         Assert.Equal(500, fixture.Map.GetRoomUsers(new(2, 1)).Count);
-        for (var x = 0; x < 4; x++) for (var y = 0; y < 4; y++) Assert.Equal(initial[x, y], fixture.Map.GameMap[x, y]);
+
+        for (var x = 0; x < 4; x++) {
+            for (var y = 0; y < 4; y++) {
+                Assert.Equal(initial[x, y], fixture.Map.GameMap[x, y]);
+            }
+        }
     }
 
     [Theory]
@@ -244,6 +266,7 @@ public class RoomBroadcastTests
         composer.Compose(new FlashOutgoingPacket(stream));
         var memory = stream.GetBuffer().AsMemory(0, (int)stream.Length);
         client.CreateHeader(memory, client.Revision.InternalIdToOutgoingIdMapping[composer.MessageId]);
+
         return memory.ToArray();
     }
 
@@ -251,7 +274,11 @@ public class RoomBroadcastTests
     {
         public uint MessageId => inner.MessageId;
         public int Count { get; set; }
-        public void Compose(IOutgoingPacket packet) { Count++; inner.Compose(packet); }
+        public void Compose(IOutgoingPacket packet)
+        {
+            Count++;
+            inner.Compose(packet);
+        }
     }
 
     private sealed class AlternateHeaderClient(IPacketFactory factory) : FlashGameClient(TestGameServer.Instance, factory, TestLogging.GameClient)

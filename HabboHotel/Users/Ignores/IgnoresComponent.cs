@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Users.Ignores;
+namespace Plus.HabboHotel.Users.Ignores;
 
 public sealed class IgnoresComponent
 {
@@ -12,9 +12,12 @@ public sealed class IgnoresComponent
 
     public bool TryAdd(int userId)
     {
-        if (_ignoredUsers.Contains(userId))
+        if (_ignoredUsers.Contains(userId)) {
             return false;
+        }
+
         _ignoredUsers.Add(userId);
+
         return true;
     }
 

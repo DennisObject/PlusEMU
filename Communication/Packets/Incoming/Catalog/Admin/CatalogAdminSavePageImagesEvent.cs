@@ -18,6 +18,7 @@ public class CatalogAdminSavePageImagesEvent : IPacketEvent
         string headerImage = packet.ReadString(), teaserImage = packet.ReadString();
         var envelope = CatalogAdminPacketReader.Envelope(packet, CatalogAdminPacketReader.CatalogType(packet.ReadString()));
         CatalogAdminResponder.Send(session, "savePageImages", envelope, _catalogAdmin.SavePageImages(session.GetHabbo(), envelope, pageId, headerImage, teaserImage));
+
         return Task.CompletedTask;
     }
 }

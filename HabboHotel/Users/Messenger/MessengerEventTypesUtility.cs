@@ -1,11 +1,10 @@
-﻿namespace Plus.HabboHotel.Users.Messenger;
+namespace Plus.HabboHotel.Users.Messenger;
 
 public static class MessengerEventTypesUtility
 {
     public static int GetEventTypePacketNum(MessengerEventTypes type)
     {
-        switch (type)
-        {
+        switch (type) {
             case MessengerEventTypes.EventStarted:
                 return 0;
             case MessengerEventTypes.AchievementUnlocked:

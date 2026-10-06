@@ -34,11 +34,15 @@ public partial class PlacedFurniRoomTests
     public void FloorPlanPresentationCapturesTheDoorAndWholeRotatedFurnitureFootprint()
     {
         var model = _room.GetGameMap().Model;
-        model.DoorX = 2; model.DoorY = 3; model.DoorOrientation = 6;
+        model.DoorX = 2;
+        model.DoorY = 3;
+        model.DoorOrientation = 6;
         var sofa = Furni(10, InteractionType.None, WiredBoxType.None);
-        sofa.Definition.Width = 1; sofa.Definition.Length = 2;
+        sofa.Definition.Width = 1;
+        sofa.Definition.Length = 2;
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, sofa, 1, 1, 2, true, false, false));
-        _client.Sent.Clear(); _client.Packets.Clear();
+        _client.Sent.Clear();
+        _client.Packets.Clear();
         // These read requests have always been available to room visitors, without owner rights.
         _client.GetHabbo().Id = 99;
         var service = new FloorPlanUpdateService(null!, null!);
@@ -77,7 +81,8 @@ public partial class PlacedFurniRoomTests
         var packet = new FlashIncomingPacket { Buffer = Assert.Single(_client.Packets).Body };
         var values = Enumerable.Range(0, 19).Select(_ => packet.ReadInt()).ToArray();
         Assert.Equal(new[] { 50, 8, 46, 0, 1, 2, 3, 4, 5, 6, 2, 46, 0, 1, 2, 3, 4, 5, 6 }, values);
-        _client.Sent.Clear(); _client.Packets.Clear();
+        _client.Sent.Clear();
+        _client.Packets.Clear();
         var foreign = new RoomUser(0, 99, 2, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { BotData = horse.BotData, PetData = horse.PetData };
         LegacyPets()[50] = foreign;
         service.SendTrainingPanel(_client, 50);

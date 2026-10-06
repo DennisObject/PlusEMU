@@ -15,8 +15,10 @@ internal sealed class HousekeepingDeleteRoleEvent(IAccessControl access, IHousek
         runner.Run(session, "role.delete", PermissionKeys.HousekeepingRolesManage, actor =>
         {
             var result = access.Apply(actor, revision, new DeleteAccessRole(roleId));
+
             return new HousekeepingOutcome(result.Ok, result.Id, result.Message, HousekeepingTarget.Hotel, "role.delete");
         });
+
         return Task.CompletedTask;
     }
 }

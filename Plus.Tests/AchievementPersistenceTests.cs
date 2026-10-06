@@ -29,22 +29,25 @@ public sealed class AchievementPersistenceTests
         var manager = fixture.Manager(() =>
         {
             enteredBadge.Set();
+
             return releaseBadge.Task;
         });
         var award = Task.Run(() => manager.ProgressAchievement(fixture.Client, Group, 1));
         Task? logout = null;
-        try
-        {
+
+        try {
             Assert.True(enteredBadge.Wait(TimeSpan.FromSeconds(5)));
             logout = Task.Run(fixture.Habbo.OnDisconnect);
             await logout.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.True(fixture.Habbo.WalletClosed);
         }
-        finally
-        {
+        finally {
             releaseBadge.TrySetResult();
             await award.WaitAsync(TimeSpan.FromSeconds(5));
-            if (logout != null) await logout.WaitAsync(TimeSpan.FromSeconds(5));
+
+            if (logout != null) {
+                await logout.WaitAsync(TimeSpan.FromSeconds(5));
+            }
         }
 
         Assert.False(await award);
@@ -67,25 +70,30 @@ public sealed class AchievementPersistenceTests
         var connections = 0;
         fixture.Database.BeforeConnection = () =>
         {
-            if (Interlocked.Increment(ref connections) != 1) return;
+            if (Interlocked.Increment(ref connections) != 1) {
+                return;
+            }
+
             enteredWrite.Set();
             Assert.True(releaseWrite.Wait(TimeSpan.FromSeconds(5)));
         };
         var award = Task.Run(() => manager.ProgressAchievement(fixture.Client, Group, 1));
         Task? save = null;
         bool savedWhileWritePaused;
-        try
-        {
+
+        try {
             Assert.True(enteredWrite.Wait(TimeSpan.FromSeconds(5)));
             save = Task.Run(() => { startedSave.Set(); fixture.Habbo.Save(); });
             Assert.True(startedSave.Wait(TimeSpan.FromSeconds(5)));
             savedWhileWritePaused = await Task.WhenAny(save, Task.Delay(100)) == save;
         }
-        finally
-        {
+        finally {
             releaseWrite.Set();
             await award.WaitAsync(TimeSpan.FromSeconds(5));
-            if (save != null) await save.WaitAsync(TimeSpan.FromSeconds(5));
+
+            if (save != null) {
+                await save.WaitAsync(TimeSpan.FromSeconds(5));
+            }
         }
 
         Assert.False(savedWhileWritePaused);
@@ -105,9 +113,12 @@ public sealed class AchievementPersistenceTests
         fixture.Client.SendCallback = args =>
         {
             var result = send(args);
+
             if (BinaryPrimitives.ReadUInt16BigEndian(args.MemoryBuffer.Span.Slice(4, 2)) ==
-                ServerPacketHeader.HabboActivityPointNotificationComposer)
+                ServerPacketHeader.HabboActivityPointNotificationComposer) {
                 fixture.Habbo.OnDisconnect();
+            }
+
             return result;
         };
 
@@ -131,8 +142,10 @@ public sealed class AchievementPersistenceTests
     public void FailedLevelWriteLeavesTheAwardAndLiveLevelUnchanged()
     {
         using var fixture = new Fixture();
-        using (var connection = fixture.Database.Connection())
+
+        using (var connection = fixture.Database.Connection()) {
             connection.Execute("DROP TABLE user_achievements");
+        }
 
         Assert.Throws<MySqlException>(() => fixture.Manager().ProgressAchievement(fixture.Client, Group, 1));
 
@@ -158,27 +171,36 @@ public sealed class AchievementPersistenceTests
             _admin = new MySqlConnection(root);
             _admin.Execute($"CREATE DATABASE `{_schema}`");
             _previousGame = _game.GetValue(null);
-            try
-            {
+
+            try {
                 Database = new(new MySqlConnectionStringBuilder(root)
                 {
-                    Database = _schema, AllowZeroDateTime = true, ConvertZeroDateTime = true
+                    Database = _schema,
+                    AllowZeroDateTime = true,
+                    ConvertZeroDateTime = true
                 }.ConnectionString);
                 using var connection = Database.Connection();
                 var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
-                foreach (var table in new[] { "users", "users_settings", "user_stats", "user_achievements" })
-                {
+
+                foreach (var table in new[] { "users", "users_settings", "user_stats", "user_achievements" }) {
                     var definition = Regex.Match(pristine, $@"CREATE TABLE `{table}` \([\s\S]*?\) ENGINE=[^;]+;").Value;
                     Assert.NotEmpty(definition);
                     connection.Execute(definition);
                 }
+
                 connection.Execute("ALTER TABLE users ADD bubble_id TINYINT NOT NULL DEFAULT 0; " +
                     "ALTER TABLE user_stats RENAME TO user_statistics; " +
                     "INSERT INTO users(id,username,auth_ticket) VALUES(7,'user','ticket'); " +
                     "INSERT INTO users_settings(user_id) VALUES(7); INSERT INTO user_statistics(id) VALUES(7)");
-                Habbo = new Habbo { Id = 7, Username = "user", Access = UserAccess.Empty, SessionStartedAt = DateTimeOffset.UtcNow,
+                Habbo = new Habbo
+                {
+                    Id = 7,
+                    Username = "user",
+                    Access = UserAccess.Empty,
+                    SessionStartedAt = DateTimeOffset.UtcNow,
                     HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "old", 0),
-                    Persistence = new UserPersistenceService(Database, TimeProvider.System) };
+                    Persistence = new UserPersistenceService(Database, TimeProvider.System)
+                };
                 (Client, Sent) = HabbiconTestSupport.Client(Habbo);
                 Habbo.Client = Client;
                 var clients = CatalogSnapshotTestSupport.Proxy<IGameClientManager>((method, _) =>
@@ -186,8 +208,7 @@ public sealed class AchievementPersistenceTests
                 _game.SetValue(null, CatalogSnapshotTestSupport.Proxy<IGame>((method, _) =>
                     method == "get_ClientManager" ? clients : throw new InvalidOperationException(method)));
             }
-            catch
-            {
+            catch {
                 Dispose();
                 throw;
             }
@@ -201,18 +222,21 @@ public sealed class AchievementPersistenceTests
             var achievement = new Achievement { Id = 1, GroupName = Group, Category = "identity" };
             achievement.AddLevel(new AchievementLevel(1, 20, 7, 1));
             manager.Achievements.Add(Group, achievement);
+
             return manager;
         }
 
         public int StoredLevels()
         {
             using var connection = Database.Connection();
+
             return connection.QuerySingle<int>("SELECT COUNT(*) FROM user_achievements WHERE userid=7 AND level=1");
         }
 
         public (int Duckets, int Score) StoredAward()
         {
             using var connection = Database.Connection();
+
             return connection.QuerySingle<(int, int)>(
                 "SELECT u.activity_points,s.AchievementScore FROM users u JOIN user_statistics s ON s.id=u.id WHERE u.id=7");
         }
@@ -220,8 +244,13 @@ public sealed class AchievementPersistenceTests
         public void Dispose()
         {
             _game.SetValue(null, _previousGame);
-            try { _admin.Execute($"DROP DATABASE `{_schema}`"); }
-            finally { _admin.Dispose(); }
+
+            try {
+                _admin.Execute($"DROP DATABASE `{_schema}`");
+            }
+            finally {
+                _admin.Dispose();
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Abstractions;
+using Plus.Communication.Abstractions;
 
 namespace Plus.Communication.Flash;
 

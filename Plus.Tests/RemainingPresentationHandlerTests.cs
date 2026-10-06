@@ -23,6 +23,7 @@ public sealed class RemainingPresentationHandlerTests
         {
             Assert.Equal("ShowCatalogFurnitureConfiguration", method);
             groupCalls++;
+
             return null;
         });
         await new GetGroupFurniConfigEvent(groups).Parse(null!, HabbiconTestSupport.Incoming());
@@ -33,6 +34,7 @@ public sealed class RemainingPresentationHandlerTests
         {
             Assert.Equal("RefreshCampaign", method);
             campaigns.Add((string)args[1]);
+
             return null;
         });
         await new RefreshCampaignEvent(landing).Parse(null!, HabbiconTestSupport.Incoming("id,name;"));
@@ -44,6 +46,7 @@ public sealed class RemainingPresentationHandlerTests
         {
             Assert.Equal("Initialize", method);
             cameraCalls++;
+
             return null;
         });
         await new InitCameraEvent(photos).Parse(null!, HabbiconTestSupport.Incoming());
@@ -94,6 +97,7 @@ public sealed class RemainingPresentationHandlerTests
         var checkout = CatalogSnapshotTestSupport.Proxy<ICameraCheckoutService>((method, _) =>
         {
             reads++;
+
             return method switch
             {
                 "get_Enabled" => enabled,
@@ -128,17 +132,27 @@ public sealed class RemainingPresentationHandlerTests
             "GetColourCode" => Colour((int)args[0], (bool)args[1]),
             _ => throw new NotSupportedException(method)
         });
-        string Colour(int id, bool primary) { colours.Add((id, primary)); return primary ? "primary" : "secondary"; }
+        string Colour(int id, bool primary)
+        {
+            colours.Add((id, primary));
+
+            return primary ? "primary" : "secondary";
+        }
         var service = new GroupPresentationService(groups, null!, null!, null!, null!);
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 1 });
         service.ShowCatalogFurnitureConfiguration(client);
         Assert.Equal(ServerPacketHeader.GroupFurniConfigComposer, Assert.Single(sent).Header);
         Assert.Equal(new[] { (1, true), (2, false) }, colours);
         var packet = new FlashIncomingPacket { Buffer = sent[0].Payload };
-        Assert.Equal(1, packet.ReadInt()); Assert.Equal(7, packet.ReadInt());
-        Assert.Equal("Group", packet.ReadString()); Assert.Equal("badge", packet.ReadString());
-        Assert.Equal("primary", packet.ReadString()); Assert.Equal("secondary", packet.ReadString());
-        Assert.False(packet.ReadBool()); Assert.Equal(1, packet.ReadInt()); Assert.False(packet.ReadBool());
+        Assert.Equal(1, packet.ReadInt());
+        Assert.Equal(7, packet.ReadInt());
+        Assert.Equal("Group", packet.ReadString());
+        Assert.Equal("badge", packet.ReadString());
+        Assert.Equal("primary", packet.ReadString());
+        Assert.Equal("secondary", packet.ReadString());
+        Assert.False(packet.ReadBool());
+        Assert.Equal(1, packet.ReadInt());
+        Assert.False(packet.ReadBool());
         Assert.Empty(packet.Buffer.ToArray());
         sent.Clear();
         var (other, empty) = HabbiconTestSupport.Client(new Habbo { Id = 2 });

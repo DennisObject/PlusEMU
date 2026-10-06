@@ -39,8 +39,7 @@ public sealed class MoodlightConfigSnapshotTests
         data.Presets.Clear();
         data.Presets.Add(new("#F2F851", 200, true));
 
-        for (var i = 0; i < 2; i++)
-        {
+        for (var i = 0; i < 2; i++) {
             var recomposed = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(recomposed);
             Assert.Equal(original.Writes, recomposed.Writes);
@@ -64,6 +63,7 @@ public sealed class MoodlightConfigSnapshotTests
         var data = (MoodlightData)RuntimeHelpers.GetUninitializedObject(typeof(MoodlightData));
         data.CurrentPreset = 2;
         data.Presets = [new("#000000", 255, false), new("#0053F7", 100, true), new("#EA4532", 0, false)];
+
         return data;
     }
 }

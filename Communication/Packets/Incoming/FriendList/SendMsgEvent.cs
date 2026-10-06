@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Friends;
+using Plus.HabboHotel.Friends;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.FriendList;
@@ -9,6 +9,7 @@ internal class SendMsgEvent(IMessengerCommunicationService messenger) : IPacketE
     {
         var userId = packet.ReadInt();
         var text = packet.ReadString();
+
         return messenger.SendMessage(session, userId, text);
     }
 }

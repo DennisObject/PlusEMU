@@ -34,8 +34,11 @@ public sealed class CatalogBrowsingService(IItemDataManager items, IPetRaceManag
     public void ShowPetPalettes(GameClient session, string type)
     {
         var item = items.GetItemByName(type);
-        if (item == null)
+
+        if (item == null) {
             return;
+        }
+
         session.Send(new SellablePetBreedsComposer(PetPaletteSnapshot.Capture(type, item.BehaviourData,
             races.GetRacesForRaceId(item.BehaviourData))));
     }
@@ -45,8 +48,9 @@ public sealed class CatalogBrowsingService(IItemDataManager items, IPetRaceManag
 
     public void ShowPage(GameClient session, CatalogPageRequest request)
     {
-        if (!catalog.TryGetPage(request.PageId, out var page) || !page.CanOpen(session.GetHabbo()))
+        if (!catalog.TryGetPage(request.PageId, out var page) || !page.CanOpen(session.GetHabbo())) {
             return;
+        }
 
         catalogAdmin.RecordViewedPage(session.GetHabbo(), page.Id);
         session.Send(new CatalogPageComposer(snapshots.CapturePage(page,
@@ -64,14 +68,16 @@ public sealed class CatalogBrowsingService(IItemDataManager items, IPetRaceManag
 
     public void ShowOffer(GameClient session, int offerId)
     {
-        if (catalog.TryGetOffer(offerId, session.GetHabbo(), out _, out var item))
+        if (catalog.TryGetOffer(offerId, session.GetHabbo(), out _, out var item)) {
             session.Send(new CatalogOfferComposer(snapshots.CaptureOffer(item)));
+        }
     }
 
     internal ImmutableArray<PromotableRoomSnapshot> CapturePromotableRooms(int ownerId)
     {
         var data = rooms.GetRoomsDataByOwnerSortByName(ownerId);
         var now = clock.GetUtcNow();
+
         return data.Where(room => room.Promotion == null || room.Promotion.HasExpiredAt(now))
             .Select(room => new PromotableRoomSnapshot(room.Id, room.Name)).ToImmutableArray();
     }

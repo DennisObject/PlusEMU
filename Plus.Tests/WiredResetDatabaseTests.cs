@@ -19,8 +19,9 @@ public sealed class WiredResetDatabaseFactAttribute : FactAttribute
 
     public WiredResetDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable)))
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable))) {
             Skip = $"Set {Variable} to a disposable database with the base schema and Wired migrations 14, 15 and 17.";
+        }
     }
 }
 
@@ -58,12 +59,11 @@ public class WiredResetDatabaseTests
         var trigger = "wired_reset_probe_" + Guid.NewGuid().ToString("N")[..12];
         // The last statement fails, after every other row was already deleted in the transaction.
         admin.Execute($"CREATE TRIGGER `{trigger}` BEFORE DELETE ON wired_reward_state FOR EACH ROW BEGIN IF OLD.item_id={world.Definition} THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Disposable Wired reset rollback probe'; END IF; END");
-        try
-        {
+
+        try {
             Assert.Throws<MySqlException>(() => new WiredConfigurationStore(new TestDatabase()).Reset([world.Definition, world.Legacy]));
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP TRIGGER IF EXISTS `{trigger}`");
         }
 
@@ -154,6 +154,7 @@ public class WiredResetDatabaseTests
         admin.Execute("INSERT INTO wired_items VALUES (@Id,'',5,'legacy probe','1')", new { Id = legacy });
         admin.Execute("INSERT INTO wired_items VALUES (@Id,@Items,0,'','0')", new { Id = selector, Items = definition.Id.ToString() });
         admin.Execute("INSERT INTO wired_reward_state(item_id,claims) VALUES (@Id,'{\"1\":{}}')", new { Id = definition.Id });
+
         return new(definition.Id, legacy, other, selector);
     }
 
@@ -161,19 +162,35 @@ public class WiredResetDatabaseTests
     {
         var suffix = Guid.NewGuid().ToString("N")[..12];
         var owner = Insert(admin, "users", new() { ["username"] = "wr_" + suffix, ["password"] = suffix, ["mail"] = suffix + "@invalid" });
-        var roomId = Insert(admin, "rooms", new() { ["owner"] = owner.ToString(), ["caption"] = "Disposable Wired reset probe",
-            ["model_name"] = admin.QueryFirst<string>("SELECT id FROM room_models LIMIT 1") });
+        var roomId = Insert(admin, "rooms", new()
+        {
+            ["owner"] = owner.ToString(),
+            ["caption"] = "Disposable Wired reset probe",
+            ["model_name"] = admin.QueryFirst<string>("SELECT id FROM room_models LIMIT 1")
+        });
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        room.Id = roomId; room.OwnerId = (int)owner; room.OwnerName = "owner"; room.Type = "private";
-        var item = new Item { Id = PlaceItem(admin, owner, roomId), RoomId = roomId, OwnerId = owner,
-            Definition = new() { ItemName = "wf_var_room", InteractionName = "wf_var_room", Type = ItemType.Floor } };
+        room.Id = roomId;
+        room.OwnerId = (int)owner;
+        room.OwnerName = "owner";
+        room.Type = "private";
+        var item = new Item
+        {
+            Id = PlaceItem(admin, owner, roomId),
+            RoomId = roomId,
+            OwnerId = owner,
+            Definition = new() { ItemName = "wf_var_room", InteractionName = "wf_var_room", Type = ItemType.Floor }
+        };
+
         return (room, item);
     }
 
     private static uint PlaceItem(MySqlConnection admin, uint owner, uint roomId) => Insert(admin, "items", new()
     {
-        ["user_id"] = owner, ["room_id"] = roomId, ["base_item"] = admin.QueryFirst<uint>("SELECT id FROM furniture LIMIT 1"),
-        ["extra_data"] = "", ["wall_pos"] = ""
+        ["user_id"] = owner,
+        ["room_id"] = roomId,
+        ["base_item"] = admin.QueryFirst<uint>("SELECT id FROM furniture LIMIT 1"),
+        ["extra_data"] = "",
+        ["wall_pos"] = ""
     });
 
     private static void Configure(MySqlConnection admin, uint itemId, string name, WiredConfiguration configuration) =>
@@ -189,19 +206,33 @@ public class WiredResetDatabaseTests
     private static uint Insert(MySqlConnection connection, string table, Dictionary<string, object> values)
     {
         var columns = connection.Query<Column>("SELECT COLUMN_NAME AS Name,DATA_TYPE AS Type,COLUMN_TYPE AS FullType FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@table AND IS_NULLABLE='NO' AND COLUMN_DEFAULT IS NULL AND EXTRA NOT LIKE '%auto_increment%'", new { table });
-        foreach (var column in columns.Where(column => !values.ContainsKey(column.Name))) values[column.Name] = column.Type switch
-        { "enum" => column.FullType.Split('\'')[1], "datetime" or "timestamp" or "date" => DateTime.UtcNow, "varchar" or "char" or "text" or "mediumtext" or "longtext" => "", _ => 0 };
-        var parameters = new DynamicParameters(); foreach (var entry in values) parameters.Add(entry.Key, entry.Value);
+
+        foreach (var column in columns.Where(column => !values.ContainsKey(column.Name))) {
+            values[column.Name] = column.Type switch
+            { "enum" => column.FullType.Split('\'')[1], "datetime" or "timestamp" or "date" => DateTime.UtcNow, "varchar" or "char" or "text" or "mediumtext" or "longtext" => "", _ => 0 };
+        }
+
+        var parameters = new DynamicParameters();
+
+        foreach (var entry in values) {
+            parameters.Add(entry.Key, entry.Value);
+        }
+
         connection.Execute($"INSERT INTO `{table}` ({string.Join(',', values.Keys.Select(key => $"`{key}`"))}) VALUES ({string.Join(',', values.Keys.Select(key => "@" + key))})", parameters);
+
         return connection.ExecuteScalar<uint>("SELECT LAST_INSERT_ID()");
     }
 
-    private sealed class Column { public string Name { get; set; } = ""; public string Type { get; set; } = ""; public string FullType { get; set; } = ""; }
+    private sealed class Column
+    {
+        public string Name { get; set; } = ""; public string Type { get; set; } = ""; public string FullType { get; set; } = "";
+    }
 
     private static MySqlConnection Open()
     {
         var connection = new MySqlConnection(ConnectionString);
         connection.Open();
+
         return connection;
     }
 

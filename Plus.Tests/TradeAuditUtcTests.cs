@@ -13,7 +13,7 @@ public sealed class TradeAuditUtcTests
     [RoomComponentDatabaseFact]
     public void MigrationAndRuntimeWritePreserveUnknownFractionalAndFutureInstants()
     {
-        foreach (var mode in new[] { "", "STRICT_TRANS_TABLES" })
+        foreach (var mode in new[] { "", "STRICT_TRANS_TABLES" }) {
             InSchema((connection, database) =>
             {
                 connection.Execute(PristineTable().Replace("`timestamp` datetime(6) DEFAULT NULL", "`timestamp` char(20) DEFAULT ''"));
@@ -38,6 +38,7 @@ public sealed class TradeAuditUtcTests
                 Assert.Equal((7, 8, "90;", "91;"), connection.QuerySingle<(int, int, string, string)>(
                     "SELECT `1id`, `2id`, `1items`, `2items` FROM logs_client_trade WHERE `1id`=7"));
             });
+        }
     }
 
     [RoomComponentDatabaseFact]
@@ -77,14 +78,16 @@ public sealed class TradeAuditUtcTests
         admin.Open();
         var schema = "task_trade_audit_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             options.Database = schema;
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
             run(connection, new ProbeDatabase(options.ConnectionString));
         }
-        finally { admin.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            admin.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private sealed class AuditTimeRow
@@ -95,7 +98,12 @@ public sealed class TradeAuditUtcTests
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return now;
+        }
     }
     private sealed class ProbeDatabase(string connectionString) : IDatabase
     {

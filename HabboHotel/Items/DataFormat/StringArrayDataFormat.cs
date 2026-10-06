@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Plus.HabboHotel.Items.DataFormat;
@@ -12,14 +12,15 @@ public class StringArrayDataFormat : FurniObjectData
     public override string Serialize()
     {
         var stringBuilder = new StringBuilder();
-        foreach (var entry in Data)
-        {
+
+        foreach (var entry in Data) {
             stringBuilder.Append(Regex.Escape(entry));
             stringBuilder.Append("\n");
         }
 
         var result = stringBuilder.ToString();
         result = result.Remove(result.Length - 1);
+
         return result;
     }
 

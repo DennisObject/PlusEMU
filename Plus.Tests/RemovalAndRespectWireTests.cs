@@ -44,9 +44,15 @@ public sealed class RemovalAndRespectWireTests
     public void PetAndHumanRespectRetainCapturedFieldsAfterSourceMutation()
     {
         var pet = (Pet)RuntimeHelpers.GetUninitializedObject(typeof(Pet));
-        pet.VirtualId = 11; pet.PetId = 12; pet.Name = "Pet"; pet.Color = "AA00BB";
+        pet.VirtualId = 11;
+        pet.PetId = 12;
+        pet.Name = "Pet";
+        pet.Color = "AA00BB";
         var composer = new RespectPetNotificationComposer(pet.VirtualId, pet.PetId, pet.Name, pet.Color);
-        pet.VirtualId = 21; pet.PetId = 22; pet.Name = "changed"; pet.Color = "FFFFFF";
+        pet.VirtualId = 21;
+        pet.PetId = 22;
+        pet.Name = "changed";
+        pet.Color = "FFFFFF";
         Recompose(composer, [11, 11, 12, "Pet", 0, 0, "AA00BB", 0, 0, 1]);
         Recompose(new RespectPetNotificationComposer(31, 32, "Human", "FFFFFF"),
             [31, 31, 32, "Human", 0, 0, "FFFFFF", 0, 0, 1]);
@@ -56,8 +62,8 @@ public sealed class RemovalAndRespectWireTests
     {
         Assert.All(composer.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic),
             field => Assert.True(field.FieldType.IsPrimitive || field.FieldType == typeof(string)));
-        for (var index = 0; index < 2; index++)
-        {
+
+        for (var index = 0; index < 2; index++) {
             var output = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(output);
             Assert.Equal(expected, output.Writes);

@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Users.Badges;
+using Plus.HabboHotel.Users.Badges;
 
 namespace Plus.HabboHotel.Users.UserData;
 

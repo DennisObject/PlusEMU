@@ -23,12 +23,13 @@ public class BotRoamingTests
         Assert.DoesNotContain(new Point(0, 0), squares);
 
         var seen = new HashSet<Point>();
-        for (var i = 0; i < 300; i++)
-        {
+
+        for (var i = 0; i < 300; i++) {
             Assert.True(map.TryGetRandomWalkableSquare(out var square));
             seen.Add(square);
             Assert.NotEqual(new Point(0, 0), square);
         }
+
         Assert.True(seen.SetEquals(squares));
     }
 
@@ -60,23 +61,26 @@ public class BotRoamingTests
         Assert.DoesNotContain(new Point(0, 0), before);
         Assert.Contains(new Point(2, 2), before);
 
-        for (var pass = 0; pass < 25; pass++)
-        {
-            for (var y = 0; y < 3; y++)
-            for (var x = 0; x < 3; x++)
-                map.GameMap[x, y] = 0;
+        for (var pass = 0; pass < 25; pass++) {
+            for (var y = 0; y < 3; y++) {
+                for (var x = 0; x < 3; x++) {
+                    map.GameMap[x, y] = 0;
+                }
+            }
+
             Assert.Same(before, map.WalkableSquares());
         }
 
         var seen = new HashSet<Point>();
-        for (var i = 0; i < 200; i++)
-        {
+
+        for (var i = 0; i < 200; i++) {
             Assert.False(map.TryGetRandomWalkableSquare(out _));
             Assert.True(map.TryGetRandomWalkableSquare(true, out var square));
             Assert.NotEqual(new Point(0, 0), square);
             Assert.Contains(square, before);
             seen.Add(square);
         }
+
         Assert.True(seen.SetEquals(before));
     }
 
@@ -85,11 +89,12 @@ public class BotRoamingTests
     {
         var (_, map) = Create("000\r000\r000", 1, 1);
         map.GameMap[0, 0] = 0;
-        for (var i = 0; i < 200; i++)
-        {
+
+        for (var i = 0; i < 200; i++) {
             Assert.True(map.TryGetRandomWalkableSquare(out var live));
             Assert.NotEqual(new Point(0, 0), live);
         }
+
         Assert.Contains(new Point(0, 0), map.WalkableSquares());
         Assert.True(map.TryGetRandomWalkableSquare(true, out var stress));
         Assert.Contains(stress, map.WalkableSquares());
@@ -97,8 +102,8 @@ public class BotRoamingTests
         map.SetFloorStatus(2, 2, 0);
         Assert.Equal(0, map.GameMap[2, 2]);
         Assert.DoesNotContain(new Point(2, 2), map.WalkableSquares());
-        for (var i = 0; i < 200; i++)
-        {
+
+        for (var i = 0; i < 200; i++) {
             Assert.True(map.TryGetRandomWalkableSquare(out var live));
             Assert.NotEqual(new Point(2, 2), live);
             Assert.True(map.TryGetRandomWalkableSquare(true, out var open));
@@ -136,14 +141,17 @@ public class BotRoamingTests
         Assert.Contains(new Point(2, 2), map.WalkableSquares());
         Assert.True(map.IsValidStep2(stress, from, gate, true, true));
         var seenStress = false;
-        for (var i = 0; i < 200; i++)
-        {
+
+        for (var i = 0; i < 200; i++) {
             Assert.True(map.TryGetRandomWalkableSquare(out var live));
             Assert.NotEqual(new Point(2, 2), live);
             Assert.True(map.TryGetRandomWalkableSquare(true, out var open));
-            if (open == new Point(2, 2))
+
+            if (open == new Point(2, 2)) {
                 seenStress = true;
+            }
         }
+
         Assert.True(seenStress);
     }
 
@@ -160,8 +168,8 @@ public class BotRoamingTests
         ai.Init(user.BotData.BotId, user.VirtualId, 1, user, room);
         var timer = typeof(GenericBot).GetField("_actionTimer", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(timer);
-        for (var i = 0; i < 200; i++)
-        {
+
+        for (var i = 0; i < 200; i++) {
             timer.SetValue(ai, 0);
             ai.OnTimerTick();
             var goal = new Point(user.GoalX, user.GoalY);
@@ -208,9 +216,12 @@ public class BotRoamingTests
         Assert.Contains(new Point(0, 0), rebuilt);
         Assert.DoesNotContain(new Point(1, 1), rebuilt);
 
-        for (var y = 0; y < 3; y++)
-        for (var x = 0; x < 3; x++)
-            map.GameMap[x, y] = 0;
+        for (var y = 0; y < 3; y++) {
+            for (var x = 0; x < 3; x++) {
+                map.GameMap[x, y] = 0;
+            }
+        }
+
         Assert.Same(rebuilt, map.WalkableSquares());
     }
 
@@ -283,12 +294,13 @@ public class BotRoamingTests
         Assert.Contains(around, step => step.X == 3 && step.Y == 2);
         Assert.DoesNotContain(around, step => step.X == 2 && step.Y == 2);
 
-        for (var y = 0; y < 5; y++)
-        for (var x = 0; x < 5; x++)
-        {
-            map.GameMap[x, y] = 0;
-            map.AddUserToMap(Bot(room, allowOverride: false), new(x, y));
+        for (var y = 0; y < 5; y++) {
+            for (var x = 0; x < 5; x++) {
+                map.GameMap[x, y] = 0;
+                map.AddUserToMap(Bot(room, allowOverride: false), new(x, y));
+            }
         }
+
         var crowded = PathFinder.FindPath(stress, true, map, new(1, 2), new(3, 2));
         Assert.Contains(crowded, step => step.X == 3 && step.Y == 2);
         Assert.DoesNotContain(crowded, step => step.X == 2 && step.Y == 2);
@@ -364,13 +376,14 @@ public class BotRoamingTests
         Assert.Same(squares, map.WalkableSquares());
 
         var clock = Stopwatch.StartNew();
-        for (var i = 0; i < 500; i++)
-        {
+
+        for (var i = 0; i < 500; i++) {
             Assert.True(map.TryGetRandomWalkableSquare(true, out var square));
             Assert.NotEqual(new Point(0, 0), square);
             Assert.InRange(square.X, 0, 63);
             Assert.InRange(square.Y, 0, 63);
         }
+
         clock.Stop();
         Assert.True(clock.ElapsedMilliseconds < 200, $"500 cached picks took {clock.ElapsedMilliseconds}ms");
     }
@@ -386,6 +399,7 @@ public class BotRoamingTests
             AllowOverride = allowOverride,
             BotData = data
         };
+
         return user;
     }
 
@@ -395,6 +409,7 @@ public class BotRoamingTests
         var model = new RoomModel("test", doorX, doorY, 0, 0, heightmap, 0, 0, false);
         var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
+
         return (room, map);
     }
 }

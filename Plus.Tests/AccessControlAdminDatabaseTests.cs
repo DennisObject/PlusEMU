@@ -17,8 +17,9 @@ public sealed class AccessControlDatabaseTheoryAttribute : TheoryAttribute
 {
     public AccessControlDatabaseTheoryAttribute()
     {
-        if (Environment.GetEnvironmentVariable(AccessControlDatabaseFactAttribute.Variable) == null)
+        if (Environment.GetEnvironmentVariable(AccessControlDatabaseFactAttribute.Variable) == null) {
             Skip = $"Set {AccessControlDatabaseFactAttribute.Variable} to a disposable task_acl_tests_ database with the migrated schema.";
+        }
     }
 }
 
@@ -48,6 +49,7 @@ public sealed partial class AccessControlDatabaseTests
     private IPacketEvent Handler(Type type)
     {
         var runner = new HousekeepingActionRunner(new HousekeepingAuditLog(_database, TimeProvider.System), NullLogger<HousekeepingActionRunner>.Instance);
+
         return (IPacketEvent)Activator.CreateInstance(type, type.GetConstructors()[0].GetParameters().Length == 1 ? [_access] : [_access, runner])!;
     }
 
@@ -57,6 +59,7 @@ public sealed partial class AccessControlDatabaseTests
         using var packets = new PacketManager([Handler(type)], NullLogger<PacketManager>.Instance);
         var header = (uint)typeof(ClientPacketHeader).GetField(type.Name)!.GetRawConstantValue()!;
         await packets.TryExecutePacket(session, header, Incoming(fields));
+
         return sent;
     }
 
@@ -66,7 +69,7 @@ public sealed partial class AccessControlDatabaseTests
     {
         PrepareAdminMutation();
         var revision = _access.AdminSnapshot(_actor).Revision;
-        var sent = await Dispatch(type, [revision, ..fields]);
+        var sent = await Dispatch(type, [revision, .. fields]);
         var reply = new FlashIncomingPacket { Buffer = Assert.Single(sent).Payload };
         reply.ReadString();
         Assert.True(reply.ReadBool());
@@ -77,11 +80,25 @@ public sealed partial class AccessControlDatabaseTests
         Assert.NotEqual("{}", audit.Payload);
         Assert.Contains(_sent, packet => packet.Header == ServerPacketHeader.UserRightsComposer);
         Assert.True(_access.AdminSnapshot(_actor).Revision > revision);
-        if (action == "role.assign") Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2000000000), _access.Members(_actor, LimitedRole, 0).Members.Single(member => member.Id == Target).ExpiresAt);
-        if (action == "permission.deny") Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2000000000), _access.Overrides(_actor, "acl_target").Overrides.Single(row => row.Key == "camera.*").ExpiresAt);
+
+        if (action == "role.assign") {
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2000000000), _access.Members(_actor, LimitedRole, 0).Members.Single(member => member.Id == Target).ExpiresAt);
+        }
+
+        if (action == "permission.deny") {
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2000000000), _access.Overrides(_actor, "acl_target").Overrides.Single(row => row.Key == "camera.*").ExpiresAt);
+        }
+
         Assert.NotEmpty(_access.Audit(_actor, 0).Entries);
-        if (action == "role.delete") Assert.Equal("ACL limited", _access.Audit(_actor, 0).Entries.Single(row => row.Action == action && row.TargetId == LimitedRole).TargetName);
-        if (action == "role.update") Assert.Equal("acl_limited", _access.AdminSnapshot(_actor).Roles.Single(role => role.Id == LimitedRole).Slug);
+
+        if (action == "role.delete") {
+            Assert.Equal("ACL limited", _access.Audit(_actor, 0).Entries.Single(row => row.Action == action && row.TargetId == LimitedRole).TargetName);
+        }
+
+        if (action == "role.update") {
+            Assert.Equal("acl_limited", _access.AdminSnapshot(_actor).Roles.Single(role => role.Id == LimitedRole).Slug);
+        }
+
         connection.Execute("DELETE FROM housekeeping_log WHERE actor_id = @Actor; DELETE FROM roles WHERE slug = 'acl_new'; DELETE FROM acl_permissions WHERE `key` LIKE '%acl_new'", new { Actor });
     }
 
@@ -91,7 +108,7 @@ public sealed partial class AccessControlDatabaseTests
     {
         PrepareAdminMutation();
         var revision = _access.AdminSnapshot(_actor).Revision;
-        var sent = await Dispatch(type, [revision, ..escalation]);
+        var sent = await Dispatch(type, [revision, .. escalation]);
         var reply = new FlashIncomingPacket { Buffer = Assert.Single(sent).Payload };
         reply.ReadString();
         Assert.False(reply.ReadBool());
@@ -168,18 +185,21 @@ public sealed partial class AccessControlDatabaseTests
         using var connection = _database.Connection();
         var defaultId = connection.ExecuteScalar<int>("SELECT id FROM roles WHERE slug = 'default'");
         var previous = connection.QuerySingleOrDefault<int?>("SELECT value FROM role_limits WHERE role_id = @defaultId AND limit_key = 'limit.daily_respects'", new { defaultId });
-        try
-        {
+
+        try {
             connection.Execute("INSERT INTO role_limits (role_id, limit_key, value) VALUES (@defaultId, 'limit.daily_respects', 5) ON DUPLICATE KEY UPDATE value = 5", new { defaultId });
             _access.Reload();
             Assert.False(_access.Apply(_actor, _access.AdminSnapshot(_actor).Revision, new ChangeRoleLimit(defaultId, "limit.daily_respects", 0, true)).Ok);
             Assert.Equal(5, _access.Resolve(Target).Limit("limit.daily_respects", 10));
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log WHERE actor_id = @Actor", new { Actor }));
         }
-        finally
-        {
+        finally {
             connection.Execute("DELETE FROM role_limits WHERE role_id = @defaultId AND limit_key = 'limit.daily_respects'", new { defaultId });
-            if (previous.HasValue) connection.Execute("INSERT INTO role_limits (role_id, limit_key, value) VALUES (@defaultId, 'limit.daily_respects', @value)", new { defaultId, value = previous.Value });
+
+            if (previous.HasValue) {
+                connection.Execute("INSERT INTO role_limits (role_id, limit_key, value) VALUES (@defaultId, 'limit.daily_respects', @value)", new { defaultId, value = previous.Value });
+            }
+
             _access.Reload();
         }
     }

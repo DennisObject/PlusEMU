@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.AI;
 
@@ -11,6 +11,7 @@ internal class RideHorseEvent(IHorseRidingService horses) : RoomPacketEvent
         var petId = packet.ReadInt();
         var mount = packet.ReadBool();
         horses.Ride(room, session, petId, mount);
+
         return Task.CompletedTask;
     }
 }

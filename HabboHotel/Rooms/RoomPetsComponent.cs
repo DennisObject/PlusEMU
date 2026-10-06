@@ -13,10 +13,14 @@ public sealed class RoomPetsComponent(IDatabase database) : IRoomComponent
     public void Initiated()
     {
         using var connection = database.Connection();
-        foreach (var row in Load(connection, _room.Id))
-        {
+
+        foreach (var row in Load(connection, _room.Id)) {
             var data = LoadData(connection, row.Id);
-            if (data == null) continue;
+
+            if (data == null) {
+                continue;
+            }
+
             var pet = new Pet(row.Id, row.UserId, row.RoomId, row.Name, data.Type, data.Race, data.Color,
                 data.Experience, data.Energy, data.Nutrition, data.Respect, data.CreatedAt, row.X, row.Y, row.Z,
                 data.HaveSaddle, data.AnyoneRide, data.Hairdye, data.Pethair, data.GnomeClothing, row.OwnerName);
@@ -38,6 +42,7 @@ public sealed class RoomPetsComponent(IDatabase database) : IRoomComponent
                    gnome_clothing AS GnomeClothing
             FROM bots_petdata WHERE id = @petId LIMIT 1
             """, new { petId });
+
         return row == null ? null : new(checked((int)row.Type), row.Race, row.Color, row.Experience, row.Energy,
             row.Nutrition, row.Respect, row.CreatedAt, row.HaveSaddle, row.AnyoneRide, row.Hairdye, row.Pethair, row.GnomeClothing);
     }

@@ -23,11 +23,22 @@ internal sealed class ExecutorGateOccupancy(NavGrid grid, ClaimLedger claims) : 
 
     private bool IsTileBlocked(Point point)
     {
-        if (!grid.InBounds(point.X, point.Y)) return false;
+        if (!grid.InBounds(point.X, point.Y)) {
+            return false;
+        }
+
         var tile = grid.Tile(point.X, point.Y);
-        if (Held(tile)) return true;
-        for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++)
-            if (Held(grid.SurfaceAt(tile, ordinal))) return true;
+
+        if (Held(tile)) {
+            return true;
+        }
+
+        for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++) {
+            if (Held(grid.SurfaceAt(tile, ordinal))) {
+                return true;
+            }
+        }
+
         return false;
     }
 

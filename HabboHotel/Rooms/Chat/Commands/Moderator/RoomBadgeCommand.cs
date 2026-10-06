@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Badges;
+using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
@@ -20,26 +20,32 @@ internal class RoomBadgeCommand : IChatCommand
     public void Execute(GameClient session, Room room, string[] parameters)
     {
         var badgeCode = parameters.FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(badgeCode))
-        {
+
+        if (string.IsNullOrWhiteSpace(badgeCode)) {
             session.SendWhisper("Please enter the name of the badge you'd like to give to the room.");
+
             return;
         }
-        foreach (var user in room.GetRoomUserManager().GetUserList().ToList())
-        {
-            if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null)
+
+        foreach (var user in room.GetRoomUserManager().GetUserList().ToList()) {
+            if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null) {
                 continue;
+            }
+
             if (user.GetClient()?.GetHabbo() is not { } target ||
-                target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access))
+                target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access)) {
                 continue;
-            if (!user.GetClient().GetHabbo().Inventory.Badges.HasBadge(badgeCode))
-            {
+            }
+
+            if (!user.GetClient().GetHabbo().Inventory.Badges.HasBadge(badgeCode)) {
                 _badgeManager.GiveBadge(user.GetClient().GetHabbo(), badgeCode).Wait();
                 user.GetClient().SendNotification("You have just been given a badge!");
             }
-            else
+            else {
                 user.GetClient().SendWhisper($"{session.GetHabbo().Username} tried to give you a badge, but you already have it!");
+            }
         }
+
         session.SendWhisper($"You have successfully given every user in this room the {badgeCode} badge!");
     }
 }

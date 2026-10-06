@@ -16,6 +16,7 @@ public static class WiredTimeConditions
         var monthMask = Param(config, 4, 4095);
         // Octane weekdays are Monday=0 through Sunday=6.
         var weekday = ((int)roomLocalTime.DayOfWeek + 6) % 7;
+
         return (weekdayMask == 0 || (weekdayMask & (1 << weekday)) != 0)
             && (monthMask == 0 || (monthMask & (1 << (roomLocalTime.Month - 1))) != 0)
             && MatchesPart(roomLocalTime.Day, Param(config, 1), Param(config, 2, 1), Param(config, 3, 31))
@@ -27,25 +28,29 @@ public static class WiredTimeConditions
         var start = Param(config, 0);
         var end = Param(config, 1);
         var seconds = now.ToUnixTimeSeconds();
+
         return (start == 0 || seconds >= start) && (end == 0 || seconds <= end);
     }
 
     public static bool MatchesElapsed(WiredConfiguration config, long elapsedMs, bool moreThan)
     {
         var targetMs = Param(config, 0, 1) * 500L;
+
         return moreThan ? elapsedMs > targetMs : elapsedMs < targetMs;
     }
 
     public static bool MatchesCounter(WiredConfiguration config, IEnumerable<long> currentTimesMs)
     {
         var targetMs = Param(config, 1) * 60_000L + Param(config, 2) * 500L;
+
         return WiredRoomOperations.Quantify(currentTimesMs.Select(value =>
             WiredRoomOperations.Compare(value, targetMs, Param(config, 0, 1))), Param(config, 4));
     }
 
     public static bool MatchesPart(int value, int mode, int from, int to) => mode switch
     {
-        0 => true, 1 => value == from,
+        0 => true,
+        1 => value == from,
         2 => from <= to ? value >= from && value <= to : value >= from || value <= to,
         _ => false
     };

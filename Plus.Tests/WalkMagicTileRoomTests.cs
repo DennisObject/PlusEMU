@@ -38,6 +38,7 @@ public partial class PlacedFurniRoomTests
         item.Definition.Length = length;
         item.Definition.IsSeat = seat;
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, item, x, y, 0, true, false, false, height: z));
+
         return item;
     }
 
@@ -49,6 +50,7 @@ public partial class PlacedFurniRoomTests
         var user = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, new TestRewardProgress()) { X = x, Y = y };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         users.TryAdd(1, user);
+
         return user;
     }
 
@@ -62,6 +64,7 @@ public partial class PlacedFurniRoomTests
         definition.Height = 0;
         Inventory(new InventoryItem { Id = id, OwnerId = 7, Definition = definition });
         await PlaceObject().Parse(_room, _client, ClientPacket($"{id} {x} {y} 0"));
+
         return _room.GetRoomItemHandler().GetItem(id);
     }
 
@@ -231,16 +234,21 @@ public partial class PlacedFurniRoomTests
         await new UpdateMagicTileEvent(new MagicTileService()).Parse(_client, ClientPacket(10, 300));
         Assert.Equal("300;1", tile.LegacyDataString);
         Assert.Equal(1, RoomItemSnapshot.Capture(tile).FloorExtra);
-        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(RoomItemSnapshot.Capture(tile)), new ObjectUpdateComposer(RoomItemSnapshot.Capture(tile)) })
-        {
+
+        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(RoomItemSnapshot.Capture(tile)), new ObjectUpdateComposer(RoomItemSnapshot.Capture(tile)) }) {
             var packet = Body(composer);
-            packet.ReadUInt(); packet.ReadInt(); packet.ReadInt(); packet.ReadInt(); packet.ReadInt();
+            packet.ReadUInt();
+            packet.ReadInt();
+            packet.ReadInt();
+            packet.ReadInt();
+            packet.ReadInt();
             Assert.Equal("3", packet.ReadString());
             packet.ReadString();
             Assert.Equal(1, packet.ReadInt());
             Assert.Equal(0, packet.ReadInt());
             Assert.Equal("300", packet.ReadString());
         }
+
         var loaded = ItemLoader.ReadRoomItem(Row(3, tile.LegacyDataString), RoomId, tile.Definition);
         Assert.Equal("300;1", loaded.LegacyDataString);
         await new UpdateMagicTileEvent(new MagicTileService()).Parse(_client, ClientPacket(10, 325, false));
@@ -264,10 +272,17 @@ public partial class PlacedFurniRoomTests
     private static DataRow Row(double height, string stored)
     {
         var table = new DataTable();
-        foreach (var column in new[] { "id", "user_id", "x", "y", "rot", "limited_number", "limited_stack" })
+
+        foreach (var column in new[] { "id", "user_id", "x", "y", "rot", "limited_number", "limited_stack" }) {
             table.Columns.Add(column, typeof(int));
+        }
+
         table.Columns.Add("z", typeof(double));
-        foreach (var column in new[] { "extra_data", "wall_pos", "username" }) table.Columns.Add(column, typeof(string));
+
+        foreach (var column in new[] { "extra_data", "wall_pos", "username" }) {
+            table.Columns.Add(column, typeof(string));
+        }
+
         return table.Rows.Add(10, 7, 1, 1, 0, 0, 0, height, stored, "", "owner");
     }
 
@@ -303,7 +318,8 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(2.01, tile.GetZ);
         Assert.Contains(2816u, _client.Sent);
         var echo = new FlashIncomingPacket { Buffer = _client.Packets.Last(packet => packet.Header == 2816).Body };
-        Assert.Equal(10u, echo.ReadUInt()); Assert.Equal(201, echo.ReadInt());
+        Assert.Equal(10u, echo.ReadUInt());
+        Assert.Equal(201, echo.ReadInt());
         await manager.TryExecutePacket(_client, mapping[2687], ClientPacket(10, true));
         Assert.Equal(2, tile.GetZ);
     }
@@ -319,9 +335,13 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((short)320, DeltaAt(2, 2));
         _room.SendObjects(_client);
         var full = new FlashIncomingPacket { Buffer = _client.Packets.Last(packet => packet.Header == ServerPacketHeader.HeightMapComposer).Body };
-        var width = full.ReadInt(); var count = full.ReadInt();
-        for (var index = 0; index < count; index++)
+        var width = full.ReadInt();
+        var count = full.ReadInt();
+
+        for (var index = 0; index < count; index++) {
             Assert.Equal(_room.GetGameMap().PlacementHeightMap()[index % width, index / width], full.ReadShort());
+        }
+
         await PickupObject()
             .Parse(_client, ClientPacket(0, 10));
         Assert.Equal((short)0, DeltaAt(2, 2));
@@ -368,7 +388,12 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(0.75, user.SetZ);
         var status = Body(new UserUpdateComposer(RoomUserStatusSnapshot.Capture([user])));
         Assert.Equal(1, status.ReadInt());
-        status.ReadInt(); status.ReadInt(); status.ReadInt(); status.ReadString(); status.ReadInt(); status.ReadInt();
+        status.ReadInt();
+        status.ReadInt();
+        status.ReadInt();
+        status.ReadString();
+        status.ReadInt();
+        status.ReadInt();
         Assert.Contains("/mv 1,1,0.75/", status.ReadString());
     }
 
@@ -421,7 +446,8 @@ public partial class PlacedFurniRoomTests
         var table = Add(10, 1, 1, height: 2, length: 2);
         var box = new Plus.HabboHotel.Items.Wired.Boxes.Effects.MatchPositionBox(_room, Furni(12, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
         {
-            StringData = "0;1;0", ItemsData = "10:1,1,0,2,0"
+            StringData = "0;1;0",
+            ItemsData = "10:1,1,0,2,0"
         };
         box.SetItems.TryAdd(10, table);
         Assert.True(box.Execute());
@@ -461,8 +487,13 @@ public partial class PlacedFurniRoomTests
         Add(10, 1, 1, height: 1.25);
         Assert.DoesNotContain(ServerPacketHeader.HeightMapUpdateComposer, _client.Sent);
         var full = new FlashIncomingPacket { Buffer = _client.Packets.Last(packet => packet.Header == ServerPacketHeader.HeightMapComposer).Body };
-        Assert.Equal(4, full.ReadInt()); Assert.Equal(16, full.ReadInt());
-        for (var index = 0; index < 5; index++) full.ReadShort();
+        Assert.Equal(4, full.ReadInt());
+        Assert.Equal(16, full.ReadInt());
+
+        for (var index = 0; index < 5; index++) {
+            full.ReadShort();
+        }
+
         Assert.Equal((short)320, full.ReadShort());
     }
 
@@ -472,7 +503,8 @@ public partial class PlacedFurniRoomTests
     public void WalkMagicFlanksProvideAnOpenSurfaceAtTheirOwnHeight(double flankHeight)
     {
         var map = new Gamemap(_room, new RoomModel("flanks", 0, 0, 0, 0, "0000\r00x0\r0000\r0000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
-        Set("_gamemap", map); map.GenerateMaps();
+        Set("_gamemap", map);
+        map.GenerateMaps();
         Add(10, 1, 2, height: 5, stackable: false);
         Add(11, 1, 2, z: 0.5, type: InteractionType.WalkMagicTile);
         Add(12, 2, 1, z: flankHeight, type: InteractionType.WalkMagicTile);
@@ -484,7 +516,8 @@ public partial class PlacedFurniRoomTests
     public void OrdinaryFurnitureKeepsLegacyRollerSupportOverModelVoid()
     {
         var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
-        Set("_gamemap", map); map.GenerateMaps();
+        Set("_gamemap", map);
+        map.GenerateMaps();
         Assert.False(map.CanRollItemHere(1, 1));
         var bridge = Add(10, 1, 1, z: 2, height: 0.5);
         bridge.Definition.Walkable = true;
@@ -527,13 +560,20 @@ public partial class PlacedFurniRoomTests
     public void WiredCollisionRespectsHelperCoverageAndExplicitBlockers(InteractionType type, bool helper, bool explicitBlock, bool expected)
     {
         var blocker = Add(10, 2, 2, height: 2, stackable: false);
-        if (helper) Add(11, 2, 2, z: 0.75, type: InteractionType.WalkMagicTile);
+
+        if (helper) {
+            Add(11, 2, 2, z: 0.75, type: InteractionType.WalkMagicTile);
+        }
+
         var item = Add(12, 1, 1, type: type);
         var policy = new Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy(
             new HashSet<uint>(), new HashSet<int>(), explicitBlock ? new HashSet<uint> { blocker.Id } : new HashSet<uint>());
         Assert.Equal(expected, Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.MoveItem(_room, item, 2, 2, animate: false, collision: policy));
         Assert.Equal(expected ? 2 : 1, item.GetX);
-        if (expected) Assert.Equal(helper ? 0.75 : 2, item.GetZ);
+
+        if (expected) {
+            Assert.Equal(helper ? 0.75 : 2, item.GetZ);
+        }
     }
 
     [Theory]
@@ -541,17 +581,21 @@ public partial class PlacedFurniRoomTests
     [InlineData(false, "1,1,1.75")]
     public void MountedMovementAlwaysEmitsHorseMvAndOnlyOffsetsRiderWithoutWalkTile(bool walkTile, string riderMv)
     {
-        if (walkTile) Add(10, 1, 1, z: 0.75, type: InteractionType.WalkMagicTile);
-        else
-        {
+        if (walkTile) {
+            Add(10, 1, 1, z: 0.75, type: InteractionType.WalkMagicTile);
+        }
+        else {
             var support = Add(10, 1, 1, height: 0.75);
             support.Definition.Walkable = true;
             _room.GetGameMap().UpdateMapForItem(support);
         }
+
         var rider = Viewer(1, 0);
         var horse = new RoomUser(0, RoomId, 0, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)
         {
-            X = 1, Y = 0, RidingHorse = true,
+            X = 1,
+            Y = 0,
+            RidingHorse = true,
             BotData = (Plus.HabboHotel.Rooms.AI.RoomBot)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Plus.HabboHotel.Rooms.AI.RoomBot))
         };
         var roster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
@@ -579,7 +623,10 @@ public partial class PlacedFurniRoomTests
         var sends = 0;
         _client.BeforeCapture = header =>
         {
-            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref sends) != 1) return;
+            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref sends) != 1) {
+                return;
+            }
+
             sending.Set();
             Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
         };
@@ -589,8 +636,8 @@ public partial class PlacedFurniRoomTests
             table.UpdateState();
         });
         Task? later = null;
-        try
-        {
+
+        try {
             Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
             later = Task.Run(() =>
             {
@@ -602,15 +649,24 @@ public partial class PlacedFurniRoomTests
             Assert.True(later.Wait(TimeSpan.FromSeconds(10)));
             Assert.Equal(1, Volatile.Read(ref sends));
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
+
         await first;
-        if (later != null) await later;
+
+        if (later != null) {
+            await later;
+        }
+
         Assert.Equal(2, sends);
         var values = _client.Packets.Where(packet => packet.Header == ServerPacketHeader.HeightMapUpdateComposer).Select(packet =>
         {
             var body = new FlashIncomingPacket { Buffer = packet.Body.ToArray() };
             Assert.Equal(1, body.ReadByte());
-            Assert.Equal(1, body.ReadByte()); Assert.Equal(1, body.ReadByte());
+            Assert.Equal(1, body.ReadByte());
+            Assert.Equal(1, body.ReadByte());
+
             return body.ReadShort();
         }).ToArray();
         Assert.Equal(new short[] { 256, 512 }, values);
@@ -623,7 +679,8 @@ public partial class PlacedFurniRoomTests
     public async Task QueuedProjectionDeliveryAllowsBridgeConstructionAndMapRebuild(bool rebuild)
     {
         var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
-        Set("_gamemap", map); map.GenerateMaps();
+        Set("_gamemap", map);
+        map.GenerateMaps();
         var bridge = Add(10, 2, 1, z: 2, height: 0.5);
         var table = Add(11, 3, 2);
         Viewer();
@@ -633,7 +690,10 @@ public partial class PlacedFurniRoomTests
         var sends = 0;
         _client.BeforeCapture = header =>
         {
-            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref sends) != 1) return;
+            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref sends) != 1) {
+                return;
+            }
+
             sending.Set();
             Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
         };
@@ -643,14 +703,20 @@ public partial class PlacedFurniRoomTests
             table.UpdateState();
         });
         Task? mutation = null;
-        try
-        {
+
+        try {
             Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
             mutation = Task.Run(() =>
             {
                 mutationReady.Set();
-                if (rebuild) map.GenerateMaps();
-                else _room.GetRoomItemHandler().UpdateItemOnRoller(bridge, new(1, 1), 42, 2);
+
+                if (rebuild) {
+                    map.GenerateMaps();
+                }
+                else {
+                    _room.GetRoomItemHandler().UpdateItemOnRoller(bridge, new(1, 1), 42, 2);
+                }
+
                 map.FlushPlacementUpdates();
             });
             Assert.True(mutationReady.Wait(TimeSpan.FromSeconds(10)));
@@ -658,13 +724,20 @@ public partial class PlacedFurniRoomTests
             Assert.Equal(rebuild ? SquareState.Blocked : SquareState.Open, map.Model.SqState[1, 1]);
             Assert.Equal(1, Volatile.Read(ref sends));
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
+
         await first;
-        if (mutation != null) await mutation;
+
+        if (mutation != null) {
+            await mutation;
+        }
+
         Assert.Equal(rebuild ? SquareState.Blocked : SquareState.Open, map.Model.SqState[1, 1]);
         Assert.Equal((short)256, DeltaAt(3, 2));
-        if (!rebuild)
-        {
+
+        if (!rebuild) {
             Assert.True(map.CanRollItemHere(1, 1));
             Assert.Equal((short)640, DeltaAt(1, 1));
             Assert.Equal((short)640, map.PlacementHeightMap()[1, 1]);
@@ -691,24 +764,35 @@ public partial class PlacedFurniRoomTests
         var sentUnderLock = false;
         _client.SendCallback = _ =>
         {
-            if (Interlocked.Increment(ref callbacks) != 1) return false;
+            if (Interlocked.Increment(ref callbacks) != 1) {
+                return false;
+            }
+
             sentUnderLock = Monitor.IsEntered(map.PlacementSync);
             sending.Set();
-            if (!moving.Wait(TimeSpan.FromSeconds(10))) return false;
+
+            if (!moving.Wait(TimeSpan.FromSeconds(10))) {
+                return false;
+            }
+
             // Bound the failed case, but exercise the real lock and disconnect cleanup path.
-            if (!Monitor.TryEnter(wiredSync, TimeSpan.FromSeconds(5))) return false;
-            try
-            {
+            if (!Monitor.TryEnter(wiredSync, TimeSpan.FromSeconds(5))) {
+                return false;
+            }
+
+            try {
                 wired.BeforeActorLeaves(actor);
                 cleanupCompleted = true;
             }
-            finally { Monitor.Exit(wiredSync); }
+            finally {
+                Monitor.Exit(wiredSync);
+            }
+
             return false;
         };
         var movement = Task.Run(() =>
         {
-            lock (wiredSync)
-            {
+            lock (wiredSync) {
                 wiredHeld.Set();
                 Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
                 moving.Set();
@@ -719,9 +803,10 @@ public partial class PlacedFurniRoomTests
         Assert.True(wiredHeld.Wait(TimeSpan.FromSeconds(10)));
         var send = Task.Run(() =>
         {
-            if (entry) map.SendPlacementHeightMap(_client);
-            else
-            {
+            if (entry) {
+                map.SendPlacementHeightMap(_client);
+            }
+            else {
                 table.Definition.Height = 1;
                 table.UpdateState();
             }
@@ -747,7 +832,10 @@ public partial class PlacedFurniRoomTests
         var captured = 0;
         _client.BeforeCapture = header =>
         {
-            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref captured) != 1) return;
+            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref captured) != 1) {
+                return;
+            }
+
             sending.Set();
             Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
         };
@@ -756,28 +844,36 @@ public partial class PlacedFurniRoomTests
             firstTable.Definition.Height = 1;
             firstTable.UpdateState();
         });
-        try
-        {
+
+        try {
             Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
-            secondTable.Definition.Height = 2; secondTable.UpdateState();
-            thirdTable.Definition.Height = 3; thirdTable.UpdateState();
+            secondTable.Definition.Height = 2;
+            secondTable.UpdateState();
+            thirdTable.Definition.Height = 3;
+            thirdTable.UpdateState();
             _room.GetGameMap().SendPlacementHeightMap(_client);
-            secondTable.Definition.Height = 4; secondTable.UpdateState();
+            secondTable.Definition.Height = 4;
+            secondTable.UpdateState();
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
+
         await first.WaitAsync(TimeSpan.FromSeconds(15));
         var packets = _client.Packets.Where(packet => packet.Header is ServerPacketHeader.HeightMapComposer or ServerPacketHeader.HeightMapUpdateComposer).ToArray();
         Assert.Equal(new uint[] { ServerPacketHeader.HeightMapUpdateComposer, ServerPacketHeader.HeightMapComposer,
             ServerPacketHeader.HeightMapComposer, ServerPacketHeader.HeightMapUpdateComposer }, packets.Select(packet => packet.Header));
-        foreach (var packet in packets.Skip(1).Take(2))
-        {
+
+        foreach (var packet in packets.Skip(1).Take(2)) {
             var full = new FlashIncomingPacket { Buffer = packet.Body.ToArray() };
-            Assert.Equal(4, full.ReadInt()); Assert.Equal(16, full.ReadInt());
+            Assert.Equal(4, full.ReadInt());
+            Assert.Equal(16, full.ReadInt());
             var heights = Enumerable.Range(0, 16).Select(_ => full.ReadShort()).ToArray();
             Assert.Equal((short)256, heights[5]);
             Assert.Equal((short)512, heights[6]);
             Assert.Equal((short)768, heights[9]);
         }
+
         Assert.Equal((short)1024, DeltaAt(2, 1));
     }
 
@@ -796,14 +892,18 @@ public partial class PlacedFurniRoomTests
         Task? movement = null;
         Task? rebuild = null;
         Monitor.Enter(oldIds);
-        try
-        {
+
+        try {
             // RemoveFromMap drops the helper ID before reading the remaining blocker under this lock.
             // Pause that actual handler exactly between old-index removal and SetState/new-index insertion.
             movement = Task.Run(() =>
             {
-                if (secondary) Assert.True(_room.GetRoomItemHandler().SetFloorItem(tile, 2, 2, 2));
-                else Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, tile, 2, 2, 2, false, false, false, height: 2));
+                if (secondary) {
+                    Assert.True(_room.GetRoomItemHandler().SetFloorItem(tile, 2, 2, 2));
+                }
+                else {
+                    Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, tile, 2, 2, 2, false, false, false, height: 2));
+                }
             });
             Assert.True(SpinWait.SpinUntil(() => !oldIds.Contains(tile.Id), TimeSpan.FromSeconds(10)));
             Assert.Equal(1, tile.GetX);
@@ -815,15 +915,29 @@ public partial class PlacedFurniRoomTests
             Assert.True(rebuilding.Wait(TimeSpan.FromSeconds(10)));
             Assert.False(rebuild.Wait(TimeSpan.FromMilliseconds(100)));
         }
-        finally { Monitor.Exit(oldIds); }
-        if (movement != null) await movement.WaitAsync(TimeSpan.FromSeconds(15));
-        if (rebuild != null) await rebuild.WaitAsync(TimeSpan.FromSeconds(15));
-        Assert.Equal(2, tile.GetX); Assert.Equal(2, tile.GetY);
-        Assert.Null(map.WalkMagicAt(1, 1)); Assert.Null(map.WalkMagicAt(1, 2));
+        finally {
+            Monitor.Exit(oldIds);
+        }
+
+        if (movement != null) {
+            await movement.WaitAsync(TimeSpan.FromSeconds(15));
+        }
+
+        if (rebuild != null) {
+            await rebuild.WaitAsync(TimeSpan.FromSeconds(15));
+        }
+
+        Assert.Equal(2, tile.GetX);
+        Assert.Equal(2, tile.GetY);
+        Assert.Null(map.WalkMagicAt(1, 1));
+        Assert.Null(map.WalkMagicAt(1, 2));
         Assert.False(map.ResolvePlacement(1, 1).HasHelper);
         Assert.False(map.ResolvePlacement(1, 1).CanStack);
         Assert.DoesNotContain(tile, map.GetCoordinatedItems(new(1, 1)));
-        foreach (var point in tile.GetCoords) Assert.Same(tile, map.WalkMagicAt(point.X, point.Y));
+
+        foreach (var point in tile.GetCoords) {
+            Assert.Same(tile, map.WalkMagicAt(point.X, point.Y));
+        }
     }
 
     [Fact]
@@ -838,8 +952,8 @@ public partial class PlacedFurniRoomTests
         Thread? secondThread = null;
         Task firstPlacement;
         Task secondPlacement;
-        lock (map.PlacementSync)
-        {
+
+        lock (map.PlacementSync) {
             firstPlacement = Task.Factory.StartNew(() =>
             {
                 firstThread = Thread.CurrentThread;
@@ -857,6 +971,7 @@ public partial class PlacedFurniRoomTests
             Assert.True(SpinWait.SpinUntil(() => (firstThread!.ThreadState & System.Threading.ThreadState.WaitSleepJoin) != 0
                 && (secondThread!.ThreadState & System.Threading.ThreadState.WaitSleepJoin) != 0, TimeSpan.FromSeconds(10)));
         }
+
         await Task.WhenAll(firstPlacement, secondPlacement).WaitAsync(TimeSpan.FromSeconds(15));
         var placed = Assert.Single(_room.GetRoomItemHandler().GetFloor);
         Assert.Contains(placed, new[] { first, second });
@@ -884,8 +999,7 @@ public partial class PlacedFurniRoomTests
         var sendUnderLock = false;
         existingClient.BeforeCapture = _ =>
         {
-            if (Interlocked.Increment(ref sends) == 1)
-            {
+            if (Interlocked.Increment(ref sends) == 1) {
                 sendUnderLock = Monitor.IsEntered(map.PlacementSync);
                 resolving.Set();
                 Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
@@ -894,21 +1008,25 @@ public partial class PlacedFurniRoomTests
         table.Definition.Height = 2;
         map.AddItemToMap(table, false); // Like a furniture commit, dirty the footprint before the flush.
         var flush = Task.Run(map.FlushPlacementUpdates);
-        try
-        {
+
+        try {
             Assert.True(resolving.Wait(TimeSpan.FromSeconds(10)));
             Viewer();
             map.SendPlacementHeightMap(_client);
             table.Definition.Height = 3;
             map.AddItemToMap(table, false);
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
+
         await flush.WaitAsync(TimeSpan.FromSeconds(15));
         map.FlushPlacementUpdates();
         Assert.False(sendUnderLock);
         var entry = Assert.Single(_client.Packets.Where(packet => packet.Header == ServerPacketHeader.HeightMapComposer));
         var full = new FlashIncomingPacket { Buffer = entry.Body.ToArray() };
-        Assert.Equal(4, full.ReadInt()); Assert.Equal(16, full.ReadInt());
+        Assert.Equal(4, full.ReadInt());
+        Assert.Equal(16, full.ReadInt());
         var heights = Enumerable.Range(0, 16).Select(_ => full.ReadShort()).ToArray();
         Assert.Equal((short)512, heights[5]);
         Assert.Equal((short)768, DeltaAt(1, 1));
@@ -935,38 +1053,37 @@ public partial class PlacedFurniRoomTests
         var sends = 0;
         blocker.SendCallback = _ =>
         {
-            if (Interlocked.Increment(ref sends) == 1)
-            {
+            if (Interlocked.Increment(ref sends) == 1) {
                 sending.Set();
                 Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
             }
+
             return false;
         };
         // Hold one different client's send so every map for the tested client remains queued.
         var drain = Task.Run(() => map.SendPlacementHeightMap(blocker));
-        try
-        {
+
+        try {
             Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
             map.SendPlacementHeightMap(_client);
-            table.Definition.Height = 2; table.UpdateState();
-            switch (transition)
-            {
-                case "switch":
-                {
-                    EnterProjectionRoom();
-                    break;
-                }
-                case "reenter":
-                {
-                    _client.GetHabbo().CurrentRoom = null;
-                    roster.TryRemove(1, out _);
-                    var nextVisit = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused); // Same virtual ID, different visit identity.
-                    roster[1] = nextVisit;
-                    _client.GetHabbo().CurrentRoom = _room;
-                    table.Definition.Height = 3;
-                    map.SendPlacementHeightMap(_client);
-                    break;
-                }
+            table.Definition.Height = 2;
+            table.UpdateState();
+
+            switch (transition) {
+                case "switch": {
+                        EnterProjectionRoom();
+                        break;
+                    }
+                case "reenter": {
+                        _client.GetHabbo().CurrentRoom = null;
+                        roster.TryRemove(1, out _);
+                        var nextVisit = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused); // Same virtual ID, different visit identity.
+                        roster[1] = nextVisit;
+                        _client.GetHabbo().CurrentRoom = _room;
+                        table.Definition.Height = 3;
+                        map.SendPlacementHeightMap(_client);
+                        break;
+                    }
                 case "unload":
                     map.Dispose();
                     map.SendPlacementHeightMap(_client); // Closed queues also reject future entry/flush requests.
@@ -977,19 +1094,30 @@ public partial class PlacedFurniRoomTests
                     break;
             }
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
+
         await drain.WaitAsync(TimeSpan.FromSeconds(15));
         var packets = _client.Packets.Where(packet => packet.Header is ServerPacketHeader.HeightMapComposer or ServerPacketHeader.HeightMapUpdateComposer).ToArray();
-        if (transition is "unload" or "disconnect") Assert.Empty(packets);
-        else
-        {
+
+        if (transition is "unload" or "disconnect") {
+            Assert.Empty(packets);
+        }
+        else {
             var packet = Assert.Single(packets);
             Assert.Equal(ServerPacketHeader.HeightMapComposer, packet.Header);
             var full = new FlashIncomingPacket { Buffer = packet.Body.ToArray() };
-            Assert.Equal(4, full.ReadInt()); Assert.Equal(16, full.ReadInt());
+            Assert.Equal(4, full.ReadInt());
+            Assert.Equal(16, full.ReadInt());
             var heights = Enumerable.Range(0, 16).Select(_ => full.ReadShort()).ToArray();
-            if (transition == "switch") Assert.All(heights, value => Assert.Equal((short)256, value));
-            else Assert.Equal((short)768, heights[5]);
+
+            if (transition == "switch") {
+                Assert.All(heights, value => Assert.Equal((short)256, value));
+            }
+            else {
+                Assert.Equal((short)768, heights[5]);
+            }
         }
     }
 
@@ -1009,6 +1137,7 @@ public partial class PlacedFurniRoomTests
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(nextUsers)!;
         nextRoster[1] = nextVisit;
         nextMap.SendPlacementHeightMap(_client);
+
         return nextMap;
     }
 
@@ -1022,29 +1151,40 @@ public partial class PlacedFurniRoomTests
         _client.SendCallback = args => { sent.Add(args.MemoryBuffer.Slice(6).ToArray()); return false; };
         _client.BeforeCapture = header =>
         {
-            if (header == ServerPacketHeader.HeightMapComposer && Interlocked.Increment(ref encodings) == 1)
+            if (header == ServerPacketHeader.HeightMapComposer && Interlocked.Increment(ref encodings) == 1) {
                 EnterProjectionRoom();
+            }
         };
         _room.GetGameMap().SendPlacementHeightMap(_client);
         // Encoding A re-enters B and sends B's full map before A reaches its transport callback.
         var body = new FlashIncomingPacket { Buffer = Assert.Single(sent) };
-        Assert.Equal(4, body.ReadInt()); Assert.Equal(16, body.ReadInt());
-        for (var index = 0; index < 16; index++) Assert.Equal((short)256, body.ReadShort());
+        Assert.Equal(4, body.ReadInt());
+        Assert.Equal(16, body.ReadInt());
+
+        for (var index = 0; index < 16; index++) {
+            Assert.Equal((short)256, body.ReadShort());
+        }
+
         Assert.Equal(2, encodings);
     }
 
     private short DeltaAt(int x, int y)
     {
-        foreach (var sent in _client.Packets.Where(packet => packet.Header == ServerPacketHeader.HeightMapUpdateComposer).Reverse())
-        {
+        foreach (var sent in _client.Packets.Where(packet => packet.Header == ServerPacketHeader.HeightMapUpdateComposer).Reverse()) {
             var packet = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
             var count = packet.ReadByte();
-            for (var index = 0; index < count; index++)
-            {
-                var tx = packet.ReadByte(); var ty = packet.ReadByte(); var value = packet.ReadShort();
-                if (tx == x && ty == y) return value;
+
+            for (var index = 0; index < count; index++) {
+                var tx = packet.ReadByte();
+                var ty = packet.ReadByte();
+                var value = packet.ReadShort();
+
+                if (tx == x && ty == y) {
+                    return value;
+                }
             }
         }
+
         throw new InvalidOperationException($"No delta for {x},{y}");
     }
 
@@ -1052,6 +1192,7 @@ public partial class PlacedFurniRoomTests
     {
         using var stream = PlusMemoryStream.GetStream();
         composer.Compose(new FlashOutgoingPacket(stream));
+
         return new() { Buffer = stream.ToArray().AsMemory(6) };
     }
 }

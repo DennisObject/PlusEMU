@@ -85,8 +85,8 @@ public sealed class WiredBotAppearancePersistenceTests
         server.Open();
         var schema = "task_refactor_tests_wired_bot_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             var connectionString = new MySqlConnectionStringBuilder(ProductionConnection())
             {
                 Database = schema
@@ -116,8 +116,7 @@ public sealed class WiredBotAppearancePersistenceTests
             Assert.Equal(("hd-200-1", "M"), connection.QuerySingle<(string Look, string Gender)>(
                 "SELECT look AS `Look`, gender AS Gender FROM bots WHERE id=31"));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -165,6 +164,7 @@ public sealed class WiredBotAppearancePersistenceTests
             Assert.True(action.TryValidateConfiguration(
                 new() { IntParams = [0], Text = "\thd-200-1" }, out var configuration, out var error), error);
             action.ApplyConfiguration(configuration);
+
             return action;
         }
 
@@ -192,7 +192,9 @@ public sealed class WiredBotAppearancePersistenceTests
             Assert.Equal(gender, body.ReadString());
         }
 
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class RecordingStore(Action beforeWrite) : IBotManagementStore
@@ -202,7 +204,11 @@ public sealed class WiredBotAppearancePersistenceTests
         public void SaveAppearance(int botId, uint roomId, string look, string gender)
         {
             beforeWrite();
-            if (Fail) throw new InvalidOperationException("forced persistence failure");
+
+            if (Fail) {
+                throw new InvalidOperationException("forced persistence failure");
+            }
+
             Writes.Add((botId, roomId, look, gender));
         }
         public BotPlacementData Place(int botId, int ownerId, uint roomId, int x, int y) => throw new NotSupportedException();

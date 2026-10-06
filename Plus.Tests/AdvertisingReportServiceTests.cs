@@ -38,7 +38,12 @@ public sealed class AdvertisingReportServiceTests
         Assert.Equal(allowed ? Now.AddMinutes(5) : Now.AddSeconds(secondsFromNow), reporter.AdvertisingReportAvailableAt);
         Assert.Equal(1, clock.Reads);
         Assert.Single(sent);
-        object? RecordReport() { reports++; return null; }
+        object? RecordReport()
+        {
+            reports++;
+
+            return null;
+        }
     }
 
     [Fact]
@@ -68,7 +73,12 @@ public sealed class AdvertisingReportServiceTests
         Assert.Equal(2, reports);
         Assert.Equal(Now, reporter.AdvertisingReportAvailableAt);
         Assert.Equal(2, clock.Reads);
-        object? RecordReport() { reports++; return null; }
+        object? RecordReport()
+        {
+            reports++;
+
+            return null;
+        }
     }
 
     [Theory]
@@ -100,6 +110,7 @@ public sealed class AdvertisingReportServiceTests
     {
         var manager = DispatchProxy.Create<IGameClientManager, ManagerProxy>();
         ((ManagerProxy)(object)manager).Call = invoke;
+
         return manager;
     }
 
@@ -112,7 +123,12 @@ public sealed class AdvertisingReportServiceTests
     private sealed class FixedClock : TimeProvider
     {
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
 
     private sealed class RecordingService : IAdvertisingReportService

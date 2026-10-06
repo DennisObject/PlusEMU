@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Catalog.Pets;
+namespace Plus.HabboHotel.Catalog.Pets;
 
 public class PetRace
 {

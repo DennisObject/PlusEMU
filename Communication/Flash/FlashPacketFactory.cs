@@ -1,4 +1,4 @@
-﻿using Microsoft.IO;
+using Microsoft.IO;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Flash;

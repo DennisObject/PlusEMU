@@ -3,8 +3,14 @@ using Plus.Core.Settings;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
-public enum PathfindingEngine { Legacy, Shadow, V2 }
-public enum CornerRule { Official, Strict, None }
+public enum PathfindingEngine
+{
+    Legacy, Shadow, V2
+}
+public enum CornerRule
+{
+    Official, Strict, None
+}
 public sealed record PathfindingSettings
 {
     public PathfindingEngine Engine { get; init; } = PathfindingEngine.Legacy;
@@ -37,21 +43,29 @@ public sealed record PathfindingSettings
             && double.IsFinite(n) && n >= 0 ? n : null;
         int Integer(string key, int fallback) => int.TryParse(Read(key), out var n) && n >= 0 ? n : fallback;
         bool Boolean(string key, bool fallback = false) => Read(key) is { } text ? text == "1" : fallback;
+
         return new()
         {
             Engine = Read("engine") switch { "shadow" => PathfindingEngine.Shadow, "v2" => PathfindingEngine.V2, _ => PathfindingEngine.Legacy },
             Profile = Read("profile") == "habbo2013" ? "habbo2013" : "plus",
-            MaxStepUp = Number("max_step_up"), MaxStepDown = Number("max_step_down"), UnlimitedDown = Read("max_step_down") == "none",
+            MaxStepUp = Number("max_step_up"),
+            MaxStepDown = Number("max_step_down"),
+            UnlimitedDown = Read("max_step_down") == "none",
             CornerRule = Read("corner_rule") switch { "none" => CornerRule.None, "strict" => CornerRule.Strict, _ => CornerRule.Official },
-            LayeringEnabled = Boolean("layering_enabled"), StacktoolLegacyCollision = Boolean("stacktool_legacy_collision", true),
-            AvatarClearance = Number("avatar_clearance") ?? 1.5, MaxSurfacesPerTile = Math.Clamp(Integer("max_surfaces_per_tile", 2), 1, NavGrid.MaxSurfacesPerTile),
+            LayeringEnabled = Boolean("layering_enabled"),
+            StacktoolLegacyCollision = Boolean("stacktool_legacy_collision", true),
+            AvatarClearance = Number("avatar_clearance") ?? 1.5,
+            MaxSurfacesPerTile = Math.Clamp(Integer("max_surfaces_per_tile", 2), 1, NavGrid.MaxSurfacesPerTile),
             UnreachablePolicy = Read("unreachable_policy") == "nearest" ? "nearest" : "stay",
-            BlockWaitTicks = Integer("block_wait_ticks", 1), MaxBlockReplans = Integer("max_block_replans", 3),
-            MaxWalkStallTicks = Integer("max_walk_stall_ticks", 10), FastwalkIntermediateHooks = Boolean("fastwalk_intermediate_hooks"),
+            BlockWaitTicks = Integer("block_wait_ticks", 1),
+            MaxBlockReplans = Integer("max_block_replans", 3),
+            MaxWalkStallTicks = Integer("max_walk_stall_ticks", 10),
+            FastwalkIntermediateHooks = Boolean("fastwalk_intermediate_hooks"),
             RidersIgnoreHeight = Boolean("riders_ignore_height", true),
             MaxExpansionsPerSearch = int.TryParse(Read("max_expansions_per_search"), out var cap) && cap > 0 ? cap : null,
             ApproachAutoInteract = Boolean("approach_auto_interact", true),
-            MaxExpansionsPerRoomTick = Integer("max_expansions_per_room_tick", 200000), ShadowLogSample = Math.Min(1, Number("shadow_log_sample") ?? 0.05)
+            MaxExpansionsPerRoomTick = Integer("max_expansions_per_room_tick", 200000),
+            ShadowLogSample = Math.Min(1, Number("shadow_log_sample") ?? 0.05)
         };
     }
 }

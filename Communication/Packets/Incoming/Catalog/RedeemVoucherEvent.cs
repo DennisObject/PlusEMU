@@ -8,6 +8,7 @@ public sealed class RedeemVoucherEvent(IVoucherRedemptionService vouchers) : IPa
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         vouchers.Redeem(session, packet.ReadString());
+
         return Task.CompletedTask;
     }
 }

@@ -21,8 +21,10 @@ public class SsoTicketStore : ISsoTicketStore
         _database = database;
         _time = time;
         _lifetime = TimeSpan.FromSeconds(options.Value.SsoTicketLifetimeSeconds);
-        if (_lifetime <= TimeSpan.Zero)
+
+        if (_lifetime <= TimeSpan.Zero) {
             throw new ArgumentOutOfRangeException(nameof(options), "SSO ticket lifetime must be positive.");
+        }
     }
 
     public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) =>
@@ -36,6 +38,7 @@ public class SsoTicketStore : ISsoTicketStore
         await (scope?.Connection ?? owned!).ExecuteAsync(
             "UPDATE `users` SET `auth_ticket` = @ticket, `auth_ticket_expires_at` = @expiresAt, `auth_ticket_exchanged` = 0, `auth_ticket_session` = @sessionId WHERE `id` = @userId",
             new { ticket = ticket.Value, expiresAt = ticket.ExpiresAt.UtcDateTime, sessionId, userId }, scope?.Transaction);
+
         return ticket;
     }
 
@@ -46,14 +49,17 @@ public class SsoTicketStore : ISsoTicketStore
 
     public async Task<CredentialOwner?> FindOwner(string ticket)
     {
-        if (string.IsNullOrEmpty(ticket))
+        if (string.IsNullOrEmpty(ticket)) {
             return null;
+        }
+
         return await FindOwnerAt(ticket, _time.GetUtcNow());
     }
 
     private async Task<CredentialOwner?> FindOwnerAt(string ticket, DateTimeOffset now)
     {
         using var connection = _database.Connection();
+
         return await connection.QueryFirstOrDefaultAsync<CredentialOwner>(
             $"SELECT `id` AS UserId, `auth_ticket_session` AS SessionId FROM `users` WHERE {LiveTicket} AND `auth_ticket_expires_at` >= @now LIMIT 1",
             new { ticket, now = now.UtcDateTime });
@@ -68,8 +74,10 @@ public class SsoTicketStore : ISsoTicketStore
     public async Task<CredentialOwner?> ExchangeAt(string ticket, CredentialInstant instant)
     {
         var now = instant.UtcNow;
-        if (string.IsNullOrEmpty(ticket) || await FindOwnerAt(ticket, now) is not { } owner)
+
+        if (string.IsNullOrEmpty(ticket) || await FindOwnerAt(ticket, now) is not { } owner) {
             return null;
+        }
 
         using var connection = _database.Connection();
         connection.Open();
@@ -78,18 +86,22 @@ public class SsoTicketStore : ISsoTicketStore
         var live = await connection.QuerySingleOrDefaultAsync<CredentialOwner>(
             $"SELECT `id` AS UserId, `auth_ticket_session` AS SessionId FROM `users` WHERE `id` = @UserId AND {LiveTicket} AND `auth_ticket_expires_at` >= @now AND `auth_ticket_exchanged` = 0",
             new { owner.UserId, ticket, now = now.UtcDateTime }, transaction);
-        if (live == null)
+
+        if (live == null) {
             return null;
+        }
 
         var sessionId = live.SessionId;
-        if (sessionId == null)
-        {
+
+        if (sessionId == null) {
             sessionId = CredentialGenerations.NewSessionId();
             await CredentialGenerations.StartSession(connection, transaction, sessionId, live.UserId, now);
         }
+
         await connection.ExecuteAsync("UPDATE `users` SET `auth_ticket_exchanged` = 1, `auth_ticket_session` = @sessionId WHERE `id` = @UserId",
             new { sessionId, live.UserId }, transaction);
         transaction.Commit();
+
         return live with { SessionId = sessionId };
     }
 
@@ -99,8 +111,11 @@ public class SsoTicketStore : ISsoTicketStore
         var owner = await scope.Connection.QuerySingleOrDefaultAsync<CredentialOwner>(
             $"SELECT `id` AS UserId, `auth_ticket_session` AS SessionId FROM `users` WHERE `id` = @userId AND {LiveTicket} AND `auth_ticket_expires_at` >= @now",
             new { userId, ticket, now = now.UtcDateTime }, scope.Transaction);
-        if (owner != null)
+
+        if (owner != null) {
             await scope.Connection.ExecuteAsync($"UPDATE `users` SET {Cleared} WHERE `id` = @userId", new { userId }, scope.Transaction);
+        }
+
         return owner;
     }
 
@@ -120,16 +135,22 @@ public class SsoTicketStore : ISsoTicketStore
     private async Task<CredentialOwner?> ClaimFor(string ticket, string set)
     {
         var now = _time.GetUtcNow();
-        if (string.IsNullOrEmpty(ticket))
+
+        if (string.IsNullOrEmpty(ticket)) {
             return null;
+        }
+
         var owner = await FindOwnerAt(ticket, now);
-        if (owner == null)
+
+        if (owner == null) {
             return null;
+        }
 
         using var connection = _database.Connection();
         var claimed = await connection.ExecuteAsync(
             $"UPDATE `users` SET {set} WHERE `id` = @UserId AND {LiveTicket} AND `auth_ticket_expires_at` >= @now",
             new { owner.UserId, ticket, now = now.UtcDateTime });
+
         return claimed == 1 ? owner : null;
     }
 

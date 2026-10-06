@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -31,13 +31,20 @@ internal class IsWearingBadgeBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length == 0)
+        if (@params.Length == 0) {
             return false;
-        if (string.IsNullOrEmpty(StringData))
+        }
+
+        if (string.IsNullOrEmpty(StringData)) {
             return false;
+        }
+
         var player = (Habbo)@params[0];
-        if (player == null)
+
+        if (player == null) {
             return false;
+        }
+
         return player.Inventory.Badges.EquippedBadges.Any(badge => badge.Code.Equals(StringData));
     }
 }

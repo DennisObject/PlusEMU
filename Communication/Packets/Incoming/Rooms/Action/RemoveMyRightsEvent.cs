@@ -8,6 +8,7 @@ internal class RemoveMyRightsEvent(IRoomRightsService rights) : RoomPacketEvent
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         rights.RemoveOwn(room, session);
+
         return Task.CompletedTask;
     }
 }

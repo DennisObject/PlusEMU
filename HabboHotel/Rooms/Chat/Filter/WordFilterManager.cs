@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Plus.Core;
 using System.Text.RegularExpressions;
 using Plus.Database;
@@ -31,46 +31,53 @@ public sealed class WordFilterManager : IWordFilterManager, IStartable
 
     public string CheckMessage(string message)
     {
-        foreach (var filter in _filteredWords.ToList())
-        {
-            if (message.ToLower().Contains(filter.Word) && filter.IsStrict || message == filter.Word)
+        foreach (var filter in _filteredWords.ToList()) {
+            if (message.ToLower().Contains(filter.Word) && filter.IsStrict || message == filter.Word) {
                 message = Regex.Replace(message, filter.Word, filter.Replacement, RegexOptions.IgnoreCase);
-            else if (message.ToLower().Contains(filter.Word) && !filter.IsStrict || message == filter.Word)
-            {
+            }
+            else if (message.ToLower().Contains(filter.Word) && !filter.IsStrict || message == filter.Word) {
                 var words = message.Split(' ');
                 message = "";
-                foreach (var word in words.ToList())
-                {
-                    if (word.ToLower() == filter.Word)
+
+                foreach (var word in words.ToList()) {
+                    if (word.ToLower() == filter.Word) {
                         message += $"{filter.Replacement} ";
-                    else
+                    }
+                    else {
                         message += $"{word} ";
+                    }
                 }
             }
         }
+
         return message.TrimEnd(' ');
     }
 
     public bool CheckBannedWords(string message)
     {
         message = message.Replace(" ", "").Replace(".", "").Replace("_", "").ToLower();
-        foreach (var filter in _filteredWords.ToList())
-        {
-            if (!filter.IsBannable)
+
+        foreach (var filter in _filteredWords.ToList()) {
+            if (!filter.IsBannable) {
                 continue;
-            if (message.Contains(filter.Word))
+            }
+
+            if (message.Contains(filter.Word)) {
                 return true;
+            }
         }
+
         return false;
     }
 
     public bool IsFiltered(string message)
     {
-        foreach (var filter in _filteredWords.ToList())
-        {
-            if (message.Contains(filter.Word))
+        foreach (var filter in _filteredWords.ToList()) {
+            if (message.Contains(filter.Word)) {
                 return true;
+            }
         }
+
         return false;
     }
 }

@@ -21,6 +21,7 @@ internal class HousekeepingRoomStateEvent : IPacketEvent
         var roomId = packet.ReadInt();
         var open = packet.ReadBool();
         _runner.Run(session, open ? "room.open" : "room.close", HousekeepingRights.Rooms, actor => _rooms.SetState(actor, roomId, open));
+
         return Task.CompletedTask;
     }
 }

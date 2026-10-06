@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Badges;
+using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -22,24 +22,32 @@ internal class GiveBadgeCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access))
+        if (target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access)) {
             return Task.CompletedTask;
+        }
+
         var badgeCode = parameters.FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(badgeCode))
-        {
+
+        if (string.IsNullOrWhiteSpace(badgeCode)) {
             session.SendWhisper("Please enter the code of the badge you'd like to give!");
+
             return Task.CompletedTask;
         }
-        if (!target.Inventory.Badges.HasBadge(badgeCode))
-        {
+
+        if (!target.Inventory.Badges.HasBadge(badgeCode)) {
             _badgeManager.GiveBadge(target, badgeCode).Wait();
-            if (target.Id != session.GetHabbo().Id)
+
+            if (target.Id != session.GetHabbo().Id) {
                 target.Client.SendNotification("You have just been given a badge!");
-            else
+            }
+            else {
                 session.SendWhisper($"You have successfully given yourself the badge {parameters[2]}!");
+            }
         }
-        else
+        else {
             session.SendWhisper($"Oops, that user already has this badge ({parameters[2]}) !");
+        }
+
         return Task.CompletedTask;
     }
 }

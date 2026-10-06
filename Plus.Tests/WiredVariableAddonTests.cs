@@ -16,11 +16,14 @@ public sealed class WiredVariableAddonTests
         var (room, context, module, holders) = World();
         var box = Box("wf_xtra_filter_users_by_var", room, module);
         var config = new WiredConfiguration { IntParams = [0, 1, 0, 0, 200, 0], Text = "custom:10\tcustom:11" };
-        Assert.True(box.TryValidateConfiguration(config, out var valid, out _)); box.ApplyConfiguration(valid);
+        Assert.True(box.TryValidateConfiguration(config, out var valid, out _));
+        box.ApplyConfiguration(valid);
         Assert.True(box.Apply(context));
         Assert.Equal(new[] { 2, 3 }, context.Selected.UserIds.Order().ToArray());
         var empty = config with { IntParams = [0, 0, 0, 0, 0, 0] };
-        box.ApplyConfiguration(empty); Assert.True(box.Apply(context)); Assert.Empty(context.Selected.UserIds);
+        box.ApplyConfiguration(empty);
+        Assert.True(box.Apply(context));
+        Assert.Empty(context.Selected.UserIds);
         Assert.Empty(module.DrainChanges());
     }
     [Fact]
@@ -29,7 +32,9 @@ public sealed class WiredVariableAddonTests
         var (room, context, module, holders) = World();
         var box = Box("wf_xtra_text_output_variable", room, module);
         var config = new WiredConfiguration { IntParams = [0, 2, 2, 200, 0], Text = "custom:10\tpoints\t|" };
-        Assert.True(box.TryValidateConfiguration(config, out var valid, out _)); box.ApplyConfiguration(valid); Assert.True(box.Apply(context));
+        Assert.True(box.TryValidateConfiguration(config, out var valid, out _));
+        box.ApplyConfiguration(valid);
+        Assert.True(box.Apply(context));
         Assert.Equal("scores=ten|twenty|30", context.Policy.FormatText(context, "scores=$(points)"));
         box.ApplyConfiguration(config with { Text = "custom:11\tpoints\t," });
         module.Mutate(new(WiredVariableTarget.User, "custom:10"), holders[0], WiredVariableMutation.Set, 40, context.VariableFrame!);
@@ -38,23 +43,30 @@ public sealed class WiredVariableAddonTests
     private static WiredVariableAddonBox Box(string name, Room room, WiredVariableModule module)
     {
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
+
         return new(room, new Item { Id = 90 }, descriptor, module, _ => new Dictionary<int, string> { [10] = "ten", [20] = "twenty" });
     }
     private static (Room Room, WiredRuntimeContext Context, WiredVariableModule Module, WiredVariableHolder[] Holders) World()
     {
-        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1;
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        room.Id = 1;
         var users = Enumerable.Range(1, 3).Select(i => new RoomUser(900 + i, 0, i, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)).ToArray();
         var context = new WiredRuntimeContext(room, new(WiredEventKind.Enter), new(() => [], () => users), new Operations());
-        context.SelectorPool.UserIds.UnionWith(users.Select(x => x.VirtualId)); context.Selected.UserIds.UnionWith(users.Select(x => x.VirtualId));
-        var frame = WiredVariableRuntimeFrames.Create(context); context.VariableFrame = frame;
+        context.SelectorPool.UserIds.UnionWith(users.Select(x => x.VirtualId));
+        context.Selected.UserIds.UnionWith(users.Select(x => x.VirtualId));
+        var frame = WiredVariableRuntimeFrames.Create(context);
+        context.VariableFrame = frame;
         var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var holders = frame.Holders.ToArray();
-        for (var i = 0; i < holders.Length; i++)
-        {
+
+        for (var i = 0; i < holders.Length; i++) {
             module.Mutate(new(WiredVariableTarget.User, "custom:10"), holders[i], WiredVariableMutation.Give, (i + 1) * 10, frame);
             module.Mutate(new(WiredVariableTarget.User, "custom:11"), holders[i], WiredVariableMutation.Give, 2, frame);
         }
-        module.DrainChanges(); return (room, context, module, holders);
+
+        module.DrainChanges();
+
+        return (room, context, module, holders);
     }
     private sealed class Directory : IWiredVariableDirectory
     {

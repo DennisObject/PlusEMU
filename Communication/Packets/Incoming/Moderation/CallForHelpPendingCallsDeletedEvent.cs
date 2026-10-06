@@ -8,6 +8,7 @@ internal sealed class CallForHelpPendingCallsDeletedEvent(IModeratorTicketServic
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         tickets.DeletePending(session);
+
         return Task.CompletedTask;
     }
 }

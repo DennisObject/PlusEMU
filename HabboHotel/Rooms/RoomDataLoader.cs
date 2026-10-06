@@ -18,22 +18,24 @@ public sealed class RoomDataLoader(IDatabase database, IRoomManager rooms, IGrou
 {
     public bool TryGetData(uint roomId, [NotNullWhen(true)] out RoomData? data)
     {
-        if (rooms.TryGetRoom(roomId, out var loaded))
-        {
+        if (rooms.TryGetRoom(roomId, out var loaded)) {
             data = loaded.Data;
+
             return true;
         }
 
         using var connection = database.Connection();
         var row = connection.QuerySingleOrDefault<RoomDataRow>(RoomDataMapping.SelectRoom +
             "WHERE rooms.id = @roomId LIMIT 1", new { roomId });
-        if (row == null || !rooms.TryGetModel(row.ModelName, out var model))
-        {
+
+        if (row == null || !rooms.TryGetModel(row.ModelName, out var model)) {
             data = null;
+
             return false;
         }
 
         data = Prepare(RoomDataMapping.CreateData(row, model, true));
+
         return true;
     }
 
@@ -43,21 +45,27 @@ public sealed class RoomDataLoader(IDatabase database, IRoomManager rooms, IGrou
         var rows = connection.Query<RoomDataRow>(RoomDataMapping.SelectRoom +
             "WHERE users.id = @ownerId ORDER BY rooms.caption", new { ownerId });
         var data = new List<RoomData>();
-        foreach (var row in rows)
-        {
-            if (rooms.TryGetRoom(row.Id, out var loaded))
+
+        foreach (var row in rows) {
+            if (rooms.TryGetRoom(row.Id, out var loaded)) {
                 data.Add(loaded.Data);
-            else if (rooms.TryGetModel(row.ModelName, out var model))
+            }
+            else if (rooms.TryGetModel(row.ModelName, out var model)) {
                 data.Add(Prepare(RoomDataMapping.CreateData(row, model, false)));
+            }
         }
+
         return data;
     }
 
     private RoomData Prepare(RoomData data)
     {
         data.Promotion = promotions.Load(data.Id);
-        if (data.GroupId > 0 && groups.TryGetGroup(data.GroupId, out var group))
+
+        if (data.GroupId > 0 && groups.TryGetGroup(data.GroupId, out var group)) {
             data.Group = group;
+        }
+
         return data;
     }
 }

@@ -12,6 +12,7 @@ internal class GetGroupMembersEvent(IGroupPresentationService presentation) : IP
             packet.ReadInt(),
             packet.ReadString(),
             packet.ReadInt()));
+
         return Task.CompletedTask;
     }
 }

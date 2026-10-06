@@ -16,6 +16,7 @@ public class CatalogAdminDeleteOfferEvent : IPacketEvent
     {
         var (offerId, envelope) = CatalogAdminPacketReader.Target(packet);
         CatalogAdminResponder.Send(session, "deleteOffer", envelope, _catalogAdmin.DeleteOffer(session.GetHabbo(), envelope, offerId));
+
         return Task.CompletedTask;
     }
 }

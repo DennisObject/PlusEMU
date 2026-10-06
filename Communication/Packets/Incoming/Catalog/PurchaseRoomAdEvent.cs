@@ -14,6 +14,7 @@ public class PurchaseRoomAdEvent(IRoomPromotionService promotions) : IPacketEven
         packet.ReadBool(); // Unused client flag.
         var description = packet.ReadString();
         var categoryId = packet.ReadInt();
+
         return promotions.Purchase(session, new(roomId, name, description, categoryId));
     }
 }

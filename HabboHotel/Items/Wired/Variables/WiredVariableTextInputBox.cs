@@ -19,15 +19,35 @@ public sealed class WiredVariableTextInputBox(Room room, Item item, WiredBoxDesc
     public bool BoolData { get; set; }
     public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
-        validated = proposed; error = "Choose a context variable and capturer name.";
+        validated = proposed;
+        error = "Choose a context variable and capturer name.";
         var parts = proposed.Text.Split('\t');
+
         if (proposed.Version != 1 || proposed.IntParams.Length != 1 || proposed.IntParams[0] is not (1 or 2)
-            || parts.Length != 2 || !WiredVariableModule.TryDefinitionId(parts[0], out _)) return false;
-        var name = parts[1].Trim(); if (name.Length >= 2 && name.StartsWith('#') && name.EndsWith('#')) name = name[1..^1].Trim();
-        if (name.Length is < 1 or > 32 || name.IndexOfAny(['\r', '\n', '#']) >= 0) return false;
-        validated = proposed with { Text = parts[0] + "\t" + name }; error = ""; return true;
+            || parts.Length != 2 || !WiredVariableModule.TryDefinitionId(parts[0], out _)) {
+            return false;
+        }
+
+        var name = parts[1].Trim();
+
+        if (name.Length >= 2 && name.StartsWith('#') && name.EndsWith('#')) {
+            name = name[1..^1].Trim();
+        }
+
+        if (name.Length is < 1 or > 32 || name.IndexOfAny(['\r', '\n', '#']) >= 0) {
+            return false;
+        }
+
+        validated = proposed with { Text = parts[0] + "\t" + name };
+        error = "";
+
+        return true;
     }
-    public void ApplyConfiguration(WiredConfiguration validated) { Configuration = validated; StringData = validated.Text; }
+    public void ApplyConfiguration(WiredConfiguration validated)
+    {
+        Configuration = validated;
+        StringData = validated.Text;
+    }
     public void HandleSave(IIncomingPacket packet) => throw new InvalidOperationException("Capture boxes require validated persistence.");
     public bool Execute(params object[] arguments) => false;
 }

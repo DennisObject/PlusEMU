@@ -17,8 +17,8 @@ public class CameraContextTests
     public void LeavingDisposedRoomCancelsRendersAndRejectsItsMediaOnReentry()
     {
         var directory = Path.Combine(Path.GetTempPath(), "camera-context-" + Guid.NewGuid());
-        try
-        {
+
+        try {
             using var service = new CameraService(Options.Create(new CameraConfiguration { OutputDirectory = directory }),
                 null!, null!, null!, TimeProvider.System, NullLogger<CameraService>.Instance);
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
@@ -30,7 +30,8 @@ public class CameraContextTests
             var cancellation = (CancellationTokenSource)state.GetType().GetProperty("Cancellation")!.GetValue(state)!;
             var drafts = (IDictionary)state.GetType().GetProperty("Drafts")!.GetValue(state)!;
             var draftType = typeof(CameraService).GetNestedType("Draft", BindingFlags.NonPublic)!;
-            var draftId = Guid.NewGuid(); var mediaId = Guid.NewGuid();
+            var draftId = Guid.NewGuid();
+            var mediaId = Guid.NewGuid();
             var draft = Activator.CreateInstance(draftType, draftId, 42u, DateTimeOffset.UtcNow, default(JsonElement), null)!;
             ((Dictionary<Guid, DateTimeOffset>)draftType.GetProperty("Media")!.GetValue(draft)!).Add(mediaId, DateTimeOffset.UtcNow);
             drafts.Add(draftId, draft);
@@ -48,6 +49,10 @@ public class CameraContextTests
             Assert.False(result.Ok);
             Assert.False(called);
         }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        finally {
+            if (Directory.Exists(directory)) {
+                Directory.Delete(directory, true);
+            }
+        }
     }
 }

@@ -55,6 +55,11 @@ public sealed class ScheduledRewardTests
     private sealed class CountingTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return now;
+        }
     }
 }

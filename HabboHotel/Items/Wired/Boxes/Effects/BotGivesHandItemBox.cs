@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -27,37 +27,58 @@ internal class BotGivesHandItemBox : IWiredItem
         var unknown = packet.ReadInt();
         var drinkId = packet.ReadInt();
         var botName = packet.ReadString();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
+
         StringData = $"{botName};{drinkId}";
     }
 
     public bool Execute(params object[] @params)
     {
-        if (@params == null || @params.Length == 0)
+        if (@params == null || @params.Length == 0) {
             return false;
-        if (string.IsNullOrEmpty(StringData))
+        }
+
+        if (string.IsNullOrEmpty(StringData)) {
             return false;
+        }
+
         var player = (Habbo)@params[0];
-        if (player == null)
+
+        if (player == null) {
             return false;
+        }
+
         var actor = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
-        if (actor == null)
+
+        if (actor == null) {
             return false;
+        }
+
         var user = Instance.GetRoomUserManager().GetBotByName(StringData.Split(';')[0]);
-        if (user == null)
+
+        if (user == null) {
             return false;
-        if (user.BotData.TargetUser == 0)
-        {
-            if (!Instance.GetGameMap().CanWalk(actor.SquareBehind.X, actor.SquareBehind.Y, false))
+        }
+
+        if (user.BotData.TargetUser == 0) {
+            if (!Instance.GetGameMap().CanWalk(actor.SquareBehind.X, actor.SquareBehind.Y, false)) {
                 return false;
+            }
+
             var data = StringData.Split(';');
-            if (!int.TryParse(data[1], out var drinkId))
+
+            if (!int.TryParse(data[1], out var drinkId)) {
                 return false;
+            }
+
             user.CarryItem(drinkId);
             user.BotData.TargetUser = actor.HabboId;
             user.MoveTo(actor.SquareBehind.X, actor.SquareBehind.Y);
         }
+
         return true;
     }
 }

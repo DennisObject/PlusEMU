@@ -15,10 +15,9 @@ public class GroupMembersComposer(GroupMembersPresentation presentation) : IServ
         packet.WriteString(presentation.Badge);
         packet.WriteInteger(presentation.Total);
         packet.WriteInteger(presentation.Members.Length);
-        if (presentation.Total > 0)
-        {
-            foreach (var member in presentation.Members)
-            {
+
+        if (presentation.Total > 0) {
+            foreach (var member in presentation.Members) {
                 packet.WriteInteger(member.Role);
                 packet.WriteInteger(member.Id);
                 packet.WriteString(member.Username);
@@ -26,6 +25,7 @@ public class GroupMembersComposer(GroupMembersPresentation presentation) : IServ
                 packet.WriteString(string.Empty);
             }
         }
+
         packet.WriteBoolean(presentation.CanManage);
         packet.WriteInteger(14);
         packet.WriteInteger(presentation.Page);

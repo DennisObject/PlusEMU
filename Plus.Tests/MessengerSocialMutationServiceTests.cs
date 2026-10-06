@@ -19,8 +19,9 @@ public sealed class SocialMutationDatabaseFactAttribute : FactAttribute
 {
     public SocialMutationDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") is null)
+        if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") is null) {
             Skip = "Opt-in isolated messenger social mutation MariaDB probe.";
+        }
     }
 }
 
@@ -94,11 +95,14 @@ public sealed class MessengerSocialMutationServiceTests
         var rewards = new RecordingRewards();
         var loader = CatalogSnapshotTestSupport.Proxy<IMessengerDataLoader>((method, arguments) =>
         {
-            if (method != nameof(IMessengerDataLoader.SetRelationship))
+            if (method != nameof(IMessengerDataLoader.SetRelationship)) {
                 throw new NotSupportedException(method);
+            }
+
             Assert.False(published);
             Assert.Equal(1, buddy.Relationship);
             Assert.Equal(new object[] { 1, 2, 3 }, arguments);
+
             return Task.CompletedTask;
         });
         var service = Service(loader: loader, rewards: rewards);
@@ -195,8 +199,8 @@ public sealed class MessengerSocialMutationServiceTests
         await root.OpenAsync();
         var schema = "task_refactor_tests_social_" + Guid.NewGuid().ToString("N");
         await root.ExecuteAsync($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             var builder = new MySqlConnectionStringBuilder(rootBuilder.ConnectionString) { Database = schema };
             await using var connection = new MySqlConnection(builder.ConnectionString);
             await connection.OpenAsync();
@@ -235,8 +239,7 @@ public sealed class MessengerSocialMutationServiceTests
             Assert.Equal((6, "stored", writtenAt), await connection.QuerySingleAsync<(int, string, DateTimeOffset)>(
                 "SELECT user_id, message, timestamp FROM chatlogs_console_invitations WHERE user_id = 6"));
         }
-        finally
-        {
+        finally {
             await root.ExecuteAsync($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -264,6 +267,7 @@ public sealed class MessengerSocialMutationServiceTests
             Messenger = new HabboMessenger(friends ?? new(), new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch)),
         };
         var result = HabbiconTestSupport.Client(habbo);
+
         return (result.Client, result.Sent);
     }
 
@@ -280,11 +284,13 @@ public sealed class MessengerSocialMutationServiceTests
         public Task SetRelationship(GameClient session, int friendId, int relationship)
         {
             Relationship = (friendId, relationship);
+
             return Task.CompletedTask;
         }
         public Task SendRoomInvites(GameClient session, RoomInvitationRequest request)
         {
             Invitation = request;
+
             return Task.CompletedTask;
         }
     }
@@ -305,6 +311,7 @@ public sealed class MessengerSocialMutationServiceTests
         {
             beforeLog?.Invoke();
             Logs.Add((userId, message, invitedAt));
+
             return Task.CompletedTask;
         }
     }

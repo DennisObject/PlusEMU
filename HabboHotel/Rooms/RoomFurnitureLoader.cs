@@ -17,6 +17,7 @@ public sealed class RoomFurnitureLoader(IDatabase database, IItemDataManager def
     public IReadOnlyList<Item> Load(uint roomId)
     {
         using var connection = database.Connection();
+
         return connection.Query<ItemRow>("""
             SELECT items.id, items.user_id AS UserId, items.base_item AS BaseItem, users.username,
                    COALESCE(items_groups.group_id, 0) AS GroupId,
@@ -32,16 +33,30 @@ public sealed class RoomFurnitureLoader(IDatabase database, IItemDataManager def
 
     private Item? Materialize(ItemRow row, uint roomId)
     {
-        if (!definitions.Items.TryGetValue(row.BaseItem, out var definition)) return null;
+        if (!definitions.Items.TryGetValue(row.BaseItem, out var definition)) {
+            return null;
+        }
+
         var item = new Item
         {
-            Id = row.Id, OwnerId = row.UserId, UserId = (int)row.UserId, Username = row.Username ?? "",
-            Definition = definition, ExtraData = FurniExtraData.Load(definition, row.ExtraData ?? "", keepLegacy: true),
-            GetX = row.X, GetY = row.Y, GetZ = row.Z, Rotation = row.Rotation,
-            UniqueNumber = row.LimitedNumber, UniqueSeries = row.LimitedStack,
-            WallCoordinates = row.WallPosition ?? "", GroupId = row.GroupId, RoomId = roomId
+            Id = row.Id,
+            OwnerId = row.UserId,
+            UserId = (int)row.UserId,
+            Username = row.Username ?? "",
+            Definition = definition,
+            ExtraData = FurniExtraData.Load(definition, row.ExtraData ?? "", keepLegacy: true),
+            GetX = row.X,
+            GetY = row.Y,
+            GetZ = row.Z,
+            Rotation = row.Rotation,
+            UniqueNumber = row.LimitedNumber,
+            UniqueSeries = row.LimitedStack,
+            WallCoordinates = row.WallPosition ?? "",
+            GroupId = row.GroupId,
+            RoomId = roomId
         };
         MagicTileHeight.Sync(item);
+
         return item;
     }
 

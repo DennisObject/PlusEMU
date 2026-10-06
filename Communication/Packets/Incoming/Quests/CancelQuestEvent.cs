@@ -8,6 +8,7 @@ internal sealed class CancelQuestEvent(IQuestProgressService quests) : IPacketEv
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         quests.Cancel(session);
+
         return Task.CompletedTask;
     }
 }

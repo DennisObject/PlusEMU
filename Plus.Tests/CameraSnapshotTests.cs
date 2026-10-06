@@ -107,6 +107,7 @@ public class CameraSnapshotTests
                 var speeches = new List<RandomSpeech>();
                 var bot = new RoomBot(index + 1, 4, "generic", "freeroam", "B", "", "hr-1", 0, 0, 0, 0,
                     0, 0, 0, 0, ref speeches, "M", 0, 1, false, 0, false, 0);
+
                 return new RoomUser(0, 4, index, null!, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { BotData = bot };
             })
             .ToArray();
@@ -143,6 +144,7 @@ public class CameraSnapshotTests
         var item = Floor(id, sprite, extra, 0, 0, 0, 0);
         item.Definition.Type = ItemType.Wall;
         item.WallCoordinates = position;
+
         return item;
     }
 }

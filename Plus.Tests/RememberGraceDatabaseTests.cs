@@ -69,8 +69,10 @@ public sealed class RememberGraceDatabaseTests : IDisposable
         await Resume(first);
         var generation = await _generations.Current(userId);
 
-        for (var i = 0; i < RememberTokenStore.MaxGraceRetries; i++)
+        for (var i = 0; i < RememberTokenStore.MaxGraceRetries; i++) {
             Assert.Equal(ResumeStatus.Resumed, (await Resume(first)).Status);
+        }
+
         Assert.Equal(generation, await _generations.Current(userId));
 
         Assert.Equal(ResumeStatus.Invalid, (await Resume(first)).Status);
@@ -106,6 +108,7 @@ public sealed class RememberGraceDatabaseTests : IDisposable
         var userId = AuthTestDatabase.InsertUser(AuthTestDatabase.UniqueName("grc"));
         _users.Add(userId);
         var session = await _issuer.Issue(userId, await Name(userId), await _generations.Current(userId), "203.0.113.8", remember: true);
+
         return (userId, session!.RememberToken!.Value.Value);
     }
 
@@ -116,6 +119,7 @@ public sealed class RememberGraceDatabaseTests : IDisposable
     private static async Task<string> Name(int id)
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
+
         return await connection.QuerySingleAsync<string>("SELECT username FROM users WHERE id = @id", new { id });
     }
 

@@ -24,6 +24,7 @@ public class FurniEditorImportTextEvent : IPacketEvent
         uint id = packet.ReadUInt();
         var habbo = session.GetHabbo();
         FurniEditorResponder.InBackground(session, _logger, id, async () => new FurniEditorImportTextResultComposer(await _furniEditor.ImportText(habbo, id)));
+
         return Task.CompletedTask;
     }
 }

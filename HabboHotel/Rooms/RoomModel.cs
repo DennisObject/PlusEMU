@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.HabboHotel.Rooms;
@@ -30,8 +30,8 @@ public class RoomModel
     {
         IsCustom = custom;
         RequiredClubLevel = requiredClubLevel;
-        try
-        {
+
+        try {
             Id = id;
             DoorX = doorX;
             DoorY = doorY;
@@ -45,21 +45,22 @@ public class RoomModel
             SqState = new SquareState[MapSizeX, MapSizeY];
             SqFloorHeight = new short[MapSizeX, MapSizeY];
             SqSeatRot = new byte[MapSizeX, MapSizeY];
-            for (var y = 0; y < MapSizeY; y++)
-            {
+
+            for (var y = 0; y < MapSizeY; y++) {
                 var line = tmpHeightmap[y];
                 line = line.Replace("\r", "");
                 line = line.Replace("\n", "");
                 var x = 0;
-                foreach (var square in line)
-                {
-                    if (square == 'x')
+
+                foreach (var square in line) {
+                    if (square == 'x') {
                         SqState[x, y] = SquareState.Blocked;
-                    else
-                    {
+                    }
+                    else {
                         SqState[x, y] = SquareState.Open;
                         SqFloorHeight[x, y] = Parse(square);
                     }
+
                     x++;
                 }
             }
@@ -77,18 +78,21 @@ public class RoomModel
     public bool CanCreate(UserAccess access)
     {
         // AIR's stock creator omits these legacy models; neither has a newroom thumbnail.
-        if (Id is "model_s" or "model_wl") return false;
+        if (Id is "model_s" or "model_wl") {
+            return false;
+        }
+
         var resolved = access.Capture(out var now);
         bool modelAllowed = RequiredClubLevel < 0
             ? resolved.Keys.Contains(PermissionKeys.NavigatorRoomModelsStaff)
             : ClubAccess.LevelFor(resolved, now) >= RequiredClubLevel;
+
         return modelAllowed && (string.IsNullOrEmpty(RequiredPermission) || resolved.Keys.Contains(RequiredPermission));
     }
 
     public static short Parse(char input)
     {
-        switch (input)
-        {
+        switch (input) {
             case '0':
                 return 0;
             case '1':

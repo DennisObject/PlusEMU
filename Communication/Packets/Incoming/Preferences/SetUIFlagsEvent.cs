@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
 namespace Plus.Communication.Packets.Incoming.Preferences;
@@ -9,6 +9,7 @@ internal class SetUIFlagsEvent(IUserProfileService profiles) : IPacketEvent
     {
         var value = packet.ReadInt();
         profiles.SetFriendBarState(session, value);
+
         return Task.CompletedTask;
     }
 }

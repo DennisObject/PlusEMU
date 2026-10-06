@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Attributes;
+using Plus.Communication.Attributes;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
@@ -11,6 +11,7 @@ internal class GetModeratorUserInfoEvent(IModeratorUserInfoService moderation) :
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         moderation.Send(session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

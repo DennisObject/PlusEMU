@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.AI;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.AI.Pets;
@@ -9,6 +9,7 @@ internal sealed class GetPetTrainingPanelEvent(IPetInformationService service) :
     {
         var petId = packet.ReadInt();
         service.SendTrainingPanel(session, petId);
+
         return Task.CompletedTask;
     }
 }

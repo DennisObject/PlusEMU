@@ -1,4 +1,4 @@
-﻿using Plus.Utilities.DependencyInjection;
+using Plus.Utilities.DependencyInjection;
 
 namespace Plus.Communication.RCON.Commands;
 

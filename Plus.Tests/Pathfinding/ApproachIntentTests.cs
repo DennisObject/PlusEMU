@@ -27,10 +27,17 @@ public partial class PlacedFurniRoomTests
             new() { Engine = PathfindingEngine.V2, ApproachAutoInteract = autoInteract }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
-        foreach (var item in _room.GetRoomItemHandler().GetFloor) navigation.Inputs.Attach(item);
-        var actor = Viewer(x, y); actor.InternalRoomId = actor.VirtualId; actor.UserId = 7;
+
+        foreach (var item in _room.GetRoomItemHandler().GetFloor) {
+            navigation.Inputs.Attach(item);
+        }
+
+        var actor = Viewer(x, y);
+        actor.InternalRoomId = actor.VirtualId;
+        actor.UserId = 7;
         navigation.Admit(actor);
         ExecutorTick();
+
         return actor;
     }
 
@@ -40,10 +47,16 @@ public partial class PlacedFurniRoomTests
     {
         var navigation = _room.GetGameMap().Navigation!;
         var tile = navigation.Grid.Tile(item.SquareInFront.X, item.SquareInFront.Y);
+
         return new(item.Id, navigation.Inputs.Read(item.Id)!.Version, navigation.Grid.Reference(tile), kind, item.StateGeneration);
     }
 
-    private void WalkToLanding(RoomUser actor, int ticks) { for (var i = 0; i < ticks; i++) ExecutorTick(); }
+    private void WalkToLanding(RoomUser actor, int ticks)
+    {
+        for (var i = 0; i < ticks; i++) {
+            ExecutorTick();
+        }
+    }
 
     [Fact]
     public void ApproachSettingDefaultsOnWhenLoadedAndZeroDisablesIt()
@@ -63,14 +76,23 @@ public partial class PlacedFurniRoomTests
         var actor = ApproachActor(3, 0);
         item.Interactor.OnTrigger(_client, item, 0, true);
         WalkToLanding(actor, 2);
-        Assert.Equal(0, item.InteractingUser); Assert.Equal((2, 0), (actor.X, actor.Y));
+        Assert.Equal(0, item.InteractingUser);
+        Assert.Equal((2, 0), (actor.X, actor.Y));
         ExecutorTick();
         Assert.Equal(item.SquareInFront, actor.Coordinate);
         Assert.Equal(7, item.InteractingUser);
         Assert.Null(Approaches.Peek(actor));
-        if (kind == InteractionType.VendingMachine)
-        { Assert.Equal("1", item.LegacyDataString); Assert.False(actor.CanWalk); Assert.Equal(2, item.UpdateCounter); }
-        else { Assert.Equal(2, actor.TeleDelay); Assert.True(actor.CanWalk); }
+
+        if (kind == InteractionType.VendingMachine) {
+            Assert.Equal("1", item.LegacyDataString);
+            Assert.False(actor.CanWalk);
+            Assert.Equal(2, item.UpdateCounter);
+        }
+        else {
+            Assert.Equal(2, actor.TeleDelay);
+            Assert.True(actor.CanWalk);
+        }
+
         ExecutorTick();
         Assert.Equal(item.SquareInFront, actor.Coordinate);
     }
@@ -83,10 +105,14 @@ public partial class PlacedFurniRoomTests
         item.Interactor.OnTrigger(_client, item, 0, true);
         WalkToLanding(actor, 3);
         Assert.Equal(2, item.UpdateCounter);
-        ExecutorTick(); Assert.Equal("1", item.LegacyDataString); Assert.Equal(0, actor.CarryItemId);
         ExecutorTick();
-        Assert.Equal("0", item.LegacyDataString); Assert.Equal(0, item.InteractingUser);
-        Assert.True(actor.CanWalk); Assert.Equal(DrinkId, actor.CarryItemId);
+        Assert.Equal("1", item.LegacyDataString);
+        Assert.Equal(0, actor.CarryItemId);
+        ExecutorTick();
+        Assert.Equal("0", item.LegacyDataString);
+        Assert.Equal(0, item.InteractingUser);
+        Assert.True(actor.CanWalk);
+        Assert.Equal(DrinkId, actor.CarryItemId);
     }
 
     [Theory]
@@ -102,9 +128,15 @@ public partial class PlacedFurniRoomTests
         Assert.Null(actor.Movement.Commands.Read()!.Approach);
         WalkToLanding(actor, 3);
         Assert.Equal(item.SquareInFront, actor.Coordinate);
-        for (var i = 0; i < 4; i++) ExecutorTick();
-        Assert.Equal(0, item.InteractingUser); Assert.Equal("0", item.LegacyDataString);
-        Assert.True(actor.CanWalk); Assert.Equal(0, actor.CarryItemId);
+
+        for (var i = 0; i < 4; i++) {
+            ExecutorTick();
+        }
+
+        Assert.Equal(0, item.InteractingUser);
+        Assert.Equal("0", item.LegacyDataString);
+        Assert.True(actor.CanWalk);
+        Assert.Equal(0, actor.CarryItemId);
         Assert.Equal(MoveOrigin.User, actor.Movement.Origin);
     }
 
@@ -119,17 +151,22 @@ public partial class PlacedFurniRoomTests
         item.Interactor.OnTrigger(_client, item, 0, true);
         Assert.Equal(7, item.InteractingUser);
         Assert.Null(actor.Movement.Commands.Read());
-        if (kind == InteractionType.VendingMachine)
-        {
-            Assert.Equal(2, item.UpdateCounter); Assert.False(actor.CanWalk);
-            ExecutorTick(); Assert.Equal("1", item.LegacyDataString);
-            ExecutorTick(); Assert.Equal("0", item.LegacyDataString); Assert.Equal(DrinkId, actor.CarryItemId);
+
+        if (kind == InteractionType.VendingMachine) {
+            Assert.Equal(2, item.UpdateCounter);
+            Assert.False(actor.CanWalk);
+            ExecutorTick();
+            Assert.Equal("1", item.LegacyDataString);
+            ExecutorTick();
+            Assert.Equal("0", item.LegacyDataString);
+            Assert.Equal(DrinkId, actor.CarryItemId);
         }
-        else
-        {
+        else {
             Assert.Equal(2, actor.TeleDelay);
-            ExecutorTick(); Assert.Contains("/mv 1,1,0/", ExecutorUpdate(actor).Status);
-            ExecutorTick(); Assert.Equal((1, 1), (actor.X, actor.Y));
+            ExecutorTick();
+            Assert.Contains("/mv 1,1,0/", ExecutorUpdate(actor).Status);
+            ExecutorTick();
+            Assert.Equal((1, 1), (actor.X, actor.Y));
         }
     }
 
@@ -146,7 +183,8 @@ public partial class PlacedFurniRoomTests
         Assert.Contains("/mv 1,1,0/", ExecutorUpdate(actor).Status);
         Assert.Equal(MoveOrigin.Interaction, actor.Movement.Origin);
         ExecutorTick();
-        Assert.Equal((1, 1), (actor.X, actor.Y)); Assert.False(actor.CanWalk);
+        Assert.Equal((1, 1), (actor.X, actor.Y));
+        Assert.False(actor.CanWalk);
     }
 
     [Fact]
@@ -178,9 +216,14 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         Assert.True(actor.Movement.GoalRevision > goalRevision);
         Assert.Same(bound, Approaches.Peek(actor));
-        for (var i = 0; i < 6 && item.InteractingUser == 0; i++) ExecutorTick();
+
+        for (var i = 0; i < 6 && item.InteractingUser == 0; i++) {
+            ExecutorTick();
+        }
+
         Assert.Equal(item.SquareInFront, actor.Coordinate);
-        Assert.Equal(7, item.InteractingUser); Assert.Equal("1", item.LegacyDataString);
+        Assert.Equal(7, item.InteractingUser);
+        Assert.Equal("1", item.LegacyDataString);
         Assert.Null(Approaches.Peek(actor));
     }
 
@@ -194,7 +237,9 @@ public partial class PlacedFurniRoomTests
         actor.MoveTo(3, 3);
         ExecutorTick();
         Assert.Equal(item.SquareInFront, actor.Coordinate);
-        Assert.Equal(0, item.InteractingUser); Assert.Equal("0", item.LegacyDataString); Assert.True(actor.CanWalk);
+        Assert.Equal(0, item.InteractingUser);
+        Assert.Equal("0", item.LegacyDataString);
+        Assert.True(actor.CanWalk);
         Assert.Null(Approaches.Peek(actor));
     }
 
@@ -212,8 +257,10 @@ public partial class PlacedFurniRoomTests
         actor.ApproachItem(item, KindOf(kind));
         ExecutorTick();
         Assert.Equal(7, item.InteractingUser);
-        Assert.Empty(events); Assert.Equal(revision, actor.Movement.LocationRevision);
-        Assert.False(actor.HasStatus("mv")); Assert.Null(Approaches.Peek(actor));
+        Assert.Empty(events);
+        Assert.Equal(revision, actor.Movement.LocationRevision);
+        Assert.False(actor.HasStatus("mv"));
+        Assert.Null(Approaches.Peek(actor));
         Assert.NotNull(floor);
     }
 
@@ -244,8 +291,10 @@ public partial class PlacedFurniRoomTests
         item.UpdateState(false, true);
         WalkToLanding(actor, 3);
         Assert.Equal(item.SquareInFront, actor.Coordinate);
-        Assert.Equal(0, item.InteractingUser); Assert.Equal("0", item.LegacyDataString);
-        Assert.True(actor.CanWalk); Assert.Null(Approaches.Peek(actor));
+        Assert.Equal(0, item.InteractingUser);
+        Assert.Equal("0", item.LegacyDataString);
+        Assert.True(actor.CanWalk);
+        Assert.Null(Approaches.Peek(actor));
     }
 
     [Fact]
@@ -257,9 +306,15 @@ public partial class PlacedFurniRoomTests
         item.Interactor.OnTrigger(_client, item, 0, true);
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(_client, item, item.GetX, item.GetY, item.Rotation, false, false, true));
         Assert.Equal("0", item.LegacyDataString);
-        for (var i = 0; i < 8; i++) { ExecutorTick(); Assert.Equal(0, item.InteractingUser); }
+
+        for (var i = 0; i < 8; i++) {
+            ExecutorTick();
+            Assert.Equal(0, item.InteractingUser);
+        }
+
         Assert.Equal(item.SquareInFront, actor.Coordinate);
-        Assert.True(actor.CanWalk); Assert.Null(Approaches.Peek(actor));
+        Assert.True(actor.CanWalk);
+        Assert.Null(Approaches.Peek(actor));
     }
 
     [Fact]
@@ -277,7 +332,11 @@ public partial class PlacedFurniRoomTests
         actor.MoveTo(3, 3);
         ExecutorTick();
         Assert.Null(Approaches.Peek(actor));
-        for (var i = 0; i < 4; i++) ExecutorTick();
+
+        for (var i = 0; i < 4; i++) {
+            ExecutorTick();
+        }
+
         Assert.Equal(0, item.InteractingUser);
     }
 
@@ -288,24 +347,41 @@ public partial class PlacedFurniRoomTests
         var item = ApproachFixture(InteractionType.VendingMachine);
         var actor = ApproachActor(3, 0);
         ExecutorObserveLanding((user, landed) =>
-        { if (landed.Id == 20) user.SetPos(3, 3, 0); });
+        {
+            if (landed.Id == 20) {
+                user.SetPos(3, 3, 0);
+            }
+        });
         item.Interactor.OnTrigger(_client, item, 0, true);
-        for (var i = 0; i < 5; i++) ExecutorTick();
-        Assert.Equal(0, item.InteractingUser); Assert.Equal("0", item.LegacyDataString); Assert.True(actor.CanWalk);
+
+        for (var i = 0; i < 5; i++) {
+            ExecutorTick();
+        }
+
+        Assert.Equal(0, item.InteractingUser);
+        Assert.Equal("0", item.LegacyDataString);
+        Assert.True(actor.CanWalk);
         Assert.Null(Approaches.Peek(actor));
     }
 
     [Fact]
     public void UnreachableApproachFiresNothingAndLeavesNoRegisteredIntent()
     {
-        foreach (var (id, x, y) in new[] { (30u, 0, 0), (31u, 0, 1), (32u, 2, 0), (33u, 2, 1) })
+        foreach (var (id, x, y) in new[] { (30u, 0, 0), (31u, 0, 1), (32u, 2, 0), (33u, 2, 1) }) {
             Add(id, x, y, height: 4, stackable: false);
+        }
+
         var item = ApproachFixture(InteractionType.VendingMachine);
         var actor = ApproachActor(3, 0);
         item.Interactor.OnTrigger(_client, item, 0, true);
-        for (var i = 0; i < 6; i++) ExecutorTick();
+
+        for (var i = 0; i < 6; i++) {
+            ExecutorTick();
+        }
+
         Assert.Equal((3, 0), (actor.X, actor.Y));
-        Assert.Equal(0, item.InteractingUser); Assert.True(actor.CanWalk);
+        Assert.Equal(0, item.InteractingUser);
+        Assert.True(actor.CanWalk);
         Assert.Null(Approaches.Peek(actor));
     }
 
@@ -319,8 +395,13 @@ public partial class PlacedFurniRoomTests
         Assert.NotNull(Approaches.Peek(actor));
         _room.GetRoomItemHandler().RemoveFurniture(_client, item.Id);
         Assert.Null(Approaches.Peek(actor));
-        for (var i = 0; i < 4; i++) ExecutorTick();
-        Assert.Equal(0, item.InteractingUser); Assert.True(actor.CanWalk);
+
+        for (var i = 0; i < 4; i++) {
+            ExecutorTick();
+        }
+
+        Assert.Equal(0, item.InteractingUser);
+        Assert.True(actor.CanWalk);
     }
 
     [Fact]
@@ -332,7 +413,11 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(item, 2, 2, 0));
         Assert.Null(Approaches.Peek(actor));
-        for (var i = 0; i < 4; i++) ExecutorTick();
+
+        for (var i = 0; i < 4; i++) {
+            ExecutorTick();
+        }
+
         Assert.Equal(0, item.InteractingUser);
     }
 
@@ -345,8 +430,13 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         item.UpdateState(false, true);
         Assert.Null(Approaches.Peek(actor));
-        for (var i = 0; i < 4; i++) ExecutorTick();
-        Assert.Equal(0, item.InteractingUser); Assert.True(actor.CanWalk);
+
+        for (var i = 0; i < 4; i++) {
+            ExecutorTick();
+        }
+
+        Assert.Equal(0, item.InteractingUser);
+        Assert.True(actor.CanWalk);
     }
 
     [Fact]
@@ -356,11 +446,18 @@ public partial class PlacedFurniRoomTests
         var actor = ApproachActor(3, 0);
         item.Interactor.OnTrigger(_client, item, 0, true);
         ExecutorTick();
-        item.LegacyDataString = "1"; item.InteractingUser = 99;
-        for (var i = 0; i < 4; i++) ExecutorTick();
+        item.LegacyDataString = "1";
+        item.InteractingUser = 99;
+
+        for (var i = 0; i < 4; i++) {
+            ExecutorTick();
+        }
+
         Assert.Equal(item.SquareInFront, actor.Coordinate);
-        Assert.Equal(99, item.InteractingUser); Assert.Equal("1", item.LegacyDataString);
-        Assert.True(actor.CanWalk); Assert.Null(Approaches.Peek(actor));
+        Assert.Equal(99, item.InteractingUser);
+        Assert.Equal("1", item.LegacyDataString);
+        Assert.True(actor.CanWalk);
+        Assert.Null(Approaches.Peek(actor));
     }
 
     [Theory]
@@ -371,10 +468,13 @@ public partial class PlacedFurniRoomTests
     {
         var item = ApproachFixture(kind);
         var actor = ApproachActor(1, 0);
-        item.InteractingUser = 99; item.LegacyDataString = kind == InteractionType.VendingMachine ? "1" : "0";
+        item.InteractingUser = 99;
+        item.LegacyDataString = kind == InteractionType.VendingMachine ? "1" : "0";
         var interactor = Assert.IsAssignableFrom<IApproachInteractor>(item.Interactor);
         Assert.False(interactor.StartFromApproach(item, actor));
-        Assert.Equal(99, item.InteractingUser); Assert.True(actor.CanWalk); Assert.NotEqual(2, actor.TeleDelay);
+        Assert.Equal(99, item.InteractingUser);
+        Assert.True(actor.CanWalk);
+        Assert.NotEqual(2, actor.TeleDelay);
         Assert.Equal(KindOf(kind), interactor.ActionKind);
     }
 
@@ -388,9 +488,15 @@ public partial class PlacedFurniRoomTests
         actor.ClearMovement(true);
         ExecutorTick();
         Assert.Null(Approaches.Peek(actor));
-        actor.ClearMovement(true); ExecutorTick();
-        Approaches.Cancel(actor); Approaches.Cancel(actor);
-        for (var i = 0; i < 4; i++) ExecutorTick();
+        actor.ClearMovement(true);
+        ExecutorTick();
+        Approaches.Cancel(actor);
+        Approaches.Cancel(actor);
+
+        for (var i = 0; i < 4; i++) {
+            ExecutorTick();
+        }
+
         Assert.Equal(0, item.InteractingUser);
 
         var second = ApproachFixture(InteractionType.VendingMachine);
@@ -398,7 +504,8 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         _room.GetGameMap().Navigation!.Remove(actor);
         ExecutorTick();
-        Assert.Null(Approaches.Peek(actor)); Assert.Equal(0, second.InteractingUser);
+        Assert.Null(Approaches.Peek(actor));
+        Assert.Equal(0, second.InteractingUser);
     }
 
     [Fact]
@@ -421,8 +528,13 @@ public partial class PlacedFurniRoomTests
         item.Interactor.OnTrigger(_client, item, 0, true);
         ExecutorTick();
         _client.GetHabbo().CurrentRoom = null;
-        for (var i = 0; i < 4; i++) ExecutorTick();
-        Assert.Equal(0, item.InteractingUser); Assert.Equal("0", item.LegacyDataString);
+
+        for (var i = 0; i < 4; i++) {
+            ExecutorTick();
+        }
+
+        Assert.Equal(0, item.InteractingUser);
+        Assert.Equal("0", item.LegacyDataString);
     }
 
     [Fact]
@@ -437,6 +549,7 @@ public partial class PlacedFurniRoomTests
             starts++;
             Assert.False(completion!.Complete(user, user.Movement.LocationRevision));
             Assert.Null(Approaches.Consume(user));
+
             return true;
         }));
         BindIntent(actor, item);
@@ -462,7 +575,8 @@ public partial class PlacedFurniRoomTests
         var revision = actor.Movement.LocationRevision;
         BreakRecheck(failure, item, actor, ref revision);
         Assert.False(completion.Complete(actor, revision));
-        Assert.Equal(0, starts); Assert.Null(Approaches.Peek(actor));
+        Assert.Equal(0, starts);
+        Assert.Null(Approaches.Peek(actor));
     }
 
     [Fact]
@@ -474,7 +588,8 @@ public partial class PlacedFurniRoomTests
         var completion = ApproachCompletionFor(_ => new CountingInteractor((_, _) => { starts++; return true; }));
         BindIntent(actor, item);
         Assert.True(completion.Complete(actor, actor.Movement.LocationRevision));
-        Assert.Equal(1, starts); Assert.Null(Approaches.Peek(actor));
+        Assert.Equal(1, starts);
+        Assert.Null(Approaches.Peek(actor));
     }
 
     [Fact]
@@ -490,16 +605,20 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((first.LifetimeId, first.Sequence), (registry.Peek(actor)!.LifetimeId, registry.Peek(actor)!.Sequence));
         registry.Bind(actor, new MoveCommand(6, 1, 0, MoveOrigin.User, Approach: descriptor));
         Assert.Equal(6, registry.Peek(actor)!.Sequence);
-        registry.CancelItem(descriptor.ItemId + 1); Assert.NotNull(registry.Peek(actor));
-        registry.CancelItem(descriptor.ItemId); Assert.Null(registry.Peek(actor));
+        registry.CancelItem(descriptor.ItemId + 1);
+        Assert.NotNull(registry.Peek(actor));
+        registry.CancelItem(descriptor.ItemId);
+        Assert.Null(registry.Peek(actor));
         registry.CancelItem(descriptor.ItemId);
         registry.Bind(actor, new MoveCommand(7, 1, 0, MoveOrigin.User, Approach: descriptor));
         registry.Bind(actor, new MoveCommand(8, 1, 0, MoveOrigin.User));
         Assert.Null(registry.Peek(actor));
         registry.Bind(actor, new MoveCommand(9, 1, 0, MoveOrigin.User, Approach: descriptor));
-        Assert.NotNull(registry.Consume(actor)); Assert.Null(registry.Consume(actor));
+        Assert.NotNull(registry.Consume(actor));
+        Assert.Null(registry.Consume(actor));
         registry.Bind(actor, new MoveCommand(10, 1, 0, MoveOrigin.User, Approach: descriptor));
-        registry.Clear(); Assert.Null(registry.Peek(actor));
+        registry.Clear();
+        Assert.Null(registry.Peek(actor));
     }
 
     private ApproachCompletion ApproachCompletionFor(Func<Item, IApproachInteractor?> resolve)
@@ -523,15 +642,25 @@ public partial class PlacedFurniRoomTests
 
     private void BreakRecheck(string failure, Item item, RoomUser actor, ref long revision)
     {
-        switch (failure)
-        {
-            case "inactive": actor.Movement.State = NavState.Removing; break;
-            case "location": revision--; break;
-            case "surface": actor.Movement.CurrentRef = null; break;
-            case "removed": _room.GetRoomItemHandler().RemoveFurniture(_client, item.Id); break;
-            case "permission": _client.GetHabbo().CurrentRoom = null; break;
+        switch (failure) {
+            case "inactive":
+                actor.Movement.State = NavState.Removing;
+                break;
+            case "location":
+                revision--;
+                break;
+            case "surface":
+                actor.Movement.CurrentRef = null;
+                break;
+            case "removed":
+                _room.GetRoomItemHandler().RemoveFurniture(_client, item.Id);
+                break;
+            case "permission":
+                _client.GetHabbo().CurrentRoom = null;
+                break;
             case "newerCommand":
-                actor.Movement.Commands.Publish(new(actor.Movement.NextSequence(), 3, 3, MoveOrigin.User)); break;
+                actor.Movement.Commands.Publish(new(actor.Movement.NextSequence(), 3, 3, MoveOrigin.User));
+                break;
         }
     }
 

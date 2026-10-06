@@ -88,11 +88,12 @@ public class GroupParticipationTests
             OnFavourite = (_, groupId) =>
             {
                 storeEntries.Add((groupId, habbo.HabboStats.FavouriteGroupId));
-                if (groupId == first.Id)
-                {
+
+                if (groupId == first.Id) {
                     entered.Set();
                     Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
                 }
+
                 return true;
             },
         };
@@ -100,28 +101,31 @@ public class GroupParticipationTests
         var gateCalls = 0;
         var accounts = CatalogSnapshotTestSupport.Proxy<IAccountSessionGate>((_, args) =>
         {
-            if (Interlocked.Increment(ref gateCalls) == 2)
+            if (Interlocked.Increment(ref gateCalls) == 2) {
                 secondEnteredGate.Set();
+            }
+
             return gate.Enter((int)args[0]!);
         });
         var service = new GroupParticipationService(Manager(directory, null), Snapshots(), Clients(new()), store, accounts);
 
         var firstRequest = Task.Run(() => service.SetFavourite(clientA, first.Id));
         Task? secondRequest = null;
-        try
-        {
+
+        try {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
             secondRequest = Task.Run(() => service.SetFavourite(clientB, second.Id));
             Assert.True(secondEnteredGate.Wait(TimeSpan.FromSeconds(5)));
             Assert.False(secondRequest.IsCompleted);
             Assert.Single(store.Favourites);
         }
-        finally
-        {
+        finally {
             release.Set();
             await firstRequest.WaitAsync(TimeSpan.FromSeconds(5));
-            if (secondRequest != null)
+
+            if (secondRequest != null) {
                 await secondRequest.WaitAsync(TimeSpan.FromSeconds(5));
+            }
         }
 
         Assert.Equal(new[] { (9, 0), (10, 9) }, storeEntries);
@@ -142,12 +146,13 @@ public class GroupParticipationTests
         var captures = 0;
         var snapshots = CatalogSnapshotTestSupport.Proxy<IGroupInfoSnapshotService>((_, args) =>
         {
-            if (Interlocked.Increment(ref captures) == 1)
-            {
+            if (Interlocked.Increment(ref captures) == 1) {
                 capturing.Set();
                 Assert.True(releaseCapture.Wait(TimeSpan.FromSeconds(5)));
             }
+
             capturedTypes.Add(group.Type);
+
             return new GroupInfoSnapshot(group.Id, group.Type, group.Name, group.Description, group.Badge,
                 group.RoomId, "HQ", group.MemberCount, "1-1-2023", "Owner", false, false,
                 false, false, group.RequestCount, false, group.ForumEnabled);
@@ -161,6 +166,7 @@ public class GroupParticipationTests
             {
                 Interlocked.Increment(ref settingsWrites);
                 Assert.True(group.HasRequest(8));
+
                 return true;
             }));
         var participation = new GroupParticipationService(Manager(group, null), snapshots,
@@ -169,20 +175,22 @@ public class GroupParticipationTests
         var (owner, _) = HabbiconTestSupport.Client(new Habbo { Id = 7, Username = "Owner" });
         var join = Task.Run(() => participation.Join(member, group.Id));
         Task? update = null;
-        try
-        {
+
+        try {
             Assert.True(capturing.Wait(TimeSpan.FromSeconds(5)));
             update = Task.Run(() => settings.Update(owner, new(group.Id, 0, 0, false)));
             Assert.True(settingsResolved.Wait(TimeSpan.FromSeconds(5)));
             Assert.Equal(0, Volatile.Read(ref settingsWrites));
         }
-        finally
-        {
+        finally {
             releaseCapture.Set();
             await join.WaitAsync(TimeSpan.FromSeconds(5));
-            if (update != null)
+
+            if (update != null) {
                 await update.WaitAsync(TimeSpan.FromSeconds(5));
+            }
         }
+
         Assert.Equal(new[] { GroupType.Locked, GroupType.Open }, capturedTypes);
         Assert.False(group.HasRequest(8));
         Assert.Equal(GroupType.Open, group.Type);
@@ -202,13 +210,14 @@ public class GroupParticipationTests
 
         // The deletion holds the group lock while it removes the group, as the removal path does.
         Task join;
-        lock (group)
-        {
+
+        lock (group) {
             join = Task.Run(() => service.Join(client, group.Id));
             Assert.True(firstLookup.Wait(TimeSpan.FromSeconds(10)));
             directory.Remove(group.Id);
             Assert.False(join.IsCompleted);
         }
+
         await join.WaitAsync(TimeSpan.FromSeconds(10));
 
         Assert.Empty(store.Joins);
@@ -271,6 +280,7 @@ public class GroupParticipationTests
                 sawRequestAtCommit = group.HasRequest(userId);
                 Assert.True(request);
                 Assert.Equal(1500, limit);
+
                 return GroupJoinOutcome.Inserted;
             },
         };
@@ -328,6 +338,7 @@ public class GroupParticipationTests
             OnJoin = (userId, _, _, _) =>
             {
                 observedMemberBeforeCommit = group.IsMember(userId);
+
                 return GroupJoinOutcome.Inserted;
             },
         };
@@ -350,6 +361,7 @@ public class GroupParticipationTests
             OnFavourite = (userId, groupId) =>
             {
                 observedBeforeWrite = habbo.HabboStats.FavouriteGroupId;
+
                 return true;
             },
         };
@@ -403,6 +415,7 @@ public class GroupParticipationTests
             {
                 observedBeforeWrite = habbo.HabboStats.FavouriteGroupId;
                 Assert.Equal(0, groupId);
+
                 return true;
             },
         };
@@ -443,25 +456,30 @@ public class GroupParticipationTests
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         using var saving = new ManualResetEventSlim();
-        var store = new FakeParticipationStore { OnFavourite = (_, value) =>
+        var store = new FakeParticipationStore
+        {
+            OnFavourite = (_, value) =>
         {
             persisted = value;
             entered.Set();
             Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
+
             return true;
-        }};
+        }
+        };
         habbo.Persistence = CatalogSnapshotTestSupport.Proxy<IUserPersistenceService>((method, _) =>
         {
             Assert.Equal(nameof(IUserPersistenceService.Save), method);
             persisted = habbo.HabboStats.FavouriteGroupId;
+
             return null;
         });
         var service = Service(store, group);
         Task Change() => remove ? service.RemoveFavourite(client) : service.SetFavourite(client, group.Id);
         var change = Task.Run(Change);
         Task? save = null;
-        try
-        {
+
+        try {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
             Assert.Equal(original, habbo.HabboStats.FavouriteGroupId);
             Assert.Empty(sent);
@@ -469,12 +487,22 @@ public class GroupParticipationTests
             Assert.True(saving.Wait(TimeSpan.FromSeconds(5)));
             Assert.NotSame(save, await Task.WhenAny(save, Task.Delay(150)));
         }
-        finally
-        {
+        finally {
             release.Set();
-            try { await change.WaitAsync(TimeSpan.FromSeconds(10)); } catch { }
-            if (save != null) { try { await save.WaitAsync(TimeSpan.FromSeconds(10)); } catch { } }
+
+            try {
+                await change.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            catch { }
+
+            if (save != null) {
+                try {
+                    await save.WaitAsync(TimeSpan.FromSeconds(10));
+                }
+                catch { }
+            }
         }
+
         await change;
         await save!;
         Assert.Equal(target, habbo.HabboStats.FavouriteGroupId);
@@ -515,6 +543,7 @@ public class GroupParticipationTests
     private static bool SetOut(object?[] args, Group? group)
     {
         args[1] = group;
+
         return group != null;
     }
 
@@ -523,6 +552,7 @@ public class GroupParticipationTests
         var found = directory.TryGetValue((int)args[0]!, out var group);
         args[1] = found ? group : null;
         onLookup?.Invoke();
+
         return found;
     }
 
@@ -530,6 +560,7 @@ public class GroupParticipationTests
         CatalogSnapshotTestSupport.Proxy<IGroupInfoSnapshotService>((method, args) =>
         {
             var group = (Group)args[0]!;
+
             return new GroupInfoSnapshot(group.Id, group.Type, group.Name, group.Description, group.Badge, group.RoomId, "HQ",
                 group.MemberCount, "1-1-2023", "Owner", false, false, false, false, group.RequestCount, false, group.ForumEnabled);
         });
@@ -549,16 +580,19 @@ public class GroupParticipationTests
         public Task Join(GameClient session, int groupId)
         {
             Joins.Add(new object[] { groupId });
+
             return Task.CompletedTask;
         }
         public Task SetFavourite(GameClient session, int groupId)
         {
             Favourites.Add(new object[] { groupId });
+
             return Task.CompletedTask;
         }
         public Task RemoveFavourite(GameClient session)
         {
             RemoveCount++;
+
             return Task.CompletedTask;
         }
     }
@@ -572,11 +606,13 @@ public class GroupParticipationTests
         public GroupJoinOutcome Join(int userId, int groupId, bool request, int membershipLimit)
         {
             Joins.Add(new object[] { userId, groupId, request, membershipLimit });
+
             return OnJoin(userId, groupId, request, membershipLimit);
         }
         public bool SaveFavourite(int userId, int groupId)
         {
             Favourites.Add(new object[] { userId, groupId });
+
             return OnFavourite(userId, groupId);
         }
     }

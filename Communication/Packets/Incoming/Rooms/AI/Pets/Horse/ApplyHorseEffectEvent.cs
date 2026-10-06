@@ -9,6 +9,7 @@ internal class ApplyHorseEffectEvent(IHorseCustomizationService horses) : RoomPa
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         horses.ApplyEffect(room, session, packet.ReadUInt(), packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

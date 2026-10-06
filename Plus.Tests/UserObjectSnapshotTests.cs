@@ -11,9 +11,17 @@ public sealed class UserObjectSnapshotTests
     [Fact]
     public void UserObjectRetainsExactFieldsAfterUserAndStatisticsMutation()
     {
-        var user = new Habbo { Id = 7, Username = "Alice", Look = "look", Gender = "f", Motto = "motto",
-            ChangingName = true, LastOnlineAt = DateTimeOffset.FromUnixTimeSeconds(2200000000),
-            HabboStats = new(0, 0, 8, 0, 0, 0, 9, 10, 0, 0, 0, 0, "", 0) };
+        var user = new Habbo
+        {
+            Id = 7,
+            Username = "Alice",
+            Look = "look",
+            Gender = "f",
+            Motto = "motto",
+            ChangingName = true,
+            LastOnlineAt = DateTimeOffset.FromUnixTimeSeconds(2200000000),
+            HabboStats = new(0, 0, 8, 0, 0, 0, 9, 10, 0, 0, 0, 0, "", 0)
+        };
         var composer = new UserObjectComposer(UserObjectSnapshot.Capture(user));
         object[] expected = [7, "Alice", "look", "F", "motto", "", false, 8, 9, 10, false, "2200000000", true, false];
         var first = new HabbiconTestSupport.RecordingPacket();

@@ -43,13 +43,17 @@ public class LoginThrottle : ILoginThrottle
     public static string UnknownNameKey(string username)
     {
         var folded = new StringBuilder();
-        foreach (var c in username.Trim().Normalize(NormalizationForm.FormD))
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+
+        foreach (var c in username.Trim().Normalize(NormalizationForm.FormD)) {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark) {
                 folded.Append(char.ToLowerInvariant(c));
-            if (folded.Length == 125)
+            }
+
+            if (folded.Length == 125) {
                 break;
+            }
         }
+
         return "name:" + folded;
     }
 
@@ -58,6 +62,7 @@ public class LoginThrottle : ILoginThrottle
         MaybeSweep();
         var account = Remaining(accountKey, _accountLimit);
         var byAddress = Remaining(AddressKey(address), _addressLimit);
+
         return account > byAddress ? account : byAddress;
     }
 
@@ -72,36 +77,41 @@ public class LoginThrottle : ILoginThrottle
     /// account cannot be used to reset guessing against others.</summary>
     public void RecordSuccess(string accountKey)
     {
-        if (_failures.TryRemove(accountKey, out _))
+        if (_failures.TryRemove(accountKey, out _)) {
             Interlocked.Decrement(ref _tracked);
+        }
     }
 
     private TimeSpan Remaining(string key, int limit)
     {
-        if (!_failures.TryGetValue(key, out var window) || Expired(window))
+        if (!_failures.TryGetValue(key, out var window) || Expired(window)) {
             // A full table cannot record new failures, so untracked callers are treated as locked.
             return Full ? _window : TimeSpan.Zero;
+        }
+
         return window.Count >= limit ? window.Start + _window - _time.GetUtcNow() : TimeSpan.Zero;
     }
 
     private void Increment(string key)
     {
         var now = _time.GetUtcNow();
-        while (true)
-        {
-            if (_failures.TryGetValue(key, out var current))
-            {
+
+        while (true) {
+            if (_failures.TryGetValue(key, out var current)) {
                 var next = Expired(current) ? new Window(now, 1) : current with { Count = current.Count + 1 };
-                if (_failures.TryUpdate(key, next, current))
+
+                if (_failures.TryUpdate(key, next, current)) {
                     return;
+                }
             }
-            else
-            {
-                if (Full)
+            else {
+                if (Full) {
                     return;
-                if (_failures.TryAdd(key, new(now, 1)))
-                {
+                }
+
+                if (_failures.TryAdd(key, new(now, 1))) {
                     Interlocked.Increment(ref _tracked);
+
                     return;
                 }
             }
@@ -114,13 +124,17 @@ public class LoginThrottle : ILoginThrottle
     private void MaybeSweep()
     {
         var now = _time.GetUtcNow();
-        if (now < _nextSweep)
+
+        if (now < _nextSweep) {
             return;
+        }
+
         _nextSweep = now + SweepInterval;
-        foreach (var (key, window) in _failures)
-        {
-            if (Expired(window) && _failures.TryRemove(new KeyValuePair<string, Window>(key, window)))
+
+        foreach (var (key, window) in _failures) {
+            if (Expired(window) && _failures.TryRemove(new KeyValuePair<string, Window>(key, window))) {
                 Interlocked.Decrement(ref _tracked);
+            }
         }
     }
 

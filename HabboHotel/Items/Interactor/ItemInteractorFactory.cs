@@ -18,7 +18,10 @@ public sealed class ItemInteractorFactory(
 {
     public IFurniInteractor Create(Item item, TimeProvider timeProvider)
     {
-        if (item.IsWired) return new InteractorWired();
+        if (item.IsWired) {
+            return new InteractorWired();
+        }
+
         return item.Definition.InteractionType switch
         {
             InteractionType.Gate => new InteractorGate(),

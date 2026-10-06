@@ -19,8 +19,10 @@ public sealed class PlayerIgnoreStore(IDatabase database) : IPlayerIgnoreStore
         using var transaction = connection.BeginTransaction();
         var account = await connection.QuerySingleOrDefaultAsync<int?>(
             "SELECT id FROM users WHERE id = @userId FOR UPDATE", new { userId }, transaction);
-        if (account == null)
+
+        if (account == null) {
             return false;
+        }
 
         var affected = ignored
             ? await connection.ExecuteAsync(
@@ -29,10 +31,13 @@ public sealed class PlayerIgnoreStore(IDatabase database) : IPlayerIgnoreStore
             : await connection.ExecuteAsync(
                 "DELETE FROM user_ignores WHERE user_id = @userId AND ignore_id = @targetId",
                 new { userId, targetId }, transaction);
-        if (affected is < 0 or > 1)
+
+        if (affected is < 0 or > 1) {
             throw new InvalidOperationException("Unexpected ignore row count.");
+        }
 
         transaction.Commit();
+
         return true;
     }
 }

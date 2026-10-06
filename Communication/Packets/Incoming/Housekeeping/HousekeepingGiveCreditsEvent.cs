@@ -21,6 +21,7 @@ internal class HousekeepingGiveCreditsEvent : IPacketEvent
         var userId = packet.ReadInt();
         var amount = packet.ReadInt();
         _runner.Run(session, "user.give_credits", HousekeepingRights.Economy, actor => _economy.Give(actor, userId, HousekeepingCurrency.Credits, amount));
+
         return Task.CompletedTask;
     }
 }

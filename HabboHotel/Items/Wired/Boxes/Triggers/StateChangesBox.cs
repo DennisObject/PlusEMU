@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -26,27 +26,40 @@ internal class StateChangesBox : IWiredItem
     {
         var unknown = packet.ReadInt();
         var unknown2 = packet.ReadString();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
+
         var furniCount = packet.ReadInt();
-        for (var i = 0; i < furniCount; i++)
-        {
+
+        for (var i = 0; i < furniCount; i++) {
             var selectedItem = Instance.GetRoomItemHandler().GetItem(packet.ReadUInt());
-            if (selectedItem != null)
+
+            if (selectedItem != null) {
                 SetItems.TryAdd(selectedItem.Id, selectedItem);
+            }
         }
     }
 
     public bool Execute(params object[] @params)
     {
         var player = (Habbo)@params[0];
-        if (player == null)
+
+        if (player == null) {
             return false;
+        }
+
         var item = (Item)@params[1];
-        if (item == null)
+
+        if (item == null) {
             return false;
-        if (!SetItems.ContainsKey(item.Id))
+        }
+
+        if (!SetItems.ContainsKey(item.Id)) {
             return false;
+        }
+
         return Instance.GetWired().RunStack(this, player);
     }
 }

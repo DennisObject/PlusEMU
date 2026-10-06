@@ -61,30 +61,38 @@ public sealed class GroupPresentationService(IGroupManager groups, ICacheManager
     {
         var configurations = groups.GetGroupsForUser(session.GetHabbo().Id).Select(group =>
         {
-            lock (group)
+            lock (group) {
                 return new GroupFurniConfig(group.Id, group.Name, group.Badge,
                     groups.GetColourCode(group.Colour1, true), groups.GetColourCode(group.Colour2, false),
                     group.CreatorId, group.ForumEnabled);
+            }
         }).ToImmutableArray();
         session.Send(new GroupFurniConfigComposer(configurations));
     }
 
     public void ShowInfo(GameClient session, int groupId, bool newWindow)
     {
-        if (groups.TryGetGroup(groupId, out var group))
+        if (groups.TryGetGroup(groupId, out var group)) {
             session.Send(new GroupInfoComposer(groupInfo.Capture(group, session.GetHabbo().Id), newWindow));
+        }
     }
 
     public void ShowFurnitureSettings(GameClient session, uint itemId, int groupId)
     {
         var habbo = session.GetHabbo();
         var room = habbo.CurrentRoom;
-        if (!habbo.InRoom || room == null)
+
+        if (!habbo.InRoom || room == null) {
             return;
+        }
+
         var item = room.GetRoomItemHandler().GetItem(itemId);
+
         if (item == null || item.IsTemporary || item.Definition.InteractionType != InteractionType.GuildGate ||
-            !groups.TryGetGroup(groupId, out var group))
+            !groups.TryGetGroup(groupId, out var group)) {
             return;
+        }
+
         var settings = GroupFurniSettingsSnapshot.Capture(group, itemId, habbo.Id);
         var info = groupInfo.Capture(group, habbo.Id);
         session.Send(new GroupFurniSettingsComposer(settings));
@@ -93,15 +101,16 @@ public sealed class GroupPresentationService(IGroupManager groups, ICacheManager
 
     public void ShowMembers(GameClient session, GroupMembersRequest request)
     {
-        if (!groups.TryGetGroup(request.GroupId, out var group))
+        if (!groups.TryGetGroup(request.GroupId, out var group)) {
             return;
+        }
 
         var actorId = session.GetHabbo().Id;
         var canManage = group.CreatorId == actorId || group.IsAdmin(actorId);
         var requestType = !canManage && request.RequestType >= 2 ? 0 : request.RequestType;
         var users = ResolveUsers(group, requestType);
-        if (!string.IsNullOrEmpty(request.Search))
-        {
+
+        if (!string.IsNullOrEmpty(request.Search)) {
             users = users
                 .Where(user => user.Username.StartsWith(request.Search, StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -157,12 +166,15 @@ public sealed class GroupPresentationService(IGroupManager groups, ICacheManager
             _ => []
         };
         var users = new List<CachedUser>();
-        foreach (var id in ids)
-        {
+
+        foreach (var id in ids) {
             var user = cache.GenerateUser(id);
-            if (user != null && !users.Contains(user))
+
+            if (user != null && !users.Contains(user)) {
                 users.Add(user);
+            }
         }
+
         return users;
     }
 

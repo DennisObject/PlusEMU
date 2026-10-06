@@ -9,8 +9,12 @@ public sealed class WiredUserVariablesRequestEvent(IWiredVariableMenuService men
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (packet.HasDataRemaining()) return Task.CompletedTask;
+        if (packet.HasDataRemaining()) {
+            return Task.CompletedTask;
+        }
+
         menus.ShowSnapshot(room, session);
+
         return Task.CompletedTask;
     }
 }

@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -38,6 +38,7 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater, IStartable
     public Task Start()
     {
         Init();
+
         return Task.CompletedTask;
     }
 

@@ -1,4 +1,4 @@
-﻿namespace Plus.Core;
+namespace Plus.Core;
 
 public interface IServerStatusUpdater
 {

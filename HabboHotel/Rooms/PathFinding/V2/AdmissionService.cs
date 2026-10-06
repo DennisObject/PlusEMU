@@ -5,7 +5,11 @@ internal sealed class AdmissionService(Room room, MovementContext context, Force
     public void Admit(RoomUser actor)
     {
         var state = actor.Movement;
-        if (state.State == NavState.Active) return;
+
+        if (state.State == NavState.Active) {
+            return;
+        }
+
         state.State = NavState.Active;
         placement.Bind(actor, actor.Z, ForceResolution.ExactZ);
         room.GetGameMap().AddUserToMap(actor, new(actor.X, actor.Y));

@@ -10,11 +10,18 @@ public sealed class WiredSelectorRoomState
 
     public void Observe(WiredRuntimeEvent @event, long nowMilliseconds)
     {
-        if (@event.Kind == WiredEventKind.AvatarAction && @event.Actor is { } user)
+        if (@event.Kind == WiredEventKind.AvatarAction && @event.Actor is { } user) {
             _actions[user] = (@event.Action, @event.Code, nowMilliseconds);
+        }
+
         foreach (var stale in _actions.Where(x => nowMilliseconds >= x.Value.At
-            && nowMilliseconds - x.Value.At > 5000).Select(x => x.Key).ToArray()) _actions.Remove(stale);
-        if (@event.Kind == WiredEventKind.Leave && @event.Actor is { } leaving) _actions.Remove(leaving);
+            && nowMilliseconds - x.Value.At > 5000).Select(x => x.Key).ToArray()) {
+            _actions.Remove(stale);
+        }
+
+        if (@event.Kind == WiredEventKind.Leave && @event.Actor is { } leaving) {
+            _actions.Remove(leaving);
+        }
     }
 
     public (int Action, int Parameter, long At)? Read(RoomUser user) => _actions.TryGetValue(user, out var action) ? action : null;

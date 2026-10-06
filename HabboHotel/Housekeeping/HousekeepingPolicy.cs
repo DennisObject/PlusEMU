@@ -28,6 +28,7 @@ public static class HousekeepingLimits
     public static string AuditValue(string value)
     {
         var flat = Normalize(value).Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ');
+
         return flat.Length > MaxReasonLength ? flat[..MaxReasonLength] : flat;
     }
 
@@ -35,6 +36,7 @@ public static class HousekeepingLimits
     public static int? AddToBalance(int balance, int amount)
     {
         var total = (long)balance + amount;
+
         return total is < 0 or > int.MaxValue ? null : (int)total;
     }
 

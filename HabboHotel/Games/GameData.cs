@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Games;
+namespace Plus.HabboHotel.Games;
 
 public class GameData
 {

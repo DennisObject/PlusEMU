@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.HabboHotel.Rooms.Chat.Styles;

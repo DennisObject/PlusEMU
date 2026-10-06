@@ -18,8 +18,8 @@ public sealed class GroupConstructionDatabaseTests
         connection.Open();
         var schema = "group_construction_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             connection.Execute($"USE `{schema}`");
             connection.Execute("""
                 CREATE TABLE `groups` (
@@ -112,6 +112,7 @@ public sealed class GroupConstructionDatabaseTests
             Task<bool> Attempt(GroupManager manager, string name) => Task.Run(() =>
             {
                 start.Wait();
+
                 return manager.TryCreateGroup(owner, name, "description", 45, "badge", 3, 4, out _);
             });
             var first = Attempt(groups, "first contender");
@@ -122,8 +123,7 @@ public sealed class GroupConstructionDatabaseTests
             Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM `groups` WHERE room_id = 45"));
             Assert.NotEqual(0, connection.QuerySingle<int>("SELECT group_id FROM rooms WHERE id = 45"));
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }
@@ -150,8 +150,11 @@ public sealed class GroupConstructionDatabaseTests
     private static string RepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Plus Emulator.csproj")))
+
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Plus Emulator.csproj"))) {
             directory = directory.Parent;
+        }
+
         return directory!.FullName;
     }
 }

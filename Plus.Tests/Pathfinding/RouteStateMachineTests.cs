@@ -88,6 +88,7 @@ public class RouteStateMachineTests
         var machine = new RouteStateMachine();
         machine.Begin(1);
         requested = machine.Suspect(Steps(5), 0);
+
         return machine;
     }
 

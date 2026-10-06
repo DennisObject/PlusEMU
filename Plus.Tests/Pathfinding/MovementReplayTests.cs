@@ -32,14 +32,20 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((finalX, finalY, finalZ), v2[^1].Location);
         var legacyGoal = scenario switch
         {
-            "superfast" => (2, 1, 0d), "locked pending" => (1, 1, 0d), "sealed corner" => (1, 2, 0d),
+            "superfast" => (2, 1, 0d),
+            "locked pending" => (1, 1, 0d),
+            "sealed corner" => (1, 2, 0d),
             _ => (finalX, finalY, finalZ)
         };
         Assert.Equal(legacyGoal, legacy[^1].Location);
         var differences = ClassifyReplayDifferences(legacy, v2, ReplayTrajectoryClass(scenario));
         AssertReplayScenarioDifferences(scenario, differences);
         AssertReplayExactBytes(scenario, legacy, v2, differences);
-        if (scenario == "sealed corner") AssertReplaySealedCorner(legacy, v2);
+
+        if (scenario == "sealed corner") {
+            AssertReplaySealedCorner(legacy, v2);
+        }
+
         ReportReplay(scenario, stream, differences);
     }
 
@@ -81,29 +87,49 @@ public partial class PlacedFurniRoomTests
         var stream = new List<ReplayInput>();
         AddReplayTerrain(stream, scenario);
         stream.Add(new(ReplayInputKind.Admit));
-        if (scenario is "fast" or "superfast") stream.Add(new(ReplayInputKind.Speed, Value: scenario == "fast" ? 2 : 3));
+
+        if (scenario is "fast" or "superfast") {
+            stream.Add(new(ReplayInputKind.Speed, Value: scenario == "fast" ? 2 : 3));
+        }
+
         stream.Add(ReplayScenarioGoal(scenario));
         stream.Add(new(ReplayInputKind.Tick));
-        if (scenario == "replacement") stream.Add(new(ReplayInputKind.Move, 1, 2));
-        if (scenario == "locked pending") stream.Add(new(ReplayInputKind.Lock, 1, 1));
-        if (scenario == "cancel") stream.Add(new(ReplayInputKind.Cancel));
-        if (scenario == "magic height")
-        {
+
+        if (scenario == "replacement") {
+            stream.Add(new(ReplayInputKind.Move, 1, 2));
+        }
+
+        if (scenario == "locked pending") {
+            stream.Add(new(ReplayInputKind.Lock, 1, 1));
+        }
+
+        if (scenario == "cancel") {
+            stream.Add(new(ReplayInputKind.Cancel));
+        }
+
+        if (scenario == "magic height") {
             stream.Add(new(ReplayInputKind.Tick));
             stream.Add(new(ReplayInputKind.Height, 1, 1, 2.125, ItemId: 11));
         }
-        for (var tick = 0; tick < 7; tick++) stream.Add(new(ReplayInputKind.Tick));
+
+        for (var tick = 0; tick < 7; tick++) {
+            stream.Add(new(ReplayInputKind.Tick));
+        }
+
         return stream.AsReadOnly();
     }
 
     private static void AddReplayTerrain(List<ReplayInput> stream, string scenario)
     {
-        if (scenario is "walk magic" or "magic height")
-        {
+        if (scenario is "walk magic" or "magic height") {
             stream.Add(ReplayFurniture(10, 1, 1, 5, 1, InteractionType.None, false));
             stream.Add(ReplayFurniture(11, 1, 1, .75, 0, InteractionType.WalkMagicTile));
         }
-        if (scenario != "sealed corner") return;
+
+        if (scenario != "sealed corner") {
+            return;
+        }
+
         stream.Add(ReplayFurniture(10, 1, 1, 0, 1, InteractionType.None, false));
         stream.Add(ReplayFurniture(11, 0, 2, 0, 1, InteractionType.None, false));
     }
@@ -128,7 +154,10 @@ public partial class PlacedFurniRoomTests
     private static void AssertReplayExactBytes(string scenario, List<ReplayFrame> legacy, List<ReplayFrame> v2,
         List<ReplayDifference> differences)
     {
-        if (scenario is not ("normal" or "fast")) return;
+        if (scenario is not ("normal" or "fast")) {
+            return;
+        }
+
         Assert.Empty(differences);
         Assert.Equal(legacy.Select(FrameBytes), v2.Select(FrameBytes));
     }
@@ -146,15 +175,19 @@ public partial class PlacedFurniRoomTests
     private static void AssertReplayScenarioDifferences(string scenario, List<ReplayDifference> differences)
     {
         var trajectory = ReplayTrajectoryClass(scenario);
-        if (trajectory == null)
-        {
+
+        if (trajectory == null) {
             Assert.All(differences, difference => Assert.Equal(ReplayDifference.TimingPhaseChange, difference));
+
             return;
         }
+
         Assert.Contains(trajectory.Value, differences);
         Assert.All(differences, difference => Assert.True(difference == trajectory || difference == ReplayDifference.TimingPhaseChange));
-        if (scenario is "superfast" or "locked pending")
+
+        if (scenario is "superfast" or "locked pending") {
             Assert.Equal(1, differences.Count(difference => difference == trajectory));
+        }
     }
 
     private static ReplayInput ReplayFurniture(uint id, int x, int y, double z, double height,
@@ -162,6 +195,7 @@ public partial class PlacedFurniRoomTests
     {
         var record = new NavItemRecord(id, 1, z, height, walkable, false, interaction, "", 0,
             0, false, Array.AsReadOnly(new[] { y * 4 + x }), x, y);
+
         return new(ReplayInputKind.Furniture, ItemRecord: record);
     }
 
@@ -171,13 +205,21 @@ public partial class PlacedFurniRoomTests
         fixture.ReplayNavigation(engine, collision);
         RoomUser? actor = null;
         var frames = new List<ReplayFrame>();
-        foreach (var input in stream)
-        {
-            if (input.Kind == ReplayInputKind.Admit) actor = fixture.ReplayAdmission(engine);
-            else if (input.Kind == ReplayInputKind.Tick) frames.Add(fixture.ReplayTick(actor!));
-            else fixture.ApplyReplayInput(input, actor);
+
+        foreach (var input in stream) {
+            if (input.Kind == ReplayInputKind.Admit) {
+                actor = fixture.ReplayAdmission(engine);
+            }
+            else if (input.Kind == ReplayInputKind.Tick) {
+                frames.Add(fixture.ReplayTick(actor!));
+            }
+            else {
+                fixture.ApplyReplayInput(input, actor);
+            }
         }
+
         ReportReplayFrames(engine, frames);
+
         return frames;
     }
 
@@ -192,35 +234,58 @@ public partial class PlacedFurniRoomTests
 
     private RoomUser ReplayAdmission(PathfindingEngine engine)
     {
-        var actor = Viewer(0, 1); actor.InternalRoomId = actor.VirtualId; actor.UserId = 7;
-        if (engine == PathfindingEngine.V2) _room.GetGameMap().Navigation!.Admit(actor);
-        else _room.GetGameMap().AddUserToMap(actor, actor.Coordinate);
+        var actor = Viewer(0, 1);
+        actor.InternalRoomId = actor.VirtualId;
+        actor.UserId = 7;
+
+        if (engine == PathfindingEngine.V2) {
+            _room.GetGameMap().Navigation!.Admit(actor);
+        }
+        else {
+            _room.GetGameMap().AddUserToMap(actor, actor.Coordinate);
+        }
+
         _room.ProcessRoom();
         _client.Packets.Clear();
+
         return actor;
     }
 
     private void ApplyReplayInput(ReplayInput input, RoomUser? actor)
     {
-        switch (input.Kind)
-        {
-            case ReplayInputKind.Furniture: ApplyReplayFurniture(input.ItemRecord!); break;
-            case ReplayInputKind.Move: actor!.MoveTo(input.X, input.Y); break;
-            case ReplayInputKind.Cancel: actor!.ClearMovement(true); break;
-            case ReplayInputKind.Speed: actor!.FastWalking = input.Value == 2; actor.SuperFastWalking = input.Value == 3; break;
-            case ReplayInputKind.Lock: _room.GetGameMap().SetFloorStatus(input.X, input.Y, 0); break;
+        switch (input.Kind) {
+            case ReplayInputKind.Furniture:
+                ApplyReplayFurniture(input.ItemRecord!);
+                break;
+            case ReplayInputKind.Move:
+                actor!.MoveTo(input.X, input.Y);
+                break;
+            case ReplayInputKind.Cancel:
+                actor!.ClearMovement(true);
+                break;
+            case ReplayInputKind.Speed:
+                actor!.FastWalking = input.Value == 2;
+                actor.SuperFastWalking = input.Value == 3;
+                break;
+            case ReplayInputKind.Lock:
+                _room.GetGameMap().SetFloorStatus(input.X, input.Y, 0);
+                break;
             case ReplayInputKind.Height:
                 Assert.True(_room.GetRoomItemHandler().SetFloorItem(_room.GetRoomItemHandler().GetItem(input.ItemId), input.X, input.Y, input.Z));
                 break;
-            default: throw new InvalidOperationException($"Unexpected replay event {input.Kind}");
+            default:
+                throw new InvalidOperationException($"Unexpected replay event {input.Kind}");
         }
     }
 
     private void ApplyReplayFurniture(NavItemRecord record)
     {
         var item = Furni(record.ItemId, record.Interaction, Plus.HabboHotel.Items.Wired.WiredBoxType.None);
-        item.UserId = 7; item.Definition.Height = record.Height; item.Definition.Walkable = record.Walkable;
-        item.Definition.Stackable = record.Walkable; item.Definition.Width = item.Definition.Length = 1;
+        item.UserId = 7;
+        item.Definition.Height = record.Height;
+        item.Definition.Walkable = record.Walkable;
+        item.Definition.Stackable = record.Walkable;
+        item.Definition.Width = item.Definition.Length = 1;
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, item, record.X, record.Y,
             record.Rotation, true, false, false, height: record.Z));
     }
@@ -231,6 +296,7 @@ public partial class PlacedFurniRoomTests
         var packets = _client.Packets.Where(p => p.Header == ServerPacketHeader.UserUpdateComposer)
             .Select(p => p.Body.ToArray()).ToArray();
         var statuses = packets.SelectMany(ReadReplayStatuses).ToArray();
+
         return new((actor.X, actor.Y, actor.Z), string.Join('/', actor.Statusses.Select(s => $"{s.Key} {s.Value}")),
             packets, statuses);
     }
@@ -239,10 +305,15 @@ public partial class PlacedFurniRoomTests
     {
         var body = new FlashIncomingPacket { Buffer = packet.ToArray() };
         var count = body.ReadInt();
-        for (var index = 0; index < count; index++)
-        {
-            var id = body.ReadInt(); var x = body.ReadInt(); var y = body.ReadInt(); var z = body.ReadString();
-            var head = body.ReadInt(); var rotation = body.ReadInt(); var status = body.ReadString();
+
+        for (var index = 0; index < count; index++) {
+            var id = body.ReadInt();
+            var x = body.ReadInt();
+            var y = body.ReadInt();
+            var z = body.ReadString();
+            var head = body.ReadInt();
+            var rotation = body.ReadInt();
+            var status = body.ReadString();
             yield return new(id, x, y, z, head, rotation, status);
         }
     }
@@ -252,49 +323,71 @@ public partial class PlacedFurniRoomTests
     {
         Assert.Equal(legacy.Count, v2.Count);
         var result = new List<ReplayDifference>();
-        for (var tick = 0; tick < legacy.Count; tick++)
-        {
-            if (FrameBytes(legacy[tick]) == FrameBytes(v2[tick])) continue;
-            Assert.True(ReplayTelemetryMatches(legacy[tick])); Assert.True(ReplayTelemetryMatches(v2[tick]));
-            if (ReplayTimingDifference(legacy[tick], v2[tick])) result.Add(ReplayDifference.TimingPhaseChange);
-            else
-            {
+
+        for (var tick = 0; tick < legacy.Count; tick++) {
+            if (FrameBytes(legacy[tick]) == FrameBytes(v2[tick])) {
+                continue;
+            }
+
+            Assert.True(ReplayTelemetryMatches(legacy[tick]));
+            Assert.True(ReplayTelemetryMatches(v2[tick]));
+
+            if (ReplayTimingDifference(legacy[tick], v2[tick])) {
+                result.Add(ReplayDifference.TimingPhaseChange);
+            }
+            else {
                 Assert.NotNull(trajectory);
                 result.Add(trajectory.Value);
             }
         }
+
         return result;
     }
 
     private static void ReportReplayFrames(PathfindingEngine engine, List<ReplayFrame> frames)
     {
         var output = Environment.GetEnvironmentVariable("PLUSEMU_REPLAY_FRAMES");
-        if (!string.IsNullOrEmpty(output))
+
+        if (!string.IsNullOrEmpty(output)) {
             File.AppendAllLines(output, new[] { System.Text.Json.JsonSerializer.Serialize(new { engine, frames }, new System.Text.Json.JsonSerializerOptions { IncludeFields = true }) });
+        }
     }
 
     private static string FrameBytes(ReplayFrame frame) => string.Join('|', frame.RawPackets.Select(Convert.ToHexString));
     private static string WithoutMove(string status) => string.Join('/', status.Split('/').Where(part => !part.StartsWith("mv ")).Order());
     private static string ReplayDifferenceName(ReplayDifference category) => category switch
     {
-        ReplayDifference.CornerFix => "corner fix", ReplayDifference.ShorterRoute => "shorter route",
-        ReplayDifference.BlockedTileFix => "blocked-tile fix", ReplayDifference.TimingPhaseChange => "timing-phase change",
-        ReplayDifference.StacktoolExclusion => "stacktool-exclusion", ReplayDifference.Other => "other",
+        ReplayDifference.CornerFix => "corner fix",
+        ReplayDifference.ShorterRoute => "shorter route",
+        ReplayDifference.BlockedTileFix => "blocked-tile fix",
+        ReplayDifference.TimingPhaseChange => "timing-phase change",
+        ReplayDifference.StacktoolExclusion => "stacktool-exclusion",
+        ReplayDifference.Other => "other",
         _ => throw new ArgumentOutOfRangeException(nameof(category))
     };
 
     private static void ReportReplay(string name, IReadOnlyList<ReplayInput> stream, List<ReplayDifference> differences)
     {
         var output = Environment.GetEnvironmentVariable("PLUSEMU_REPLAY_REPORT");
-        if (string.IsNullOrEmpty(output)) return;
+
+        if (string.IsNullOrEmpty(output)) {
+            return;
+        }
+
         var classifications = Enum.GetValues<ReplayDifference>()
             .Select(category => $"{ReplayDifferenceName(category)}={differences.Count(value => value == category)}");
         var reason = name == "superfast" ? "; other=original superfast-only route loses its final tile (legacy x=2, v2 x=3)" : "";
         File.AppendAllLines(output, new[] { $"{name}: inputs={stream.Count}; {string.Join("; ", classifications)}{reason}" });
     }
 
-    public enum ReplayDifference { CornerFix, ShorterRoute, BlockedTileFix, TimingPhaseChange, StacktoolExclusion, Other }
-    private enum ReplayInputKind { Furniture, Admit, Move, Speed, Lock, Cancel, Height, Tick }
+    public enum ReplayDifference
+    {
+        CornerFix, ShorterRoute, BlockedTileFix, TimingPhaseChange, StacktoolExclusion, Other
+    }
+    private enum ReplayInputKind
+    {
+        Furniture, Admit, Move, Speed, Lock, Cancel, Height, Tick
+    }
     private sealed record ReplayInput(ReplayInputKind Kind, int X = 0, int Y = 0, double Z = 0,
         int Value = 0, uint ItemId = 0, NavItemRecord? ItemRecord = null);
     private sealed record ReplayStatus(int VirtualId, int X, int Y, string Z, int Head, int Rotation, string Status);

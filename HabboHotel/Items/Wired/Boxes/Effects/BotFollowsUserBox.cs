@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -27,46 +27,72 @@ internal class BotFollowsUserBox : IWiredItem
         var unknown = packet.ReadInt();
         var followMode = packet.ReadInt(); //1 = follow, 0 = don't.
         var botConfiguration = packet.ReadString();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
+
         StringData = $"{followMode};{botConfiguration}";
     }
 
     public bool Execute(params object[] @params)
     {
-        if (@params == null || @params.Length == 0)
+        if (@params == null || @params.Length == 0) {
             return false;
-        if (string.IsNullOrEmpty(StringData))
+        }
+
+        if (string.IsNullOrEmpty(StringData)) {
             return false;
+        }
+
         var player = (Habbo)@params[0];
-        if (player == null)
+
+        if (player == null) {
             return false;
+        }
+
         var human = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
-        if (human == null)
+
+        if (human == null) {
             return false;
+        }
+
         var stuff = StringData.Split(';');
-        if (stuff.Length != 2)
+
+        if (stuff.Length != 2) {
             return false; //This is important, incase a cunt scripts.
+        }
+
         var username = stuff[1];
         var user = Instance.GetRoomUserManager().GetBotByName(username);
-        if (user == null)
+
+        if (user == null) {
             return false;
-        var followMode = 0;
-        if (!int.TryParse(stuff[0], out followMode))
-            return false;
-        if (followMode == 0)
-        {
-            user.BotData.ForcedUserTargetMovement = 0;
-            if (user.IsWalking)
-                user.ClearMovement(true);
         }
-        else if (followMode == 1)
-        {
-            user.BotData.ForcedUserTargetMovement = player.Id;
-            if (user.IsWalking)
+
+        var followMode = 0;
+
+        if (!int.TryParse(stuff[0], out followMode)) {
+            return false;
+        }
+
+        if (followMode == 0) {
+            user.BotData.ForcedUserTargetMovement = 0;
+
+            if (user.IsWalking) {
                 user.ClearMovement(true);
+            }
+        }
+        else if (followMode == 1) {
+            user.BotData.ForcedUserTargetMovement = player.Id;
+
+            if (user.IsWalking) {
+                user.ClearMovement(true);
+            }
+
             user.MoveTo(human.X, human.Y);
         }
+
         return true;
     }
 }

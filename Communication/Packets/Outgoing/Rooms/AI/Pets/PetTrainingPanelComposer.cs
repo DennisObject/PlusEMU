@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.AI.Pets;
 
@@ -48,8 +48,7 @@ public class PetTrainingPanelComposer : IServerPacket
 
     public int GetCount(int level)
     {
-        switch (level)
-        {
+        switch (level) {
             case 1:
             case 2:
                 return 1;

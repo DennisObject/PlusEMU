@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -11,8 +11,10 @@ internal class SetRollerSpeedBox : IWiredItem
         Instance = instance;
         Item = item;
         SetItems = new();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
     }
 
     public Room Instance { get; set; }
@@ -25,17 +27,25 @@ internal class SetRollerSpeedBox : IWiredItem
 
     public void HandleSave(IIncomingPacket packet)
     {
-        if (SetItems.Count > 0)
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
+
         var unknown = packet.ReadInt();
         var message = packet.ReadString();
         StringData = message;
-        if (!int.TryParse(StringData, out var speed)) StringData = "";
+
+        if (!int.TryParse(StringData, out var speed)) {
+            StringData = "";
+        }
     }
 
     public bool Execute(params object[] @params)
     {
-        if (int.TryParse(StringData, out var speed)) Instance.GetRoomItemHandler().SetSpeed(speed);
+        if (int.TryParse(StringData, out var speed)) {
+            Instance.GetRoomItemHandler().SetSpeed(speed);
+        }
+
         return true;
     }
 }

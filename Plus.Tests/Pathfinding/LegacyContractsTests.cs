@@ -18,7 +18,9 @@ public class LegacyContractsTests
         Array.Fill(occupancy.Targets, TargetOccupancy.Stationary);
         var stress = new ActorProfile { IgnoreUsers = true };
         var staff = new ActorProfile { LegacyOverride = true };
-        var ws = new PathWorkspace(25, 25); var route = new Route(); var search = new PathSearch(grid, new());
+        var ws = new PathWorkspace(25, 25);
+        var route = new Route();
+        var search = new PathSearch(grid, new());
         Assert.Equal(PathOutcome.Found, search.Find(new(stress, grid.Position(11), 3, 2, occupancy), ws, route));
         Assert.DoesNotContain(route.Steps.ToArray(), p => p.Tile == 12);
         Assert.Equal(PathOutcome.Found, search.Find(new(staff, grid.Position(11), 3, 2, occupancy), ws, route));
@@ -39,18 +41,24 @@ public class LegacyContractsTests
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var model = new RoomModel("fixed-legacy-parity", 0, 0, 0, 0, terrain.Replace('|', '\r'), 0, 0, false);
         var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
-        Set("_gamemap", map); Set("_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards)); Set("_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
-        map.GenerateMaps(); NavTest.Enable(map).Compiler.RebuildAll();
+        Set("_gamemap", map);
+        Set("_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
+        Set("_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
+        map.GenerateMaps();
+        NavTest.Enable(map).Compiler.RebuildAll();
         var grid = map.Navigation.Grid;
         var legacyActor = new RoomUser(0, 0, 1, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = sx, Y = sy };
         var path = PathFinder.FindPath(legacyActor, true, map, new(sx, sy), new(gx, gy));
-        var route = new Route(); var search = new PathSearch(grid, new());
+        var route = new Route();
+        var search = new PathSearch(grid, new());
         var outcome = search.Find(new(new ActorProfile(), grid.Position(grid.Tile(sx, sy)), gx, gy),
             new PathWorkspace(grid.SlotCapacity, grid.ActiveNodeCount), route);
         Assert.Equal(legacySteps, path.Count - 1); // Legacy includes the origin.
         Assert.Equal(v2Steps, outcome == PathOutcome.Found ? route.Count : -1);
-        foreach (var (from, to) in path.Zip(path.Skip(1)))
+
+        foreach (var (from, to) in path.Zip(path.Skip(1))) {
             Assert.True(map.IsValidStep(to, from, from.X == gx && from.Y == gy, false, false, legacyActor));
+        }
 
         void Set(string name, object value) => typeof(Room).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, value);
     }

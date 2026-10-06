@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Encryption.Crypto.Prng;
+using Plus.Communication.Encryption.Crypto.Prng;
 using Plus.Communication.Packets;
 using Plus.Communication.Revisions;
 using Plus.HabboHotel.Users;

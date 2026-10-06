@@ -32,10 +32,15 @@ public sealed class GuestRoomInfoSnapshotTests
         {
             true, 42u, "room", 7, "owner", 1, 3, 25, "description", 2, 91, 0, 12, 2, "one", "two", roomType
         };
-        if (hasGroup)
+
+        if (hasGroup) {
             expected.AddRange([9, "group", "badge"]);
-        if (hasPromotion)
+        }
+
+        if (hasPromotion) {
             expected.AddRange(["promotion", "details", 2]);
+        }
+
         expected.AddRange([false, false, false, false, 1, 2, 3, true, 4, 5, 6, 7, 8]);
         Assert.Equal(expected, packet.Writes);
     }
@@ -140,16 +145,19 @@ public sealed class GuestRoomInfoSnapshotTests
             ExtraFlood = 7,
             ChatDistance = 8
         };
-        if (hasGroup)
-        {
+
+        if (hasGroup) {
             var group = (Group)RuntimeHelpers.GetUninitializedObject(typeof(Group));
             group.Id = 9;
             group.Name = "group";
             group.Badge = "badge";
             data.Group = group;
         }
-        if (hasPromotion)
+
+        if (hasPromotion) {
             data.Promotion = new("promotion", "details", Now, Now.AddSeconds(61), 1, TimeProvider.System);
+        }
+
         return data;
     }
 
@@ -164,6 +172,7 @@ public sealed class GuestRoomInfoSnapshotTests
         public GuestRoomInfoSnapshot? Capture(uint roomId, Habbo viewer, bool isLoading, bool checkEntry)
         {
             LastRequest = (roomId, viewer.Id, isLoading, checkEntry);
+
             return Result;
         }
     }
@@ -175,6 +184,7 @@ public sealed class GuestRoomInfoSnapshotTests
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;
+
             return now;
         }
     }
@@ -187,6 +197,7 @@ public sealed class GuestRoomInfoSnapshotTests
         {
             RequestedRoomId = roomId;
             data = null;
+
             return false;
         }
 

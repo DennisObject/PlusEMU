@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -34,11 +34,17 @@ internal class UserFurniCollision : IWiredItem
     public bool Execute(params object[] @params)
     {
         var player = (Habbo)@params[0];
-        if (player == null)
+
+        if (player == null) {
             return false;
+        }
+
         var item = (Item)@params[1];
-        if (item == null)
+
+        if (item == null) {
             return false;
+        }
+
         return Instance.GetWired().RunStack(this, player);
     }
 }

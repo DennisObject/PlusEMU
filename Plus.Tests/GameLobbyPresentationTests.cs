@@ -64,8 +64,8 @@ public sealed class GameLobbyPresentationTests
         var list = new GameListComposer(source.Select(GameListEntry.Capture).ToImmutableArray());
         var load = new LoadGameComposer(GameLoadSnapshot.Capture(source[0]), "ticket");
         source.Clear();
-        for (var index = 0; index < 2; index++)
-        {
+
+        for (var index = 0; index < 2; index++) {
             var listPacket = new HabbiconTestSupport.RecordingPacket();
             list.Compose(listPacket);
             Assert.Equal(new object[] { 1, 9, "game", "AA", "BB", "path/", "three" }, listPacket.Writes);
@@ -104,6 +104,7 @@ public sealed class GameLobbyPresentationTests
         public bool TryGetGame(int gameId, [NotNullWhen(true)] out GameData? data)
         {
             data = GameData.FirstOrDefault(game => game.Id == gameId);
+
             return data != null;
         }
         public int GetCount() => GameData.Count;

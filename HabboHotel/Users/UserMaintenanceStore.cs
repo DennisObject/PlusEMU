@@ -17,6 +17,7 @@ public sealed class UserMaintenanceStore(IDatabase database) : IUserMaintenanceS
     public int? ReadCurrency(int userId, UserCurrency currency)
     {
         using var connection = database.Connection();
+
         return connection.QuerySingleOrDefault<int?>($"SELECT {Column(currency)} FROM users WHERE id = @userId", new { userId });
     }
 
@@ -26,16 +27,21 @@ public sealed class UserMaintenanceStore(IDatabase database) : IUserMaintenanceS
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        if (connection.Query<int>("SELECT id FROM users WHERE id = @userId FOR UPDATE", new { userId }, transaction).Count() != 1)
+
+        if (connection.Query<int>("SELECT id FROM users WHERE id = @userId FOR UPDATE", new { userId }, transaction).Count() != 1) {
             return false;
+        }
+
         connection.Execute($"UPDATE users SET {Column(currency)} = @value WHERE id = @userId LIMIT 1", new { userId, value }, transaction);
         transaction.Commit();
+
         return true;
     }
 
     public string? ReadMotto(int userId)
     {
         using var connection = database.Connection();
+
         return connection.QuerySingleOrDefault<string?>("SELECT motto FROM users WHERE id = @userId", new { userId });
     }
 

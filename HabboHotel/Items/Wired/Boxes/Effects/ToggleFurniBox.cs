@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -45,32 +45,39 @@ internal class ToggleFurniBox : IWiredItem, IWiredCycle
         var unknown = packet.ReadInt();
         var unknown2 = packet.ReadString();
         var furniCount = packet.ReadInt();
-        for (var i = 0; i < furniCount; i++)
-        {
+
+        for (var i = 0; i < furniCount; i++) {
             var selectedItem = Instance.GetRoomItemHandler().GetItem(packet.ReadUInt());
-            if (selectedItem != null)
+
+            if (selectedItem != null) {
                 SetItems.TryAdd(selectedItem.Id, selectedItem);
+            }
         }
+
         var delay = packet.ReadInt();
         Delay = delay;
     }
 
     public bool Execute(params object[] @params)
     {
-        if (Instance == null || SetItems.Count == 0)
+        if (Instance == null || SetItems.Count == 0) {
             return false;
-        foreach (var item in SetItems.Values.ToList())
-        {
-            if (item == null)
+        }
+
+        foreach (var item in SetItems.Values.ToList()) {
+            if (item == null) {
                 continue;
-            if (!Instance.GetRoomItemHandler().GetFloor.Contains(item))
-            {
+            }
+
+            if (!Instance.GetRoomItemHandler().GetFloor.Contains(item)) {
                 Item? n = null;
                 SetItems.TryRemove(item.Id, out n);
                 continue;
             }
+
             item.Interactor.OnWiredTrigger(item);
         }
+
         return true;
     }
 }

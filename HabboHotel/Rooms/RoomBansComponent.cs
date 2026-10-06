@@ -29,6 +29,7 @@ public sealed class RoomBansComponent(IDatabase database, TimeProvider clock) : 
     IEnumerable<RoomBan> IRoomBanStore.Load(uint roomId)
     {
         using var connection = database.Connection();
+
         return connection.Query<RoomBanRow>(
                 "SELECT user_id AS UserId, expire AS ExpiresAt FROM room_bans WHERE room_id = @roomId AND expire > UTC_TIMESTAMP(6)",
                 new { roomId })
@@ -52,6 +53,7 @@ public sealed class RoomBansComponent(IDatabase database, TimeProvider clock) : 
     IEnumerable<int> IRoomBanStore.ActiveUserIds(uint roomId)
     {
         using var connection = database.Connection();
+
         return connection.Query<uint>(
             "SELECT DISTINCT user_id FROM room_bans WHERE room_id = @roomId AND expire > UTC_TIMESTAMP(6)", new { roomId }).Select(userId => checked((int)userId)).ToArray();
     }

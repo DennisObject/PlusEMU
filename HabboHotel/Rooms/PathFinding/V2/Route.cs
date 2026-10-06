@@ -12,23 +12,38 @@ public sealed class Route
     public ReadOnlySpan<SurfaceRef> Steps => _steps.AsSpan(0, Count);
     internal void EnsureCapacity(int count)
     {
-        if (count <= _steps.Length) return;
+        if (count <= _steps.Length) {
+            return;
+        }
+
         var size = Math.Max(count, _steps.Length * 2);
-        Array.Resize(ref _steps, size); Array.Resize(ref _advisoryZ, size);
+        Array.Resize(ref _steps, size);
+        Array.Resize(ref _advisoryZ, size);
     }
     internal void Set(int index, SurfaceRef reference) => _steps[index] = reference;
-    internal void Clear() { Count = 0; GoalSurface = null; View = GraphView.Surface; }
+    internal void Clear()
+    {
+        Count = 0;
+        GoalSurface = null;
+        View = GraphView.Surface;
+    }
     internal double AdvisoryZ(int index) => _advisoryZ[index];
     internal void SetAdvisoryZ(int index, double z) => _advisoryZ[index] = z;
     internal void CaptureAdvisory(NavGrid grid)
     {
-        for (var i = 0; i < Count; i++) _advisoryZ[i] = grid.Position(_steps[i].Tile, View == GraphView.LegacyTile).Z;
+        for (var i = 0; i < Count; i++) {
+            _advisoryZ[i] = grid.Position(_steps[i].Tile, View == GraphView.LegacyTile).Z;
+        }
     }
     internal void CopyFrom(Route source)
     {
         EnsureCapacity(source.Count);
-        Array.Copy(source._steps, _steps, source.Count); Array.Copy(source._advisoryZ, _advisoryZ, source.Count);
-        Count = source.Count; GridVersion = source.GridVersion; View = source.View; GoalSurface = source.GoalSurface;
+        Array.Copy(source._steps, _steps, source.Count);
+        Array.Copy(source._advisoryZ, _advisoryZ, source.Count);
+        Count = source.Count;
+        GridVersion = source.GridVersion;
+        View = source.View;
+        GoalSurface = source.GoalSurface;
     }
     // Only the goal surface itself is a Goal edge (§5.7): other surfaces of the goal tile are Transit,
     // and a truncated prefix (no goal surface) is all Transit.

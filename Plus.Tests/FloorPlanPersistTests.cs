@@ -25,6 +25,7 @@ public class FloorPlanPersistTests
             () =>
             {
                 steps.Add("model");
+
                 return 0;
             },
             () => throw new InvalidOperationException("visible"),
@@ -36,11 +37,13 @@ public class FloorPlanPersistTests
             () =>
             {
                 steps.Add("model");
+
                 return 1;
             },
             () =>
             {
                 steps.Add("visible");
+
                 return false;
             },
             () => throw new InvalidOperationException("room")));

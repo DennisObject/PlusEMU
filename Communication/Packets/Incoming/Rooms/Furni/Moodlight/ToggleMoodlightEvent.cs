@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms;
 
@@ -9,6 +9,7 @@ internal class ToggleMoodlightEvent(IMoodlightService moodlight) : RoomPacketEve
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         moodlight.Toggle(room, session);
+
         return Task.CompletedTask;
     }
 }

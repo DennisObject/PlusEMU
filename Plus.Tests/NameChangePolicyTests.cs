@@ -19,7 +19,11 @@ public class NameChangePolicyTests
             new Dictionary<string, int> { ["limit.name_change_frequency"] = 1 });
         var habbo = new Habbo
         {
-            Id = 7, Username = "Member", Look = "hr-1", Gender = "M", Motto = "",
+            Id = 7,
+            Username = "Member",
+            Look = "hr-1",
+            Gender = "M",
+            Motto = "",
             HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0),
             LastNameChangedAt = new DateTimeOffset(2040, 1, 1, 0, 0, 0, TimeSpan.Zero),
             Access = UserAccess.Create([new(role)])
@@ -33,7 +37,12 @@ public class NameChangePolicyTests
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return now;
+        }
     }
 
     [Theory]

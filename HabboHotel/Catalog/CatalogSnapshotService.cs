@@ -35,6 +35,7 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
             .Select(promotion => new CatalogPromotionSnapshot(promotion.Position, promotion.Title, promotion.Image, promotion.ItemType,
                 promotion.OfferId, promotion.ProductCode, promotion.PageLink, (int)Math.Clamp(promotion.RemainingAt(now).Ticks / TimeSpan.TicksPerSecond, 0, int.MaxValue)))
             .ToImmutableArray();
+
         return new CatalogPageSnapshot(page.Id, CatalogModes.Normal, page.Layout, page.PageStringsList1.ToImmutableArray(), page.PageStringsList2.ToImmutableArray(),
             offers, preselectOfferId, promotions);
     }
@@ -42,6 +43,7 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
     public CatalogIndexSnapshot CaptureIndex(Habbo habbo, ICollection<CatalogPage> pages)
     {
         var children = pages.Where(page => page.IsAvailableTo(habbo)).ToLookup(page => page.ParentId);
+
         return new CatalogIndexSnapshot(CatalogModes.Normal, children[-1].Select(page => IndexNode(children, page, 1)).ToImmutableArray());
     }
 
@@ -56,13 +58,18 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
         // Gifts are free, regardless of the ordinary catalog price of the same chair.
         CaptureOffer(new CatalogItem
         {
-            Definition = item.Definition, Amount = item.Amount, CatalogName = item.CatalogName,
-            ExtraData = "", ClubLevel = item.ClubLevel, PreviewImage = item.PreviewImage,
+            Definition = item.Definition,
+            Amount = item.Amount,
+            CatalogName = item.CatalogName,
+            ExtraData = "",
+            ClubLevel = item.ClubLevel,
+            PreviewImage = item.PreviewImage,
         }, item.WireOfferId, item.CatalogName);
 
     private CatalogOfferSnapshot CaptureOffer(CatalogItem item, int wireOfferId, string localizationId)
     {
         var diamonds = item.CostDiamonds > 0;
+
         return new CatalogOfferSnapshot(
             wireOfferId,
             localizationId,
@@ -79,10 +86,14 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
 
     private CatalogOfferProducts CaptureProducts(CatalogItem item)
     {
-        if (item.HabbiconId > 0)
+        if (item.HabbiconId > 0) {
             return new HabbiconProducts(item.HabbiconId);
-        if (item.Definition.InteractionType is InteractionType.Deal or InteractionType.Roomdeal)
+        }
+
+        if (item.Definition.InteractionType is InteractionType.Deal or InteractionType.Roomdeal) {
             return CaptureDeal(item.Definition.BehaviourData);
+        }
+
         return CaptureItemProduct(item);
     }
 
@@ -95,6 +106,7 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
     private ItemProducts CaptureItemProduct(CatalogItem item)
     {
         var extra = CaptureExtra(item);
+
         return new ItemProducts(
             item.Badge,
             item.Definition.ProductType,
@@ -111,16 +123,22 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
     private (bool HasExtra, string? Value) CaptureExtra(CatalogItem item)
     {
         var interaction = item.Definition.InteractionType;
-        if (interaction is InteractionType.Wallpaper or InteractionType.Floor or InteractionType.Landscape)
+
+        if (interaction is InteractionType.Wallpaper or InteractionType.Floor or InteractionType.Landscape) {
             return (true, item.CatalogName.Split('_')[2]);
-        if (interaction == InteractionType.Bot)
+        }
+
+        if (interaction == InteractionType.Bot) {
             return (true, catalog.TryGetBot(item.ItemId, out var bot) ? bot.Figure : UnknownBotFigure);
+        }
+
         return (item.ExtraData != null, item.ExtraData);
     }
 
     private static CatalogIndexNode IndexNode(ILookup<int, CatalogPage> children, CatalogPage page, int depth)
     {
         var childPages = depth < MaximumIndexDepth ? children[page.Id].ToImmutableArray() : [];
+
         return new CatalogIndexNode(
             page.Visible,
             page.Icon,

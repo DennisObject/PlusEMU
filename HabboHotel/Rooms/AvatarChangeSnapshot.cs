@@ -7,6 +7,7 @@ public sealed record AvatarChangeSnapshot(int VirtualId, string Look, string Gen
     public static AvatarChangeSnapshot Capture(RoomUser user, bool self)
     {
         var habbo = user.GetClient()?.GetHabbo() ?? throw new InvalidOperationException("Room user has no active account.");
+
         return new(self ? -1 : user.VirtualId, habbo.Look, habbo.Gender, habbo.Motto, habbo.HabboStats.AchievementPoints);
     }
 

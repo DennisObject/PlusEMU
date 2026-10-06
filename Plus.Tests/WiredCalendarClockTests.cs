@@ -47,7 +47,12 @@ public class WiredCalendarClockTests
         public DateTimeOffset Now { get; } = new(2040, 12, 31, 23, 30, 0, TimeSpan.Zero);
         public int Reads { get; private set; }
         public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.CreateCustomTimeZone("TestLocal", TimeSpan.FromHours(-7), "TestLocal", "TestLocal");
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
 
     private sealed class Factory(string zone) : IWiredRoomSettingsFactory, IWiredRoomSettingsStore

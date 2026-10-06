@@ -170,6 +170,7 @@ public sealed class CatalogGiftPurchaseServiceTests
             rewards,
             store,
             clock);
+
         return new(service, senderClient, sender, recipient, senderPackets, recipientPackets, clients, rewards, store, clock);
     }
 
@@ -180,8 +181,10 @@ public sealed class CatalogGiftPurchaseServiceTests
         {
             var bytes = args.MemoryBuffer.ToArray();
             packets.Add((System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
+
             return true;
         };
+
         return packets;
     }
 
@@ -220,6 +223,7 @@ public sealed class CatalogGiftPurchaseServiceTests
         public Task Purchase(GameClient session, CatalogGiftPurchaseRequest request)
         {
             Request = request;
+
             return Task.CompletedTask;
         }
     }
@@ -237,25 +241,52 @@ public sealed class CatalogGiftPurchaseServiceTests
         public GameClient? GetClientByUsername(string username)
         {
             Lookups++;
-            if (missing) return null;
+
+            if (missing) {
+                return null;
+            }
+
             return username.Equals(sender.GetHabbo().Username, StringComparison.OrdinalIgnoreCase) ? sender : recipient;
         }
         public GameClient? GetClientByUserId(int userId) => userId == recipient.GetHabbo().Id ? recipient : null;
         public int Count => 2;
         public ICollection<GameClient> GetClients => new[] { sender, recipient };
-        public void OnCycle() { }
-        public bool TryGetClient(Guid clientId, out GameClient? client) { client = null; return false; }
+        public void OnCycle()
+        {
+        }
+        public bool TryGetClient(Guid clientId, out GameClient? client)
+        {
+            client = null;
+
+            return false;
+        }
         public bool TryChangeClientUsername(GameClient client, string oldUsername, string newUsername, Func<bool> persist) => false;
         public Task<string> GetNameById(int id) => Task.FromResult(string.Empty);
         public IEnumerable<GameClient> GetClientsById(Dictionary<int, Plus.HabboHotel.Users.Messenger.MessengerBuddy>.KeyCollection users) => Array.Empty<GameClient>();
-        public void StaffAlert(Plus.Communication.Packets.IServerPacket message, int exclude = 0) { }
-        public void ModAlert(string message) { }
-        public void DoAdvertisingReport(GameClient reporter, GameClient target) { }
-        public void SendPacket(Plus.Communication.Packets.IServerPacket packet, Plus.HabboHotel.Permissions.PermissionDefinition? permission = null) { }
-        public void LogClonesOut(int userId) { }
-        public void RegisterClient(GameClient client, int userId, string username) { }
-        public void UnregisterClient(GameClient client, int userId, string username) { }
-        public void CloseAll() { }
+        public void StaffAlert(Plus.Communication.Packets.IServerPacket message, int exclude = 0)
+        {
+        }
+        public void ModAlert(string message)
+        {
+        }
+        public void DoAdvertisingReport(GameClient reporter, GameClient target)
+        {
+        }
+        public void SendPacket(Plus.Communication.Packets.IServerPacket packet, Plus.HabboHotel.Permissions.PermissionDefinition? permission = null)
+        {
+        }
+        public void LogClonesOut(int userId)
+        {
+        }
+        public void RegisterClient(GameClient client, int userId, string username)
+        {
+        }
+        public void UnregisterClient(GameClient client, int userId, string username)
+        {
+        }
+        public void CloseAll()
+        {
+        }
     }
 
     private sealed class Rewards : IClubRewards
@@ -266,16 +297,19 @@ public sealed class CatalogGiftPurchaseServiceTests
         {
             Charges++;
             var oldCredits = habbo.Credits;
-            try
-            {
-                if (deliver?.Invoke(null!, null!) == false) return false;
+
+            try {
+                if (deliver?.Invoke(null!, null!) == false) {
+                    return false;
+                }
+
                 habbo.Credits -= credits;
                 habbo.Duckets -= duckets;
                 habbo.Diamonds -= diamonds;
+
                 return true;
             }
-            catch
-            {
+            catch {
                 habbo.Credits = oldCredits;
                 throw;
             }
@@ -293,7 +327,11 @@ public sealed class CatalogGiftPurchaseServiceTests
             ItemDefinition presentDefinition, ItemDefinition contentDefinition, string presentExtraData, string contentExtraData)
         {
             Creates++;
-            if (fails) throw new InvalidOperationException("store failed");
+
+            if (fails) {
+                throw new InvalidOperationException("store failed");
+            }
+
             return new InventoryItem { Id = 700, OwnerId = (uint)recipientId, Definition = present };
         }
     }
@@ -306,11 +344,12 @@ public sealed class CatalogGiftPurchaseServiceTests
         public CatalogPage Page { get; set; } = null!;
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == nameof(ICatalogManager.TryGetPage))
-            {
+            if (targetMethod?.Name == nameof(ICatalogManager.TryGetPage)) {
                 args![1] = Page;
+
                 return (int)args[0]! == Page.Id;
             }
+
             return Default(targetMethod?.ReturnType);
         }
     }
@@ -334,8 +373,14 @@ public sealed class CatalogGiftPurchaseServiceTests
 
     private static object? Default(Type? type)
     {
-        if (type == null || type == typeof(void)) return null;
-        if (type == typeof(Task)) return Task.CompletedTask;
+        if (type == null || type == typeof(void)) {
+            return null;
+        }
+
+        if (type == typeof(Task)) {
+            return Task.CompletedTask;
+        }
+
         return type.IsValueType ? Activator.CreateInstance(type) : null;
     }
 

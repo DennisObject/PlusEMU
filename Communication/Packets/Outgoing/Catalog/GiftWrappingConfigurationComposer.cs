@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog;
 
@@ -12,11 +12,12 @@ public class GiftWrappingConfigurationComposer : IServerPacket
         packet.WriteBoolean(true);
         packet.WriteInteger(1);
         packet.WriteInteger(10);
-        for (var i = 3372; i < 3382;)
-        {
+
+        for (var i = 3372; i < 3382;) {
             packet.WriteInteger(i);
             i++;
         }
+
         packet.WriteInteger(7);
         packet.WriteInteger(0);
         packet.WriteInteger(1);
@@ -38,8 +39,8 @@ public class GiftWrappingConfigurationComposer : IServerPacket
         packet.WriteInteger(9);
         packet.WriteInteger(10);
         packet.WriteInteger(7);
-        for (var i = 187; i < 194;)
-        {
+
+        for (var i = 187; i < 194;) {
             packet.WriteInteger(i);
             i++;
         }

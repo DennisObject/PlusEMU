@@ -27,18 +27,23 @@ public sealed class AchievementSnapshotService : IAchievementSnapshotService
     public ImmutableArray<AchievementProgressSnapshot> Capture(Habbo habbo, IEnumerable<Achievement> achievements)
     {
         var snapshots = ImmutableArray.CreateBuilder<AchievementProgressSnapshot>();
-        foreach (var achievement in achievements)
-        {
-            if (Capture(habbo, achievement) is { } snapshot)
+
+        foreach (var achievement in achievements) {
+            if (Capture(habbo, achievement) is { } snapshot) {
                 snapshots.Add(snapshot);
+            }
         }
+
         return snapshots.ToImmutable();
     }
 
     private static AchievementProgressSnapshot? Capture(Habbo habbo, Achievement achievement)
     {
         // An achievement without levels has no next level to show, so it is left out instead of being indexed.
-        if (achievement.Levels.Count == 0) return null;
+        if (achievement.Levels.Count == 0) {
+            return null;
+        }
+
         var group = achievement.GroupName ?? string.Empty;
         var progress = habbo.GetAchievementData(group);
         var totalLevels = achievement.Levels.Count;
@@ -47,6 +52,7 @@ public sealed class AchievementSnapshotService : IAchievementSnapshotService
         // The next level, clamped to the highest level the achievement defines; a completed achievement stays on its last level.
         var target = (int)Math.Clamp((long)(progress?.Level ?? 0) + 1, 1, highestLevel);
         var (level, data) = ResolveLevel(achievement.Levels, target);
+
         return new AchievementProgressSnapshot(
             achievement.Id,
             achievement.Category ?? string.Empty,
@@ -62,9 +68,12 @@ public sealed class AchievementSnapshotService : IAchievementSnapshotService
     // Sparse levels: the target when defined, otherwise the nearest defined level above it, otherwise the highest one below it.
     private static (int Level, AchievementLevel Data) ResolveLevel(Dictionary<int, AchievementLevel> levels, int target)
     {
-        if (levels.TryGetValue(target, out var exact))
+        if (levels.TryGetValue(target, out var exact)) {
             return (target, exact);
+        }
+
         var level = levels.Keys.Where(key => key >= target).DefaultIfEmpty(levels.Keys.Max()).Min();
+
         return (level, levels[level]);
     }
 }

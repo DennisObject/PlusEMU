@@ -36,11 +36,12 @@ public sealed class RewardTrackTask
 
     public bool IsComplete(int progress)
     {
-        foreach (var level in Levels)
-        {
-            if (progress < level.RequiredCount)
+        foreach (var level in Levels) {
+            if (progress < level.RequiredCount) {
                 return false;
+            }
         }
+
         return true;
     }
 }
@@ -111,6 +112,7 @@ public sealed class RewardTrack
         _tasks.Sort((left, right) =>
         {
             var order = left.SortOrder.CompareTo(right.SortOrder);
+
             return order != 0 ? order : string.CompareOrdinal(left.Id, right.Id);
         });
     }
@@ -121,20 +123,25 @@ public sealed class RewardTrack
         _prizes.Sort((left, right) =>
         {
             var points = left.RequiredPoints.CompareTo(right.RequiredPoints);
-            if (points != 0)
+
+            if (points != 0) {
                 return points;
+            }
+
             var order = left.SortOrder.CompareTo(right.SortOrder);
+
             return order != 0 ? order : string.CompareOrdinal(left.Id, right.Id);
         });
     }
 
     public RewardTrackPrize? GetPrize(string prizeId)
     {
-        foreach (var prize in _prizes)
-        {
-            if (prize.Id == prizeId)
+        foreach (var prize in _prizes) {
+            if (prize.Id == prizeId) {
                 return prize;
+            }
         }
+
         return null;
     }
 
@@ -142,15 +149,21 @@ public sealed class RewardTrack
     public int PointsFor(RewardTrackTask task, int before, int after, bool premiumUser)
     {
         var points = 0;
-        foreach (var level in task.Levels)
-        {
-            if (level.Premium && !premiumUser)
+
+        foreach (var level in task.Levels) {
+            if (level.Premium && !premiumUser) {
                 continue;
-            if (before < level.RequiredCount && after >= level.RequiredCount)
+            }
+
+            if (before < level.RequiredCount && after >= level.RequiredCount) {
                 points += level.PointsReward;
+            }
         }
-        if (premiumUser && PremiumTaskPointsBoost > 1)
+
+        if (premiumUser && PremiumTaskPointsBoost > 1) {
             points = (int)Math.Round(points * PremiumTaskPointsBoost, MidpointRounding.AwayFromZero);
+        }
+
         return points;
     }
 }

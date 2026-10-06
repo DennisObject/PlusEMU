@@ -9,6 +9,7 @@ internal class BanUserEvent(IRoomModerationService moderation) : IPacketEvent
     {
         var request = new RoomBanRequest(packet.ReadInt(), packet.ReadInt(), packet.ReadString());
         moderation.Ban(session, request);
+
         return Task.CompletedTask;
     }
 }

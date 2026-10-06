@@ -198,8 +198,11 @@ public class MessengerPresentationTests
     private static MessengerBuddy Buddy(int id, string name, bool online, bool allowsFollowing, int relationship)
     {
         var buddy = new MessengerBuddy { Id = id, Username = name, Relationship = relationship, Look = $"look-{name}", Motto = "motto" };
-        if (online)
+
+        if (online) {
             buddy.Habbo = new Habbo { Id = id, Username = name, Look = $"look-{name}", Motto = "motto", Gender = "M", AllowUserFollowing = allowsFollowing };
+        }
+
         return buddy;
     }
 
@@ -238,7 +241,12 @@ public class MessengerPresentationTests
     private sealed class RecordingPresentation : IMessengerPresentationService
     {
         public List<string> Calls { get; } = new();
-        public Task ShowFriendList(Plus.HabboHotel.GameClients.GameClient session) { Calls.Add("list"); return Task.CompletedTask; }
+        public Task ShowFriendList(Plus.HabboHotel.GameClients.GameClient session)
+        {
+            Calls.Add("list");
+
+            return Task.CompletedTask;
+        }
         public void ShowFriendRequests(Plus.HabboHotel.GameClients.GameClient session) => Calls.Add("requests");
     }
 }

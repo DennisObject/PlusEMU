@@ -12,8 +12,13 @@ public sealed class WiredVariableConfiguredBox : IWiredContextualItem
     private readonly WiredVariableExecutors _executors;
     public WiredVariableConfiguredBox(Room room, Item item, WiredBoxDescriptor descriptor, WiredVariableExecutors executors)
     {
-        if (!WiredVariableExecutors.Supports(descriptor.CanonicalName)) throw new ArgumentException("No scalar executor for this box.", nameof(descriptor));
-        Instance = room; Item = item; _executors = executors;
+        if (!WiredVariableExecutors.Supports(descriptor.CanonicalName)) {
+            throw new ArgumentException("No scalar executor for this box.", nameof(descriptor));
+        }
+
+        Instance = room;
+        Item = item;
+        _executors = executors;
         Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
         Configuration = WiredVariableDefaults.Create(descriptor.CanonicalName);
     }
@@ -30,6 +35,7 @@ public sealed class WiredVariableConfiguredBox : IWiredContextualItem
     public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         validated = proposed;
+
         return WiredVariableExecutors.TryValidate(Descriptor.CanonicalName, proposed, out error);
     }
     public void ApplyConfiguration(WiredConfiguration validated)
@@ -43,8 +49,12 @@ public sealed class WiredVariableConfiguredBox : IWiredContextualItem
         && _executors.Execute(Descriptor.CanonicalName, Configuration, frame);
     public bool Execute(WiredRuntimeContext context)
     {
-        if (!ReferenceEquals(context.Room, Instance)) return false;
+        if (!ReferenceEquals(context.Room, Instance)) {
+            return false;
+        }
+
         context.VariableFrame = WiredVariableRuntimeFrames.Create(context, context.VariableFrame);
+
         return _executors.Execute(Descriptor.CanonicalName, context.ConfigurationOf(this), context.VariableFrame);
     }
     public void HandleSave(IIncomingPacket packet) => throw new InvalidOperationException("Configured boxes must use validated configuration persistence.");

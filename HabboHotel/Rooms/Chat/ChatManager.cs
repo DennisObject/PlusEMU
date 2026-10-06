@@ -1,4 +1,4 @@
-﻿using Plus.Core;
+using Plus.Core;
 using Microsoft.Extensions.Logging;
 using Plus.HabboHotel.Rooms.Chat.Commands;
 using Plus.HabboHotel.Rooms.Chat.Emotions;
@@ -75,6 +75,7 @@ public sealed class ChatManager : IChatManager, IStartable
     public Task Start()
     {
         _logger.LogInformation("Chat Manager -> LOADED");
+
         return Task.CompletedTask;
     }
 

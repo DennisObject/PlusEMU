@@ -22,6 +22,7 @@ internal class HousekeepingGrantItemEvent : IPacketEvent
         var itemId = packet.ReadInt();
         var quantity = packet.ReadInt();
         _runner.Run(session, "user.grant_item", HousekeepingRights.Economy, actor => _economy.GrantItem(actor, userId, itemId, quantity));
+
         return Task.CompletedTask;
     }
 }

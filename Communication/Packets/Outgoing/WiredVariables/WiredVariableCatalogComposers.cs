@@ -17,23 +17,48 @@ public sealed class WiredAllVariablesDiffComposer(WiredVariableCatalogDiff diff)
     public uint MessageId => ServerPacketHeader.WiredAllVariablesDiffComposer;
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_captured.Hash); packet.WriteBoolean(_captured.LastChunk);
+        packet.WriteInteger(_captured.Hash);
+        packet.WriteBoolean(_captured.LastChunk);
         packet.WriteInteger(_captured.Removed.Count);
-        foreach (var id in _captured.Removed) packet.WriteString(id);
+
+        foreach (var id in _captured.Removed) {
+            packet.WriteString(id);
+        }
+
         packet.WriteInteger(_captured.Changed.Count);
-        foreach (var variable in _captured.Changed) { packet.WriteInteger(variable.Hash); WriteVariable(packet, variable); }
+
+        foreach (var variable in _captured.Changed) {
+            packet.WriteInteger(variable.Hash);
+            WriteVariable(packet, variable);
+        }
     }
     internal static void WriteVariable(IOutgoingPacket packet, WiredVariableDescription variable)
     {
-        packet.WriteString(variable.CatalogId); packet.WriteInteger(variable.CatalogTarget); packet.WriteString(variable.Definition.Name);
-        packet.WriteInteger((int)variable.Definition.Availability); packet.WriteInteger(variable.CatalogTarget);
-        packet.WriteBoolean(true); packet.WriteBoolean(variable.CanCreateAndDelete); packet.WriteBoolean(variable.HasValue);
-        packet.WriteBoolean(variable.CanWriteValue); packet.WriteBoolean(false); packet.WriteBoolean(false);
-        packet.WriteBoolean(variable.CanReadTimestamps); packet.WriteBoolean(variable.CanReadTimestamps);
+        packet.WriteString(variable.CatalogId);
+        packet.WriteInteger(variable.CatalogTarget);
+        packet.WriteString(variable.Definition.Name);
+        packet.WriteInteger((int)variable.Definition.Availability);
+        packet.WriteInteger(variable.CatalogTarget);
+        packet.WriteBoolean(true);
+        packet.WriteBoolean(variable.CanCreateAndDelete);
+        packet.WriteBoolean(variable.HasValue);
+        packet.WriteBoolean(variable.CanWriteValue);
+        packet.WriteBoolean(false);
+        packet.WriteBoolean(false);
+        packet.WriteBoolean(variable.CanReadTimestamps);
+        packet.WriteBoolean(variable.CanReadTimestamps);
         packet.WriteBoolean(variable.TextConnector.Count > 0);
-        if (variable.TextConnector.Count == 0) return;
+
+        if (variable.TextConnector.Count == 0) {
+            return;
+        }
+
         packet.WriteInteger(variable.TextConnector.Count);
-        foreach (var (key, value) in variable.TextConnector.OrderBy(x => x.Key)) { packet.WriteInteger(key); packet.WriteString(value); }
+
+        foreach (var (key, value) in variable.TextConnector.OrderBy(x => x.Key)) {
+            packet.WriteInteger(key);
+            packet.WriteString(value);
+        }
     }
 }
 
@@ -45,9 +70,14 @@ public sealed class WiredVariableHoldersComposer(uint roomId, WiredVariableDescr
     public uint MessageId => ServerPacketHeader.WiredVariableHoldersComposer;
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteUInteger(roomId); WiredAllVariablesDiffComposer.WriteVariable(packet, _variable);
+        packet.WriteUInteger(roomId);
+        WiredAllVariablesDiffComposer.WriteVariable(packet, _variable);
         packet.WriteInteger(_holders.Length);
-        foreach (var holder in _holders) { packet.WriteInteger(checked((int)holder.Key.HolderId)); packet.WriteInteger(holder.Value.Value); }
+
+        foreach (var holder in _holders) {
+            packet.WriteInteger(checked((int)holder.Key.HolderId));
+            packet.WriteInteger(holder.Value.Value);
+        }
     }
 }
 
@@ -57,20 +87,29 @@ public sealed class WiredVariableHoldersPageComposer(string variableId, WiredVar
     public uint MessageId => ServerPacketHeader.WiredVariableHoldersPageComposer;
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteString(variableId); packet.WriteInteger(_captured.Total); packet.WriteInteger(_captured.Page); packet.WriteInteger(_captured.PageSize);
+        packet.WriteString(variableId);
+        packet.WriteInteger(_captured.Total);
+        packet.WriteInteger(_captured.Page);
+        packet.WriteInteger(_captured.PageSize);
         packet.WriteInteger(_captured.Holders.Count);
-        foreach (var holder in _captured.Holders)
-        {
+
+        foreach (var holder in _captured.Holders) {
             packet.WriteInteger(holder.Key.Target switch { WiredVariableTarget.Global => 0, WiredVariableTarget.User => 1, WiredVariableTarget.Furni => 2, _ => 3 });
-            packet.WriteInteger(checked((int)holder.Key.HolderId)); packet.WriteString(holder.Name); packet.WriteInteger(holder.Value.Value);
-            WriteTimestamp(packet, holder.Value.CreatedAt); WriteTimestamp(packet, holder.Value.UpdatedAt);
+            packet.WriteInteger(checked((int)holder.Key.HolderId));
+            packet.WriteString(holder.Name);
+            packet.WriteInteger(holder.Value.Value);
+            WriteTimestamp(packet, holder.Value.CreatedAt);
+            WriteTimestamp(packet, holder.Value.UpdatedAt);
         }
-        packet.WriteInteger(userFilter); packet.WriteInteger(sort);
+
+        packet.WriteInteger(userFilter);
+        packet.WriteInteger(sort);
     }
     internal static void WriteTimestamp(IOutgoingPacket packet, DateTimeOffset? timestamp)
     {
         var milliseconds = timestamp?.ToUnixTimeMilliseconds() ?? 0;
-        packet.WriteInteger(unchecked((int)(milliseconds >> 32))); packet.WriteInteger(unchecked((int)milliseconds));
+        packet.WriteInteger(unchecked((int)(milliseconds >> 32)));
+        packet.WriteInteger(unchecked((int)milliseconds));
         packet.WriteString(timestamp is not null && milliseconds > 0
             ? timestamp.Value.UtcDateTime.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) : "");
     }

@@ -12,12 +12,15 @@ internal class GetModeratorUserChatlogEvent(IModeratorHistoryService history) : 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var result = history.GetUserChatlog(packet.ReadInt());
-        if (result == null)
-        {
+
+        if (result == null) {
             session.SendNotification("Unable to load info for user.");
+
             return Task.CompletedTask;
         }
+
         session.Send(new ModeratorUserChatlogComposer(result));
+
         return Task.CompletedTask;
     }
 }

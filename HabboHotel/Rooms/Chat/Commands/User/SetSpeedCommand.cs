@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 
@@ -12,16 +12,21 @@ internal class SetSpeedCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (!room.CheckRights(session, true))
-            return;
-        if (!parameters.Any())
-        {
-            session.SendWhisper("Please enter a value for the roller speed.");
+        if (!room.CheckRights(session, true)) {
             return;
         }
-        if (int.TryParse(parameters[0], out var speed))
+
+        if (!parameters.Any()) {
+            session.SendWhisper("Please enter a value for the roller speed.");
+
+            return;
+        }
+
+        if (int.TryParse(parameters[0], out var speed)) {
             session.GetHabbo().CurrentRoom.GetRoomItemHandler().SetSpeed(speed);
-        else
+        }
+        else {
             session.SendWhisper("Invalid amount, please enter a valid number.");
+        }
     }
 }

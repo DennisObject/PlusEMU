@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Navigator;
+namespace Plus.HabboHotel.Navigator;
 
 public class FeaturedRoom
 {

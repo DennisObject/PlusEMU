@@ -161,14 +161,19 @@ public sealed class RoomChatServiceTests
         var world = new World();
         var first = Now.AddMilliseconds(125);
 
-        for (var i = 0; i < 5; i++)
+        for (var i = 0; i < 5; i++) {
             Assert.False(world.SenderUser.IncrementAndCheckFlood(first, out _));
+        }
+
         Assert.True(world.SenderUser.IncrementAndCheckFlood(first, out var firstMute));
         Assert.Equal(first.AddSeconds(firstMute), world.Sender.GetHabbo().FloodUntil);
 
         var refreshed = first.AddMinutes(1);
-        for (var i = 0; i < 5; i++)
+
+        for (var i = 0; i < 5; i++) {
             Assert.False(world.SenderUser.IncrementAndCheckFlood(refreshed, out _));
+        }
+
         Assert.True(world.SenderUser.IncrementAndCheckFlood(refreshed, out var refreshedMute));
         Assert.Equal(refreshed.AddSeconds(refreshedMute), world.Sender.GetHabbo().FloodUntil);
     }
@@ -207,15 +212,14 @@ public sealed class RoomChatServiceTests
         await new TriggerHabbiconEvent(new RoomHabbiconService(store, world.Rewards, clock)).Parse(world.Sender, packet);
         Assert.False(packet.HasDataRemaining());
         Assert.Equal(1, clock.Calls);
-        if (allowed)
-        {
+
+        if (allowed) {
             Assert.Equal(new[] { 61 }, store.Used);
             Assert.Equal(new[] { RewardTrackActions.UseHabbicon }, world.Rewards.Progresses);
             Assert.Equal(Now, habbo.LastHabbiconTriggeredAt);
             Assert.Equal(new[] { ServerPacketHeader.RoomUseHabbiconComposer, ServerPacketHeader.UserHabbiconsComposer }, world.SenderPackets.Select(p => p.Header));
         }
-        else
-        {
+        else {
             Assert.Empty(store.Used);
             Assert.Empty(world.Rewards.Progresses);
             Assert.Empty(world.SenderPackets);
@@ -363,13 +367,21 @@ public sealed class RoomChatServiceTests
 
             (Sender, SenderPackets) = Client(new Habbo
             {
-                Id = 7, Username = "Alice", CurrentRoom = _room, Effects = new EffectsComponent(clock),
-                IgnoresComponent = new([]), ReceiveWhispers = true
+                Id = 7,
+                Username = "Alice",
+                CurrentRoom = _room,
+                Effects = new EffectsComponent(clock),
+                IgnoresComponent = new([]),
+                ReceiveWhispers = true
             });
             (Recipient, RecipientPackets) = Client(new Habbo
             {
-                Id = 8, Username = "Bob", CurrentRoom = _room, Effects = new EffectsComponent(clock),
-                IgnoresComponent = new([]), ReceiveWhispers = true
+                Id = 8,
+                Username = "Bob",
+                CurrentRoom = _room,
+                Effects = new EffectsComponent(clock),
+                IgnoresComponent = new([]),
+                ReceiveWhispers = true
             });
             SenderUser = new RoomUser(7, 1, 11, _room, Sender, TestChatEmotions.Unused, TestRewardProgress.Unused);
             Add(users, SenderUser);
@@ -388,13 +400,14 @@ public sealed class RoomChatServiceTests
         {
             var item = new Item
             {
-                Id = _nextItemId++, ExtraData = new LegacyDataFormat { Data = "1" },
+                Id = _nextItemId++,
+                ExtraData = new LegacyDataFormat { Data = "1" },
                 Definition = new() { ItemName = "wf_trg_says_something" }
             };
             _floorItems[item.Id] = item;
             var trigger = _wired.CreateConfiguredBox(item)!;
             Assert.True(trigger.TryValidateConfiguration(new()
-                { Text = message, IntParams = [1, 1, 0] }, out var configuration, out var error), error);
+            { Text = message, IntParams = [1, 1, 0] }, out var configuration, out var error), error);
             trigger.ApplyConfiguration(configuration);
             Assert.True(_wired.AddBox(trigger));
         }
@@ -403,6 +416,7 @@ public sealed class RoomChatServiceTests
         {
             var (client, sent) = HabbiconTestSupport.Client(habbo);
             habbo.Client = client;
+
             return (client, sent);
         }
 
@@ -420,18 +434,32 @@ public sealed class RoomChatServiceTests
         public (string Message, int Colour) ShoutRequest { get; private set; }
         public (string Parameters, int Colour) WhisperRequest { get; private set; }
         public Task Chat(GameClient session, string message, int colour)
-        { ChatRequest = (message, colour); return Task.CompletedTask; }
+        {
+            ChatRequest = (message, colour);
+
+            return Task.CompletedTask;
+        }
         public Task Shout(GameClient session, string message, int colour)
-        { ShoutRequest = (message, colour); return Task.CompletedTask; }
+        {
+            ShoutRequest = (message, colour);
+
+            return Task.CompletedTask;
+        }
         public Task Whisper(GameClient session, string parameters, int colour)
-        { WhisperRequest = (parameters, colour); return Task.CompletedTask; }
+        {
+            WhisperRequest = (parameters, colour);
+
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class RecordingLogs : IChatlogManager
     {
         public List<ChatlogEntry> Entries { get; } = [];
         public void StoreChatlog(ChatlogEntry entry) => Entries.Add(entry);
-        public void FlushAndSave() { }
+        public void FlushAndSave()
+        {
+        }
     }
 
     private sealed class RecordingCommands : ICommandManager
@@ -439,18 +467,28 @@ public sealed class RoomChatServiceTests
         public bool Handled { get; set; }
         public List<string> Messages { get; } = [];
         public Task<bool> Parse(GameClient session, string message)
-        { Messages.Add(message); return Task.FromResult(Handled); }
+        {
+            Messages.Add(message);
+
+            return Task.FromResult(Handled);
+        }
         public void Register(string commandText, ICommandBase command) => throw new NotSupportedException();
         public void LogCommand(int userId, string data, string machineId) => throw new NotSupportedException();
         public bool TryGetCommand(string command, out ICommandBase? chatCommand)
-        { chatCommand = null; return false; }
+        {
+            chatCommand = null;
+
+            return false;
+        }
     }
 
     private sealed class RecordingFilter : IWordFilterManager
     {
         public bool Banned { get; set; }
         public string Replacement { get; set; } = "";
-        public void Init() { }
+        public void Init()
+        {
+        }
         public string CheckMessage(string message) => Replacement.Length == 0 ? message : Replacement;
         public bool CheckBannedWords(string message) => Banned;
         public bool IsFiltered(string message) => Banned;
@@ -458,10 +496,16 @@ public sealed class RoomChatServiceTests
 
     private sealed class Styles : IChatStyleManager
     {
-        public void Init() { }
+        public void Init()
+        {
+        }
         public IReadOnlyList<int> GetAllowedStyleIds(Plus.HabboHotel.Permissions.UserAccess access) => [0, 1, 2, 3];
         public bool TryGetStyle(int id, out ChatStyle? style)
-        { style = new(id, "test", ""); return true; }
+        {
+            style = new(id, "test", "");
+
+            return true;
+        }
     }
 
     private sealed class Settings : ISettingsManager
@@ -502,7 +546,11 @@ public sealed class RoomChatServiceTests
     {
         public int Calls { get; set; }
         public override DateTimeOffset GetUtcNow()
-        { Calls++; return now; }
+        {
+            Calls++;
+
+            return now;
+        }
         public override TimeZoneInfo LocalTimeZone => zone;
     }
 
@@ -513,12 +561,15 @@ public sealed class RoomChatServiceTests
         {
             var manager = DispatchProxy.Create<IGameClientManager, ClientDirectory>();
             directory = (ClientDirectory)(object)manager;
+
             return manager;
         }
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == nameof(IGameClientManager.GetClientByUserId))
+            if (targetMethod?.Name == nameof(IGameClientManager.GetClientByUserId)) {
                 return ByUserId.GetValueOrDefault((int)args![0]!);
+            }
+
             return targetMethod?.ReturnType.IsValueType == true ? Activator.CreateInstance(targetMethod.ReturnType) : null;
         }
     }
@@ -529,15 +580,17 @@ public sealed class RoomChatServiceTests
         public static (IModerationManager Manager, RecordingModeration Recorder) Create()
         {
             var manager = DispatchProxy.Create<IModerationManager, RecordingModeration>();
+
             return (manager, (RecordingModeration)(object)manager);
         }
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == nameof(IModerationManager.BanUser))
-            {
+            if (targetMethod?.Name == nameof(IModerationManager.BanUser)) {
                 Expiry = (DateTimeOffset?)args![4];
+
                 return Task.CompletedTask;
             }
+
             return targetMethod?.ReturnType.IsValueType == true ? Activator.CreateInstance(targetMethod.ReturnType) : null;
         }
     }

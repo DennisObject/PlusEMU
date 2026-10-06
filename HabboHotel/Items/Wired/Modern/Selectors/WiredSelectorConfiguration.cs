@@ -9,8 +9,10 @@ public static class WiredSelectorConfiguration
 {
     public static WiredConfiguration Normalize(string name, WiredConfiguration c)
     {
-        if (!WiredSelectorModule.Names.Contains(name, StringComparer.Ordinal))
+        if (!WiredSelectorModule.Names.Contains(name, StringComparer.Ordinal)) {
             throw new ArgumentException("Not a supported selector", nameof(name));
+        }
+
         int P(int index, int fallback = 0) => WiredSelectorSources.Param(c, index, fallback);
         int Enum(int index, int min, int max, int fallback = 0) =>
             P(index, fallback) is var value && value >= min && value <= max ? value : fallback;
@@ -47,11 +49,15 @@ public static class WiredSelectorConfiguration
         fields[filter] = fields[filter] == 1 ? 1 : 0;
         fields[invert] = fields[invert] == 1 ? 1 : 0;
         var text = c.Text;
-        if (name == "wf_slc_furni_altitude")
-        {
-            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value)) value = 0;
+
+        if (name == "wf_slc_furni_altitude") {
+            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value)) {
+                value = 0;
+            }
+
             text = Math.Max(0, value).ToString("R", CultureInfo.InvariantCulture);
         }
+
         return c with { IntParams = fields.ToImmutableArray(), Text = text };
     }
 
@@ -59,11 +65,19 @@ public static class WiredSelectorConfiguration
     {
         int P(int index) => WiredSelectorSources.Param(c, index);
         var count = P(5);
-        if (count < 0 || count > 64 || count > 0 && c.IntParams.Length < 6 + count * 2)
+
+        if (count < 0 || count > 64 || count > 0 && c.IntParams.Length < 6 + count * 2) {
             throw new ArgumentException("Neighborhood requires complete offsets, at most 64 tiles");
+        }
+
         var fields = new int[6 + count * 2];
-        for (var i = 0; i < fields.Length; i++) fields[i] = P(i);
+
+        for (var i = 0; i < fields.Length; i++) {
+            fields[i] = P(i);
+        }
+
         fields[0] = fields[0] is >= 0 and <= 5 ? fields[0] : 0;
+
         return fields;
     }
 }

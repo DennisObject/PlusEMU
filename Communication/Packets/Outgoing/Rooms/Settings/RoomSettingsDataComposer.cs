@@ -17,7 +17,11 @@ public sealed class RoomSettingsDataComposer(RoomSettingsSnapshot data) : IServe
         packet.WriteInteger(data.UsersMax);
         packet.WriteInteger(data.CapacityLimit);
         packet.WriteInteger(data.Tags.Length);
-        foreach (var tag in data.Tags.ToArray()) packet.WriteString(tag);
+
+        foreach (var tag in data.Tags.ToArray()) {
+            packet.WriteString(tag);
+        }
+
         packet.WriteInteger(data.TradeSettings); //Trade
         packet.WriteInteger(data.AllowPets ? 1 : 0); // allows pets in room - pet system lacking, so always off
         packet.WriteInteger(data.AllowPetsEating ? 1 : 0); // allows pets to eat your food - pet system lacking, so always off

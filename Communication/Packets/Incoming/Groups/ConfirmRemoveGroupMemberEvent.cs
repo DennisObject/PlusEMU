@@ -9,6 +9,7 @@ internal class ConfirmRemoveGroupMemberEvent(IGroupRemovalService groups) : IPac
     {
         var groupId = packet.ReadInt();
         var userId = packet.ReadInt();
+
         return groups.ConfirmRemove(session, groupId, userId);
     }
 }

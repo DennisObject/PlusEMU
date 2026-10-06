@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Engine;

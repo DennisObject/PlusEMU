@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -9,6 +9,7 @@ internal sealed class PickUpPetEvent(IPetPlacementService pets) : RoomPacketEven
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         pets.PickUp(room, session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

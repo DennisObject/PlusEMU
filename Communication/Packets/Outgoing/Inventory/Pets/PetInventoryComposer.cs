@@ -11,15 +11,19 @@ public sealed class PetInventoryComposer(PetInventorySnapshot data) : IServerPac
         packet.WriteInteger(1);
         packet.WriteInteger(0);
         packet.WriteInteger(data.Pets.Length);
-        foreach (var pet in data.Pets)
-        {
+
+        foreach (var pet in data.Pets) {
             packet.WriteInteger(pet.Id);
             packet.WriteString(pet.Name);
             packet.WriteInteger(pet.Type);
             packet.WriteInteger(pet.Race);
             packet.WriteString(pet.Color);
             packet.WriteInteger(0);
-            foreach (var part in pet.CustomParts) packet.WriteInteger(part);
+
+            foreach (var part in pet.CustomParts) {
+                packet.WriteInteger(part);
+            }
+
             packet.WriteInteger(pet.Level);
         }
     }

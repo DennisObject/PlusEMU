@@ -17,6 +17,7 @@ public class CatalogAdminLoadOfferEvent : IPacketEvent
     {
         int offerId = packet.ReadInt();
         CatalogAdminResponder.Read(session, () => new CatalogAdminOfferDetailsComposer(_catalogAdmin.LoadOffer(session.GetHabbo(), offerId)));
+
         return Task.CompletedTask;
     }
 }

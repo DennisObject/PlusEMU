@@ -8,6 +8,7 @@ internal sealed class StartQuestEvent(IQuestProgressService quests) : IPacketEve
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         quests.Start(session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

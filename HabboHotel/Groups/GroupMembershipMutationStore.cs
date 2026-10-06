@@ -25,9 +25,13 @@ public sealed class GroupMembershipMutationStore(IDatabase database) : IGroupMem
         var removed = connection.Execute(
             "DELETE FROM group_requests WHERE user_id = @userId AND group_id = @groupId LIMIT 1",
             new { userId, groupId }, transaction);
-        if (inserted != 1 || removed != 1)
+
+        if (inserted != 1 || removed != 1) {
             return false;
+        }
+
         transaction.Commit();
+
         return true;
     }
 
@@ -39,17 +43,22 @@ public sealed class GroupMembershipMutationStore(IDatabase database) : IGroupMem
         var updated = connection.Execute(
             "UPDATE group_memberships SET `rank` = @rank WHERE user_id = @userId AND group_id = @groupId",
             new { userId, groupId, rank = isAdmin ? 1 : 0 }, transaction);
+
         if (updated != 1 && !connection.ExecuteScalar<bool>(
                 "SELECT EXISTS(SELECT 1 FROM group_memberships WHERE user_id = @userId AND group_id = @groupId)",
-                new { userId, groupId }, transaction))
+                new { userId, groupId }, transaction)) {
             return false;
+        }
+
         transaction.Commit();
+
         return true;
     }
 
     public bool Decline(int groupId, int userId)
     {
         using var connection = database.Connection();
+
         return connection.Execute(
             "DELETE FROM group_requests WHERE user_id = @userId AND group_id = @groupId LIMIT 1",
             new { userId, groupId }) == 1;

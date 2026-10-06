@@ -44,7 +44,11 @@ public sealed class ModeratorActionStore(IDatabase database) : IModeratorActionS
                 state = CASE WHEN @locked THEN 'locked' ELSE state END, tags = ''
             WHERE id = @roomId LIMIT 1
             """, new { roomId, rename, locked, caption = ModeratorActionService.InappropriateRoomText }, transaction);
-        if (endPromotion) connection.Execute("DELETE FROM room_promotions WHERE room_id = @roomId", new { roomId }, transaction);
+
+        if (endPromotion) {
+            connection.Execute("DELETE FROM room_promotions WHERE room_id = @roomId", new { roomId }, transaction);
+        }
+
         transaction.Commit();
     }
 }
@@ -66,25 +70,35 @@ public sealed class ModeratorActionService(IGameClientManager clients, IModerato
     {
         var target = clients.GetClientByUserId(targetId);
         var habbo = target?.GetHabbo();
-        if (habbo == null || !actor.GetHabbo().Access.Outranks(habbo.Access)) return;
+
+        if (habbo == null || !actor.GetHabbo().Access.Outranks(habbo.Access)) {
+            return;
+        }
+
         store.AddCaution(habbo.Id);
         target!.SendNotification(message);
     }
 
     public void Mute(GameClient actor, int targetId, int minutes)
     {
-        if (minutes < 0) return;
+        if (minutes < 0) {
+            return;
+        }
+
         var target = users.GetById(targetId);
-        if (target == null)
-        {
+
+        if (target == null) {
             actor.SendWhisper("An error occoured whilst finding that user in the database.");
+
             return;
         }
-        if (!actor.GetHabbo().Access.Outranks(target.Access))
-        {
+
+        if (!actor.GetHabbo().Access.Outranks(target.Access)) {
             actor.SendWhisper("Oops, you cannot mute that user.");
+
             return;
         }
+
         var seconds = (long)minutes * 60;
         store.SetMute(target.Id, seconds);
         target.TimeMuted = seconds;
@@ -96,34 +110,64 @@ public sealed class ModeratorActionService(IGameClientManager clients, IModerato
         var target = clients.GetClientByUserId(targetId);
         var habbo = target?.GetHabbo();
         var room = habbo?.CurrentRoom;
-        if (habbo == null || room == null || habbo.Id == actor.GetHabbo().Id) return;
-        if (!actor.GetHabbo().Access.Outranks(habbo.Access))
-        {
-            actor.SendNotification(language.TryGetValue("moderation.kick.disallowed"));
+
+        if (habbo == null || room == null || habbo.Id == actor.GetHabbo().Id) {
             return;
         }
+
+        if (!actor.GetHabbo().Access.Outranks(habbo.Access)) {
+            actor.SendNotification(language.TryGetValue("moderation.kick.disallowed"));
+
+            return;
+        }
+
         room.GetRoomUserManager().RemoveUserFromRoom(target!, true);
     }
 
     public void ModerateRoom(GameClient actor, ModerateRoomRequest request)
     {
-        if (!rooms.TryGetRoom(request.RoomId, out var room)) return;
+        if (!rooms.TryGetRoom(request.RoomId, out var room)) {
+            return;
+        }
+
         var habbo = actor.GetHabbo();
-        if (room.OwnerId != habbo.Id && !access.Outranks(habbo.Id, room.OwnerId)) return;
+
+        if (room.OwnerId != habbo.Id && !access.Outranks(habbo.Id, room.OwnerId)) {
+            return;
+        }
+
         store.ModerateRoom(room.Id, request.Rename, request.Lock, room.HasActivePromotion);
-        if (request.Rename) { room.Name = InappropriateRoomText; room.Description = InappropriateRoomText; }
-        if (request.Lock) room.Access = RoomAccess.Doorbell;
+
+        if (request.Rename) {
+            room.Name = InappropriateRoomText;
+            room.Description = InappropriateRoomText;
+        }
+
+        if (request.Lock) {
+            room.Access = RoomAccess.Doorbell;
+        }
+
         room.ClearTags();
         room.EndPromotion();
         room.SendPacket(new RoomSettingsSavedComposer(room.Id));
         room.SendPacket(new RoomInfoUpdatedComposer(room.Id));
-        if (!request.KickAll) return;
-        foreach (var user in room.GetRoomUserManager().GetUserList().ToList())
-        {
-            if (user == null || user.IsBot) continue;
+
+        if (!request.KickAll) {
+            return;
+        }
+
+        foreach (var user in room.GetRoomUserManager().GetUserList().ToList()) {
+            if (user == null || user.IsBot) {
+                continue;
+            }
+
             var client = user.GetClient();
             var target = client?.GetHabbo();
-            if (target == null || target.Id == habbo.Id || !habbo.Access.Outranks(target.Access)) continue;
+
+            if (target == null || target.Id == habbo.Id || !habbo.Access.Outranks(target.Access)) {
+                continue;
+            }
+
             room.GetRoomUserManager().RemoveUserFromRoom(client!, true);
         }
     }

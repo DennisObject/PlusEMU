@@ -21,6 +21,7 @@ internal class HousekeepingForceDisconnectUserEvent : IPacketEvent
         var userId = packet.ReadInt();
         var reason = packet.ReadString();
         _runner.Run(session, "user.disconnect", HousekeepingRights.Sanction, actor => _users.Disconnect(actor, userId, reason));
+
         return Task.CompletedTask;
     }
 }

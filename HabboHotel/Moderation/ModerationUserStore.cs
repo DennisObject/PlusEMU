@@ -40,12 +40,14 @@ public sealed class ModerationUserStore(IDatabase database) : IModerationUserSto
     public ModerationUserData? Find(int userId)
     {
         using var connection = database.Connection();
+
         return connection.QuerySingleOrDefault<ModerationUserData>(Select + "WHERE u.id=@userId LIMIT 1", new { userId });
     }
 
     public ModerationUserData? Find(string username)
     {
         using var connection = database.Connection();
+
         return connection.QuerySingleOrDefault<ModerationUserData>(Select + "WHERE u.username=@username LIMIT 1", new { username });
     }
 }

@@ -12,19 +12,20 @@ internal static class CatalogAdminResponder
     public static void Send(GameClient session, string action, CatalogAdminEnvelope envelope, CatalogAdminOutcome outcome)
     {
         CatalogAdminSmartSave? smartSave = null;
-        if (SmartSaveActions.Contains(action) && envelope.OperationId.Length is > 0 and <= CatalogAdminEnvelope.MaxOperationIdLength)
+
+        if (SmartSaveActions.Contains(action) && envelope.OperationId.Length is > 0 and <= CatalogAdminEnvelope.MaxOperationIdLength) {
             smartSave = new(envelope.OperationId, action, outcome, session.GetHabbo().Username);
+        }
+
         session.Send(new CatalogAdminResultComposer(outcome.Success, outcome.Message, smartSave));
     }
 
     public static void Read(GameClient session, Func<IServerPacket> read)
     {
-        try
-        {
+        try {
             session.Send(read());
         }
-        catch (CatalogAdminRejected rejected)
-        {
+        catch (CatalogAdminRejected rejected) {
             session.Send(new CatalogAdminResultComposer(false, rejected.Message));
         }
     }

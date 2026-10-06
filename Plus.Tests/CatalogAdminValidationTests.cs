@@ -119,8 +119,17 @@ public class CatalogAdminValidationTests
     [Fact]
     public void PageStringsKeepPositionsTheEditorDoesNotKnow()
     {
-        var row = new CatalogPageRow { Id = 9, ParentId = -1, Caption = "Old", PageLink = "old", PageLayout = "default_3x3", RequiredPermission = EditorTestSupport.RestrictedPagePermission,
-            PageStrings1 = "head|teaser", PageStrings2 = "one|two|details|teaser text|fifth" };
+        var row = new CatalogPageRow
+        {
+            Id = 9,
+            ParentId = -1,
+            Caption = "Old",
+            PageLink = "old",
+            PageLayout = "default_3x3",
+            RequiredPermission = EditorTestSupport.RestrictedPagePermission,
+            PageStrings1 = "head|teaser",
+            PageStrings2 = "one|two|details|teaser text|fifth"
+        };
 
         var page = CatalogAdminMapping.ToPage(row);
         Assert.Equal(("NORMAL", "head", "teaser", "", "one", "two", "details", "teaser text", EditorTestSupport.RestrictedPagePermission),

@@ -8,6 +8,7 @@ public sealed class GetSellablePetPalettesEvent(ICatalogBrowsingService catalog)
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         catalog.ShowPetPalettes(session, packet.ReadString());
+
         return Task.CompletedTask;
     }
 }

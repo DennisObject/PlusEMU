@@ -1,11 +1,10 @@
-﻿namespace Plus.HabboHotel.Rooms;
+namespace Plus.HabboHotel.Rooms;
 
 public static class RoomAccessUtility
 {
     public static int GetRoomAccessPacketNum(RoomAccess access)
     {
-        switch (access)
-        {
+        switch (access) {
             default:
             case RoomAccess.Open:
                 return 0;
@@ -20,8 +19,7 @@ public static class RoomAccessUtility
 
     public static RoomAccess ToRoomAccess(string id)
     {
-        switch (id)
-        {
+        switch (id) {
             default:
             case "open":
                 return RoomAccess.Open;
@@ -36,8 +34,7 @@ public static class RoomAccessUtility
 
     public static RoomAccess ToRoomAccess(int id)
     {
-        switch (id)
-        {
+        switch (id) {
             default:
             case 0:
                 return RoomAccess.Open;

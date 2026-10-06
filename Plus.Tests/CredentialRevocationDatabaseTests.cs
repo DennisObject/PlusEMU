@@ -106,8 +106,10 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     public async Task ThePasswordAndItsGenerationAreReadInOneSnapshot()
     {
         var userId = User("secret");
-        using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString))
+
+        using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString)) {
             connection.Execute("UPDATE users SET credential_generation = 5 WHERE id = @userId", new { userId });
+        }
 
         var account = await _accounts.FindByUsername(await Name(userId));
 
@@ -170,8 +172,8 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     {
         var userId = User();
         var issuer = Issuer();
-        for (var round = 0; round < 200; round++)
-        {
+
+        for (var round = 0; round < 200; round++) {
             var ticket = await SessionlessTicket(userId);
 
             var exchange = Task.Run(() => issuer.ExchangeTicket(ticket));
@@ -221,6 +223,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
         await connection.ExecuteAsync("UPDATE users SET auth_ticket = @ticket, auth_ticket_expires_at = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 300 SECOND), auth_ticket_exchanged = 0, auth_ticket_session = NULL WHERE id = @userId",
             new { ticket, userId });
+
         return ticket;
     }
 
@@ -303,6 +306,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     private static async Task<string> LastAddress(int userId)
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
+
         return await connection.QuerySingleAsync<string>("SELECT ip_last FROM users WHERE id = @userId", new { userId });
     }
 
@@ -352,12 +356,14 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     {
         var id = AuthTestDatabase.InsertUser(AuthTestDatabase.UniqueName("gen"), password);
         _users.Add(id);
+
         return id;
     }
 
     private static async Task<string> Name(int id)
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
+
         return await connection.QuerySingleAsync<string>("SELECT username FROM users WHERE id = @id", new { id });
     }
 
@@ -377,6 +383,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         {
             Entered.TrySetResult();
             await Release.Task;
+
             return await inner.UsernameById(userId);
         }
 
@@ -399,6 +406,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
             var owner = await inner.Exchange(ticket);
             Entered.TrySetResult();
             await Release.Task;
+
             return owner;
         }
 
@@ -407,6 +415,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
             var owner = await inner.ExchangeAt(ticket, instant);
             Entered.TrySetResult();
             await Release.Task;
+
             return owner;
         }
 
@@ -430,6 +439,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         {
             Entered.TrySetResult();
             await Release.Task;
+
             return null;
         }
 

@@ -13,8 +13,8 @@ public sealed class BuildersClubRemovalDatabaseTests
         connection.Open();
         var schema = "builders_club_removal_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
-        try
-        {
+
+        try {
             connection.Execute($"USE `{schema}`");
             connection.Execute("""
                 CREATE TABLE catalog_pages (
@@ -75,8 +75,7 @@ public sealed class BuildersClubRemovalDatabaseTests
                 WHERE table_schema = DATABASE() AND table_name = 'catalog_admin_log' AND column_name = 'catalog_type'
                 """));
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }
@@ -89,8 +88,8 @@ public sealed class BuildersClubRemovalDatabaseTests
         connection.Open();
         var schema = "builders_club_pristine_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}` CHARACTER SET utf8mb4");
-        try
-        {
+
+        try {
             connection.Execute($"USE `{schema}`");
             connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql")), commandTimeout: 180);
 
@@ -106,8 +105,7 @@ public sealed class BuildersClubRemovalDatabaseTests
             Assert.True(connection.QuerySingle<int>("SELECT COUNT(*) FROM furniture WHERE LEFT(item_name, 3) = 'bc_'") > 0);
             Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM items WHERE id = 1"));
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }

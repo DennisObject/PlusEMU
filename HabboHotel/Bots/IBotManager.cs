@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Rooms.AI.Responses;
 
 namespace Plus.HabboHotel.Bots;

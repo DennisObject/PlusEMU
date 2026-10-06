@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Incoming.Rooms;
+using Plus.Communication.Packets.Incoming.Rooms;
 using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
@@ -12,6 +12,7 @@ internal class CheckGnomeNameEvent(IGnomePackageService packages) : RoomPacketEv
         var itemId = packet.ReadUInt();
         var petName = packet.ReadString();
         packages.Open(room, session, itemId, petName);
+
         return Task.CompletedTask;
     }
 }

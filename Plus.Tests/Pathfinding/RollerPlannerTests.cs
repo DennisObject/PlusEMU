@@ -25,8 +25,10 @@ public partial class PlacedFurniRoomTests
         PrepareRollerChain(8, reverseIds);
         var cargo = PlannerCargo(300, 1, 1);
         InstallRollerChainEngine(engine);
-        var head = PlannerActor(1, 2, 1, .5); var tail = PlannerActor(2, 0, 1, .5);
-        StartPlannerRollers(); ExecutorTick();
+        var head = PlannerActor(1, 2, 1, .5);
+        var tail = PlannerActor(2, 0, 1, .5);
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal((1, 1, .5), (tail.X, tail.Y, tail.Z));
         Assert.Equal((2, 1, .5), (cargo.GetX, cargo.GetY, cargo.GetZ));
         Assert.Equal((3, 1, .5), (head.X, head.Y, head.Z));
@@ -37,12 +39,16 @@ public partial class PlacedFurniRoomTests
     [InlineData(PathfindingEngine.V2)]
     public void StationaryElevatedCargoHoldsEveryUpstreamLoad(PathfindingEngine engine)
     {
-        foreach (var x in new[] { 1, 2, 3 }) PlannerRoller((uint)(10 + x), x, 1, 2);
+        foreach (var x in new[] { 1, 2, 3 }) {
+            PlannerRoller((uint)(10 + x), x, 1, 2);
+        }
+
         var elevated = ExecutorFloor(20, 3, 1, z: .5, height: 1);
         var cargo = PlannerCargo(21, 1, 1);
         InstallRollerChainEngine(engine);
         var actor = PlannerActor(1, 2, 1, .5);
-        StartPlannerRollers(); ExecutorTick();
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal((3, 1, .5), (elevated.GetX, elevated.GetY, elevated.GetZ));
         Assert.Equal((2, 1, .5), (actor.X, actor.Y, actor.Z));
         Assert.Equal((1, 1, .5), (cargo.GetX, cargo.GetY, cargo.GetZ));
@@ -56,12 +62,16 @@ public partial class PlacedFurniRoomTests
     [InlineData(PathfindingEngine.V2, true, true)]
     public void CompetingFeedsAdmitOnlyTheLowerRollerId(PathfindingEngine engine, bool westWins, bool cargo)
     {
-        PlannerRoller(westWins ? 10u : 11u, 0, 1, 2); PlannerRoller(westWins ? 11u : 10u, 1, 0, 4);
-        var westCargo = cargo ? PlannerCargo(30, 0, 1) : null; var northCargo = cargo ? PlannerCargo(31, 1, 0) : null;
+        PlannerRoller(westWins ? 10u : 11u, 0, 1, 2);
+        PlannerRoller(westWins ? 11u : 10u, 1, 0, 4);
+        var westCargo = cargo ? PlannerCargo(30, 0, 1) : null;
+        var northCargo = cargo ? PlannerCargo(31, 1, 0) : null;
         InstallRollerChainEngine(engine);
         var observer = PlannerActor(1, 3, 3, 0);
-        var west = cargo ? null : PlannerActor(2, 0, 1, .5); var north = cargo ? null : PlannerActor(3, 1, 0, .5);
-        StartPlannerRollers(); ExecutorTick();
+        var west = cargo ? null : PlannerActor(2, 0, 1, .5);
+        var north = cargo ? null : PlannerActor(3, 1, 0, .5);
+        StartPlannerRollers();
+        ExecutorTick();
         var westPosition = cargo ? (westCargo!.GetX, westCargo.GetY, westCargo.GetZ) : (west!.X, west.Y, west.Z);
         var northPosition = cargo ? (northCargo!.GetX, northCargo.GetY, northCargo.GetZ) : (north!.X, north.Y, north.Z);
         Assert.Equal(westWins ? (1, 1, 0d) : (0, 1, .5), westPosition);
@@ -77,8 +87,8 @@ public partial class PlacedFurniRoomTests
     {
         var loop = PlannerFullLoop(engine, reverseIds);
         StartPlannerRollers();
-        for (var cycle = 1; cycle <= 4; cycle++)
-        {
+
+        for (var cycle = 1; cycle <= 4; cycle++) {
             ExecutorTick();
             Assert.Equal(loop.Expected(cycle), loop.Positions());
             Assert.Equal(4, PlannerSlides());
@@ -94,8 +104,10 @@ public partial class PlacedFurniRoomTests
         PlannerLoopRollers(reverseIds);
         var cargo = PlannerCargo(30, 2, 1);
         InstallRollerChainEngine(engine);
-        var first = PlannerActor(1, 1, 1, .5); var second = PlannerActor(2, 2, 2, .5);
-        StartPlannerRollers(); ExecutorTick();
+        var first = PlannerActor(1, 1, 1, .5);
+        var second = PlannerActor(2, 2, 2, .5);
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal((2, 1, .5), (first.X, first.Y, first.Z));
         Assert.Equal((2, 2, .5), (cargo.GetX, cargo.GetY, cargo.GetZ));
         Assert.Equal((1, 2, .5), (second.X, second.Y, second.Z));
@@ -107,7 +119,8 @@ public partial class PlacedFurniRoomTests
     public void LoopWithOneExternallyBlockedExitStaysUnchanged(PathfindingEngine engine)
     {
         var loop = PlannerFullLoop(engine, false, () => Add(40, 0, 2, z: 1, height: 3, stackable: false, width: 2));
-        StartPlannerRollers(); ExecutorTick();
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal(loop.Expected(0), loop.Positions());
         Assert.Equal(0, PlannerSlides());
     }
@@ -131,8 +144,10 @@ public partial class PlacedFurniRoomTests
     {
         var loop = PlannerFullLoop(engine, false);
         StartPlannerRollers();
-        var walking = loop.Users[1]; walking.IsWalking = true;
-        walking.GoalX = walking.X; walking.GoalY = walking.Y;
+        var walking = loop.Users[1];
+        walking.IsWalking = true;
+        walking.GoalX = walking.X;
+        walking.GoalY = walking.Y;
         ExecutorTick();
         Assert.Equal(loop.Expected(0), loop.Positions());
         Assert.Equal(0, PlannerSlides());
@@ -145,7 +160,8 @@ public partial class PlacedFurniRoomTests
         var loop = PlannerFullLoop(engine, false);
         var observed = new List<string>();
         PlannerObserveWalkOn(() => observed.Add(loop.Positions()));
-        StartPlannerRollers(); ExecutorTick();
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal(loop.Expected(1), loop.Positions());
         Assert.NotEmpty(observed);
         Assert.All(observed, snapshot => Assert.Equal(loop.Expected(1), snapshot));
@@ -159,8 +175,8 @@ public partial class PlacedFurniRoomTests
         var loop = PlannerFullLoop(engine, false, () => PlannerRoller(feederHasLowerId ? 5u : 50u, 0, 1, 2));
         var feeder = PlannerActor(3, 0, 1, .5);
         StartPlannerRollers();
-        for (var cycle = 1; cycle <= 2; cycle++)
-        {
+
+        for (var cycle = 1; cycle <= 2; cycle++) {
             ExecutorTick();
             Assert.Equal(loop.Expected(cycle), loop.Positions());
             Assert.Equal((0, 1, .5), (feeder.X, feeder.Y, feeder.Z));
@@ -194,22 +210,27 @@ public partial class PlacedFurniRoomTests
         var cargo = new[] { first, PlannerCargo(31, 1, 2) };
         arrange?.Invoke();
         InstallRollerChainEngine(engine);
+
         return new([PlannerActor(1, 1, 1, .5), PlannerActor(2, 2, 2, .5)], cargo);
     }
 
     private void PlannerLoopRollers(bool reverseIds)
     {
         var rotations = new[] { 2, 4, 6, 0 };
-        for (var index = 0; index < 4; index++)
+
+        for (var index = 0; index < 4; index++) {
             PlannerRoller((uint)(reverseIds ? 13 - index : 10 + index), PlannerLoopTiles[index].X, PlannerLoopTiles[index].Y, rotations[index]);
+        }
     }
 
     private Item PlannerRoller(uint id, int x, int y, int rotation)
     {
         var roller = Furni(id, InteractionType.Roller, WiredBoxType.None);
-        roller.Definition.Walkable = true; roller.Definition.Height = .5;
+        roller.Definition.Walkable = true;
+        roller.Definition.Height = .5;
         roller.Definition.Width = roller.Definition.Length = 1;
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, roller, x, y, rotation, true, false, false));
+
         return roller;
     }
 
@@ -219,22 +240,39 @@ public partial class PlacedFurniRoomTests
     private RoomUser PlannerActor(int id, int x, int y, double z)
     {
         var client = id == 1 ? _client : new TestClient();
-        if (id != 1) client.SetHabbo(new Habbo { Id = id + 6, Username = $"planner-{id}", CurrentRoom = _room,
-            Access = Plus.HabboHotel.Permissions.UserAccess.Empty });
-        var habbo = client.GetHabbo(); habbo.Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch));
+
+        if (id != 1) {
+            client.SetHabbo(new Habbo
+            {
+                Id = id + 6,
+                Username = $"planner-{id}",
+                CurrentRoom = _room,
+                Access = Plus.HabboHotel.Permissions.UserAccess.Empty
+            });
+        }
+
+        var habbo = client.GetHabbo();
+        habbo.Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch));
         habbo.HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
         var actor = new RoomUser(habbo.Id, RoomId, id, _room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { UserId = habbo.Id, InternalRoomId = id, X = x, Y = y, Z = z };
         var roster = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(_room.GetRoomUserManager())!;
         Assert.True(roster.TryAdd(id, actor));
-        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) navigation.Admit(actor);
-        else _room.GetGameMap().AddUserToMap(actor, new(x, y));
+
+        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) {
+            navigation.Admit(actor);
+        }
+        else {
+            _room.GetGameMap().AddUserToMap(actor, new(x, y));
+        }
+
         return actor;
     }
 
     private void StartPlannerRollers()
     {
-        ExecutorTick(); EnableExecutorRollers();
+        ExecutorTick();
+        EnableExecutorRollers();
     }
 
     private int PlannerSlides() => _client.Packets.Count(packet => packet.Header == ServerPacketHeader.SlideObjectBundleComposer);
@@ -242,7 +280,8 @@ public partial class PlacedFurniRoomTests
     private void PlannerObserveWalkOn(Action observe)
     {
         var item = Furni(900, InteractionType.WiredTrigger, WiredBoxType.TriggerWalkOnFurni);
-        item.Definition.Height = 0; item.Definition.Width = item.Definition.Length = 1;
+        item.Definition.Height = 0;
+        item.Definition.Width = item.Definition.Length = 1;
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, item, 3, 3, 0, true, false, false));
         Assert.True(_room.GetWired().AddBox(new PlannerWalkOnObserver(_room, item, observe)));
     }
@@ -260,6 +299,7 @@ public partial class PlacedFurniRoomTests
         public bool Execute(params object[] arguments)
         {
             observe();
+
             return false;
         }
     }

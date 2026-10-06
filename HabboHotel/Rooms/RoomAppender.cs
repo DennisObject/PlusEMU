@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Navigator;
 
@@ -9,6 +9,7 @@ internal static class RoomAppender
     public static RoomWireData Capture(RoomData data, INavigatorManager navigator)
     {
         navigator.TryGetFeaturedRoom(data.Id, out var featured);
+
         return new(data.Id, data.Name, data.OwnerId, data.OwnerName, RoomAccessUtility.GetRoomAccessPacketNum(data.Access), data.UsersNow, data.UsersMax,
             data.Description, data.TradeSettings, data.Score, data.Category, data.Tags.ToImmutableArray(), data.Type == "private", data.AllowPets,
             featured?.Image, data.Group == null ? null : new(data.Group.Id, data.Group.Name, data.Group.Badge),
@@ -30,27 +31,46 @@ internal static class RoomAppender
         packet.WriteInteger(0); //Top rated room rank.
         packet.WriteInteger(data.Category);
         packet.WriteInteger(data.Tags.Length);
-        foreach (var tag in data.Tags) packet.WriteString(tag);
+
+        foreach (var tag in data.Tags) {
+            packet.WriteString(tag);
+        }
+
         var roomType = 0;
-        if (data.Group != null)
+
+        if (data.Group != null) {
             roomType += 2;
-        if (data.Promotion != null)
+        }
+
+        if (data.Promotion != null) {
             roomType += 4;
-        if (data.IsPrivate)
+        }
+
+        if (data.IsPrivate) {
             roomType += 8;
-        if (data.AllowPets)
+        }
+
+        if (data.AllowPets) {
             roomType += 16;
-        if (data.FeaturedImage != null) roomType += 1;
+        }
+
+        if (data.FeaturedImage != null) {
+            roomType += 1;
+        }
+
         packet.WriteInteger(roomType);
-        if (data.FeaturedImage != null) packet.WriteString(data.FeaturedImage);
-        if (data.Group != null)
-        {
+
+        if (data.FeaturedImage != null) {
+            packet.WriteString(data.FeaturedImage);
+        }
+
+        if (data.Group != null) {
             packet.WriteInteger(data.Group.Id);
             packet.WriteString(data.Group.Name);
             packet.WriteString(data.Group.Badge);
         }
-        if (data.Promotion != null)
-        {
+
+        if (data.Promotion != null) {
             packet.WriteString(data.Promotion.Name);
             packet.WriteString(data.Promotion.Description);
             packet.WriteInteger(data.Promotion.MinutesLeft);

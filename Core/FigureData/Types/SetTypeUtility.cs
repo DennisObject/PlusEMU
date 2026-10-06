@@ -1,11 +1,10 @@
-﻿namespace Plus.Core.FigureData.Types;
+namespace Plus.Core.FigureData.Types;
 
 public static class SetTypeUtility
 {
     public static SetType GetSetType(string type)
     {
-        switch (type)
-        {
+        switch (type) {
             default:
             case "hr":
                 return SetType.Hr;

@@ -1,4 +1,4 @@
-﻿using Plus.Utilities;
+using Plus.Utilities;
 
 namespace Plus.Communication.Encryption.KeyExchange;
 
@@ -33,24 +33,28 @@ public class DiffieHellman
     private void Initialize(bool ignoreBaseKeys = false)
     {
         PublicKey = 0;
-        while (PublicKey == 0)
-        {
-            if (!ignoreBaseKeys)
-            {
+
+        while (PublicKey == 0) {
+            if (!ignoreBaseKeys) {
                 Prime = BigInteger.genPseudoPrime(Bitlength, 10, Random.Shared);
                 Generator = BigInteger.genPseudoPrime(Bitlength, 10, Random.Shared);
             }
+
             var bytes = new byte[Bitlength / 8];
             Randomizer.NextBytes(bytes);
             _privateKey = new(bytes);
-            if (Generator > Prime)
-            {
+
+            if (Generator > Prime) {
                 var temp = Prime;
                 Prime = Generator;
                 Generator = temp;
             }
+
             PublicKey = Generator.modPow(_privateKey, Prime);
-            if (!ignoreBaseKeys) break;
+
+            if (!ignoreBaseKeys) {
+                break;
+            }
         }
     }
 

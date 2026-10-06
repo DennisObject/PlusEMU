@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Friends;
+using Plus.HabboHotel.Friends;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.FriendList;
@@ -10,9 +10,12 @@ internal class DeclineFriendEvent(IMessengerFriendMutationService friends) : IPa
         var declineAll = packet.ReadBool();
         packet.ReadInt(); //amount
         var requestId = declineAll ? 0 : packet.ReadInt();
-        if (declineAll)
+
+        if (declineAll) {
             await friends.DeclineAllRequestsAsync(session.GetHabbo());
-        else
+        }
+        else {
             await friends.DeclineRequestAsync(session.GetHabbo(), requestId);
+        }
     }
 }

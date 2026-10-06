@@ -138,8 +138,8 @@ public class FloorPlanSaveTests
         bytes[1] = (byte)mapBytes.Length;
         mapBytes.CopyTo(bytes.AsSpan(2));
         var offset = 2 + mapBytes.Length;
-        foreach (var field in fields)
-        {
+
+        foreach (var field in fields) {
             bytes[offset++] = (byte)(field >> 24);
             bytes[offset++] = (byte)(field >> 16);
             bytes[offset++] = (byte)(field >> 8);
@@ -147,6 +147,7 @@ public class FloorPlanSaveTests
         }
 
         extra?.CopyTo(bytes.AsSpan(offset));
+
         return new FlashIncomingPacket { Buffer = bytes };
     }
 
@@ -170,6 +171,7 @@ public class FloorPlanSaveTests
         {
             [(x, y)] = new(height, true)
         };
+
         return tiles;
     }
 }

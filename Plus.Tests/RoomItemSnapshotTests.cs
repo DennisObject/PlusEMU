@@ -81,12 +81,25 @@ public sealed class RoomItemSnapshotTests
 
     private static Item Item(FurniObjectData data) => new()
     {
-        Id = 17, UserId = 7, Username = "Alice", GetZ = 1.5, ExtraData = data,
+        Id = 17,
+        UserId = 7,
+        Username = "Alice",
+        GetZ = 1.5,
+        ExtraData = data,
         Definition = new ItemDefinition
         {
-            SpriteId = 31, Height = 0.25, Modes = 2, Type = ItemType.Floor,
-            Stackable = true, Walkable = true, Width = 2, Length = 3,
-            ItemName = "probe", PublicName = "probe", VendingIds = [], AdjustableHeights = []
+            SpriteId = 31,
+            Height = 0.25,
+            Modes = 2,
+            Type = ItemType.Floor,
+            Stackable = true,
+            Walkable = true,
+            Width = 2,
+            Length = 3,
+            ItemName = "probe",
+            PublicName = "probe",
+            VendingIds = [],
+            AdjustableHeights = []
         }
     };
 
@@ -94,6 +107,7 @@ public sealed class RoomItemSnapshotTests
     {
         using var stream = (RecyclableMemoryStream)new RecyclableMemoryStreamManager().GetStream();
         composer.Compose(new FlashOutgoingPacket(stream));
+
         return stream.ToArray()[6..];
     }
 
@@ -101,14 +115,23 @@ public sealed class RoomItemSnapshotTests
     {
         using var stream = (RecyclableMemoryStream)new RecyclableMemoryStreamManager().GetStream();
         IOutgoingPacket packet = new FlashOutgoingPacket(stream);
-        foreach (var field in fields)
-            switch (field)
-            {
-                case int value: packet.WriteInt(value); break;
-                case uint value: packet.WriteUInt(value); break;
-                case string value: packet.WriteString(value); break;
-                default: throw new ArgumentOutOfRangeException(nameof(fields));
+
+        foreach (var field in fields) {
+            switch (field) {
+                case int value:
+                    packet.WriteInt(value);
+                    break;
+                case uint value:
+                    packet.WriteUInt(value);
+                    break;
+                case string value:
+                    packet.WriteString(value);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(fields));
             }
+        }
+
         return stream.ToArray()[6..];
     }
 }

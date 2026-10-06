@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Users;
 
@@ -16,7 +16,9 @@ public class IgnoredUsersComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_ignoredUsers.Count);
-        foreach (var username in _ignoredUsers)
+
+        foreach (var username in _ignoredUsers) {
             packet.WriteString(username);
+        }
     }
 }

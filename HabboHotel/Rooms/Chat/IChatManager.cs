@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Rooms.Chat.Commands;
+using Plus.HabboHotel.Rooms.Chat.Commands;
 using Plus.HabboHotel.Rooms.Chat.Emotions;
 using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Rooms.Chat.Logs;

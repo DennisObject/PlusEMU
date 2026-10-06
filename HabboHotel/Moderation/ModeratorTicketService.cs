@@ -72,23 +72,32 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
     public void Submit(GameClient client, SubmitTicketRequest request)
     {
         var sender = client.GetHabbo();
-        lock (_submissionLock)
-        {
-            if (moderation.UserHasTickets(sender.Id))
-            {
+
+        lock (_submissionLock) {
+            if (moderation.UserHasTickets(sender.Id)) {
                 var pending = moderation.GetTicketBySenderId(sender.Id);
-                if (pending != null)
-                {
+
+                if (pending != null) {
                     client.Send(new CallForHelpPendingCallsComposer(Capture(pending, sender.Id, clock.GetUtcNow())));
+
                     return;
                 }
             }
+
             var reported = users.GetById(request.ReportedUserId);
-            if (reported == null) return;
+
+            if (reported == null) {
+                return;
+            }
+
             var ticket = new ModerationTicket(1, request.Type, request.Category, clock.GetUtcNow(), 1, sender, reported,
                 StringCharFilter.Escape(request.Message.Trim()), sender.CurrentRoom?.Data, request.Chats.ToList());
             store.RecordSubmission(sender.Id);
-            if (!moderation.TryAddTicket(ticket)) return;
+
+            if (!moderation.TryAddTicket(ticket)) {
+                return;
+            }
+
             clients.ModAlert("A new support ticket has been submitted!");
             Broadcast(ticket, sender.Id);
         }
@@ -96,16 +105,21 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
 
     public void Pick(GameClient client, int ticketId)
     {
-        if (!moderation.TryGetTicket(ticketId, out var ticket)) return;
+        if (!moderation.TryGetTicket(ticketId, out var ticket)) {
+            return;
+        }
+
         ticket.Moderator = client.GetHabbo();
         Broadcast(ticket, client.GetHabbo().Id);
     }
 
     public void Release(GameClient client, IReadOnlyList<int> ticketIds)
     {
-        foreach (var id in ticketIds)
-        {
-            if (!moderation.TryGetTicket(id, out var ticket)) continue;
+        foreach (var id in ticketIds) {
+            if (!moderation.TryGetTicket(id, out var ticket)) {
+                continue;
+            }
+
             ticket.Moderator = null;
             Broadcast(ticket, client.GetHabbo().Id);
         }
@@ -113,8 +127,14 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
 
     public void Close(GameClient client, int ticketId, SupportTicketResult result)
     {
-        if (!moderation.TryGetTicket(ticketId, out var ticket) || ticket.Moderator?.Id != client.GetHabbo().Id) return;
-        if (result == SupportTicketResult.Abusive) store.RecordAbuse(ticket.Sender.Id);
+        if (!moderation.TryGetTicket(ticketId, out var ticket) || ticket.Moderator?.Id != client.GetHabbo().Id) {
+            return;
+        }
+
+        if (result == SupportTicketResult.Abusive) {
+            store.RecordAbuse(ticket.Sender.Id);
+        }
+
         clients.GetClientByUserId(ticket.Sender.Id)?.Send(new ModeratorSupportTicketResponseComposer(result));
         ticket.Answered = true;
         Broadcast(ticket, client.GetHabbo().Id);
@@ -122,9 +142,16 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
 
     public void DeletePending(GameClient client)
     {
-        if (!moderation.UserHasTickets(client.GetHabbo().Id)) return;
+        if (!moderation.UserHasTickets(client.GetHabbo().Id)) {
+            return;
+        }
+
         var ticket = moderation.GetTicketBySenderId(client.GetHabbo().Id);
-        if (ticket == null) return;
+
+        if (ticket == null) {
+            return;
+        }
+
         ticket.Answered = true;
         Broadcast(ticket, client.GetHabbo().Id);
     }
@@ -132,7 +159,10 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
     public void SendChatlogs(GameClient client, int ticketId)
     {
         if (!moderation.TryGetTicket(ticketId, out var ticket) || ticket.Room == null ||
-            !rooms.TryGetData(ticket.Room.Id, out var room)) return;
+            !rooms.TryGetData(ticket.Room.Id, out var room)) {
+            return;
+        }
+
         client.Send(new ModeratorTicketChatlogComposer(new(ticket.Id, ticket.Sender.Id, ticket.Reported?.Id ?? 0,
             room.Id, room.Name, ticket.CreatedAt, ticket.Reported?.Username ?? "No username", ticket.ReportedChats.ToImmutableArray())));
     }

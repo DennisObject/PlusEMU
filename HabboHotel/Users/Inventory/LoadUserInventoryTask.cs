@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Badges;
+using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.Users.Inventory.Bots;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 using Plus.HabboHotel.Users.Inventory.Pets;

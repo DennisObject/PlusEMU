@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 namespace Plus.Communication.Packets.Outgoing.Catalog;
 
 public class GroupFurniConfigComposer : IServerPacket
@@ -14,8 +14,8 @@ public class GroupFurniConfigComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_groups.Count);
-        foreach (var group in _groups)
-        {
+
+        foreach (var group in _groups) {
             packet.WriteInteger(group.Id);
             packet.WriteString(group.Name);
             packet.WriteString(group.Badge);

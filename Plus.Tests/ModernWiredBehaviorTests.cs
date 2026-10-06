@@ -214,8 +214,9 @@ public class ModernWiredBehaviorTests
     [InlineData("wf_trg_at_given_time", 1200)]
     public void TimedTriggersAcceptTheirEditorRangeOnly(string name, int max)
     {
-        foreach (var (units, valid) in new[] { (0, false), (1, true), (max, true), (max + 1, false) })
+        foreach (var (units, valid) in new[] { (0, false), (1, true), (max, true), (max + 1, false) }) {
             Assert.Equal(valid, WiredTriggerConfiguration.TryValidate(name, new() { IntParams = [units] }, out _, out _));
+        }
     }
 
     [Fact]
@@ -284,9 +285,21 @@ public class ModernWiredBehaviorTests
 
     private static Item Item(uint id, int x, int y) => new()
     {
-        Id = id, GetX = x, GetY = y, ExtraData = new LegacyDataFormat { Data = "0" },
-        Definition = new() { Type = ItemType.Floor, Width = 1, Length = 1, Modes = 2,
-            AdjustableHeights = [], VendingIds = [], ItemName = "test", PublicName = "test" }
+        Id = id,
+        GetX = x,
+        GetY = y,
+        ExtraData = new LegacyDataFormat { Data = "0" },
+        Definition = new()
+        {
+            Type = ItemType.Floor,
+            Width = 1,
+            Length = 1,
+            Modes = 2,
+            AdjustableHeights = [],
+            VendingIds = [],
+            ItemName = "test",
+            PublicName = "test"
+        }
     };
 
     private static (Room room, Gamemap map, ConcurrentDictionary<uint, Item> items) RoomQueries()
@@ -300,6 +313,7 @@ public class ModernWiredBehaviorTests
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         var items = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling)
             .GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handler)!;
+
         return (room, map, items);
     }
 

@@ -20,6 +20,7 @@ internal class HousekeepingFindRoomByIdEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         session.Send(new HousekeepingRoomDetailComposer(_rooms.Find(packet.ReadInt())));
+
         return Task.CompletedTask;
     }
 }

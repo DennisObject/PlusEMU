@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Attributes;
+using Plus.Communication.Attributes;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Permissions;

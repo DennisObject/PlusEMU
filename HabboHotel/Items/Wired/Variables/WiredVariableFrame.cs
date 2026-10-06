@@ -26,7 +26,10 @@ public sealed class WiredVariableFrame(uint roomId, IReadOnlyList<WiredVariableH
 }
 
 /// <summary>Proceed: run now. Deferred: queued whole. Stale: the target changed after reservation, before any evaluation.</summary>
-public enum WiredAdmission { Proceed, Deferred, Stale }
+public enum WiredAdmission
+{
+    Proceed, Deferred, Stale
+}
 
 public interface IWiredBuiltinVariables
 {
@@ -45,12 +48,14 @@ public interface IWiredBuiltinVariables
         Func<Func<int, int>, Action> replayWith, Func<bool> stillTargeted, out WiredAdmission admission)
     {
         admission = WiredAdmission.Proceed;
+
         return null;
     }
     /// <summary>Returns a local notification which the module invokes only after releasing its value lock.</summary>
     bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame, out Action? completed)
     {
         completed = null;
+
         return Write(reference, holder, value, frame);
     }
 }

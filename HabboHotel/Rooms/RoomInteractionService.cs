@@ -21,25 +21,33 @@ public sealed class RoomInteractionStore(IDatabase database) : IRoomInteractionS
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        if (connection.Execute("UPDATE rooms SET score=score+@rating WHERE id=@roomId LIMIT 1", new { roomId, rating }, transaction) != 1)
+
+        if (connection.Execute("UPDATE rooms SET score=score+@rating WHERE id=@roomId LIMIT 1", new { roomId, rating }, transaction) != 1) {
             throw new InvalidOperationException("Room rating was not persisted.");
+        }
+
         var score = connection.QuerySingle<int>("SELECT score FROM rooms WHERE id=@roomId", new { roomId }, transaction);
         transaction.Commit();
+
         return score;
     }
 
     public void UpdateSticky(uint itemId, uint roomId, string data)
     {
         using var connection = database.Connection();
-        if (connection.Execute("UPDATE items SET extra_data=@data WHERE id=@itemId AND room_id=@roomId LIMIT 1", new { itemId, roomId, data }) != 1)
+
+        if (connection.Execute("UPDATE items SET extra_data=@data WHERE id=@itemId AND room_id=@roomId LIMIT 1", new { itemId, roomId, data }) != 1) {
             throw new InvalidOperationException("Sticky note was not persisted.");
+        }
     }
 
     public void DeleteSticky(uint itemId, uint roomId)
     {
         using var connection = database.Connection();
-        if (connection.Execute("DELETE FROM items WHERE id=@itemId AND room_id=@roomId LIMIT 1", new { itemId, roomId }) != 1)
+
+        if (connection.Execute("DELETE FROM items WHERE id=@itemId AND room_id=@roomId LIMIT 1", new { itemId, roomId }) != 1) {
             throw new InvalidOperationException("Sticky note was not deleted.");
+        }
     }
 }
 
@@ -55,11 +63,17 @@ public sealed class RoomInteractionService(IRoomInteractionStore store) : IRoomI
 {
     public void Rate(Room room, GameClient session, int rating)
     {
-        if (rating is not (-1 or 1)) return;
-        lock (room.NavigationSync)
-        {
+        if (rating is not (-1 or 1)) {
+            return;
+        }
+
+        lock (room.NavigationSync) {
             var habbo = session.GetHabbo();
-            if (habbo.CurrentRoom != room || habbo.RatedRooms.Contains(room.RoomId) || room.CheckRights(session, true)) return;
+
+            if (habbo.CurrentRoom != room || habbo.RatedRooms.Contains(room.RoomId) || room.CheckRights(session, true)) {
+                return;
+            }
+
             var score = store.AddRating(room.RoomId, rating);
             room.Score = score;
             habbo.RatedRooms.Add(room.RoomId);
@@ -69,24 +83,42 @@ public sealed class RoomInteractionService(IRoomInteractionStore store) : IRoomI
 
     public void ShowSticky(Room room, GameClient session, uint itemId)
     {
-        lock (room.NavigationSync)
-        {
-            if (session.GetHabbo().CurrentRoom != room) return;
+        lock (room.NavigationSync) {
+            if (session.GetHabbo().CurrentRoom != room) {
+                return;
+            }
+
             var item = room.GetRoomItemHandler().GetItem(itemId);
-            if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Postit) return;
+
+            if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Postit) {
+                return;
+            }
+
             session.Send(new StickyNoteComposer(item.Id.ToString(), item.LegacyDataString));
         }
     }
 
     public void UpdateSticky(Room room, GameClient session, uint itemId, string colour, string text)
     {
-        lock (room.NavigationSync)
-        {
-            if (session.GetHabbo().CurrentRoom != room) return;
+        lock (room.NavigationSync) {
+            if (session.GetHabbo().CurrentRoom != room) {
+                return;
+            }
+
             var item = room.GetRoomItemHandler().GetItem(itemId);
-            if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Postit) return;
-            if (!room.CheckRights(session) && !text.StartsWith(item.LegacyDataString)) return;
-            if (colour is not ("FFFF33" or "FF9CFF" or "9CCEFF" or "9CFF9C")) return;
+
+            if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Postit) {
+                return;
+            }
+
+            if (!room.CheckRights(session) && !text.StartsWith(item.LegacyDataString)) {
+                return;
+            }
+
+            if (colour is not ("FFFF33" or "FF9CFF" or "9CCEFF" or "9CFF9C")) {
+                return;
+            }
+
             var data = $"{colour} {text}";
             store.UpdateSticky(item.Id, room.Id, data);
             item.LegacyDataString = data;
@@ -96,12 +128,18 @@ public sealed class RoomInteractionService(IRoomInteractionStore store) : IRoomI
 
     public void DeleteSticky(Room room, GameClient session, uint itemId)
     {
-        lock (room.NavigationSync)
-        {
-            if (session.GetHabbo().CurrentRoom != room || !room.CheckRights(session)) return;
+        lock (room.NavigationSync) {
+            if (session.GetHabbo().CurrentRoom != room || !room.CheckRights(session)) {
+                return;
+            }
+
             var item = room.GetRoomItemHandler().GetItem(itemId);
+
             if (item == null || item.IsTemporary || item.RoomId != room.RoomId ||
-                item.Definition?.InteractionType is not (InteractionType.Postit or InteractionType.CameraPicture)) return;
+                item.Definition?.InteractionType is not (InteractionType.Postit or InteractionType.CameraPicture)) {
+                return;
+            }
+
             store.DeleteSticky(item.Id, room.RoomId);
             room.GetRoomItemHandler().RemoveFurniture(session, item.Id);
         }

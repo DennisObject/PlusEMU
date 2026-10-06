@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Plus.Core;
 using System.Collections.Concurrent;
 using System.Data;
@@ -39,13 +39,17 @@ public class RewardManager : IRewardManager, IStartable
         var logs = await connection.QueryAsync<(int UserId, int RewardId)>("SELECT user_id, reward_id FROM server_reward_logs");
         _rewards.Clear();
         _rewardLogs.Clear();
-        foreach (var reward in rewards)
+
+        foreach (var reward in rewards) {
             _rewards.TryAdd(reward.Id, new(reward.Start, reward.End, reward.Type, reward.Data, reward.Message));
-        foreach (var log in logs)
-        {
+        }
+
+        foreach (var log in logs) {
             var userLogs = _rewardLogs.GetOrAdd(log.UserId, _ => new());
-            if (!userLogs.Contains(log.RewardId))
+
+            if (!userLogs.Contains(log.RewardId)) {
                 userLogs.Add(log.RewardId);
+            }
         }
     }
 
@@ -62,81 +66,103 @@ public class RewardManager : IRewardManager, IStartable
 
     private bool HasReward(int id, int rewardId)
     {
-        if (!_rewardLogs.ContainsKey(id))
+        if (!_rewardLogs.ContainsKey(id)) {
             return false;
-        if (_rewardLogs[id].Contains(rewardId))
+        }
+
+        if (_rewardLogs[id].Contains(rewardId)) {
             return true;
+        }
+
         return false;
     }
 
     private void LogReward(int id, int rewardId)
     {
-        if (!_rewardLogs.ContainsKey(id))
+        if (!_rewardLogs.ContainsKey(id)) {
             _rewardLogs.TryAdd(id, new());
-        if (!_rewardLogs[id].Contains(rewardId))
+        }
+
+        if (!_rewardLogs[id].Contains(rewardId)) {
             _rewardLogs[id].Add(rewardId);
+        }
+
         using var connection = _database.Connection();
         connection.Execute("INSERT INTO server_reward_logs (user_id, reward_id) VALUES (@userId, @rewardId)", new { userId = id, rewardId });
     }
 
     public async Task CheckRewards(GameClient session)
     {
-        if (session == null || session.GetHabbo() == null)
+        if (session == null || session.GetHabbo() == null) {
             return;
+        }
+
         var now = _clock.GetUtcNow();
-        foreach (var entry in _rewards)
-        {
+
+        foreach (var entry in _rewards) {
             var id = entry.Key;
             var reward = entry.Value;
-            if (HasReward(session.GetHabbo().Id, id))
+
+            if (HasReward(session.GetHabbo().Id, id)) {
                 continue;
-            if (reward.IsActiveAt(now))
-            {
-                switch (reward.Type)
-                {
-                    case RewardType.Badge:
-                    {
-                        if (!session.GetHabbo().Inventory.Badges.HasBadge(reward.RewardData))
-                            await _badgeManager.GiveBadge(session.GetHabbo(), reward.RewardData);
-                        break;
-                    }
-                    case RewardType.Credits:
-                    {
-                        lock (session.GetHabbo().WalletSync)
-                        {
-                            if (session.GetHabbo().WalletClosed) break;
-                            session.GetHabbo().Credits += Convert.ToInt32(reward.RewardData);
-                            session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+            }
+
+            if (reward.IsActiveAt(now)) {
+                switch (reward.Type) {
+                    case RewardType.Badge: {
+                            if (!session.GetHabbo().Inventory.Badges.HasBadge(reward.RewardData)) {
+                                await _badgeManager.GiveBadge(session.GetHabbo(), reward.RewardData);
+                            }
+
+                            break;
                         }
-                        break;
-                    }
-                    case RewardType.Duckets:
-                    {
-                        lock (session.GetHabbo().WalletSync)
-                        {
-                            if (session.GetHabbo().WalletClosed) break;
-                            session.GetHabbo().Duckets += Convert.ToInt32(reward.RewardData);
-                            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, Convert.ToInt32(reward.RewardData)));
+                    case RewardType.Credits: {
+                            lock (session.GetHabbo().WalletSync) {
+                                if (session.GetHabbo().WalletClosed) {
+                                    break;
+                                }
+
+                                session.GetHabbo().Credits += Convert.ToInt32(reward.RewardData);
+                                session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
+                            }
+
+                            break;
                         }
-                        break;
-                    }
-                    case RewardType.Diamonds:
-                    {
-                        lock (session.GetHabbo().WalletSync)
-                        {
-                            if (session.GetHabbo().WalletClosed) break;
-                            session.GetHabbo().Diamonds += Convert.ToInt32(reward.RewardData);
-                            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, Convert.ToInt32(reward.RewardData), 5));
+                    case RewardType.Duckets: {
+                            lock (session.GetHabbo().WalletSync) {
+                                if (session.GetHabbo().WalletClosed) {
+                                    break;
+                                }
+
+                                session.GetHabbo().Duckets += Convert.ToInt32(reward.RewardData);
+                                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, Convert.ToInt32(reward.RewardData)));
+                            }
+
+                            break;
                         }
-                        break;
-                    }
+                    case RewardType.Diamonds: {
+                            lock (session.GetHabbo().WalletSync) {
+                                if (session.GetHabbo().WalletClosed) {
+                                    break;
+                                }
+
+                                session.GetHabbo().Diamonds += Convert.ToInt32(reward.RewardData);
+                                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, Convert.ToInt32(reward.RewardData), 5));
+                            }
+
+                            break;
+                        }
                 }
-                if (!string.IsNullOrEmpty(reward.Message))
+
+                if (!string.IsNullOrEmpty(reward.Message)) {
                     session.SendNotification(reward.Message);
+                }
+
                 LogReward(session.GetHabbo().Id, id);
             }
-            else
+            else {
                 continue;
+            }
         }
     }
 }

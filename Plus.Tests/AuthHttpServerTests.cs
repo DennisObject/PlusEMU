@@ -36,8 +36,10 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         _http.Dispose();
-        if (_server != null)
+
+        if (_server != null) {
             await _server.Stop();
+        }
     }
 
     private async Task Start(Action<AuthApiConfiguration>? configure = null)
@@ -61,10 +63,15 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     private Task<HttpResponseMessage> Post(string path, object body, string? forwardedFor = null, string? bearer = null)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
-        if (forwardedFor != null)
+
+        if (forwardedFor != null) {
             request.Headers.Add("X-Forwarded-For", forwardedFor);
-        if (bearer != null)
+        }
+
+        if (bearer != null) {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+        }
+
         return _http.SendAsync(request);
     }
 
@@ -501,8 +508,10 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         await Start(c => c.RequestsPerMinute = 3);
 
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++) {
             Assert.Equal(HttpStatusCode.OK, (await Post("/api/auth/check-username", new { username = "Fresh" + i })).StatusCode);
+        }
+
         var limited = await Post("/api/auth/check-email", new { email = "a@example.com" });
 
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);

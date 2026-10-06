@@ -11,62 +11,87 @@ public class ClaimLedgerTests
     public void MembershipListsTrackStationaryWalkingAndTileCounts()
     {
         var ledger = new ClaimLedger(4, 4);
-        var stationary = Actor(); var walking = Actor();
+        var stationary = Actor();
+        var walking = Actor();
         var first = ledger.Move(stationary, 1, 1, false, 10);
         var second = ledger.Move(walking, 1, 1, true, 20);
-        Assert.Same(second, ledger.Head[1]); Assert.Same(first, second.Next);
-        Assert.Null(first.Next); Assert.Equal(2, ledger.Count[1]);
-        Assert.Equal(1, ledger.StationaryCount[1]); Assert.Equal(2, ledger.TileCount[1]);
+        Assert.Same(second, ledger.Head[1]);
+        Assert.Same(first, second.Next);
+        Assert.Null(first.Next);
+        Assert.Equal(2, ledger.Count[1]);
+        Assert.Equal(1, ledger.StationaryCount[1]);
+        Assert.Equal(2, ledger.TileCount[1]);
         Assert.Equal(TargetOccupancy.Stationary | TargetOccupancy.Walking, ledger.Snapshot(0).Targets[1]);
         ledger.Remove(walking);
-        Assert.Same(first, ledger.Head[1]); Assert.Equal(1, ledger.Count[1]);
-        Assert.Equal(1, ledger.StationaryCount[1]); Assert.Equal(1, ledger.TileCount[1]);
+        Assert.Same(first, ledger.Head[1]);
+        Assert.Equal(1, ledger.Count[1]);
+        Assert.Equal(1, ledger.StationaryCount[1]);
+        Assert.Equal(1, ledger.TileCount[1]);
     }
 
     [Fact]
     public void UpdatingWalkingStateAndMovingMembershipDoNotDuplicateActors()
     {
-        var ledger = new ClaimLedger(4, 4); var actor = Actor();
+        var ledger = new ClaimLedger(4, 4);
+        var actor = Actor();
         var member = ledger.Move(actor, 1, 1, false, 10);
         Assert.Same(member, ledger.Move(actor, 1, 1, true, 10));
-        Assert.Equal(1, ledger.Count[1]); Assert.Equal(0, ledger.StationaryCount[1]);
+        Assert.Equal(1, ledger.Count[1]);
+        Assert.Equal(0, ledger.StationaryCount[1]);
         Assert.Equal(TargetOccupancy.Walking, ledger.Snapshot(0).Targets[1]);
         Assert.Same(member, ledger.Move(actor, 2, 2, false, 10));
-        Assert.Null(ledger.Head[1]); Assert.Equal(0, ledger.Count[1]); Assert.Equal(0, ledger.TileCount[1]);
-        Assert.Same(member, ledger.Head[2]); Assert.Equal(1, ledger.StationaryCount[2]);
-        Assert.Equal(1, ledger.TileCount[2]); Assert.Equal(TargetOccupancy.Stationary, ledger.Snapshot(0).Targets[2]);
+        Assert.Null(ledger.Head[1]);
+        Assert.Equal(0, ledger.Count[1]);
+        Assert.Equal(0, ledger.TileCount[1]);
+        Assert.Same(member, ledger.Head[2]);
+        Assert.Equal(1, ledger.StationaryCount[2]);
+        Assert.Equal(1, ledger.TileCount[2]);
+        Assert.Equal(TargetOccupancy.Stationary, ledger.Snapshot(0).Targets[2]);
     }
 
     [Fact]
     public void RemovingInteriorAndTailMembersPreservesTheIntrusiveList()
     {
         var ledger = new ClaimLedger(4, 4);
-        var tail = Actor(); var middle = Actor(); var head = Actor();
+        var tail = Actor();
+        var middle = Actor();
+        var head = Actor();
         var last = ledger.Move(tail, 1, 1, false, 10);
         ledger.Move(middle, 1, 1, false, 20);
         var first = ledger.Move(head, 1, 1, false, 30);
         ledger.Remove(middle);
-        Assert.Same(last, first.Next); Assert.Equal(2, ledger.Count[1]);
+        Assert.Same(last, first.Next);
+        Assert.Equal(2, ledger.Count[1]);
         ledger.Remove(tail);
-        Assert.Null(first.Next); Assert.Equal(1, ledger.Count[1]);
-        ledger.Remove(head); ledger.Remove(head);
-        Assert.Null(ledger.Head[1]); Assert.Equal(0, ledger.Count[1]);
-        Assert.Equal(0, ledger.StationaryCount[1]); Assert.Equal(0, ledger.TileCount[1]);
+        Assert.Null(first.Next);
+        Assert.Equal(1, ledger.Count[1]);
+        ledger.Remove(head);
+        ledger.Remove(head);
+        Assert.Null(ledger.Head[1]);
+        Assert.Equal(0, ledger.Count[1]);
+        Assert.Equal(0, ledger.StationaryCount[1]);
+        Assert.Equal(0, ledger.TileCount[1]);
     }
 
     [Fact]
     public void OffGraphActorsBlockTheTileAndMoveBetweenSeparateMembershipLists()
     {
-        var ledger = new ClaimLedger(4, 4); var actor = Actor();
+        var ledger = new ClaimLedger(4, 4);
+        var actor = Actor();
         var member = ledger.Move(actor, null, 2, false, 10);
-        Assert.Same(member, ledger.OffGraphHead[2]); Assert.Null(ledger.Head[2]);
-        Assert.Equal(0, ledger.Count[2]); Assert.Equal(1, ledger.TileCount[2]);
+        Assert.Same(member, ledger.OffGraphHead[2]);
+        Assert.Null(ledger.Head[2]);
+        Assert.Equal(0, ledger.Count[2]);
+        Assert.Equal(1, ledger.TileCount[2]);
         Assert.Equal(TargetOccupancy.OffGraph, ledger.Snapshot(0).Targets[2]);
         ledger.Move(actor, 2, 2, true, 10);
-        Assert.Null(ledger.OffGraphHead[2]); Assert.Same(member, ledger.Head[2]);
-        Assert.Equal(1, ledger.TileCount[2]); Assert.Equal(TargetOccupancy.Walking, ledger.Snapshot(0).Targets[2]);
+        Assert.Null(ledger.OffGraphHead[2]);
+        Assert.Same(member, ledger.Head[2]);
+        Assert.Equal(1, ledger.TileCount[2]);
+        Assert.Equal(TargetOccupancy.Walking, ledger.Snapshot(0).Targets[2]);
         ledger.Move(actor, null, 3, true, 10);
-        Assert.Null(ledger.Head[2]); Assert.Equal(0, ledger.TileCount[2]);
+        Assert.Null(ledger.Head[2]);
+        Assert.Equal(0, ledger.TileCount[2]);
         Assert.Same(member, ledger.OffGraphHead[3]);
         Assert.Equal(TargetOccupancy.OffGraph, ledger.Snapshot(0).Targets[3]);
     }
@@ -74,8 +99,12 @@ public class ClaimLedgerTests
     [Fact]
     public void RiderGroupExclusionRemovesBothMembersAndTheirClaims()
     {
-        var ledger = new ClaimLedger(4, 4); var rider = Actor(); var horse = Actor(); var other = Actor();
-        ledger.Move(rider, 1, 1, true, 10); ledger.Move(horse, 1, 1, true, 10);
+        var ledger = new ClaimLedger(4, 4);
+        var rider = Actor();
+        var horse = Actor();
+        var other = Actor();
+        ledger.Move(rider, 1, 1, true, 10);
+        ledger.Move(horse, 1, 1, true, 10);
         ledger.Move(other, 1, 1, false, 20);
         Assert.True(ledger.TryClaim(rider, 2, ClaimKind.Shared, TargetOccupancy.None));
         Assert.True(ledger.TryClaim(horse, 2, ClaimKind.Shared, TargetOccupancy.None));
@@ -85,7 +114,8 @@ public class ClaimLedgerTests
         var otherView = ledger.Snapshot(20);
         Assert.Equal(TargetOccupancy.Walking, otherView.Targets[1]);
         Assert.Equal(TargetOccupancy.SharedClaim, otherView.Targets[2]);
-        Assert.Equal(3, ledger.Count[1]); Assert.Equal(3, ledger.TileCount[1]);
+        Assert.Equal(3, ledger.Count[1]);
+        Assert.Equal(3, ledger.TileCount[1]);
     }
 
     [Theory]
@@ -95,12 +125,14 @@ public class ClaimLedgerTests
     [InlineData(ClaimKind.Roller, TargetOccupancy.RollerClaim)]
     public void EveryClaimKindAppearsInOccupancyAndExcludesItsOwnGroup(ClaimKind kind, TargetOccupancy bit)
     {
-        var ledger = new ClaimLedger(4, 4); var actor = Actor();
+        var ledger = new ClaimLedger(4, 4);
+        var actor = Actor();
         ledger.Move(actor, 0, 0, true, 10);
         Assert.True(ledger.TryClaim(actor, 2, kind, TargetOccupancy.None));
         Assert.Equal(bit, ledger.Snapshot(0).Targets[2]);
         Assert.Equal(TargetOccupancy.None, ledger.Snapshot(10).Targets[2]);
-        ledger.Release(actor); ledger.Release(actor);
+        ledger.Release(actor);
+        ledger.Release(actor);
         Assert.Equal(TargetOccupancy.None, ledger.Snapshot(0).Targets[2]);
     }
 
@@ -168,12 +200,14 @@ public class ClaimLedgerTests
         ledger.TryClaim(first, 1, ClaimKind.Exclusive, TargetOccupancy.None);
         ledger.TryClaim(first, 2, ClaimKind.Roller, TargetOccupancy.None);
         ledger.TryClaim(second, 3, ClaimKind.Goal, TargetOccupancy.None);
-        ledger.ReleaseBatch(first); ledger.ReleaseBatch(first);
+        ledger.ReleaseBatch(first);
+        ledger.ReleaseBatch(first);
         var snapshot = ledger.Snapshot(0);
         Assert.Equal(TargetOccupancy.Walking, snapshot.Targets[1]);
         Assert.Equal(TargetOccupancy.RollerClaim, snapshot.Targets[2]);
         Assert.Equal(TargetOccupancy.GoalClaim, snapshot.Targets[3]);
-        ledger.ReleaseRollers(); ledger.ReleaseRollers();
+        ledger.ReleaseRollers();
+        ledger.ReleaseRollers();
         Assert.Equal(TargetOccupancy.None, ledger.Snapshot(0).Targets[2]);
         Assert.Equal(TargetOccupancy.GoalClaim, ledger.Snapshot(0).Targets[3]);
     }
@@ -185,7 +219,8 @@ public class ClaimLedgerTests
         ledger.TryClaim(first, 2, ClaimKind.Roller, TargetOccupancy.None);
         ledger.TryClaim(first, 3, ClaimKind.Exclusive, TargetOccupancy.None);
         ledger.TryClaim(second, 2, ClaimKind.Shared, TargetOccupancy.None);
-        ledger.Remove(first); ledger.Remove(first);
+        ledger.Remove(first);
+        ledger.Remove(first);
         var snapshot = ledger.Snapshot(0);
         Assert.Equal(TargetOccupancy.None, snapshot.Targets[0]);
         Assert.Equal(TargetOccupancy.Walking, snapshot.Targets[1]);
@@ -211,8 +246,12 @@ public class ClaimLedgerTests
 
     private static (ClaimLedger Ledger, RoomUser First, RoomUser Second) TwoActors()
     {
-        var ledger = new ClaimLedger(4, 4); var first = Actor(); var second = Actor();
-        ledger.Move(first, 0, 0, true, 10); ledger.Move(second, 1, 1, true, 20);
+        var ledger = new ClaimLedger(4, 4);
+        var first = Actor();
+        var second = Actor();
+        ledger.Move(first, 0, 0, true, 10);
+        ledger.Move(second, 1, 1, true, 20);
+
         return (ledger, first, second);
     }
 

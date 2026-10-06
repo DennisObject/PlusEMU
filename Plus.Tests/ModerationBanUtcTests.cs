@@ -34,8 +34,8 @@ public sealed class ModerationBanUtcTests
         server.Open();
         var schema = "moderation_bans_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             var connectionString = new MySqlConnectionStringBuilder(root)
             {
                 Database = schema,
@@ -90,8 +90,7 @@ public sealed class ModerationBanUtcTests
             Assert.Equal(writtenExpiry.UtcDateTime, connection.QuerySingle<DateTime>("SELECT expire FROM bans WHERE value='machine-future'"));
             Assert.Equal(Now.UtcDateTime, connection.QuerySingle<DateTime>("SELECT added_date FROM bans WHERE value='machine-future'"));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -103,8 +102,11 @@ public sealed class ModerationBanUtcTests
     private static string RepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Plus Emulator.csproj")))
+
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Plus Emulator.csproj"))) {
             directory = directory.Parent;
+        }
+
         return directory!.FullName;
     }
 
@@ -117,7 +119,12 @@ public sealed class ModerationBanUtcTests
     {
         public int Calls { get; private set; }
         public override TimeZoneInfo LocalTimeZone => zone;
-        public override DateTimeOffset GetUtcNow() { Calls++; return now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Calls++;
+
+            return now;
+        }
     }
 
     public class EmptyProxy : DispatchProxy

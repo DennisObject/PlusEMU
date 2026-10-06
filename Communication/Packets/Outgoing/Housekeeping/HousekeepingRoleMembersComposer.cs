@@ -28,8 +28,8 @@ public sealed class HousekeepingRoleMembersComposer : IServerPacket
         packet.WriteInteger(_offset);
         packet.WriteInteger(_total);
         packet.WriteInteger(_members.Length);
-        foreach (var member in _members)
-        {
+
+        foreach (var member in _members) {
             packet.WriteInteger(member.Id);
             packet.WriteString(member.Username);
             packet.WriteInteger((int)Math.Clamp(member.ExpiresAt?.ToUnixTimeSeconds() ?? 0, 0, int.MaxValue));

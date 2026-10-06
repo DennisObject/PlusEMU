@@ -17,6 +17,7 @@ public class CatalogAdminMovePageEvent : IPacketEvent
         int pageId = packet.ReadInt(), parentId = packet.ReadInt(), index = packet.ReadInt();
         var envelope = CatalogAdminPacketReader.Envelope(packet, CatalogAdminPacketReader.CatalogType(packet.ReadString()));
         CatalogAdminResponder.Send(session, "movePage", envelope, _catalogAdmin.MovePage(session.GetHabbo(), envelope, pageId, parentId, index));
+
         return Task.CompletedTask;
     }
 }

@@ -189,6 +189,7 @@ public static class WiredBoxRegistry
     public static bool TryGet(string? name, out WiredBoxDescriptor descriptor)
     {
         descriptor = null!;
+
         return name != null && Descriptors.TryGetValue(name, out descriptor!);
     }
 }

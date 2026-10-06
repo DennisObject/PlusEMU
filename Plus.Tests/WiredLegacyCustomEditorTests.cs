@@ -82,6 +82,7 @@ public class WiredLegacyCustomEditorTests
     {
         var engine = new WiredStackEngine(() => 0, box => ReferenceEquals(box.Item, original.Item), _ => true, _ => { }, _ => { });
         Assert.True(engine.Add(original));
+
         return engine;
     }
 
@@ -98,6 +99,7 @@ public class WiredLegacyCustomEditorTests
         box.StringData = kind switch { 0 => "OLD_BADGE", 1 => "2", _ => "" };
         box.ItemsData = "8;";
         box.BoolData = true;
+
         return box;
     }
 

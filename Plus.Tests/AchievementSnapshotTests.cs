@@ -196,6 +196,7 @@ public class AchievementSnapshotTests
         Add("game-partial", UserWith(level: 1, progress: 4, "GAME_X"), habbo => Service.Capture(habbo, [game]), snapshots => new GameAchievementListComposer(9, snapshots));
         Add("completed", UserWith(level: 3, progress: 30), habbo => Service.Capture(habbo, [social]), snapshots => new AchievementsComposer(snapshots));
         Add("game-none", new Habbo { Id = 9, Username = "w" }, habbo => Service.Capture(habbo, [game]), snapshots => new GameAchievementListComposer(9, snapshots));
+
         return lines;
     }
 
@@ -203,8 +204,11 @@ public class AchievementSnapshotTests
     private static Achievement Achievement(string group, string category, int gameId, params (int Level, int Requirement)[] levels)
     {
         var achievement = new Achievement { Id = 1, GroupName = group, Category = category, GameId = gameId };
-        foreach (var (level, requirement) in levels)
+
+        foreach (var (level, requirement) in levels) {
             achievement.AddLevel(new AchievementLevel(level, level * 10, level, requirement));
+        }
+
         return achievement;
     }
 
@@ -212,6 +216,7 @@ public class AchievementSnapshotTests
     {
         var habbo = new Habbo { Id = 7, Username = "u" };
         habbo.Achievements.TryAdd(group, new UserAchievement(group, level, progress));
+
         return habbo;
     }
 
@@ -219,18 +224,20 @@ public class AchievementSnapshotTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes;
     }
 
     private static FlashIncomingPacket Packet(params int[] values)
     {
         using var stream = new MemoryStream();
-        foreach (var value in values)
-        {
+
+        foreach (var value in values) {
             var bytes = new byte[4];
             BinaryPrimitives.WriteInt32BigEndian(bytes, value);
             stream.Write(bytes);
         }
+
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 

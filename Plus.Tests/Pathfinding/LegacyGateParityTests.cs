@@ -23,6 +23,7 @@ public partial class PlacedFurniRoomTests
         Assert.Null(_room.GetGameMap().Navigation);
         var occupant = Viewer(NonAnchor(gate).X, NonAnchor(gate).Y);
         _room.GetGameMap().AddUserToMap(occupant, NonAnchor(gate));
+
         return gate;
     }
 
@@ -31,7 +32,8 @@ public partial class PlacedFurniRoomTests
     {
         var gate = LegacyGate();
         Task.Run(() => new InteractorGate().OnTrigger(_client, gate, 0, true)).Wait();
-        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+        Assert.Equal("0", gate.LegacyDataString);
+        Assert.Equal(0, Gates.PendingCount);
     }
 
     [Fact]
@@ -39,7 +41,8 @@ public partial class PlacedFurniRoomTests
     {
         var gate = LegacyGate();
         Task.Run(() => new InteractorGate().OnWiredTrigger(gate)).Wait();
-        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+        Assert.Equal("0", gate.LegacyDataString);
+        Assert.Equal(0, Gates.PendingCount);
     }
 
     [Fact]
@@ -48,23 +51,28 @@ public partial class PlacedFurniRoomTests
         UseGameService("get_QuestManager", Proxy<IQuestManager>((_, _) => null));
         var gate = LegacyGate();
         Task.Run(() => new InteractorGenericSwitch(TestItemRuntime.Quests, TestItemRuntime.Rewards).OnTrigger(_client, gate, 0, true)).Wait();
-        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+        Assert.Equal("0", gate.LegacyDataString);
+        Assert.Equal(0, Gates.PendingCount);
     }
 
     [Fact]
     public void LegacyGuildGateAutoCloseChecksOnlyTheAnchorTile()
     {
         var gate = LegacyGate(InteractionType.GuildGate);
-        gate.RequestUpdate(1, true); gate.ProcessUpdates();
-        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, gate.UpdateCounter);
+        gate.RequestUpdate(1, true);
+        gate.ProcessUpdates();
+        Assert.Equal("0", gate.LegacyDataString);
+        Assert.Equal(0, gate.UpdateCounter);
     }
 
     [Fact]
     public void LegacyVipGateClosesWithoutAnOccupancyCheck()
     {
         var gate = LegacyGate(InteractionType.GateVip);
-        gate.RequestUpdate(1, true); gate.ProcessUpdates();
-        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, gate.UpdateCounter);
+        gate.RequestUpdate(1, true);
+        gate.ProcessUpdates();
+        Assert.Equal("0", gate.LegacyDataString);
+        Assert.Equal(0, gate.UpdateCounter);
     }
 
     [Fact]
@@ -75,7 +83,8 @@ public partial class PlacedFurniRoomTests
         { StringData = "1;0;0", ItemsData = $"{gate.Id}:1,1,0,0,0" };
         box.SetItems.TryAdd(gate.Id, gate);
         Assert.True(box.Execute());
-        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+        Assert.Equal("0", gate.LegacyDataString);
+        Assert.Equal(0, Gates.PendingCount);
     }
 
     [Fact]
@@ -84,25 +93,34 @@ public partial class PlacedFurniRoomTests
         var gate = LegacyGate();
         var action = ToggleAction(gate, out var context);
         Assert.True(action.Execute(context));
-        Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
+        Assert.Equal("0", gate.LegacyDataString);
+        Assert.Equal(0, Gates.PendingCount);
     }
 
     [Fact]
     public void LegacyVariableStateWriteIsDirectAndNeverEntersTheSequencer()
     {
-        var gate = LegacyGate(); var notices = new List<(Item, WiredVariableFrame, string)>();
-        var module = GateVariables(notices); var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
-        var frame = new WiredVariableFrame(_room.Id, [holder]); var resolutions = 0;
+        var gate = LegacyGate();
+        var notices = new List<(Item, WiredVariableFrame, string)>();
+        var module = GateVariables(notices);
+        var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
+        var frame = new WiredVariableFrame(_room.Id, [holder]);
+        var resolutions = 0;
         module.ResolutionHook = _ => resolutions++;
         Assert.True(Task.Run(() => module.Mutate(StateReference, holder, WiredVariableMutation.Set, 0, frame)).Result);
-        Assert.Equal("0", gate.LegacyDataString); Assert.Single(notices);
-        Assert.Equal(0, Gates.PendingCount); Assert.Equal(0, resolutions);
+        Assert.Equal("0", gate.LegacyDataString);
+        Assert.Single(notices);
+        Assert.Equal(0, Gates.PendingCount);
+        Assert.Equal(0, resolutions);
     }
 
     [Fact]
     public void LegacyMannequinPacketsRejectNonMannequinItems()
     {
-        var gate = LegacyGate(); _client.GetHabbo().Gender = "M"; _client.GetHabbo().Look = "hd-180-1.ch-210-66"; _client.GetHabbo().Clothing = new();
+        var gate = LegacyGate();
+        _client.GetHabbo().Gender = "M";
+        _client.GetHabbo().Look = "hd-180-1.ch-210-66";
+        _client.GetHabbo().Clothing = new();
         new SetMannequinFigureEvent(new RoomItemMetadataService(Proxy<IRoomItemMetadataStore>((_, _) => throw new InvalidOperationException("Wrong type must not persist")), null!)).Parse(_client, ClientPacket((int)gate.Id)).Wait();
         Assert.Equal("1", gate.LegacyDataString);
     }

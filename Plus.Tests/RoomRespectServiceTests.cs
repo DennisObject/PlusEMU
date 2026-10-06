@@ -23,6 +23,7 @@ public partial class PlacedFurniRoomTests
             Assert.Same(_client, args[1]);
             Assert.Equal(9, args[2]);
             calls++;
+
             return null;
         });
         var packet = ClientPacket(9);
@@ -47,12 +48,14 @@ public partial class PlacedFurniRoomTests
                 Assert.Equal(2, stats.DailyRespectPoints);
                 Assert.Equal(0, target.HabboStats.Respect);
                 order.Add((string)args[1]);
+
                 return null;
             }),
             Proxy<IQuestManager>((_, args) =>
             {
                 Assert.Equal(QuestType.SocialRespect, args[1]);
                 order.Add("quest");
+
                 return null;
             }),
             Proxy<IRewardTrackManager>((_, args) =>
@@ -62,6 +65,7 @@ public partial class PlacedFurniRoomTests
                 Assert.Equal(0, stats.RespectGiven);
                 Assert.Empty(_client.Sent);
                 order.Add("reward");
+
                 return null;
             }));
         service.Respect(_room, _client, 9);
@@ -128,6 +132,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(LegacyUsers().TryAdd(9, new RoomUser(9, RoomId, 9, _room, targetClient, TestChatEmotions.Unused, TestRewardProgress.Unused)));
         _gameField.SetValue(null, Proxy<IGame>((method, _) => method == "get_ClientManager"
             ? Proxy<IGameClientManager>((_, args) => (int)args[0] == 9 ? targetClient : _client) : null));
+
         return target;
     }
 

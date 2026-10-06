@@ -72,8 +72,18 @@ public class CatalogAdminWireTests
     [Fact]
     public void SmartSaveSuccessCarriesTheAcknowledgementTheEditorExpects()
     {
-        var history = new CatalogAdminLogEntry { Id = 8, UserId = 7001, Username = "editor", EntityType = "PAGE", CatalogType = "NORMAL", EntityId = 42,
-            Operation = "UPDATE", Summary = "Updated page: Guild shop", CreatedAt = new DateTime(2026, 10, 4, 12, 0, 0) };
+        var history = new CatalogAdminLogEntry
+        {
+            Id = 8,
+            UserId = 7001,
+            Username = "editor",
+            EntityType = "PAGE",
+            CatalogType = "NORMAL",
+            EntityId = 42,
+            Operation = "UPDATE",
+            Summary = "Updated page: Guild shop",
+            CreatedAt = new DateTime(2026, 10, 4, 12, 0, 0)
+        };
         var outcome = new CatalogAdminOutcome(true, "SAVED", "Page saved", 8, "PAGE", "NORMAL", 42, Page, history, new Dictionary<string, string>());
         var packet = new HabbiconTestSupport.RecordingPacket();
 
@@ -156,8 +166,18 @@ public class CatalogAdminWireTests
     [Fact]
     public void HistoryWritesOneEntryPerGroup()
     {
-        var entry = new CatalogAdminLogEntry { Id = 8, UserId = 7001, Username = "editor", EntityType = "OFFER", CatalogType = "NORMAL", EntityId = 5,
-            Operation = "DELETE", Summary = "Deleted offer", CreatedAt = new DateTime(2026, 10, 4, 12, 0, 0) };
+        var entry = new CatalogAdminLogEntry
+        {
+            Id = 8,
+            UserId = 7001,
+            Username = "editor",
+            EntityType = "OFFER",
+            CatalogType = "NORMAL",
+            EntityId = 5,
+            Operation = "DELETE",
+            Summary = "Deleted offer",
+            CreatedAt = new DateTime(2026, 10, 4, 12, 0, 0)
+        };
         var packet = new HabbiconTestSupport.RecordingPacket();
         new CatalogStudioHistoryComposer(new(8, 20, [entry])).Compose(packet);
         Assert.Equal(new object[] { 1, 8, 20, 1, 8, 8, 7001, "editor", "Deleted offer", "CATALOG_ADMIN", "2026-10-04T12:00:00", 1, "OFFER", 5, "DELETE" },

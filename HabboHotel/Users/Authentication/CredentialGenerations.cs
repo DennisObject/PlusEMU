@@ -76,6 +76,7 @@ public class CredentialGenerations : ICredentialGenerations
     public async Task<long> Current(int userId)
     {
         using var connection = _database.Connection();
+
         return await connection.ExecuteScalarAsync<long>("SELECT `credential_generation` FROM `users` WHERE `id` = @userId", new { userId });
     }
 
@@ -89,14 +90,20 @@ public class CredentialGenerations : ICredentialGenerations
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        if (await Lock(connection, transaction, userId) != generation)
+
+        if (await Lock(connection, transaction, userId) != generation) {
             return false;
+        }
+
         if (sessionId != null && !await connection.ExecuteScalarAsync<bool>(
                 "SELECT COUNT(*) FROM `user_sessions` WHERE `id` = @sessionId AND `user_id` = @userId AND `revoked_at` IS NULL",
-                new { sessionId, userId }, transaction))
+                new { sessionId, userId }, transaction)) {
             return false;
+        }
+
         await writes(new(connection, transaction));
         transaction.Commit();
+
         return true;
     }
 
@@ -135,6 +142,7 @@ public class CredentialGenerations : ICredentialGenerations
     public Task MarkSessionRevoked(int userId, string sessionId, CredentialScope scope)
     {
         var now = _time.GetUtcNow();
+
         return scope.Connection.ExecuteAsync("UPDATE `user_sessions` SET `revoked_at` = @now WHERE `id` = @sessionId AND `user_id` = @userId AND `revoked_at` IS NULL",
             new { sessionId, userId, now = now.UtcDateTime }, scope.Transaction);
     }
@@ -149,6 +157,7 @@ public class CredentialGenerations : ICredentialGenerations
     {
         var now = _time.GetUtcNow();
         using var connection = _database.Connection();
+
         return await connection.ExecuteAsync(
             "DELETE FROM `user_sessions` WHERE `created_at` < @cutoff " +
             "AND NOT EXISTS (SELECT 1 FROM `user_access_tokens` WHERE `session_id` = `user_sessions`.`id`) " +

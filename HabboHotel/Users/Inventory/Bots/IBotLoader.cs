@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Users.Inventory.Bots;
+namespace Plus.HabboHotel.Users.Inventory.Bots;
 
 internal interface IBotLoader
 {

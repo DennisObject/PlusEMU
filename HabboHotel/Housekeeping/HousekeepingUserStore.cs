@@ -44,15 +44,23 @@ public sealed class HousekeepingUserStore : IHousekeepingUserStore
 
     public HousekeepingUserRecord? Find(int userId)
     {
-        if (userId <= 0) return null;
+        if (userId <= 0) {
+            return null;
+        }
+
         using var connection = _database.Connection();
+
         return connection.QuerySingleOrDefault<HousekeepingUserRecord>(Select + "WHERE u.`id` = @userId LIMIT 1", new { userId });
     }
 
     public HousekeepingUserRecord? Find(string username)
     {
-        if (string.IsNullOrEmpty(username)) return null;
+        if (string.IsNullOrEmpty(username)) {
+            return null;
+        }
+
         using var connection = _database.Connection();
+
         return connection.QuerySingleOrDefault<HousekeepingUserRecord>(Select + "WHERE u.`username` = @username LIMIT 1", new { username });
     }
 }
@@ -63,13 +71,24 @@ public static class HousekeepingUserTargets
     public static HousekeepingOutcome? Target(this IHousekeepingUserStore users, Habbo actor, int userId, IAccessControl access, out HousekeepingUserRecord user)
     {
         user = null!;
-        if (userId <= 0) return HousekeepingOutcome.Invalid(HousekeepingTarget.User(0));
+
+        if (userId <= 0) {
+            return HousekeepingOutcome.Invalid(HousekeepingTarget.User(0));
+        }
+
         var found = users.Find(userId);
-        if (found == null) return HousekeepingOutcome.Fail(HousekeepingErrors.UserNotFound, HousekeepingTarget.User(userId));
+
+        if (found == null) {
+            return HousekeepingOutcome.Fail(HousekeepingErrors.UserNotFound, HousekeepingTarget.User(userId));
+        }
+
         // Equal ranks are refused too, which also stops staff acting on themselves.
-        if (actor.Id == found.Id || !access.Outranks(actor.Id, found.Id))
+        if (actor.Id == found.Id || !access.Outranks(actor.Id, found.Id)) {
             return HousekeepingOutcome.Fail(HousekeepingErrors.RankTooHigh, Label(found), $"targetUserId={found.Id}");
+        }
+
         user = found;
+
         return null;
     }
 

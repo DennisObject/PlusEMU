@@ -16,8 +16,8 @@ public sealed class ModeratorActionDatabaseTests
         connection.Open();
         var schema = "moderator_action_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             connection.Execute($"USE `{schema}`");
             connection.Execute("""
                 CREATE TABLE rooms (id INT UNSIGNED PRIMARY KEY, caption VARCHAR(100), description VARCHAR(100),
@@ -32,15 +32,16 @@ public sealed class ModeratorActionDatabaseTests
                 """);
             var options = new MySqlConnectionStringBuilder(connection.ConnectionString) { Database = schema };
             var store = new ModeratorActionStore(new ProbeDatabase(options.ConnectionString));
+
             foreach (var (rename, locked, expectedCaption, expectedState) in new[]
                 { (false, false, "Original", "password"), (false, true, "Original", "locked"),
                   (true, false, ModeratorActionService.InappropriateRoomText, "password"),
-                  (true, true, ModeratorActionService.InappropriateRoomText, "locked") })
-            {
+                  (true, true, ModeratorActionService.InappropriateRoomText, "locked") }) {
                 connection.Execute("UPDATE rooms SET caption='Original',description='Description',state='password',tags='bad'");
                 store.ModerateRoom(42, rename, locked, false);
                 Assert.Equal((expectedCaption, expectedState, ""), connection.QuerySingle<(string, string, string)>("SELECT caption,state,tags FROM rooms"));
             }
+
             connection.Execute("UPDATE rooms SET caption='Original',description='Description',state='password',tags='bad'");
             connection.Execute("CREATE TRIGGER reject_promotion_delete BEFORE DELETE ON room_promotions FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced failure'");
             Assert.Throws<MySqlException>(() => store.ModerateRoom(42, true, true, true));
@@ -56,8 +57,7 @@ public sealed class ModeratorActionDatabaseTests
             store.SetMute(7, seconds);
             Assert.Equal((double)seconds, connection.QuerySingle<double>("SELECT time_muted FROM users WHERE id=7"));
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }

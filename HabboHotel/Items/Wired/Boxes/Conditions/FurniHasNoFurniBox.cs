@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -31,30 +31,41 @@ internal class FurniHasNoFurniBox : IWiredItem
     {
         var unknown = packet.ReadInt();
         var unknown2 = packet.ReadString();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
+
         var furniCount = packet.ReadInt();
-        for (var i = 0; i < furniCount; i++)
-        {
+
+        for (var i = 0; i < furniCount; i++) {
             var selectedItem = Instance.GetRoomItemHandler().GetItem(packet.ReadUInt());
-            if (selectedItem != null)
+
+            if (selectedItem != null) {
                 SetItems.TryAdd(selectedItem.Id, selectedItem);
+            }
         }
     }
 
     public bool Execute(params object[] @params)
     {
-        foreach (var item in SetItems.Values.ToList())
-        {
-            if (item == null || !Instance.GetRoomItemHandler().GetFloor.Contains(item))
+        foreach (var item in SetItems.Values.ToList()) {
+            if (item == null || !Instance.GetRoomItemHandler().GetFloor.Contains(item)) {
                 continue;
+            }
+
             var noFurni = false;
             var items = Instance.GetGameMap().GetAllRoomItemForSquare(item.GetX, item.GetY);
-            if (items.Count == 0)
+
+            if (items.Count == 0) {
                 noFurni = true;
-            if (!noFurni)
+            }
+
+            if (!noFurni) {
                 return false;
+            }
         }
+
         return true;
     }
 }

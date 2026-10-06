@@ -19,9 +19,11 @@ public sealed class WiredVariableMenuEventTests
     {
         Assert.True(WiredVariableHashesEvent.TryReadHashes(Packet(1, "user:10", 123), out var known));
         Assert.Equal(123, known["user:10"]);
+
         foreach (var packet in new[] { Packet(-1), Packet(4097), Packet(1), Packet(0, 1),
-            Packet(2, "user:10", 1, "user:10", 2), Packet(1, new string('x', 65), 1) })
+            Packet(2, "user:10", 1, "user:10", 2), Packet(1, new string('x', 65), 1) }) {
             Assert.False(WiredVariableHashesEvent.TryReadHashes(packet, out _));
+        }
     }
     [Fact]
     public async Task AllMenuHandlersRejectUnauthorizedClientsBeforeOpeningDatabase()
@@ -31,8 +33,8 @@ public sealed class WiredVariableMenuEventTests
             new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel));
         RoomPacketEvent[] handlers = [new WiredUserVariableUpdateEvent(new WiredVariableMenuService()), new WiredUserVariableManageEvent(new WiredVariableMenuService()), new WiredUserVariablesRequestEvent(new WiredVariableMenuService()), new WiredAllVariablesRequestEvent(new WiredVariableMenuService()), new WiredVariableHashesEvent(new WiredVariableMenuService()),
             new WiredVariableHoldersRequestEvent(new WiredVariableMenuService()), new WiredVariableHoldersPageEvent(new WiredVariableMenuService())];
-        foreach (var handler in handlers)
-        {
+
+        foreach (var handler in handlers) {
             // Handlers decode the full frame first; the denied service returns before any database connection opens.
             await handler.Parse(room, null!, Packet(123));
         }
@@ -45,25 +47,34 @@ public sealed class WiredVariableMenuEventTests
         Assert.True(WiredUserVariableUpdateEvent.TryRead(Packet(0, 123, 0, 4, "internal:@handitem"), false, out _));
         Assert.True(WiredUserVariableUpdateEvent.TryRead(Packet(2, 0, 0, 12, 0), true, out var clear));
         Assert.Equal(2, clear!.Action);
+
         foreach (var packet in new[] { Packet(2, 1, 12, 0), Packet(0, 1, -1, 0), Packet(0, 1, 0, 0),
-            Packet(0, 1, 12, 0, "internal:@id"), Packet(0, 1, 0, 0, "custom:12"), Packet(0, 1, 12), Packet(0, 1, 12, 0, "", 1) })
+            Packet(0, 1, 12, 0, "internal:@id"), Packet(0, 1, 0, 0, "custom:12"), Packet(0, 1, 12), Packet(0, 1, 12, 0, "", 1) }) {
             Assert.False(WiredUserVariableUpdateEvent.TryRead(packet, false, out _));
+        }
+
         Assert.False(WiredUserVariableUpdateEvent.TryRead(Packet(3, 0, 0, 12, 0), true, out _));
     }
 
     private static FlashIncomingPacket Packet(params object[] values)
     {
         using var stream = new MemoryStream();
-        foreach (var value in values)
-        {
-            if (value is int number)
-            { var bytes = new byte[4]; BinaryPrimitives.WriteInt32BigEndian(bytes, number); stream.Write(bytes); }
-            else
-            {
-                var bytes = Encoding.UTF8.GetBytes((string)value); var length = new byte[2];
-                BinaryPrimitives.WriteUInt16BigEndian(length, checked((ushort)bytes.Length)); stream.Write(length); stream.Write(bytes);
+
+        foreach (var value in values) {
+            if (value is int number) {
+                var bytes = new byte[4];
+                BinaryPrimitives.WriteInt32BigEndian(bytes, number);
+                stream.Write(bytes);
+            }
+            else {
+                var bytes = Encoding.UTF8.GetBytes((string)value);
+                var length = new byte[2];
+                BinaryPrimitives.WriteUInt16BigEndian(length, checked((ushort)bytes.Length));
+                stream.Write(length);
+                stream.Write(bytes);
             }
         }
+
         return new() { Buffer = stream.ToArray() };
     }
 }

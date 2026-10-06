@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Users.Inventory.Furniture;
+using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Rooms.Trading;
 

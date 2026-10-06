@@ -22,8 +22,10 @@ public sealed class NavigatorPresentationService(INavigatorManager navigator, IR
     {
         var roomId = rooms.TryGetRandomLoadedRoom()?.Id;
         session.Send(new FindFriendsProcessResultComposer(roomId.HasValue));
-        if (roomId is { } id)
+
+        if (roomId is { } id) {
             session.Send(new RoomForwardComposer(id));
+        }
     }
 
     public void InitializeNewNavigator(GameClient session)

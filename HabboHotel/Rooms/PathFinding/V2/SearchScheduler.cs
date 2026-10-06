@@ -20,7 +20,9 @@ public sealed class SearchScheduler<TActor> where TActor : class
 
     public void Remove(TActor actor)
     {
-        if (_actors.Remove(actor, out var node)) _jobs.Remove(node);
+        if (_actors.Remove(actor, out var node)) {
+            _jobs.Remove(node);
+        }
     }
 
     public bool Contains(TActor actor) => _actors.ContainsKey(actor);
@@ -32,15 +34,23 @@ public sealed class SearchScheduler<TActor> where TActor : class
         Func<SearchJob<TActor>, SearchResult> search, Action<SearchJob<TActor>, SearchResult> onResult)
     {
         var spent = 0;
-        while (spent < budget && _jobs.First is { } node)
-        {
+
+        while (spent < budget && _jobs.First is { } node) {
             var job = node.Value;
             Remove(job.Actor);
-            if (!isCurrent(job)) continue;
+
+            if (!isCurrent(job)) {
+                continue;
+            }
+
             var result = search(job);
             spent += result.Expansions;
-            if (isCurrent(job)) onResult(job, result);
+
+            if (isCurrent(job)) {
+                onResult(job, result);
+            }
         }
+
         return spent;
     }
 }

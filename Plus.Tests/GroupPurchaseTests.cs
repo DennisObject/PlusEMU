@@ -40,6 +40,7 @@ public class GroupPurchaseTests
             Assert.Equal(nameof(IRoomDataLoader.TryGetData), method);
             Assert.Equal((uint)42, args[0]);
             args[1] = _room;
+
             return true;
         });
         var groups = Proxy<IGroupManager>((method, args) =>
@@ -55,8 +56,13 @@ public class GroupPurchaseTests
             Assert.Equal(1, args[5]);
             Assert.Equal(1, args[6]);
             _createdBadge = (string)args[4]!;
-            if (_creationThrows) throw new InvalidOperationException("write failed");
+
+            if (_creationThrows) {
+                throw new InvalidOperationException("write failed");
+            }
+
             args[7] = _group;
+
             return _createSucceeds;
         });
         var filter = Proxy<IWordFilterManager>((_, args) => args[0]);
@@ -224,22 +230,27 @@ public class GroupPurchaseTests
     private static FlashIncomingPacket PurchasePacket(int count, int parts)
     {
         using var stream = new MemoryStream();
-        foreach (var text in new[] { "test", "description" })
-        {
+
+        foreach (var text in new[] { "test", "description" }) {
             var bytes = Encoding.UTF8.GetBytes(text);
             var length = new byte[2];
             BinaryPrimitives.WriteUInt16BigEndian(length, (ushort)bytes.Length);
             stream.Write(length);
             stream.Write(bytes);
         }
+
         var values = new List<int> { 42, 1, 1, count };
-        for (var part = 0; part < parts; part++) values.AddRange(new[] { part == 0 ? 1 : 2, part == 0 ? 1 : 2, 4 });
-        foreach (var value in values)
-        {
+
+        for (var part = 0; part < parts; part++) {
+            values.AddRange(new[] { part == 0 ? 1 : 2, part == 0 ? 1 : 2, 4 });
+        }
+
+        foreach (var value in values) {
             var bytes = new byte[4];
             BinaryPrimitives.WriteInt32BigEndian(bytes, value);
             stream.Write(bytes);
         }
+
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 
@@ -247,6 +258,7 @@ public class GroupPurchaseTests
     {
         var proxy = DispatchProxy.Create<T, TestProxy>();
         ((TestProxy)(object)proxy).Call = call;
+
         return proxy;
     }
 
@@ -282,6 +294,7 @@ internal static class GroupPurchaseTestSupport
     {
         var group = (Group)RuntimeHelpers.GetUninitializedObject(typeof(Group));
         group.Id = id;
+
         return group;
     }
 }
