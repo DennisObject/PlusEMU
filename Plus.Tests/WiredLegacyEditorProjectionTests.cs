@@ -86,7 +86,7 @@ public class WiredLegacyEditorProjectionTests
     [Fact]
     public void EveryConstructibleLegacyBoxHasAnExplicitCanonicalOrCustomEditorDescriptor()
     {
-        var wired = new WiredComponent(null!, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        var wired = new WiredComponent(null!, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         var count = 0;
         foreach (var type in Enum.GetValues<WiredBoxType>().Where(WiredBoxTypeUtility.IsLegacyConstructible))
         {
@@ -114,7 +114,7 @@ public class WiredLegacyEditorProjectionTests
         var item = Item();
         IWiredItem box = shape switch
         {
-            0 => new ShowMessageBox(null!, item) { StringData = "Hello %USERNAME%" },
+            0 => new ShowMessageBox(null!, item, TestWiredClients.Empty) { StringData = "Hello %USERNAME%" },
             1 => new UserSaysBox(null!, item) { StringData = "hello" },
             2 => new TeleportUserBox(null!, item) { Delay = 6 },
             _ => new UserCountInRoomBox(null!, item) { StringData = "2;8" }

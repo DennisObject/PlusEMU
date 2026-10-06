@@ -315,11 +315,11 @@ public class GroupManagementTests : IDisposable
         group.MakeAdmin(8);
         var stats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, group.Id, "", 0);
         var targetHabbo = new Habbo { Id = 8, Username = "Target", Access = Rights(), HabboStats = stats };
-        var (_, targetSent) = Client(targetHabbo);
+        var (targetClient, targetSent) = Client(targetHabbo);
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
-        var roomUser = new RoomUser(8, group.RoomId, 3, room);
+        var roomUser = new RoomUser(8, group.RoomId, 3, room, targetClient, TestChatEmotions.Unused, TestRewardProgress.Unused);
         roomUser.SetStatus("flatctrl 1", "");
         roomUser.SetStatus("flatctrl 3", "");
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)

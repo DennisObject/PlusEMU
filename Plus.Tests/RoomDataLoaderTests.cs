@@ -18,7 +18,7 @@ public sealed class RoomDataLoaderTests
     public void LoadedRoomReturnsItsExistingDataWithoutDatabaseOrMetadataReads()
     {
         var expected = new RoomData { Id = 42, Name = "loaded" };
-        var room = new Room(expected, [], NullLogger<RoomNavigation>.Instance, NullLogger.Instance);
+        var room = new Room(expected, [], NullLogger<RoomNavigation>.Instance, NullLogger.Instance, TestRoomAchievements.Unused, TestRoomOwners.Unused);
         var manager = Proxy<IRoomManager>((method, args) =>
         {
             Assert.Equal("TryGetRoom", method);

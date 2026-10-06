@@ -59,9 +59,10 @@ public class SessionIssuer : ISessionIssuer
     private readonly ICredentialGenerations _generations;
     private readonly IAccountStore _accounts;
     private readonly IBanLookup _bans;
+    private readonly TimeProvider _time;
 
     public SessionIssuer(ISsoTicketStore ssoTickets, IAccessTokenStore accessTokens, IRememberTokenStore rememberTokens, ICredentialGenerations generations,
-        IAccountStore accounts, IBanLookup bans)
+        IAccountStore accounts, IBanLookup bans, TimeProvider time)
     {
         _ssoTickets = ssoTickets;
         _accessTokens = accessTokens;
@@ -69,29 +70,33 @@ public class SessionIssuer : ISessionIssuer
         _generations = generations;
         _accounts = accounts;
         _bans = bans;
+        _time = time;
     }
 
     public Task<long> Generation(int userId) => _generations.Current(userId);
 
     public async Task<AuthSession?> Issue(int userId, string username, long generation, string address, bool remember = false)
     {
+        var instant = CredentialInstant.Capture(_time);
         var sessionId = CredentialGenerations.NewSessionId();
         AuthSession? session = null;
         await _generations.WriteIfCurrent(userId, generation, async scope =>
         {
-            await _generations.StartSession(userId, sessionId, scope);
+            await _generations.StartSessionAt(userId, sessionId, instant, scope);
             await _accounts.RecordAddress(userId, address, scope);
-            session = new(userId, username, await _ssoTickets.Issue(userId, sessionId, scope), await _accessTokens.Issue(userId, sessionId, scope),
-                remember ? await _rememberTokens.Continue(userId, sessionId, scope) : null);
+            session = new(userId, username, await _ssoTickets.IssueAt(userId, sessionId, instant, scope),
+                await _accessTokens.IssueAt(userId, sessionId, instant, scope),
+                remember ? await _rememberTokens.ContinueAt(userId, sessionId, instant, scope) : null);
         });
         return session;
     }
 
     public async Task<ResumeResult> Resume(string rememberToken, string address, bool withTicket)
     {
+        var instant = CredentialInstant.Capture(_time);
         // A live token used twice means someone else holds it: the account is suspect, so it is
         // signed out everywhere in the same transaction that detects the reuse.
-        var rotation = await _rememberTokens.Rotate(rememberToken, RevokeEverything);
+        var rotation = await _rememberTokens.RotateAt(rememberToken, instant, RevokeEverything);
         if (rotation.Status != RememberRotationStatus.Rotated)
             return new(ResumeStatus.Invalid);
 
@@ -101,7 +106,7 @@ public class SessionIssuer : ISessionIssuer
             await RevokeAll(userId);
             return new(ResumeStatus.Invalid);
         }
-        if (await _bans.Find(username, address) is { } ban)
+        if (await _bans.FindAt(username, address, instant.UtcNow) is { } ban)
         {
             await RevokeAll(userId);
             return new(ResumeStatus.Banned, Ban: ban);
@@ -112,23 +117,26 @@ public class SessionIssuer : ISessionIssuer
         await _generations.WriteInSession(userId, rotation.Generation, sessionId, async scope =>
         {
             await _accounts.RecordAddress(userId, address, scope);
-            session = new(userId, username, withTicket ? await _ssoTickets.Issue(userId, sessionId, scope) : default,
-                await _accessTokens.Issue(userId, sessionId, scope), await _rememberTokens.Continue(userId, sessionId, scope));
+            session = new(userId, username, withTicket ? await _ssoTickets.IssueAt(userId, sessionId, instant, scope) : default,
+                await _accessTokens.IssueAt(userId, sessionId, instant, scope),
+                await _rememberTokens.ContinueAt(userId, sessionId, instant, scope));
         });
         return session == null ? new(ResumeStatus.Invalid) : new(ResumeStatus.Resumed, session);
     }
 
     public async Task<IssuedToken?> ExchangeTicket(string ticket)
     {
-        if (string.IsNullOrEmpty(ticket) || await _ssoTickets.FindUser(ticket) is not { } userId)
+        var instant = CredentialInstant.Capture(_time);
+        if (string.IsNullOrEmpty(ticket) || await _ssoTickets.FindUserAt(ticket, instant) is not { } userId)
             return null;
         var generation = await _generations.Current(userId);
         // Exchange always hands back a session (it gives a CMS-written ticket one), so logout can end it.
-        if (await _ssoTickets.Exchange(ticket) is not { SessionId: { } sessionId } owner || owner.UserId != userId)
+        if (await _ssoTickets.ExchangeAt(ticket, instant) is not { SessionId: { } sessionId } owner || owner.UserId != userId)
             return null;
 
         IssuedToken? token = null;
-        await _generations.WriteInSession(userId, generation, sessionId, async scope => token = await _accessTokens.Issue(userId, sessionId, scope));
+        await _generations.WriteInSession(userId, generation, sessionId,
+            async scope => token = await _accessTokens.IssueAt(userId, sessionId, instant, scope));
         return token;
     }
 

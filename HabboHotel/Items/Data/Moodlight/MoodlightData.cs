@@ -1,5 +1,4 @@
-﻿using Dapper;
-using System.Text;
+﻿using System.Text;
 
 namespace Plus.HabboHotel.Items.Data.Moodlight;
 
@@ -11,73 +10,23 @@ public class MoodlightData
 
     public List<MoodlightPreset> Presets;
 
-    public MoodlightData(uint itemId)
+    // Pure model: persistence and default-row creation are owned by the metadata store.
+    public MoodlightData(uint itemId, MoodlightRecord record)
     {
         ItemId = itemId;
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        var row = connection.QuerySingleOrDefault<MoodlightRow>(
-            "SELECT enabled,current_preset AS CurrentPreset,preset_one AS PresetOne,preset_two AS PresetTwo,preset_three AS PresetThree FROM room_items_moodlight WHERE item_id=@itemId LIMIT 1",
-            new { itemId });
-        if (row == null)
-        {
-            const string preset = "#000000,255,0";
-            connection.Execute(
-                "INSERT INTO room_items_moodlight (item_id,enabled,current_preset,preset_one,preset_two,preset_three) VALUES (@itemId,FALSE,1,@preset,@preset,@preset)",
-                new { itemId, preset });
-            row = new(false, 1, preset, preset, preset);
-        }
-        Enabled = row.Enabled;
-        CurrentPreset = row.CurrentPreset;
+        Enabled = record.Enabled;
+        CurrentPreset = record.CurrentPreset;
         Presets = new();
-        Presets.Add(GeneratePreset(row.PresetOne));
-        Presets.Add(GeneratePreset(row.PresetTwo));
-        Presets.Add(GeneratePreset(row.PresetThree));
-    }
-
-    public void Enable()
-    {
-        Enabled = true;
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        connection.Execute("UPDATE room_items_moodlight SET enabled=TRUE WHERE item_id=@itemId LIMIT 1", new { itemId = ItemId });
-    }
-
-    public void Disable()
-    {
-        Enabled = false;
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        connection.Execute("UPDATE room_items_moodlight SET enabled=FALSE WHERE item_id=@itemId LIMIT 1", new { itemId = ItemId });
-    }
-
-    public void UpdatePreset(int preset, string color, int intensity, bool bgOnly, bool hax = false)
-    {
-        if (!IsValidColor(color) || !IsValidIntensity(intensity) && !hax) return;
-        string pr;
-        switch (preset)
-        {
-            case 3:
-                pr = "three";
-                break;
-            case 2:
-                pr = "two";
-                break;
-            case 1:
-            default:
-                pr = "one";
-                break;
-        }
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        connection.Execute($"UPDATE room_items_moodlight SET preset_{pr}=@preset WHERE item_id=@itemId LIMIT 1",
-            new { preset = $"{color},{intensity},{PlusEnvironment.BoolToEnum(bgOnly)}", itemId = ItemId });
-        GetPreset(preset).ColorCode = color;
-        GetPreset(preset).ColorIntensity = intensity;
-        GetPreset(preset).BackgroundOnly = bgOnly;
+        Presets.Add(GeneratePreset(record.PresetOne));
+        Presets.Add(GeneratePreset(record.PresetTwo));
+        Presets.Add(GeneratePreset(record.PresetThree));
     }
 
     public static MoodlightPreset GeneratePreset(string data)
     {
         var bits = data.Split(',');
         if (!IsValidColor(bits[0])) bits[0] = "#000000";
-        return new(bits[0], int.Parse(bits[1]), PlusEnvironment.EnumToBool(bits[2]));
+        return new(bits[0], int.Parse(bits[1]), bits[2] == "1");
     }
 
     public MoodlightPreset GetPreset(int i)
@@ -110,13 +59,15 @@ public class MoodlightData
         return true;
     }
 
-    public string GenerateExtraData()
+    public string GenerateExtraData() => Serialize(Enabled, CurrentPreset, GetPreset(CurrentPreset));
+
+    // Serialized state for a candidate, built before any persistence so a failure cannot follow a write.
+    public static string Serialize(bool enabled, int currentPreset, MoodlightPreset preset)
     {
-        var preset = GetPreset(CurrentPreset);
         var sb = new StringBuilder();
-        sb.Append(Enabled ? 2 : 1);
+        sb.Append(enabled ? 2 : 1);
         sb.Append(",");
-        sb.Append(CurrentPreset);
+        sb.Append(currentPreset);
         sb.Append(",");
         sb.Append(preset.BackgroundOnly ? 2 : 1);
         sb.Append(",");
@@ -126,5 +77,4 @@ public class MoodlightData
         return sb.ToString();
     }
 
-    private sealed record MoodlightRow(bool Enabled, int CurrentPreset, string PresetOne, string PresetTwo, string PresetThree);
 }

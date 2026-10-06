@@ -4,6 +4,7 @@ using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.Communication.Packets.Outgoing.Inventory.Trading;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.HabboHotel.Items;
+using Plus.Core.Settings;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
@@ -13,12 +14,13 @@ public sealed class Trade
 {
     private readonly Room _instance;
 
-    internal Trade(int id, RoomUser playerOne, RoomUser playerTwo, Room room, ITradeStore store)
+    internal Trade(int id, RoomUser playerOne, RoomUser playerTwo, Room room, ITradeStore store, ISettingsManager settings)
     {
         Id = id;
         CanChange = true;
         _instance = room;
         _store = store;
+        _settings = settings;
         Users = new TradeUser[2];
         Users[0] = new(playerOne);
         Users[1] = new(playerTwo);
@@ -30,6 +32,7 @@ public sealed class Trade
         playerTwo.TradePartner = playerOne.UserId;
     }
     private readonly ITradeStore _store;
+    private readonly ISettingsManager _settings;
 
     public int Id { get; set; }
     public TradeUser[] Users { get; set; }
@@ -141,7 +144,7 @@ public sealed class Trade
             roomUserOne.GetClient().GetHabbo().Inventory.Furniture.RemoveItem(item.Id);
             roomUserOne.GetClient().Send(new FurniListRemoveComposer(item.Id));
             ReceiveTradedItem(roomUserTwo.GetClient(), item,
-                item.Definition.InteractionType == InteractionType.Exchange && PlusEnvironment.SettingsManager.TryGetValue("trading.auto_exchange_redeemables") == "1", _store);
+                item.Definition.InteractionType == InteractionType.Exchange && _settings.TryGetValue("trading.auto_exchange_redeemables") == "1", _store);
         }
         foreach (var item in userTwo)
         {
@@ -149,7 +152,7 @@ public sealed class Trade
             roomUserTwo.GetClient().GetHabbo().Inventory.Furniture.RemoveItem(item.Id);
             roomUserTwo.GetClient().Send(new FurniListRemoveComposer(item.Id));
             ReceiveTradedItem(roomUserOne.GetClient(), item,
-                item.Definition.InteractionType == InteractionType.Exchange && PlusEnvironment.SettingsManager.TryGetValue("trading.auto_exchange_redeemables") == "1", _store);
+                item.Definition.InteractionType == InteractionType.Exchange && _settings.TryGetValue("trading.auto_exchange_redeemables") == "1", _store);
         }
         _store.Log(roomUserOne.UserId, roomUserTwo.UserId, logUserOne, logUserTwo);
     }

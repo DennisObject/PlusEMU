@@ -4,6 +4,8 @@ using System.Diagnostics.CodeAnalysis;
 using Plus.Communication.Packets.Outgoing;
 using Microsoft.Extensions.Logging.Abstractions;
 using Plus.HabboHotel.Navigator;
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Data.Toner;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Permissions;
 using Dapper;
@@ -90,21 +92,21 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
         admin.Open();
         var schema = "task_foundation_toner_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
-        var field = typeof(PlusEnvironment).GetField("_database", BindingFlags.NonPublic | BindingFlags.Static)!;
-        var previous = field.GetValue(null);
         try
         {
             options.Database = schema;
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+            connection.Execute(Regex.Match(pristine, @"CREATE TABLE `items` \([\s\S]*?\) ENGINE=[^;]+;").Value);
             connection.Execute(Regex.Match(pristine, @"CREATE TABLE `room_items_toner` \([\s\S]*?\) ENGINE=[^;]+;").Value);
-            field.SetValue(null, new HabbiconDatabaseTests.TestDatabase(options.ConnectionString));
+            connection.Execute("INSERT INTO items (id,user_id,room_id,base_item,extra_data) VALUES (7,1,42,1,''),(8,1,42,1,''),(9,1,42,1,'')");
+            var store = new RoomItemMetadataStore(new HabbiconDatabaseTests.TestDatabase(options.ConnectionString));
             connection.Execute("INSERT INTO room_items_toner VALUES (7, FALSE, 12, 34, 56), (8, TRUE, 21, 43, 65)");
 
-            var disabled = new Plus.HabboHotel.Items.Data.Toner.TonerData(7);
-            var enabled = new Plus.HabboHotel.Items.Data.Toner.TonerData(8);
-            var defaults = new Plus.HabboHotel.Items.Data.Toner.TonerData(9);
+            var disabled = new TonerData(7, Assert.IsType<TonerRecord>(store.LoadToner(7)));
+            var enabled = new TonerData(8, Assert.IsType<TonerRecord>(store.LoadToner(8)));
+            var defaults = new TonerData(9, Assert.IsType<TonerRecord>(store.LoadToner(9)));
 
             Assert.Equal((0, 12, 34, 56), (disabled.Enabled, disabled.Hue, disabled.Saturation, disabled.Lightness));
             Assert.Equal((1, 21, 43, 65), (enabled.Enabled, enabled.Hue, enabled.Saturation, enabled.Lightness));
@@ -114,7 +116,6 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
         }
         finally
         {
-            field.SetValue(null, previous);
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }

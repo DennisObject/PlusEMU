@@ -87,7 +87,7 @@ public partial class PlacedFurniRoomTests
             return null;
         });
         typeof(Room).GetField("_roomItemHandling", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
-            .SetValue(_room, new RoomItemHandling(_room, store));
+            .SetValue(_room, new RoomItemHandling(_room, store, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         PlacementService(() => throw new InvalidOperationException("Sticky placement must not reward ordinary placement"))
             .PlaceSticky(_room, _client, 30, ":w=1,1 l=0,0 l");
         Assert.Equal(1, writes);

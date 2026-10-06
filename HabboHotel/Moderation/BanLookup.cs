@@ -7,6 +7,7 @@ public interface IBanLookup
 {
     /// <summary>An active ban on the username or on the caller's IP address, if any.</summary>
     Task<LoginBan?> Find(string username, string address);
+    Task<LoginBan?> FindAt(string username, string address, DateTimeOffset now);
 }
 
 public sealed record LoginBan(string Reason, DateTimeOffset? ExpiresAt);
@@ -26,10 +27,11 @@ public class BanLookup : IBanLookup
         _time = time;
     }
 
-    public async Task<LoginBan?> Find(string username, string address)
+    public Task<LoginBan?> Find(string username, string address) => FindAt(username, address, _time.GetUtcNow());
+
+    public async Task<LoginBan?> FindAt(string username, string address, DateTimeOffset now)
     {
         using var connection = _database.Connection();
-        var now = _time.GetUtcNow();
         return await connection.QueryFirstOrDefaultAsync<LoginBan>(
             "SELECT `reason` AS Reason, `expire` AS ExpiresAt FROM `bans` " +
             "WHERE ((`bantype` = 'user' AND `value` = @username) OR (`bantype` = 'ip' AND `value` = @address)) AND `expire` > @now " +

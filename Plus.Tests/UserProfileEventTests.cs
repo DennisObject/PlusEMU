@@ -4,6 +4,8 @@ using Plus.Communication.Packets.Incoming.Sound;
 using Plus.Communication.Packets.Incoming.Users;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
+using Plus.Core.FigureData;
+using System.Reflection;
 using Plus.HabboHotel.Users.Authentication;
 using Xunit;
 
@@ -82,6 +84,28 @@ public sealed class UserProfileEventTests
         public System.Data.IDbConnection Connection() => throw new InvalidOperationException("Persistence failed");
     }
 
+    [Fact]
+    public void FailedMannequinPersistenceLeavesProfileAndPacketsUntouched()
+    {
+        var habbo = new Habbo { Id = 7, Look = "old-look", Gender = "M", Clothing = new() };
+        var (session, sent) = HabbiconTestSupport.Client(habbo);
+        var figures = DispatchProxy.Create<IFigureDataManager, FigureProxy>();
+        var profiles = new UserProfileService(figures, null!, null!, null!, new FailingDatabase(),
+            TimeProvider.System, null!, null!, new AccountSessionGate());
+
+        Assert.Throws<InvalidOperationException>(() => profiles.ApplyMannequin(session, new("F", "new-look")));
+
+        Assert.Equal("old-look", habbo.Look);
+        Assert.Equal("M", habbo.Gender);
+        Assert.Empty(sent);
+    }
+
+    public class FigureProxy : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+            => targetMethod?.Name == "ProcessFigure" ? args![0] : throw new NotSupportedException(targetMethod?.Name);
+    }
+
     private sealed class RecordingProfiles : IUserProfileService
     {
         public FigureUpdateRequest? Figure { get; private set; }
@@ -96,6 +120,7 @@ public sealed class UserProfileEventTests
         public Task SetMessengerInvitePreference(GameClient session, bool enabled) { Invites = enabled; return Task.CompletedTask; }
         public Task SetSoundVolumes(GameClient session, SoundVolumeRequest request) { Volumes = request; return Task.CompletedTask; }
         public void UpdateFigure(GameClient session, FigureUpdateRequest request) => Figure = request;
+        public void ApplyMannequin(GameClient session, FigureUpdateRequest request) => Figure = request;
         public void ChangeMotto(GameClient session, string motto) => Motto = motto;
         public void SetFocusPreference(GameClient session, bool enabled) => Focus = enabled;
         public Task SetChatStylePreference(GameClient session, int bubbleId) { Bubble = bubbleId; return Task.CompletedTask; }

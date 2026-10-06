@@ -91,7 +91,7 @@ public sealed class WiredSelectorReviewRegressionTests
         public int WorldCaptures;
         public Fixture()
         {
-            RoomUser[] users = [new(111, 1, 11, _room), new(112, 1, 12, _room)];
+            RoomUser[] users = [new(111, 1, 11, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused), new(112, 1, 12, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)];
             Context = new(_room, new(WiredEventKind.Enter) { EventItem = Items[0] },
                 new(() => Items, () => users, id => Items.FirstOrDefault(x => x.Id == id),
                     id => users.FirstOrDefault(x => x.VirtualId == id)), new Operations());
@@ -102,7 +102,7 @@ public sealed class WiredSelectorReviewRegressionTests
         public IWiredContextualSelector Selector(string name, WiredConfiguration configuration)
         {
             var selector = WiredSelectorFactory.Create(_room, new() { Id = 100, Definition = new() { InteractionName = name } },
-                _state, readWorld: ReadWorld)!;
+                _state, TestGroupManager.Empty, readWorld: ReadWorld)!;
             Assert.True(selector.TryValidateConfiguration(configuration, out var valid, out var error), error);
             selector.ApplyConfiguration(valid);
             return selector;
@@ -110,7 +110,7 @@ public sealed class WiredSelectorReviewRegressionTests
         public IWiredContextualAddon Addon(WiredConfiguration configuration)
         {
             var addon = WiredAddonFactory.Create(_room, new() { Id = 200, Definition = new() { InteractionName = "wf_xtra_text_output_furni_name" } },
-                _state, readWorld: ReadWorld)!;
+                _state, TestGroupManager.Empty, readWorld: ReadWorld)!;
             Assert.True(addon.TryValidateConfiguration(configuration, out var valid, out var error), error);
             addon.ApplyConfiguration(valid);
             return addon;

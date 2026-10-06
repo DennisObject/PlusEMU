@@ -2,6 +2,8 @@
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.Utilities;
+using Plus.HabboHotel.Rooms.Chat.Pets.Commands;
+using Plus.HabboHotel.Rooms.Chat.Pets.Locale;
 
 namespace Plus.HabboHotel.Rooms.AI.Types;
 
@@ -10,9 +12,13 @@ public class PetBot : BotAi
     private int _actionTimer;
     private int _energyTimer;
     private int _speechTimer;
+    private readonly IPetLocale _locale;
+    private readonly IPetCommandManager _commands;
 
-    public PetBot(int virtualId)
+    public PetBot(int virtualId, IPetLocale locale, IPetCommandManager commands)
     {
+        _locale = locale;
+        _commands = commands;
         _speechTimer = Random.Shared.Next(10, 60);
         _actionTimer = Random.Shared.Next(10, 30 + virtualId);
         _energyTimer = Random.Shared.Next(10, 60);
@@ -62,7 +68,7 @@ public class PetBot : BotAi
             {
                 if (speakerSession.GetHabbo().Username == pet.PetData.OwnerName)
                 {
-                    var speech = PlusEnvironment.Game.ChatManager.GetPetLocale().GetValue($"welcome.speech.pet{pet.PetData.Type}");
+                    var speech = _locale.GetValue($"welcome.speech.pet{pet.PetData.Type}");
                     var rSpeech = speech[Random.Shared.Next(0, speech.Length)];
                     pet.Chat(rSpeech);
                 }
@@ -91,7 +97,7 @@ public class PetBot : BotAi
             if (pet != null)
             {
                 RemovePetStatus();
-                var speech = PlusEnvironment.Game.ChatManager.GetPetLocale().GetValue($"speech.pet{pet.PetData.Type}");
+                var speech = _locale.GetValue($"speech.pet{pet.PetData.Type}");
                 var rSpeech = speech[Random.Shared.Next(0, speech.Length)];
                 if (rSpeech.Length != 3)
                     pet.Chat(rSpeech);
@@ -159,14 +165,14 @@ public class PetBot : BotAi
         //    Pet.Statusses.Add("gst thr", TextHandling.GetString(Pet.Z));
         if (message.ToLower().StartsWith($"{pet.PetData.Name.ToLower()} ") && speakerSession.GetHabbo().Username.ToLower() == pet.PetData.OwnerName.ToLower() ||
             message.ToLower().StartsWith($"{pet.PetData.Name.ToLower()} ") &&
-            PlusEnvironment.Game.ChatManager.GetPetCommands().TryInvoke(message.Substring(pet.PetData.Name.ToLower().Length + 1)) == 8)
+            _commands.TryInvoke(message.Substring(pet.PetData.Name.ToLower().Length + 1)) == 8)
         {
             var command = message.Substring(pet.PetData.Name.ToLower().Length + 1);
             var r = Random.Shared.Next(1, 8 + 1); // Made Random
-            if (pet.PetData.Energy > 10 && r < 6 || pet.PetData.Level > 15 || PlusEnvironment.Game.ChatManager.GetPetCommands().TryInvoke(command) == 8)
+            if (pet.PetData.Energy > 10 && r < 6 || pet.PetData.Level > 15 || _commands.TryInvoke(command) == 8)
             {
                 RemovePetStatus(); // Remove Status
-                switch (PlusEnvironment.Game.ChatManager.GetPetCommands().TryInvoke(command))
+                switch (_commands.TryInvoke(command))
                 {
                     // TODO - Level you can use the commands at...
                     case 1:
@@ -279,7 +285,7 @@ public class PetBot : BotAi
                     case 46:
                         break;
                     default:
-                        var speech = PlusEnvironment.Game.ChatManager.GetPetLocale().GetValue("pet.unknowncommand");
+                        var speech = _locale.GetValue("pet.unknowncommand");
                         pet.Chat(speech[Random.Shared.Next(0, speech.Length)]);
                         break;
                 }
@@ -290,7 +296,7 @@ public class PetBot : BotAi
                 RemovePetStatus(); // Remove Status
                 if (pet.PetData.Energy < 10)
                 {
-                    var speech = PlusEnvironment.Game.ChatManager.GetPetLocale().GetValue("pet.tired");
+                    var speech = _locale.GetValue("pet.tired");
                     pet.Chat(speech[Random.Shared.Next(0, speech.Length)]);
                     pet.Statusses.Add("lay", TextHandling.GetString(pet.Z));
                     pet.UpdateNeeded = true;
@@ -300,7 +306,7 @@ public class PetBot : BotAi
                 }
                 else
                 {
-                    var speech = PlusEnvironment.Game.ChatManager.GetPetLocale().GetValue("pet.lazy");
+                    var speech = _locale.GetValue("pet.lazy");
                     pet.Chat(speech[Random.Shared.Next(0, speech.Length)]);
                     pet.PetData.PetEnergy(false); // Remove Energy
                 }

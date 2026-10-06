@@ -24,7 +24,7 @@ public sealed class RememberGraceDatabaseTests : IDisposable
         _generations = new(_database, _time);
         _access = new(_database, TimeProvider.System, options);
         _issuer = new(new SsoTicketStore(_database, TimeProvider.System, options), _access, new RememberTokenStore(_database, _time, options), _generations,
-            new AccountStore(_database, TimeProvider.System, options), new BanLookup(_database, TimeProvider.System));
+            new AccountStore(_database, TimeProvider.System, options), new BanLookup(_database, TimeProvider.System), _time);
     }
 
     [AuthDatabaseFact]

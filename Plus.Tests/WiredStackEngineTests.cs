@@ -179,7 +179,7 @@ public class WiredStackEngineTests
     public void PendingActorCannotExecuteAfterLeavingOrChangingRoom(bool changeRoom)
     {
         var room = EmptyRoom();
-        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent);
         var trigger = fixture.Trigger();
         var effect = fixture.Effect(delay: 1);
@@ -509,12 +509,31 @@ public class WiredStackEngineTests
         Assert.Equal(8, configured.MaxDepth);
         Assert.Equal(200, configured.MaxExecutionsPerPass);
         Assert.Equal(200, configured.MaxPendingStacks);
+
+        var values = new Dictionary<string, string>
+        {
+            ["wired.max_depth"] = "8",
+            ["wired.max_executions_per_pass"] = "200",
+            ["wired.max_pending_stacks"] = "200"
+        };
+        var settings = new TestRoomSettings(values);
+        var wired = new WiredComponent(EmptyRoom(), TestLogging.Logger, TimeProvider.System, settings,
+            TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance,
+            TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
+        values["wired.max_depth"] = "1";
+        values["wired.max_executions_per_pass"] = "1";
+        values["wired.max_pending_stacks"] = "1";
+        var engine = (WiredStackEngine)typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(wired)!;
+        var captured = (WiredEngineLimits)typeof(WiredStackEngine).GetField("_limits", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(engine)!;
+        Assert.Equal(8, captured.MaxDepth);
+        Assert.Equal(200, captured.MaxExecutionsPerPass);
+        Assert.Equal(200, captured.MaxPendingStacks);
     }
 
     [Fact]
     public void EveryPreviouslyConstructibleBoxRetainsItsTypeAndConfigurationShape()
     {
-        var wired = new WiredComponent(EmptyRoom(), TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        var wired = new WiredComponent(EmptyRoom(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         WiredBoxType[] unsupported = [WiredBoxType.None, WiredBoxType.EffectMoveFurniFromNearestUser,
             WiredBoxType.EffectBotCommunicatesToUserBox, WiredBoxType.ConditionFurniTypeMatches,
             WiredBoxType.ConditionFurniTypeDoesntMatch];
@@ -550,7 +569,7 @@ public class WiredStackEngineTests
     public void KickWarningPrecedesGraceAndProtectedActorsAreNeverScheduled(bool protectedActor)
     {
         var actor = ActorRoom(protectedActor);
-        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var kick = fixture.Add(new KickUserBox(actor.Room,
@@ -572,7 +591,7 @@ public class WiredStackEngineTests
     public void TeleportGlowBeginsWhenFiringIsAcceptedBeforeItsDelay()
     {
         var actor = ActorRoom();
-        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var teleport = fixture.Add(new TeleportUserBox(actor.Room,
@@ -633,7 +652,7 @@ public class WiredStackEngineTests
     public void LeavingAndReenteringTheSameRoomCancelsThePreviousVisit()
     {
         var actor = ActorRoom();
-        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var effect = fixture.Effect(delay: 4);
@@ -642,8 +661,7 @@ public class WiredStackEngineTests
         actor.Player.CurrentRoom = null;
         actor.Users.Clear();
         actor.Player.CurrentRoom = actor.Room;
-        var newVisit = new RoomUser(actor.Player.Id, 0, 1, actor.Room);
-        SetPrivate(newVisit, "_mClient", actor.Player.Client);
+        var newVisit = new RoomUser(actor.Player.Id, 0, 1, actor.Room, actor.Player.Client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         actor.Users.TryAdd(1, newVisit);
         Assert.NotSame(previousVisit, wired.CaptureActorVisit([actor.Player]));
 
@@ -770,7 +788,7 @@ public class WiredStackEngineTests
     private static (Room Room, Habbo Player, ConcurrentDictionary<int, RoomUser> Users, List<uint> Packets) ActorRoom(bool protectedActor = false)
     {
         var room = EmptyRoom();
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         SetPrivate(room, "_roomUserManager", manager);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
@@ -790,8 +808,7 @@ public class WiredStackEngineTests
             Access = EditorTestSupport.Access(protectedActor ? [PermissionKeys.ModerationTool] : []), Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)) };
         client.SetHabbo(player);
         SetPrivate(player.Effects, "_habbo", player);
-        var visit = new RoomUser(player.Id, 0, 0, room);
-        SetPrivate(visit, "_mClient", client);
+        var visit = new RoomUser(player.Id, 0, 0, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         users.TryAdd(0, visit);
         return (room, player, users, packets);
     }

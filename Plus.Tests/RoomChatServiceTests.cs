@@ -353,10 +353,10 @@ public sealed class RoomChatServiceTests
             _room.Id = 42;
             _room.MutedUsers = [];
             _room.WordFilterList = [];
-            var users = new RoomUserManager(_room, TestRoomUserStore.Instance, clock);
-            var items = new RoomItemHandling(_room, TestRoomItemStore.Instance);
+            var users = new RoomUserManager(_room, TestRoomUserStore.Instance, clock, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
+            var items = new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
             _floorItems = (ConcurrentDictionary<uint, Item>)Get(items, "_floorItems");
-            _wired = new WiredComponent(_room, TestLogging.Logger, clock, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+            _wired = new WiredComponent(_room, TestLogging.Logger, clock, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
             Set(_room, "_roomUserManager", users);
             Set(_room, "_roomItemHandling", items);
             Set(_room, "_wiredComponent", _wired);
@@ -371,10 +371,10 @@ public sealed class RoomChatServiceTests
                 Id = 8, Username = "Bob", CurrentRoom = _room, Effects = new EffectsComponent(clock),
                 IgnoresComponent = new([]), ReceiveWhispers = true
             });
-            SenderUser = new RoomUser(7, 1, 11, _room);
-            Add(users, SenderUser, Sender);
-            RecipientUser = new RoomUser(8, 2, 12, _room);
-            Add(users, RecipientUser, Recipient);
+            SenderUser = new RoomUser(7, 1, 11, _room, Sender, TestChatEmotions.Unused, TestRewardProgress.Unused);
+            Add(users, SenderUser);
+            RecipientUser = new RoomUser(8, 2, 12, _room, Recipient, TestChatEmotions.Unused, TestRewardProgress.Unused);
+            Add(users, RecipientUser);
             var clientManager = ClientDirectory.Create(out var clients);
             Clients = clients;
             Clients.ByUserId[7] = Sender;
@@ -406,10 +406,9 @@ public sealed class RoomChatServiceTests
             return (client, sent);
         }
 
-        private static void Add(RoomUserManager manager, RoomUser user, GameClient client)
+        private static void Add(RoomUserManager manager, RoomUser user)
         {
-            user.UserId = client.GetHabbo().Id;
-            Set(user, "_mClient", client);
+            user.UserId = user.HabboId;
             var users = (ConcurrentDictionary<int, RoomUser>)Get(manager, "_users");
             users[user.VirtualId] = user;
         }

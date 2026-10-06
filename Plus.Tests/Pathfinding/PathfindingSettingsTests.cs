@@ -1,5 +1,7 @@
 using Plus.Core.Settings;
 using Plus.HabboHotel.Rooms.PathFinding;
+using Plus.HabboHotel.Rooms;
+using System.Runtime.CompilerServices;
 using Xunit;
 
 namespace Plus.Tests.Pathfinding;
@@ -39,6 +41,27 @@ public class PathfindingSettingsTests
         }));
         Assert.Equal(1.5, settings.EffectiveMaxUp); Assert.Null(settings.EffectiveMaxDown);
         Assert.Null(settings.MaxExpansionsPerSearch); Assert.Equal(1, settings.ShadowLogSample);
+    }
+
+    [Fact]
+    public void GamemapCapturesNavigationSettingsWithoutOpeningLazyNavigationDependencies()
+    {
+        var values = new Dictionary<string, string>
+        {
+            ["pathfinding.engine"] = "v2",
+            ["pathfinding.max_step_up"] = "2.25"
+        };
+        var settings = new Settings(values);
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        var map = new Gamemap(room, new RoomModel("capture", 0, 0, 0, 0, "00\r00", 0, 0, false),
+            TestLogging.Navigation, settings, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
+
+        values["pathfinding.engine"] = "legacy";
+        values["pathfinding.max_step_up"] = "9";
+
+        Assert.NotNull(map.Navigation);
+        Assert.True(map.Navigation.UsesExecutor);
+        Assert.Equal(2.25, map.Navigation.Settings.MaxStepUp);
     }
 
     [Theory]

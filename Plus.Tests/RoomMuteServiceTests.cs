@@ -103,7 +103,7 @@ public sealed class RoomMuteServiceTests
 
         clock.Now = Now.AddMinutes(5);
         var descriptor = WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_mute_triggerer");
-        var modern = new WiredModernAction(world.Room, item, descriptor, new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, clock, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        var modern = new WiredModernAction(world.Room, item, descriptor, new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, clock, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
         Assert.True(modern.TryValidateConfiguration(new() { IntParams = [3, 0] }, out var config, out var error), error);
         modern.ApplyConfiguration(config);
         var context = new WiredRuntimeContext(world.Room, new(WiredEventKind.Use) { Actor = world.TargetUser },
@@ -140,17 +140,16 @@ public sealed class RoomMuteServiceTests
             (TargetClient, TargetPackets) = HabbiconTestSupport.Client(Target);
             Owner.Client = OwnerClient;
             Target.Client = TargetClient;
-            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock);
+            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, clock, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
             Set(Room, "_roomUserManager", users);
-            Add(users, new RoomUser(Owner.Id, 1, 11, Room), OwnerClient);
-            TargetUser = new RoomUser(Target.Id, 2, 12, Room);
-            Add(users, TargetUser, TargetClient);
+            Add(users, new RoomUser(Owner.Id, 1, 11, Room, OwnerClient, TestChatEmotions.Unused, TestRewardProgress.Unused));
+            TargetUser = new RoomUser(Target.Id, 2, 12, Room, TargetClient, TestChatEmotions.Unused, TestRewardProgress.Unused);
+            Add(users, TargetUser);
         }
 
-        private static void Add(RoomUserManager manager, RoomUser user, GameClient client)
+        private static void Add(RoomUserManager manager, RoomUser user)
         {
-            user.UserId = client.GetHabbo().Id;
-            Set(user, "_mClient", client);
+            user.UserId = user.HabboId;
             ((ConcurrentDictionary<int, RoomUser>)Get(manager, "_users"))[user.VirtualId] = user;
         }
     }

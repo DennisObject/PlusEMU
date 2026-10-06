@@ -218,7 +218,7 @@ public class RoomBroadcastTests
         bot.SetX = 2;
         bot.SetY = 1;
         typeof(RoomUserManager).GetMethod("RemoveRoomUser", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(fixture.Manager, new object[] { bot });
+            .Invoke(fixture.Manager, new object[] { bot, false, false });
         Assert.Empty(fixture.Manager.GetUserList());
         Assert.Empty(fixture.Map.GetRoomUsers(new(1, 1)));
         Assert.Equal(temporary ? (byte)1 : bot.SqState, fixture.Map.GameMap[pendingStep ? 2 : 1, 1]);

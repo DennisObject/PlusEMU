@@ -121,7 +121,7 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
         var expiry = _clubMemberships.Grant(actor, user.Id, days);
         if (expiry == null) return HousekeepingOutcome.Fail(Forbidden, Label(user));
         if (_clients.Online(userId) is { } client)
-            client.Send(new ScrSendUserInfoComposer(client.GetHabbo().Access));
+            client.Send(new ScrSendUserInfoComposer(ClubStatusSnapshot.Capture(client.GetHabbo().Access)));
         return HousekeepingOutcome.Success(Label(user), $"days={days} expires={expiry.Value.ToUnixTimeSeconds()}");
     }
 

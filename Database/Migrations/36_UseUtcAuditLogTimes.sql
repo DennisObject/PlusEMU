@@ -8,6 +8,8 @@ ALTER TABLE `logs_client_staff`
 UPDATE `logs_client_staff`
 SET `timestamp_utc` = CASE
       WHEN `timestamp` IS NULL OR `timestamp` <= 0 THEN NULL
+      WHEN `timestamp` >= 253402300800 THEN NULL
+      WHEN CAST(`timestamp` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`timestamp` * 1000000) AS SIGNED) MICROSECOND)
     END;
 
@@ -22,6 +24,8 @@ ALTER TABLE `housekeeping_log`
 UPDATE `housekeeping_log`
 SET `timestamp_utc` = CASE
       WHEN `timestamp` IS NULL OR `timestamp` <= 0 THEN NULL
+      WHEN `timestamp` >= 253402300800 THEN NULL
+      WHEN CAST(`timestamp` AS DECIMAL(30, 6)) > 253402300799.999999 THEN NULL
       ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL CAST(ROUND(`timestamp` * 1000000) AS SIGNED) MICROSECOND)
     END;
 

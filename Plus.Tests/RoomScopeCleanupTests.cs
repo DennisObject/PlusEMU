@@ -82,14 +82,15 @@ public sealed class RoomScopeCleanupTests
         var items = new TeardownItemStore(calls);
         using var fixture = new Fixture(() => calls.Add("scope"), room =>
         {
-            var map = new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false), TestLogging.Navigation);
+            var map = new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "000\r000\r000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
+            Set(room, "_interactionClock", TimeProvider.System);
             Set(room, "_gamemap", map);
-            Set(room, "_roomItemHandling", new RoomItemHandling(room, items));
-            Set(room, "_roomUserManager", new RoomUserManager(room, users, TimeProvider.System));
+            Set(room, "_roomItemHandling", new RoomItemHandling(room, items, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestRewardProgress.Unused));
+            Set(room, "_roomUserManager", new RoomUserManager(room, users, TimeProvider.System, TestRewardProgress.Unused, TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
             TestRoomUserSnapshots.Install(room);
             if (v2)
                 typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
-                    .SetValue(map, new RoomNavigation(room, map.StaticModel, new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation));
+                    .SetValue(map, new RoomNavigation(room, map.StaticModel, new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
             map.GenerateMaps();
         });
         var room = fixture.Create(1);
@@ -176,6 +177,8 @@ public sealed class RoomScopeCleanupTests
         public Fixture(Action? dispose = null, Action<Room>? initialize = null)
         {
             var services = new ServiceCollection();
+            services.AddSingleton<Plus.HabboHotel.Achievements.IAchievementManager>(TestRoomAchievements.Unused);
+            services.AddSingleton<IRoomManager>(TestRoomOwners.Unused);
             services.AddScoped<Probe>(_ => new Probe(() => { Disposed++; dispose?.Invoke(); }));
             services.AddScoped<IRoomComponent>(provider => new MinimalComponent(provider.GetRequiredService<Probe>(), initialize));
             _provider = services.BuildServiceProvider();
@@ -206,7 +209,7 @@ public sealed class RoomScopeCleanupTests
             room.UsersWithRights = [];
             room.WordFilterList = [];
             Set(room, "_tents", new Dictionary<uint, List<RoomUser>>());
-            Set(room, "_wiredComponent", new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance));
+            Set(room, "_wiredComponent", new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel));
             initialize?.Invoke(room);
         }
         public void Initiated() { }

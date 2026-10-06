@@ -3,6 +3,7 @@ using Dapper;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Plus.Core;
+using Plus.Core.Settings;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
@@ -17,6 +18,10 @@ using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.Database;
 using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Groups;
+using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Rooms.Chat.Commands;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -28,10 +33,17 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly ILogger _logger;
     private readonly TimeProvider _clock;
     private readonly IBotManagementStore _botStore;
+    private readonly IGameClientManager _clients;
+    private readonly IGroupManager _groups;
+    private readonly IItemDataManager _definitions;
+    private readonly ICommandManager _commands;
+    private readonly IAccessControl _access;
+    private readonly IItemTravelStore _travelStore;
 
-    public WiredComponent(Room instance, ILogger logger, TimeProvider clock, IWiredRoomSettingsFactory settingsFactory,
+    public WiredComponent(Room instance, ILogger logger, TimeProvider clock, ISettingsManager settings, IWiredRoomSettingsFactory settingsFactory,
         IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService,
-        IBotManagementStore botStore) //, RoomItem Items)
+        IBotManagementStore botStore, IGameClientManager clients, IGroupManager groups, IItemDataManager definitions,
+        ICommandManager commands, IAccessControl access, IItemTravelStore travelStore) //, RoomItem Items)
     {
         _room = instance;
         _logger = logger;
@@ -40,13 +52,19 @@ public partial class WiredComponent : IWiredRuntimeOperations
         _database = database;
         _rewards = rewardService;
         _botStore = botStore;
+        _clients = clients;
+        _groups = groups;
+        _definitions = definitions;
+        _commands = commands;
+        _access = access;
+        _travelStore = travelStore;
         Settings = settingsFactory.Create(instance);
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
             box => ReferenceEquals(_room.GetRoomItemHandler().GetItem(box.Item.Id), box.Item),
             IsActorPresent,
             OnEvent, ExceptionLogger.LogWiredException,
-            WiredEngineLimits.FromSettings(key => PlusEnvironment.SettingsManager?.TryGetValue(key) ?? "0"),
+            WiredEngineLimits.FromSettings(settings.TryGetValue),
             CaptureActorVisit);
         _targets = new(
             () => _room.GetRoomItemHandler().GetFloor,
@@ -247,9 +265,9 @@ public partial class WiredComponent : IWiredRuntimeOperations
             case WiredBoxType.TriggerUserFurniCollision:
                 return new UserFurniCollision(_room, item);
             case WiredBoxType.TriggerUserSaysCommand:
-                return new UserSaysCommandBox(_room, item);
+                return new UserSaysCommandBox(_room, item, _commands);
             case WiredBoxType.EffectShowMessage:
-                return new ShowMessageBox(_room, item);
+                return new ShowMessageBox(_room, item, _clients);
             case WiredBoxType.EffectTeleportToFurni:
                 return new TeleportUserBox(_room, item);
             case WiredBoxType.EffectToggleFurniState:
@@ -345,7 +363,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
             case WiredBoxType.EffectRegenerateMaps:
                 return new RegenerateMapsBox(_room, item);
             case WiredBoxType.EffectGiveUserBadge:
-                return new GiveUserBadgeBox(_room, item);
+                return new GiveUserBadgeBox(_room, item, _access);
         }
         return null;
     }

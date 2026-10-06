@@ -132,7 +132,7 @@ public sealed class WiredBotAppearancePersistenceTests
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
             Room.Id = 42;
-            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System);
+            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
             Set(Room, "_roomUserManager", users);
             var botData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot));
             botData.Id = 31;
@@ -142,7 +142,7 @@ public sealed class WiredBotAppearancePersistenceTests
             botData.Gender = "F";
             botData.AiType = BotAiType.Generic;
             botData.VirtualId = 31;
-            Bot = new(0, Room.Id, 31, Room) { BotData = botData };
+            Bot = new(0, Room.Id, 31, Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { BotData = botData };
             var bots = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
                 .GetField("_bots", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(users)!;
             bots[botData.Id] = Bot;
@@ -150,8 +150,7 @@ public sealed class WiredBotAppearancePersistenceTests
             var viewer = new Habbo { Id = 7, CurrentRoom = Room };
             var (client, sent) = HabbiconTestSupport.Client(viewer);
             _sent = sent;
-            var roomUser = new RoomUser(viewer.Id, Room.Id, 7, Room);
-            Set(roomUser, "_mClient", client);
+            var roomUser = new RoomUser(viewer.Id, Room.Id, 7, Room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
             var people = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
                 .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(users)!;
             people[roomUser.VirtualId] = roomUser;
@@ -162,7 +161,7 @@ public sealed class WiredBotAppearancePersistenceTests
             var descriptor = WiredBoxRegistry.All.Single(value => value.CanonicalName == "wf_act_bot_clothes");
             var action = new WiredModernAction(Room, new Item { Id = 1 }, descriptor, new(), _ => { },
                 (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System,
-                TestWiredRewardService.Instance, store);
+                TestWiredRewardService.Instance, store, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
             Assert.True(action.TryValidateConfiguration(
                 new() { IntParams = [0], Text = "\thd-200-1" }, out var configuration, out var error), error);
             action.ApplyConfiguration(configuration);

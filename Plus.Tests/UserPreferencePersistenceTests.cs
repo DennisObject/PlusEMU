@@ -285,7 +285,7 @@ public sealed class UserPreferencePersistenceTests
                 }
                 connection.Execute("ALTER TABLE users ADD bubble_id TINYINT NOT NULL DEFAULT 0; ALTER TABLE user_stats RENAME TO user_statistics; INSERT INTO users(id,username,auth_ticket,account_created) VALUES(7,'VolumeUser','ticket','2042-01-01 00:00:00'); INSERT INTO users_settings(user_id,home_room,ignore_invites,volume) VALUES(7,42,true,'20,50,80')");
             }
-            var loader = new UserDataFactory(null!, database, [], null!, null!, null!, null!, TimeProvider.System);
+            var loader = new UserDataFactory(null!, database, [], null!, null!, null!, null!, TimeProvider.System, TestRoomAchievements.Unused);
             var user = Assert.IsType<Habbo>(await loader.GetUserDataByIdAsync(7));
             Assert.Equal(new[] { 20, 50, 80 }, user.ClientVolume);
             Assert.Equal(42u, user.HomeRoom);

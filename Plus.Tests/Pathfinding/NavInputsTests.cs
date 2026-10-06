@@ -130,6 +130,7 @@ public class NavInputsTests
             typeof(Plus.HabboHotel.Rooms.RoomItemHandling).GetField("_floorItems", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .GetValue(fixture.Room.GetRoomItemHandler())!;
         var item = NavTest.Item(); item.UserId = 7; item.GetX = item.GetY = 2; item.GetZ = 1;
+        item.Attach(fixture.Room, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
         floor[item.Id] = item;
         var navigation = NavTest.Enable(fixture.Map); navigation.Inputs.Attach(item); navigation.Compiler.RebuildAll();
         Assert.Equal(1, navigation.Grid.WalkZ[10]);
@@ -150,11 +151,13 @@ public class NavInputsTests
     {
         var fixture = Plus.Tests.Performance.RoomPerformanceFixture.Create(0, 0);
         var handler = fixture.Room.GetRoomItemHandler();
-        var wired = new Plus.HabboHotel.Rooms.Instance.WiredComponent(fixture.Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        var wired = new Plus.HabboHotel.Rooms.Instance.WiredComponent(fixture.Room, TestLogging.Logger, TimeProvider.System,
+            TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance,
+            TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         Set(fixture.Room, "_wiredComponent", wired);
         var item = NavTest.Item(); item.GetX = item.GetY = 2;
         item.ExtraData = new Plus.HabboHotel.Items.DataFormat.LegacyDataFormat { Data = "0" };
-        Set(item, "_room", fixture.Room);
+        item.Attach(fixture.Room, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
         var floor = (System.Collections.Concurrent.ConcurrentDictionary<uint, Plus.HabboHotel.Items.Item>)Get(handler, "_floorItems");
         floor[item.Id] = item; fixture.Map.GenerateMaps();
         var navigation = NavTest.Enable(fixture.Map);

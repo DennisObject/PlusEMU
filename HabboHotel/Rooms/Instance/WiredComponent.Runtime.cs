@@ -44,9 +44,11 @@ public partial class WiredComponent
         IWiredConfiguredItem? box = null;
         WiredConfiguration? defaults = null;
         if (descriptor.Category == WiredBoxCategory.Selector && WiredSelectorModule.Names.Contains(descriptor.CanonicalName))
-            box = new WiredSelectorBox(_room, item, descriptor, _selectorState, context => WiredSelectorVariableBridge.Create(context, Variables.Module));
+            box = new WiredSelectorBox(_room, item, descriptor, _selectorState, _groups,
+                context => WiredSelectorVariableBridge.Create(context, Variables.Module));
         else if (descriptor.Category == WiredBoxCategory.Addon && WiredAddonModule.Names.Contains(descriptor.CanonicalName))
-            box = new WiredAddonBox(_room, item, descriptor, _selectorState, context => WiredSelectorVariableBridge.Create(context, Variables.Module));
+            box = new WiredAddonBox(_room, item, descriptor, _selectorState, _groups,
+                context => WiredSelectorVariableBridge.Create(context, Variables.Module));
         else if (descriptor.Category == WiredBoxCategory.Trigger && WiredTriggerConfiguration.Events.ContainsKey(descriptor.CanonicalName))
         {
             box = WiredTriggerConfiguration.IsTimed(descriptor.CanonicalName)
@@ -56,7 +58,7 @@ public partial class WiredComponent
         else if (descriptor.Category == WiredBoxCategory.Condition && WiredConditionConfiguration.Supports(descriptor.CanonicalName))
         {
             // Calendar predicates use the configured zone; elapsed durations use the shared UTC room clock.
-            box = new WiredModernCondition(_room, item, descriptor, ReadCounterMilliseconds,
+            box = new WiredModernCondition(_room, item, descriptor, _groups, ReadCounterMilliseconds,
                 descriptor.CanonicalName is "wf_cnd_match_time" or "wf_cnd_match_date" or "wf_cnd_date_rng_active"
                     ? () => CalendarTime : () => _clock.GetUtcNow());
             defaults = WiredConditionConfiguration.Defaults(descriptor.CanonicalName,
@@ -65,7 +67,7 @@ public partial class WiredComponent
         else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName))
         {
             box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event),
-                DispatchWalkTransition, _roomLog, _logger, _clock, _rewards, _botStore);
+                DispatchWalkTransition, _roomLog, _logger, _clock, _rewards, _botStore, _clients, _definitions, _travelStore);
             defaults = WiredActionConfiguration.Defaults(descriptor.CanonicalName);
         }
         else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || WiredVariableMetadataBox.Supports(descriptor.CanonicalName)

@@ -1,14 +1,10 @@
-using Plus.Communication.Packets.Outgoing.Users;
 using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Subscriptions;
+using Plus.HabboHotel.Catalog;
 
 namespace Plus.Communication.Packets.Incoming.Users;
 
-internal class GetKickbackInfoEvent(IClubRewards rewards) : IPacketEvent
+internal class GetKickbackInfoEvent(IClubCatalogService club) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
-    {
-        session.Send(new KickbackInfoComposer(rewards.Kickback(session.GetHabbo())));
-        return Task.CompletedTask;
-    }
+        => club.ShowKickback(session);
 }

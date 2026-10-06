@@ -126,9 +126,9 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             var liveRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); liveRoom.Id = room; liveRoom.OwnerId = (int)owner;
             var atomicDb = new ProbeDatabase(connectionString);
             var roomVariables = new WiredRoomVariables(liveRoom, atomicDb, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(5000)));
-            var itemHandler = new RoomItemHandling(liveRoom, TestRoomItemStore.Instance);
+            var itemHandler = new RoomItemHandling(liveRoom, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
             typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, itemHandler);
-            var roomUsers = new RoomUserManager(liveRoom, TestRoomUserStore.Instance, TimeProvider.System);
+            var roomUsers = new RoomUserManager(liveRoom, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
             typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, roomUsers);
             var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(itemHandler)!;
             var userDefinitionItem = new Item { Id = items[0], OwnerId = owner, Definition = new() { InteractionName = "wf_var_user" } };
@@ -148,8 +148,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
                 SendCallback = args => { sentFx.Add(BinaryPrimitives.ReadUInt16BigEndian(args.MemoryBuffer.Span.Slice(4, 2))); return true; }
             };
             var fxPlayer = new Habbo { Id = (int)holders[0].StableId, Client = fxClient, CurrentRoom = liveRoom }; fxClient.SetHabbo(fxPlayer);
-            var fxUser = new RoomUser(fxPlayer.Id, 0, holders[0].EntityId, liveRoom);
-            typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(fxUser, fxClient);
+            var fxUser = new RoomUser(fxPlayer.Id, 0, holders[0].EntityId, liveRoom, fxClient, TestChatEmotions.Unused, TestRewardProgress.Unused);
             var liveUsers = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(roomUsers)!;
             liveUsers[fxUser.VirtualId] = fxUser;
             var signFrame = new WiredVariableFrame(room, [WiredVariableRuntimeFrames.UserHolder(fxUser)]);
@@ -180,12 +179,12 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             // Exercise production readiness and cycle entry with the same actual SQL module, not FlushFx directly.
             TestRoomUserSnapshots.Install(liveRoom);
             roomVariables.Fx.RemoveViewer(fxPlayer.Id); // End the preceding module-only simulated viewer session.
-            var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+            var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, nativeWired);
             typeof(WiredComponent).GetField("_variables", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nativeWired, new Lazy<WiredRoomVariables>(() => roomVariables));
             Assert.Same(roomVariables, nativeWired.Variables);
             typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom,
-                new Gamemap(liveRoom, new RoomModel("wired-sql-probe", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation));
+                new Gamemap(liveRoom, new RoomModel("wired-sql-probe", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
             fxPlayer.Username = "probe-viewer"; fxPlayer.Motto = ""; fxPlayer.Look = "test"; fxPlayer.Gender = "M";
             fxPlayer.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
             fxPlayer.Effects = new(new FixedTimeProvider(FixedTimeProvider.Epoch)); fxPlayer.Access = EditorTestSupport.Access([]);
@@ -220,8 +219,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             nativeWired.OnCycle(); Assert.Contains(9476u, sentFx); sentFx.Clear();
             admin.Execute("UPDATE rooms SET owner=@owner WHERE id=@room", new { owner = owner.ToString(), room }); roomVariables.InvalidateFx();
             nativeWired.OnCycle(); Assert.Contains(9475u, sentFx); sentFx.Clear();
-            var replacementViewer = new RoomUser(fxPlayer.Id, 0, fxUser.VirtualId, liveRoom);
-            typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(replacementViewer, fxClient);
+            var replacementViewer = new RoomUser(fxPlayer.Id, 0, fxUser.VirtualId, liveRoom, fxClient, TestChatEmotions.Unused, TestRewardProgress.Unused);
             liveUsers[replacementViewer.VirtualId] = replacementViewer;
             nativeWired.OnCycle(); Assert.Empty(sentFx); Assert.Empty(nativeWired.CaptureFxViewers());
             liveRoom.SendObjects(fxClient); nativeWired.OnCycle(); Assert.Equal(new uint[] { 9473, 9475 }, sentFx); sentFx.Clear();

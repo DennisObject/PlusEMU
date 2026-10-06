@@ -78,9 +78,35 @@ public sealed class UserNameServiceTests
     }
 
     [Fact]
-    public async Task SuccessfulChangeCommitsBeforePublishingLegacyClientOrder()
+    public async Task SuccessfulChangeCommitsBeforePublishingToTheDepartingActorAndRemainingObserver()
     {
         var context = Context();
+        var room = context.Habbo.CurrentRoom!;
+        var manager = room.GetRoomUserManager();
+        var map = new Gamemap(room, new RoomModel("rename", 0, 0, 0, 0, "00\r00", 0, 0, true),
+            TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
+        typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
+        var actor = manager.GetRoomUserByHabbo(context.Habbo.Id)!;
+        map.AddUserToMap(actor, new(0, 0));
+        var (observer, observerSent) = HabbiconTestSupport.Client(new Habbo
+        {
+            Id = 43, Username = "Observer", CurrentRoom = room
+        });
+        var observerVisit = new RoomUser(43, room.Id, 4, room, observer, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 4 };
+        var visits = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
+            .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
+        visits[4] = observerVisit;
+        map.AddUserToMap(observerVisit, new(1, 0));
+        foreach (var recipient in new[] { (Plus.Communication.Flash.FlashGameClient)context.Client, observer })
+        {
+            var capture = recipient.SendCallback;
+            recipient.SendCallback = args =>
+            {
+                Assert.Single(context.Store.Changes);
+                Assert.Equal(new[] { ("Dennis", "Renamed") }, context.ClientNames.Updates);
+                return capture!(args);
+            };
+        }
 
         await context.Service.Change(context.Client, "Renamed");
 
@@ -91,10 +117,23 @@ public sealed class UserNameServiceTests
         Assert.Equal(new uint[]
         {
             ServerPacketHeader.CloseConnectionComposer,
+            ServerPacketHeader.UserRemoveComposer,
             ServerPacketHeader.UpdateUsernameComposer,
-            ServerPacketHeader.UserNameChangeComposer,
             ServerPacketHeader.RoomForwardComposer
         }, context.Sent.Select(packet => packet.Header));
+        Assert.Equal(new uint[]
+        {
+            ServerPacketHeader.UserRemoveComposer,
+            ServerPacketHeader.UserNameChangeComposer
+        }, observerSent.Select(packet => packet.Header));
+        var renamed = observerSent[1].Payload;
+        Assert.Equal(room.Id, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(renamed));
+        Assert.Equal(actor.VirtualId, System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(renamed.AsSpan(4)));
+        Assert.Equal("Renamed", System.Text.Encoding.UTF8.GetString(renamed.AsSpan(10)));
+        Assert.Null(manager.GetRoomUserByHabbo(context.Habbo.Id));
+        Assert.Null(actor.GetClient());
+        Assert.False(actor.IsAttachedTo(room));
+        Assert.Same(observer, observerVisit.GetClient());
     }
 
     [Fact]
@@ -218,7 +257,7 @@ public sealed class UserNameServiceTests
     {
         var room = (Room)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 7;
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
         var habbo = new Habbo
         {
@@ -229,8 +268,7 @@ public sealed class UserNameServiceTests
         };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
-        var roomUser = new RoomUser(habbo.Id, room.Id, 3, room) { InternalRoomId = 3, UserId = habbo.Id };
-        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(roomUser, client);
+        var roomUser = new RoomUser(habbo.Id, room.Id, 3, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 3, UserId = habbo.Id };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         users[3] = roomUser;

@@ -91,7 +91,7 @@ public class WiredLegacyCommandEditorTests
     [InlineData(0, 1, 2)]
     public void UnsupportedCurrentCommandSettingsRejectBeforeDetachedFactory(int match, int hide, int owner)
     {
-        var box = new UserSaysCommandBox(null!, new Item()) { StringData = ":first", BoolData = true };
+        var box = new UserSaysCommandBox(null!, new Item(), TestWiredCommands.Unused) { StringData = ":first", BoolData = true };
         Assert.False(WiredLegacyCustomEditor.TryPrepare(box, new() { IntParams = [match, hide, owner], Text = ":second" },
             _ => throw new Exception("Factory must not run."), out _, out var error));
         Assert.Contains("Command Wired", error);
@@ -100,8 +100,6 @@ public class WiredLegacyCommandEditorTests
 
     private sealed class World : IDisposable
     {
-        private readonly FieldInfo _gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
-        private readonly object? _previousGame;
         private readonly CommandManager _commands;
         private readonly Dictionary<int, List<byte[]>> _packets = [];
         public Room Room { get; }
@@ -112,21 +110,17 @@ public class WiredLegacyCommandEditorTests
 
         public World(bool ownerOnly)
         {
-            _previousGame = _gameField.GetValue(null);
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.OwnerId = 42;
-            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System);
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
-            Wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance); Set(Room, "_wiredComponent", Wired);
             _commands = new CommandManager([new Command("first"), new Command("second")], null!, null!, new FixedTimeProvider(FixedTimeProvider.Epoch));
-            var chat = new ChatManager(null!, _commands, null!, null!, null!, null!, null!, null!);
-            var game = (Game)RuntimeHelpers.GetUninitializedObject(typeof(Game)); Set(game, "_chatManager", chat);
-            _gameField.SetValue(null, game);
+            Wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, _commands, TestWiredAccess.Unused, TestItemRuntime.Travel); Set(Room, "_wiredComponent", Wired);
             Owner = AddUser(42, 1, users); Guest = AddUser(43, 2, users);
             var item = new Item { Id = 7, ExtraData = new LegacyDataFormat { Data = "1" }, Definition = new()
                 { ItemName = "wf_trg_says_something", SpriteId = 91, WiredType = WiredBoxType.TriggerUserSaysCommand,
                   InteractionType = InteractionType.WiredTrigger } };
             ((ConcurrentDictionary<uint, Item>)Get(items, "_floorItems")).TryAdd(item.Id, item);
-            Box = new UserSaysCommandBox(Room, item) { StringData = ":first", BoolData = ownerOnly, ItemsData = "legacy snapshot bytes" };
+            Box = new UserSaysCommandBox(Room, item, _commands) { StringData = ":first", BoolData = ownerOnly, ItemsData = "legacy snapshot bytes" };
             Assert.True(Wired.AddBox(Box));
         }
 
@@ -140,7 +134,7 @@ public class WiredLegacyCommandEditorTests
             };
             var habbo = new Habbo { Id = id, Username = "actor" + id, CurrentRoom = Room, Client = client, Access = UserAccess.Create([], [new("command.first", false), new("command.second", false)], ["command.first", "command.second"]) };
             client.SetHabbo(habbo);
-            var user = new RoomUser(id, 0, virtualId, Room); Set(user, "_mClient", client);
+            var user = new RoomUser(id, 0, virtualId, Room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
             ((ConcurrentDictionary<int, RoomUser>)Get(users, "_users")).TryAdd(virtualId, user);
             return habbo;
         }
@@ -157,7 +151,7 @@ public class WiredLegacyCommandEditorTests
             Assert.Equal(command, packet.ReadString()); Assert.Equal(0, packet.ReadInt()); Assert.Equal(0, packet.ReadInt());
         }
 
-        public void Dispose() => _gameField.SetValue(null, _previousGame);
+        public void Dispose() { }
         private static void Set(object value, string field, object data) => value.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(value, data);
         private static object Get(object value, string field) => value.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(value)!;
     }

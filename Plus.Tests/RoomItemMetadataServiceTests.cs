@@ -33,6 +33,7 @@ public sealed class RoomItemMetadataServiceTests
         public void SetMannequinFigure(GameClient session, uint itemId) => (Session, ItemId) = (session, itemId);
         public void SetMannequinName(GameClient session, MannequinNameRequest request) => throw new NotSupportedException();
         public void SetToner(Room room, GameClient session, TonerSettingsRequest request) => throw new NotSupportedException();
+        public void SetBranding(GameClient session, BrandingRequest request) => throw new NotSupportedException();
     }
 
     [Theory]
@@ -185,8 +186,8 @@ public sealed class RoomItemMetadataServiceTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
-        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
-        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "owner", CurrentRoom = room });
         return (room, client);
     }
@@ -214,6 +215,11 @@ public sealed class RoomItemMetadataServiceTests
         public string? Data;
         public void SetMannequinData(uint itemId, uint roomId, string data) { Data = data; Write(); }
         public void SetToner(uint itemId, uint roomId, int hue, int saturation, int lightness) => Write();
+        public void SetBrandingData(uint itemId, uint roomId, string data) { Data = data; Write(); }
+        public Plus.HabboHotel.Items.Data.Moodlight.MoodlightRecord? LoadMoodlight(uint itemId) => throw new NotSupportedException();
+        public void SetMoodlightEnabled(uint itemId, uint roomId, bool enabled) => throw new NotSupportedException();
+        public void UpdateMoodlightPreset(uint itemId, uint roomId, int preset, string value) => throw new NotSupportedException();
+        public TonerRecord? LoadToner(uint itemId) => throw new NotSupportedException();
         private void Write() { beforeWrite?.Invoke(); Writes++; if (Fail) throw new InvalidOperationException("forced failure"); }
     }
 }

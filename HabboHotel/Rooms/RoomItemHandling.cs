@@ -4,8 +4,11 @@ using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Core;
+using Plus.Core.Language;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Interactor;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Items.Wired;
 
 using Plus.HabboHotel.Users.Inventory.Furniture;
@@ -36,7 +39,6 @@ public class RoomItemHandling
         var item = new Item { Id = id, IsTemporary = true, RoomId = _room.RoomId,
             OwnerId = ownerId, UserId = unchecked((int)ownerId), Definition = definition,
             ExtraData = FurniExtraData.Load(definition, state, true), Username = _room.OwnerName };
-        item.BindTemporaryRoom(_room);
         _temporaryItems.Add(id, item);
         if (!SetFloorItem(null!, item, x, y, rotation, true, false, true, true, height ?? -1))
         {
@@ -66,6 +68,12 @@ public class RoomItemHandling
     private readonly List<int> _rollerUsersMoved;
     private readonly Room _room;
     private readonly IRoomItemStore _store;
+    private readonly IRoomItemMetadataStore _metadata;
+    private readonly IGameClientManager _clients;
+    private readonly ILanguageManager _language;
+    private readonly IItemInteractorFactory _interactors;
+    private readonly IItemTravelStore _travelStore;
+    private readonly IRewardTrackManager _rewards;
     private readonly ConcurrentDictionary<uint, Item> _wallItems;
     private int _mRollerCycle;
     private int _mRollerSpeed;
@@ -74,10 +82,18 @@ public class RoomItemHandling
 
     public int HopperCount;
 
-    public RoomItemHandling(Room room, IRoomItemStore store)
+    public RoomItemHandling(Room room, IRoomItemStore store, IRoomItemMetadataStore metadata,
+        IGameClientManager clients, ILanguageManager language, IItemInteractorFactory interactors, IItemTravelStore travelStore,
+        IRewardTrackManager rewards)
     {
         _room = room;
         _store = store;
+        _metadata = metadata;
+        _clients = clients;
+        _language = language;
+        _interactors = interactors;
+        _travelStore = travelStore;
+        _rewards = rewards;
         HopperCount = 0;
         GotRollers = false;
         _mRollerSpeed = 4;
@@ -145,17 +161,25 @@ public class RoomItemHandling
 
     public void LoadFurniture(IReadOnlyList<Item> items)
     {
+        var detached = new HashSet<Item>(ReferenceEqualityComparer.Instance);
         if (_floorItems.Count > 0)
         {
             foreach (var previous in _floorItems.Values)
             {
                 _room.GetGameMap().Navigation?.Inputs.Remove(previous);
                 _room.GetWired()?.DetachRoomItem(previous);
+                previous.Detach(_room);
+                detached.Add(previous);
             }
             _floorItems.Clear();
         }
         if (_wallItems.Count > 0)
+        {
+            foreach (var previous in _wallItems.Values) previous.Detach(_room);
             _wallItems.Clear();
+        }
+        foreach (var previous in _temporaryItems.Values)
+            if (detached.Add(previous)) previous.Detach(_room);
         _temporaryItems.Clear();
         foreach (var item in items.ToList())
         {
@@ -175,7 +199,7 @@ public class RoomItemHandling
                 if (!_room.GetGameMap().ValidTile(item.GetX, item.GetY))
                 {
                     _store.ClearRoom(item.Id);
-                    var client = PlusEnvironment.Game.ClientManager.GetClientByUserId(item.UserId);
+                    var client = _clients.GetClientByUserId(item.UserId);
                     if (client != null)
                     {
                         client.GetHabbo().Inventory.Furniture.AddItem(item.ToInventoryItem());
@@ -202,7 +226,10 @@ public class RoomItemHandling
                     item.WallCoordinates = ":w=0,2 l=11,53 l";
                 }
                 if (!_wallItems.ContainsKey(item.Id))
+                {
+                    item.Attach(_room, _interactors, _travelStore, _rewards);
                     _wallItems.TryAdd(item.Id, item);
+                }
             }
         }
         foreach (var item in _floorItems.Values.ToList())
@@ -213,12 +240,12 @@ public class RoomItemHandling
             else if (item.Definition.InteractionType == InteractionType.Moodlight)
             {
                 if (_room.MoodlightData == null)
-                    _room.MoodlightData = new(item.Id);
+                    _room.MoodlightData = LoadMoodlight(item.Id);
             }
             else if (item.Definition.InteractionType == InteractionType.Toner)
             {
                 if (_room.TonerData == null)
-                    _room.TonerData = new(item.Id);
+                    _room.TonerData = LoadToner(item.Id);
             }
             else if (item.IsWired)
             {
@@ -232,6 +259,12 @@ public class RoomItemHandling
                 HopperCount++;
         }
     }
+
+    private Plus.HabboHotel.Items.Data.Moodlight.MoodlightData? LoadMoodlight(uint itemId) =>
+        _metadata.LoadMoodlight(itemId) is { } record ? new Plus.HabboHotel.Items.Data.Moodlight.MoodlightData(itemId, record) : null;
+
+    private Plus.HabboHotel.Items.Data.Toner.TonerData? LoadToner(uint itemId) =>
+        _metadata.LoadToner(itemId) is { } record ? new Plus.HabboHotel.Items.Data.Toner.TonerData(itemId, record) : null;
 
     public Item? GetItem(uint pId)
     {
@@ -299,6 +332,7 @@ public class RoomItemHandling
         _room.GetGameMap().GenerateMaps();
         _room.GetGameMap().FlushPlacementUpdates();
         _room.GetRoomUserManager().UpdateUserStatusses();
+        item.Detach(_room);
     }
 
     private List<IServerPacket> CycleRollers()
@@ -450,7 +484,14 @@ public class RoomItemHandling
         }
     }
 
-    public bool SetFloorItem(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses = false, double height = -1, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision = null)
+    public bool SetFloorItem(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses = false, double height = -1, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision = null) =>
+        PlaceFloor(session, item, newX, newY, newRot, newItem, onRoller, sendMessage, updateRoomUserStatuses, height, wiredCollision, null);
+
+    // Prepared data is persisted inside the placement lock after every denial, then attached and published through the same path.
+    public bool SetFloorItemData(GameClient session, Item item, Plus.HabboHotel.Items.DataFormat.IFurniObjectData data, Action persist) =>
+        PlaceFloor(session, item, item.GetX, item.GetY, item.Rotation, false, false, true, false, -1, null, (data, persist));
+
+    private bool PlaceFloor(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses, double height, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision, (Plus.HabboHotel.Items.DataFormat.IFurniObjectData Data, Action Persist)? commit)
     {
         if (item.IsTemporary && (!OwnsTemporary(item) || session != null
             || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanPlaceItem(_room, item, newX, newY, newRot,
@@ -510,6 +551,8 @@ public class RoomItemHandling
                 }
                 if (newRot != 0 && newRot != 2 && newRot != 4 && newRot != 6 && newRot != 8 && !item.Definition.ExtraRot)
                     newRot = 0;
+                if (!onRoller && session != null && item.Definition.InteractionType == InteractionType.Hopper)
+                    _travelStore.RegisterHopper(item.Id, _room.RoomId);
                 if (newItem)
                 {
                     // Initialize private geometry before membership or navigation publication.
@@ -517,6 +560,12 @@ public class RoomItemHandling
                     item.RoomId = _room.RoomId;
                     if (item.IsFloorItem) duplicate = !AdmitFloorItem(item);
                     else if (item.IsWallItem) duplicate = !_wallItems.TryAdd(item.Id, item);
+                }
+                // Prepared data is written after every denial above and before any geometry, data, model or packet change below.
+                if (commit is { } prepared && !duplicate)
+                {
+                    prepared.Persist();
+                    item.ExtraData = prepared.Data;
                 }
                 if (!duplicate)
                 {
@@ -532,7 +581,7 @@ public class RoomItemHandling
         if (duplicate)
         {
             if (session != null)
-                session.SendNotification(PlusEnvironment.LanguageManager.TryGetValue("room.item.already_placed"));
+                session.SendNotification(_language.TryGetValue("room.item.already_placed"));
             return true;
         }
         // Effects, Wired hooks, networking and persistence run only after the map commit.
@@ -591,7 +640,7 @@ public class RoomItemHandling
         map.AddItemEffects(item);
         if (item.Definition.InteractionType == InteractionType.Toner)
             if (_room.TonerData == null)
-                _room.TonerData = new(item.Id);
+                _room.TonerData = LoadToner(item.Id);
         UpdateItem(item);
         map.FlushPlacementUpdates();
         if (item.Definition.InteractionType == InteractionType.WalkMagicTile)
@@ -666,7 +715,7 @@ public class RoomItemHandling
             map.RemoveItemEffects(item);
             map.AddItemEffects(item);
             if (item.Definition.InteractionType == InteractionType.Toner && _room.TonerData == null)
-                _room.TonerData = new(item.Id);
+                _room.TonerData = LoadToner(item.Id);
             UpdateItem(item);
         }
         map.FlushPlacementUpdates();
@@ -684,17 +733,29 @@ public class RoomItemHandling
             return false;
         if (_floorItems.ContainsKey(item.Id))
         {
-            session.SendNotification(PlusEnvironment.LanguageManager.TryGetValue("room.item.already_placed"));
+            session.SendNotification(_language.TryGetValue("room.item.already_placed"));
             return true;
         }
+        if (item.Definition.InteractionType == InteractionType.Hopper)
+            _travelStore.RegisterHopper(item.Id, _room.RoomId);
         item.RoomId = _room.RoomId;
-        item.Interactor.OnPlace(session, item);
+        item.Attach(_room, _interactors, _travelStore, _rewards);
+        try
+        {
+            item.Interactor.OnPlace(session, item);
+        }
+        catch
+        {
+            item.Detach(_room);
+            throw;
+        }
         if (item.Definition.InteractionType == InteractionType.Moodlight)
         {
             if (_room.MoodlightData == null)
             {
-                _room.MoodlightData = new(item.Id);
-                item.LegacyDataString = _room.MoodlightData.GenerateExtraData();
+                _room.MoodlightData = LoadMoodlight(item.Id);
+                if (_room.MoodlightData != null)
+                    item.LegacyDataString = _room.MoodlightData.GenerateExtraData();
             }
         }
         _store.PlaceWall(item.Id, _room.RoomId, item.GetX, item.GetY, item.GetZ, item.Rotation, item.WallCoordinates);
@@ -762,14 +823,26 @@ public class RoomItemHandling
     // that transaction shares NavSync; callbacks do not.
     internal bool AdmitFloorItem(Item item)
     {
-        if (item.Definition.InteractionType is InteractionType.Teleport or InteractionType.OneWayGate)
-            item.BindInteractionClock(_room.InteractionClock);
+        if (_floorItems.TryGetValue(item.Id, out var admitted))
+            return ReferenceEquals(admitted, item) && ReferenceEquals(item.GetRoom(), _room);
+        item.Attach(_room, _interactors, _travelStore, _rewards);
         var inputs = _room.GetGameMap().Navigation?.Inputs;
-        if (inputs == null) return _floorItems.TryAdd(item.Id, item);
+        if (inputs == null)
+        {
+            if (_floorItems.TryAdd(item.Id, item)) return true;
+            if (_floorItems.TryGetValue(item.Id, out admitted) && ReferenceEquals(admitted, item)) return true;
+            item.Detach(_room);
+            return false;
+        }
         item.EnableNavigationSynchronization();
         lock (item.NavSync)
         {
-            if (!_floorItems.TryAdd(item.Id, item)) return false;
+            if (!_floorItems.TryAdd(item.Id, item))
+            {
+                if (_floorItems.TryGetValue(item.Id, out admitted) && ReferenceEquals(admitted, item)) return true;
+                item.Detach(_room);
+                return false;
+            }
             inputs.Attach(item);
             return true;
         }
@@ -810,6 +883,7 @@ public class RoomItemHandling
                 _room.SendPacket(new ItemRemoveComposer(item.Id, item.UserId));
             }
             session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item.ToInventoryItem())));
+            item.Detach(_room);
         }
         _rollers.Clear();
         _room.GetGameMap().GenerateMaps();

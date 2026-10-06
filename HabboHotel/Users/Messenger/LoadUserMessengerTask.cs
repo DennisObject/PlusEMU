@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.Friends;
+﻿using Plus.Core.Settings;
+using Plus.HabboHotel.Friends;
 using Plus.HabboHotel.Users.UserData;
 
 namespace Plus.HabboHotel.Users.Messenger;
@@ -7,11 +8,13 @@ public class LoadUserMessengerTask : IUserDataLoadingTask
 {
     private readonly IMessengerDataLoader _messengerDataLoader;
     private readonly TimeProvider _clock;
+    private readonly ISettingsManager _settings;
 
-    public LoadUserMessengerTask(IMessengerDataLoader messengerDataLoader, TimeProvider clock)
+    public LoadUserMessengerTask(IMessengerDataLoader messengerDataLoader, TimeProvider clock, ISettingsManager settings)
     {
         _messengerDataLoader = messengerDataLoader;
         _clock = clock;
+        _settings = settings;
     }
 
     public async Task Load(Habbo habbo)
@@ -21,6 +24,6 @@ public class LoadUserMessengerTask : IUserDataLoadingTask
             (await _messengerDataLoader.GetRequestsForUser(habbo.Id)).ToDictionary(request => request.FromId),
             await _messengerDataLoader.GetOutstandingRequestsForUser(habbo.Id),
             _clock);
-        habbo.Messenger.FriendLimit = () => Plus.HabboHotel.Subscriptions.ClubLimits.For(habbo.Access, "friends", PlusEnvironment.SettingsManager);
+        habbo.Messenger.FriendLimit = () => Plus.HabboHotel.Subscriptions.ClubLimits.For(habbo.Access, "friends", _settings);
     }
 }

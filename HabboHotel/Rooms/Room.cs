@@ -1,4 +1,5 @@
 ﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Achievements;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
@@ -68,13 +69,17 @@ public class Room
 
     private readonly ILogger<RoomNavigation> _navigationLogger;
     private readonly ILogger _wiredLogger;
+    private readonly IAchievementManager _achievements;
+    private readonly IRoomManager _rooms;
 
-    public Room(RoomData data, IEnumerable<IRoomComponent> components, ILogger<RoomNavigation> navigationLogger, ILogger wiredLogger)
+    public Room(RoomData data, IEnumerable<IRoomComponent> components, ILogger<RoomNavigation> navigationLogger, ILogger wiredLogger, IAchievementManager achievements, IRoomManager rooms)
     {
         _data = data;
         _components = components.OrderBy(component => component.Order).ToArray();
         _navigationLogger = navigationLogger;
         _wiredLogger = wiredLogger;
+        _achievements = achievements;
+        _rooms = rooms;
     }
 
 
@@ -213,7 +218,7 @@ public class Room
     public BattleBanzai GetBanzai()
     {
         if (_banzai == null)
-            _banzai = new(this, RuntimeClock);
+            _banzai = new(this, RuntimeClock, _achievements);
         return _banzai;
     }
 
@@ -312,7 +317,7 @@ public class Room
                 key = item.Definition.ItemName.Split(new[] { '_' })[2];
                 user.UnIdle();
                 user.DanceId = 0;
-                PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_FootballGoalScored", 1);
+                _achievements.ProgressAchievement(user.GetClient(), "ACH_FootballGoalScored", 1);
                 SendPacket(new ActionComposer(user.VirtualId, 1));
             }
         }
@@ -377,7 +382,7 @@ public class Room
             if (HasActivePromotion && Promotion.HasExpired) EndPromotion();
             if (IdleTime >= 60 && !HasActivePromotion)
             {
-                PlusEnvironment.Game.RoomManager.UnloadRoom(Id);
+                _rooms.UnloadRoom(Id);
                 return;
             }
             try
@@ -454,7 +459,7 @@ public class Room
         else if (IdleTime > 0) IdleTime = 0;
         if (HasActivePromotion && Promotion.HasExpired) EndPromotion();
         if (IdleTime < 60 || HasActivePromotion) return true;
-        PlusEnvironment.Game.RoomManager.UnloadRoom(Id);
+        _rooms.UnloadRoom(Id);
         return false;
     }
 
@@ -510,7 +515,7 @@ public class Room
             ExceptionLogger.LogException(e3);
         }
         IsCrashed = true;
-        PlusEnvironment.Game.RoomManager.UnloadRoom(Id);
+        _rooms.UnloadRoom(Id);
     }
 
 

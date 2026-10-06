@@ -26,7 +26,7 @@ public class CameraSnapshotTests
         var speeches = new List<RandomSpeech>();
         var bot = new RoomBot(9, 4, "generic", "freeroam", "Ada", "", "hd-180-1.ch-255-66.lg-280-110", 1, 2, 0, 2,
             0, 0, 0, 0, ref speeches, "F", 0, 3, false, 0, false, 0);
-        var sitting = new RoomUser(0, 4, 8, null!)
+        var sitting = new RoomUser(0, 4, 8, null!, null, TestChatEmotions.Unused, TestRewardProgress.Unused)
         {
             BotData = bot,
             X = 6,
@@ -39,7 +39,7 @@ public class CameraSnapshotTests
         };
         sitting.SetStatus("sit", "1.0");
         sitting.SetStatus("gst", "sml");
-        var users = new List<RoomUser> { sitting, new RoomUser(5, 4, 1, null!) };
+        var users = new List<RoomUser> { sitting, new RoomUser(5, 4, 1, null!, null, TestChatEmotions.Unused, TestRewardProgress.Unused) };
 
         var scene = CameraSnapshotBuilder.Compose(Shell("0\nxxx\r\n1"), items, users);
         chair.ExtraData = new LegacyDataFormat { Data = "9" };
@@ -107,7 +107,7 @@ public class CameraSnapshotTests
                 var speeches = new List<RandomSpeech>();
                 var bot = new RoomBot(index + 1, 4, "generic", "freeroam", "B", "", "hr-1", 0, 0, 0, 0,
                     0, 0, 0, 0, ref speeches, "M", 0, 1, false, 0, false, 0);
-                return new RoomUser(0, 4, index, null!) { BotData = bot };
+                return new RoomUser(0, 4, index, null!, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { BotData = bot };
             })
             .ToArray();
 

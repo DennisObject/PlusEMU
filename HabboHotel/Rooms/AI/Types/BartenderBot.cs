@@ -1,18 +1,24 @@
 ﻿using System.Drawing;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Bots;
+using Plus.HabboHotel.Rooms.Chat.Filter;
 
 namespace Plus.HabboHotel.Rooms.AI.Types;
 
 internal class BartenderBot : BotAi
 {
     private readonly int _virtualId;
+    private readonly IBotManager _bots;
+    private readonly IWordFilterManager _wordFilter;
     private int _actionTimer;
     private int _speechTimer;
 
-    public BartenderBot(int virtualId)
+    public BartenderBot(int virtualId, IBotManager bots, IWordFilterManager wordFilter)
     {
         _virtualId = virtualId;
+        _bots = bots;
+        _wordFilter = wordFilter;
     }
 
     public override void OnSelfEnterRoom() { }
@@ -39,7 +45,7 @@ internal class BartenderBot : BotAi
             return;
         if (Gamemap.TileDistance(botUser.X, botUser.Y, user.X, user.Y) > 8)
             return;
-        var response = PlusEnvironment.Game.BotManager.GetResponse(botData.AiType, message);
+        var response = _bots.GetResponse(botData.AiType, message);
         if (response == null)
             return;
         switch (response.ResponseType.ToLower())
@@ -70,7 +76,7 @@ internal class BartenderBot : BotAi
             return;
         if (Gamemap.TileDistance(botUser.X, botUser.Y, user.X, user.Y) > 8)
             return;
-        var response = PlusEnvironment.Game.BotManager.GetResponse(botData.AiType, message);
+        var response = _bots.GetResponse(botData.AiType, message);
         if (response == null)
             return;
         switch (response.ResponseType.ToLower())
@@ -106,7 +112,7 @@ internal class BartenderBot : BotAi
                 if (botData.AutomaticChat == false)
                     return;
                 var speech = botData.GetRandomSpeech();
-                var @string = PlusEnvironment.Game.ChatManager.GetFilter().CheckMessage(speech.Message);
+                var @string = _wordFilter.CheckMessage(speech.Message);
                 if (@string.Contains("<img src") || @string.Contains("<font ") || @string.Contains("</font>") || @string.Contains("</a>") || @string.Contains("<i>"))
                     @string = "I really shouldn't be using HTML within bot speeches.";
                 botUser.Chat(@string, botData.ChatBubble);

@@ -4,7 +4,7 @@ using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
-internal class InteractorSwitch : IFurniInteractor
+internal class InteractorSwitch(IQuestManager quests, IRewardTrackManager rewards) : IFurniInteractor
 {
     public void OnPlace(GameClient? session, Item item) { }
 
@@ -25,7 +25,7 @@ internal class InteractorSwitch : IFurniInteractor
             var modes = item.Definition.Modes - 1;
             if (modes <= 0)
                 return;
-            PlusEnvironment.Game.QuestManager.ProgressUserQuest(session, QuestType.FurniSwitch);
+            quests.ProgressUserQuest(session, QuestType.FurniSwitch);
             var before = item.LegacyDataString;
             var currentMode = 0;
             var newMode = 0;
@@ -39,7 +39,7 @@ internal class InteractorSwitch : IFurniInteractor
             item.LegacyDataString = newMode.ToString();
             item.UpdateState();
             if (!string.Equals(before, item.LegacyDataString, StringComparison.Ordinal))
-                RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
+                rewards.Progress(session, RewardTrackActions.SwitchItemState);
         }
         else
             user.MoveTo(item.SquareInFront);

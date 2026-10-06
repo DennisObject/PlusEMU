@@ -142,7 +142,7 @@ public class ModernWiredBehaviorTests
         Assert.False(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0));
         blocker.Definition.Stackable = true;
         Assert.True(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0));
-        map.AddUserToMap(new RoomUser(5, 1, 5, room), new(1, 1));
+        map.AddUserToMap(new RoomUser(5, 1, 5, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused), new(1, 1));
         Assert.False(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0));
     }
 
@@ -267,8 +267,8 @@ public class ModernWiredBehaviorTests
         // Initialise the real query modules without Room's database-loading constructor.
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var model = new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true);
-        var map = new Gamemap(room, model, TestLogging.Navigation);
-        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance);
+        var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
+        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         var items = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling)

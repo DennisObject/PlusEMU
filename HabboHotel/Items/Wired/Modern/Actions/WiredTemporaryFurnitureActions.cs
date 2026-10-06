@@ -37,7 +37,7 @@ public static class WiredTemporaryFurnitureActions
     }
     private static bool FurniSource(int source) => source is 0 or 100 or 200 or 201;
 
-    public static bool Execute(string name, Item box, WiredRuntimeContext context, WiredConfiguration config)
+    public static bool Execute(string name, Item box, WiredRuntimeContext context, WiredConfiguration config, IItemDataManager definitions)
     {
         var handler = context.Room.GetRoomItemHandler();
         if (name == "wf_act_remove_furni")
@@ -50,7 +50,7 @@ public static class WiredTemporaryFurnitureActions
         }
         if (config.TemporaryPlacement is not { } policy)
         {
-            if (!PlusEnvironment.Game.ItemManager.Items.TryGetValue((uint)config.IntParams[0], out var definition)) return false;
+            if (!definitions.Items.TryGetValue((uint)config.IntParams[0], out var definition)) return false;
             var x = config.IntParams[2] == 0 ? box.GetX : config.IntParams[3];
             var y = config.IntParams[2] == 0 ? box.GetY : config.IntParams[4];
             var placed = false;
@@ -87,7 +87,7 @@ public static class WiredTemporaryFurnitureActions
         var placedAny = false;
         foreach (var snapshot in config.Snapshots)
         {
-            if (!PlusEnvironment.Game.ItemManager.Items.TryGetValue(snapshot.DefinitionId, out var definition)) continue;
+            if (!definitions.Items.TryGetValue(snapshot.DefinitionId, out var definition)) continue;
             var x = snapshot.X + dx; var y = snapshot.Y + dy;
             if (!context.Room.GetGameMap().ValidTile(x, y)) continue;
             var height = policy.Altitude switch {

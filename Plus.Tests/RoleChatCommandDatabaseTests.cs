@@ -19,10 +19,9 @@ public sealed partial class AccessControlDatabaseTests
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         _actor.CurrentRoom = room;
         var (session, sent) = HabbiconTestSupport.Client(_actor);
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, _clock);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, _clock, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         typeof(Room).GetField("_roomUserManager", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(room, manager);
-        var user = new RoomUser(Actor, 1, Actor, room);
-        typeof(RoomUser).GetField("_mClient", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(user, session);
+        var user = new RoomUser(Actor, 1, Actor, room, session, TestChatEmotions.Unused, TestRewardProgress.Unused);
         ((ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!)[Actor] = user;
         IChatCommand command = assign ? new GiveRoleCommand(_database, _access, _clock) : new TakeRoleCommand(_database, _access, _clock);
         command.Execute(session, room, parameters);

@@ -8,9 +8,12 @@ namespace Plus.HabboHotel.Items.Wired.Boxes.Effects;
 
 internal class ShowMessageBox : IWiredItem
 {
-    public ShowMessageBox(Room instance, Item item)
+    private readonly IGameClientManager _clients;
+
+    public ShowMessageBox(Room instance, Item item, IGameClientManager clients)
     {
         Instance = instance;
+        _clients = clients;
         Item = item;
         SetItems = new();
     }
@@ -54,7 +57,7 @@ internal class ShowMessageBox : IWiredItem
         if (StringData.Contains("%USERCOUNT%"))
             message = message.Replace("%USERCOUNT%", player.CurrentRoom.UserCount.ToString());
         if (StringData.Contains("%USERSONLINE%"))
-            message = message.Replace("%USERSONLINE%", PlusEnvironment.Game.ClientManager.Count.ToString());
+            message = message.Replace("%USERSONLINE%", _clients.Count.ToString());
         player.Client.Send(new WhisperComposer(user.VirtualId, message, 0, 34));
         return true;
     }

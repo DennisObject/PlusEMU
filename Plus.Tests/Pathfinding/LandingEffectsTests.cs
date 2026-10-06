@@ -70,7 +70,7 @@ public partial class PlacedFurniRoomTests
         gate.Team = Team.Blue;
         var actor = LandingActor();
         var teams = freeze ? _room.GetTeamManagerForFreeze() : _room.GetTeamManagerForBanzai();
-        for (var id = 2; id <= 6; id++) teams.BlueTeam.Add(new RoomUser(id, RoomId, id, _room));
+        for (var id = 2; id <= 6; id++) teams.BlueTeam.Add(new RoomUser(id, RoomId, id, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused));
         _client.GetHabbo().Effects.ApplyEffect(12);
         new LandingEffects(_room, _database).Apply(actor, false);
         Assert.Equal(Team.None, actor.Team);

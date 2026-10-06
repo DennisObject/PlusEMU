@@ -110,7 +110,7 @@ public class WiredEditorPromotionTests
     {
         var database = new MemoryDatabase();
         var (room, wired, _) = Room();
-        var map = new Gamemap(room, new RoomModel("template-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
+        var map = new Gamemap(room, new RoomModel("template-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         Set(room, "_gamemap", map); typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
         typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);
         var item = new Item { Id = 7, ExtraData = new LegacyDataFormat { Data = "1" }, Definition = new()
@@ -302,7 +302,7 @@ public class WiredEditorPromotionTests
             var savedSnapshot = kind == 4 ? Assert.Single(configured.Configuration.Snapshots) : null;
             target.LegacyDataString = "after-save";
             target.SetState(5, 6, 7, new());
-            var reloaded = Assert.IsAssignableFrom<IWiredConfiguredItem>(new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, new WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance).LoadWiredBox(item));
+            var reloaded = Assert.IsAssignableFrom<IWiredConfiguredItem>(new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, new WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel).LoadWiredBox(item));
             Assert.Equal(parameters, reloaded.Configuration.IntParams);
             if (savedSnapshot != null) Assert.Equal(savedSnapshot, Assert.Single(reloaded.Configuration.Snapshots));
         }
@@ -324,8 +324,9 @@ public class WiredEditorPromotionTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 1; room.OwnerId = 42; room.OwnerName = "owner"; room.Type = "private";
-        Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance)); Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
-        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance); Set(room, "_wiredComponent", wired);
+        Set(room, "_interactionClock", TimeProvider.System);
+        Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards)); Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
+        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel); Set(room, "_wiredComponent", wired);
         var target = new Item { Id = 8, ExtraData = new LegacyDataFormat { Data = "captured-state" }, Definition = new() { Id = 18, Type = ItemType.Floor } };
         target.SetState(1, 2, 3.5, new()); Floor(room).TryAdd(8, target);
         return (room, wired, target);

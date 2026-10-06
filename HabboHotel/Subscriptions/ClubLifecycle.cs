@@ -81,7 +81,10 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
         }
         if (habbo.CustomBubbleId != 0 && (!styles.TryGetStyle(habbo.CustomBubbleId, out var style) || !style.CanUse(habbo.Access)))
         { habbo.CustomBubbleId = 0; habbo.SaveChatBubble("0"); }
-        habbo.Client.Send(new ScrSendUserInfoComposer(habbo.Access, habbo.Access.Membership.ExpiresAt is not null && !habbo.Access.Membership.Active(clock.GetUtcNow()) ? ScrSendUserInfoComposer.ExpiringResponse : ScrSendUserInfoComposer.InfoResponse));
+        var access = habbo.Access.Capture(out var statusNow);
+        var responseType = access.Membership.ExpiresAt is not null && !access.Membership.Active(statusNow)
+            ? ClubStatusSnapshot.ExpiringResponse : ClubStatusSnapshot.InfoResponse;
+        habbo.Client.Send(new ScrSendUserInfoComposer(ClubStatusSnapshot.Capture(access.Membership, statusNow, responseType)));
         habbo.Client.Send(new MessengerInitComposer(ClubLimits.For(habbo.Access, "friends", settings)));
         var limit = ClubLimits.For(habbo.Access, "visitors", settings);
         using (var connection = database.Connection())

@@ -177,19 +177,19 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         }
         public RoomUser User(int id)
         {
-            var user = new RoomUser(id + 100, 1, id, Room); Users.Add(user); return user;
+            var user = new RoomUser(id + 100, 1, id, Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused); Users.Add(user); return user;
         }
         public void Trigger() => Add(new Trigger { Item = Furni(), Instance = Room });
         public void Action(Func<WiredRuntimeContext, bool> body, int delay = 0) => Add(new Box(WiredBoxCategory.Action)
             { Item = Furni(), Instance = Room, Body = body, Configuration = new() { Delay = delay } });
         public IWiredContextualSelector Selector(string name, WiredConfiguration c, int x = 0)
         {
-            var box = WiredSelectorFactory.Create(Room, Furni(name, x), _state, Queries, ReadWorld)!;
+            var box = WiredSelectorFactory.Create(Room, Furni(name, x), _state, TestGroupManager.Empty, Queries, ReadWorld)!;
             Configure(box, c); Add(box); return box;
         }
         public void Addon(string name, WiredConfiguration c)
         {
-            var box = WiredAddonFactory.Create(Room, Furni(name), _state, Queries, ReadWorld)!;
+            var box = WiredAddonFactory.Create(Room, Furni(name), _state, TestGroupManager.Empty, Queries, ReadWorld)!;
             Configure(box, c); Add(box);
         }
         private static void Configure(IWiredConfiguredItem box, WiredConfiguration c)

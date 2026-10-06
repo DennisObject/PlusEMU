@@ -71,7 +71,7 @@ public sealed class WiredNativeLifecycleTests
         var effectItem = f.Item(2); effectItem.Definition.InteractionType = InteractionType.WiredEffect;
         var effect = new CounterAction(f.Room, effectItem); Assert.True(f.Wired.AddBox(effect));
         typeof(RoomUserManager).GetMethod("RemoveRoomUser", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(f.Room.GetRoomUserManager(), [actor]);
+            .Invoke(f.Room.GetRoomUserManager(), [actor, false, false]);
         Assert.Null(f.Room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId));
         f.Wired.OnFastCycle(); Assert.Equal(1, effect.Calls);
     }
@@ -354,16 +354,18 @@ public sealed class WiredNativeLifecycleTests
         {
             Room.Id = 1;
             Set(Room, "_interactionClock", TimeProvider.System);
-            Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
-            var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance);
+            Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true),
+                TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty,
+                TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
+            var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);
-            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System); Set(Room, "_roomUserManager", users);
+            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel); Set(Room, "_roomUserManager", users);
             TestRoomUserSnapshots.Install(Room);
             typeof(Gamemap).GetProperty("GameMap")!.SetValue(Map, new byte[3, 3]);
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(Map, new byte[3, 3]);
             _items = (ConcurrentDictionary<uint, Item>)Get(handler, "_floorItems");
             _users = (ConcurrentDictionary<int, RoomUser>)Get(users, "_users");
-            Wired = new(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance); Set(Room, "_wiredComponent", Wired);
+            Wired = new(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel); Set(Room, "_wiredComponent", Wired);
         }
         public void PrepareVariables()
         {
@@ -394,11 +396,11 @@ public sealed class WiredNativeLifecycleTests
             var habbo = new Habbo { Id = 42, Username = "viewer", Motto = "", Look = "test", Gender = "M", CurrentRoom = Room, Client = client,
                 HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0), Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)), Access = EditorTestSupport.Access([]) };
             client.SetHabbo(habbo);
-            var user = new RoomUser(42, 1, 1, Room); Set(user, "_mClient", client); _users[user.VirtualId] = user; return user;
+            var user = new RoomUser(42, 1, 1, Room, client, TestChatEmotions.Unused, TestRewardProgress.Unused); _users[user.VirtualId] = user; return user;
         }
         public RoomUser Bot()
         {
-            var user = new RoomUser(0, 1, 7, Room) { BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot)), InternalRoomId = 7 };
+            var user = new RoomUser(0, 1, 7, Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot)), InternalRoomId = 7 };
             _users[user.VirtualId] = user; return user;
         }
         public Item Wall(uint id)

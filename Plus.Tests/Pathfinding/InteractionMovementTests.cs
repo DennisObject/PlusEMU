@@ -140,10 +140,12 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public void TimedTeleporterTransfersToLinkedItemThenUsesItsFrontExit()
     {
+        var database = LandingDatabase(11, RoomId);
+        _databaseField.SetValue(null, database);
+        Handler(new(), travel: new ItemTravelStore(database));
         var source = InteractionItem(10, 1, 1, InteractionType.Teleport);
         var target = InteractionItem(11, 2, 2, InteractionType.Teleport);
         var actor = ExecutorActor(1, 0);
-        _databaseField.SetValue(null, LandingDatabase(target.Id, RoomId));
         source.Interactor.OnTrigger(_client, source, 0, true);
         ExecutorTick(); ExecutorTick();
         Assert.Equal((1, 1), (actor.X, actor.Y)); Assert.False(actor.CanWalk);

@@ -148,8 +148,7 @@ public class WiredClickPacketHookTests
         world.Capture.ApplyConfiguration(new() { Delay = 1 });
         await new ClickUserEvent().Parse(world.Room, world.Client, Packet(world.Target.VirtualId));
         Assert.Empty(world.Capture.Events);
-        var replacement = new RoomUser(world.Actor.HabboId, 1, world.Actor.VirtualId, world.Room);
-        Set(replacement, "_mClient", world.Client);
+        var replacement = new RoomUser(world.Actor.HabboId, 1, world.Actor.VirtualId, world.Room, world.Client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         ((ConcurrentDictionary<int, RoomUser>)Get(world.Room.GetRoomUserManager(), "_users"))[world.Actor.VirtualId] = replacement;
         world.Clock = 1000; world.Room.GetWired().OnCycle();
         Assert.Empty(world.Capture.Events);
@@ -181,6 +180,10 @@ public class WiredClickPacketHookTests
         public List<FurnitureClickRequest> Clicks { get; } = [];
         public void Click(Room room, GameClient session, FurnitureClickRequest request) => Clicks.Add(request);
         public void Use(Room room, GameClient session, FurnitureUseRequest request) => throw new NotSupportedException();
+        public void TurnOffDice(Room room, GameClient session, uint itemId) => throw new NotSupportedException();
+        public void RollDice(Room room, GameClient session, FurnitureUseRequest request) => throw new NotSupportedException();
+        public void UseOneWayGate(Room room, GameClient session, uint itemId) => throw new NotSupportedException();
+        public void UseWall(Room room, GameClient session, FurnitureUseRequest request) => throw new NotSupportedException();
     }
 
     private static FlashIncomingPacket Packet(params int[] values)
@@ -204,12 +207,13 @@ public class WiredClickPacketHookTests
         public World(string trigger, int[] parameters)
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
-            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System);
+            Set(Room, "_interactionClock", TimeProvider.System);
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
-            var map = new Gamemap(Room, new RoomModel("click-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
+            var map = new Gamemap(Room, new RoomModel("click-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
             Set(Room, "_gamemap", map); typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);
-            _wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance); Set(Room, "_wiredComponent", _wired);
+            _wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel); Set(Room, "_wiredComponent", _wired);
             Set(Get(_wired, "_engine"), "_now", (Func<long>)(() => Clock));
             Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
@@ -228,7 +232,7 @@ public class WiredClickPacketHookTests
         private RoomUser AddUser(int habboId, int virtualId, FlashGameClient client)
         {
             client.SetHabbo(new Habbo { Id = habboId, Username = "actor" + habboId, CurrentRoom = Room, Client = client });
-            var user = new RoomUser(habboId, 1, virtualId, Room); Set(user, "_mClient", client);
+            var user = new RoomUser(habboId, 1, virtualId, Room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
             ((ConcurrentDictionary<int, RoomUser>)Get(Room.GetRoomUserManager(), "_users")).TryAdd(virtualId, user); return user;
         }
         public IWiredConfiguredItem AddBox(string name, int[] parameters, uint[]? selected = null)

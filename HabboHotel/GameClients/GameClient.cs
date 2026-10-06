@@ -26,7 +26,6 @@ public abstract class GameClient
     protected virtual bool SupportsLegacyCrypto => false;
 
     public bool IsAuthenticated { get; set; } = false;
-    public DateTime TimeConnected { get; set; }
 
     [Obsolete("Will be removed")]
     public string MachineId { get; set; } = string.Empty;

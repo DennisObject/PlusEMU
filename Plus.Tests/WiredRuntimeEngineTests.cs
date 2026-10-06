@@ -777,7 +777,7 @@ public class WiredRuntimeEngineTests
             var item = new Item { Id = ++next, GetX = x, Definition = new() { InteractionName = interaction, ItemName = "test", PublicName = "test", VendingIds = [], AdjustableHeights = [] } };
             Furniture.Add(item); return item;
         }
-        public RoomUser User(int id) { var user = new RoomUser(id + 100, 0, id, Room); Users.Add(user); return user; }
+        public RoomUser User(int id) { var user = new RoomUser(id + 100, 0, id, Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused); Users.Add(user); return user; }
         public T Add<T>(T box, int x = 0) where T : Box
         {
             box.Instance = Room; box.Item = Furni(x: x); box.Item.GetZ = next;

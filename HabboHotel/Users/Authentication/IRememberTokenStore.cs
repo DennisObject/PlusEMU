@@ -20,9 +20,11 @@ public interface IRememberTokenStore
     /// the user's row lock, so nothing commits unless it succeeds.
     /// </summary>
     Task<RememberRotation> Rotate(string token, Func<int, CredentialScope, Task>? onReuse = null);
+    Task<RememberRotation> RotateAt(string token, CredentialInstant instant, Func<int, CredentialScope, Task>? onReuse = null);
 
     /// <summary>Adds the next token of a family.</summary>
     Task<IssuedToken> Continue(int userId, string familyId, CredentialScope? scope = null);
+    Task<IssuedToken> ContinueAt(int userId, string familyId, CredentialInstant instant, CredentialScope? scope = null);
 
     /// <summary>The user and session (family) any token of a family belongs to.</summary>
     Task<CredentialOwner?> FindOwner(string token);

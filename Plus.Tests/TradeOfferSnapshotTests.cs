@@ -12,9 +12,9 @@ public sealed class TradeOfferSnapshotTests
     [Fact]
     public void FloorLtdWallAndCurrencyFieldsRetainTheirOrderAndSnapshotSourceState()
     {
-        var first = new RoomUser(7, 42, 1, null!) { UserId = 7 };
-        var second = new RoomUser(8, 42, 2, null!) { UserId = 8 };
-        var trade = new Trade(1, first, second, null!, null!);
+        var first = new RoomUser(7, 42, 1, null!, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { UserId = 7 };
+        var second = new RoomUser(8, 42, 2, null!, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { UserId = 8 };
+        var trade = new Trade(1, first, second, null!, null!, TestRoomSettings.Empty);
         var floor = new InventoryItem
         {
             Id = 100,

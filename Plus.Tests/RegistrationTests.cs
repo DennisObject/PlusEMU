@@ -15,7 +15,7 @@ public class RegistrationTests
     private readonly FakeBans _bans = new();
 
     private RegistrationService Service(params string[] reserved) =>
-        new(_accounts, new BoundedPasswordHasher(Hasher, AuthTestConfig.Options()), new SessionIssuer(_tickets, _tokens, _remember, new FakeGenerations(), _accounts, _bans), new FakeWordFilter("badword"), AuthTestConfig.Options(c => c.Registration.ReservedNames = reserved));
+        new(_accounts, new BoundedPasswordHasher(Hasher, AuthTestConfig.Options()), new SessionIssuer(_tickets, _tokens, _remember, new FakeGenerations(), _accounts, _bans, TimeProvider.System), new FakeWordFilter("badword"), AuthTestConfig.Options(c => c.Registration.ReservedNames = reserved));
 
     private static RegistrationRequest Request(string username = "NewHabbo", string password = "long enough", string email = "new@example.com",
         string? figure = null, string? gender = null) => new(username, password, email, figure, gender, "10.0.0.1");

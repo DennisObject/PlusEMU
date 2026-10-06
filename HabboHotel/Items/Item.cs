@@ -143,6 +143,9 @@ public class Item
     /// TODO @80O: Cleanup shit below
     private Room? _room;
     private TimeProvider? _interactionClock;
+    private IItemInteractorFactory? _interactors;
+    private IItemTravelStore? _travelStore;
+    private IRewardTrackManager? _rewards;
     private bool _updateNeeded;
     [Obsolete]
     public int BaseItem;
@@ -360,75 +363,9 @@ public class Item
         }
     }
 
-    public IFurniInteractor Interactor
-    {
-        get
-        {
-            if (IsWired) return new InteractorWired();
-            switch (Definition.InteractionType)
-            {
-                case InteractionType.Gate:
-                    return new InteractorGate();
-                case InteractionType.Teleport:
-                    return new InteractorTeleport(InteractionClock());
-                case InteractionType.Hopper:
-                    return new InteractorHopper();
-                case InteractionType.Bottle:
-                    return new InteractorSpinningBottle();
-                case InteractionType.Dice:
-                    return new InteractorDice();
-                case InteractionType.HabboWheel:
-                    return new InteractorHabboWheel();
-                case InteractionType.LoveShuffler:
-                    return new InteractorLoveShuffler();
-                case InteractionType.OneWayGate:
-                    return new InteractorOneWayGate(InteractionClock());
-                case InteractionType.Alert:
-                    return new InteractorAlert();
-                case InteractionType.VendingMachine:
-                    return new InteractorVendor();
-                case InteractionType.Scoreboard:
-                    return new InteractorScoreboard();
-                case InteractionType.PuzzleBox:
-                    return new InteractorPuzzleBox();
-                case InteractionType.Mannequin:
-                    return new InteractorMannequin();
-                case InteractionType.Banzaicounter:
-                    return new InteractorBanzaiTimer();
-                case InteractionType.Freezetimer:
-                    return new InteractorFreezeTimer();
-                case InteractionType.FreezeTileBlock:
-                case InteractionType.FreezeTile:
-                    return new InteractorFreezeTile();
-                case InteractionType.Footballcounterblue:
-                case InteractionType.Footballcountergreen:
-                case InteractionType.Footballcounterred:
-                case InteractionType.Footballcounteryellow:
-                    return new InteractorScoreCounter();
-                case InteractionType.Banzaiscoreblue:
-                case InteractionType.Banzaiscoregreen:
-                case InteractionType.Banzaiscorered:
-                case InteractionType.Banzaiscoreyellow:
-                    return new InteractorBanzaiScoreCounter();
-                case InteractionType.WfFloorSwitch1:
-                case InteractionType.WfFloorSwitch2:
-                    return new InteractorSwitch();
-                case InteractionType.Lovelock:
-                    return new InteractorLoveLock();
-                case InteractionType.Cannon:
-                    return new InteractorCannon();
-                case InteractionType.Counter:
-                    return new InteractorCounter();
-                case InteractionType.CrackableEgg:
-                    return new InteractorCrackable();
-                case InteractionType.Skateboard:
-                    return new InteractorSkateboard();
-                case InteractionType.None:
-                default:
-                    return new InteractorGenericSwitch();
-            }
-        }
-    }
+    public IFurniInteractor Interactor => (_interactors
+        ?? throw new InvalidOperationException("Item must be attached to a room before accessing its interactor."))
+        .Create(this, InteractionClock());
 
     private TimeProvider InteractionClock() => _interactionClock
         ?? throw new InvalidOperationException("A room-bound interaction clock is required.");
@@ -648,8 +585,8 @@ public class Item
                                     user.AllowOverride = false;
                                     if (user.TeleDelay == 0)
                                     {
-                                        var roomHopId = ItemHopperFinder.GetAHopper(user.RoomId); // TODO @80O: Remove cast
-                                        var nextHopperId = ItemHopperFinder.GetHopperId(roomHopId);
+                                        var roomHopId = TravelStore().FindOtherHopperRoom(user.RoomId);
+                                        var nextHopperId = TravelStore().FindHopper(roomHopId);
                                         if (!user.IsBot && user.GetClient() is { } hoppingClient &&
                                             hoppingClient.GetHabbo() != null)
                                         {
@@ -768,14 +705,14 @@ public class Item
                                 {
                                     //Remove the user from the square
                                     user.AllowOverride = false;
-                                    if (ItemTeleporterFinder.IsTeleLinked(Id, room))
+                                    if (ItemTeleporterFinder.IsTeleLinked(Id, room, TravelStore()))
                                     {
                                         showTeleEffect = true;
                                         if (true)
                                         {
                                             // Woop! No more delay.
-                                            var teleId = ItemTeleporterFinder.GetLinkedTele(Id);
-                                            var roomId = ItemTeleporterFinder.GetTeleRoomId(teleId, room);
+                                            var teleId = TravelStore().FindLinkedTeleporter(Id);
+                                            var roomId = ItemTeleporterFinder.GetTeleRoomId(teleId, room, TravelStore());
 
                                             // Do we need to tele to the same room or gtf to another?
                                             if (roomId == RoomId)
@@ -789,7 +726,7 @@ public class Item
                                                     user.SetPos(item.GetX, item.GetY, item.GetZ);
                                                     user.SetRot(item.Rotation, false);
                                                     if (!user.IsBot)
-                                                        RewardTrackManager.Current?.Progress(user.GetClient(), RewardTrackActions.Teleport);
+                                                        _rewards!.Progress(user.GetClient(), RewardTrackActions.Teleport);
 
                                                     // Force tele effect update (dirty)
                                                     item.LegacyDataString = "2";
@@ -1347,25 +1284,31 @@ public class Item
         }
     }
 
-    internal void BindTemporaryRoom(Room room)
+    internal void Attach(Room room, IItemInteractorFactory interactors, IItemTravelStore travelStore, IRewardTrackManager rewards)
     {
-        if (!IsTemporary || RoomId != room.RoomId) throw new InvalidOperationException("Only a temporary item in this room can be bound.");
+        if (RoomId != room.RoomId) throw new InvalidOperationException("Item room id does not match the admitting room.");
+        if (_room != null && !ReferenceEquals(_room, room)) throw new InvalidOperationException("Item is already attached to another room.");
         _room = room;
-        if (Definition.InteractionType is InteractionType.Teleport or InteractionType.OneWayGate)
-            BindInteractionClock(room.InteractionClock);
+        _interactionClock = room.InteractionClock;
+        _interactors = interactors;
+        _travelStore = travelStore;
+        _rewards = rewards;
     }
 
-    [Obsolete]
-    public Room? GetRoom()
+    internal void Detach(Room room)
     {
-        if (_room != null)
-            return _room;
-        if (RoomId == 0)
-            return null;
-        if (PlusEnvironment.Game.RoomManager.TryGetRoom(RoomId, out var room))
-            return room;
-        return null;
+        if (!ReferenceEquals(_room, room)) throw new InvalidOperationException("Item cannot be detached from a room that does not own it.");
+        _room = null;
+        _interactionClock = null;
+        _interactors = null;
+        _travelStore = null;
+        _rewards = null;
     }
+
+    public Room? GetRoom() => _room;
+
+    private IItemTravelStore TravelStore() => _travelStore
+        ?? throw new InvalidOperationException("Item must be attached to a room before using travel behavior.");
 
     public void UserFurniCollision(RoomUser? user)
     {
@@ -1401,8 +1344,7 @@ public class Item
     public void Destroy()
     {
         NavigationInputs?.Remove(this);
-        _room = null;
-        _interactionClock = null;
+        if (_room is { } room) Detach(room);
         Definition = null;
         GetAffectedTiles.Clear();
     }

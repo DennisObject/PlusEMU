@@ -123,7 +123,7 @@ public sealed class CameraPhotoServiceTests
 
     private static Habbo Actor() => new()
     {
-        Id = 1, Credits = 100, CurrentRoom = new Room(new RoomData { Id = 2 }, [], TestLogging.Navigation, TestLogging.Logger),
+        Id = 1, Credits = 100, CurrentRoom = new Room(new RoomData { Id = 2 }, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused),
         Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([], []) }
     };
 }

@@ -125,9 +125,10 @@ public class MovementExecutorBenchmarks
         internal MovementBenchmarkFixture(PathfindingEngine engine)
         {
             _engine = engine;
-            RoomPerformanceFixture.SetField(_fixture.Room, "_roomItemHandling", new RoomItemHandling(_fixture.Room, TestRoomItemStore.Instance));
+            RoomPerformanceFixture.SetField(_fixture.Room, "_roomItemHandling", new RoomItemHandling(_fixture.Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
             _fixture.Map.GenerateMaps();
-            _navigation = new(_fixture.Room, _fixture.Map.StaticModel, new() { Engine = engine }, TestLogging.Navigation);
+            _navigation = new(_fixture.Room, _fixture.Map.StaticModel, new() { Engine = engine }, TestLogging.Navigation,
+                TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
             typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(_fixture.Map, _navigation);
             _navigation.Compiler.RebuildAll();

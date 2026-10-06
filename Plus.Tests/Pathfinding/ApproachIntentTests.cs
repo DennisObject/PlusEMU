@@ -24,7 +24,7 @@ public partial class PlacedFurniRoomTests
     {
         var map = _room.GetGameMap();
         var navigation = new RoomNavigation(_room, map.StaticModel,
-            new() { Engine = PathfindingEngine.V2, ApproachAutoInteract = autoInteract }, TestLogging.Navigation);
+            new() { Engine = PathfindingEngine.V2, ApproachAutoInteract = autoInteract }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
         foreach (var item in _room.GetRoomItemHandler().GetFloor) navigation.Inputs.Attach(item);

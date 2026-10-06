@@ -24,6 +24,7 @@ public partial class PlacedFurniRoomTests
 
     private void UseGroups(Func<int, Group?> lookup)
     {
+        _groupLookup = lookup;
         var groups = Proxy<IGroupManager>((method, args) =>
         {
             Assert.Equal("TryGetGroup", method);
@@ -103,7 +104,11 @@ public partial class PlacedFurniRoomTests
     public void AccessLegacyGuildGateStillOpensForMembersAtExecutionOnly()
     {
         var gate = AccessGate(InteractionType.GuildGate);
-        UseGroups(id => id == 7 ? GuildGroup(7) : null);
+        _groupLookup = id => id == 7 ? GuildGroup(7) : null;
+        var previous = (IGame)_gameField.GetValue(null)!;
+        _gameField.SetValue(null, Proxy<IGame>((method, args) => method == "get_GroupManager"
+            ? throw new InvalidOperationException("Legacy guild gate must not use the global group manager.")
+            : typeof(IGame).GetMethod(method)!.Invoke(previous, args)));
         var user = Viewer(0, 1);
         Assert.True(_room.GetGameMap().IsValidStep(new(0, 1), new(1, 1), true, false));
         Assert.Equal("0", gate.LegacyDataString);

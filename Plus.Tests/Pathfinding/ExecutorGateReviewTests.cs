@@ -66,6 +66,7 @@ public partial class PlacedFurniRoomTests
             Assert.Equal("TryGetGroup", method);
             args[1] = group; return (int)args[0]! == group.Id;
         });
+        _groupLookup = id => id == group.Id ? group : null;
         var previous = ((TestProxy)_gameField.GetValue(null)!).Call;
         _gameField.SetValue(null, Proxy<IGame>((method, args) =>
             method == "get_GroupManager" ? groups : previous(method, args)));

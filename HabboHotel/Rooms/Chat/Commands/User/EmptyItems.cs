@@ -1,10 +1,9 @@
-﻿using Plus.Communication.Packets.Outgoing.Inventory.Furni;
-using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Items;
+﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 
-internal class EmptyItems : IChatCommand
+internal class EmptyItems(IInventoryClearService inventory) : IChatCommand
 {
     public string Key => "emptyitems";
 
@@ -23,10 +22,7 @@ internal class EmptyItems : IChatCommand
         }
         if (parameters.Length == 1 && parameters[0] == "yes")
         {
-            ItemLoader.DeleteAllInventoryItemsForUser(session.GetHabbo().Id);
-            session.GetHabbo().Inventory.Furniture.ClearItems();
-            session.Send(new FurniListUpdateComposer());
-            session.SendNotification("Your inventory has been cleared!");
+            inventory.TryClear(session, room);
             return;
         }
         if (parameters.Length == 1 && parameters[0] != "yes") session.SendNotification("To confirm, you must type in :emptyitems yes");

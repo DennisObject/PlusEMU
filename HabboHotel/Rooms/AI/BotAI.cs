@@ -25,6 +25,13 @@ public abstract class BotAi
 
     public RoomBot? GetBotData() => _roomUser?.BotData;
 
+    public void Detach(Room room, RoomUser user)
+    {
+        if (!ReferenceEquals(_room, room) || !ReferenceEquals(_roomUser, user)) return;
+        _room = null;
+        _roomUser = null;
+    }
+
     public abstract void OnSelfEnterRoom();
     public abstract void OnSelfLeaveRoom(bool kicked);
     public abstract void OnUserEnterRoom(RoomUser user);

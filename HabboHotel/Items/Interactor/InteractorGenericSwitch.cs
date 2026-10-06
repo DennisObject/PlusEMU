@@ -4,7 +4,7 @@ using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
-public class InteractorGenericSwitch : IFurniInteractor
+public class InteractorGenericSwitch(IQuestManager quests, IRewardTrackManager rewards) : IFurniInteractor
 {
     public void OnPlace(GameClient? session, Item item) { }
 
@@ -14,7 +14,7 @@ public class InteractorGenericSwitch : IFurniInteractor
     {
         var modes = item.Definition.Modes - 1;
         if (session == null || !hasRights || modes <= 0) return;
-        PlusEnvironment.Game.QuestManager.ProgressUserQuest(session, QuestType.FurniSwitch);
+        quests.ProgressUserQuest(session, QuestType.FurniSwitch);
         if (GateTransitionService.For(item) != null) { ToggleSequenced(session, item, modes); return; }
         var before = item.LegacyDataString;
         var currentMode = 0;
@@ -29,7 +29,7 @@ public class InteractorGenericSwitch : IFurniInteractor
         item.LegacyDataString = newMode.ToString();
         item.UpdateState();
         if (!string.Equals(before, item.LegacyDataString, StringComparison.Ordinal))
-            RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
+            rewards.Progress(session, RewardTrackActions.SwitchItemState);
     }
 
     public void OnWiredTrigger(Item item)
@@ -58,13 +58,13 @@ public class InteractorGenericSwitch : IFurniInteractor
     }
 
     // v2 only: gate states are written through the per-gate sequencer.
-    private static void ToggleSequenced(GameClient session, Item item, int modes)
+    private void ToggleSequenced(GameClient session, Item item, int modes)
     {
         var before = item.LegacyDataString;
         GateTransitionService.ToggleState(item, current => NextMode(current, modes).ToString(), GateCloseReason.Click, afterWrite: changed =>
         {
             if (!string.Equals(before, changed.LegacyDataString, StringComparison.Ordinal))
-                RewardTrackManager.Current?.Progress(session, RewardTrackActions.SwitchItemState);
+                rewards.Progress(session, RewardTrackActions.SwitchItemState);
         });
     }
 

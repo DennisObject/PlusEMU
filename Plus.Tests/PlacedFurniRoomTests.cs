@@ -50,6 +50,8 @@ public partial class PlacedFurniRoomTests : IDisposable
     private readonly InteractionTimeProvider _interactionClock = new(
         new DateTimeOffset(2040, 2, 3, 4, 5, 6, TimeSpan.Zero),
         TimeZoneInfo.CreateCustomTimeZone("interaction-plus-nine", TimeSpan.FromHours(9), "test", "test"));
+    private readonly TestRoomSettings _roomSettings = new();
+    private Func<int, Plus.HabboHotel.Groups.Group?> _groupLookup = _ => null;
 
     public PlacedFurniRoomTests()
     {
@@ -60,9 +62,13 @@ public partial class PlacedFurniRoomTests : IDisposable
         _room.OwnerName = "owner";
         _room.Type = "private";
         Set("_interactionClock", _interactionClock);
-        Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false), TestLogging.Navigation));
-        Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance));
-        Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System));
+        Set("_achievements", TestRoomAchievements.Unused);
+        Set("_rooms", TestRoomOwners.Unused);
+        Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false),
+            TestLogging.Navigation, _roomSettings, new TestGroupManager(id => _groupLookup(id)),
+            TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
+        Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
+        Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         TestRoomUserSnapshots.Install(_room);
         _room.GetGameMap().GenerateMaps();
         _client.SetHabbo(new Habbo { Id = 7, Username = "owner", CurrentRoom = _room, Access = UserAccess.Empty });
@@ -88,7 +94,7 @@ public partial class PlacedFurniRoomTests : IDisposable
             _ => throw new InvalidOperationException(method)
         });
         _databaseField.SetValue(null, _database);
-        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, new EmptyConfigurationStore(), _database, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, new EmptyConfigurationStore(), _database, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         Set("_wiredComponent", wired);
     }
 
@@ -100,7 +106,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, item, 1, 1, 0, true, false, false));
         Assert.Same(_room, item.GetRoom());
 
-        var user = new RoomUser(7, RoomId, 1, _room);
+        var user = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         item.UserWalksOnFurni(user);
         item.UserWalksOffFurni(user);
         Assert.Same(item, user.LastItem);
@@ -387,6 +393,8 @@ public partial class PlacedFurniRoomTests : IDisposable
             (true, false, 0, 0, 0);
         public override void CreateHeader(Memory<byte> memory, uint messageId)
         {
+            FlashGameClient.EncodeInt32(memory, memory.Length - 4, 0);
+            FlashGameClient.EncodeInt16(memory, (short)messageId, 4);
             BeforeCapture?.Invoke(messageId);
             Sent.Add(messageId);
             Packets.Add((messageId, memory[6..].ToArray()));

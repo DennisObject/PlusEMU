@@ -1,4 +1,5 @@
 ﻿using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.HabboHotel.Catalog;
 
@@ -39,7 +40,12 @@ public class CatalogPage
     public Dictionary<int, CatalogItem> Offers { get; set; } = new();
 
     // Permission gates. Hidden pages (Visible = false) stay reachable by link, as on the official hotel.
-    public bool IsAvailableTo(Habbo habbo) => (string.IsNullOrEmpty(RequiredPermission) || habbo.Access.Can(RequiredPermission)) && Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(habbo.Access) >= RequiredClubLevel;
+    public bool IsAvailableTo(Habbo habbo)
+    {
+        var access = habbo.Access.Capture(out var now);
+        return (string.IsNullOrEmpty(RequiredPermission) || access.Keys.Contains(RequiredPermission)) &&
+            ClubAccess.LevelFor(access, now) >= RequiredClubLevel;
+    }
 
     public bool CanOpen(Habbo habbo) => Enabled && IsAvailableTo(habbo);
 

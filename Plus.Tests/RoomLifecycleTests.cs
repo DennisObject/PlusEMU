@@ -10,7 +10,7 @@ public sealed class RoomLifecycleTests
     public void BansAreAvailableAfterTheFirstPhaseWithoutLoadingTheDatabase()
     {
         var component = new RoomBansComponent(null!, TimeProvider.System);
-        var room = new Room(Data(1), [component], TestLogging.Navigation, TestLogging.Logger);
+        var room = new Room(Data(1), [component], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
         component.Initiate(room);
         Assert.NotNull(room.GetBans());
         Assert.Equal(0, room.GetBans().Count);
@@ -20,7 +20,7 @@ public sealed class RoomLifecycleTests
     public void InitiateRunsEveryFirstPhaseBeforeAnySecondPhase()
     {
         var calls = new List<string>();
-        var room = new Room(Data(1), [new RecordingComponent("a", calls), new RecordingComponent("b", calls)], TestLogging.Navigation, TestLogging.Logger);
+        var room = new Room(Data(1), [new RecordingComponent("a", calls), new RecordingComponent("b", calls)], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
 
         room.Initiate();
 
@@ -30,7 +30,7 @@ public sealed class RoomLifecycleTests
     [Fact]
     public void InitiateRejectsSecondCall()
     {
-        var room = new Room(Data(1), Array.Empty<IRoomComponent>(), TestLogging.Navigation, TestLogging.Logger);
+        var room = new Room(Data(1), Array.Empty<IRoomComponent>(), TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
         room.Initiate();
 
         Assert.Throws<InvalidOperationException>(room.Initiate);
@@ -42,7 +42,7 @@ public sealed class RoomLifecycleTests
         var calls = new List<string>();
         var room = new Room(Data(1),
             [new OrderedComponent("bots", 300, calls), new OrderedComponent("runtime", 0, calls), new OrderedComponent("data", 100, calls)],
-            TestLogging.Navigation, TestLogging.Logger);
+            TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
 
         room.Initiate();
 
@@ -53,6 +53,8 @@ public sealed class RoomLifecycleTests
     public void FactoryOwnsIndependentScopesAndDisposesThemWithRooms()
     {
         var services = new ServiceCollection();
+        services.AddSingleton<Plus.HabboHotel.Achievements.IAchievementManager>(TestRoomAchievements.Unused);
+        services.AddSingleton<IRoomManager>(TestRoomOwners.Unused);
         services.AddScoped<Probe>();
         services.AddScoped<IRoomComponent, ScopedProbeComponent>();
         using var provider = services.BuildServiceProvider();
@@ -75,6 +77,8 @@ public sealed class RoomLifecycleTests
     public void DuplicateRoomDoesNotEvictOriginalScope()
     {
         var services = new ServiceCollection();
+        services.AddSingleton<Plus.HabboHotel.Achievements.IAchievementManager>(TestRoomAchievements.Unused);
+        services.AddSingleton<IRoomManager>(TestRoomOwners.Unused);
         services.AddScoped<Probe>();
         services.AddScoped<IRoomComponent, ScopedProbeComponent>();
         using var provider = services.BuildServiceProvider();
@@ -92,6 +96,8 @@ public sealed class RoomLifecycleTests
     public void FailedInitiationDoesNotEvictAReplacementScope()
     {
         var services = new ServiceCollection();
+        services.AddSingleton<Plus.HabboHotel.Achievements.IAchievementManager>(TestRoomAchievements.Unused);
+        services.AddSingleton<IRoomManager>(TestRoomOwners.Unused);
         services.AddScoped<Probe>();
         ScopedRoomFactory? factory = null;
         Room? replacement = null;

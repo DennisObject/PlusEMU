@@ -11,7 +11,6 @@ public interface IGameClient
     event EventHandler<EventArgs>? ConnectionDisconnected;
     Arc4? Rc4Client { get; set; }
     bool IsAuthenticated { get; set; }
-    DateTime TimeConnected { get; set; }
     string MachineId { get; set; }
     int PingCount { get; set; }
     Revision Revision { get; set; }

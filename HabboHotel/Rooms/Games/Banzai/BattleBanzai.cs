@@ -3,6 +3,7 @@ using System.Drawing;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Rooms.Games.Teams;
@@ -19,12 +20,14 @@ public class BattleBanzai
     private ConcurrentDictionary<uint, Item> _pucks;
     private Room _room;
     private readonly TimeProvider _clock;
+    private readonly IAchievementManager _achievements;
     private DateTimeOffset? _startedAt;
 
-    public BattleBanzai(Room room, TimeProvider clock)
+    public BattleBanzai(Room room, TimeProvider clock, IAchievementManager achievements)
     {
         _room = room;
         _clock = clock;
+        _achievements = achievements;
         IsBanzaiActive = false;
         _pucks = new();
         _banzaiTiles = new();
@@ -240,8 +243,8 @@ public class BattleBanzai
                 {
                     if (awardsProgress)
                     {
-                        PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallTilesLocked", user.LockedTilesCount);
-                        PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallPlayer", 1);
+                        _achievements.ProgressAchievement(user.GetClient(), "ACH_BattleBallTilesLocked", user.LockedTilesCount);
+                        _achievements.ProgressAchievement(user.GetClient(), "ACH_BattleBallPlayer", 1);
                     }
                 }
                 if (winners == Team.Blue)
@@ -249,7 +252,7 @@ public class BattleBanzai
                     if (user.CurrentEffect == 35)
                     {
                         if (awardsProgress)
-                            PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
+                            _achievements.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
                         _room.SendPacket(new ActionComposer(user.VirtualId, 1));
                     }
                 }
@@ -258,7 +261,7 @@ public class BattleBanzai
                     if (user.CurrentEffect == 33)
                     {
                         if (awardsProgress)
-                            PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
+                            _achievements.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
                         _room.SendPacket(new ActionComposer(user.VirtualId, 1));
                     }
                 }
@@ -267,7 +270,7 @@ public class BattleBanzai
                     if (user.CurrentEffect == 34)
                     {
                         if (awardsProgress)
-                            PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
+                            _achievements.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
                         _room.SendPacket(new ActionComposer(user.VirtualId, 1));
                     }
                 }
@@ -276,7 +279,7 @@ public class BattleBanzai
                     if (user.CurrentEffect == 36)
                     {
                         if (awardsProgress)
-                            PlusEnvironment.Game.AchievementManager.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
+                            _achievements.ProgressAchievement(user.GetClient(), "ACH_BattleBallWinner", 1);
                         _room.SendPacket(new ActionComposer(user.VirtualId, 1));
                     }
                 }

@@ -4,6 +4,18 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Data.Moodlight;
+using Plus.HabboHotel.Items.Data.Toner;
+using Plus.Core.Language;
+using Plus.Communication.Packets;
+using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Users.Messenger;
+using System.Reflection;
+using Plus.HabboHotel.Achievements;
+using Plus.HabboHotel.Items.Interactor;
+using Plus.HabboHotel.Quests;
+using Plus.HabboHotel.Users;
 
 namespace Plus.Tests;
 
@@ -26,10 +38,83 @@ internal static class TestLogging
     internal static ILogger<T> For<T>() => NullLogger<T>.Instance;
 }
 
+internal static class TestItemRuntime
+{
+    internal static IItemTravelStore Travel { get; } = new EmptyTravelStore();
+    internal static IQuestManager Quests { get; } = Empty<IQuestManager>();
+    internal static IRewardTrackManager Rewards { get; } = Empty<IRewardTrackManager>();
+    internal static IAchievementManager Achievements { get; } = Empty<IAchievementManager>();
+    internal static IUserProfileService Profiles { get; } = Empty<IUserProfileService>();
+    internal static IItemInteractorFactory Interactors { get; } =
+        new ItemInteractorFactory(Travel, Profiles, Quests, Rewards, Achievements);
+
+    private static T Empty<T>() where T : class => DispatchProxy.Create<T, EmptyProxy>();
+
+    public class EmptyProxy : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            var type = targetMethod?.ReturnType;
+            if (type == null || type == typeof(void)) return null;
+            if (type == typeof(Task)) return Task.CompletedTask;
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))
+                return typeof(Task).GetMethod(nameof(Task.FromResult))!
+                    .MakeGenericMethod(type.GenericTypeArguments[0])
+                    .Invoke(null, [type.GenericTypeArguments[0].IsValueType ? Activator.CreateInstance(type.GenericTypeArguments[0]) : null]);
+            return type.IsValueType ? Activator.CreateInstance(type) : null;
+        }
+    }
+
+    private sealed class EmptyTravelStore : IItemTravelStore
+    {
+        public uint FindOtherHopperRoom(uint roomId) => 0;
+        public uint FindHopper(uint roomId) => 0;
+        public uint FindLinkedTeleporter(uint itemId) => 0;
+        public uint FindItemRoom(uint itemId) => 0;
+        public void RegisterHopper(uint itemId, uint roomId) { }
+        public void RemoveHopper(uint itemId, uint roomId) { }
+    }
+}
+
 internal sealed class TestRoomFactory : IRoomFactory
 {
     public Room Create(RoomData data) => throw new NotSupportedException();
     public void Dispose(uint roomId) { }
+}
+
+internal sealed class TestGameClientManager(Func<int, GameClient?> lookup) : IGameClientManager
+{
+    internal static TestGameClientManager Empty { get; } = new(_ => null);
+    public GameClient? GetClientByUserId(int userId) => lookup(userId);
+    public int Count => throw new NotSupportedException();
+    public ICollection<GameClient> GetClients => throw new NotSupportedException();
+    public void OnCycle() => throw new NotSupportedException();
+    public GameClient? GetClientByUsername(string username) => throw new NotSupportedException();
+    public bool TryGetClient(Guid clientId,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out GameClient? client) => throw new NotSupportedException();
+    public bool TryChangeClientUsername(GameClient client, string oldUsername, string newUsername, Func<bool> persist) => throw new NotSupportedException();
+    public Task<string> GetNameById(int id) => throw new NotSupportedException();
+    public IEnumerable<GameClient> GetClientsById(Dictionary<int, MessengerBuddy>.KeyCollection users) => throw new NotSupportedException();
+    public void StaffAlert(IServerPacket message, int exclude = 0) => throw new NotSupportedException();
+    public void ModAlert(string message) => throw new NotSupportedException();
+    public void DoAdvertisingReport(GameClient reporter, GameClient target) => throw new NotSupportedException();
+    public void SendPacket(IServerPacket packet, PermissionDefinition? permission = null) => throw new NotSupportedException();
+    public void LogClonesOut(int userId) => throw new NotSupportedException();
+    public void RegisterClient(GameClient client, int userId, string username) => throw new NotSupportedException();
+    public void UnregisterClient(GameClient client, int userId, string username) => throw new NotSupportedException();
+    public void CloseAll() => throw new NotSupportedException();
+}
+
+internal sealed class TestLanguageManager(IReadOnlyDictionary<string, string> values) : ILanguageManager
+{
+    internal static TestLanguageManager RoomItems { get; } = new(new Dictionary<string, string>
+    {
+        ["room.item.already_placed"] = "room.item.already_placed"
+    });
+    public string TryGetValue(string value) => values.TryGetValue(value, out var translated)
+        ? translated
+        : throw new KeyNotFoundException(value);
+    public Task Reload() => throw new NotSupportedException();
 }
 
 internal sealed class TestRoomItemStore : IRoomItemStore
@@ -41,6 +126,18 @@ internal sealed class TestRoomItemStore : IRoomItemStore
     public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
     public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) { }
     public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) { }
+}
+
+internal sealed class TestRoomItemMetadataStore : IRoomItemMetadataStore
+{
+    internal static TestRoomItemMetadataStore Instance { get; } = new();
+    public void SetMannequinData(uint itemId, uint roomId, string data) => throw new NotSupportedException();
+    public void SetToner(uint itemId, uint roomId, int hue, int saturation, int lightness) => throw new NotSupportedException();
+    public void SetBrandingData(uint itemId, uint roomId, string data) => throw new NotSupportedException();
+    public MoodlightRecord? LoadMoodlight(uint itemId) => throw new NotSupportedException();
+    public void SetMoodlightEnabled(uint itemId, uint roomId, bool enabled) => throw new NotSupportedException();
+    public void UpdateMoodlightPreset(uint itemId, uint roomId, int preset, string value) => throw new NotSupportedException();
+    public TonerRecord? LoadToner(uint itemId) => throw new NotSupportedException();
 }
 
 internal sealed class TestRoomUserStore : IRoomUserStore

@@ -28,7 +28,7 @@ public sealed class WiredVariableMenuEventTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         typeof(Room).GetField("_wiredComponent", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(room,
-            new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance));
+            new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel));
         RoomPacketEvent[] handlers = [new WiredUserVariableUpdateEvent(new WiredVariableMenuService()), new WiredUserVariableManageEvent(new WiredVariableMenuService()), new WiredUserVariablesRequestEvent(new WiredVariableMenuService()), new WiredAllVariablesRequestEvent(new WiredVariableMenuService()), new WiredVariableHashesEvent(new WiredVariableMenuService()),
             new WiredVariableHoldersRequestEvent(new WiredVariableMenuService()), new WiredVariableHoldersPageEvent(new WiredVariableMenuService())];
         foreach (var handler in handlers)

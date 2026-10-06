@@ -47,7 +47,7 @@ public partial class PlacedFurniRoomTests
     {
         UseGameService("get_QuestManager", Proxy<IQuestManager>((_, _) => null));
         var gate = LegacyGate();
-        Task.Run(() => new InteractorGenericSwitch().OnTrigger(_client, gate, 0, true)).Wait();
+        Task.Run(() => new InteractorGenericSwitch(TestItemRuntime.Quests, TestItemRuntime.Rewards).OnTrigger(_client, gate, 0, true)).Wait();
         Assert.Equal("0", gate.LegacyDataString); Assert.Equal(0, Gates.PendingCount);
     }
 

@@ -1,5 +1,4 @@
 using System.Reflection;
-using Plus.Core.Settings;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Items;
@@ -49,7 +48,6 @@ public partial class PlacedFurniRoomTests
     [InlineData(false, 1, 1d)]
     public void ExecutorReplayStacktoolCollisionSettingMatchesLegacyPackets(bool collision, int finalX, double finalZ)
     {
-        using var settings = new ReplaySettingsScope(collision);
         var stream = new ReplayInput[]
         {
             ReplayFurniture(20, 1, 1, .5, .5, InteractionType.None),
@@ -185,8 +183,9 @@ public partial class PlacedFurniRoomTests
 
     private void ReplayNavigation(PathfindingEngine engine, bool collision)
     {
+        _roomSettings.Values["pathfinding.stacktool_legacy_collision"] = collision ? "1" : "0";
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = engine, StacktoolLegacyCollision = collision }, TestLogging.Navigation);
+        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = engine, StacktoolLegacyCollision = collision }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
     }
@@ -292,26 +291,6 @@ public partial class PlacedFurniRoomTests
             .Select(category => $"{ReplayDifferenceName(category)}={differences.Count(value => value == category)}");
         var reason = name == "superfast" ? "; other=original superfast-only route loses its final tile (legacy x=2, v2 x=3)" : "";
         File.AppendAllLines(output, new[] { $"{name}: inputs={stream.Count}; {string.Join("; ", classifications)}{reason}" });
-    }
-
-    private sealed class ReplaySettingsScope : IDisposable
-    {
-        private readonly FieldInfo _field = typeof(PlusEnvironment).GetField("_settingsManager", BindingFlags.Static | BindingFlags.NonPublic)!;
-        private readonly object? _previous;
-        public ReplaySettingsScope(bool collision)
-        {
-            _previous = _field.GetValue(null);
-            _field.SetValue(null, new ReplaySettings(collision));
-        }
-        public void Dispose() => _field.SetValue(null, _previous);
-    }
-
-    private sealed class ReplaySettings(bool collision) : ISettingsManager
-    {
-        public string TryGetValue(string key) => TryGetValue(key, "0");
-        public string TryGetValue(string key, string defaultValue) => GetOptionalValue(key) ?? defaultValue;
-        public string? GetOptionalValue(string key) => key == "pathfinding.stacktool_legacy_collision" ? collision ? "1" : "0" : null;
-        public Task Reload() => Task.CompletedTask;
     }
 
     public enum ReplayDifference { CornerFix, ShorterRoute, BlockedTileFix, TimingPhaseChange, StacktoolExclusion, Other }

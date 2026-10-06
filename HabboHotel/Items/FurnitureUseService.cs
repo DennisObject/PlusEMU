@@ -35,10 +35,51 @@ public interface IFurnitureUseService
 {
     void Use(Room room, GameClient session, FurnitureUseRequest request);
     void Click(Room room, GameClient session, FurnitureClickRequest request);
+    void TurnOffDice(Room room, GameClient session, uint itemId);
+    void RollDice(Room room, GameClient session, FurnitureUseRequest request);
+    void UseOneWayGate(Room room, GameClient session, uint itemId);
+    void UseWall(Room room, GameClient session, FurnitureUseRequest request);
 }
 
 public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager quests) : IFurnitureUseService
 {
+    public void TurnOffDice(Room room, GameClient session, uint itemId)
+    {
+        var item = FindPermanent(room, session, itemId);
+        if (item == null) return;
+        item.Interactor.OnTrigger(session, item, -1, room.CheckRights(session));
+    }
+
+    public void RollDice(Room room, GameClient session, FurnitureUseRequest request)
+    {
+        var item = FindPermanent(room, session, request.ItemId);
+        if (item == null) return;
+        item.Interactor.OnTrigger(session, item, request.Parameter, room.CheckRights(session, false, true));
+    }
+
+    public void UseOneWayGate(Room room, GameClient session, uint itemId)
+    {
+        var item = FindPermanent(room, session, itemId);
+        if (item?.Definition.InteractionType != InteractionType.OneWayGate) return;
+        item.Interactor.OnTrigger(session, item, -1, room.CheckRights(session));
+    }
+
+    public void UseWall(Room room, GameClient session, FurnitureUseRequest request)
+    {
+        var item = FindPermanent(room, session, request.ItemId);
+        if (item == null) return;
+        item.Interactor.OnTrigger(session, item, request.Parameter, room.CheckRights(session, false, true));
+        room.GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, session.GetHabbo(), item);
+        quests.ProgressUserQuest(session, QuestType.ExploreFindItem, (int)item.Definition.Id);
+    }
+
+    private static Item? FindPermanent(Room room, GameClient session, uint itemId)
+    {
+        if (!ReferenceEquals(session.GetHabbo().CurrentRoom, room)) return null;
+        var item = room.GetRoomItemHandler().GetItem(itemId);
+        return item is { IsTemporary: false } ? item : null;
+    }
+
     public void Click(Room room, GameClient session, FurnitureClickRequest request)
     {
         var actor = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);

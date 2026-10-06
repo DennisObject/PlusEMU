@@ -1,7 +1,6 @@
 ﻿using System.Drawing;
 using Plus.HabboHotel.Catalog.Utilities;
 using Plus.HabboHotel.Rooms.AI.Speech;
-using Plus.HabboHotel.Rooms.AI.Types;
 
 namespace Plus.HabboHotel.Rooms.AI;
 
@@ -106,18 +105,4 @@ public class RoomBot
         return RandomSpeech[Random.Shared.Next(0, RandomSpeech.Count)];
     }
 
-    public BotAi GenerateBotAi(int virtualId)
-    {
-        switch (AiType)
-        {
-            case BotAiType.Pet:
-                return new PetBot(virtualId);
-            case BotAiType.Generic:
-                return new GenericBot(virtualId);
-            case BotAiType.Bartender:
-                return new BartenderBot(virtualId);
-            default:
-                return new GenericBot(virtualId);
-        }
-    }
 }

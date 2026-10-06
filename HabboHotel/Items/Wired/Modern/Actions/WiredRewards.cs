@@ -21,9 +21,101 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 public sealed record WiredRewardEntry(int Type, string Code, int Probability);
 public sealed class WiredRewardClaim
 {
+    private DateTimeOffset? _lastClaimAt;
     public long Count { get; set; }
-    public long LastClaimUnix { get; set; }
+    public DateTimeOffset? LastClaimAt
+    {
+        get => _lastClaimAt;
+        set => _lastClaimAt = value?.ToUniversalTime();
+    }
     public HashSet<string> ReceivedCodes { get; set; } = new(StringComparer.Ordinal);
+}
+internal sealed class WiredRewardClaimJson
+{
+    public long Count { get; set; }
+    public DateTimeOffset? LastClaimAt { get; set; }
+    public HashSet<string> ReceivedCodes { get; set; } = new(StringComparer.Ordinal);
+}
+public static class WiredRewardClaimsJson
+{
+    public static Dictionary<int, WiredRewardClaim> Parse(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("Missing reward claims.");
+        var claims = new Dictionary<int, WiredRewardClaim>();
+        foreach (var property in document.RootElement.EnumerateObject())
+        {
+            if (!int.TryParse(property.Name, NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId)
+                || property.Value.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException("Invalid reward claim entry.");
+            var value = property.Value;
+            var claim = new WiredRewardClaim
+            {
+                Count = ReadCount(value),
+                LastClaimAt = ReadLastClaim(value),
+                ReceivedCodes = ReadCodes(value)
+            };
+            claims[userId] = claim;
+        }
+        return claims;
+    }
+
+    public static string Serialize(IReadOnlyDictionary<int, WiredRewardClaim> claims) => JsonSerializer.Serialize(
+        claims.ToDictionary(pair => pair.Key, pair => new WiredRewardClaimJson
+        {
+            Count = pair.Value.Count,
+            LastClaimAt = pair.Value.LastClaimAt?.ToUniversalTime(),
+            ReceivedCodes = new(pair.Value.ReceivedCodes, StringComparer.Ordinal)
+        }));
+
+    private static DateTimeOffset? ReadLastClaim(JsonElement value)
+    {
+        if (value.TryGetProperty(nameof(WiredRewardClaim.LastClaimAt), out var canonical))
+        {
+            if (canonical.ValueKind == JsonValueKind.Null) return null;
+            if (canonical.ValueKind != JsonValueKind.String
+                || !DateTimeOffset.TryParse(canonical.GetString(), CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind, out var instant))
+                throw new InvalidDataException("Invalid canonical reward claim time.");
+            return instant.ToUniversalTime();
+        }
+        if (!value.TryGetProperty("LastClaimUnix", out var legacy)) return null;
+        if (legacy.ValueKind != JsonValueKind.Number || !legacy.TryGetDecimal(out var seconds))
+            throw new InvalidDataException("Invalid legacy reward claim time.");
+        if (seconds <= 0) return null;
+        try
+        {
+            var ticks = decimal.ToInt64(decimal.Round(seconds * TimeSpan.TicksPerSecond,
+                0, MidpointRounding.AwayFromZero));
+            return DateTimeOffset.UnixEpoch.AddTicks(ticks);
+        }
+        catch (Exception error) when (error is OverflowException or ArgumentOutOfRangeException) { return null; }
+    }
+
+    private static long ReadCount(JsonElement value)
+    {
+        if (!value.TryGetProperty(nameof(WiredRewardClaim.Count), out var count)) return 0;
+        if (count.ValueKind != JsonValueKind.Number || !count.TryGetInt64(out var parsedCount))
+            throw new InvalidDataException("Invalid reward claim count.");
+        return parsedCount;
+    }
+
+    private static HashSet<string> ReadCodes(JsonElement value)
+    {
+        if (!value.TryGetProperty(nameof(WiredRewardClaim.ReceivedCodes), out var codes))
+            return new(StringComparer.Ordinal);
+        if (codes.ValueKind != JsonValueKind.Array)
+            throw new InvalidDataException("Invalid received reward codes.");
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var code in codes.EnumerateArray())
+        {
+            if (code.ValueKind != JsonValueKind.String || code.GetString() is not { } text)
+                throw new InvalidDataException("Invalid received reward code.");
+            result.Add(text);
+        }
+        return result;
+    }
 }
 public sealed record WiredRewardGrant(int Reason, string? Badge = null, InventoryItem? Furniture = null);
 public sealed record WiredRewardResultComposer(int Reason) : IServerPacket
@@ -60,8 +152,19 @@ public static class WiredRewards
         }
         return true; // Empty defaults are editable but cannot award anything.
     }
-    public static bool IntervalOpen(WiredRewardClaim claim, int interval, int count, long now) => claim.Count == 0
-        || interval != 0 && now - claim.LastClaimUnix >= count * (interval switch { 1 => 86400L, 2 => 3600L, 3 => 60L, _ => long.MaxValue });
+    public static bool IntervalOpen(WiredRewardClaim claim, int interval, int count, DateTimeOffset now)
+    {
+        if (claim.Count == 0) return true;
+        if (interval is < 1 or > 3 || count is < 1 or > 1000) return false;
+        if (claim.LastClaimAt == null) return true;
+        var unit = interval switch
+        {
+            1 => TimeSpan.TicksPerDay,
+            2 => TimeSpan.TicksPerHour,
+            _ => TimeSpan.TicksPerMinute
+        };
+        return now.ToUniversalTime() - claim.LastClaimAt >= TimeSpan.FromTicks(checked(unit * count));
+    }
     public static WiredRewardEntry? Pick(IReadOnlyList<WiredRewardEntry> entries, bool unique, WiredRewardClaim claim, int roll)
     {
         var candidates = unique ? entries.Where(entry => !claim.ReceivedCodes.Contains(entry.Code)).ToArray() : entries.ToArray();
@@ -106,7 +209,7 @@ public sealed class WiredRewardService(IWiredRewardStore store, IItemDataManager
             var habbo = user.GetClient()?.GetHabbo();
             if (habbo == null || !ReferenceEquals(habbo.CurrentRoom, context.Room)) continue;
             WiredRewardGrant grant;
-            try { grant = store.ClaimAndGrant(box, context.Room.Id, habbo, config, definitions, clock.GetUtcNow().ToUnixTimeSeconds()); }
+            try { grant = store.ClaimAndGrant(box, context.Room.Id, habbo, config, definitions, clock.GetUtcNow().ToUniversalTime()); }
             catch (Exception exception) { logger.LogError(exception, "Atomic wired reward failed for box {BoxId}.", box.Id); continue; }
             WiredRewards.Publish(habbo, grant);
             changed |= grant.Reason is 4 or 5;
@@ -117,16 +220,19 @@ public sealed class WiredRewardService(IWiredRewardStore store, IItemDataManager
 
 public interface IWiredRewardStore
 {
-    WiredRewardGrant ClaimAndGrant(Item box, uint roomId, Habbo habbo, WiredConfiguration configuration, IItemDataManager definitions, long now);
+    WiredRewardGrant ClaimAndGrant(Item box, uint roomId, Habbo habbo, WiredConfiguration configuration,
+        IItemDataManager definitions, DateTimeOffset now);
 }
 
 /// <summary>Durability boundary: quota and grant commit together. This module emits no packets or memory inventory writes.</summary>
 public sealed class WiredRewardStore(IDatabase database) : IWiredRewardStore
 {
-    public WiredRewardGrant ClaimAndGrant(Item box, uint roomId, Habbo habbo, WiredConfiguration configuration, IItemDataManager definitions, long now)
+    public WiredRewardGrant ClaimAndGrant(Item box, uint roomId, Habbo habbo, WiredConfiguration configuration,
+        IItemDataManager definitions, DateTimeOffset now)
     {
         if (habbo.Id <= 0 || box.IsTemporary || !WiredRewards.TryValidate(configuration, out configuration, out _)
             || !WiredRewards.TryEntries(configuration.Text, out var prizes) || prizes.Count == 0) return new(0);
+        now = now.ToUniversalTime();
         using var connection = database.Connection();
         if (connection.State != ConnectionState.Open) connection.Open();
         if (connection.ExecuteScalar<int>("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('items','user_badges','wired_reward_state') AND ENGINE='InnoDB'") != 3)
@@ -138,7 +244,7 @@ public sealed class WiredRewardStore(IDatabase database) : IWiredRewardStore
             || !uint.TryParse(placed.RoomOwner, NumberStyles.None, CultureInfo.InvariantCulture, out var roomOwner) || roomOwner == 0) return new(8);
         connection.Execute("INSERT IGNORE INTO wired_reward_state(item_id,claims) VALUES (@id,'{}')", new { id = box.Id }, transaction);
         var json = connection.QuerySingle<string>("SELECT claims FROM wired_reward_state WHERE item_id=@id FOR UPDATE", new { id = box.Id }, transaction);
-        var claims = JsonSerializer.Deserialize<Dictionary<int, WiredRewardClaim>>(json) ?? throw new InvalidDataException("Missing reward claims.");
+        var claims = WiredRewardClaimsJson.Parse(json);
         var p = configuration.IntParams;
         if (p[2] != 0 && claims.Values.Sum(claim => claim.Count) >= p[2]) return new(1);
         var claim = claims.GetValueOrDefault(habbo.Id) ?? new();
@@ -163,8 +269,8 @@ public sealed class WiredRewardStore(IDatabase database) : IWiredRewardStore
             var id = connection.ExecuteScalar<uint>("SELECT LAST_INSERT_ID()", transaction: transaction);
             grant = new(5, Furniture: new() { Id = id, OwnerId = checked((uint)habbo.Id), Definition = definition, ExtraData = FurniExtraData.Load(definition, "", true) });
         }
-        claim.Count++; claim.LastClaimUnix = now; claim.ReceivedCodes.Add(reward.Code); claims[habbo.Id] = claim;
-        connection.Execute("UPDATE wired_reward_state SET claims=@claims WHERE item_id=@id", new { id = box.Id, claims = JsonSerializer.Serialize(claims) }, transaction);
+        claim.Count++; claim.LastClaimAt = now; claim.ReceivedCodes.Add(reward.Code); claims[habbo.Id] = claim;
+        connection.Execute("UPDATE wired_reward_state SET claims=@claims WHERE item_id=@id", new { id = box.Id, claims = WiredRewardClaimsJson.Serialize(claims) }, transaction);
         transaction.Commit();
         return grant;
     }

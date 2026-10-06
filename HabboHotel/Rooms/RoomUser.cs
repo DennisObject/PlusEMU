@@ -9,6 +9,7 @@ using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.Rooms.Chat.Emotions;
 using Plus.HabboHotel.Rooms.Games.Freeze;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Rooms.PathFinding;
@@ -23,8 +24,10 @@ public class RoomUser
     public ActorMovementState Movement => LazyInitializer.EnsureInitialized(ref _movement)!;
 
     public WiredRoomEntrySnapshot WiredRoomEntry { get; internal set; }
-    private GameClient _mClient;
-    private Room _mRoom;
+    private GameClient? _mClient;
+    private Room? _mRoom;
+    private readonly IChatEmotionsManager _chatEmotions;
+    private readonly IRewardTrackManager _rewards;
 
     public bool AllowOverride;
 
@@ -101,7 +104,8 @@ public class RoomUser
     public int Y; //byte
     public double Z;
 
-    public RoomUser(int habboId, uint roomId, int virtualId, Room room)
+    public RoomUser(int habboId, uint roomId, int virtualId, Room room, GameClient? client,
+        IChatEmotionsManager chatEmotions, IRewardTrackManager rewards)
     {
         Freezed = false;
         HabboId = habboId;
@@ -118,6 +122,9 @@ public class RoomUser
         Statusses = new();
         TeleDelay = -1;
         _mRoom = room;
+        _mClient = client;
+        _chatEmotions = chatEmotions;
+        _rewards = rewards;
         AllowOverride = false;
         CanWalk = true;
         SqState = 3;
@@ -140,7 +147,7 @@ public class RoomUser
 
     public bool IsPet => IsBot && BotData.IsPet;
 
-    public int CurrentEffect => GetClient().GetHabbo().Effects.CurrentEffect;
+    public int CurrentEffect => GetClient()?.GetHabbo()?.Effects.CurrentEffect ?? 0;
 
 
     public bool IsDancing
@@ -258,50 +265,47 @@ public class RoomUser
     {
         if (IsBot)
             return string.Empty;
-        if (GetClient() != null)
-        {
-            if (GetClient().GetHabbo() != null)
-                return GetClient().GetHabbo().Username;
-            return PlusEnvironment.GetUsernameById(HabboId);
-        }
-        return PlusEnvironment.GetUsernameById(HabboId);
+        return GetClient()?.GetHabbo()?.Username ?? "Unknown User";
     }
 
     public void UnIdle()
     {
+        var room = GetRoom();
+        if (room == null)
+            return;
         if (!IsBot)
         {
-            if (GetClient() != null && GetClient().GetHabbo() != null)
-                GetClient().GetHabbo().TimeAfk = 0;
+            var habbo = GetClient()?.GetHabbo();
+            if (habbo != null)
+                habbo.TimeAfk = 0;
         }
         IdleTime = 0;
         if (IsAsleep)
         {
             IsAsleep = false;
-            GetRoom().SendPacket(new SleepComposer(VirtualId, false));
-            GetRoom().GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = this, Action = (int)WiredAvatarAction.Awake });
+            room.SendPacket(new SleepComposer(VirtualId, false));
+            room.GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = this, Action = (int)WiredAvatarAction.Awake });
         }
     }
 
     public void Dispose()
     {
         Statusses.Clear();
-        _mRoom = null;
-        _mClient = null;
+        Interlocked.Exchange(ref _mRoom, null);
+        Interlocked.Exchange(ref _mClient, null);
     }
 
     public void Chat(string message, int colour = 0)
     {
-        if (GetRoom() == null)
-            return;
-        if (!IsBot)
+        var room = GetRoom();
+        if (room == null || !IsBot)
             return;
         var packet = new ChatComposer(VirtualId, message, 0, IsPet ? 0 : colour == 0 ? 2 : colour);
         GameClient.SendBroadcast(packet, GetRecipients());
 
         IEnumerable<GameClient> GetRecipients()
         {
-            foreach (var user in GetRoom().GetRoomUserManager().GetRoomUsers())
+            foreach (var user in room.GetRoomUserManager().GetRoomUsers())
             {
                 var client = user?.GetClient();
                 var habbo = client?.GetHabbo();
@@ -325,13 +329,16 @@ public class RoomUser
     public bool IncrementAndCheckFlood(DateTimeOffset now, out int muteTime)
     {
         muteTime = 0;
+        var habbo = GetClient()?.GetHabbo();
+        if (habbo == null || !ReferenceEquals(habbo.CurrentRoom, GetRoom()))
+            return false;
         ChatSpamCount++;
         if (ChatSpamTicks == -1)
             ChatSpamTicks = 8;
         else if (ChatSpamCount >= 6)
         {
-            muteTime = Math.Clamp(21 - GetClient().GetHabbo().Access.Limit("limit.flood_tolerance", 1), 1, 20);
-            GetClient().GetHabbo().FloodUntil = now.AddSeconds(muteTime);
+            muteTime = Math.Clamp(21 - habbo.Access.Limit("limit.flood_tolerance", 1), 1, 20);
+            habbo.FloodUntil = now.AddSeconds(muteTime);
             ChatSpamCount = 0;
             return true;
         }
@@ -340,28 +347,31 @@ public class RoomUser
 
     public void OnChat(int colour, string message, bool shout)
     {
-        if (GetClient() == null || GetClient().GetHabbo() == null || _mRoom == null)
+        var room = GetRoom();
+        var client = GetClient();
+        var habbo = client?.GetHabbo();
+        if (room == null || client == null || habbo == null || !ReferenceEquals(habbo.CurrentRoom, room))
             return;
-        if (_mRoom.GetWired().TriggerEvent(WiredBoxType.TriggerUserSays, GetClient().GetHabbo(), message))
+        if (room.GetWired().TriggerEvent(WiredBoxType.TriggerUserSays, habbo, message))
             return;
-        GetClient().GetHabbo().HasSpoken = true;
-        if (_mRoom.WordFilterList.Count > 0 && !GetClient().GetHabbo().Access.Can(PermissionKeys.ChatFilterBypass)) message = _mRoom.GetFilter().CheckMessage(message);
+        habbo.HasSpoken = true;
+        if (room.WordFilterList.Count > 0 && !habbo.Access.Can(PermissionKeys.ChatFilterBypass)) message = room.GetFilter().CheckMessage(message);
         IServerPacket? packet = null;
         if (shout)
-            packet = new ShoutComposer(VirtualId, message, PlusEnvironment.Game.ChatManager.GetEmotions().GetEmotionsForText(message), colour);
+            packet = new ShoutComposer(VirtualId, message, _chatEmotions.GetEmotionsForText(message), colour);
         else
-            packet = new ChatComposer(VirtualId, message, PlusEnvironment.Game.ChatManager.GetEmotions().GetEmotionsForText(message), colour);
-        if (GetClient().GetHabbo().TentId > 0)
+            packet = new ChatComposer(VirtualId, message, _chatEmotions.GetEmotionsForText(message), colour);
+        if (habbo.TentId > 0)
         {
-            _mRoom.SendToTent(GetClient().GetHabbo().Id, GetClient().GetHabbo().TentId, packet);
+            room.SendToTent(habbo.Id, habbo.TentId, packet);
             packet = new WhisperComposer(VirtualId, $"[Tent Chat] {message}", 0, colour);
-            var toNotify = _mRoom.GetRoomUserManager().GetRoomUsersWithPermission(PermissionKeys.StaffReceiveAlerts);
+            var toNotify = room.GetRoomUserManager().GetRoomUsersWithPermission(PermissionKeys.StaffReceiveAlerts);
             if (toNotify.Count > 0)
             {
                 foreach (var user in toNotify)
                 {
                     if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null ||
-                        user.GetClient().GetHabbo().TentId == GetClient().GetHabbo().TentId)
+                        user.GetClient().GetHabbo().TentId == habbo.TentId)
                         continue;
                     user.GetClient().Send(packet);
                 }
@@ -369,18 +379,18 @@ public class RoomUser
         }
         else
         {
-            foreach (var user in _mRoom.GetRoomUserManager().GetRoomUsers().ToList())
+            foreach (var user in room.GetRoomUserManager().GetRoomUsers().ToList())
             {
-                if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null || user.GetClient().GetHabbo().IgnoresComponent.IsIgnored(_mClient.GetHabbo().Id))
+                if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null || user.GetClient().GetHabbo().IgnoresComponent.IsIgnored(habbo.Id))
                     continue;
-                if (_mRoom.ChatDistance > 0 && Gamemap.TileDistance(X, Y, user.X, user.Y) > _mRoom.ChatDistance)
+                if (room.ChatDistance > 0 && Gamemap.TileDistance(X, Y, user.X, user.Y) > room.ChatDistance)
                     continue;
                 user.GetClient().Send((IServerPacket)packet);
             }
         }
         if (shout)
         {
-            foreach (var user in _mRoom.GetRoomUserManager().GetUserList().ToList())
+            foreach (var user in room.GetRoomUserManager().GetUserList().ToList())
             {
                 if (!user.IsBot)
                     continue;
@@ -390,7 +400,7 @@ public class RoomUser
         }
         else
         {
-            foreach (var user in _mRoom.GetRoomUserManager().GetUserList().ToList())
+            foreach (var user in room.GetRoomUserManager().GetUserList().ToList())
             {
                 if (!user.IsBot)
                     continue;
@@ -402,7 +412,10 @@ public class RoomUser
 
     public void ClearMovement(bool update)
     {
-        if (GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
+        var room = GetRoom();
+        if (room == null)
+            return;
+        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
         {
             navigation.Cancel(this);
             return;
@@ -425,7 +438,10 @@ public class RoomUser
 
     public void MoveTo(int pX, int pY, bool pOverride)
     {
-        if (GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
+        var room = GetRoom();
+        if (room == null)
+            return;
+        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
         {
             navigation.Move(this, pX, pY, IsBot ? MoveOrigin.Bot : MoveOrigin.User,
                 TeleportEnabled ? MoveFlags.Teleport : MoveFlags.None);
@@ -434,13 +450,13 @@ public class RoomUser
         if (TeleportEnabled)
         {
             UnIdle();
-            GetRoom().SendPacket(GetRoom().GetRoomItemHandler().UpdateUserOnRoller(this, new(pX, pY), 0, GetRoom().GetGameMap().SqAbsoluteHeight(GoalX, GoalY)));
+            room.SendPacket(room.GetRoomItemHandler().UpdateUserOnRoller(this, new(pX, pY), 0, room.GetGameMap().SqAbsoluteHeight(GoalX, GoalY)));
             if (Statusses.ContainsKey("sit"))
                 Z -= 0.35;
             UpdateNeeded = true;
             return;
         }
-        if (GetRoom().GetGameMap().SquareHasUsers(pX, pY) && !pOverride || Frozen)
+        if (room.GetGameMap().SquareHasUsers(pX, pY) && !pOverride || Frozen)
             return;
         UnIdle();
         GoalX = pX;
@@ -457,8 +473,11 @@ public class RoomUser
     // Walks to the item's approach tile; under v2 with approach_auto_interact the arrival starts the interaction.
     public void ApproachItem(Item item, int actionKind)
     {
+        var room = GetRoom();
+        if (room == null)
+            return;
         var front = item.SquareInFront;
-        if (!IsBot && !TeleportEnabled && GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true, Settings.ApproachAutoInteract: true } navigation
+        if (!IsBot && !TeleportEnabled && room.GetGameMap()?.Navigation is { UsesExecutor: true, Settings.ApproachAutoInteract: true } navigation
             && navigation.DescribeApproach(item, actionKind) is { } approach)
             navigation.Move(this, front.X, front.Y, MoveOrigin.User, MoveFlags.None, approach);
         else MoveTo(front);
@@ -466,7 +485,10 @@ public class RoomUser
 
     public void MoveTo(int x, int y, MoveOrigin origin, MoveFlags flags = MoveFlags.None)
     {
-        if (GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
+        var room = GetRoom();
+        if (room == null)
+            return;
+        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
             navigation.Move(this, x, y, origin, flags);
         else MoveTo(x, y);
     }
@@ -485,7 +507,10 @@ public class RoomUser
 
     public void SetPos(int pX, int pY, double pZ)
     {
-        if (GetRoom()?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
+        var room = GetRoom();
+        if (room == null)
+            return;
+        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
         {
             navigation.ForcePlace(this, pX, pY, pZ, ForceResolution.ExactZ);
             return;
@@ -497,15 +522,19 @@ public class RoomUser
 
     public void CarryItem(int item)
     {
+        var room = GetRoom();
+        if (room == null)
+            return;
         var previous = CarryItemId;
         CarryItemId = item;
         if (item > 0)
             CarryTimer = 240;
         else
             CarryTimer = 0;
-        GetRoom().SendPacket(new CarryObjectComposer(VirtualId, item));
-        if (item > 0 && item != previous && !IsBot)
-            RewardTrackManager.Current?.Progress(GetClient(), RewardTrackActions.FindHandItem);
+        room.SendPacket(new CarryObjectComposer(VirtualId, item));
+        var client = GetClient();
+        if (item > 0 && item != previous && !IsBot && client != null)
+            _rewards.Progress(client, RewardTrackActions.FindHandItem);
     }
 
 
@@ -559,32 +588,24 @@ public class RoomUser
 
     public void ApplyEffect(int effectId)
     {
+        var room = GetRoom();
+        if (room == null)
+            return;
         if (IsBot)
         {
-            _mRoom.SendPacket(new AvatarEffectComposer(VirtualId, effectId));
+            room.SendPacket(new AvatarEffectComposer(VirtualId, effectId));
             return;
         }
-        if (IsBot || GetClient() == null || GetClient().GetHabbo() == null || GetClient().GetHabbo().Effects == null)
+        var effects = GetClient()?.GetHabbo()?.Effects;
+        if (effects == null)
             return;
-        GetClient().GetHabbo().Effects.ApplyEffect(effectId);
+        effects.ApplyEffect(effectId);
     }
 
 
-    public GameClient? GetClient()
-    {
-        if (IsBot) return null;
-        if (_mClient == null)
-            _mClient = PlusEnvironment.Game.ClientManager.GetClientByUserId(HabboId);
-        return _mClient;
-    }
+    public GameClient? GetClient() => IsBot ? null : _mClient;
 
-    private Room GetRoom()
-    {
-        if (_mRoom == null)
-        {
-            if (PlusEnvironment.Game.RoomManager.TryGetRoom(RoomId, out _mRoom))
-                return _mRoom;
-        }
-        return _mRoom;
-    }
+    internal bool IsAttachedTo(Room room) => ReferenceEquals(_mRoom, room);
+
+    private Room? GetRoom() => _mRoom;
 }

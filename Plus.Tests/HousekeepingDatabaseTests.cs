@@ -97,7 +97,7 @@ public class HousekeepingDatabaseTests : IDisposable
     private SessionIssuer Sessions() =>
         new(new SsoTicketStore(_database, TimeProvider.System, AuthOptions), new AccessTokenStore(_database, TimeProvider.System, AuthOptions),
             new RememberTokenStore(_database, TimeProvider.System, AuthOptions), new CredentialGenerations(_database, TimeProvider.System),
-            new AccountStore(_database, TimeProvider.System, AuthOptions), new BanLookup(_database, TimeProvider.System));
+            new AccountStore(_database, TimeProvider.System, AuthOptions), new BanLookup(_database, TimeProvider.System), TimeProvider.System);
 
     private static Habbo Staff(int rank = 9) => new() { Id = Owner, Username = "hk_owner", Access = HousekeepingPolicyTests.Access(rank * 10, PermissionKeys.HousekeepingEconomy, PermissionKeys.HousekeepingRolesManage) };
 
@@ -376,9 +376,12 @@ public class HousekeepingDatabaseTests : IDisposable
         }
 
         public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) => inner.Issue(userId, sessionId, scope);
+        public Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null) => inner.IssueAt(userId, sessionId, instant, scope);
         public Task<int?> FindUser(string ticket) => inner.FindUser(ticket);
+        public Task<int?> FindUserAt(string ticket, CredentialInstant instant) => inner.FindUserAt(ticket, instant);
         public Task<CredentialOwner?> FindOwner(string ticket) => inner.FindOwner(ticket);
         public Task<CredentialOwner?> Exchange(string ticket) => inner.Exchange(ticket);
+        public Task<CredentialOwner?> ExchangeAt(string ticket, CredentialInstant instant) => inner.ExchangeAt(ticket, instant);
         public Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope) => inner.Withdraw(userId, ticket, scope);
         public Task Revoke(int userId, CredentialScope? scope = null) => inner.Revoke(userId, scope);
         public Task RevokeSession(int userId, string sessionId, CredentialScope scope) => inner.RevokeSession(userId, sessionId, scope);

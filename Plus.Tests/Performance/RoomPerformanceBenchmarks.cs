@@ -79,15 +79,15 @@ internal sealed class RoomPerformanceFixture
     public static RoomPerformanceFixture Create(int botCount, int userCount, int mapSize = 4)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var map = new Gamemap(room, new RoomModel("benchmark", 0, 0, 0, 0, string.Join('\r', Enumerable.Repeat(new string('0', mapSize), mapSize)), 0, 0, false), TestLogging.Navigation);
+        SetField(room, "_interactionClock", TimeProvider.System);
+        var map = new Gamemap(room, new RoomModel("benchmark", 0, 0, 0, 0, string.Join('\r', Enumerable.Repeat(new string('0', mapSize), mapSize)), 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         var grid = new byte[mapSize, mapSize];
         for (var x = 0; x < mapSize; x++) for (var y = 0; y < mapSize; y++) grid[x, y] = 1;
         typeof(Gamemap).GetProperty(nameof(Gamemap.GameMap))!.SetValue(map, grid);
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
-        SetField(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance));
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
+        SetField(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         SetField(room, "_gamemap", map);
         SetField(room, "_roomUserManager", manager);
-        SetField(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance));
         var fixture = new RoomPerformanceFixture { Room = room, Manager = manager, Map = map };
         var dictionary = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         var revision = new Revision { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
@@ -99,10 +99,10 @@ internal sealed class RoomPerformanceFixture
         var factory = new FlashPacketFactory();
         for (var i = 0; i < botCount + userCount; i++)
         {
-            var user = new RoomUser(i + 1, 0, i, room) { X = 1, Y = 1, InternalRoomId = i, AllowOverride = true };
-            user.Statusses.Add("mv", "2,1,0");
+            RoomUser user;
             if (i < botCount)
             {
+                user = new RoomUser(i + 1, 0, i, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 1, Y = 1, InternalRoomId = i, AllowOverride = true };
                 user.BotData = (RoomBot)RuntimeHelpers.GetUninitializedObject(typeof(RoomBot));
                 typeof(RoomBot).GetProperty(nameof(RoomBot.IsTemporary))!.SetValue(user.BotData, true);
                 user.Path.AddRange(new[] { new Vector2D(3, 1), new Vector2D(2, 1), new Vector2D(1, 1) });
@@ -114,10 +114,11 @@ internal sealed class RoomPerformanceFixture
                 var habbo = (Habbo)RuntimeHelpers.GetUninitializedObject(typeof(Habbo));
                 habbo.CurrentRoom = room;
                 client.SetHabbo(habbo);
-                SetField(user, "_mClient", client);
+                user = new RoomUser(i + 1, 0, i, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 1, Y = 1, InternalRoomId = i, AllowOverride = true };
                 fixture.Clients.Add(client);
                 fixture.Users.Add(user);
             }
+            user.Statusses.Add("mv", "2,1,0");
             dictionary.TryAdd(i, user);
             map.AddUserToMap(user, user.Coordinate);
         }

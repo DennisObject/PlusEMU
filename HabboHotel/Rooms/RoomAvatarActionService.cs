@@ -40,7 +40,7 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
             return;
         if (room.UsesV2Movement)
         {
-            if (x == user.X && y == user.Y && !user.SetStep)
+            if (!user.SetStep && x == user.X && y == user.Y)
                 return;
             user.MoveTo(x, y);
             return;

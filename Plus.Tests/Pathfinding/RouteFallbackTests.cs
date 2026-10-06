@@ -321,7 +321,7 @@ public partial class PlacedFurniRoomTests
 
     private void FallbackModel(string heightmap)
     {
-        Set("_gamemap", new Gamemap(_room, new RoomModel("fallback", 0, 0, 0, 0, heightmap, 0, 0, false), TestLogging.Navigation));
+        Set("_gamemap", new Gamemap(_room, new RoomModel("fallback", 0, 0, 0, 0, heightmap, 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance));
         _room.GetGameMap().GenerateMaps();
     }
 
@@ -329,7 +329,7 @@ public partial class PlacedFurniRoomTests
     {
         var actor = Viewer(x, y); actor.InternalRoomId = actor.VirtualId; actor.UserId = 7;
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, settings ?? new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation);
+        var navigation = new RoomNavigation(_room, map.StaticModel, settings ?? new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
         foreach (var item in _room.GetRoomItemHandler().GetFloor) navigation.Inputs.Attach(item);
@@ -339,7 +339,7 @@ public partial class PlacedFurniRoomTests
 
     private RoomUser FallbackBot(int x, int y, int id)
     {
-        var bot = new RoomUser(0, RoomId, id, _room) { X = x, Y = y, InternalRoomId = id, BotData = ProfileBot(false) };
+        var bot = new RoomUser(0, RoomId, id, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = x, Y = y, InternalRoomId = id, BotData = ProfileBot(false) };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         Assert.True(users.TryAdd(id, bot));

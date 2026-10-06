@@ -1,6 +1,7 @@
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern.Addons;
 using Plus.HabboHotel.Items.Wired.Runtime;
+using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Rooms;
 using RuntimeSources = Plus.HabboHotel.Items.Wired.Configuration.WiredSources;
 
@@ -21,11 +22,12 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
     public WiredAddonInputs ForAddons(long now) => new(World, Selection, now, ReadVariable, ResolveFurni, ResolveUsers);
 
     public static WiredSelectorRuntimeInput Capture(WiredRuntimeContext context, WiredSelectorRoomState state,
+        IGroupManager groups,
         WiredSelectorVariableQueries? variables = null,
         Func<WiredRuntimeContext, WiredSelectorWorld>? readWorld = null)
     {
         // Share the room projection within this firing; sources below remain live and identity-checked.
-        var world = context.SelectorWorldSnapshot ??= readWorld?.Invoke(context) ?? CaptureWorld(context, state);
+        var world = context.SelectorWorldSnapshot ??= readWorld?.Invoke(context) ?? CaptureWorld(context, state, groups);
         WiredSelectedIds Selection(int source)
         {
             var result = new WiredSelectedIds();
@@ -48,7 +50,8 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
         : this with { Selection = Selection with { FurniVariablePredicate = variables.FurniPredicate,
             UserVariablePredicate = variables.UserPredicate }, ReadVariable = variables.ReadOperand };
 
-    private static WiredSelectorWorld CaptureWorld(WiredRuntimeContext context, WiredSelectorRoomState state)
+    private static WiredSelectorWorld CaptureWorld(WiredRuntimeContext context, WiredSelectorRoomState state,
+        IGroupManager groupManager)
     {
         var items = context.Targets.ResolveFurni(context, [], RuntimeSources.AllRoom, raw: true);
         var users = context.Targets.ResolveUsers(context, [], RuntimeSources.AllRoom, raw: true);
@@ -60,7 +63,7 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
         var groupIds = remotes.Values.Where(x => x.Name == "wf_slc_users_group")
             .Select(x => WiredSelectorSources.Param(x.Configuration, 1)).Where(x => x > 0).ToHashSet();
         if (context.Room.Group is { } roomGroup) groupIds.Add(roomGroup.Id);
-        var groups = groupIds.Select(id => PlusEnvironment.Game.GroupManager.TryGetGroup(id, out var group) ? group : null)
+        var groups = groupIds.Select(id => groupManager.TryGetGroup(id, out var group) ? group : null)
             .Where(x => x != null).ToArray();
         var furni = items.Select(item => new WiredSelectorFurniture(item.Id, checked((int)item.Definition.Id),
             item.Definition.PublicName, item.LegacyDataString, item.GetX, item.GetY, item.GetZ,

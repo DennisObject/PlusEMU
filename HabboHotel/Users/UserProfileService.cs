@@ -32,6 +32,7 @@ public interface IUserProfileService
     Task SetMessengerInvitePreference(GameClient session, bool enabled);
     Task SetSoundVolumes(GameClient session, SoundVolumeRequest request);
     void UpdateFigure(GameClient session, FigureUpdateRequest request);
+    void ApplyMannequin(GameClient session, FigureUpdateRequest request);
     void ChangeMotto(GameClient session, string motto);
     void SetFocusPreference(GameClient session, bool enabled);
     Task SetChatStylePreference(GameClient session, int bubbleId);
@@ -46,6 +47,29 @@ public sealed class UserProfileService(
     IDatabase database, TimeProvider clock, IChatStyleManager styles,
     IRewardTrackManager rewardTrackManager, IAccountSessionGate accountSessionGate) : IUserProfileService
 {
+    public void ApplyMannequin(GameClient session, FigureUpdateRequest request)
+    {
+        var habbo = session.GetHabbo();
+        using var account = accountSessionGate.Enter(habbo.Id);
+        var gender = request.Gender.ToUpper();
+        var look = figureManager.ProcessFigure(request.Figure, gender, habbo.Clothing.GetClothingParts,
+            ClubAccess.LevelFor(habbo.Access));
+        using (var connection = database.Connection())
+        {
+            var updated = connection.Execute("UPDATE users SET look=@look,gender=@gender WHERE id=@id LIMIT 1",
+                new { look, gender, id = habbo.Id });
+            if (updated != 1)
+                throw new DBConcurrencyException($"User {habbo.Id} no longer exists.");
+        }
+        habbo.Look = look;
+        habbo.Gender = gender;
+        var room = habbo.CurrentRoom;
+        var user = room?.GetRoomUserManager().GetRoomUserByHabbo(habbo.Username);
+        if (user == null) return;
+        session.Send(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, true)));
+        room!.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
+    }
+
     public void ShowUserObject(GameClient session)
     {
         session.Send(new UserObjectComposer(UserObjectSnapshot.Capture(session.GetHabbo())));

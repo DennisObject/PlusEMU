@@ -28,7 +28,7 @@ public class OfficialUserWireTests
         var clients = Proxy<IGameClientManager>((method, _) => method == "GetClientByUserId" && active ? client : null);
         var service = new RoomUserSnapshotService(Proxy<IGroupManager>((_, _) => null), clients,
             Proxy<ICacheManager>((_, _) => null), Proxy<IDatabase>((_, _) => null));
-        var user = new RoomUser(7, 1, 4, null) { X = 2, Y = 3, Z = 1.5, RotBody = 2 };
+        var user = new RoomUser(7, 1, 4, null, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 2, Y = 3, Z = 1.5, RotBody = 2 };
 
         var snapshot = Assert.IsType<RoomUserSnapshot>(service.Capture(user));
         active = false;
@@ -57,15 +57,13 @@ public class OfficialUserWireTests
         };
         var client = new TestClient();
         client.SetHabbo(habbo);
-        var user = new RoomUser(7, 1, 4, null)
+        var user = new RoomUser(7, 1, 4, null!, client, TestChatEmotions.Unused, TestRewardProgress.Unused)
         {
             X = 2,
             Y = 3,
             Z = 1.5,
             RotBody = 2
         };
-        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(user, client);
         var packet = new RecordingPacket();
 
         new UsersComposer(new RoomUserSnapshot(7, "Dennis", "hi", "hd-180-1", 4, 2, 3, "1.5", 2, 1,
@@ -122,9 +120,7 @@ public class OfficialUserWireTests
         };
         var client = new TestClient();
         client.SetHabbo(habbo);
-        var user = new RoomUser(7, 1, 4, null);
-        typeof(RoomUser).GetField("_mClient", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(user, client);
+        var user = new RoomUser(7, 1, 4, null!, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var packet = new RecordingPacket();
 
         new UserChangeComposer(AvatarChangeSnapshot.Capture(user, true)).Compose(packet);

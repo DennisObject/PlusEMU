@@ -57,7 +57,7 @@ public sealed class HorseCustomizationServiceTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 42;
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
         var pet = (Pet)RuntimeHelpers.GetUninitializedObject(typeof(Pet));
         pet.PetId = 12;
@@ -66,7 +66,7 @@ public sealed class HorseCustomizationServiceTests
         pet.ExperienceLevels = [100];
         pet.OwnerId = ownerId;
         pet.AnyoneCanRide = anyoneCanRide;
-        var roomUser = new RoomUser(0, room.Id, 3, room) { PetData = pet };
+        var roomUser = new RoomUser(0, room.Id, 3, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { PetData = pet };
         var pets = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_pets", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         pets[pet.PetId] = roomUser;

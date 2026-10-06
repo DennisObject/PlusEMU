@@ -7,6 +7,7 @@ using Plus.Communication.Flash;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Revisions;
 using Plus.HabboHotel;
+using Plus.Core.Settings;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Instance;
@@ -278,12 +279,12 @@ public sealed class TradeConfirmationServiceTests
         public readonly TradeRequestService Trades;
         public readonly TradingComponent Trading;
 
-        public TradeFixture()
+        public TradeFixture(ISettingsManager? settings = null)
         {
             typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System));
+                .SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
             TestRoomUserSnapshots.Install(Room);
-            Trading = new TradingComponent(Room, Store);
+            Trading = new TradingComponent(Room, Store, settings ?? TestRoomSettings.Empty);
             Room.SetTrading(Trading);
             Trades = new TradeRequestService(new NoTradingLocks());
             _originalGame = GameField.GetValue(null);
@@ -311,7 +312,7 @@ public sealed class TradeConfirmationServiceTests
             session.SetHabbo(habbo);
             habbo.Client = session;
             _clients.RegisterClient(session, habboId, habbo.Username);
-            var roomUser = new RoomUser(habboId, 42, virtualId, Room) { UserId = habboId };
+            var roomUser = new RoomUser(habboId, 42, virtualId, Room, session, TestChatEmotions.Unused, TestRewardProgress.Unused) { UserId = habboId };
             var users = (System.Collections.Concurrent.ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Room.GetRoomUserManager())!;
             users[virtualId] = roomUser;
             return new(habbo, session, packets, roomUser);

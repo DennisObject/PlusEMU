@@ -43,7 +43,7 @@ public sealed class WiredVariableAddonTests
     private static (Room Room, WiredRuntimeContext Context, WiredVariableModule Module, WiredVariableHolder[] Holders) World()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1;
-        var users = Enumerable.Range(1, 3).Select(i => new RoomUser(900 + i, 0, i, room)).ToArray();
+        var users = Enumerable.Range(1, 3).Select(i => new RoomUser(900 + i, 0, i, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)).ToArray();
         var context = new WiredRuntimeContext(room, new(WiredEventKind.Enter), new(() => [], () => users), new Operations());
         context.SelectorPool.UserIds.UnionWith(users.Select(x => x.VirtualId)); context.Selected.UserIds.UnionWith(users.Select(x => x.VirtualId));
         var frame = WiredVariableRuntimeFrames.Create(context); context.VariableFrame = frame;

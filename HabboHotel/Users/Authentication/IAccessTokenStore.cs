@@ -9,6 +9,7 @@ public interface IAccessTokenStore
     /// <param name="sessionId">The login session the token belongs to; logout revokes per session.</param>
     /// <param name="scope">Joins a credential transaction instead of using a connection of its own.</param>
     Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null);
+    Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null);
 
     /// <summary>The owner of a live (unexpired, unrevoked) token.</summary>
     Task<int?> FindUser(string token);

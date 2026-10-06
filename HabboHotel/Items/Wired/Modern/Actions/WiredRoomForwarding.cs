@@ -61,10 +61,10 @@ public static class WiredRoomForwarding
         return PositiveId(roomText, out var fallback) ? new(fallback) : null;
     }
 
-    public static bool Execute(WiredRuntimeContext context, WiredConfiguration config, ILogger logger)
+    public static bool Execute(WiredRuntimeContext context, WiredConfiguration config, ILogger logger, IItemTravelStore travelStore)
     {
         var items = context.Targets.ResolveFurni(context, config.SelectedItems, config.FurniSources["links"]);
-        var target = Resolve(items, config.Text, id => ItemTeleporterFinder.GetTeleRoomId(id, context.Room), ItemTeleporterFinder.GetLinkedTele, logger);
+        var target = Resolve(items, config.Text, id => ItemTeleporterFinder.GetTeleRoomId(id, context.Room, travelStore), travelStore.FindLinkedTeleporter, logger);
         if (target == null || target.RoomId == context.Room.RoomId) return false;
         var forwarded = false;
         foreach (var user in context.Targets.ResolveUsers(context, [], config.UserSources["users"]).Where(user => !user.IsBot))

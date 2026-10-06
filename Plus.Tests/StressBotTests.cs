@@ -183,13 +183,14 @@ public class StressBotTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var model = new RoomModel("test", 1, 1, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false);
-        var map = new Gamemap(room, model, TestLogging.Navigation);
+        var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         var gameMap = new byte[4, 4];
         for (var x = 0; x < 4; x++)
         for (var y = 0; y < 4; y++)
             gameMap[x, y] = 1;
         typeof(Gamemap).GetProperty(nameof(Gamemap.GameMap))!.SetValue(map, gameMap);
-        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused,
+            new TestBotAiFactory((_, virtualId) => new GenericBot(virtualId, new FakeWordFilter())), TestGameClientManager.Empty, TestItemRuntime.Travel);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
         TestRoomUserSnapshots.Install(room);

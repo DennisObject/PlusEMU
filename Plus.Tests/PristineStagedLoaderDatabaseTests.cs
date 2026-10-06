@@ -122,7 +122,7 @@ public sealed class PristineStagedLoaderDatabaseTests
             var data = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
             data.Id = 42;
             data.Name = "room";
-            var room = new Room(data, [], TestLogging.Navigation, TestLogging.Logger);
+            var room = new Room(data, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
             var rooms = PristineStagedDatabase.Proxy<IRoomManager>((method, args) =>
             {
                 if (method != "TryGetRoom") throw new InvalidOperationException(method);
