@@ -1031,6 +1031,67 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
+    public void RoomTimerResetRearmsAtTimeButKeepsRepeatersOnTheirSchedule()
+    {
+        var (room, _, items) = World();
+        long now = 0;
+        var engine = new WiredStackEngine(() => now, box => items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, _ => { });
+        Item Place(uint id, string name, int x)
+        {
+            var item = MakeItem(id, name);
+            item.SetState(x, 0, 0, Gamemap.GetAffectedTiles(1, 1, x, 0, 0));
+            items[id] = item;
+            return item;
+        }
+        WiredModernTimedTrigger Timer(uint id, string name, int units, int x)
+        {
+            var box = new WiredModernTimedTrigger(room, Place(id, name, x), Descriptor(name));
+            Assert.True(box.TryValidateConfiguration(new() { IntParams = [units] }, out var config, out _));
+            box.ApplyConfiguration(config);
+            Assert.True(engine.Add(box));
+            return box;
+        }
+        var repeater = Timer(1, "wf_trg_periodically", 2, 0);
+        var atTime = Timer(2, "wf_trg_at_given_time", 1, 1);
+        var legacyItem = Place(3, "wf_trg_periodically", 2);
+        legacyItem.Definition.InteractionType = InteractionType.WiredTrigger;
+        var legacy = new Plus.HabboHotel.Items.Wired.Boxes.Triggers.RepeaterBox(room, legacyItem) { Delay = 3 };
+        Assert.True(engine.Add(legacy));
+        legacy.TickCount = 1;
+
+        Assert.Null(repeater.Poll(0));
+        Assert.NotNull(atTime.Poll(500));
+        now = 600;
+        engine.ResetTimers(items.Values.ToArray());
+
+        // Reset timers restarts the room timer only: a repeater keeps its period, even when reset more often than it fires.
+        Assert.NotNull(repeater.Poll(1000));
+        Assert.Equal(1, legacy.TickCount);
+        Assert.Null(atTime.Poll(1099));
+        Assert.NotNull(atTime.Poll(1100));
+
+        // Placing, saving or moving the box still starts it over.
+        repeater.Reset(1000);
+        Assert.Null(repeater.Poll(2000));
+    }
+
+    [Fact]
+    public void ResetTimersReachesTheWholeRoomWhateverTheFurniLimit()
+    {
+        var (room, _, _) = World();
+        var action = ActionBox(room, "wf_act_reset_timers");
+        action.ApplyConfiguration(WiredActionConfiguration.Defaults("wf_act_reset_timers"));
+        Item[] furni = [MakeItem(1, "wf_trg_periodically"), MakeItem(2, "wf_trg_at_given_time"), MakeItem(3, "test")];
+        var operations = new ResetOperations();
+        var context = new WiredRuntimeContext(room, new(WiredEventKind.Use), new(() => furni, () => []), operations);
+        context.Policy.Addons.FurniLimit = 1;
+
+        Assert.True(action.Execute(context));
+
+        Assert.Equal(furni.Select(item => item.Id), operations.Targets.Select(item => item.Id).Order());
+    }
+
+    [Fact]
     public void FullPlacementHonoursScopedUsersAndPreservesOrdinaryRejection()
     {
         var store = new RecordingPlacementStore();
@@ -1662,9 +1723,10 @@ public class ModernWiredRuntimeTests
     private sealed class ResetOperations : IWiredRuntimeOperations
     {
         public int Resets { get; private set; }
+        public List<Item> Targets { get; } = [];
         public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => throw new NotSupportedException();
         public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => throw new NotSupportedException();
-        public void ResetTimers(IEnumerable<Item> targets) => Resets++;
+        public void ResetTimers(IEnumerable<Item> targets) { Resets++; Targets.AddRange(targets); }
     }
     private sealed class CountingClock(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
     {

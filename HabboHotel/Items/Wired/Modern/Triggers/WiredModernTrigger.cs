@@ -78,8 +78,12 @@ public sealed class WiredModernTimedTrigger : WiredModernTrigger, IWiredTimedTri
     }
     public void Reset(long nowMilliseconds)
     {
+        ResetElapsed(nowMilliseconds);
+        _timers.Forget(Item.Id);
+    }
+    public void ResetElapsed(long nowMilliseconds)
+    {
         _started = nowMilliseconds;
         _epoch++;
-        _timers.Forget(Item.Id);
     }
 }

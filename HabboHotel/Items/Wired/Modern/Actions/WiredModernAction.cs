@@ -241,7 +241,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 return changed;
             case "wf_act_reset_timers":
                 context.Room.LastTimerResetAt = _clock.GetUtcNow();
-                context.Operations.ResetTimers(items); return true;
+                // The room timer belongs to the whole room; a furni limit add-on must not pick which timers restart.
+                context.Operations.ResetTimers(context.Targets.ResolveFurni(context, [], WiredSources.AllRoom, raw: true)); return true;
             case "wf_act_call_stacks": case "wf_act_neg_call_stacks":
                 return context.Operations.CallStacks(context, items.Where(item => item.GetX != Item.GetX || item.GetY != Item.GetY), IsNegative);
             case "wf_act_send_signal": case "wf_act_neg_send_signal":

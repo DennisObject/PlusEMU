@@ -200,11 +200,9 @@ internal sealed partial class WiredStackEngine
         foreach (var target in targets)
         {
             if (!_items.TryGetValue(target.Id, out var source) || !ReferenceEquals(source.Item, target)) continue;
+            // The room timer only: repeaters, legacy ones included, keep their period (Turbo RoomWiredSystem.ResetTimers).
             foreach (var box in GetStack(source).Where(x => visited.Add(x.Item.Id)))
-            {
-                if (box is IWiredTimedTrigger timer) timer.Reset(_now());
-                else if (box is IWiredCycle cycle && IsKind(box, InteractionType.WiredTrigger)) cycle.TickCount = cycle.Delay;
-            }
+                if (box is IWiredTimedTrigger timer) timer.ResetElapsed(_now());
         }
         return true;
     });

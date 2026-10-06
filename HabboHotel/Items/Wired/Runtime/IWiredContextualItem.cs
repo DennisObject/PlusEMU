@@ -41,7 +41,10 @@ public interface IWiredTimedTrigger : IWiredContextualTrigger
 {
     // Return at most one actual event per poll; never emit a catch-up burst.
     WiredRuntimeEvent? Poll(long nowMilliseconds);
+    // The box was placed, saved or moved: start over, period included.
     void Reset(long nowMilliseconds);
+    // The room timer was reset: count elapsed time from now again. A repeater keeps its period.
+    void ResetElapsed(long nowMilliseconds);
 }
 
 public interface IWiredRuntimeOperations

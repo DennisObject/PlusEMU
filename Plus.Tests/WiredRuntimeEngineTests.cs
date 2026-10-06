@@ -826,6 +826,7 @@ public class WiredRuntimeEngineTests
         public bool Idle;
         public WiredRuntimeEvent? Poll(long nowMilliseconds) { Polls++; if (Idle) return null; return new(WiredEventKind.Periodic) { EventItem = Item }; }
         public void Reset(long nowMilliseconds) { }
+        public void ResetElapsed(long nowMilliseconds) { }
     }
     private sealed class Selector() : Box(WiredBoxCategory.Selector), IWiredContextualSelector
     {
