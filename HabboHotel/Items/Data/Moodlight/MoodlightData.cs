@@ -1,4 +1,4 @@
-﻿using System.Data;
+using Dapper;
 using System.Text;
 
 namespace Plus.HabboHotel.Items.Data.Moodlight;
@@ -14,40 +14,38 @@ public class MoodlightData
     public MoodlightData(uint itemId)
     {
         ItemId = itemId;
-        DataRow? row = null;
-        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-        {
-            dbClient.SetQuery($"SELECT enabled,current_preset,preset_one,preset_two,preset_three FROM room_items_moodlight WHERE item_id = '{itemId}' LIMIT 1");
-            row = dbClient.GetRow();
-        }
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        var row = connection.QuerySingleOrDefault<MoodlightRow>(
+            "SELECT enabled,current_preset AS CurrentPreset,preset_one AS PresetOne,preset_two AS PresetTwo,preset_three AS PresetThree FROM room_items_moodlight WHERE item_id=@itemId LIMIT 1",
+            new { itemId });
         if (row == null)
         {
-            using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-            dbClient.RunQuery(
-                $"INSERT INTO `room_items_moodlight` (item_id,enabled,current_preset,preset_one,preset_two,preset_three) VALUES ({itemId},0,1,'#000000,255,0','#000000,255,0','#000000,255,0')");
-            dbClient.SetQuery($"SELECT enabled,current_preset,preset_one,preset_two,preset_three FROM room_items_moodlight WHERE item_id={itemId} LIMIT 1");
-            row = dbClient.GetRow();
+            const string preset = "#000000,255,0";
+            connection.Execute(
+                "INSERT INTO room_items_moodlight (item_id,enabled,current_preset,preset_one,preset_two,preset_three) VALUES (@itemId,FALSE,1,@preset,@preset,@preset)",
+                new { itemId, preset });
+            row = new(false, 1, preset, preset, preset);
         }
-        Enabled = PlusEnvironment.EnumToBool(row["enabled"].ToString());
-        CurrentPreset = Convert.ToInt32(row["current_preset"]);
+        Enabled = row.Enabled;
+        CurrentPreset = row.CurrentPreset;
         Presets = new();
-        Presets.Add(GeneratePreset(Convert.ToString(row["preset_one"])));
-        Presets.Add(GeneratePreset(Convert.ToString(row["preset_two"])));
-        Presets.Add(GeneratePreset(Convert.ToString(row["preset_three"])));
+        Presets.Add(GeneratePreset(row.PresetOne));
+        Presets.Add(GeneratePreset(row.PresetTwo));
+        Presets.Add(GeneratePreset(row.PresetThree));
     }
 
     public void Enable()
     {
         Enabled = true;
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.RunQuery($"UPDATE room_items_moodlight SET enabled = 1 WHERE item_id = '{ItemId}' LIMIT 1");
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        connection.Execute("UPDATE room_items_moodlight SET enabled=TRUE WHERE item_id=@itemId LIMIT 1", new { itemId = ItemId });
     }
 
     public void Disable()
     {
         Enabled = false;
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.RunQuery($"UPDATE room_items_moodlight SET enabled = 0 WHERE item_id = '{ItemId}' LIMIT 1");
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        connection.Execute("UPDATE room_items_moodlight SET enabled=FALSE WHERE item_id=@itemId LIMIT 1", new { itemId = ItemId });
     }
 
     public void UpdatePreset(int preset, string color, int intensity, bool bgOnly, bool hax = false)
@@ -67,12 +65,9 @@ public class MoodlightData
                 pr = "one";
                 break;
         }
-        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-        {
-            dbClient.SetQuery($"UPDATE room_items_moodlight SET preset_{pr} = '@color,{intensity},{PlusEnvironment.BoolToEnum(bgOnly)}' WHERE item_id = '{ItemId}' LIMIT 1");
-            dbClient.AddParameter("color", color);
-            dbClient.RunQuery();
-        }
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        connection.Execute($"UPDATE room_items_moodlight SET preset_{pr}=@preset WHERE item_id=@itemId LIMIT 1",
+            new { preset = $"{color},{intensity},{PlusEnvironment.BoolToEnum(bgOnly)}", itemId = ItemId });
         GetPreset(preset).ColorCode = color;
         GetPreset(preset).ColorIntensity = intensity;
         GetPreset(preset).BackgroundOnly = bgOnly;
@@ -130,4 +125,6 @@ public class MoodlightData
         sb.Append(preset.ColorIntensity);
         return sb.ToString();
     }
+
+    private sealed record MoodlightRow(bool Enabled, int CurrentPreset, string PresetOne, string PresetTwo, string PresetThree);
 }

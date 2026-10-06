@@ -2,7 +2,6 @@
 using Plus.HabboHotel.Permissions;
 using System.Collections;
 using System.Collections.Concurrent;
-using System.Data;
 using System.Diagnostics;
 using System.Text;
 using Dapper;
@@ -122,18 +121,16 @@ public class GameClientManager : IGameClientManager
         builder.Append($"Reporter: {reporter.GetHabbo().Username}\r");
         builder.Append($"Reported User: {target.GetHabbo().Username}\r\r");
         builder.Append($"{target.GetHabbo().Username}s last 10 messages:\r\r");
-        using (var dbClient = _database.GetQueryReactor())
+        using (var connection = _database.Connection())
         {
-            dbClient.SetQuery($"SELECT `message` FROM `chatlogs` WHERE `user_id` = '{target.GetHabbo().Id}' ORDER BY `id` DESC LIMIT 10");
-            var logs = dbClient.GetTable();
-            if (logs != null)
+            var logs = connection.Query<string>(
+                "SELECT message FROM chatlogs WHERE user_id=@userId ORDER BY id DESC LIMIT 10",
+                new { userId = target.GetHabbo().Id });
+            var number = 11;
+            foreach (var message in logs)
             {
-                var number = 11;
-                foreach (DataRow log in logs.Rows)
-                {
-                    number -= 1;
-                    builder.Append($"{number}: {Convert.ToString(log["message"])}\r");
-                }
+                number -= 1;
+                builder.Append($"{number}: {message}\r");
             }
         }
         foreach (var client in GetClients.ToList())

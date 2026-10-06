@@ -12,7 +12,7 @@ public class FlashFramingTests
     [Fact]
     public void DeclaredLengthOneIsMalformed()
     {
-        var client = new FlashGameClient(new FakeServer(), new FlashPacketFactory());
+        var client = new FlashGameClient(new FakeServer(), new FlashPacketFactory(), TestLogging.GameClient);
         var result = client.GetMessageIdAndPacketLength(new byte[] { 0, 0, 0, 1, 0, 1 });
 
         Assert.False(result.Complete);
@@ -288,7 +288,7 @@ public class FlashFramingTests
 
     private static FlashGameClient Client(FakeServer server, params uint[] messageIds)
     {
-        var client = new FlashGameClient(server, new FlashPacketFactory())
+        var client = new FlashGameClient(server, new FlashPacketFactory(), TestLogging.GameClient)
         {
             Revision = new Revision
             {

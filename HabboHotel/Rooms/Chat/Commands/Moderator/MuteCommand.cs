@@ -1,4 +1,5 @@
 ﻿using Plus.HabboHotel.Permissions;
+using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
@@ -32,10 +33,8 @@ internal class MuteCommand : ITargetChatCommand
         {
             if (time > 600 && !session.GetHabbo().Access.Can(PermissionKeys.ModerationMuteLimitOverride))
                 time = 600;
-            using (var dbClient = _database.GetQueryReactor())
-            {
-                dbClient.RunQuery($"UPDATE `users` SET `time_muted` = '{time}' WHERE `id` = '{target.Id}' LIMIT 1");
-            }
+            using var connection = _database.Connection();
+            connection.Execute("UPDATE users SET time_muted=@time WHERE id=@id LIMIT 1", new { time, target.Id });
             if (target.Client != null)
             {
                 target.TimeMuted = time;

@@ -46,7 +46,7 @@ public sealed class ModernWiredDatabaseCollection;
 public class ModernWiredRuntimeTests
 {
     private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null) =>
-        new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new());
+        new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger);
 
     [Fact]
     public void AllImplementedEditorsHaveValidatedDefaults()
@@ -165,7 +165,7 @@ public class ModernWiredRuntimeTests
         monitor.End();
 
         // Without inspect rights neither request answers; with inspect only, a clear is refused.
-        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory()) { Revision = f.Habbo.Client.Revision };
+        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
         bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
         var bobReplies = Capture(bob);
         await new WiredRoomLogsPageEvent().Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
@@ -403,15 +403,15 @@ public class ModernWiredRuntimeTests
     public void RoomForwardingResolvesActualLinkSectionsPairsAndFallbackInOrder()
     {
         var link = MakeItem(1, "link"); link.ExtraData = new MapDataFormat(new() { ["internalLink"] = "23" });
-        Assert.Equal(new WiredRoomForwarding.Destination(23), WiredRoomForwarding.Resolve([link], "99", _ => throw new Exception(), _ => throw new Exception()));
+        Assert.Equal(new WiredRoomForwarding.Destination(23), WiredRoomForwarding.Resolve([link], "99", _ => throw new Exception(), _ => throw new Exception(), TestLogging.Logger));
         link.ExtraData = new LegacyDataFormat { Data = "{\"room_linker\":{\"ItemId\":17}}" };
-        Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([link], "99", id => id == 17 ? 42u : 0, _ => throw new Exception()));
+        Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([link], "99", id => id == 17 ? 42u : 0, _ => throw new Exception(), TestLogging.Logger));
         var tele = MakeItem(2, "tele"); tele.Definition.InteractionType = InteractionType.Teleport;
-        Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([tele], "99", id => id == 17 ? 42u : 0, id => id == 2 ? 17u : 0));
-        Assert.Equal(new WiredRoomForwarding.Destination(99), WiredRoomForwarding.Resolve([], "99", _ => 0, _ => 0));
-        Assert.Null(WiredRoomForwarding.Resolve([], "2147483648", _ => 0, _ => 0));
+        Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([tele], "99", id => id == 17 ? 42u : 0, id => id == 2 ? 17u : 0, TestLogging.Logger));
+        Assert.Equal(new WiredRoomForwarding.Destination(99), WiredRoomForwarding.Resolve([], "99", _ => 0, _ => 0, TestLogging.Logger));
+        Assert.Null(WiredRoomForwarding.Resolve([], "2147483648", _ => 0, _ => 0, TestLogging.Logger));
         link.ExtraData = new LegacyDataFormat { Data = "{\"room_linker\":{\"RoomId\":\"bad\",\"ItemId\":[]}}" };
-        Assert.Equal(new WiredRoomForwarding.Destination(99), WiredRoomForwarding.Resolve([link], "99", _ => throw new Exception(), _ => throw new Exception()));
+        Assert.Equal(new WiredRoomForwarding.Destination(99), WiredRoomForwarding.Resolve([link], "99", _ => throw new Exception(), _ => throw new Exception(), TestLogging.Logger));
     }
 
     [Fact]
@@ -575,7 +575,7 @@ public class ModernWiredRuntimeTests
             var clients = new GameClientManager(null!, null!); var game = DispatchProxy.Create<IGame, RecordingProxy>();
             ((RecordingProxy)(object)game).InvokeMethod = (method, _) => method.Name == "get_ClientManager" ? clients : method.Name == "get_ItemManager" ? DefinitionManager : null;
             gameField.SetValue(null, game);
-            var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
+            var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
                 Revision = new Revision { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
                     .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id) },
@@ -586,7 +586,7 @@ public class ModernWiredRuntimeTests
             Habbo.Effects.CurrentEffect = 8; client.SetHabbo(Habbo); clients.RegisterClient(client, 1, "Alice");
             User = new(1, 0, 7, Room); RoomUsers(Room)[7] = User;
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
-            var wired = new WiredComponent(Room);
+            var wired = new WiredComponent(Room, TestLogging.Logger);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
@@ -594,7 +594,7 @@ public class ModernWiredRuntimeTests
             Target = MakeItem(1, "test"); Target.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); Items[1] = Target;
             Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room")); Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
             Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
-                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new());
+                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger);
             Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _); Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item; Items[100] = Action.Item; Engine.Add(Trigger); Engine.Add(Action);
         }
@@ -766,7 +766,8 @@ public class ModernWiredRuntimeTests
     [Fact]
     public void FullPlacementHonoursScopedUsersAndPreservesOrdinaryRejection()
     {
-        var (room, map, items) = World();
+        var store = new RecordingRoomItemStore();
+        var (room, map, items) = World(store);
         var mover = MakeItem(1, "test");
         mover.SetState(0, 0, 0, Gamemap.GetAffectedTiles(1, 1, 0, 0, 0));
         items[1] = mover;
@@ -774,26 +775,15 @@ public class ModernWiredRuntimeTests
         var occupant = new RoomUser(1, 0, 7, room) { X = 1, Y = 1 };
         map.AddUserToMap(occupant, new(1, 1));
         Assert.False(room.GetRoomItemHandler().SetFloorItem(null!, mover, 1, 1, 0, false, false, false));
+        Assert.Empty(store.FloorPlacements);
         Assert.False(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0, collision: new(new HashSet<uint>(), new HashSet<int> { 8 }, new HashSet<uint>())));
         var allowed = new WiredCollisionPolicy(new HashSet<uint>(), new HashSet<int> { 7 }, new HashSet<uint>());
         Assert.True(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0, collision: allowed));
-        var databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
-        var original = databaseField.GetValue(null);
-        var queries = new List<string>();
-        var db = DispatchProxy.Create<IDatabase, RecordingProxy>();
-        var adapter = DispatchProxy.Create<IQueryAdapter, RecordingProxy>();
-        ((RecordingProxy)(object)adapter).InvokeMethod = (method, args) => { if (method.Name == "RunQuery" && args?.Length == 1) queries.Add((string)args[0]!); return null; };
-        ((RecordingProxy)(object)db).InvokeMethod = (method, _) => method.Name == "GetQueryReactor" ? adapter : null;
-        try
-        {
-            databaseField.SetValue(null, db);
-            Assert.True(room.GetRoomItemHandler().SetFloorItem(null!, mover, 1, 1, 0, false, false, false, wiredCollision: allowed));
-            Assert.Equal(new Point(1, 1), new Point(mover.GetX, mover.GetY));
-            Assert.DoesNotContain(mover, map.GetCoordinatedItems(new(0, 0)));
-            Assert.Contains(mover, map.GetCoordinatedItems(new(1, 1)));
-            Assert.Contains(queries, query => query.Contains("UPDATE `items`"));
-        }
-        finally { databaseField.SetValue(null, original); }
+        Assert.True(room.GetRoomItemHandler().SetFloorItem(null!, mover, 1, 1, 0, false, false, false, wiredCollision: allowed));
+        Assert.Equal(new Point(1, 1), new Point(mover.GetX, mover.GetY));
+        Assert.DoesNotContain(mover, map.GetCoordinatedItems(new(0, 0)));
+        Assert.Contains(mover, map.GetCoordinatedItems(new(1, 1)));
+        Assert.Equal([(1u, room.RoomId, 1, 1, 0d, 0)], store.FloorPlacements);
     }
 
     [Fact]
@@ -1273,11 +1263,11 @@ public class ModernWiredRuntimeTests
         Id = id, ExtraData = new LegacyDataFormat { Data = "0" }, Definition = new() { Type = ItemType.Floor, ItemName = name, InteractionName = name,
             Width = 1, Length = 1, Modes = 2, AdjustableHeights = [], VendingIds = [], PublicName = name }
     };
-    private static (Room Room, Gamemap Map, ConcurrentDictionary<uint, Item> Items) World()
+    private static (Room Room, Gamemap Map, ConcurrentDictionary<uint, Item> Items) World(IRoomItemStore? store = null)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true));
-        var handler = new RoomItemHandling(room);
+        var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
+        var handler = new RoomItemHandling(room, store ?? TestRoomItemStore.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
@@ -1292,5 +1282,18 @@ public class ModernWiredRuntimeTests
         public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => throw new NotSupportedException();
         public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => throw new NotSupportedException();
         public void ResetTimers(IEnumerable<Item> targets) => throw new NotSupportedException();
+    }
+
+    private sealed class RecordingRoomItemStore : IRoomItemStore
+    {
+        public List<(uint ItemId, uint RoomId, int X, int Y, double Z, int Rotation)> FloorPlacements { get; } = [];
+        public void AssignOwner(uint itemId, int userId) => throw new NotSupportedException();
+        public void ClearRoom(uint itemId) => throw new NotSupportedException();
+        public void SaveWallPosition(uint itemId, string wallPosition) => throw new NotSupportedException();
+        public void SaveMoved(IReadOnlyList<RoomItemSave> items) => throw new NotSupportedException();
+        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) =>
+            FloorPlacements.Add((itemId, roomId, x, y, z, rotation));
+        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) =>
+            throw new NotSupportedException();
     }
 }

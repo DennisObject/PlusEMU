@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Data;
+using Dapper;
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Plus.Core;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Items;
@@ -21,10 +22,12 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly Room _room;
     private readonly WiredStackEngine _engine;
     private readonly WiredTargetResolver _targets;
+    private readonly ILogger _logger;
 
-    public WiredComponent(Room instance) //, RoomItem Items)
+    public WiredComponent(Room instance, ILogger logger) //, RoomItem Items)
     {
         _room = instance;
+        _logger = logger;
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
             box => ReferenceEquals(_room.GetRoomItemHandler().GetItem(box.Item.Id), box.Item),
@@ -141,25 +144,23 @@ public partial class WiredComponent : IWiredRuntimeOperations
             }
             catch (Exception error)
             {
-                NLog.LogManager.GetLogger("Wired").Error(error, "Cannot load Wired configuration for item {0} in room {1}; saved bytes retained", item.Id, _room.Id);
+                _logger.LogError(error, "Cannot load Wired configuration for item {ItemId} in room {RoomId}; saved bytes retained", item.Id, _room.Id);
                 return null;
             }
         }
         if (newBox == null)
         {
-            NLog.LogManager.GetLogger("Wired").Warn("Unsupported wired type {0} on item {1} in room {2}",
+            _logger.LogWarning("Unsupported wired type {WiredType} on item {ItemId} in room {RoomId}",
                 item.Definition.WiredType, item.Id, _room.Id);
             return null;
         }
-        DataRow? row = null;
-        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
+        using (var connection = PlusEnvironment.DatabaseManager.Connection())
         {
-            dbClient.SetQuery("SELECT * FROM wired_items WHERE id=@id LIMIT 1");
-            dbClient.AddParameter("id", item.Id);
-            row = dbClient.GetRow();
+            var row = connection.QuerySingleOrDefault<WiredItemRow>(
+                "SELECT items,delay,`string` AS StringData,`bool` AS BoolData FROM wired_items WHERE id=@id LIMIT 1", new { item.Id });
             if (row != null)
             {
-                if (string.IsNullOrEmpty(Convert.ToString(row["string"])))
+                if (string.IsNullOrEmpty(row.StringData))
                 {
                     if (newBox.Type == WiredBoxType.ConditionMatchStateAndPosition || newBox.Type == WiredBoxType.ConditionDontMatchStateAndPosition)
                         newBox.StringData = "0;0;0";
@@ -172,15 +173,15 @@ public partial class WiredComponent : IWiredRuntimeOperations
                     else if (newBox.Type == WiredBoxType.EffectMoveAndRotate)
                         newBox.StringData = "0;0";
                 }
-                newBox.StringData = Convert.ToString(row["string"]);
-                newBox.BoolData = Convert.ToInt32(row["bool"]) == 1;
-                newBox.ItemsData = Convert.ToString(row["items"]);
+                newBox.StringData = row.StringData;
+                newBox.BoolData = row.BoolData;
+                newBox.ItemsData = row.Items;
                 if (newBox is IWiredCycle)
                 {
                     var box = (IWiredCycle)newBox;
-                    box.Delay = Convert.ToInt32(row["delay"]);
+                    box.Delay = row.Delay;
                 }
-                foreach (var str in Convert.ToString(row["items"]).Split(';'))
+                foreach (var str in row.Items.Split(';'))
                 {
                     var id = 0;
                     var sId = "0";
@@ -453,14 +454,9 @@ public partial class WiredComponent : IWiredRuntimeOperations
         }
         if (item.Type == WiredBoxType.EffectMatchPosition || item.Type == WiredBoxType.ConditionMatchStateAndPosition || item.Type == WiredBoxType.ConditionDontMatchStateAndPosition)
             item.ItemsData = items;
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.SetQuery("REPLACE INTO `wired_items` VALUES (@id, @items, @delay, @string, @bool)");
-        dbClient.AddParameter("id", item.Item.Id);
-        dbClient.AddParameter("items", items);
-        dbClient.AddParameter("delay", item is IWiredCycle ? cycle.Delay : 0);
-        dbClient.AddParameter("string", item.StringData);
-        dbClient.AddParameter("bool", item.BoolData ? "1" : "0");
-        dbClient.RunQuery();
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        connection.Execute("REPLACE INTO wired_items (id,items,delay,`string`,`bool`) VALUES (@id,@items,@delay,@stringData,@boolData)",
+            new { id = item.Item.Id, items, delay = item is IWiredCycle ? cycle.Delay : 0, stringData = item.StringData, boolData = item.BoolData });
         _engine.CancelPending(item);
     }
 
@@ -469,6 +465,14 @@ public partial class WiredComponent : IWiredRuntimeOperations
     public bool TryRemove(uint itemId) => _engine.Remove(itemId);
 
     public bool TryGet(uint id, [NotNullWhen(true)] out IWiredItem? item) => _engine.TryGet(id, out item);
+
+    private sealed class WiredItemRow
+    {
+        public string Items { get; init; } = "";
+        public int Delay { get; init; }
+        public string StringData { get; init; } = "";
+        public bool BoolData { get; init; }
+    }
 
     public void Cleanup()
     {

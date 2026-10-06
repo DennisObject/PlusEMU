@@ -1,4 +1,5 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
+﻿using Dapper;
+using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -38,14 +39,9 @@ internal class MimicCommand : ITargetChatCommand
         }
         session.GetHabbo().Gender = targetUser.GetClient().GetHabbo().Gender;
         session.GetHabbo().Look = _figures.ProcessFigure(target.Look, session.GetHabbo().Gender, session.GetHabbo().Clothing.GetClothingParts, Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access));
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery("UPDATE `users` SET `gender` = @gender, `look` = @look WHERE `id` = @id LIMIT 1");
-            dbClient.AddParameter("gender", session.GetHabbo().Gender);
-            dbClient.AddParameter("look", session.GetHabbo().Look);
-            dbClient.AddParameter("id", session.GetHabbo().Id);
-            dbClient.RunQuery();
-        }
+        using var connection = _database.Connection();
+        connection.Execute("UPDATE users SET gender=@gender,look=@look WHERE id=@id LIMIT 1",
+            new { session.GetHabbo().Gender, session.GetHabbo().Look, session.GetHabbo().Id });
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         if (user != null)
         {

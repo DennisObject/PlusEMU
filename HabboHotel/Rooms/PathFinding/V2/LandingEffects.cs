@@ -1,3 +1,4 @@
+using Dapper;
 using Plus.HabboHotel.GameClients;
 using Plus.Core;
 using Plus.Database;
@@ -103,10 +104,10 @@ public sealed class LandingEffects
         var habbo = actor.GetClient()?.GetHabbo();
         if (habbo == null) return true;
         if (!ReferenceEquals(habbo.CurrentRoom, _room)) return false;
-        var linked = ReadId($"SELECT `tele_two_id` FROM `room_items_tele_links` WHERE `tele_one_id` = '{item.Id}' LIMIT 1");
+        var linked = ReadId("SELECT `tele_two_id` FROM `room_items_tele_links` WHERE `tele_one_id` = @id LIMIT 1", item.Id);
         var target = _room.GetRoomItemHandler().GetItem(linked);
         var roomId = linked == 0 ? 0 : target != null ? _room.RoomId
-            : ReadId($"SELECT `room_id` FROM `items` WHERE `id` = {linked} LIMIT 1");
+            : ReadId("SELECT `room_id` FROM `items` WHERE `id` = @id LIMIT 1", linked);
         if (roomId == 0) { actor.UnlockWalking(); return true; }
         if (roomId == _room.RoomId)
         {
@@ -127,12 +128,10 @@ public sealed class LandingEffects
         _prepareRoom(habbo, roomId);
     }
 
-    private uint ReadId(string sql)
+    private uint ReadId(string sql, uint id)
     {
-        using var query = _database.GetQueryReactor();
-        query.SetQuery(sql);
-        var row = query.GetRow();
-        return row == null ? 0 : Convert.ToUInt32(row[0]);
+        using var connection = _database.Connection();
+        return connection.QuerySingleOrDefault<uint?>(sql, new { id }) ?? 0;
     }
 
     private void ApplyGames(RoomUser actor, Location location)

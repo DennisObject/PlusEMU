@@ -1,7 +1,6 @@
 ﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Users;
-using Plus.Utilities;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.AI.Pets;
 
@@ -56,7 +55,10 @@ public class PetInformationComposer : IServerPacket
             packet.WriteInteger(100);
             packet.WriteInteger(_habbo.HabboStats.Respect);
             packet.WriteInteger(_habbo.Id);
-            packet.WriteInteger(Convert.ToInt32(Math.Floor((UnixTimestamp.GetNow() - _habbo.AccountCreated) / 86400))); //How?
+            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var accountCreated = _habbo.AccountCreatedAt?.ToUnixTimeSeconds() ?? now;
+            var ageInDays = Math.Clamp((now - accountCreated) / 86400, 0, int.MaxValue);
+            packet.WriteInteger((int)ageInDays); //How?
             packet.WriteString(_habbo.Username);
             packet.WriteInteger(1); //3 on hab
             packet.WriteBoolean(false);

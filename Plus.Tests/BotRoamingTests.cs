@@ -197,7 +197,7 @@ public class BotRoamingTests
     {
         var (room, map) = Create("000\r000\r000", 1, 1);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomItemHandling(room));
+            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new RoomUserManager(room));
         map.SetFloorStatus(0, 0, 0);
@@ -219,7 +219,7 @@ public class BotRoamingTests
     {
         var (room, map) = Create("000\r000\r000", 1, 1);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(room, new RoomItemHandling(room));
+            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
         var users = new RoomUserManager(room);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, users);
@@ -393,7 +393,7 @@ public class BotRoamingTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var model = new RoomModel("test", doorX, doorY, 0, 0, heightmap, 0, 0, false);
-        var map = new Gamemap(room, model);
+        var map = new Gamemap(room, model, TestLogging.Navigation);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         return (room, map);
     }

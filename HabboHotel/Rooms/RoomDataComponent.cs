@@ -2,6 +2,7 @@ namespace Plus.HabboHotel.Rooms;
 
 public sealed class RoomDataComponent : IRoomComponent
 {
+    public int Order => 100;
     private Room? _room;
 
     public void Initiate(Room room) => _room = room;
@@ -11,10 +12,5 @@ public sealed class RoomDataComponent : IRoomComponent
         var room = _room!;
         room.GetRoomItemHandler().LoadFurniture();
         room.GetGameMap().GenerateMaps();
-        room.LoadPromotions();
-        room.LoadRights();
-        room.LoadFilter();
-        room.InitBots();
-        room.InitPets();
     }
 }

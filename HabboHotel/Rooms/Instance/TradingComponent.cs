@@ -10,17 +10,19 @@ public class TradingComponent
     private readonly Room _instance;
     private int _currentId;
 
-    public TradingComponent(Room instance)
+    internal TradingComponent(Room instance, ITradeStore store)
     {
         _currentId = 1;
         _instance = instance;
         _activeTrades = new();
+        _store = store;
     }
+    private readonly ITradeStore _store;
 
     public bool StartTrade(RoomUser player1, RoomUser player2, out Trade trade)
     {
         _currentId++;
-        trade = new(_currentId, player1, player2, _instance);
+        trade = new(_currentId, player1, player2, _instance, _store);
         return _activeTrades.TryAdd(_currentId, trade);
     }
 

@@ -176,14 +176,14 @@ public class WiredClickPacketHookTests
         public World(string trigger, int[] parameters)
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
-            var items = new RoomItemHandling(Room); var users = new RoomUserManager(Room);
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance); var users = new RoomUserManager(Room);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
-            var map = new Gamemap(Room, new RoomModel("click-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true));
+            var map = new Gamemap(Room, new RoomModel("click-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
             Set(Room, "_gamemap", map); typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);
-            _wired = new WiredComponent(Room); Set(Room, "_wiredComponent", _wired);
+            _wired = new WiredComponent(Room, TestLogging.Logger); Set(Room, "_wiredComponent", _wired);
             Set(Get(_wired, "_engine"), "_now", (Func<long>)(() => Clock));
-            Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
+            Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
                 Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
                 { [ServerPacketHeader.WiredClickUserResponseComposer] = 9460, [ServerPacketHeader.InClientLinkComposer] = 2023,
@@ -192,7 +192,7 @@ public class WiredClickPacketHookTests
                     new() { Buffer = args.MemoryBuffer[6..].ToArray() })); return true; }
             };
             Actor = AddUser(42, 7, Client);
-            var targetClient = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory()) { Revision = Client.Revision, SendCallback = _ => true };
+            var targetClient = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = Client.Revision, SendCallback = _ => true };
             Target = AddUser(43, 8, targetClient);
             Capture = new CaptureAction(Room, Item("wf_act_toggle_state")); Assert.True(_wired.AddBox(Capture));
             AddBox(trigger, parameters);

@@ -1,81 +1,84 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Engine;
 
 public static class RoomEngineSerializers
 {
-    public static void Serialize(this IOutgoingPacket packet, Item item)
+    public static void Serialize(this IOutgoingPacket packet, RoomItemSnapshot item)
     {
         packet.WriteUInteger(item.Id);
-        packet.WriteInteger(item.Definition.SpriteId);
-        packet.WriteInteger(item.GetX);
-        packet.WriteInteger(item.GetY);
+        packet.WriteInteger(item.SpriteId);
+        packet.WriteInteger(item.X);
+        packet.WriteInteger(item.Y);
         packet.WriteInteger(item.Rotation);
-        packet.WriteString(FormattableString.Invariant($"{item.GetZ}"));
-        packet.WriteString(FormattableString.Invariant($"{item.Definition.Height}"));
-        packet.WriteInteger(FloorExtra(item));
-        ItemBehaviourUtility.Serialize(packet, item);
-        packet.WriteInteger(-1); // to-do: check
-        packet.WriteInteger(item.Definition.Modes > 1 ? 1 : 0);
+        packet.WriteString(item.Z);
+        packet.WriteString(item.Height);
+        packet.WriteInteger(item.FloorExtra);
+        WriteData(packet, item.Data, item.UniqueNumber, item.UniqueSeries);
+        packet.WriteInteger(-1);
+        packet.WriteInteger(item.UseButton);
         packet.WriteInteger(item.UserId);
-        WriteFurnitureMetadata(packet, item);
-    }
-    public static void Serialize(this IOutgoingPacket packet, ICollection<Item> items)
-    {
-        packet.WriteInt(items.Count);
-        foreach (var item in items)
-            packet.Serialize(item);
+        WriteFurnitureMetadata(packet, item.Metadata);
     }
 
-    internal static void WriteFurnitureMetadata(IOutgoingPacket packet, Item item)
+    internal static void WriteWallItem(IOutgoingPacket packet, RoomItemSnapshot item)
     {
-        packet.WriteInteger(item.Definition.Stackable ? 1 : 0);
-        packet.WriteInteger(item.Definition.IsSeat ? 1 : 0);
-        packet.WriteInteger(item.Definition.InteractionType == InteractionType.Bed ? 1 : 0);
-        packet.WriteInteger(item.Definition.Walkable ? 1 : 0);
-        packet.WriteInteger(item.Definition.Width);
-        packet.WriteInteger(item.Definition.Length);
-        packet.WriteInteger(0); // No linked teleport target is advertised.
+        packet.WriteString(item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        packet.WriteInteger(item.SpriteId);
+        packet.WriteString(item.WallCoordinates);
+        packet.WriteString(item.WallData);
+        packet.WriteInteger(-1);
+        packet.WriteInteger(item.UseButton);
+        packet.WriteInteger(item.UserId);
+        WriteFurnitureMetadata(packet, item.Metadata);
     }
 
-    internal static void WriteOwnerMap(IOutgoingPacket packet, IEnumerable<Item> items, int roomOwnerId, string? roomOwnerName)
+    private static void WriteData(IOutgoingPacket packet, FurnitureDataSnapshot data, uint uniqueNumber, uint uniqueSeries)
     {
-        var names = new Dictionary<int, string>();
-        foreach (var item in items)
+        packet.WriteInt((int)data.Structure | (uniqueSeries > 0 ? 0xFF00 : 0));
+        switch (data)
         {
-            var name = item.UserId == roomOwnerId ? roomOwnerName ?? "" : item.Username ?? "";
-            if (!names.TryGetValue(item.UserId, out var existing) || (existing.Length == 0 && name.Length > 0))
-                names[item.UserId] = name;
+            case FurnitureDataSnapshot.Empty: break;
+            case FurnitureDataSnapshot.Legacy legacy: packet.WriteString(legacy.Value); break;
+            case FurnitureDataSnapshot.Map map:
+                packet.WriteInt(map.Values.Length);
+                foreach (var pair in map.Values) { packet.WriteString(pair.Key); packet.WriteString(pair.Value); }
+                break;
+            case FurnitureDataSnapshot.Strings strings:
+                packet.WriteInt(strings.Values.Length);
+                foreach (var value in strings.Values) packet.WriteString(value);
+                break;
+            case FurnitureDataSnapshot.Vote vote: packet.WriteString(vote.State); packet.WriteInt(vote.Result); break;
+            case FurnitureDataSnapshot.Integers integers:
+                packet.WriteInt(integers.Values.Length);
+                foreach (var value in integers.Values) packet.WriteInt(value);
+                break;
+            case FurnitureDataSnapshot.Highscore score:
+                packet.WriteString(score.State); packet.WriteUInt(score.ScoreType); packet.WriteUInt(score.ClearType); packet.WriteUInt(0);
+                break;
+            case FurnitureDataSnapshot.Crackable crackable:
+                packet.WriteString(crackable.State); packet.WriteUInt(crackable.Hits); packet.WriteUInt(crackable.Target);
+                break;
+            default: throw new ArgumentOutOfRangeException(nameof(data));
         }
-
-        packet.WriteInteger(names.Count);
-        if (names.Remove(roomOwnerId, out var ownerName))
-        {
-            packet.WriteInteger(roomOwnerId);
-            packet.WriteString(ownerName);
-        }
-
-        foreach (var userId in names.Keys.OrderBy(id => id))
-        {
-            packet.WriteInteger(userId);
-            packet.WriteString(names[userId]);
-        }
+        if (uniqueSeries > 0) { packet.WriteUInt(uniqueNumber); packet.WriteUInt(uniqueSeries); }
     }
 
-    internal static int FloorExtra(Item item)
+    internal static void WriteFurnitureMetadata(IOutgoingPacket packet, FurnitureMetadata metadata)
     {
-        if (item.Definition.InteractionType == InteractionType.WalkMagicTile)
-            return MagicTileHeight.MultiWalk(item) ? 1 : 0;
-        if (item.Definition.InteractionType == InteractionType.Gift)
-            return GiftWrap.Style(item.LegacyDataString);
-        else if (item.Definition.InteractionType == InteractionType.MusicDisc)
-        {
-            var fields = item.LegacyDataString.Split('\n');
-            if (fields.Length >= 7 && int.TryParse(fields[6], out var songId))
-                return songId;
-        }
+        packet.WriteInteger(metadata.Stackable ? 1 : 0);
+        packet.WriteInteger(metadata.IsSeat ? 1 : 0);
+        packet.WriteInteger(metadata.IsBed ? 1 : 0);
+        packet.WriteInteger(metadata.Walkable ? 1 : 0);
+        packet.WriteInteger(metadata.Width);
+        packet.WriteInteger(metadata.Length);
+        packet.WriteInteger(0);
+    }
 
-        return 1;
+    internal static void WriteOwnerMap(IOutgoingPacket packet, RoomFurnitureSnapshot furniture)
+    {
+        packet.WriteInteger(furniture.Owners.Length);
+        foreach (var owner in furniture.Owners) { packet.WriteInteger(owner.Id); packet.WriteString(owner.Name); }
     }
 }

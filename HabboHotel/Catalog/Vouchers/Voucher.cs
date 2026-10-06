@@ -1,4 +1,6 @@
-﻿namespace Plus.HabboHotel.Catalog.Vouchers;
+﻿using Dapper;
+
+namespace Plus.HabboHotel.Catalog.Vouchers;
 
 public class Voucher
 {
@@ -24,7 +26,7 @@ public class Voucher
     public void UpdateUses()
     {
         CurrentUses += 1;
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.RunQuery($"UPDATE `catalog_vouchers` SET `current_uses` = `current_uses` + '1' WHERE `voucher` = '{Code}' LIMIT 1");
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        connection.Execute("UPDATE catalog_vouchers SET current_uses=current_uses+1 WHERE voucher=@code LIMIT 1", new { code = Code });
     }
 }

@@ -10,7 +10,7 @@ public class GameClientManagerTests
     public void RegisterClient_tracks_the_session_and_unregister_drops_only_that_session()
     {
         var manager = new GameClientManager(null, null);
-        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory());
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
 
         manager.RegisterClient(client, 123, "probe");
 
@@ -24,8 +24,8 @@ public class GameClientManagerTests
         Assert.DoesNotContain(client, manager.GetClients);
         Assert.Null(manager.GetClientByUserId(123));
 
-        var clientA = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory());
-        var clientB = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory());
+        var clientA = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
+        var clientB = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
         clientA.Id = Guid.NewGuid();
         clientB.Id = Guid.NewGuid();
 

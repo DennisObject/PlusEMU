@@ -70,7 +70,7 @@ public partial class WiredComponent
         if (validated == null || next == position) return false;
         item.WallCoordinates = validated;
         _room.GetRoomItemHandler().UpdateItem(item);
-        _room.SendPacket(new ItemUpdateComposer(item));
+        _room.SendPacket(new ItemUpdateComposer(RoomItemSnapshot.Capture(item)));
         return true;
     }
 

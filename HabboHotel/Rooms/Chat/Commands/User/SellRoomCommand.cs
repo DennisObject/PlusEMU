@@ -1,4 +1,5 @@
 ﻿using Plus.Database;
+using Dapper;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
@@ -41,13 +42,8 @@ internal class SellRoomCommand : IChatCommand
             session.SendWhisper("Oops, you cannot sell a room for 0 credits.");
             return;
         }
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery("UPDATE `rooms` SET `sale_price` = @SalePrice WHERE `id` = @Id LIMIT 1");
-            dbClient.AddParameter("SalePrice", price);
-            dbClient.AddParameter("Id", room.Id);
-            dbClient.RunQuery();
-        }
+        using var connection = _database.Connection();
+        connection.Execute("UPDATE rooms SET sale_price=@price WHERE id=@roomId LIMIT 1", new { price, roomId = room.Id });
         session.SendNotification(
             "Your room is now up for sale. The the current room visitors have been alerted, any item that belongs to you in this room will be transferred to the new owner once purchased. Other items shall be ejected.");
         foreach (var user in room.GetRoomUserManager().GetRoomUsers())

@@ -1,15 +1,19 @@
 ﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Plus.Core;
 
 public static class ExceptionLogger
 {
-    private static ILogger _sqlLogger = NullLogger.Instance;
-    private static ILogger _threadLogger = NullLogger.Instance;
-    private static ILogger _defaultLogger = NullLogger.Instance;
-    private static ILogger _criticalExceptionLogger = NullLogger.Instance;
-    private static ILogger _wiredLogger = NullLogger.Instance;
+    private static ILogger? _sqlLogger;
+    private static ILogger SqlLogger => _sqlLogger ?? throw new InvalidOperationException("Configure logging before use.");
+    private static ILogger? _threadLogger;
+    private static ILogger ThreadLogger => _threadLogger ?? throw new InvalidOperationException("Configure logging before use.");
+    private static ILogger? _defaultLogger;
+    private static ILogger DefaultLogger => _defaultLogger ?? throw new InvalidOperationException("Configure logging before use.");
+    private static ILogger? _criticalExceptionLogger;
+    private static ILogger CriticalExceptionLogger => _criticalExceptionLogger ?? throw new InvalidOperationException("Configure logging before use.");
+    private static ILogger? _wiredLogger;
+    private static ILogger WiredLogger => _wiredLogger ?? throw new InvalidOperationException("Configure logging before use.");
 
     public static void Configure(ILoggerFactory loggerFactory)
     {
@@ -22,26 +26,26 @@ public static class ExceptionLogger
 
     public static void LogQueryError(string query, Exception exception)
     {
-        _sqlLogger.LogError(exception, "Error in query:\r\n{Query}", query);
+        SqlLogger.LogError(exception, "Error in query:\r\n{Query}", query);
     }
 
     public static void LogException(Exception exception)
     {
-        _defaultLogger.LogError(exception, "Unhandled exception");
+        DefaultLogger.LogError(exception, "Unhandled exception");
     }
 
     public static void LogCriticalException(Exception exception)
     {
-        _criticalExceptionLogger.LogCritical(exception, "Critical exception");
+        CriticalExceptionLogger.LogCritical(exception, "Critical exception");
     }
 
     public static void LogThreadException(Exception exception)
     {
-        _threadLogger.LogError(exception, "Thread exception");
+        ThreadLogger.LogError(exception, "Thread exception");
     }
 
     public static void LogWiredException(Exception exception)
     {
-        _wiredLogger.LogError(exception, "Wired exception");
+        WiredLogger.LogError(exception, "Wired exception");
     }
 }

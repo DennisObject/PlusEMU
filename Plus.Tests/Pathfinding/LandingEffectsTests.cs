@@ -298,7 +298,17 @@ public partial class PlacedFurniRoomTests
             if (method == "SetQuery") sql = (string)args[0]!;
             return method == "GetRow" ? sql.Contains("room_items_tele_links") ? link : room : null;
         });
-        return Proxy<IDatabase>((method, _) => method == "GetQueryReactor" ? query : null);
+        return Proxy<IDatabase>((method, _) => method switch
+        {
+            "GetQueryReactor" => query,
+            "Connection" => new NoOpConnection(command =>
+            {
+                var result = new DataTable(); result.Columns.Add("value", typeof(uint));
+                result.Rows.Add(command.Contains("room_items_tele_links", StringComparison.Ordinal) ? linkedId : targetRoom);
+                return result;
+            }),
+            _ => throw new NotSupportedException(method)
+        });
     }
 
     private LandingActionCounter LandingLayCounter()

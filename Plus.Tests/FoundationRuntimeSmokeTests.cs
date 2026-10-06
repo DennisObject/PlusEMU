@@ -71,7 +71,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
                 await ((IStartable)services.GetRequiredService(type)).Start();
 
             output.WriteLine("Login tasks: " + string.Join(", ", services.GetServices<IUserDataLoadingTask>().Select(task => task.GetType().Name)));
-            var (client, sent) = Client();
+            var (client, sent) = Client(services.GetRequiredService<ILogger<GameClient>>());
             var rooms = services.GetRequiredService<IRoomManager>();
             try
             {
@@ -182,12 +182,12 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
             VALUES (7, 1, 3600, FALSE, NULL, 2), (7, 2, 3600, TRUE, '2026-01-02 03:04:05', 1);
         """);
 
-    private static (FlashGameClient Client, List<(uint Header, byte[] Payload)> Sent) Client()
+    private static (FlashGameClient Client, List<(uint Header, byte[] Payload)> Sent) Client(ILogger<GameClient> logger)
     {
         var sent = new List<(uint, byte[])>();
         var headers = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
             .Select(field => (uint)field.GetRawConstantValue()!).Where(id => id > 0).ToDictionary(id => id, id => id);
-        return (new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
+        return (new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), logger)
         {
             Id = Guid.NewGuid(),
             Revision = new Revision { InternalIdToOutgoingIdMapping = headers },

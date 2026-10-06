@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using Microsoft.Extensions.Logging;
 using Plus.Communication.RCON.Commands;
 
 namespace Plus.Communication.RCON;
@@ -8,11 +9,13 @@ public class RconSocket : IRconSocket
 {
     private List<string> _allowedConnections;
     private readonly ICommandManager _commands;
+    private readonly ILogger<RconConnection> _connectionLogger;
     private Socket _musSocket;
 
-    public RconSocket(ICommandManager commandManager)
+    public RconSocket(ICommandManager commandManager, ILogger<RconConnection> connectionLogger)
     {
         _commands = commandManager;
+        _connectionLogger = connectionLogger;
     }
 
     public void Init(string host, int port, IEnumerable<string> allowedConnections)
@@ -39,7 +42,7 @@ public class RconSocket : IRconSocket
             var socket = ((Socket)iAr.AsyncState).EndAccept(iAr);
             var ip = socket.RemoteEndPoint.ToString().Split(':')[0];
             if (_allowedConnections.Contains(ip))
-                new RconConnection(socket);
+                new RconConnection(socket, _connectionLogger);
             else
                 socket.Close();
         }

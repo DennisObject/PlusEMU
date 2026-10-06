@@ -22,6 +22,7 @@ using Plus.HabboHotel.Users.Process;
 using Plus.Utilities;
 
 using Dapper;
+using Microsoft.Extensions.Logging;
 using Plus.HabboHotel.Users.Navigator;
 
 namespace Plus.HabboHotel.Users;
@@ -90,10 +91,6 @@ public class Habbo
 
     public DateTimeOffset? LastOnlineAt { get; set; }
     public DateTimeOffset? AccountCreatedAt { get; set; }
-    [Obsolete("Convert to Unix time only at the protocol boundary")]
-    public double LastOnline => LastOnlineAt?.ToUnixTimeSeconds() ?? 0;
-    [Obsolete("Convert to Unix time only at the protocol boundary")]
-    public double AccountCreated => AccountCreatedAt?.ToUnixTimeSeconds() ?? 0;
 
     public List<int> ClientVolume { get; set; } = new() { 0, 0, 0 };
 
@@ -217,9 +214,9 @@ public class Habbo
         return span.TotalMinutes >= 30;
     }
 
-    public bool InitProcess()
+    public bool InitProcess(ILogger<ProcessComponent> logger)
     {
-        Process = new();
+        Process = new(logger);
         return Process.Init(this);
     }
 

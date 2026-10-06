@@ -1,12 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.Packets.Outgoing.Moderation;
 
 namespace Plus.Core;
 
 public static class ConsoleCommands
 {
-    private static ILogger _logger = NullLogger.Instance;
+    private static ILogger? _logger;
+    private static ILogger Logger => _logger ?? throw new InvalidOperationException("Configure logging before use.");
 
     public static void Configure(ILoggerFactory loggerFactory) => _logger = loggerFactory.CreateLogger(typeof(ConsoleCommands).FullName!);
 
@@ -22,7 +22,7 @@ public static class ConsoleCommands
                 case "stop":
                 case "shutdown":
                 {
-                    _logger.LogWarning("The server is saving users furniture, rooms, etc. WAIT FOR THE SERVER TO CLOSE, DO NOT EXIT THE PROCESS IN TASK MANAGER!!");
+                    Logger.LogWarning("The server is saving users furniture, rooms, etc. WAIT FOR THE SERVER TO CLOSE, DO NOT EXIT THE PROCESS IN TASK MANAGER!!");
                     PlusEnvironment.PerformShutDown();
                     break;
                 }
@@ -31,19 +31,19 @@ public static class ConsoleCommands
                     var notice = inputData.Substring(6);
                     PlusEnvironment.Game.ClientManager
                         .SendPacket(new BroadcastMessageAlertComposer($"{PlusEnvironment.LanguageManager.TryGetValue("server.console.alert")}\n\n{notice}"));
-                    _logger.LogInformation("Alert successfully sent.");
+                    Logger.LogInformation("Alert successfully sent.");
                     break;
                 }
                 default:
                 {
-                    _logger.LogError("{Command} is an unknown or unsupported command. Type help for more information", parameters[0].ToLower());
+                    Logger.LogError("{Command} is an unknown or unsupported command. Type help for more information", parameters[0].ToLower());
                     break;
                 }
             }
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Error in command [{Input}]", inputData);
+            Logger.LogError(e, "Error in command [{Input}]", inputData);
         }
     }
 }

@@ -7,10 +7,20 @@ namespace Plus.Tests;
 public sealed class RoomLifecycleTests
 {
     [Fact]
+    public void BansAreAvailableAfterTheFirstPhaseWithoutLoadingTheDatabase()
+    {
+        var component = new RoomBansComponent(null!);
+        var room = new Room(Data(1), [component], TestLogging.Navigation, TestLogging.Logger);
+        component.Initiate(room);
+        Assert.NotNull(room.GetBans());
+        Assert.Equal(0, room.GetBans().Count);
+    }
+
+    [Fact]
     public void InitiateRunsEveryFirstPhaseBeforeAnySecondPhase()
     {
         var calls = new List<string>();
-        var room = new Room(Data(1), [new RecordingComponent("a", calls), new RecordingComponent("b", calls)]);
+        var room = new Room(Data(1), [new RecordingComponent("a", calls), new RecordingComponent("b", calls)], TestLogging.Navigation, TestLogging.Logger);
 
         room.Initiate();
 
@@ -20,10 +30,23 @@ public sealed class RoomLifecycleTests
     [Fact]
     public void InitiateRejectsSecondCall()
     {
-        var room = new Room(Data(1), Array.Empty<IRoomComponent>());
+        var room = new Room(Data(1), Array.Empty<IRoomComponent>(), TestLogging.Navigation, TestLogging.Logger);
         room.Initiate();
 
         Assert.Throws<InvalidOperationException>(room.Initiate);
+    }
+
+    [Fact]
+    public void ComponentsUseDeterministicReadyOrderAfterEveryFirstPhase()
+    {
+        var calls = new List<string>();
+        var room = new Room(Data(1),
+            [new OrderedComponent("bots", 300, calls), new OrderedComponent("runtime", 0, calls), new OrderedComponent("data", 100, calls)],
+            TestLogging.Navigation, TestLogging.Logger);
+
+        room.Initiate();
+
+        Assert.Equal(["runtime:init", "data:init", "bots:init", "runtime:ready", "data:ready", "bots:ready"], calls);
     }
 
     [Fact]
@@ -33,7 +56,7 @@ public sealed class RoomLifecycleTests
         services.AddScoped<Probe>();
         services.AddScoped<IRoomComponent, ScopedProbeComponent>();
         using var provider = services.BuildServiceProvider();
-        using var factory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>());
+        using var factory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>(), TestLogging.Navigation, TestLogging.Factory);
 
         var first = factory.Create(Data(1));
         var second = factory.Create(Data(2));
@@ -55,7 +78,7 @@ public sealed class RoomLifecycleTests
         services.AddScoped<Probe>();
         services.AddScoped<IRoomComponent, ScopedProbeComponent>();
         using var provider = services.BuildServiceProvider();
-        using var factory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>());
+        using var factory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>(), TestLogging.Navigation, TestLogging.Factory);
         var room = factory.Create(Data(1));
         var probe = Assert.IsType<ScopedProbeComponent>(room.Components.Single()).Probe;
 
@@ -82,7 +105,7 @@ public sealed class RoomLifecycleTests
             throw new InvalidOperationException("The original initialization failed.");
         }));
         using var provider = services.BuildServiceProvider();
-        using var ownedFactory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>());
+        using var ownedFactory = new ScopedRoomFactory(provider.GetRequiredService<IServiceScopeFactory>(), TestLogging.Navigation, TestLogging.Factory);
         factory = ownedFactory;
 
         Assert.Throws<InvalidOperationException>(() => factory.Create(Data(1)));
@@ -108,6 +131,13 @@ public sealed class RoomLifecycleTests
 
     private sealed class RecordingComponent(string name, List<string> calls) : IRoomComponent
     {
+        public void Initiate(Room room) => calls.Add($"{name}:init");
+        public void Initiated() => calls.Add($"{name}:ready");
+    }
+
+    private sealed class OrderedComponent(string name, int order, List<string> calls) : IRoomComponent
+    {
+        public int Order => order;
         public void Initiate(Room room) => calls.Add($"{name}:init");
         public void Initiated() => calls.Add($"{name}:ready");
     }

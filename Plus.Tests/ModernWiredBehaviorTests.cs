@@ -267,8 +267,8 @@ public class ModernWiredBehaviorTests
         // Initialise the real query modules without Room's database-loading constructor.
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var model = new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true);
-        var map = new Gamemap(room, model);
-        var handler = new RoomItemHandling(room);
+        var map = new Gamemap(room, model, TestLogging.Navigation);
+        var handler = new RoomItemHandling(room, TestRoomItemStore.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         var items = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling)

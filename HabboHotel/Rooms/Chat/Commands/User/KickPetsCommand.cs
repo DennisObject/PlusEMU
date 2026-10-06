@@ -1,4 +1,5 @@
 ﻿using Plus.Communication.Packets.Outgoing.Inventory.Pets;
+using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 
@@ -30,8 +31,17 @@ internal class KickPetsCommand : IChatCommand
         if (room.GetRoomUserManager().GetPets().Count == 0) session.SendWhisper("Oops, there isn't any pets in here!?");
         foreach (var bot in room.GetRoomUserManager().GetUserList().ToList())
         {
-            if (bot == null)
+            if (bot?.PetData == null)
                 continue;
+            var pet = bot.PetData;
+            using var connection = _database.Connection();
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
+            connection.Execute("UPDATE bots SET room_id=0,x=0,y=0,z=0 WHERE id=@petId LIMIT 1", new { petId = pet.PetId }, transaction);
+            connection.Execute("UPDATE bots_petdata SET experience=@experience,energy=@energy,nutrition=@nutrition,respect=@respect WHERE id=@petId LIMIT 1",
+                new { pet.Experience, pet.Energy, pet.Nutrition, pet.Respect, petId = pet.PetId }, transaction);
+            transaction.Commit();
+
             if (bot.RidingHorse)
             {
                 var rider = room.GetRoomUserManager().GetRoomUserByVirtualId(bot.HorseId);
@@ -44,23 +54,12 @@ internal class KickPetsCommand : IChatCommand
                 else
                     bot.RidingHorse = false;
             }
-            var pet = bot.PetData;
-            if (pet != null) return;
             pet.RoomId = 0;
             pet.PlacedInRoom = false;
             room.GetRoomUserManager().RemoveBot(bot.VirtualId, false);
-            if (pet.OwnerId != session.GetHabbo().Id)
-            {
-                var targetClient = _gameClientManager.GetClientByUserId(pet.OwnerId);
-                if (targetClient != null)
-                    if (targetClient.GetHabbo().Inventory.Pets.AddPet(pet))
-                        targetClient.Send(new PetInventoryComposer(targetClient.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
-            }
-            if (session.GetHabbo().Inventory.Pets.AddPet(pet)) session.Send(new PetInventoryComposer(session.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
-            using var dbClient = _database.GetQueryReactor();
-            dbClient.RunQuery($"UPDATE `bots` SET `room_id` = '0', `x` = '0', `Y` = '0', `Z` = '0' WHERE `id` = '{pet.PetId}' LIMIT 1");
-            dbClient.RunQuery(
-                $"UPDATE `bots_petdata` SET `experience` = '{pet.Experience}', `energy` = '{pet.Energy}', `nutrition` = '{pet.Nutrition}', `respect` = '{pet.Respect}' WHERE `id` = '{pet.PetId}' LIMIT 1");
+            var ownerClient = _gameClientManager.GetClientByUserId(pet.OwnerId);
+            if (ownerClient?.GetHabbo() != null && ownerClient.GetHabbo().Inventory.Pets.AddPet(pet))
+                ownerClient.Send(new PetInventoryComposer(ownerClient.GetHabbo().Inventory.Pets.Pets.Values.ToList()));
         }
         session.SendWhisper("All pets have been kicked from the room.");
     }

@@ -1,4 +1,5 @@
-﻿using Plus.HabboHotel.GameClients;
+using Dapper;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
 
@@ -14,13 +15,8 @@ public class InteractorHopper : IFurniInteractor, IApproachInteractor
         if (itemRoom == null) return;
 
         itemRoom.GetRoomItemHandler().HopperCount++;
-        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-        {
-            dbClient.SetQuery("INSERT INTO items_hopper (hopper_id, room_id) VALUES (@hopperid, @roomid);");
-            dbClient.AddParameter("hopperid", item.Id);
-            dbClient.AddParameter("roomid", item.RoomId);
-            dbClient.RunQuery();
-        }
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        connection.Execute("INSERT INTO items_hopper (hopper_id,room_id) VALUES (@id,@roomId)", new { id = item.Id, roomId = item.RoomId });
         if (item.InteractingUser != 0)
         {
             var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
@@ -40,12 +36,8 @@ public class InteractorHopper : IFurniInteractor, IApproachInteractor
         if (itemRoom == null) return;
 
         itemRoom.GetRoomItemHandler().HopperCount--;
-        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-        {
-            dbClient.SetQuery($"DELETE FROM items_hopper WHERE item_id=@hid OR room_id={itemRoom.RoomId} LIMIT 1");
-            dbClient.AddParameter("hid", item.Id);
-            dbClient.RunQuery();
-        }
+        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        connection.Execute("DELETE FROM items_hopper WHERE hopper_id=@id AND room_id=@roomId LIMIT 1", new { id = item.Id, roomId = itemRoom.RoomId });
         if (item.InteractingUser != 0)
         {
             var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);

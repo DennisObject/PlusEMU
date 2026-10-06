@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Dapper;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -33,6 +34,11 @@ internal class RoomCommand : IChatCommand
             return;
         }
         var option = parameters[0];
+        void Persist(string column, bool value)
+        {
+            using var connection = _database.Connection();
+            connection.Execute($"UPDATE rooms SET `{column}`=@value WHERE id=@roomId LIMIT 1", new { value, roomId = room.Id });
+        }
         switch (option)
         {
             case "list":
@@ -53,52 +59,28 @@ internal class RoomCommand : IChatCommand
             case "push":
             {
                 room.PushEnabled = !room.PushEnabled;
-                using (var dbClient = _database.GetQueryReactor())
-                {
-                    dbClient.SetQuery("UPDATE `rooms` SET `push_enabled` = @pushEnabled WHERE `id` = @roomId LIMIT 1");
-                    dbClient.AddParameter("roomId", room.Id);
-                    dbClient.AddParameter("pushEnabled", ConvertExtensions.ToStringEnumValue(room.PushEnabled));
-                    dbClient.RunQuery();
-                }
+                Persist("push_enabled", room.PushEnabled);
                 session.SendWhisper($"Push mode is now {(room.PushEnabled ? "enabled!" : "disabled!")}");
                 break;
             }
             case "spush":
             {
                 room.SuperPushEnabled = !room.SuperPushEnabled;
-                using (var dbClient = _database.GetQueryReactor())
-                {
-                    dbClient.SetQuery("UPDATE `rooms` SET `spush_enabled` = @sPushEnabled WHERE `id` = @roomId LIMIT 1");
-                    dbClient.AddParameter("roomId", room.Id);
-                    dbClient.AddParameter("sPushEnabled", ConvertExtensions.ToStringEnumValue(room.SuperPushEnabled));
-                    dbClient.RunQuery();
-                }
+                Persist("spush_enabled", room.SuperPushEnabled);
                 session.SendWhisper($"Super Push mode is now {(room.SuperPushEnabled ? "enabled!" : "disabled!")}");
                 break;
             }
             case "spull":
             {
                 room.SuperPullEnabled = !room.SuperPullEnabled;
-                using (var dbClient = _database.GetQueryReactor())
-                {
-                    dbClient.SetQuery("UPDATE `rooms` SET `spull_enabled` = @sPullEnabled WHERE `id` = @roomId LIMIT 1");
-                    dbClient.AddParameter("roomId", room.Id);
-                    dbClient.AddParameter("sPullEnabled", ConvertExtensions.ToStringEnumValue(room.SuperPullEnabled));
-                    dbClient.RunQuery();
-                }
+                Persist("spull_enabled", room.SuperPullEnabled);
                 session.SendWhisper($"Super Pull mode is now {(room.SuperPullEnabled ? "enabled!" : "disabled!")}");
                 break;
             }
             case "pull":
             {
                 room.PullEnabled = !room.PullEnabled;
-                using (var dbClient = _database.GetQueryReactor())
-                {
-                    dbClient.SetQuery("UPDATE `rooms` SET `pull_enabled` = @pullEnabled WHERE `id` = @roomId LIMIT 1");
-                    dbClient.AddParameter("roomId", room.Id);
-                    dbClient.AddParameter("pullEnabled", ConvertExtensions.ToStringEnumValue(room.PullEnabled));
-                    dbClient.RunQuery();
-                }
+                Persist("pull_enabled", room.PullEnabled);
                 session.SendWhisper($"Pull mode is now {(room.PullEnabled ? "enabled!" : "disabled!")}");
                 break;
             }
@@ -106,26 +88,14 @@ internal class RoomCommand : IChatCommand
             case "enables":
             {
                 room.EnablesEnabled = !room.EnablesEnabled;
-                using (var dbClient = _database.GetQueryReactor())
-                {
-                    dbClient.SetQuery("UPDATE `rooms` SET `enables_enabled` = @enablesEnabled WHERE `id` = @roomId LIMIT 1");
-                    dbClient.AddParameter("roomId", room.Id);
-                    dbClient.AddParameter("enablesEnabled", ConvertExtensions.ToStringEnumValue(room.EnablesEnabled));
-                    dbClient.RunQuery();
-                }
+                Persist("enables_enabled", room.EnablesEnabled);
                 session.SendWhisper($"Enables mode set to {(room.EnablesEnabled ? "enabled!" : "disabled!")}");
                 break;
             }
             case "respect":
             {
                 room.RespectNotificationsEnabled = !room.RespectNotificationsEnabled;
-                using (var dbClient = _database.GetQueryReactor())
-                {
-                    dbClient.SetQuery("UPDATE `rooms` SET `respect_notifications_enabled` = @respectNotificationsEnabled WHERE `id` = @roomId LIMIT 1");
-                    dbClient.AddParameter("roomId", room.Id);
-                    dbClient.AddParameter("respectNotificationsEnabled", ConvertExtensions.ToStringEnumValue(room.RespectNotificationsEnabled));
-                    dbClient.RunQuery();
-                }
+                Persist("respect_notifications_enabled", room.RespectNotificationsEnabled);
                 session.SendWhisper($"Respect notifications mode set to {(room.RespectNotificationsEnabled ? "enabled!" : "disabled!")}");
                 break;
             }
@@ -133,13 +103,7 @@ internal class RoomCommand : IChatCommand
             case "morphs":
             {
                 room.PetMorphsAllowed = !room.PetMorphsAllowed;
-                using (var dbClient = _database.GetQueryReactor())
-                {
-                    dbClient.SetQuery("UPDATE `rooms` SET `pet_morphs_allowed` = @petMorphsAllowed WHERE `id` = @roomId LIMIT 1");
-                    dbClient.AddParameter("roomId", room.Id);
-                    dbClient.AddParameter("petMorphsAllowed", ConvertExtensions.ToStringEnumValue(room.PetMorphsAllowed));
-                    dbClient.RunQuery();
-                }
+                Persist("pet_morphs_allowed", room.PetMorphsAllowed);
                 session.SendWhisper($"Human pet morphs notifications mode set to {(room.PetMorphsAllowed ? "enabled!" : "disabled!")}");
                 if (!room.PetMorphsAllowed)
                 {

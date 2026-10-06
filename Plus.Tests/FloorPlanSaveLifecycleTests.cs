@@ -107,7 +107,7 @@ public class FloorPlanSaveLifecycleTests
 
     private sealed class SavedClient : GameClient
     {
-        public SavedClient() : base(null!, null!)
+        public SavedClient() : base(null!, null!, TestLogging.GameClient)
         {
             Id = Guid.NewGuid();
         }

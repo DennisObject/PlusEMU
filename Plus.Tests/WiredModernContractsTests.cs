@@ -181,11 +181,13 @@ public class WiredModernContractsTests
         Assert.Equal(WiredBoxCategory.Addon, definition.WiredDescriptor!.Category);
         var item = new Item { Id = 7, Definition = definition };
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
         var handling = room.GetRoomItemHandler();
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling)
             .GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handling)!;
         Assert.True(floor.TryAdd(item.Id, item));
-        var legacy = new WiredComponent(room);
+        var legacy = new WiredComponent(room, TestLogging.Logger);
         var loaded = legacy.GenerateNewBox(item);
         Assert.NotNull(loaded);
         Assert.Equal(WiredBoxType.AddonRandomEffect, loaded.Type);

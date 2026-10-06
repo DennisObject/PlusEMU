@@ -1,4 +1,5 @@
-﻿using Plus.Database;
+﻿using Dapper;
+using Plus.Database;
 
 namespace Plus.HabboHotel.Rooms.Chat.Logs;
 
@@ -34,20 +35,23 @@ public sealed class ChatlogManager : IChatlogManager
     public void FlushAndSave()
     {
         _lock.EnterWriteLock();
-        if (_chatlogs.Count > 0)
+        try
         {
-            using var dbClient = _database.GetQueryReactor();
-            foreach (var entry in _chatlogs)
-            {
-                dbClient.SetQuery("INSERT INTO chatlogs (`user_id`, `room_id`, `timestamp`, `message`) VALUES " + "(@uid, @rid, @time, @msg)");
-                dbClient.AddParameter("uid", entry.PlayerId);
-                dbClient.AddParameter("rid", entry.RoomId);
-                dbClient.AddParameter("time", entry.Timestamp);
-                dbClient.AddParameter("msg", entry.Message);
-                dbClient.RunQuery();
-            }
+            if (_chatlogs.Count == 0)
+                return;
+
+            using var connection = _database.Connection();
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
+            connection.Execute(
+                "INSERT INTO chatlogs (`user_id`, `room_id`, `timestamp`, `message`) VALUES (@PlayerId, @RoomId, @Timestamp, @Message)",
+                _chatlogs, transaction);
+            transaction.Commit();
+            _chatlogs.Clear();
         }
-        _chatlogs.Clear();
-        _lock.ExitWriteLock();
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
     }
 }

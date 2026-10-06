@@ -40,10 +40,9 @@ public class Game : IGame
     private ICacheManager _cacheManager;
     private readonly int _cycleSleepTime = 25;
     private IGameDataManager _gameDataManager;
-    private bool _cycleActive;
-
-    private bool _cycleEnded;
-    private Task _gameCycle;
+    private volatile bool _cycleActive;
+    private readonly object _cycleSync = new();
+    private Task? _gameCycle;
 
     public Game(
         IGameClientManager gameClientManager,
@@ -75,27 +74,39 @@ public class Game : IGame
 
     public void StartGameLoop()
     {
-        _gameCycle = new(GameCycle);
-        _gameCycle.Start();
-        _cycleActive = true;
+        lock (_cycleSync)
+        {
+            if (_gameCycle != null)
+                throw new InvalidOperationException("The game loop has already been started.");
+            _cycleActive = true;
+            _gameCycle = Task.Run(GameCycle);
+        }
     }
 
     private void GameCycle()
     {
         while (_cycleActive)
         {
-            _cycleEnded = false;
             _roomManager.OnCycle();
             _clientManager.OnCycle();
-            _cycleEnded = true;
             Thread.Sleep(_cycleSleepTime);
         }
     }
 
     public void StopGameLoop()
     {
-        _cycleActive = false;
-        while (!_cycleEnded) Thread.Sleep(_cycleSleepTime);
+        lock (_cycleSync)
+        {
+            _cycleActive = false;
+            try
+            {
+                _gameCycle?.GetAwaiter().GetResult();
+            }
+            finally
+            {
+                _gameCycle = null;
+            }
+        }
     }
 
     public IGameClientManager ClientManager => _clientManager;

@@ -170,7 +170,7 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public async Task MagicPlacementOnVoidIsStandableButNeverChangesFloorRendering()
     {
-        var map = new Gamemap(_room, new RoomModel("void", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false));
+        var map = new Gamemap(_room, new RoomModel("void", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false), TestLogging.Navigation);
         Set("_gamemap", map);
         map.GenerateMaps();
         var floor = map.Model.GetRelativeHeightmap();
@@ -227,8 +227,8 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("235;1", tile.LegacyDataString);
         await new UpdateMagicTileEvent().Parse(_client, ClientPacket(10, 300));
         Assert.Equal("300;1", tile.LegacyDataString);
-        Assert.Equal(1, RoomEngineSerializers.FloorExtra(tile));
-        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(tile), new ObjectUpdateComposer(tile) })
+        Assert.Equal(1, RoomItemSnapshot.Capture(tile).FloorExtra);
+        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(RoomItemSnapshot.Capture(tile)), new ObjectUpdateComposer(RoomItemSnapshot.Capture(tile)) })
         {
             var packet = Body(composer);
             packet.ReadUInt(); packet.ReadInt(); packet.ReadInt(); packet.ReadInt(); packet.ReadInt();
@@ -242,7 +242,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("300;1", loaded.LegacyDataString);
         await new UpdateMagicTileEvent().Parse(_client, ClientPacket(10, 325, false));
         Assert.Equal("325", tile.LegacyDataString);
-        Assert.Equal(0, RoomEngineSerializers.FloorExtra(tile));
+        Assert.Equal(0, RoomItemSnapshot.Capture(tile).FloorExtra);
     }
 
     [Theory]
@@ -395,15 +395,26 @@ public partial class PlacedFurniRoomTests
         var definition = Furni(10, InteractionType.WalkMagicTile, WiredBoxType.None).Definition;
         definition.Width = definition.Length = 1;
         definition.Height = 0;
-        var writes = new List<string>();
-        var parameters = new Dictionary<string, object?>();
+        var store = new RecordingRoomItemStore();
+        Set("_roomItemHandling", new RoomItemHandling(_room, store));
         var query = Proxy<Plus.Database.Interfaces.IQueryAdapter>((method, args) =>
         {
-            if (method == "SetQuery" || method == "RunQuery" && args.Length > 0) writes.Add((string)args[0]!);
-            if (method == "AddParameter") parameters[(string)args[0]!] = args[1];
             return method == "GetTable" ? row.Table : null;
         });
-        _databaseField.SetValue(null, Proxy<Plus.Database.IDatabase>((method, _) => method == "GetQueryReactor" ? query : null));
+        _databaseField.SetValue(null, Proxy<Plus.Database.IDatabase>((method, _) => method switch
+        {
+            "GetQueryReactor" => query,
+            "Connection" => new NoOpConnection(_ =>
+            {
+                var loaded = row.Table.Copy();
+                foreach (var (source, alias) in new[] { ("base_item", "BaseItem"), ("user_id", "UserId"), ("extra_data", "ExtraData"),
+                             ("limited_number", "LimitedNumber"), ("limited_stack", "LimitedStack"), ("wall_pos", "WallPos") })
+                    loaded.Columns[source]!.ColumnName = alias;
+                loaded.Columns.Add("GroupId", typeof(int)); loaded.Rows[0]["GroupId"] = 0;
+                return loaded;
+            }),
+            _ => throw new NotSupportedException(method)
+        }));
         var definitions = Proxy<IItemDataManager>((method, _) => method == "get_Items" ? new Dictionary<uint, ItemDefinition> { [10] = definition } : null);
         _gameField.SetValue(null, Proxy<Plus.HabboHotel.IGame>((method, _) => method == "get_ItemManager" ? definitions : null));
         _room.GetRoomItemHandler().LoadFurniture();
@@ -411,10 +422,11 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("200;1", tile.LegacyDataString);
         typeof(RoomItemHandling).GetMethod("SaveFurniture", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(_room.GetRoomItemHandler(), null);
-        Assert.Equal("200;1", parameters["edata10"]);
-        Assert.Contains(writes, sql => sql.Contains("`z` = '2'"));
+        var saved = Assert.Single(store.Saved);
+        Assert.Equal("200;1", saved.ExtraData);
+        Assert.Equal(2, saved.Z);
         // The persistent prefix and physical altitude survive another real room load.
-        row["extra_data"] = parameters["edata10"]!;
+        row["extra_data"] = saved.ExtraData!;
         _room.GetRoomItemHandler().LoadFurniture();
         Assert.Equal("200;1", _room.GetRoomItemHandler().GetItem(10).LegacyDataString);
     }
@@ -476,7 +488,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(2.0)]
     public void WalkMagicFlanksProvideAnOpenSurfaceAtTheirOwnHeight(double flankHeight)
     {
-        var map = new Gamemap(_room, new RoomModel("flanks", 0, 0, 0, 0, "0000\r00x0\r0000\r0000", 0, 0, false));
+        var map = new Gamemap(_room, new RoomModel("flanks", 0, 0, 0, 0, "0000\r00x0\r0000\r0000", 0, 0, false), TestLogging.Navigation);
         Set("_gamemap", map); map.GenerateMaps();
         Add(10, 1, 2, height: 5, stackable: false);
         Add(11, 1, 2, z: 0.5, type: InteractionType.WalkMagicTile);
@@ -488,7 +500,7 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public void OrdinaryFurnitureKeepsLegacyRollerSupportOverModelVoid()
     {
-        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false));
+        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false), TestLogging.Navigation);
         Set("_gamemap", map); map.GenerateMaps();
         Assert.False(map.CanRollItemHere(1, 1));
         var bridge = Add(10, 1, 1, z: 2, height: 0.5);
@@ -627,7 +639,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(true)]
     public async Task QueuedProjectionDeliveryAllowsBridgeConstructionAndMapRebuild(bool rebuild)
     {
-        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false));
+        var map = new Gamemap(_room, new RoomModel("bridge", 0, 0, 0, 0, "0000\r0x00\r0000\r0000", 0, 0, false), TestLogging.Navigation);
         Set("_gamemap", map); map.GenerateMaps();
         var bridge = Add(10, 2, 1, z: 2, height: 0.5);
         var table = Add(11, 3, 2);
@@ -1015,9 +1027,9 @@ public partial class PlacedFurniRoomTests
         var nextRoom = (Room)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Room));
         nextRoom.Id = RoomId + 1;
         var nextUsers = new RoomUserManager(nextRoom);
-        var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", 0, 0, false));
+        var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", 0, 0, false), TestLogging.Navigation);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextUsers);
-        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom));
+        typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom, TestRoomItemStore.Instance));
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextMap);
         nextMap.GenerateMaps();
         _client.GetHabbo().CurrentRoom = nextRoom;

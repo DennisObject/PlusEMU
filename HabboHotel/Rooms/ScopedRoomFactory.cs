@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Rooms;
 
-public sealed class ScopedRoomFactory(IServiceScopeFactory scopeFactory) : IRoomFactory, IDisposable
+public sealed class ScopedRoomFactory(IServiceScopeFactory scopeFactory, ILogger<RoomNavigation> navigationLogger, ILoggerFactory loggerFactory) : IRoomFactory, IDisposable
 {
     private readonly ConcurrentDictionary<uint, IServiceScope> _scopes = new();
 
@@ -13,7 +15,7 @@ public sealed class ScopedRoomFactory(IServiceScopeFactory scopeFactory) : IRoom
         var cached = false;
         try
         {
-            var room = new Room(data, scope.ServiceProvider.GetServices<IRoomComponent>());
+            var room = new Room(data, scope.ServiceProvider.GetServices<IRoomComponent>(), navigationLogger, loggerFactory.CreateLogger("Wired"));
             if (!_scopes.TryAdd(data.Id, scope))
                 throw new InvalidOperationException($"A dependency scope already exists for room {data.Id}.");
             cached = true;

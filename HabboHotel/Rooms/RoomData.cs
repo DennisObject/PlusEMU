@@ -1,6 +1,4 @@
-﻿using System.Data;
-using Plus.HabboHotel.Groups;
-using Plus.Utilities;
+﻿using Plus.HabboHotel.Groups;
 
 namespace Plus.HabboHotel.Rooms;
 
@@ -64,9 +62,7 @@ public class RoomData
         SalePrice = salePrice;
         ReverseRollers = false;
         LayEnabled = layEnabled;
-        if (groupId > 0)
-            PlusEnvironment.Game.GroupManager.TryGetGroup(groupId, out _group);
-        LoadPromotions();
+        GroupId = groupId;
         Model = model;
     }
 
@@ -111,6 +107,7 @@ public class RoomData
         RespectNotificationsEnabled = data.RespectNotificationsEnabled;
         PetMorphsAllowed = data.PetMorphsAllowed;
         Group = data.Group;
+        GroupId = data.GroupId;
         SalePrice = data.SalePrice;
         EnablesEnabled = data.EnablesEnabled;
         ReverseRollers = data.ReverseRollers;
@@ -157,6 +154,7 @@ public class RoomData
     public bool RespectNotificationsEnabled { get; set; }
     public bool PetMorphsAllowed { get; set; }
     public int SalePrice { get; set; }
+    public int GroupId { get; set; }
     public bool ReverseRollers { get; set; }
     public bool LayEnabled { get; set; }
 
@@ -172,22 +170,6 @@ public class RoomData
     }
 
     public bool HasActivePromotion => Promotion != null;
-
-    public void LoadPromotions()
-    {
-        DataRow? getPromotion = null;
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.SetQuery($"SELECT * FROM `room_promotions` WHERE `room_id` = {Id} LIMIT 1;");
-        getPromotion = dbClient.GetRow();
-        if (getPromotion != null)
-        {
-            if (Convert.ToDouble(getPromotion["timestamp_expire"]) > UnixTimestamp.GetNow())
-            {
-                Promotion = new(Convert.ToString(getPromotion["title"]), Convert.ToString(getPromotion["description"]), Convert.ToDouble(getPromotion["timestamp_start"]),
-                    Convert.ToDouble(getPromotion["timestamp_expire"]), Convert.ToInt32(getPromotion["category_id"]));
-            }
-        }
-    }
 
     public void EndPromotion()
     {

@@ -1,42 +1,30 @@
-﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Rooms;
-using Plus.HabboHotel.Rooms.Chat.Logs;
-using Plus.Utilities;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Moderation;
 
 namespace Plus.Communication.Packets.Outgoing.Moderation;
 
-public class ModeratorRoomChatlogComposer : IServerPacket
+public class ModeratorRoomChatlogComposer(ModeratorRoomChatlog chatlog) : IServerPacket
 {
-    private readonly Room _room;
-    private readonly ICollection<ChatlogEntry> _chats;
     public uint MessageId => ServerPacketHeader.ModeratorRoomChatlogComposer;
-
-    public ModeratorRoomChatlogComposer(Room room, ICollection<ChatlogEntry> chats)
-    {
-        _room = room;
-        _chats = chats;
-    }
 
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteByte(1);
-        packet.WriteShort(2); //Count
+        packet.WriteShort(2);
         packet.WriteString("roomName");
         packet.WriteByte(2);
-        packet.WriteString(_room.Name);
+        packet.WriteString(chatlog.Room.Name);
         packet.WriteString("roomId");
         packet.WriteByte(1);
-        packet.WriteUInteger(_room.Id);
-        packet.WriteShort((short)_chats.Count);
-        foreach (var entry in _chats)
+        packet.WriteUInteger(chatlog.Room.Id);
+        packet.WriteShort((short)chatlog.Entries.Length);
+        foreach (var entry in chatlog.Entries)
         {
-            var username = "Unknown";
-            if (entry.PlayerNullable() != null) username = entry.PlayerNullable().Username;
-            packet.WriteString(UnixTimestamp.FromUnixTimestamp(entry.Timestamp).ToShortTimeString()); // time?
-            packet.WriteInteger(entry.PlayerId); // User Id
-            packet.WriteString(username); // Username
-            packet.WriteString(!string.IsNullOrEmpty(entry.Message) ? entry.Message : "** user sent a blank message **"); // Message
-            packet.WriteBoolean(false); //TODO, AI's?
+            packet.WriteString(entry.Timestamp.DateTime.ToShortTimeString());
+            packet.WriteInteger(entry.UserId);
+            packet.WriteString(entry.Username);
+            packet.WriteString(!string.IsNullOrEmpty(entry.Message) ? entry.Message : "** user sent a blank message **");
+            packet.WriteBoolean(false);
         }
     }
 }

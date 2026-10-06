@@ -135,7 +135,7 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
             connection.Execute("CREATE TABLE users_settings (user_id INT PRIMARY KEY, home_room INT UNSIGNED NOT NULL); INSERT INTO users_settings VALUES (7,0)");
-            var room = new Room(new RoomData { Id = 42 }, []);
+            var room = new Room(new RoomData { Id = 42 }, [], TestLogging.Navigation, TestLogging.Logger);
             var rooms = DispatchProxy.Create<IRoomManager, LoadedRoom>();
             ((LoadedRoom)(object)rooms).Room = room;
             var game = DispatchProxy.Create<IGame, RoomGame>();

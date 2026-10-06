@@ -179,7 +179,7 @@ public class WiredStackEngineTests
     public void PendingActorCannotExecuteAfterLeavingOrChangingRoom(bool changeRoom)
     {
         var room = EmptyRoom();
-        var wired = new WiredComponent(room);
+        var wired = new WiredComponent(room, TestLogging.Logger);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent);
         var trigger = fixture.Trigger();
         var effect = fixture.Effect(delay: 1);
@@ -514,7 +514,7 @@ public class WiredStackEngineTests
     [Fact]
     public void EveryPreviouslyConstructibleBoxRetainsItsTypeAndConfigurationShape()
     {
-        var wired = new WiredComponent(EmptyRoom());
+        var wired = new WiredComponent(EmptyRoom(), TestLogging.Logger);
         WiredBoxType[] unsupported = [WiredBoxType.None, WiredBoxType.EffectMoveFurniFromNearestUser,
             WiredBoxType.EffectBotCommunicatesToUserBox, WiredBoxType.ConditionFurniTypeMatches,
             WiredBoxType.ConditionFurniTypeDoesntMatch];
@@ -550,7 +550,7 @@ public class WiredStackEngineTests
     public void KickWarningPrecedesGraceAndProtectedActorsAreNeverScheduled(bool protectedActor)
     {
         var actor = ActorRoom(protectedActor);
-        var wired = new WiredComponent(actor.Room);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var kick = fixture.Add(new KickUserBox(actor.Room,
@@ -572,7 +572,7 @@ public class WiredStackEngineTests
     public void TeleportGlowBeginsWhenFiringIsAcceptedBeforeItsDelay()
     {
         var actor = ActorRoom();
-        var wired = new WiredComponent(actor.Room);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var teleport = fixture.Add(new TeleportUserBox(actor.Room,
@@ -633,7 +633,7 @@ public class WiredStackEngineTests
     public void LeavingAndReenteringTheSameRoomCancelsThePreviousVisit()
     {
         var actor = ActorRoom();
-        var wired = new WiredComponent(actor.Room);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var effect = fixture.Effect(delay: 4);
@@ -775,7 +775,7 @@ public class WiredStackEngineTests
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         var packets = new List<uint>();
-        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory())
+        var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
         {
             Revision = new Revision { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
             {

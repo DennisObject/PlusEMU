@@ -1,4 +1,5 @@
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
+using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
@@ -32,14 +33,19 @@ public sealed class RoomDeletionService : IRoomDeletionService
         {
             if (item == null)
                 continue;
-            if (item.Definition.InteractionType == InteractionType.Moodlight)
-            {
-                using var dbClient = _database.GetQueryReactor();
-                dbClient.SetQuery("DELETE FROM `room_items_moodlight` WHERE `item_id` = @itemId LIMIT 1");
-                dbClient.AddParameter("itemId", item.Id);
-                dbClient.RunQuery();
-            }
             itemsToRemove.Add(item);
+        }
+        using (var connection = _database.Connection())
+        {
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
+            connection.Execute("UPDATE items SET room_id=0 WHERE room_id=@roomId", new { roomId }, transaction);
+            connection.Execute("DELETE FROM user_roomvisits WHERE room_id=@roomId", new { roomId }, transaction);
+            connection.Execute("DELETE FROM user_favorites WHERE room_id=@roomId", new { roomId }, transaction);
+            connection.Execute("DELETE FROM room_rights WHERE room_id=@roomId", new { roomId }, transaction);
+            connection.Execute("UPDATE users_settings SET home_room=0 WHERE home_room=@roomId", new { roomId }, transaction);
+            connection.Execute("DELETE FROM rooms WHERE id=@roomId LIMIT 1", new { roomId }, transaction);
+            transaction.Commit();
         }
         foreach (var item in itemsToRemove)
         {
@@ -53,20 +59,7 @@ public sealed class RoomDeletionService : IRoomDeletionService
             else //No, query time.
             {
                 room.GetRoomItemHandler().RemoveFurniture(null, item.Id);
-                using var dbClient = _database.GetQueryReactor();
-                dbClient.SetQuery("UPDATE `items` SET `room_id` = '0' WHERE `id` = @itemId LIMIT 1");
-                dbClient.AddParameter("itemId", item.Id);
-                dbClient.RunQuery();
             }
-        }
-        _roomManager.UnloadRoom(roomId);
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery("DELETE FROM `user_roomvisits` WHERE `room_id` = @roomId; DELETE FROM `rooms` WHERE `id` = @roomId LIMIT 1; " +
-                              "DELETE FROM `user_favorites` WHERE `room_id` = @roomId; DELETE FROM `items` WHERE `room_id` = @roomId; " +
-                              "DELETE FROM `room_rights` WHERE `room_id` = @roomId; UPDATE `users` SET `home_room` = '0' WHERE `home_room` = @roomId");
-            dbClient.AddParameter("roomId", roomId);
-            dbClient.RunQuery();
         }
         _roomManager.UnloadRoom(roomId);
     }

@@ -49,7 +49,7 @@ internal class UpdateMagicTileEvent : IPacketEvent
             room.GetRoomItemHandler().UpdateItem(item);
         }
         room.GetRoomUserManager().UpdateUserStatusses();
-        room.SendPacket(new ObjectUpdateComposer(item));
+        room.SendPacket(new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)));
         room.SendPacket(new UpdateMagicTileComposer(item.Id, MagicTileHeight.ToWire(height)));
     }
 

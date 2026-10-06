@@ -1,12 +1,12 @@
 using System.Diagnostics;
-using NLog;
+using Microsoft.Extensions.Logging;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
 // Shadow comparison and optional room-owned movement share one compiled graph.
 public sealed partial class RoomNavigation
 {
-    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+    private readonly ILogger<RoomNavigation> _logger;
     private readonly Room _room;
     private readonly Route _route = new();
     private readonly PlanningOccupancy _occupancy;
@@ -18,8 +18,9 @@ public sealed partial class RoomNavigation
     public bool UsesExecutor => Settings.Engine == PathfindingEngine.V2;
     public bool Enabled => Settings.Engine == PathfindingEngine.Shadow;
 
-    public RoomNavigation(Room room, RoomModel model, PathfindingSettings settings)
+    public RoomNavigation(Room room, RoomModel model, PathfindingSettings settings, ILogger<RoomNavigation> logger)
     {
+        _logger = logger;
         _room = room; Settings = settings;
         if (UsesExecutor) room.EnableV2Movement();
         var width = model.MapSizeX; var height = model.MapSizeY;
@@ -39,7 +40,7 @@ public sealed partial class RoomNavigation
         _occupancy = new(Grid.SlotCapacity); _search = new(Grid, settings);
         Inputs.MarkAllDirty();
         if (settings.LayeringEnabled && !layered)
-            Logger.Warn("Room {0}: layering requires pathfinding.engine = v2; using single surfaces (K=1).", room.RoomId);
+            _logger.LogWarning("Room {RoomId}: layering requires pathfinding.engine = v2; using single surfaces (K=1).", room.RoomId);
     }
 
     public void ApplyDirty()
@@ -50,7 +51,7 @@ public sealed partial class RoomNavigation
         {
             Inputs.MarkAllDirty();
             if (UsesExecutor) throw;
-            Logger.Warn(error, "Pathfinding shadow compile failed for room {0}; legacy continues.", _room.RoomId);
+            _logger.LogWarning(error, "Pathfinding shadow compile failed for room {RoomId}; legacy continues.", _room.RoomId);
         }
     }
     public void SetFloorStatus(int x, int y, byte status)
@@ -79,7 +80,7 @@ public sealed partial class RoomNavigation
     {
         if (!Enabled) return;
         try { CompareCore(actor, legacyPath, legacyTicks); }
-        catch (Exception error) { Logger.Warn(error, "Pathfinding shadow search failed for room {0} actor {1}; legacy continues.", _room.RoomId, actor.VirtualId); }
+        catch (Exception error) { _logger.LogWarning(error, "Pathfinding shadow search failed for room {RoomId} actor {ActorId}; legacy continues.", _room.RoomId, actor.VirtualId); }
     }
 
     internal static bool Diverges(PathOutcome outcome, int steps, int legacyCount) => outcome switch
@@ -105,7 +106,7 @@ public sealed partial class RoomNavigation
         var elapsed = Stopwatch.GetTimestamp() - started;
         var divergent = Diverges(outcome, _route.Count, legacyPath.Count) || outcome == PathOutcome.Found && RouteDiffersFromLegacy(legacyPath);
         if (Random.Shared.NextDouble() < Settings.ShadowLogSample)
-            Logger.Info("Pathfinding shadow room={0} actor={1} goal={2},{3} divergence={4} outcome={5} legacy_steps={6} v2_steps={7} legacy_us={8:F2} v2_us={9:F2} expansions={10}",
+            _logger.LogInformation("Pathfinding shadow room={RoomId} actor={ActorId} goal={GoalX},{GoalY} divergence={Divergence} outcome={Outcome} legacy_steps={LegacySteps} v2_steps={V2Steps} legacy_us={LegacyMicroseconds:F2} v2_us={V2Microseconds:F2} expansions={Expansions}",
                 _room.RoomId, actor.VirtualId, request.GoalX, request.GoalY, divergent, outcome,
                 Math.Max(0, legacyPath.Count - 1), _route.Count, legacyTicks * 1e6 / Stopwatch.Frequency,
                 elapsed * 1e6 / Stopwatch.Frequency, lease.Workspace.Expansions);

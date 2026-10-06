@@ -90,7 +90,7 @@ public class OfficialUserWireTests
 
     private sealed class TestClient : GameClient
     {
-        public TestClient() : base(null!, null!)
+        public TestClient() : base(null!, null!, TestLogging.GameClient)
         {
         }
 

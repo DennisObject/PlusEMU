@@ -337,7 +337,7 @@ public class RewardTrackLiveTests
         private readonly List<byte[]> _bodies = new();
         public List<uint> Sent { get; } = new();
 
-        public TestClient(Revision revision) : base(TestGameServer.Instance, new FlashPacketFactory())
+        public TestClient(Revision revision) : base(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
         {
             Revision = revision;
             SendCallback = args =>

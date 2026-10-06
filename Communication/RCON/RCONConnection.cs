@@ -1,18 +1,19 @@
 ﻿using System.Net.Sockets;
 using System.Text;
-using NLog;
+using Microsoft.Extensions.Logging;
 
 namespace Plus.Communication.RCON;
 
 public class RconConnection
 {
-    private static readonly ILogger Log = LogManager.GetLogger("Plus.Communication.Rcon.RconConnection");
+    private readonly ILogger<RconConnection> _logger;
     private byte[] _buffer = new byte[1024];
     private Socket _socket;
 
-    public RconConnection(Socket socket)
+    public RconConnection(Socket socket, ILogger<RconConnection> logger)
     {
         _socket = socket;
+        _logger = logger;
         try
         {
             _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, OnCallBack, _socket);
@@ -33,7 +34,7 @@ public class RconConnection
                 return;
             }
             var data = Encoding.Default.GetString(_buffer, 0, bytes);
-            if (!PlusEnvironment.RconSocket.GetCommands().Parse(data)) Log.Error($"Failed to execute a MUS command. Raw data: {data}");
+            if (!PlusEnvironment.RconSocket.GetCommands().Parse(data)) _logger.LogError("Failed to execute a MUS command. Raw data: {Data}", data);
         }
         catch (Exception e)
         {

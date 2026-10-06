@@ -32,13 +32,11 @@ public class MarketplaceManager : IMarketplaceManager
             if (MarketCounts[spriteId] > 0) return MarketAverages[spriteId] / MarketCounts[spriteId];
             return 0;
         }
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery($"SELECT `avgprice` FROM `catalog_marketplace_data` WHERE `sprite` = '{spriteId}' LIMIT 1");
-            num = dbClient.GetInteger();
-            dbClient.SetQuery($"SELECT `sold` FROM `catalog_marketplace_data` WHERE `sprite` = '{spriteId}' LIMIT 1");
-            num2 = dbClient.GetInteger();
-        }
+        using var connection = _database.Connection();
+        var totals = connection.QuerySingleOrDefault<MarketTotals>(
+            "SELECT avgprice AS AveragePrice,sold AS Sold FROM catalog_marketplace_data WHERE sprite=@spriteId LIMIT 1", new { spriteId });
+        num = totals?.AveragePrice ?? 0;
+        num2 = totals?.Sold ?? 0;
         MarketAverages.Add(spriteId, num);
         MarketCounts.Add(spriteId, num2);
         if (num2 > 0)
@@ -88,6 +86,37 @@ public class MarketplaceManager : IMarketplaceManager
         return new(averagePrice, OfferCountForSprite(spriteId));
     }
 
+    public MarketplaceOwnOffers OwnOffers(int userId)
+    {
+        using var connection = _database.Connection();
+        var rows = connection.Query<OwnOfferRow>(
+            "SELECT `timestamp` AS Timestamp, `state` AS State, `offer_id` AS OfferId, `sprite_id` AS SpriteId, `total_price` AS TotalPrice, `limited_number` AS LimitedNumber, `limited_stack` AS LimitedStack FROM `catalog_marketplace_offers` WHERE `user_id` = @userId",
+            new { userId }).ToArray();
+        var accumulated = connection.ExecuteScalar<int?>(
+            "SELECT SUM(`asking_price`) FROM `catalog_marketplace_offers` WHERE `state` = 2 AND `user_id` = @userId",
+            new { userId }) ?? 0;
+        var now = UnixTimestamp.GetNow();
+        var offers = rows.Select(row =>
+        {
+            var minutes = Convert.ToInt32(Math.Floor((row.Timestamp + 172800.0 - now) / 60.0));
+            var state = int.Parse(row.State);
+            if (minutes <= 0 && state != 2) { state = 3; minutes = 0; }
+            return new MarketplaceOwnOffer(checked((int)row.OfferId), state, row.SpriteId, row.LimitedNumber, row.LimitedStack, row.TotalPrice, minutes);
+        }).ToArray();
+        return new(accumulated, offers);
+    }
+
+    private sealed class OwnOfferRow
+    {
+        public double Timestamp { get; set; }
+        public string State { get; set; } = string.Empty;
+        public uint OfferId { get; set; }
+        public int SpriteId { get; set; }
+        public int TotalPrice { get; set; }
+        public int LimitedNumber { get; set; }
+        public int LimitedStack { get; set; }
+    }
+
     public int CalculateComissionPrice(float price) => Convert.ToInt32(Math.Ceiling(price / 100 * 1));
 
     public async Task<bool> TryCancelOffer(Habbo habbo, uint offerId)
@@ -118,4 +147,6 @@ public class MarketplaceManager : IMarketplaceManager
         using var connection = _database.Connection();
         await connection.ExecuteAsync("DELETE FROM `catalog_marketplace_offers` WHERE `offer_id` = @offerId LIMIT 1", new { offerId });
     }
+
+    private sealed record MarketTotals(int AveragePrice, int Sold);
 }
