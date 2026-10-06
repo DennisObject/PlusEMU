@@ -19,18 +19,24 @@ public class AuthEndpoints
     private readonly ILoginService _login;
     private readonly IRegistrationService _registration;
     private readonly ISessionIssuer _sessions;
+    private readonly bool _enabled;
 
-    public AuthEndpoints(ILoginService login, IRegistrationService registration, ISessionIssuer sessions)
+    public AuthEndpoints(ILoginService login, IRegistrationService registration, ISessionIssuer sessions, bool enabled = true)
     {
         _login = login;
         _registration = registration;
         _sessions = sessions;
+        _enabled = enabled;
     }
 
     public void Map(IEndpointRouteBuilder routes)
     {
         routes.MapGet("/api/health", () => Results.Json(new { ok = true }));
         routes.MapGet("/api/maintenance", () => Results.Json(new { enabled = false }));
+
+        if (!_enabled) {
+            return;
+        }
 
         var auth = routes.MapGroup("/api/auth");
         auth.MapPost("/login", Login);

@@ -39,7 +39,7 @@ public class AuthHttpServer : IAuthHttpServer
     public AuthHttpServer(IOptions<AuthApiConfiguration> options, ILoginService login, IRegistrationService registration, ISessionIssuer sessions)
     {
         _configuration = options.Value;
-        _endpoints = new(login, registration, sessions);
+        _endpoints = new(login, registration, sessions, _configuration.Enabled);
     }
 
     public IReadOnlyCollection<string> Urls => _app?.Urls.ToList() ?? [];

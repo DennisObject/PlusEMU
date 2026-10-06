@@ -94,6 +94,18 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task DisabledAuthKeepsHealthAvailableAndRefusesEveryAuthRoute()
+    {
+        await Start(configuration => configuration.Enabled = false);
+
+        Assert.Equal(HttpStatusCode.OK, (await _http.GetAsync("/api/health")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _http.GetAsync("/api/maintenance")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await Post("/api/auth/login", new { username = "Dennis", password = "secret" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await Post("/api/auth/sso-token", new { ssoTicket = "external-ticket" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync("/api/auth/room-templates")).StatusCode);
+    }
+
+    [Fact]
     public async Task TheHostLeavesStopSignalsToTheEmulatorAndStopsWhenAsked()
     {
         await Start();

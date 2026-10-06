@@ -22,6 +22,7 @@ public class AuthApiConfigurationTests
         var path = Path.GetFullPath(Path.Join(AppContext.BaseDirectory, "../../../../Config/config.json"));
         var auth = Bind(new ConfigurationBuilder().AddJsonFile(path).Build());
 
+        Assert.True(auth.Enabled);
         Assert.Equal("127.0.0.1", auth.Hostname);
         Assert.Equal(8080, auth.Port);
         Assert.Equal(["127.0.0.1", "::1"], auth.TrustedProxies);
@@ -34,10 +35,20 @@ public class AuthApiConfigurationTests
     {
         var auth = Bind(new ConfigurationBuilder().Build());
 
+        Assert.True(auth.Enabled);
         Assert.Equal("127.0.0.1", auth.Hostname);
         Assert.Equal(8080, auth.Port);
         Assert.Empty(auth.TrustedProxies);
         Assert.Equal(300, auth.SsoTicketLifetimeSeconds);
         Assert.Equal("hd-180-1.hr-100-61.ch-210-66.lg-270-82.sh-290-80", auth.Registration.Look);
+    }
+
+    [Fact]
+    public void AuthApiCanBeDisabledWithoutChangingStandaloneDefault()
+    {
+        var values = new Dictionary<string, string?> { ["AuthApi:Enabled"] = "false" };
+        var auth = Bind(new ConfigurationBuilder().AddInMemoryCollection(values).Build());
+
+        Assert.False(auth.Enabled);
     }
 }
