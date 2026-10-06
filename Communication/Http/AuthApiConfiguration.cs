@@ -6,6 +6,9 @@ namespace Plus.Communication.Http;
 /// </summary>
 public class AuthApiConfiguration
 {
+    /// <summary>Enables the emulator-owned Octane account and session endpoints.</summary>
+    public bool Enabled { get; set; } = true;
+
     public string Hostname { get; set; } = "127.0.0.1";
     public int Port { get; set; } = 8080;
 
