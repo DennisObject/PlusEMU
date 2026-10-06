@@ -11,10 +11,12 @@ public class GameManager
     private ConcurrentDictionary<uint, Item> _redTeamItems;
     private ConcurrentDictionary<uint, Item> _yellowTeamItems;
     private Room _room;
+    private readonly TimeProvider _clock;
 
-    public GameManager(Room room)
+    public GameManager(Room room, TimeProvider clock)
     {
         _room = room;
+        _clock = clock;
         Points = new int[5];
         _redTeamItems = new();
         _blueTeamItems = new();
@@ -190,8 +192,10 @@ public class GameManager
 
     public void StopGame()
     {
-        _room.LastTimerReset = DateTime.Now;
+        StopGame(_clock.GetUtcNow());
     }
+
+    internal void StopGame(DateTimeOffset stoppedAt) => _room.LastTimerResetAt = stoppedAt;
 
     public void Dispose()
     {

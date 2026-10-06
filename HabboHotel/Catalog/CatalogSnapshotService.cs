@@ -25,15 +25,15 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
 
     public CatalogPageSnapshot CapturePage(CatalogPage page, int preselectOfferId)
     {
-        var now = time.GetUtcNow().ToUnixTimeSeconds();
+        var now = time.GetUtcNow();
         var offers = page.Layout is "frontpage" or "club_buy" or "vip_buy" or "loyalty_vip_buy"
             ? []
             : page.Offers.Values.Select(item => CaptureOffer(item, item.WireOfferId, item.CatalogName)).ToImmutableArray();
         var promotions = catalog.Promotions
-            .Where(promotion => !promotion.HasExpired(now))
+            .Where(promotion => !promotion.HasExpiredAt(now))
             .OrderBy(promotion => promotion.Position)
             .Select(promotion => new CatalogPromotionSnapshot(promotion.Position, promotion.Title, promotion.Image, promotion.ItemType,
-                promotion.OfferId, promotion.ProductCode, promotion.PageLink, promotion.SecondsLeft(now)))
+                promotion.OfferId, promotion.ProductCode, promotion.PageLink, (int)Math.Clamp(promotion.RemainingAt(now).Ticks / TimeSpan.TicksPerSecond, 0, int.MaxValue)))
             .ToImmutableArray();
         return new CatalogPageSnapshot(page.Id, CatalogModes.Normal, page.Layout, page.PageStringsList1.ToImmutableArray(), page.PageStringsList2.ToImmutableArray(),
             offers, preselectOfferId, promotions);

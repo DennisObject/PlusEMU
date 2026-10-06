@@ -464,7 +464,7 @@ public sealed class EditorDatabaseTests : IDisposable
         var clients = DispatchProxy.Create<IGameClientManager, CatalogProxy>();
         return new FurniEditorService(_database, new FurnidataStore(Options.Create(new FurniEditorConfiguration { FurnidataPath = furnidataPath })),
             DispatchProxy.Create<IFurniEditorTextImporter, EditorPermissionTests.Recorder>(), (ICatalogCacheRefresher)(object)_refresher, clients,
-            NullLogger<FurniEditorService>.Instance);
+            NullLogger<FurniEditorService>.Instance, TimeProvider.System);
     }
 
     private CatalogAdminPage CreatePage(Habbo staff, string name, int parentId, string requiredPermission = "", int order = -1)

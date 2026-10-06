@@ -59,7 +59,8 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             var owner = Client(room, (int)ownerId, "owner", manager, 1);
             var guest = Client(room, (int)guestId, "guest", manager, 2);
             var settingsStore = new DatabaseWiredRoomSettingsStore(database);
-            var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, new WiredRoomSettingsFactory(settingsStore));
+            var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, new WiredRoomSettingsFactory(settingsStore),
+                new WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
             Set(room, "_wiredComponent", wired);
             var settings = wired.Settings;
             var settingsService = new WiredRoomSettingsService(TestLogging.For<WiredRoomSettingsService>());
@@ -112,7 +113,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             var variableItem = new Item { Id = variableId, RoomId = roomId, OwnerId = ownerId,
                 Definition = new() { ItemName = "wf_var_room", InteractionName = "wf_var_room", Type = ItemType.Floor } };
             ((ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(itemHandler)!).TryAdd(variableId, variableItem);
-            var variables = new WiredRoomVariables(room, database, () => 1234);
+            var variables = new WiredRoomVariables(room, database, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1234)));
             Set(wired, "_variables", new Lazy<WiredRoomVariables>(() => variables));
             var definition = variables.CreateBox(variableItem)!;
             Assert.True(definition.TryValidateConfiguration(variableConfig, out variableConfig, out _));
@@ -122,7 +123,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             var userVariableConfig = new WiredConfiguration { IntParams = [1, 10], Text = "settings_clear_probe" };
             connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@Id,'wf_var_user',1,@Json)",
                 new { Id = userVariableId, Json = JsonSerializer.Serialize(userVariableConfig) });
-            connection.Execute("INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at_ms,updated_at_ms) VALUES (@Id,0,@Holder,12,1234,1234)",
+            connection.Execute("INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at,updated_at) VALUES (@Id,0,@Holder,12,'1970-01-01 00:00:01.234000','1970-01-01 00:00:01.234000')",
                 new { Id = userVariableId, Holder = guestId });
             await AssertVariableMenuSettingsGates(room, settings, variables, owner.Client, guest.Client, guest.Packets, connection, variableId, userVariableId);
             var accepted = settings.Snapshot;
@@ -219,11 +220,11 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
         Assert.True(settings.TrySave(owner, 1, 0, "Europe/Berlin", out _));
         Assert.True(settings.CanInspect(guest)); Assert.False(settings.CanModify(guest));
         Func<Task>[] reads = [
-            () => new WiredAllVariablesRequestEvent().Parse(room, guest, Packet()),
-            () => new WiredVariableHashesEvent().Parse(room, guest, Packet(0)),
-            () => new WiredVariableHoldersRequestEvent().Parse(room, guest, Packet(token)),
-            () => new WiredVariableHoldersPageEvent().Parse(room, guest, Packet(token, 1, 15, 0, -1)),
-            () => new WiredUserVariablesRequestEvent().Parse(room, guest, Packet())];
+            () => new WiredAllVariablesRequestEvent(new WiredVariableMenuService()).Parse(room, guest, Packet()),
+            () => new WiredVariableHashesEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(0)),
+            () => new WiredVariableHoldersRequestEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(token)),
+            () => new WiredVariableHoldersPageEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(token, 1, 15, 0, -1)),
+            () => new WiredUserVariablesRequestEvent(new WiredVariableMenuService()).Parse(room, guest, Packet())];
         uint[] headers = [1646, 2498, 9462, 9461, 5103];
         for (var index = 0; index < reads.Length; index++)
         {
@@ -232,22 +233,22 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
         }
         Assert.Equal(7, Value());
         packets.Clear();
-        await new WiredUserVariableUpdateEvent().Parse(room, guest, Packet(3, (int)room.Id, (int)definitionId, 99));
-        await new WiredUserVariableManageEvent().Parse(room, guest, Packet(0, 3, (int)room.Id, (int)definitionId, 88));
-        await new WiredUserVariableManageEvent().Parse(room, guest, Packet(2, 0, guest.GetHabbo().Id, (int)clearDefinitionId, 0));
+        await new WiredUserVariableUpdateEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(3, (int)room.Id, (int)definitionId, 99));
+        await new WiredUserVariableManageEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(0, 3, (int)room.Id, (int)definitionId, 88));
+        await new WiredUserVariableManageEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(2, 0, guest.GetHabbo().Id, (int)clearDefinitionId, 0));
         Assert.Empty(packets); Assert.Equal(7, Value());
 
         room.UsersWithRights.Add(guest.GetHabbo().Id);
         Assert.True(settings.TrySave(owner, 2, 2, "Europe/Berlin", out _));
         Assert.True(settings.CanModify(guest)); Assert.False(settings.CanManage(guest));
         packets.Clear();
-        await new WiredUserVariableUpdateEvent().Parse(room, guest, Packet(3, (int)room.Id, (int)definitionId, 9));
+        await new WiredUserVariableUpdateEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(3, (int)room.Id, (int)definitionId, 9));
         Assert.Equal(9, Value()); Assert.Equal(5103u, Assert.Single(packets).Id);
         packets.Clear();
-        await new WiredUserVariableManageEvent().Parse(room, guest, Packet(0, 3, (int)room.Id, (int)definitionId, 10));
+        await new WiredUserVariableManageEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(0, 3, (int)room.Id, (int)definitionId, 10));
         Assert.Equal(10, Value()); Assert.Equal(5103u, Assert.Single(packets).Id);
         packets.Clear();
-        await new WiredUserVariableManageEvent().Parse(room, guest, Packet(2, 0, guest.GetHabbo().Id, (int)clearDefinitionId, 0));
+        await new WiredUserVariableManageEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(2, 0, guest.GetHabbo().Id, (int)clearDefinitionId, 0));
         Assert.Equal(10, Value()); Assert.Equal(5103u, Assert.Single(packets).Id); // Editing never grants offline clear.
         Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@Id", new { Id = clearDefinitionId }));
 
@@ -255,11 +256,11 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
         Assert.True(room.CheckRights(guest, false, true)); Assert.False(settings.CanInspect(guest)); Assert.False(settings.CanModify(guest));
         foreach (var read in reads) { packets.Clear(); await read(); Assert.Empty(packets); }
         packets.Clear();
-        await new WiredUserVariableUpdateEvent().Parse(room, guest, Packet(3, (int)room.Id, (int)definitionId, 99));
-        await new WiredUserVariableManageEvent().Parse(room, guest, Packet(0, 3, (int)room.Id, (int)definitionId, 88));
+        await new WiredUserVariableUpdateEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(3, (int)room.Id, (int)definitionId, 99));
+        await new WiredUserVariableManageEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(0, 3, (int)room.Id, (int)definitionId, 88));
         Assert.Empty(packets); Assert.Equal(10, Value());
         Assert.True(settings.CanManage(owner));
-        await new WiredUserVariableManageEvent().Parse(room, owner, Packet(2, 0, guest.GetHabbo().Id, (int)clearDefinitionId, 0));
+        await new WiredUserVariableManageEvent(new WiredVariableMenuService()).Parse(room, owner, Packet(2, 0, guest.GetHabbo().Id, (int)clearDefinitionId, 0));
         Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@Id", new { Id = clearDefinitionId }));
         Assert.True(settings.TrySave(owner, 2, 2, "Europe/Berlin", out _));
         room.UsersWithRights.Remove(guest.GetHabbo().Id);

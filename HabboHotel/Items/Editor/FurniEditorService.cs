@@ -44,11 +44,12 @@ public sealed class FurniEditorService : IFurniEditorService
     private readonly ICatalogCacheRefresher _refresher;
     private readonly IGameClientManager _gameClientManager;
     private readonly ILogger<FurniEditorService> _logger;
-    private readonly ConcurrentDictionary<int, DateTime> _lastFurnidataEdit = new();
+    private readonly ConcurrentDictionary<int, DateTimeOffset> _lastFurnidataEdit = new();
     private readonly object _sync = new();
+    private readonly TimeProvider _clock;
 
     public FurniEditorService(IDatabase database, IFurnidataStore furnidata, IFurniEditorTextImporter importer, ICatalogCacheRefresher refresher,
-        IGameClientManager gameClientManager, ILogger<FurniEditorService> logger)
+        IGameClientManager gameClientManager, ILogger<FurniEditorService> logger, TimeProvider clock)
     {
         _database = database;
         _furnidata = furnidata;
@@ -56,6 +57,7 @@ public sealed class FurniEditorService : IFurniEditorService
         _refresher = refresher;
         _gameClientManager = gameClientManager;
         _logger = logger;
+        _clock = clock;
     }
 
     public FurniEditorSearchResult Search(Habbo actor, string query, string type, int page, string sortField, string sortDirection)
@@ -286,11 +288,14 @@ public sealed class FurniEditorService : IFurniEditorService
 
     private bool TakeFurnidataTurn(Habbo actor)
     {
-        var now = DateTime.UtcNow;
-        if (_lastFurnidataEdit.TryGetValue(actor.Id, out var last) && now - last < FurnidataCooldown)
-            return false;
-        _lastFurnidataEdit[actor.Id] = now;
-        return true;
+        lock (_sync)
+        {
+            var now = _clock.GetUtcNow();
+            if (_lastFurnidataEdit.TryGetValue(actor.Id, out var last) && now - last < FurnidataCooldown)
+                return false;
+            _lastFurnidataEdit[actor.Id] = now;
+            return true;
+        }
     }
 
     internal static bool KnownInteraction(string type) => type == "default" || InteractionTypes.GetTypeFromString(type) != InteractionType.None;

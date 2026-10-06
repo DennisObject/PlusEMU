@@ -256,10 +256,10 @@ public sealed class CatalogPurchaseServiceTests
 
     private sealed class RecordingMembership : IClubMembershipService
     {
-        public long GetExpiry(int userId) => 0;
-        public long? Purchase(Habbo habbo, ClubOffer offer, int? recipientId = null) =>
-            new DateTimeOffset(2040, 3, 5, 4, 5, 6, TimeSpan.Zero).ToUnixTimeSeconds();
-        public long? Grant(Habbo actor, int userId, int days) => throw new NotSupportedException();
+        public DateTimeOffset? GetExpiry(int userId) => null;
+        public DateTimeOffset? Purchase(Habbo habbo, ClubOffer offer, int? recipientId = null) =>
+            new DateTimeOffset(2040, 3, 5, 4, 5, 6, TimeSpan.Zero);
+        public DateTimeOffset? Grant(Habbo actor, int userId, int days) => throw new NotSupportedException();
     }
 
     public class EmptyProxy : DispatchProxy

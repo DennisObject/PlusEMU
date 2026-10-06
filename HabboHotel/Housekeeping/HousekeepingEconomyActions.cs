@@ -122,7 +122,7 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
         if (expiry == null) return HousekeepingOutcome.Fail(Forbidden, Label(user));
         if (_clients.Online(userId) is { } client)
             client.Send(new ScrSendUserInfoComposer(client.GetHabbo().Access));
-        return HousekeepingOutcome.Success(Label(user), $"days={days} expires={expiry}");
+        return HousekeepingOutcome.Success(Label(user), $"days={days} expires={expiry.Value.ToUnixTimeSeconds()}");
     }
 
     private static int Balance(Habbo habbo, HousekeepingCurrency currency) => currency switch

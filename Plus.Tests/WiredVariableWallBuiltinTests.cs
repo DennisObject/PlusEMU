@@ -84,7 +84,7 @@ public sealed class WiredVariableWallBuiltinTests
             Room.Id = 1; Room.OwnerId = 5;
             var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance); typeof(Room).GetField("_roomItemHandling", Private)!.SetValue(Room, handler);
             typeof(Room).GetField("_roomUserManager", Private)!.SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System));
-            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance); typeof(Room).GetField("_wiredComponent", Private)!.SetValue(Room, wired);
+            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance); typeof(Room).GetField("_wiredComponent", Private)!.SetValue(Room, wired);
             Walls = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", Private)!.GetValue(handler)!;
             Floors = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", Private)!.GetValue(handler)!;
             Walls[Wall.Id] = Wall; typeof(Item).GetField("_room", Private)!.SetValue(Wall, Room);
@@ -92,7 +92,7 @@ public sealed class WiredVariableWallBuiltinTests
                 new(() => Floors.Values, () => [], handler.GetItem), wired);
             context.Triggering.FurniIds.Add(Wall.Id);
             Frame = WiredVariableRuntimeFrames.Create(context); Assert.Contains(WiredVariableRuntimeFrames.FurniHolder(Wall), Frame.Holders); Holder = WiredVariableRuntimeFrames.FurniHolder(Wall);
-            Module = new(1, new Directory(), new MemoryWiredVariableStore(), () => 1, new RoomWiredBuiltinVariables(Room, wired.ReadBuiltin, wired.WriteBuiltin));
+            Module = new(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)), new RoomWiredBuiltinVariables(Room, wired.ReadBuiltin, wired.WriteBuiltin));
         }
         public WiredVariableValue? Read(string key) => Module.Read(Reference(key), Holder, Frame);
         public bool Write(string key, int value) => Module.Mutate(Reference(key), Holder, WiredVariableMutation.Set, value, Frame);

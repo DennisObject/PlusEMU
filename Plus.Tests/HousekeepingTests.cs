@@ -451,7 +451,7 @@ public class HousekeepingHandlerTests
     public async Task ActionLogIsReadBackNewestFirstForStaff()
     {
         var audit = new FakeAudit();
-        audit.Entries.Add(new() { Id = 4, Timestamp = 100, ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true });
+        audit.Entries.Add(new() { Id = 4, CreatedAt = DateTimeOffset.FromUnixTimeSeconds(100), ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true });
         var (client, sent) = Client(Staff(HousekeepingRights.Access));
         await new HousekeepingListActionLogEvent(new HousekeepingActionRunner(audit, NullLogger<HousekeepingActionRunner>.Instance), audit).Parse(client, Incoming(10_000));
         var packet = new FlashIncomingPacket { Buffer = Assert.Single(sent).Payload };
@@ -539,10 +539,50 @@ public class HousekeepingWireTests
     [Fact]
     public void ActionLogMatchesHousekeepingActionLogEntryData()
     {
-        var entry = new HousekeepingAuditEntry { Id = 4, Timestamp = 100, ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true };
+        var entry = new HousekeepingAuditEntry { Id = 4, CreatedAt = DateTimeOffset.FromUnixTimeSeconds(100), ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true };
         Assert.Equal(new object[] { 1, 4, 100, 1, "staff", "room", 5, "Lobby", "room.close", "open=False", true },
             Writes(new HousekeepingActionLogComposer(new[] { entry })));
     }
+
+    [Fact]
+    public void ActionLogTimestampsUseTheLegacySecondsEdges()
+    {
+        var entries = new[]
+        {
+            Entry(1, null),
+            Entry(2, new DateTimeOffset(1969, 12, 31, 23, 59, 59, TimeSpan.Zero)),
+            Entry(3, DateTimeOffset.UnixEpoch),
+            Entry(4, new DateTimeOffset(2038, 1, 19, 3, 14, 7, TimeSpan.Zero)),
+            Entry(5, new DateTimeOffset(2038, 1, 19, 3, 14, 8, TimeSpan.Zero)),
+            Entry(6, DateTimeOffset.FromUnixTimeSeconds(1_700_000_000).AddTicks(9_999_999)),
+        };
+
+        Assert.Equal(new[] { 0, 0, 0, 2_147_483_647, int.MaxValue, 1_700_000_000 }, ActionLogTimestamps(Writes(new HousekeepingActionLogComposer(entries))));
+    }
+
+    [Fact]
+    public void ActionLogFreezesItsEntriesAtConstruction()
+    {
+        var source = new List<HousekeepingAuditEntry> { Entry(1, DateTimeOffset.FromUnixTimeSeconds(100)) };
+        var composer = new HousekeepingActionLogComposer(source);
+        var first = Writes(composer);
+
+        source.Clear();
+        source.Add(Entry(9, DateTimeOffset.FromUnixTimeSeconds(999)));
+
+        Assert.Equal(first, Writes(composer));
+        Assert.Equal(first, Writes(composer));
+        Assert.Equal(new[] { 100 }, ActionLogTimestamps(first));
+    }
+
+    private static HousekeepingAuditEntry Entry(int id, DateTimeOffset? createdAt) => new()
+    {
+        Id = id, CreatedAt = createdAt, ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true,
+    };
+
+    // Each action-log entry writes ten values, and the timestamp is the second value after the leading count.
+    private static int[] ActionLogTimestamps(IReadOnlyList<object> writes) =>
+        Enumerable.Range(0, (writes.Count - 1) / 10).Select(index => (int)writes[1 + index * 10 + 1]).ToArray();
 
     [Fact]
     public void AuditTargetTypesUseTheClientVocabulary()
@@ -628,7 +668,7 @@ public class ClientPermissionWireTests
         var access = UserAccess.Create([new(new AccessRole(9, "developer", "Developer", 90, 7, "DEV", true,
             [PermissionKeys.Ambassador, PermissionKeys.CameraUse, PermissionKeys.HousekeepingAccess], new Dictionary<string, int>()))]);
         var packet = new RecordingPacket();
-        new UserRightsComposer(access).Compose(packet);
+        new UserRightsComposer(UserRightsSnapshot.Capture(access)).Compose(packet);
         Assert.Equal(new object[] { 0, 7, true, 9, "Developer", "DEV", 3, "ambassador", 1, "camera.use", 1, "housekeeping.access", 1 }, packet.Writes);
     }
 }

@@ -62,7 +62,7 @@ public sealed class ClubOfferSnapshotService(ICatalogManager catalog, TimeProvid
 
     private static DateTimeOffset MembershipEnd(GameClient session, DateTimeOffset now)
     {
-        var expiry = DateTimeOffset.FromUnixTimeSeconds(session.GetHabbo().Access.Membership.ExpiresAt);
-        return expiry > now ? expiry : now;
+        var expiry = session.GetHabbo().Access.Membership.ExpiresAt;
+        return expiry is { } end && end > now ? end : now;
     }
 }

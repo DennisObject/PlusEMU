@@ -15,6 +15,8 @@ using Plus.HabboHotel.Items.Wired.Boxes.Conditions;
 using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 using Plus.HabboHotel.Items.Wired.Settings;
+using Plus.Database;
+using Plus.HabboHotel.Rooms.AI;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -25,12 +27,19 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly WiredTargetResolver _targets;
     private readonly ILogger _logger;
     private readonly TimeProvider _clock;
+    private readonly IBotManagementStore _botStore;
 
-    public WiredComponent(Room instance, ILogger logger, TimeProvider clock, IWiredRoomSettingsFactory settingsFactory) //, RoomItem Items)
+    public WiredComponent(Room instance, ILogger logger, TimeProvider clock, IWiredRoomSettingsFactory settingsFactory,
+        IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService,
+        IBotManagementStore botStore) //, RoomItem Items)
     {
         _room = instance;
         _logger = logger;
         _clock = clock;
+        _configurationStore = configurationStore;
+        _database = database;
+        _rewards = rewardService;
+        _botStore = botStore;
         Settings = settingsFactory.Create(instance);
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
@@ -158,7 +167,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
                 item.Definition.WiredType, item.Id, _room.Id);
             return null;
         }
-        using (var connection = PlusEnvironment.DatabaseManager.Connection())
+        using (var connection = _database.Connection())
         {
             var row = connection.QuerySingleOrDefault<WiredItemRow>(
                 "SELECT items,delay,`string` AS StringData,`bool` AS BoolData FROM wired_items WHERE id=@id LIMIT 1", new { item.Id });
@@ -322,7 +331,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
             case WiredBoxType.EffectTeleportBotToFurniBox:
                 return new TeleportBotToFurniBox(_room, item);
             case WiredBoxType.EffectBotChangesClothesBox:
-                return new BotChangesClothesBox(_room, item);
+                return new BotChangesClothesBox(_room, item, _botStore);
             case WiredBoxType.EffectBotMovesToFurniBox:
                 return new BotMovesToFurniBox(_room, item);
             case WiredBoxType.EffectBotCommunicatesToAllBox:
@@ -458,7 +467,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
         }
         if (item.Type == WiredBoxType.EffectMatchPosition || item.Type == WiredBoxType.ConditionMatchStateAndPosition || item.Type == WiredBoxType.ConditionDontMatchStateAndPosition)
             item.ItemsData = items;
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
+        using var connection = _database.Connection();
         connection.Execute("REPLACE INTO wired_items (id,items,delay,`string`,`bool`) VALUES (@id,@items,@delay,@stringData,@boolData)",
             new { id = item.Item.Id, items, delay = item is IWiredCycle ? cycle.Delay : 0, stringData = item.StringData, boolData = item.BoolData });
         _engine.CancelPending(item);

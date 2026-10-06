@@ -1,4 +1,5 @@
 using Plus.Communication.Packets.Incoming.Rooms.Avatar;
+using Plus.Communication.Packets.Incoming.Preferences;
 using Plus.Communication.Packets.Incoming.Sound;
 using Plus.Communication.Packets.Incoming.Users;
 using Plus.HabboHotel.GameClients;
@@ -20,6 +21,11 @@ public sealed class UserProfileEventTests
         await new SetMessengerInviteStatusEvent(profiles).Parse(null!, HabbiconTestSupport.Incoming(true));
         await new SetSoundSettingsEvent(profiles).Parse(null!, HabbiconTestSupport.Incoming(-1, 50, 101));
 
+        await new SetChatStylePreferenceEvent(profiles).Parse(null!, HabbiconTestSupport.Incoming(42));
+        await new SetUIFlagsEvent(profiles).Parse(null!, HabbiconTestSupport.Incoming(1));
+        Assert.Equal(42, profiles.Bubble);
+        Assert.Equal(1, profiles.FriendBar);
+
         Assert.True(profiles.Invites);
         Assert.Equal(new SoundVolumeRequest(-1, 50, 101), profiles.Volumes);
         Assert.Equal(new("f", "hd-1"), profiles.Figure);
@@ -32,7 +38,7 @@ public sealed class UserProfileEventTests
     {
         var habbo = new Habbo { Id = 7, Motto = "original", TimeMuted = 10 };
         var (session, sent) = HabbiconTestSupport.Client(habbo);
-        var profiles = new UserProfileService(null!, null!, null!, null!, null!, TimeProvider.System);
+        var profiles = new UserProfileService(null!, null!, null!, null!, null!, TimeProvider.System, null!);
 
         profiles.ChangeMotto(session, "changed");
 
@@ -45,7 +51,7 @@ public sealed class UserProfileEventTests
     {
         var habbo = new Habbo { Id = 7, FocusPreference = false };
         var (session, _) = HabbiconTestSupport.Client(habbo);
-        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!);
         Assert.Throws<InvalidOperationException>(() => profiles.SetFocusPreference(session, true));
         Assert.False(habbo.FocusPreference);
     }
@@ -57,7 +63,7 @@ public sealed class UserProfileEventTests
         var habbo = new Habbo { Id = 7, Motto = "original", MottoUpdateWarnings = 24,
             LastMottoUpdatedAt = clock.GetUtcNow().AddSeconds(-2).ToOffset(TimeSpan.FromHours(2)) };
         var (session, sent) = HabbiconTestSupport.Client(habbo);
-        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), clock);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), clock, null!);
         profiles.ChangeMotto(session, "changed");
         Assert.Equal(25, habbo.MottoUpdateWarnings);
         Assert.True(habbo.SessionMottoBlocked);
@@ -80,6 +86,8 @@ public sealed class UserProfileEventTests
         public FigureUpdateRequest? Figure { get; private set; }
         public string? Motto { get; private set; }
         public bool Focus { get; private set; }
+        public int Bubble { get; private set; }
+        public int FriendBar { get; private set; }
         public bool Invites { get; private set; }
         public SoundVolumeRequest? Volumes { get; private set; }
         public void ShowUserObject(GameClient session) { }
@@ -89,5 +97,7 @@ public sealed class UserProfileEventTests
         public void UpdateFigure(GameClient session, FigureUpdateRequest request) => Figure = request;
         public void ChangeMotto(GameClient session, string motto) => Motto = motto;
         public void SetFocusPreference(GameClient session, bool enabled) => Focus = enabled;
+        public Task SetChatStylePreference(GameClient session, int bubbleId) { Bubble = bubbleId; return Task.CompletedTask; }
+        public void SetFriendBarState(GameClient session, int state) => FriendBar = state;
     }
 }

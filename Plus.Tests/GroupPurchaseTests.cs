@@ -7,12 +7,12 @@ using Plus.Communication.Packets.Incoming.Groups;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Revisions;
 using Plus.Core.Settings;
-using Plus.HabboHotel;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Authentication;
 using Xunit;
 
 namespace Plus.Tests;
@@ -21,42 +21,49 @@ namespace Plus.Tests;
 public class GroupPurchaseCollection;
 
 [Collection("Group purchase")]
-public class GroupPurchaseTests : IDisposable
+public class GroupPurchaseTests
 {
-    private readonly FieldInfo _gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
-    private readonly object? _previousGame;
-    private readonly Room _room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-    private readonly Group _group = (Group)RuntimeHelpers.GetUninitializedObject(typeof(Group));
+    private readonly RoomData _room = new() { Id = 42, OwnerId = 7 };
+    private readonly Group _group = GroupPurchaseTestSupport.Group(99);
     private readonly TestClient _client = new();
     private readonly PurchaseGroupEvent _handler;
     private string? _createdBadge;
     private bool _createSucceeds = true;
+    private bool _creationThrows;
+    private string _cost = "150";
 
     public GroupPurchaseTests()
     {
-        _previousGame = _gameField.GetValue(null);
-        _room.Id = 42;
-        _room.OwnerId = 7;
-        _group.Id = 99;
         _client.SetHabbo(new Habbo { Id = 7, Credits = 1000, Access = Plus.HabboHotel.Permissions.UserAccess.Create([], [new(Plus.HabboHotel.Permissions.PermissionKeys.ClubAccess, false)]) });
-        var roomManager = Proxy<IRoomManager>((method, args) =>
+        var roomLoader = Proxy<IRoomDataLoader>((method, args) =>
         {
-            Assert.Equal("TryGetRoom", method);
+            Assert.Equal(nameof(IRoomDataLoader.TryGetData), method);
             Assert.Equal((uint)42, args[0]);
             args[1] = _room;
             return true;
         });
-        _gameField.SetValue(null, Proxy<IGame>((method, _) => method == "get_RoomManager" ? roomManager : throw new InvalidOperationException(method)));
         var groups = Proxy<IGroupManager>((method, args) =>
         {
             Assert.Equal("TryCreateGroup", method);
+            Assert.Equal(1000, _client.GetHabbo().Credits);
+            Assert.Null(_room.Group);
+            Assert.Equal(0, _room.GroupId);
+            Assert.Empty(_client.Sent);
+            Assert.Equal("test", args[1]);
+            Assert.Equal("description", args[2]);
+            Assert.Equal((uint)42, args[3]);
+            Assert.Equal(1, args[5]);
+            Assert.Equal(1, args[6]);
             _createdBadge = (string)args[4]!;
+            if (_creationThrows) throw new InvalidOperationException("write failed");
             args[7] = _group;
             return _createSucceeds;
         });
         var filter = Proxy<IWordFilterManager>((_, args) => args[0]);
-        var settings = Proxy<ISettingsManager>((_, _) => "150");
-        _handler = new PurchaseGroupEvent(groups, filter, settings);
+        var settings = Proxy<ISettingsManager>((_, _) => _cost);
+        _handler = new PurchaseGroupEvent(new GroupPurchaseService(
+            groups, roomLoader, filter, settings, new AccountSessionGate(),
+            TestLogging.For<GroupPurchaseService>()));
     }
 
     [Theory]
@@ -71,9 +78,16 @@ public class GroupPurchaseTests : IDisposable
         Assert.Empty(packet.Buffer.ToArray());
         Assert.Equal("b01014" + string.Concat(Enumerable.Repeat("s02024", partCount - 1)), _createdBadge);
         Assert.Same(_group, _room.Group);
+        Assert.Equal(_group.Id, _room.GroupId);
         Assert.Equal(850, _client.GetHabbo().Credits);
         Assert.Contains(ServerPacketHeader.NewGroupInfoComposer, _client.Sent);
         Assert.Contains(ServerPacketHeader.CreditBalanceComposer, _client.Sent);
+        Assert.Equal([
+            ServerPacketHeader.CreditBalanceComposer,
+            ServerPacketHeader.PurchaseOKComposer,
+            ServerPacketHeader.RoomForwardComposer,
+            ServerPacketHeader.NewGroupInfoComposer
+        ], _client.Sent);
 
         await _handler.Parse(_client, PurchasePacket(partCount * 3, partCount));
         Assert.Equal(850, _client.GetHabbo().Credits);
@@ -100,6 +114,38 @@ public class GroupPurchaseTests : IDisposable
     }
 
     [Fact]
+    public async Task ExistingRoomGroupDoesNotChargeOrCreate()
+    {
+        _room.Group = _group;
+        _room.GroupId = _group.Id;
+
+        await _handler.Parse(_client, PurchasePacket(3, 1));
+
+        Assert.Equal(1000, _client.GetHabbo().Credits);
+        Assert.Null(_createdBadge);
+        Assert.Empty(_client.Sent);
+    }
+
+    [Fact]
+    public async Task NoClubAccessDoesNotChargeOrCreate()
+    {
+        _client.GetHabbo().Access = Plus.HabboHotel.Permissions.UserAccess.Empty;
+        await _handler.Parse(_client, PurchasePacket(3, 1));
+        AssertUnpurchased();
+    }
+
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("2147483648")]
+    [InlineData("invalid")]
+    public async Task InvalidConfiguredCostDoesNotChargeOrCreate(string cost)
+    {
+        _cost = cost;
+        await _handler.Parse(_client, PurchasePacket(3, 1));
+        AssertUnpurchased();
+    }
+
+    [Fact]
     public async Task InsufficientCreditsDoNotCreateGroup()
     {
         _client.GetHabbo().Credits = 149;
@@ -107,6 +153,7 @@ public class GroupPurchaseTests : IDisposable
         Assert.Equal(149, _client.GetHabbo().Credits);
         Assert.Null(_createdBadge);
         Assert.Null(_room.Group);
+        Assert.Equal(0, _room.GroupId);
     }
 
     [Fact]
@@ -118,6 +165,51 @@ public class GroupPurchaseTests : IDisposable
         Assert.Null(_room.Group);
         Assert.DoesNotContain(ServerPacketHeader.CreditBalanceComposer, _client.Sent);
         Assert.DoesNotContain(ServerPacketHeader.NewGroupInfoComposer, _client.Sent);
+        Assert.Equal(0, _room.GroupId);
+    }
+
+    [Fact]
+    public async Task CurrentRoomPurchaseDoesNotSendRoomForward()
+    {
+        var currentRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        typeof(Room).GetField("_data", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(currentRoom, _room);
+        _client.GetHabbo().CurrentRoom = currentRoom;
+
+        await _handler.Parse(_client, PurchasePacket(3, 1));
+
+        Assert.Equal(_group.Id, _room.GroupId);
+        Assert.Same(_group, _room.Group);
+        Assert.Equal([
+            ServerPacketHeader.CreditBalanceComposer,
+            ServerPacketHeader.PurchaseOKComposer,
+            ServerPacketHeader.NewGroupInfoComposer
+        ], _client.Sent);
+    }
+
+    [Fact]
+    public async Task ClosedWalletDoesNotCreateOrPublish()
+    {
+        typeof(Habbo).GetField("_disconnected", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(_client.GetHabbo(), true);
+
+        await _handler.Parse(_client, PurchasePacket(3, 1));
+
+        AssertUnpurchased();
+    }
+
+    [Fact]
+    public async Task CreationExceptionDoesNotChargeOrPublish()
+    {
+        _creationThrows = true;
+
+        await _handler.Parse(_client, PurchasePacket(3, 1));
+
+        Assert.Equal(1000, _client.GetHabbo().Credits);
+        Assert.Null(_room.Group);
+        Assert.Equal(0, _room.GroupId);
+        Assert.DoesNotContain(ServerPacketHeader.CreditBalanceComposer, _client.Sent);
+        Assert.DoesNotContain(ServerPacketHeader.NewGroupInfoComposer, _client.Sent);
     }
 
     private void AssertUnpurchased()
@@ -125,6 +217,7 @@ public class GroupPurchaseTests : IDisposable
         Assert.Equal(1000, _client.GetHabbo().Credits);
         Assert.Null(_createdBadge);
         Assert.Null(_room.Group);
+        Assert.Equal(0, _room.GroupId);
         Assert.Empty(_client.Sent);
     }
 
@@ -181,5 +274,14 @@ public class GroupPurchaseTests : IDisposable
         public override void CreateHeader(Memory<byte> memory, uint messageId) => Sent.Add(messageId);
     }
 
-    public void Dispose() => _gameField.SetValue(null, _previousGame);
+}
+
+internal static class GroupPurchaseTestSupport
+{
+    internal static Group Group(int id)
+    {
+        var group = (Group)RuntimeHelpers.GetUninitializedObject(typeof(Group));
+        group.Id = id;
+        return group;
+    }
 }

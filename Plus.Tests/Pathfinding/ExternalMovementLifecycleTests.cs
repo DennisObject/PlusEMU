@@ -236,7 +236,7 @@ public partial class PlacedFurniRoomTests
     }
 
     private void RideExternalHorse(RoomUser horse, bool mount)
-        => new RideHorseEvent(Proxy<IPetLocale>((_, _) => new[] { "horse" }))
+        => new RideHorseEvent(new HorseRidingService(Proxy<IPetLocale>((_, _) => new[] { "horse" })))
             .Parse(_room, _client, ClientPacket(horse.PetData.PetId, mount)).GetAwaiter().GetResult();
 
     private static int DrainRemainingSearches(RoomNavigation navigation)

@@ -14,6 +14,7 @@ public class CommandManager : ICommandManager
 {
     private readonly IGameClientManager _gameClientManager;
     private readonly IDatabase _database;
+    private readonly TimeProvider _clock;
     /// <summary>
     /// Commands registered for use.
     /// </summary>
@@ -26,10 +27,11 @@ public class CommandManager : ICommandManager
     /// <summary>
     /// The default initializer for the CommandManager
     /// </summary>
-    public CommandManager(IEnumerable<ICommandBase> commands, IGameClientManager gameClientManager, IDatabase database)
+    public CommandManager(IEnumerable<ICommandBase> commands, IGameClientManager gameClientManager, IDatabase database, TimeProvider clock)
     {
         _gameClientManager = gameClientManager;
         _database = database;
+        _clock = clock;
         _commands = new(commands.ToDictionary(command => command.Key));
     }
 
@@ -133,8 +135,9 @@ public class CommandManager : ICommandManager
     public void LogCommand(int userId, string data, string machineId)
     {
         using var connection = _database.Connection();
+        var timestamp = _clock.GetUtcNow().UtcDateTime;
         connection.Execute("INSERT INTO logs_client_staff (user_id,data_string,machine_id,`timestamp`) VALUES (@userId,@data,@machineId,@timestamp)",
-            new { userId, data, machineId = machineId ?? string.Empty, timestamp = PlusEnvironment.GetUnixTimestamp() });
+            new { userId, data, machineId = machineId ?? string.Empty, timestamp });
     }
 
     public bool TryGetCommand(string command, [NotNullWhen(true)] out ICommandBase? chatCommand) => _commands.TryGetValue(command, out chatCommand);

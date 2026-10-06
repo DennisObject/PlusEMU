@@ -66,6 +66,10 @@ public class WiredTemporaryPacketGuardTests
             ? (object)new EnabledExchangeSettings()
             : parameter.ParameterType == typeof(Plus.HabboHotel.Catalog.IGnomePackageService)
                 ? new Plus.HabboHotel.Catalog.GnomePackageService(new Plus.HabboHotel.Catalog.GnomePackageStore(database, Microsoft.Extensions.Logging.Abstractions.NullLogger<Plus.HabboHotel.Catalog.GnomePackageStore>.Instance), null!, null!, TimeProvider.System)
+            : parameter.ParameterType == typeof(IMagicTileService)
+                ? new MagicTileService()
+            : parameter.ParameterType == typeof(IRoomItemPlacementService)
+                ? new RoomItemPlacementService(null!, null!, null!, null!, TestLogging.For<RoomItemPlacementService>())
             : parameter.ParameterType == typeof(IRoomItemPickupService)
                 ? new RoomItemPickupService(null!, null!, new RoomItemPickupStore(database))
             : parameter.ParameterType == typeof(IGroupPresentationService)
@@ -75,7 +79,7 @@ public class WiredTemporaryPacketGuardTests
                 : parameter.ParameterType == typeof(IGiftOpeningService)
                     ? new GiftOpeningService(new GiftStore(database), null!, null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<GiftOpeningService>.Instance)
                 : parameter.ParameterType == typeof(IRoomItemMetadataService)
-                    ? new RoomItemMetadataService(new RoomItemMetadataStore(database))
+                    ? new RoomItemMetadataService(new RoomItemMetadataStore(database), null!)
                     : parameter.ParameterType == typeof(IRoomInteractionService)
                         ? new RoomInteractionService(new RoomInteractionStore(database))
                         : parameter.ParameterType == typeof(ILoveLockService)
@@ -112,7 +116,7 @@ public class WiredTemporaryPacketGuardTests
         Floor(room).TryAdd(highId, item);
         using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
         output.WriteUInteger(highId); output.WriteInteger(350);
-        await new UpdateMagicTileEvent().Parse(client, new FlashIncomingPacket { Buffer = stream.ToArray().AsMemory(6) });
+        await new UpdateMagicTileEvent(new MagicTileService()).Parse(client, new FlashIncomingPacket { Buffer = stream.ToArray().AsMemory(6) });
         Assert.Equal(3.5, item.GetZ);
         Assert.False(item.IsTemporary);
     }
@@ -124,7 +128,7 @@ public class WiredTemporaryPacketGuardTests
     {
         var item = new Item { Id = uint.MaxValue - 1, IsTemporary = temporary };
         using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
-        new ObjectRemoveComposer(item, 42).Compose(output);
+        new ObjectRemoveComposer(item.Id, item.IsTemporary, 42).Compose(output);
         var input = new FlashIncomingPacket { Buffer = stream.ToArray().AsMemory(6) };
         Assert.Equal(expected, input.ReadString()); Assert.False(input.ReadBool());
         Assert.Equal(42, input.ReadInt()); Assert.Equal(0, input.ReadInt()); Assert.False(input.HasDataRemaining());
@@ -182,10 +186,14 @@ public class WiredTemporaryPacketGuardTests
         using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
         if (name.Contains("PickupObject")) output.WriteInteger(0);
         output.WriteUInteger(7);
+        if (name == "Rooms.Engine.MoveObjectEvent")
+        { output.WriteInteger(4); output.WriteInteger(5); output.WriteInteger(2); }
+        if (name.Contains("UpdateMagicTile")) output.WriteInteger(350);
         if (name.Contains("Gnome")) output.WriteString("Pixel");
         else if (name.Contains("MoveWall")) output.WriteString(":w=1,1 l=1,1 l");
         else if (name.Contains("UseFurniture")) output.WriteInteger(0);
         else if (name.Contains("SetToner")) { output.WriteInteger(10); output.WriteInteger(20); output.WriteInteger(30); }
+        else if (name.Contains("UpdateStickyNote")) { output.WriteString("FFFF33"); output.WriteString("changed"); }
         else if (name.Contains("SetMannequinName")) output.WriteString("changed");
         else if (name.Contains("FriendFurni")) output.WriteBoolean(true);
         else if (name.Contains("ApplyHorse")) output.WriteInteger(42);
@@ -201,7 +209,7 @@ public class WiredTemporaryPacketGuardTests
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
         typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room,
-            new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance));
+            new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance));
         var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
         client.SetHabbo(new Habbo { Id = 42, Username = "owner", CurrentRoom = room, Credits = 10,
             Access = EditorTestSupport.Access(["room.item_save_branding_items"]) });

@@ -61,6 +61,6 @@ public sealed class AccessAuditEntry
     public int TargetId { get; set; }
     public string TargetName { get; set; } = "";
     public string Payload { get; set; } = "";
-    public int CreatedAt { get; set; }
+    public DateTimeOffset? CreatedAt { get; set; }
 }
 public sealed record AccessAuditPage(int Offset, int Total, IReadOnlyList<AccessAuditEntry> Entries);

@@ -22,7 +22,7 @@ public sealed class CatalogStudioOperationComposer : IServerPacket
         _code = code;
         _message = message;
         _revision = revision;
-        _changed = changed;
+        _changed = changed.ToArray();
     }
 
     public void Compose(IOutgoingPacket packet)

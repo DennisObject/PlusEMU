@@ -27,7 +27,7 @@ public static class WiredConditionConfiguration
     };
     public static bool Supports(string name) => PositiveNames.Contains(name) || NegativeNames.ContainsKey(name);
 
-    public static WiredConfiguration Defaults(string name)
+    public static WiredConfiguration Defaults(string name, int calendarYear)
     {
         var positive = NegativeNames.GetValueOrDefault(name, name);
         ImmutableArray<int> parameters = positive switch
@@ -44,7 +44,7 @@ public static class WiredConditionConfiguration
             "wf_cnd_counter_time_matches" => [1, 0, 0, 100, 0],
             "wf_cnd_time_less_than" or "wf_cnd_time_more_than" => [0], "wf_cnd_date_rng_active" => [0, 0],
             "wf_cnd_match_time" => [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            "wf_cnd_match_date" => [127, 0, 1, 31, 4095, 0, DateTime.Now.Year, DateTime.Now.Year],
+            "wf_cnd_match_date" => [127, 0, 1, 31, 4095, 0, calendarYear, calendarYear],
             _ => throw new ArgumentException("Unknown condition.", nameof(name))
         };
         if (!TryValidate(name, new() { IntParams = parameters, Text = positive == "wf_cnd_has_altitude" ? "0" : "" }, out var config, out var error)) throw new InvalidOperationException(error);

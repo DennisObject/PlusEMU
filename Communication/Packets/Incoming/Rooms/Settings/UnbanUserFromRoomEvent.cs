@@ -1,24 +1,13 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Settings;
-using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Settings;
 
-internal class UnbanUserFromRoomEvent : IPacketEvent
+internal class UnbanUserFromRoomEvent(IRoomModerationService moderation) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().InRoom)
-            return Task.CompletedTask;
-        var instance = session.GetHabbo().CurrentRoom;
-        if (instance == null || !instance.CheckRights(session, true))
-            return Task.CompletedTask;
-        var userId = packet.ReadInt();
-        var roomId = packet.ReadInt();
-        if (instance.GetBans().IsBanned(userId))
-        {
-            instance.GetBans().Unban(userId);
-            session.Send(new UnbanUserFromRoomComposer(roomId, userId));
-        }
+        moderation.Unban(session, packet.ReadInt(), packet.ReadInt());
         return Task.CompletedTask;
     }
 }

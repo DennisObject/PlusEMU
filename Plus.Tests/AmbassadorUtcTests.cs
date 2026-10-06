@@ -1,4 +1,7 @@
 using System.Data;
+using System.Reflection;
+using Plus.Communication.Packets.Incoming.Rooms.Action;
+using Plus.HabboHotel.GameClients;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
@@ -18,8 +21,8 @@ public sealed class AmbassadorUtcTests
         var (client, sent) = HabbiconTestSupport.Client(ambassador);
         ambassador.Client = client;
         var clock = new CountingClock(DateTimeOffset.UnixEpoch);
-        var manager = new AmbassadorsManager(new ThrowingDatabase(), clock);
-        await manager.Warn(ambassador, new Habbo { Id = 8 }, "warning");
+        var manager = new AmbassadorsManager(new ThrowingDatabase(), clock, Clients(_ => throw new InvalidOperationException("unexpected target lookup")));
+        await manager.Warn(client, 8, "warning");
         Assert.Equal(0, clock.Reads);
         Assert.Empty(sent);
     }
@@ -31,8 +34,9 @@ public sealed class AmbassadorUtcTests
         var (client, sent) = HabbiconTestSupport.Client(ambassador);
         ambassador.Client = client;
         var clock = new CountingClock(DateTimeOffset.UnixEpoch);
-        var manager = new AmbassadorsManager(new ThrowingDatabase(), clock);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => manager.Warn(ambassador, new Habbo { Id = 8 }, "warning"));
+        var (target, _) = HabbiconTestSupport.Client(new Habbo { Id = 8 });
+        var manager = new AmbassadorsManager(new ThrowingDatabase(), clock, Clients(_ => target));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => manager.Warn(client, 8, "warning"));
         Assert.Empty(sent);
     }
 
@@ -45,7 +49,7 @@ public sealed class AmbassadorUtcTests
         server.Execute($"CREATE DATABASE `{schema}`");
         try
         {
-            var database = new ProbeDatabase(new MySqlConnectionStringBuilder(connectionString) { Database = schema }.ConnectionString);
+            var database = new ProbeDatabase(new MySqlConnectionStringBuilder(connectionString) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString);
             using (var connection = database.Connection())
             {
                 connection.Execute("CREATE TABLE ambassador_logs(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT,target VARCHAR(50),sanctions_type TEXT,`timestamp` DECIMAL(20,6) NULL)");
@@ -64,9 +68,9 @@ public sealed class AmbassadorUtcTests
             var target = new Habbo { Id = 8, Username = "target" };
             var (targetClient, targetPackets) = HabbiconTestSupport.Client(target);
             target.Client = targetClient;
-            await new AmbassadorsManager(database, clock).Warn(ambassador, target, "warning");
+            await new AmbassadorsManager(database, clock, Clients(id => id == 8 ? targetClient : null)).Warn(client, 8, "warning");
             using var verify = database.Connection();
-            Assert.Equal(now.UtcDateTime, verify.ExecuteScalar<DateTime>("SELECT `timestamp` FROM ambassador_logs WHERE user_id=7"));
+            Assert.Equal(now.ToUniversalTime(), verify.ExecuteScalar<DateTimeOffset>("SELECT `timestamp` FROM ambassador_logs WHERE user_id=7"));
             Assert.Equal(1, clock.Reads);
             Assert.Empty(actorPackets); // An actor outside a room receives no whisper, as before.
             Assert.Single(targetPackets);
@@ -74,6 +78,50 @@ public sealed class AmbassadorUtcTests
         finally
         {
             server.Execute($"DROP DATABASE `{schema}`");
+        }
+    }
+
+    [Fact]
+    public async Task AlertHandlerDecodesOnlyTheIdAndDelegates()
+    {
+        var manager = new RecordingAmbassadors();
+        await new AmbassadorAlertEvent(manager).Parse(null!, HabbiconTestSupport.Incoming(8));
+        Assert.Equal((8, "Alert"), Assert.Single(manager.Calls));
+        manager.Calls.Clear();
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => new AmbassadorAlertEvent(manager).Parse(null!, HabbiconTestSupport.Incoming()));
+        Assert.Empty(manager.Calls);
+    }
+
+    [Fact]
+    public async Task MissingOrDisconnectedTargetsDoNotPersistSampleTimeOrPublish()
+    {
+        var (client, sent) = HabbiconTestSupport.Client(AuthorizedAmbassador());
+        var clock = new CountingClock(DateTimeOffset.UnixEpoch);
+        var manager = new AmbassadorsManager(new ThrowingDatabase(), clock, Clients(_ => null));
+        await manager.Warn(client, 8, "Alert");
+        Assert.Equal(0, clock.Reads);
+        Assert.Empty(sent);
+    }
+
+    private static IGameClientManager Clients(Func<int, GameClient?> lookup)
+    {
+        var clients = DispatchProxy.Create<IGameClientManager, ClientProxy>();
+        ((ClientProxy)(object)clients).Lookup = lookup;
+        return clients;
+    }
+    public class ClientProxy : DispatchProxy
+    {
+        public Func<int, GameClient?> Lookup = null!;
+        protected override object? Invoke(MethodInfo? method, object?[]? args) =>
+            method!.Name == "GetClientByUserId" ? Lookup((int)args![0]!) : throw new NotSupportedException(method.Name);
+    }
+    private sealed class RecordingAmbassadors : IAmbassadorsManager
+    {
+        public List<(int UserId, string Message)> Calls = [];
+        public Task Warn(GameClient session, int targetId, string message)
+        {
+            Calls.Add((targetId, message));
+            return Task.CompletedTask;
         }
     }
 

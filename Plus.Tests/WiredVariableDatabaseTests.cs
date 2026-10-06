@@ -65,13 +65,13 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
                 users.Add(id); return new WiredVariableHolder(WiredVariableTarget.User, id, i);
             }).ToArray();
             var frame = new WiredVariableFrame(room, holders);
-            var module = new WiredVariableModule(room, directory, store, () => 1000);
+            var module = new WiredVariableModule(room, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
             var reference = new WiredVariableReference(WiredVariableTarget.User, $"custom:{items[0]}");
             Assert.True(module.Mutate(reference, holders[0], WiredVariableMutation.Give, 1, frame));
             var reconnectedHolder = holders[0] with { EntityId = 999 };
-            var reloaded = new WiredVariableModule(room, new DatabaseWiredVariableDirectory(database), new DatabaseWiredVariableStore(database), () => 2000);
+            var reloaded = new WiredVariableModule(room, new DatabaseWiredVariableDirectory(database), new DatabaseWiredVariableStore(database), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
             Assert.Equal(1, reloaded.Read(reference, reconnectedHolder, new(room, [reconnectedHolder]))!.Value);
-            var modules = Enumerable.Range(0, 4).Select(_ => new WiredVariableModule(room, directory, store, () => 3000)).ToArray();
+            var modules = Enumerable.Range(0, 4).Select(_ => new WiredVariableModule(room, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(3000)))).ToArray();
             await Task.WhenAll(modules.Select(m => Task.Run(() =>
             {
                 for (var n = 0; n < 10; n++) Assert.True(m.Change(reference, holders[0], WiredVariableMutation.Set, value => value + 1, frame));
@@ -82,7 +82,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
 
             // Change the authoritative database after normal resolution, before the actual store transaction.
             var transactionDb = new ProbeDatabase(connectionString);
-            var race = new WiredVariableModule(room, directory, new DatabaseWiredVariableStore(transactionDb), () => 4000);
+            var race = new WiredVariableModule(room, directory, new DatabaseWiredVariableStore(transactionDb), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(4000)));
             foreach (var change in new[] { "owner", "configuration", "placement" })
             {
                 transactionDb.BeforeConnection = () =>
@@ -103,7 +103,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
 
             foreach (var item in items)
                 foreach (var holder in holders)
-                    admin.Execute("INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at_ms,updated_at_ms) VALUES (@item,0,@holder,25,1000,1000) ON DUPLICATE KEY UPDATE value=25", new { item, holder = holder.StableId });
+                    admin.Execute("INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at,updated_at) VALUES (@item,0,@holder,25,'1970-01-01 00:00:01.000000','1970-01-01 00:00:01.000000') ON DUPLICATE KEY UPDATE value=25", new { item, holder = holder.StableId });
             var references = items.Select(item => new WiredVariableReference(WiredVariableTarget.User, $"custom:{item}")).ToArray();
             database.Commands = 0;
             using (var snapshot = module.CaptureReads(references, frame))
@@ -125,7 +125,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             var globalItem = Insert(admin, "items", new() { ["user_id"] = owner, ["room_id"] = room, ["base_item"] = baseItem, ["extra_data"] = "", ["wall_pos"] = "" }); items.Add(globalItem);
             var liveRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); liveRoom.Id = room; liveRoom.OwnerId = (int)owner;
             var atomicDb = new ProbeDatabase(connectionString);
-            var roomVariables = new WiredRoomVariables(liveRoom, atomicDb, () => 5000);
+            var roomVariables = new WiredRoomVariables(liveRoom, atomicDb, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(5000)));
             var itemHandler = new RoomItemHandling(liveRoom, TestRoomItemStore.Instance);
             typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, itemHandler);
             var roomUsers = new RoomUserManager(liveRoom, TestRoomUserStore.Instance, TimeProvider.System);
@@ -178,8 +178,9 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             Assert.Equal(new uint[] { 9476 }, sentFx);
             output.WriteLine("Actual room FX binding/composition: initial configs/status, unchanged flush zero SQL, enqueue-failure retry, and moved-off-variable removal passed.");
             // Exercise production readiness and cycle entry with the same actual SQL module, not FlushFx directly.
+            TestRoomUserSnapshots.Install(liveRoom);
             roomVariables.Fx.RemoveViewer(fxPlayer.Id); // End the preceding module-only simulated viewer session.
-            var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
+            var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, nativeWired);
             typeof(WiredComponent).GetField("_variables", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nativeWired, new Lazy<WiredRoomVariables>(() => roomVariables));
             Assert.Same(roomVariables, nativeWired.Variables);
@@ -270,7 +271,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             Assert.Empty(roomVariables.DrainChanges());
 
             var firstSaveItem = Insert(admin, "items", new() { ["user_id"] = owner, ["room_id"] = room, ["base_item"] = baseItem, ["extra_data"] = "", ["wall_pos"] = "" }); items.Add(firstSaveItem);
-            var firstSaveModules = Enumerable.Range(0, 2).Select(_ => new WiredRoomVariables(liveRoom, new ProbeDatabase(connectionString), () => 6000)).ToArray();
+            var firstSaveModules = Enumerable.Range(0, 2).Select(_ => new WiredRoomVariables(liveRoom, new ProbeDatabase(connectionString), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(6000)))).ToArray();
             var firstSaveBoxes = firstSaveModules.Select(m => Assert.IsType<WiredVariableDefinitionBox>(m.CreateBox(new Item { Id = firstSaveItem, Definition = new() { InteractionName = "wf_var_room" } }))).ToArray();
             var firstSaves = await Task.WhenAll(firstSaveBoxes.Select((box, index) => Task.Run(() =>
             {
@@ -346,7 +347,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             output.WriteLine("Actual room text capture: current authorized context definition receives42, unrelated firing empty, owner-only rejection before publication, detached capturer falls back, no durable context rows.");
 
             var clearDb = new ProbeDatabase(connectionString);
-            var clearModule = new WiredVariableModule(room, directory, new DatabaseWiredVariableStore(clearDb), () => 7000);
+            var clearModule = new WiredVariableModule(room, directory, new DatabaseWiredVariableStore(clearDb), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(7000)));
             clearDb.FailSqlPrefix = "DELETE FROM wired_variable_values";
             Assert.Throws<InjectedCommandFailure>(() => clearModule.ClearValues(items[1], WiredVariableTarget.User, frame));
             clearDb.FailSqlPrefix = null;
@@ -428,7 +429,9 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             UserID = db.GetProperty("Username").GetString(),
             Password = db.GetProperty("Password").GetString(),
             MinimumPoolSize = 0,
-            MaximumPoolSize = 8
+            MaximumPoolSize = 8,
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
         }.ConnectionString;
     }
 

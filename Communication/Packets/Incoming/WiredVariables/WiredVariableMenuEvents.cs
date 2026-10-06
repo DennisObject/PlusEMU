@@ -1,29 +1,26 @@
-using Plus.Communication.Packets.Outgoing.WiredVariables;
 using Plus.Communication.Packets.Incoming.Rooms;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Variables;
-using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.WiredVariables;
 
-public sealed class WiredAllVariablesRequestEvent : RoomPacketEvent
+public sealed class WiredAllVariablesRequestEvent(IWiredVariableMenuService menus) : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanInspect(session) || packet.HasDataRemaining()) return Task.CompletedTask;
-        session.Send(new WiredAllVariablesHashComposer(room.GetWired().Variables.Catalog().Hash));
+        if (packet.HasDataRemaining()) return Task.CompletedTask;
+        menus.ShowCatalogHash(room, session);
         return Task.CompletedTask;
     }
 }
 
-public sealed class WiredVariableHashesEvent : RoomPacketEvent
+public sealed class WiredVariableHashesEvent(IWiredVariableMenuService menus) : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanInspect(session)) return Task.CompletedTask;
         if (!TryReadHashes(packet, out var hashes)) return Task.CompletedTask;
-        foreach (var diff in room.GetWired().Variables.Catalog().Diff(hashes)) session.Send(new WiredAllVariablesDiffComposer(diff));
+        menus.ShowCatalogDiff(room, session, hashes);
         return Task.CompletedTask;
     }
     public static bool TryReadHashes(IIncomingPacket packet, out IReadOnlyDictionary<string, int> hashes)
@@ -43,32 +40,27 @@ public sealed class WiredVariableHashesEvent : RoomPacketEvent
     }
 }
 
-public sealed class WiredVariableHoldersRequestEvent : RoomPacketEvent
+public sealed class WiredVariableHoldersRequestEvent(IWiredVariableMenuService menus) : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanInspect(session)) return Task.CompletedTask;
         string id;
         try { id = packet.ReadString(); } catch (ArgumentException) { return Task.CompletedTask; }
         if (id.Length is < 1 or > 64 || packet.HasDataRemaining()) return Task.CompletedTask;
-        var menu = new WiredVariableMenu(room, room.GetWired().Variables);
-        if (menu.Catalog().Find(id) is { } variable) session.Send(new WiredVariableHoldersComposer(room.Id, variable, menu.Live(variable)));
+        menus.ShowHolders(room, session, id);
         return Task.CompletedTask;
     }
 }
 
-public sealed class WiredVariableHoldersPageEvent : RoomPacketEvent
+public sealed class WiredVariableHoldersPageEvent(IWiredVariableMenuService menus) : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!room.GetWired().Settings.CanInspect(session)) return Task.CompletedTask;
         string id; int page, size, users, sort;
         try { id = packet.ReadString(); page = packet.ReadInt(); size = packet.ReadInt(); users = packet.ReadInt(); sort = packet.ReadInt(); }
         catch (ArgumentException) { return Task.CompletedTask; }
         if (id.Length is < 1 or > 64 || users is not (0 or 1) || sort is < -1 or > 2 || packet.HasDataRemaining()) return Task.CompletedTask;
-        var menu = new WiredVariableMenu(room, room.GetWired().Variables);
-        if (menu.Catalog().Find(id) is { } variable)
-            session.Send(new WiredVariableHoldersPageComposer(id, menu.Page(variable, page, size, users, sort), users, sort));
+        menus.ShowHolderPage(room, session, id, page, size, users, sort);
         return Task.CompletedTask;
     }
 }

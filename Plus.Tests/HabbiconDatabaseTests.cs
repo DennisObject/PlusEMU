@@ -22,6 +22,7 @@ public class HabbiconDatabaseTests
 {
     private readonly TestDatabase _database;
     private readonly HabbiconService _service;
+    private readonly CountingTimeProvider _clock = new(new DateTimeOffset(2040, 1, 2, 3, 4, 5, TimeSpan.Zero));
     private const int UserId = 910001;
 
     private static readonly object PristineImportLock = new();
@@ -59,7 +60,7 @@ public class HabbiconDatabaseTests
         }
         Execute("UPDATE habbicons SET available = TRUE, default_owned = (id = 28), cost_credits = IF(id IN (28,38,49,60,71), 0, 5), cost_points = 0, points_type = 0");
         Execute("UPDATE habbicon_collections SET cost_credits = 40, cost_points = 0, points_type = 0");
-        _service = new(_database);
+        _service = new(_database, _clock);
     }
 
     [HabbiconDatabaseFact]
@@ -76,7 +77,7 @@ public class HabbiconDatabaseTests
         Execute("UPDATE habbicons SET available = TRUE, cost_credits = 0 WHERE id = 61");
         Assert.Equal(HabbiconState.Claimable, _service.Load(UserId).RequireItem(61).State);
         _service.Change(UserId, HabbiconAction.Claim, 61);
-        Assert.True(new HabbiconService(_database).Load(UserId).RequireItem(61).Owned);
+        Assert.True(new HabbiconService(_database, _clock).Load(UserId).RequireItem(61).Owned);
         Assert.Equal(100, Scalar("SELECT credits FROM users WHERE id = 910001"));
         Assert.Equal(4, Assert.Throws<HabbiconRejected>(() => _service.Change(UserId, HabbiconAction.Claim, 61)).Code);
     }
@@ -133,10 +134,100 @@ public class HabbiconDatabaseTests
         for (int id = 61; id <= 70; id++) Assert.True(_service.Use(UserId, id));
         Assert.True(_service.Use(UserId, 28));
         Assert.True(_service.Use(UserId, 61));
-        Assert.Equal(new[] { 61, 28, 70, 69, 68, 67, 66, 65, 64, 63 }, new HabbiconService(_database).Load(UserId).Recent);
+        Assert.Equal(new[] { 61, 28, 70, 69, 68, 67, 66, 65, 64, 63 },
+            new HabbiconService(_database, _clock).Load(UserId).Recent);
         Assert.Equal(HabbiconState.Favorite, _service.Load(UserId).RequireItem(61).State);
         _service.Change(UserId, HabbiconAction.Unfavorite, 61);
         Assert.Equal(HabbiconState.Owned, _service.Load(UserId).RequireItem(61).State);
+    }
+
+    [HabbiconDatabaseFact]
+    public void UseStoresUtcFractionAndAdvancesFutureMaximumByOneMillisecond()
+    {
+        _service.Change(UserId, HabbiconAction.Buy, 61);
+        var future = new DateTimeOffset(2041, 2, 3, 4, 5, 6, TimeSpan.Zero).AddTicks(1_234_560);
+        Execute("UPDATE users_habbicons SET last_used = '2041-02-03 04:05:06.123456' WHERE user_id = 910001 AND habbicon_id = 61");
+
+        Assert.True(_service.Use(UserId, 28));
+
+        using var connection = _database.Connection();
+        Assert.Equal(future.AddMilliseconds(1), connection.QuerySingle<DateTimeOffset>(
+            "SELECT last_used FROM users_habbicons WHERE user_id = 910001 AND habbicon_id = 28"));
+        Assert.Equal(new[] { 28, 61 }, _service.Load(UserId).Recent.Take(2));
+    }
+
+    [HabbiconDatabaseFact]
+    public void MaximumUsageTimeRejectsBeforeUpdateAndRollsBackOwnershipRow()
+    {
+        _service.Change(UserId, HabbiconAction.Buy, 61);
+        Execute("UPDATE users_habbicons SET last_used = '9999-12-31 23:59:59.999999' WHERE user_id = 910001 AND habbicon_id = 61");
+
+        Assert.Equal(1, Assert.Throws<HabbiconRejected>(() => _service.Use(UserId, 28)).Code);
+
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM users_habbicons WHERE user_id = 910001 AND habbicon_id = 28"));
+        using var connection = _database.Connection();
+        Assert.Equal(new DateTimeOffset(9999, 12, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9_999_990),
+            connection.QuerySingle<DateTimeOffset>(
+                "SELECT last_used FROM users_habbicons WHERE user_id = 910001 AND habbicon_id = 61"));
+    }
+
+    [HabbiconDatabaseFact]
+    public void PurchaseSamplesClockOnceAndReusesItForClubSpending()
+    {
+        var now = _clock.GetUtcNow();
+        _clock.ResetCalls();
+        var membership = new Plus.HabboHotel.Subscriptions.ClubMembership(
+            now.AddDays(1), now.AddDays(-1),
+            now.AddDays(-1));
+
+        _service.Change(UserId, HabbiconAction.Buy, 61, membership: membership);
+
+        Assert.Equal(1, _clock.Calls);
+        using var connection = _database.Connection();
+        Assert.Equal(now, connection.QuerySingle<DateTimeOffset>(
+            "SELECT spent_at FROM club_credit_spending WHERE user_id = 910001"));
+    }
+
+    [HabbiconDatabaseFact]
+    public void MigrationPreservesUtcMillisecondsNullsFutureValuesAndRecentIndex()
+    {
+        Execute("""
+            DELETE FROM users_habbicons WHERE user_id = 910001;
+            ALTER TABLE users_habbicons DROP INDEX recent;
+            ALTER TABLE users_habbicons MODIFY last_used BIGINT NULL DEFAULT 0;
+            ALTER TABLE users_habbicons ADD KEY recent (user_id, last_used);
+            INSERT INTO users_habbicons (user_id, habbicon_id, state, last_used) VALUES
+                (910001, 61, 2, NULL),
+                (910001, 62, 2, 0),
+                (910001, 63, 2, -1),
+                (910001, 64, 2, 1700000000123),
+                (910001, 65, 2, 2200000000456);
+            """);
+
+        Execute(File.ReadAllText(HabbiconPacketTests.Repo(
+            "Database/Migrations/37_UseUtcHabbiconUsageTimes.sql")));
+
+        using var connection = _database.Connection();
+        var values = connection.Query<(int Id, DateTimeOffset? Used)>(
+            "SELECT habbicon_id AS Id, last_used AS Used FROM users_habbicons WHERE user_id = 910001 ORDER BY habbicon_id")
+            .ToArray();
+        Assert.Null(values[0].Used);
+        Assert.Null(values[1].Used);
+        Assert.Null(values[2].Used);
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1_700_000_000_123), values[3].Used);
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(2_200_000_000_456), values[4].Used);
+        Assert.Equal("datetime:6:YES", connection.QuerySingle<string>("""
+            SELECT CONCAT(DATA_TYPE, ':', DATETIME_PRECISION, ':', IS_NULLABLE)
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE() AND table_name = 'users_habbicons' AND column_name = 'last_used'
+            """));
+        Assert.Equal("user_id,last_used", connection.QuerySingle<string>("""
+            SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index)
+            FROM information_schema.statistics
+            WHERE table_schema = DATABASE() AND table_name = 'users_habbicons' AND index_name = 'recent'
+            """));
+        Assert.Contains("last_used DATETIME(6) NULL DEFAULT NULL",
+            File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql")));
     }
 
     [HabbiconDatabaseFact]
@@ -230,7 +321,7 @@ public class HabbiconDatabaseTests
     }
 
     private static void HabbiconMessagesForTest(Plus.HabboHotel.GameClients.GameClient client, HabbiconChange change) =>
-        Plus.Communication.Packets.Outgoing.Habbicons.HabbiconMessages.Publish(client, change);
+        Plus.HabboHotel.Habbicons.HabbiconMessages.Publish(client, change);
 
     [HabbiconDatabaseFact]
     public async Task DirectFriendHabiconSendsOneTypedOnlineMessageAndUsesExistingOfflineFallback()
@@ -319,7 +410,7 @@ public class HabbiconDatabaseTests
         var voucher = new Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem { Id = 910005,
             Definition = new Plus.HabboHotel.Items.ItemDefinition { InteractionType = Plus.HabboHotel.Items.InteractionType.Exchange,
                 BehaviourData = 10, Type = Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor } };
-        var store = (Plus.HabboHotel.Rooms.ITradeStore)new Plus.HabboHotel.Rooms.RoomTradingComponent(_database);
+        var store = (Plus.HabboHotel.Rooms.ITradeStore)new Plus.HabboHotel.Rooms.RoomTradingComponent(_database, _clock);
         // Live wallet redeems exactly once and consumes the voucher.
         Plus.HabboHotel.Rooms.Trading.Trade.ReceiveTradedItem(client, voucher, true, store);
         Assert.Equal(110, habbo.Credits);
@@ -355,5 +446,17 @@ public class HabbiconDatabaseTests
             BeforeConnection?.Invoke();
             return new MySqlConnection(connectionString);
         }
+    }
+
+    private sealed class CountingTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public int Calls { get; private set; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Calls++;
+            return now;
+        }
+
+        public void ResetCalls() => Calls = 0;
     }
 }

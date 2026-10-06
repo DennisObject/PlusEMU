@@ -10,7 +10,7 @@ public class RoomOccupiedTilesComposer : IServerPacket
 
     public RoomOccupiedTilesComposer(IReadOnlyList<(int X, int Y)> tiles)
     {
-        _tiles = tiles;
+        _tiles = tiles.ToArray();
     }
 
     public void Compose(IOutgoingPacket packet)

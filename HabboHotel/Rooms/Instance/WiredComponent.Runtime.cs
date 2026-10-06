@@ -10,6 +10,7 @@ using Plus.HabboHotel.Items.Wired.Modern.Triggers;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Settings;
+using Plus.Database;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -21,14 +22,16 @@ public partial class WiredComponent
     // The monitor polls several times a second; the full log stays on the paged log request.
     private const int MonitorHistory = 100;
     private readonly Dictionary<uint, Item> _counterItems = [];
-    private IWiredConfigurationStore? _configurationStore;
+    private readonly IWiredConfigurationStore _configurationStore;
+    private readonly IDatabase _database;
+    private readonly IWiredRewardService _rewards;
     private Lazy<WiredRoomVariables>? _variables;
     public WiredRoomSettings Settings { get; }
-    internal DateTimeOffset CalendarTime => Settings.ExplicitTimeZone is { } zone
-        ? TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone) : DateTimeOffset.Now;
-    private IWiredConfigurationStore ConfigurationStore => _configurationStore ??= new WiredConfigurationStore(PlusEnvironment.DatabaseManager);
+    internal DateTimeOffset CalendarTime =>
+        TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), Settings.ExplicitTimeZone ?? _clock.LocalTimeZone);
+    private IWiredConfigurationStore ConfigurationStore => _configurationStore;
     public WiredRoomVariables Variables => (_variables ??= new(() => new(_room,
-        PlusEnvironment.DatabaseManager, () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged)
+        _database, _clock, builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged)
         { TimeZone = () => Settings.ExplicitTimeZone ?? TimeZoneInfo.Utc })).Value;
 
     // Returns a detached concrete candidate. Registration and persistence belong to the loader/publisher.
@@ -52,15 +55,17 @@ public partial class WiredComponent
         }
         else if (descriptor.Category == WiredBoxCategory.Condition && WiredConditionConfiguration.Supports(descriptor.CanonicalName))
         {
-            // Only calendar predicates use a zone; elapsed durations retain the existing local timer origin.
+            // Calendar predicates use the configured zone; elapsed durations use the shared UTC room clock.
             box = new WiredModernCondition(_room, item, descriptor, ReadCounterMilliseconds,
                 descriptor.CanonicalName is "wf_cnd_match_time" or "wf_cnd_match_date" or "wf_cnd_date_rng_active"
-                    ? () => CalendarTime : () => DateTimeOffset.Now);
-            defaults = WiredConditionConfiguration.Defaults(descriptor.CanonicalName);
+                    ? () => CalendarTime : () => _clock.GetUtcNow());
+            defaults = WiredConditionConfiguration.Defaults(descriptor.CanonicalName,
+                descriptor.CanonicalName == "wf_cnd_match_date" ? CalendarTime.Year : 0);
         }
         else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName))
         {
-            box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event), DispatchWalkTransition, _roomLog, _logger, _clock);
+            box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event),
+                DispatchWalkTransition, _roomLog, _logger, _clock, _rewards, _botStore);
             defaults = WiredActionConfiguration.Defaults(descriptor.CanonicalName);
         }
         else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || WiredVariableMetadataBox.Supports(descriptor.CanonicalName)
@@ -99,7 +104,7 @@ public partial class WiredComponent
         WiredEngineLimit.ExecutionBudget => WiredLogSource.ExecutionCap,
         WiredEngineLimit.PendingStacks => WiredLogSource.DelayedEventsCap,
         _ => WiredLogSource.RecursionTimeout
-    }, 0, "", reason, DateTimeOffset.UtcNow);
+    }, 0, "", reason, _clock.GetUtcNow());
 
     public void AttachRoomItem(Item item) => _engine.Mutate(() =>
     {

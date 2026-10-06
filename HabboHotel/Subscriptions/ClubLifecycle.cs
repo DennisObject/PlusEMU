@@ -81,7 +81,7 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
         }
         if (habbo.CustomBubbleId != 0 && (!styles.TryGetStyle(habbo.CustomBubbleId, out var style) || !style.CanUse(habbo.Access)))
         { habbo.CustomBubbleId = 0; habbo.SaveChatBubble("0"); }
-        habbo.Client.Send(new ScrSendUserInfoComposer(habbo.Access, habbo.Access.Membership.ExpiresAt > 0 && !habbo.Access.Membership.Active(clock.GetUtcNow().ToUnixTimeSeconds()) ? ScrSendUserInfoComposer.ExpiringResponse : ScrSendUserInfoComposer.InfoResponse));
+        habbo.Client.Send(new ScrSendUserInfoComposer(habbo.Access, habbo.Access.Membership.ExpiresAt is not null && !habbo.Access.Membership.Active(clock.GetUtcNow()) ? ScrSendUserInfoComposer.ExpiringResponse : ScrSendUserInfoComposer.InfoResponse));
         habbo.Client.Send(new MessengerInitComposer(ClubLimits.For(habbo.Access, "friends", settings)));
         var limit = ClubLimits.For(habbo.Access, "visitors", settings);
         using (var connection = database.Connection())
@@ -100,7 +100,7 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
 
     private void AnnounceGifts(Habbo habbo)
     {
-        var now = clock.GetUtcNow().ToUnixTimeSeconds();
+        var now = clock.GetUtcNow();
         var count = habbo.Access.Membership.Active(now) ? habbo.Access.Membership.AvailableGifts(now) : 0;
         if (!_announcedGifts.TryGetValue(habbo.Id, out var previous) || count != previous)
         { _announcedGifts[habbo.Id] = count; if (count > 0) habbo.Client.Send(new PickMonthlyClubGiftComposer(count)); }

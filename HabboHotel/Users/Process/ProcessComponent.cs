@@ -1,152 +1,96 @@
-﻿using Dapper;
 ﻿using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Outgoing.Handshake;
+using Plus.Core.Settings;
+using Plus.HabboHotel.Achievements;
 
 namespace Plus.HabboHotel.Users.Process;
 
-public sealed class ProcessComponent
+public sealed class ProcessComponent(ILogger<ProcessComponent> logger, TimeProvider clock,
+    IUserProcessStore store, IAchievementManager achievements, ISettingsManager settings) : IDisposable
 {
-    private readonly ILogger<ProcessComponent> _logger;
+    private readonly object _timerGate = new();
+    private Habbo? _player;
+    private ITimer? _timer;
+    private int _running;
+    private bool _disposed;
 
-    public ProcessComponent(ILogger<ProcessComponent> logger) => _logger = logger;
-
-    /// <summary>
-    /// How often the timer should execute.
-    /// </summary>
-    private static readonly int _runtimeInSec = 60;
-
-    /// <summary>
-    /// Used for disposing the ProcessComponent safely.
-    /// </summary>
-    private readonly AutoResetEvent _resetEvent = new(true);
-
-    /// <summary>
-    /// Enable/Disable the timer WITHOUT disabling the timer itself.
-    /// </summary>
-    private bool _disabled;
-
-    /// <summary>
-    /// Player to update, handle, change etc.
-    /// </summary>
-    private Habbo _player;
-
-    /// <summary>
-    /// ThreadPooled Timer.
-    /// </summary>
-    private Timer _timer;
-
-#pragma warning disable CS0414 // The field 'ProcessComponent._timerLagging' is assigned but its value is never used
-    /// <summary>
-    /// Checks if the timer is lagging behind (server can't keep up).
-    /// </summary>
-    private bool _timerLagging;
-#pragma warning restore CS0414 // The field 'ProcessComponent._timerLagging' is assigned but its value is never used
-
-    /// <summary>
-    /// Prevents the timer from overlapping itself.
-    /// </summary>
-    private bool _timerRunning;
-
-    /// <summary>
-    /// Initializes the ProcessComponent.
-    /// </summary>
-    /// <param name="player">Player.</param>
     public bool Init(Habbo player)
     {
-        if (player == null)
-            return false;
-        if (_player != null)
-            return false;
-        _player = player;
-        _timer = new(Run, null, _runtimeInSec * 1000, _runtimeInSec * 1000);
-        return true;
+        if (player == null) return false;
+        lock (_timerGate)
+        {
+            if (_disposed || _player != null) return false;
+            _player = player;
+            _timer = clock.CreateTimer(Run, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+            return true;
+        }
     }
 
-    /// <summary>
-    /// Called for each time the timer ticks.
-    /// </summary>
-    /// <param name="state"></param>
-    public void Run(object state)
+    public void Run(object? state)
     {
+        Habbo player;
+        lock (_timerGate)
+        {
+            if (_disposed || _player == null) return;
+            player = _player;
+            if (Interlocked.CompareExchange(ref _running, 1, 0) != 0)
+            {
+                logger.LogWarning("<Player {PlayerId}> Server can't keep up, Player timer is lagging behind.", player.Id);
+                return;
+            }
+        }
         try
         {
-            if (_disabled)
-                return;
-            if (_timerRunning)
+            var now = clock.GetUtcNow();
+            var day = TimeZoneInfo.ConvertTime(now, clock.LocalTimeZone).ToString("MM/dd");
+            if (player.TimeMuted > 0) player.TimeMuted -= 60;
+            if (player.MessengerSpamTime > 0) player.MessengerSpamTime -= 60;
+            if (player.MessengerSpamTime <= 0) player.MessengerSpamCount = 0;
+            player.TimeAfk += 1;
+            // Keep the reset and its live counts atomic with the final logout save.
+            lock (player.WalletSync)
             {
-                _timerLagging = true;
-                _logger.LogWarning("<Player {PlayerId}> Server can't keep up, Player timer is lagging behind.", _player.Id);
-                return;
+                if (!player.WalletClosed && player.HabboStats.RespectsTimestamp != day)
+                {
+                    var respects = player.Access.Limit("limit.daily_respects", 10);
+                    var petRespects = player.Access.Limit("limit.daily_pet_respects", 10);
+                    store.ResetDailyRespects(player.Id, respects, petRespects, day);
+                    player.HabboStats.RespectsTimestamp = day;
+                    player.HabboStats.DailyRespectPoints = respects;
+                    player.HabboStats.DailyPetRespectPoints = petRespects;
+                    if (player.Client != null)
+                        player.Client.Send(new UserObjectComposer(UserObjectSnapshot.Capture(player)));
+                }
             }
-            _resetEvent.Reset();
-
-            // BEGIN CODE
-            if (_player.TimeMuted > 0)
-                _player.TimeMuted -= 60;
-            if (_player.MessengerSpamTime > 0)
-                _player.MessengerSpamTime -= 60;
-            if (_player.MessengerSpamTime <= 0)
-                _player.MessengerSpamCount = 0;
-            _player.TimeAfk += 1;
-            if (_player.HabboStats.RespectsTimestamp != DateTime.Today.ToString("MM/dd"))
-            {
-                _player.HabboStats.RespectsTimestamp = DateTime.Today.ToString("MM/dd");
-                using var connection = PlusEnvironment.DatabaseManager.Connection();
-                connection.Execute("UPDATE `user_statistics` SET `dailyRespectPoints` = @respects, `dailyPetRespectPoints` = @petRespects, `respectsTimestamp` = @timestamp WHERE `id` = @id",
-                    new { respects = _player.Access.Limit("limit.daily_respects", 10), petRespects = _player.Access.Limit("limit.daily_pet_respects", 10), timestamp = DateTime.Today.ToString("MM/dd"), id = _player.Id });
-                _player.HabboStats.DailyRespectPoints = _player.Access.Limit("limit.daily_respects", 10);
-                _player.HabboStats.DailyPetRespectPoints = _player.Access.Limit("limit.daily_pet_respects", 10);
-                if (_player.Client != null)
-                    _player.Client.Send(new UserObjectComposer(UserObjectSnapshot.Capture(_player)));
-            }
-            if (_player.GiftPurchasingWarnings < 15)
-                _player.GiftPurchasingWarnings = 0;
-            if (_player.MottoUpdateWarnings < 15)
-                _player.MottoUpdateWarnings = 0;
-            if (_player.ClothingUpdateWarnings < 15)
-                _player.ClothingUpdateWarnings = 0;
-            if (_player.Client != null)
-                PlusEnvironment.Game.AchievementManager.ProgressAchievement(_player.Client, "ACH_AllTimeHotelPresence", 1);
-            _player.CheckCreditsTimer();
-            _player.Effects.CheckEffectExpiry(_player);
-
-            // END CODE
-
-            // Reset the values
-            _timerRunning = false;
-            _timerLagging = false;
-            _resetEvent.Set();
+            if (player.GiftPurchasingWarnings < 15) player.GiftPurchasingWarnings = 0;
+            if (player.MottoUpdateWarnings < 15) player.MottoUpdateWarnings = 0;
+            if (player.ClothingUpdateWarnings < 15) player.ClothingUpdateWarnings = 0;
+            if (player.Client != null)
+                achievements.ProgressAchievement(player.Client, "ACH_AllTimeHotelPresence", 1);
+            player.CheckCreditsTimer(settings);
+            player.Effects.CheckEffectExpiryAt(player, now);
         }
-        catch { }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Player process failed for {PlayerId}", player.Id);
+        }
+        finally
+        {
+            Volatile.Write(ref _running, 0);
+        }
     }
 
-    /// <summary>
-    /// Stops the timer and disposes everything.
-    /// </summary>
     public void Dispose()
     {
-        // Wait until any processing is complete first.
-        try
+        ITimer? timer;
+        lock (_timerGate)
         {
-            _resetEvent.WaitOne(TimeSpan.FromMinutes(5));
+            if (_disposed) return;
+            _disposed = true;
+            _player = null;
+            timer = _timer;
+            _timer = null;
         }
-        catch { } // give up
-
-        // Set the timer to disabled
-        _disabled = true;
-
-        // Dispose the timer to disable it.
-        try
-        {
-            if (_timer != null)
-                _timer.Dispose();
-        }
-        catch { }
-
-        // Remove reference to the timer.
-        _timer = null;
-
-        // Null the player so we don't reference it here anymore
-        _player = null;
+        timer?.Dispose();
     }
 }

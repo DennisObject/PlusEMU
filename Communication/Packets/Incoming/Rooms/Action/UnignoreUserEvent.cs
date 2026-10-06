@@ -1,28 +1,9 @@
 ﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users.Ignores;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Action;
 
-internal class UnignoreUserEvent : IPacketEvent
+internal class UnignoreUserEvent(IPlayerIgnoreService ignores) : IPacketEvent
 {
-    private readonly IGameClientManager _gameClientManager;
-
-    public UnignoreUserEvent(IGameClientManager gameClientManager)
-    {
-        _gameClientManager = gameClientManager;
-    }
-
-    public Task Parse(GameClient session, IIncomingPacket packet)
-    {
-        if (!session.GetHabbo().InRoom)
-            return Task.CompletedTask;
-        var room = session.GetHabbo().CurrentRoom;
-        if (room == null)
-            return Task.CompletedTask;
-        var username = packet.ReadString();
-        var player = _gameClientManager.GetClientByUsername(username)?.GetHabbo();
-        if (player == null)
-            return Task.CompletedTask;
-        session.GetHabbo().IgnoresComponent.Unignore(player.Id);
-        return Task.CompletedTask;
-    }
+    public Task Parse(GameClient session, IIncomingPacket packet) => ignores.Unignore(session, packet.ReadString());
 }

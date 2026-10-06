@@ -26,7 +26,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
 
         var token = await _store.Issue(userId);
 
-        Assert.Equal(_time.Now.ToUnixTimeSeconds() + 30 * 86400, token.ExpiresAt);
+        Assert.Equal(_time.Now.AddDays(30), token.ExpiresAt);
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
         Assert.Equal(SecureToken.Hash(token.Value), connection.QuerySingle<string>("SELECT token_hash FROM user_remember_tokens WHERE user_id = @userId", new { userId }));
     }
@@ -45,7 +45,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
         Assert.Equal(RememberRotationStatus.Rotated, rotation.Status);
         Assert.Equal(userId, rotation.UserId);
         Assert.NotEqual(first.Value, successor.Value);
-        Assert.Equal(_time.Now.ToUnixTimeSeconds() + 30 * 86400, successor.ExpiresAt);
+        Assert.Equal(_time.Now.AddDays(30), successor.ExpiresAt);
         Assert.Equal(rotation.FamilyId, again.FamilyId);
     }
 
@@ -134,6 +134,42 @@ public sealed class RememberTokenDatabaseTests : IDisposable
             connection.Execute("UPDATE users SET credential_generation = 7 WHERE id = @userId", new { userId });
 
         Assert.Equal(7, (await _store.Rotate(token.Value)).Generation);
+    }
+
+    [AuthDatabaseFact]
+    public async Task ReuseAtAndAfterGraceUsesOneCapturedUtcInstant()
+    {
+        foreach (var elapsed in new[] { 30, 31 })
+        {
+            var store = new RememberTokenStore(new AuthTestDatabase(), _time,
+                AuthTestConfig.Options(c => c.RememberReuseGraceSeconds = 30));
+            var userId = User();
+            var token = await store.Issue(userId);
+            Assert.Equal(RememberRotationStatus.Rotated, (await store.Rotate(token.Value)).Status);
+            _time.Advance(TimeSpan.FromSeconds(elapsed));
+            _time.ResetReads();
+
+            Assert.Equal(RememberRotationStatus.Reused, (await store.Rotate(token.Value)).Status);
+
+            Assert.Equal(1, _time.Reads);
+            using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
+            var persistedNow = new DateTimeOffset(_time.Now.UtcTicks - _time.Now.UtcTicks % 10, TimeSpan.Zero);
+            Assert.Equal(persistedNow, connection.QuerySingle<DateTimeOffset>(
+                "SELECT revoked_at FROM user_remember_tokens WHERE token_hash=@hash", new { hash = SecureToken.Hash(token.Value) }));
+        }
+    }
+
+    [AuthDatabaseFact]
+    public async Task MissingExpiryIsInvalidWithoutMutation()
+    {
+        var userId = User();
+        var token = await _store.Issue(userId);
+        using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
+        connection.Execute("UPDATE user_remember_tokens SET expires_at=NULL WHERE token_hash=@hash", new { hash = SecureToken.Hash(token.Value) });
+
+        Assert.Equal(RememberRotationStatus.Invalid, (await _store.Rotate(token.Value)).Status);
+        Assert.Null(connection.QuerySingle<DateTimeOffset?>(
+            "SELECT used_at FROM user_remember_tokens WHERE token_hash=@hash", new { hash = SecureToken.Hash(token.Value) }));
     }
 
     private async Task RevokeFamily(string token)

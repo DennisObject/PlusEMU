@@ -498,7 +498,6 @@
     "TradingUpdateComposer": 2024,
     "TradingClosedComposer": 1373,
     "TradingCompleteComposer": 2720,
-    "TradingConfirmedComposer": 0,
     "TradingFinishComposer": 1001,
     "AchievementsComposer": 305,
     "AchievementScoreComposer": 1968,

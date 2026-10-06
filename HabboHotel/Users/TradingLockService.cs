@@ -18,7 +18,8 @@ public sealed class TradingLockService(IDatabase database, IGameClientManager cl
     {
         if (duration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(duration));
         // DATETIME has second precision. Keep the live state identical to the stored expiry.
-        var until = DateTimeOffset.FromUnixTimeSeconds(clock.GetUtcNow().Add(duration).ToUnixTimeSeconds());
+        var expiry = clock.GetUtcNow().Add(duration).ToUniversalTime();
+        var until = new DateTimeOffset(expiry.Ticks - expiry.Ticks % TimeSpan.TicksPerSecond, TimeSpan.Zero);
         using var account = accounts.Enter(userId);
         using var connection = database.Connection();
         connection.Execute("INSERT INTO `user_info` (`user_id`, `trading_locked`, `trading_locks_count`) VALUES (@userId, @until, 1) " +

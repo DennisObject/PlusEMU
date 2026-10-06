@@ -23,7 +23,6 @@ using Plus.HabboHotel.Users.Process;
 using Plus.Utilities;
 
 using Dapper;
-using Microsoft.Extensions.Logging;
 using Plus.HabboHotel.Users.Navigator;
 
 namespace Plus.HabboHotel.Users;
@@ -34,7 +33,7 @@ public class Habbo
     internal uint WiredRoomNetworkDestination { get; set; }
     public HabboStats HabboStats { get; set; }
 
-    private readonly DateTime _timeCached;
+    private readonly DateTimeOffset? _cachedAt;
 
     public GameClient Client { get; set; }
     public ClothingComponent Clothing { get; set; }
@@ -77,7 +76,7 @@ public class Habbo
 
     public string Gender { get; set; } = string.Empty;
 
-    internal long LastHabbiconTrigger { get; set; }
+    internal DateTimeOffset? LastHabbiconTriggeredAt { get; set; }
     internal object WalletSync { get; } = new();
     internal bool WalletClosed => _habboSaved || _disconnected;
 
@@ -211,15 +210,12 @@ public class Habbo
 
     internal void Save() { lock (WalletSync) { if (_habboSaved) return; Persistence.Save(this, Access.Can(PermissionKeys.ModerationTickets)); _habboSaved = true; } }
 
-    public bool CacheExpired()
-    {
-        var span = DateTime.Now - _timeCached;
-        return span.TotalMinutes >= 30;
-    }
+    public bool CacheExpiredAt(DateTimeOffset now) =>
+        _cachedAt is not { } cachedAt || now - cachedAt >= TimeSpan.FromMinutes(30);
 
-    public bool InitProcess(ILogger<ProcessComponent> logger)
+    public bool InitProcess(IUserProcessFactory factory)
     {
-        Process = new(logger);
+        Process = factory.Create();
         return Process.Init(this);
     }
 
@@ -283,30 +279,30 @@ public class Habbo
             Clothing.Dispose();
     }
 
-    public void CheckCreditsTimer()
+    public void CheckCreditsTimer(Plus.Core.Settings.ISettingsManager settings)
     {
         lock (WalletSync)
         {
-            if (!WalletClosed) CheckCreditsTimerCore();
+            if (!WalletClosed) CheckCreditsTimerCore(settings);
         }
     }
 
-    private void CheckCreditsTimerCore()
+    private void CheckCreditsTimerCore(Plus.Core.Settings.ISettingsManager settings)
     {
         try
         {
             CreditsUpdateTick--;
             if (CreditsUpdateTick <= 0)
             {
-                var creditUpdate = Convert.ToInt32(PlusEnvironment.SettingsManager.TryGetValue("user.currency_scheduler.credit_reward"));
-                var ducketUpdate = Convert.ToInt32(PlusEnvironment.SettingsManager.TryGetValue("user.currency_scheduler.ducket_reward"));
+                var creditUpdate = Convert.ToInt32(settings.TryGetValue("user.currency_scheduler.credit_reward"));
+                var ducketUpdate = Convert.ToInt32(settings.TryGetValue("user.currency_scheduler.ducket_reward"));
                 creditUpdate += Access.Limit("limit.currency_credits", 0);
                 ducketUpdate += Access.Limit("limit.currency_duckets", 0);
                 Credits += creditUpdate;
                 Duckets += ducketUpdate;
                 Client.Send(new CreditBalanceComposer(Credits));
                 Client.Send(new HabboActivityPointNotificationComposer(Duckets, ducketUpdate));
-                CreditsUpdateTick = Convert.ToInt32(PlusEnvironment.SettingsManager.TryGetValue("user.currency_scheduler.tick"));
+                CreditsUpdateTick = Convert.ToInt32(settings.TryGetValue("user.currency_scheduler.tick"));
             }
         }
         catch { }

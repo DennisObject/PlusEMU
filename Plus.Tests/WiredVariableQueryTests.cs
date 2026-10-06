@@ -9,7 +9,7 @@ public sealed class WiredVariableQueryTests
     [Fact]
     public void SelectorCapturesReferencesOnceAndPrefersMatchingHolderThenFirstReference()
     {
-        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), () => 1000);
+        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var first = new WiredVariableHolder(WiredVariableTarget.User, 901, 1);
         var second = new WiredVariableHolder(WiredVariableTarget.User, 902, 2);
         var third = new WiredVariableHolder(WiredVariableTarget.User, 903, 3);
@@ -33,7 +33,7 @@ public sealed class WiredVariableQueryTests
     [Fact]
     public void SelectedFurnitureOperandUsesSerializedSelectionAndAbsentIsNull()
     {
-        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), () => 1000);
+        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var holder = new WiredVariableHolder(WiredVariableTarget.Furni, 300, 300);
         var frame = new WiredVariableFrame(1, [holder]);
         module.Mutate(new(holder.Target,"custom:12"), holder, WiredVariableMutation.Give, 42, frame);

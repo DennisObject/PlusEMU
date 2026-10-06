@@ -22002,7 +22002,7 @@ CREATE TABLE `logs_client_staff` (
   `user_id` int(11) NOT NULL DEFAULT '0',
   `data_string` text NOT NULL,
   `machine_id` varchar(75) NOT NULL DEFAULT '',
-  `timestamp` double NOT NULL DEFAULT '0',
+  `timestamp` datetime(6) NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
@@ -22020,7 +22020,7 @@ CREATE TABLE `logs_client_trade` (
   `2id` int(11) DEFAULT '0',
   `1items` text,
   `2items` text,
-  `timestamp` char(20) DEFAULT '',
+  `timestamp` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
@@ -24885,7 +24885,7 @@ CREATE TABLE IF NOT EXISTS users_habbicons (
     habbicon_id INT NOT NULL,
     state TINYINT NOT NULL DEFAULT 2,
     unseen BOOLEAN NOT NULL DEFAULT FALSE,
-    last_used BIGINT NOT NULL DEFAULT 0,
+    last_used DATETIME(6) NULL DEFAULT NULL,
     PRIMARY KEY (user_id, habbicon_id),
     KEY recent (user_id, last_used),
     FOREIGN KEY (habbicon_id) REFERENCES habbicons(id),
@@ -25287,7 +25287,7 @@ ALTER TABLE catalog_promotions
  ADD COLUMN IF NOT EXISTS item_type TINYINT NOT NULL DEFAULT 0,
  ADD COLUMN IF NOT EXISTS offer_id INT NOT NULL DEFAULT -1,
  ADD COLUMN IF NOT EXISTS product_code VARCHAR(128) NOT NULL DEFAULT '',
- ADD COLUMN IF NOT EXISTS expires_at INT NOT NULL DEFAULT 0;
+ ADD COLUMN IF NOT EXISTS expires_at DATETIME(6) NULL DEFAULT NULL;
 -- Existing promotions keep the slot they had: their id.
 UPDATE catalog_promotions SET position = id WHERE position = 0;
 
@@ -25296,7 +25296,7 @@ UPDATE catalog_promotions SET position = id WHERE position = 0;
 
 -- SSO tickets are single-use and short-lived. A consumed ticket is cleared to ''
 -- (the stock dump declares auth_ticket NOT NULL).
-ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_expires_at` int(11) unsigned NULL DEFAULT NULL AFTER `auth_ticket`;
+ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `auth_ticket_expires_at` DATETIME(6) NULL DEFAULT NULL AFTER `auth_ticket`;
 -- Bumped whenever all of a user's credentials are revoked; logins that started before it
 -- changed write nothing.
 ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `credential_generation` int(11) unsigned NOT NULL DEFAULT 0;
@@ -25313,8 +25313,8 @@ UPDATE `users` SET `auth_ticket` = '', `auth_ticket_expires_at` = NULL, `auth_ti
 CREATE TABLE IF NOT EXISTS `user_sessions` (
     `id` char(32) NOT NULL,
     `user_id` int(11) NOT NULL,
-    `created_at` int(11) unsigned NOT NULL,
-    `revoked_at` int(11) unsigned NULL DEFAULT NULL,
+    `created_at` DATETIME(6) NULL DEFAULT NULL,
+    `revoked_at` DATETIME(6) NULL DEFAULT NULL,
     PRIMARY KEY (`id`),
     KEY `user_id` (`user_id`),
     KEY `created_at` (`created_at`)
@@ -25327,9 +25327,9 @@ CREATE TABLE IF NOT EXISTS `user_access_tokens` (
     `user_id` int(11) NOT NULL,
     `session_id` char(32) NULL DEFAULT NULL,
     `token_hash` char(64) NOT NULL,
-    `created_at` int(11) unsigned NOT NULL,
-    `expires_at` int(11) unsigned NOT NULL,
-    `revoked_at` int(11) unsigned NULL DEFAULT NULL,
+    `created_at` DATETIME(6) NULL DEFAULT NULL,
+    `expires_at` DATETIME(6) NULL DEFAULT NULL,
+    `revoked_at` DATETIME(6) NULL DEFAULT NULL,
     PRIMARY KEY (`id`),
     UNIQUE KEY `token_hash` (`token_hash`),
     KEY `user_id` (`user_id`),
@@ -25346,11 +25346,11 @@ CREATE TABLE IF NOT EXISTS `user_remember_tokens` (
     `user_id` int(11) NOT NULL,
     `family_id` char(32) NOT NULL,
     `token_hash` char(64) NOT NULL,
-    `created_at` int(11) unsigned NOT NULL,
-    `expires_at` int(11) unsigned NOT NULL,
-    `used_at` int(11) unsigned NULL DEFAULT NULL,
+    `created_at` DATETIME(6) NULL DEFAULT NULL,
+    `expires_at` DATETIME(6) NULL DEFAULT NULL,
+    `used_at` DATETIME(6) NULL DEFAULT NULL,
     `grace_uses` tinyint(3) unsigned NOT NULL DEFAULT 0,
-    `revoked_at` int(11) unsigned NULL DEFAULT NULL,
+    `revoked_at` DATETIME(6) NULL DEFAULT NULL,
     PRIMARY KEY (`id`),
     UNIQUE KEY `token_hash` (`token_hash`),
     KEY `user_id` (`user_id`),
@@ -25368,7 +25368,7 @@ ALTER TABLE `user_remember_tokens` ADD COLUMN IF NOT EXISTS `grace_uses` tinyint
 -- Audit trail of in-client housekeeping actions; the panel's audit tab reads it back.
 CREATE TABLE IF NOT EXISTS housekeeping_log (
  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
- `timestamp` INT NOT NULL,
+ `timestamp` DATETIME(6) NULL DEFAULT NULL,
  actor_id INT NOT NULL,
  actor_name VARCHAR(125) NOT NULL DEFAULT '',
  target_type VARCHAR(16) NOT NULL DEFAULT 'user',
@@ -25434,15 +25434,13 @@ CREATE TABLE IF NOT EXISTS furni_editor_log (
 -- Habbo Club membership, gifts and payday.
 -- Stop the emulator and apply after 22_RoleBasedAccessControl.sql.
 ALTER TABLE catalog_club_offers DROP COLUMN type;
-ALTER TABLE user_club_memberships MODIFY expires_at BIGINT NOT NULL,
- ADD started_at BIGINT NOT NULL DEFAULT 0,
- ADD first_started_at BIGINT NOT NULL DEFAULT 0,
+ALTER TABLE user_club_memberships MODIFY expires_at DATETIME(6) NULL DEFAULT NULL,
+ ADD started_at DATETIME(6) NULL DEFAULT NULL,
+ ADD first_started_at DATETIME(6) NULL DEFAULT NULL,
  ADD past_seconds BIGINT NOT NULL DEFAULT 0,
- ADD modified_at BIGINT NOT NULL DEFAULT 0,
+ ADD modified_at DATETIME(6) NULL DEFAULT NULL,
  ADD gifts_claimed INT NOT NULL DEFAULT 0;
--- Old rows recorded only expiry. Preserve their time without inventing past tenure.
-UPDATE user_club_memberships SET started_at = LEAST(UNIX_TIMESTAMP(), expires_at),
- first_started_at = LEAST(UNIX_TIMESTAMP(), expires_at), modified_at = UNIX_TIMESTAMP() WHERE expires_at > 0;
+-- A fresh install has no legacy memberships to backfill; upgrades run Database/Migrations/38_UseUtcClubTimes.sql.
 INSERT INTO acl_permissions (`key`, category, description, is_orphan)
  VALUES ('club.access', 'club', 'Complimentary Habbo Club access.', 0);
 INSERT IGNORE INTO role_permissions (role_id, permission_key)
@@ -25464,14 +25462,14 @@ INSERT IGNORE INTO club_gift_offers (catalog_item_id, days_required)
 INSERT IGNORE INTO club_gift_offers (catalog_item_id) SELECT id FROM catalog_items WHERE catalog_name = 'hc_arab_chair';
 CREATE TABLE club_gift_claims (
  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, gift_number INT NOT NULL,
- catalog_item_id INT NOT NULL, claimed_at BIGINT NOT NULL, UNIQUE KEY (user_id, gift_number)
+ catalog_item_id INT NOT NULL, claimed_at DATETIME(6) NULL DEFAULT NULL, UNIQUE KEY (user_id, gift_number)
 ) ENGINE=InnoDB;
 CREATE TABLE club_credit_spending (
  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, credits INT NOT NULL,
- spent_at BIGINT NOT NULL, KEY (user_id, spent_at)
+ spent_at DATETIME(6) NULL DEFAULT NULL, KEY (user_id, spent_at)
 ) ENGINE=InnoDB;
 CREATE TABLE club_paydays (
- user_id INT NOT NULL, payday BIGINT NOT NULL, spent INT NOT NULL, streak_bonus INT NOT NULL,
+ user_id INT NOT NULL, payday DATETIME(6) NOT NULL, spent INT NOT NULL, streak_bonus INT NOT NULL,
  spending_bonus INT NOT NULL, paid TINYINT(1) NOT NULL, PRIMARY KEY(user_id, payday)
 ) ENGINE=InnoDB;
 INSERT IGNORE INTO server_settings (`key`, `value`, `description`) VALUES
@@ -25483,10 +25481,30 @@ INSERT IGNORE INTO server_settings (`key`, `value`, `description`) VALUES
 ALTER TABLE users ALTER vip SET DEFAULT '0';
 
 CREATE TABLE club_membership_intervals (
- user_id INT NOT NULL, started_at BIGINT NOT NULL, expires_at BIGINT NOT NULL,
+ user_id INT NOT NULL, started_at DATETIME(6) NOT NULL, expires_at DATETIME(6) NULL DEFAULT NULL,
  PRIMARY KEY (user_id, started_at)
 ) ENGINE=InnoDB;
-INSERT INTO club_membership_intervals SELECT user_id, started_at, expires_at FROM user_club_memberships WHERE started_at > 0;
+-- A fresh install has no memberships to copy, so the historical interval backfill is not needed here.
+
+CREATE TABLE IF NOT EXISTS `wired_variable_locks` (
+    `definition_id` int unsigned NOT NULL,
+    `retired` tinyint unsigned NOT NULL DEFAULT 0,
+    PRIMARY KEY (`definition_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `wired_variable_values` (
+    `definition_id` int unsigned NOT NULL,
+    `target_kind` tinyint unsigned NOT NULL,
+    `holder_id` bigint NOT NULL,
+    `value` int NOT NULL,
+    `created_at` DATETIME(6) NULL DEFAULT NULL,
+    `updated_at` DATETIME(6) NULL DEFAULT NULL,
+    PRIMARY KEY (`definition_id`, `target_kind`, `holder_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `wired_reward_state` (
+    `item_id` INT UNSIGNED NOT NULL,
+    `claims` LONGTEXT NOT NULL,
+    PRIMARY KEY (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Stop the emulator and apply after 23_HabboClubMembership.sql.
 INSERT IGNORE INTO acl_permissions (`key`, category, description, is_orphan) VALUES

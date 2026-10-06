@@ -74,7 +74,9 @@ public class WiredEditorPromotionTests
         var item = new Item { Id = 7, ExtraData = new LegacyDataFormat { Data = "1" }, Definition = new()
             { ItemName = "wf_act_bot_clothes", WiredType = WiredBoxType.EffectBotChangesClothesBox, InteractionType = InteractionType.WiredEffect } };
         Floor(room).TryAdd(7, item);
-        IWiredItem box = legacy ? new BotChangesClothesBox(room, item) : wired.CreateConfiguredBox(item)!;
+        IWiredItem box = legacy
+            ? new BotChangesClothesBox(room, item, TestBotManagementStore.Instance)
+            : wired.CreateConfiguredBox(item)!;
         Assert.True(wired.AddBox(box));
         var packets = new List<uint>(); var client = SaveClient(room, packets);
         client.GetHabbo().Gender = "M";
@@ -300,7 +302,7 @@ public class WiredEditorPromotionTests
             var savedSnapshot = kind == 4 ? Assert.Single(configured.Configuration.Snapshots) : null;
             target.LegacyDataString = "after-save";
             target.SetState(5, 6, 7, new());
-            var reloaded = Assert.IsAssignableFrom<IWiredConfiguredItem>(new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance).LoadWiredBox(item));
+            var reloaded = Assert.IsAssignableFrom<IWiredConfiguredItem>(new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, new WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance).LoadWiredBox(item));
             Assert.Equal(parameters, reloaded.Configuration.IntParams);
             if (savedSnapshot != null) Assert.Equal(savedSnapshot, Assert.Single(reloaded.Configuration.Snapshots));
         }
@@ -323,7 +325,7 @@ public class WiredEditorPromotionTests
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 1; room.OwnerId = 42; room.OwnerName = "owner"; room.Type = "private";
         Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance)); Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
-        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance); Set(room, "_wiredComponent", wired);
+        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance); Set(room, "_wiredComponent", wired);
         var target = new Item { Id = 8, ExtraData = new LegacyDataFormat { Data = "captured-state" }, Definition = new() { Id = 18, Type = ItemType.Floor } };
         target.SetState(1, 2, 3.5, new()); Floor(room).TryAdd(8, target);
         return (room, wired, target);

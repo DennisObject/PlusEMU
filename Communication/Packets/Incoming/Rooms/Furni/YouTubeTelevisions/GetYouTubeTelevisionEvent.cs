@@ -1,39 +1,13 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Furni.YouTubeTelevisions;
-using Plus.HabboHotel.GameClients;
+﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Televisions;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni.YouTubeTelevisions;
 
-internal class GetYouTubeTelevisionEvent : IPacketEvent
+internal class GetYouTubeTelevisionEvent(ITelevisionPresentationService televisions) : IPacketEvent
 {
-    private readonly ITelevisionManager _televisionManager;
-
-    public GetYouTubeTelevisionEvent(ITelevisionManager televisionManager)
-    {
-        _televisionManager = televisionManager;
-    }
-
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().InRoom)
-            return Task.CompletedTask;
-        var itemId = packet.ReadInt();
-        var videos = _televisionManager.TelevisionList;
-        if (videos.Count == 0)
-        {
-            session.SendNotification("Oh, it looks like the hotel manager haven't added any videos for you to watch! :(");
-            return Task.CompletedTask;
-        }
-        var dict = _televisionManager.Televisions;
-        foreach (var value in RandomValues(dict).Take(1)) session.Send(new GetYouTubeVideoComposer(itemId, value.YouTubeId));
-        session.Send(new GetYouTubePlaylistComposer(itemId, videos));
+        televisions.ShowPlaylist(session, packet.ReadInt());
         return Task.CompletedTask;
-    }
-
-    private static IEnumerable<TValue> RandomValues<TKey, TValue>(IDictionary<TKey, TValue> dict)
-    {
-        var values = dict.Values.ToList();
-        var size = dict.Count;
-        while (true) yield return values[Random.Shared.Next(size)];
     }
 }

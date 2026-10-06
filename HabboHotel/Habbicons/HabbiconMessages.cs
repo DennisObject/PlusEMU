@@ -1,9 +1,9 @@
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.Communication.Packets.Outgoing.Notifications;
 using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Habbicons;
+using Plus.Communication.Packets.Outgoing.Habbicons;
 
-namespace Plus.Communication.Packets.Outgoing.Habbicons;
+namespace Plus.HabboHotel.Habbicons;
 
 public static class HabbiconMessages
 {

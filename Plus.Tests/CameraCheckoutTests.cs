@@ -38,7 +38,8 @@ public class CameraCheckoutTests
         var value = Environment.GetEnvironmentVariable("PLUS_CAMERA_TEST_CONNECTION_STRING")!;
         if (!new MySqlConnectionStringBuilder(value).Database.StartsWith("task_camera_tests_", StringComparison.Ordinal))
             throw new InvalidOperationException("Camera database tests require a disposable schema.");
-        _database = new(value);
+        _database = new(new MySqlConnectionStringBuilder(value)
+        { AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString);
         _service = new(_database, _settings, _definitions, _clock);
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 42;
@@ -79,6 +80,34 @@ public class CameraCheckoutTests
         _clock.Now = _clock.Now.AddSeconds(3);
         Assert.True(quota.Reserve(UserId, false, false));
         _clock.Now = _clock.Now.AddSeconds(5);
+        Assert.False(quota.Reserve(UserId, false, false));
+    }
+
+    [CameraDatabaseFact]
+    public void QuotaUsesOneUtcInstantAndPreservesFractionalCooldownBoundaries()
+    {
+        var clock = new CountingClock(new DateTimeOffset(2040, 1, 2, 0, 0, 0, TimeSpan.FromHours(9)).AddTicks(1_234_560));
+        var quota = new CameraQuota(_database, _settings, clock);
+        Assert.True(quota.Reserve(UserId, false, true));
+        Assert.Equal(1, clock.Reads);
+        using var connection = _database.Connection();
+        Assert.Equal(clock.Now.ToUniversalTime(), connection.QuerySingle<DateTimeOffset>(
+            "SELECT last_capture_at FROM camera_quota WHERE user_id=910001"));
+        Assert.Equal(new DateTimeOffset(clock.Now.UtcDateTime.Date, TimeSpan.Zero), connection.QuerySingle<DateTimeOffset>(
+            "SELECT CAST(quota_date AS DATETIME) FROM camera_quota WHERE user_id=910001"));
+
+        foreach (var elapsed in new[] { TimeSpan.FromSeconds(5).Subtract(TimeSpan.FromTicks(10)), TimeSpan.FromSeconds(5) })
+        {
+            clock.Now = clock.Start.Add(elapsed);
+            int reads = clock.Reads;
+            Assert.Equal(elapsed == TimeSpan.FromSeconds(5), quota.Reserve(UserId, false, false));
+            Assert.Equal(reads + 1, clock.Reads);
+        }
+        clock.Now = clock.Start.AddSeconds(15).AddTicks(-10);
+        Assert.False(quota.Reserve(UserId, false, true));
+        clock.Now = clock.Start.AddSeconds(15);
+        Assert.True(quota.Reserve(UserId, false, true));
+        clock.Now = clock.Start;
         Assert.False(quota.Reserve(UserId, false, false));
     }
 
@@ -246,6 +275,14 @@ public class CameraCheckoutTests
         public ItemDefinition GetItemByName(string name) => Items[123];
         public void Init() { }
     }
+    private sealed class CountingClock(DateTimeOffset start) : TimeProvider
+    {
+        public DateTimeOffset Start { get; } = start;
+        public DateTimeOffset Now { get; set; } = start;
+        public int Reads { get; private set; }
+        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+    }
+
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now = new(2026,10,2,18,0,0,TimeSpan.Zero);

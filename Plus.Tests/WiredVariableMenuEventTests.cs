@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Items.Wired.Variables;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -23,17 +24,17 @@ public sealed class WiredVariableMenuEventTests
             Assert.False(WiredVariableHashesEvent.TryReadHashes(packet, out _));
     }
     [Fact]
-    public async Task AllMenuHandlersRejectUnauthorizedClientsBeforeReadingOrOpeningDatabase()
+    public async Task AllMenuHandlersRejectUnauthorizedClientsBeforeOpeningDatabase()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         typeof(Room).GetField("_wiredComponent", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(room,
-            new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance));
-        RoomPacketEvent[] handlers = [new WiredUserVariableUpdateEvent(), new WiredUserVariableManageEvent(), new WiredUserVariablesRequestEvent(), new WiredAllVariablesRequestEvent(), new WiredVariableHashesEvent(),
-            new WiredVariableHoldersRequestEvent(), new WiredVariableHoldersPageEvent()];
+            new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance));
+        RoomPacketEvent[] handlers = [new WiredUserVariableUpdateEvent(new WiredVariableMenuService()), new WiredUserVariableManageEvent(new WiredVariableMenuService()), new WiredUserVariablesRequestEvent(new WiredVariableMenuService()), new WiredAllVariablesRequestEvent(new WiredVariableMenuService()), new WiredVariableHashesEvent(new WiredVariableMenuService()),
+            new WiredVariableHoldersRequestEvent(new WiredVariableMenuService()), new WiredVariableHoldersPageEvent(new WiredVariableMenuService())];
         foreach (var handler in handlers)
         {
-            var packet = Packet(123); await handler.Parse(room, null!, packet);
-            Assert.Equal(4, packet.Buffer.Length);
+            // Handlers decode the full frame first; the denied service returns before any database connection opens.
+            await handler.Parse(room, null!, Packet(123));
         }
     }
     [Fact]

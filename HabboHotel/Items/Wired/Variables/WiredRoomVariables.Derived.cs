@@ -34,11 +34,11 @@ public sealed partial class WiredRoomVariables
             var time = MetadataOn(baseId, "wf_xtra_var_time_util")?.TimeUtilities;
             if (time is null || !time.Has(sub)) return null;
             var zone = TimeZone();
-            return new(source, value => time.Read(value, sub, zone) is { } result ? new(result, 0, 0) : null, time.Mode == 0, time.Mode != 0);
+            return new(source, value => time.Read(value, sub, zone) is { } result ? new(result, null, null) : null, time.Mode == 0, time.Mode != 0);
         }
         var level = DerivedMetadataOn(baseId);
         return level is not null && level.HasDerived(sub)
-            ? new(source, value => new(level.ReadDerived(value.Value, sub), 0, 0)) : null;
+            ? new(source, value => new(level.ReadDerived(value.Value, sub), null, null)) : null;
     }
 
     public static uint? SyntheticId(WiredVariableTarget target, uint baseId, int sub, bool time)

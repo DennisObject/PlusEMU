@@ -1,4 +1,4 @@
-using Plus.Communication.Packets.Incoming.Rooms.Engine;
+using Plus.HabboHotel.Rooms;
 using Xunit;
 
 namespace Plus.Tests;
@@ -10,10 +10,10 @@ public sealed class FloodDeadlineTests
     [Fact]
     public void EntryRemainingSecondsAreNonnegativeRoundedUpAndBounded()
     {
-        Assert.Equal(0, GetRoomEntryDataEvent.RemainingFloodSeconds(Now, Now.AddTicks(-1)));
-        Assert.Equal(0, GetRoomEntryDataEvent.RemainingFloodSeconds(Now, Now));
-        Assert.Equal(1, GetRoomEntryDataEvent.RemainingFloodSeconds(Now, Now.AddMilliseconds(1)));
-        Assert.Equal(2, GetRoomEntryDataEvent.RemainingFloodSeconds(Now, Now.AddMilliseconds(1001)));
-        Assert.Equal(int.MaxValue, GetRoomEntryDataEvent.RemainingFloodSeconds(Now, DateTimeOffset.MaxValue));
+        Assert.Equal(0, RoomEntryService.RemainingFloodSeconds(Now, Now.AddTicks(-1)));
+        Assert.Equal(0, RoomEntryService.RemainingFloodSeconds(Now, Now));
+        Assert.Equal(1, RoomEntryService.RemainingFloodSeconds(Now, Now.AddMilliseconds(1)));
+        Assert.Equal(2, RoomEntryService.RemainingFloodSeconds(Now, Now.AddMilliseconds(1001)));
+        Assert.Equal(int.MaxValue, RoomEntryService.RemainingFloodSeconds(Now, DateTimeOffset.MaxValue));
     }
 }

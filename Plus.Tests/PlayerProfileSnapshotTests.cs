@@ -55,6 +55,36 @@ public sealed class PlayerProfileSnapshotTests
         Assert.Equal((byte)1, payload[^1]);
     }
 
+    [Fact]
+    public async Task ProfileElapsedSecondsRetainFractionsUntilTheWireBoundary()
+    {
+        var now = DateTimeOffset.FromUnixTimeSeconds(1_700_000_100).ToOffset(TimeSpan.FromHours(9));
+        var habbo = new Habbo { Id = 7, LastOnlineAt = now.ToOffset(TimeSpan.FromHours(-7)).AddTicks(-1) };
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+        var clients = new HousekeepingActionTests.FakeClients();
+        clients.Online[7] = client;
+        var profiles = new PlayerProfileService(DispatchProxy.Create<IGroupManager, EmptyGroups>(),
+            DispatchProxy.Create<IMessengerDataLoader, FriendCount>(), clients, null!, new Stats(), new FixedClock());
+        await profiles.Open(client, 7);
+        var payload = Assert.Single(sent).Payload;
+        Assert.Equal(0, BinaryPrimitives.ReadInt32BigEndian(payload.AsSpan(payload.Length - 5, 4)));
+    }
+
+    [Fact]
+    public async Task ProfileElapsedSecondsTruncateTicksJustBelowTheIntegerLimit()
+    {
+        var now = DateTimeOffset.FromUnixTimeSeconds(1_700_000_100).ToOffset(TimeSpan.FromHours(9));
+        var habbo = new Habbo { Id = 7, LastOnlineAt = now.ToOffset(TimeSpan.FromHours(-7)).AddSeconds(-int.MaxValue).AddTicks(1) };
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+        var clients = new HousekeepingActionTests.FakeClients();
+        clients.Online[7] = client;
+        var profiles = new PlayerProfileService(DispatchProxy.Create<IGroupManager, EmptyGroups>(),
+            DispatchProxy.Create<IMessengerDataLoader, FriendCount>(), clients, null!, new Stats(), new FixedClock());
+        await profiles.Open(client, 7);
+        var payload = Assert.Single(sent).Payload;
+        Assert.Equal(int.MaxValue - 1, BinaryPrimitives.ReadInt32BigEndian(payload.AsSpan(payload.Length - 5, 4)));
+    }
+
     private sealed class FixedClock : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => DateTimeOffset.FromUnixTimeSeconds(1_700_000_100);

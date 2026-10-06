@@ -64,9 +64,6 @@ public partial class PlacedFurniRoomTests : IDisposable
         Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance));
         Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System));
         TestRoomUserSnapshots.Install(_room);
-        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
-        typeof(WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, new EmptyConfigurationStore());
-        Set("_wiredComponent", wired);
         _room.GetGameMap().GenerateMaps();
         _client.SetHabbo(new Habbo { Id = 7, Username = "owner", CurrentRoom = _room, Access = UserAccess.Empty });
 
@@ -91,6 +88,8 @@ public partial class PlacedFurniRoomTests : IDisposable
             _ => throw new InvalidOperationException(method)
         });
         _databaseField.SetValue(null, _database);
+        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, new EmptyConfigurationStore(), _database, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+        Set("_wiredComponent", wired);
     }
 
     [Fact]
@@ -169,7 +168,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         var sticky = Furni(31, InteractionType.Postit, WiredBoxType.None, ItemType.Wall);
         Inventory(new InventoryItem { Id = 31, Definition = sticky.Definition });
 
-        await new AddStickyNoteEvent().Parse(_room, _client, ClientPacket(31, ":w=1,1 l=0,0 l"));
+        await new AddStickyNoteEvent(PlacementService(() => { })).Parse(_room, _client, ClientPacket(31, ":w=1,1 l=0,0 l"));
 
         var placed = _room.GetRoomItemHandler().GetItem(31);
         Assert.Equal((7, "owner", 7u), (placed.UserId, placed.Username, placed.OwnerId));
@@ -196,7 +195,9 @@ public partial class PlacedFurniRoomTests : IDisposable
     };
 
     private static PlaceObjectEvent PlaceObject() =>
-        new(Proxy<IRoomManager>((_, _) => null), Proxy<ISettingsManager>((_, _) => "500"), Proxy<IAchievementManager>((_, _) => null));
+        new(new RoomItemPlacementService(Proxy<ISettingsManager>((_, _) => "500"),
+            Proxy<IAchievementManager>((_, _) => null), Proxy<IRewardTrackManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null),
+            TestLogging.For<RoomItemPlacementService>()));
 
     private void Inventory(InventoryItem item) =>
         _client.GetHabbo().Inventory = new InventoryComponent

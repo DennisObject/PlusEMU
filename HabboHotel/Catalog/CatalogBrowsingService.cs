@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Plus.Communication.Packets.Outgoing.Catalog;
+using Plus.HabboHotel.Catalog.Admin;
 using Plus.HabboHotel.Catalog.Pets;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
@@ -14,15 +15,20 @@ public sealed record PetPaletteSnapshot(string Type, int PetId, ImmutableArray<P
         new(type, petId, races.Select(race => new PetPaletteEntry(race.PrimaryColour, race.SecondaryColour)).ToImmutableArray());
 }
 public sealed record PromotableRoomSnapshot(uint Id, string Name);
+public readonly record struct CatalogPageRequest(int PageId, int OfferId, string Mode);
 
 public interface ICatalogBrowsingService
 {
     void ShowPetPalettes(GameClient session, string type);
     void ShowPromotableRooms(GameClient session);
+    void ShowPage(GameClient session, CatalogPageRequest request);
+    void ShowIndex(GameClient session, string mode);
+    void ShowMode(GameClient session, string mode);
 }
 
 public sealed class CatalogBrowsingService(IItemDataManager items, IPetRaceManager races, IRoomDataLoader rooms,
-    TimeProvider clock) : ICatalogBrowsingService
+    TimeProvider clock, ICatalogManager catalog, ICatalogAdminService catalogAdmin,
+    ICatalogSnapshotService snapshots) : ICatalogBrowsingService
 {
     public void ShowPetPalettes(GameClient session, string type)
     {
@@ -35,6 +41,25 @@ public sealed class CatalogBrowsingService(IItemDataManager items, IPetRaceManag
 
     public void ShowPromotableRooms(GameClient session) =>
         session.Send(new PromotableRoomsComposer(CapturePromotableRooms(session.GetHabbo().Id)));
+
+    public void ShowPage(GameClient session, CatalogPageRequest request)
+    {
+        if (!catalog.TryGetPage(request.PageId, out var page) || !page.CanOpen(session.GetHabbo()))
+            return;
+
+        catalogAdmin.RecordViewedPage(session.GetHabbo(), page.Id);
+        session.Send(new CatalogPageComposer(snapshots.CapturePage(page,
+            page.Offers.ContainsKey(request.OfferId) ? request.OfferId : -1)));
+    }
+
+    public void ShowIndex(GameClient session, string mode)
+    {
+        session.Send(new CatalogIndexComposer(snapshots.CaptureIndex(session.GetHabbo(), catalog.Pages)));
+        session.Send(new CatalogItemDiscountComposer());
+    }
+
+    public void ShowMode(GameClient session, string mode) =>
+        session.Send(new CatalogIndexComposer(snapshots.CaptureIndex(session.GetHabbo(), catalog.Pages)));
 
     internal ImmutableArray<PromotableRoomSnapshot> CapturePromotableRooms(int ownerId)
     {

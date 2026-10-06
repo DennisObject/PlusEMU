@@ -11,7 +11,7 @@ namespace Plus.HabboHotel.Users.Authentication;
 public class AuthTokenCleanup : IStartable
 {
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(10);
-    private const int RetentionSeconds = 24 * 60 * 60;
+    private static readonly TimeSpan Retention = TimeSpan.FromDays(1);
     private const int MaxBatchesPerRun = 100;
 
     private readonly IRememberTokenStore _rememberTokens;
@@ -41,7 +41,7 @@ public class AuthTokenCleanup : IStartable
     /// <summary>One cleanup pass; returns the number of rows deleted.</summary>
     public async Task<int> PruneExpired()
     {
-        var cutoff = _time.GetUtcNow().ToUnixTimeSeconds() - RetentionSeconds;
+        var cutoff = _time.GetUtcNow() - Retention;
         return await PruneInBatches(batch => _rememberTokens.Prune(cutoff, batch))
             + await PruneInBatches(batch => _accessTokens.Prune(cutoff, batch))
             + await PruneInBatches(batch => _sessions.PruneSessions(cutoff, batch));

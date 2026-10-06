@@ -58,15 +58,14 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
     {
         var now = _clock.GetUtcNow();
         var sinceUtc = now.AddDays(-1).UtcDateTime;
-        var sinceEpoch = now.AddDays(-1).ToUnixTimeSeconds();
         using var connection = _database.Connection();
         var counts = connection.QuerySingle<DashboardCounts>(
             "SELECT (SELECT COUNT(*) FROM `users`) AS TotalUsers, (SELECT COUNT(*) FROM `rooms`) AS TotalRooms, " +
             "(SELECT COALESCE(MAX(`peak`), 0) FROM `housekeeping_online_peaks` WHERE `day` = UTC_DATE()) AS PeakToday, " +
             "(SELECT COALESCE(MAX(`peak`), 0) FROM `housekeeping_online_peaks`) AS PeakAllTime, " +
             "(SELECT COUNT(*) FROM `bans` WHERE `added_date` > @sinceUtc) + " +
-            "(SELECT COUNT(*) FROM `housekeeping_log` WHERE `timestamp` > @sinceEpoch AND `success` = 1 AND `action` IN ('user.mute', 'user.trade_lock')) AS Sanctions",
-            new { sinceUtc, sinceEpoch });
+            "(SELECT COUNT(*) FROM `housekeeping_log` WHERE `timestamp` > @sinceUtc AND `success` = 1 AND `action` IN ('user.mute', 'user.trade_lock')) AS Sanctions",
+            new { sinceUtc });
         var online = _clients.Count;
         return new(online, counts.TotalUsers, _rooms.GetRooms().Count(room => room.UsersNow > 0), counts.TotalRooms,
             Math.Max(online, counts.PeakToday), Math.Max(online, counts.PeakAllTime),

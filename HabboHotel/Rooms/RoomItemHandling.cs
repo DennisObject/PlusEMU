@@ -281,9 +281,9 @@ public class RoomItemHandling
             }
         }
         if (item.IsFloorItem)
-            _room.SendPacket(new ObjectRemoveComposer(item, item.UserId));
+            _room.SendPacket(new ObjectRemoveComposer(item.Id, item.IsTemporary, item.UserId));
         else if (item.IsWallItem)
-            _room.SendPacket(new ItemRemoveComposer(item, item.UserId));
+            _room.SendPacket(new ItemRemoveComposer(item.Id, item.UserId));
 
         //TODO: Recode this specific part
         if (item.IsWallItem)
@@ -800,14 +800,14 @@ public class RoomItemHandling
                 _room.GetWired()?.DetachRoomItem(item);
                 // TODO @80O: Items refactor
                 session.GetHabbo().Inventory.Furniture.AddItem(I.ToInventoryItem());
-                _room.SendPacket(new ObjectRemoveComposer(item, item.UserId));
+                _room.SendPacket(new ObjectRemoveComposer(item.Id, item.IsTemporary, item.UserId));
             }
             else if (item.IsWallItem)
             {
                 _wallItems.TryRemove(item.Id, out var I);
                 // TODO @80O: Items refactor
                 session.GetHabbo().Inventory.Furniture.AddItem(I.ToInventoryItem());
-                _room.SendPacket(new ItemRemoveComposer(item, item.UserId));
+                _room.SendPacket(new ItemRemoveComposer(item.Id, item.UserId));
             }
             session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item.ToInventoryItem())));
         }

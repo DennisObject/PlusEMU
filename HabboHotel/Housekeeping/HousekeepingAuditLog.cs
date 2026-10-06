@@ -6,7 +6,7 @@ namespace Plus.HabboHotel.Housekeeping;
 public sealed class HousekeepingAuditEntry
 {
     public int Id { get; init; }
-    public int Timestamp { get; init; }
+    public DateTimeOffset? CreatedAt { get; init; }
     public int ActorId { get; init; }
     public string ActorName { get; init; } = string.Empty;
     public string TargetType { get; init; } = "user";
@@ -26,18 +26,24 @@ public interface IHousekeepingAuditLog
 public sealed class HousekeepingAuditLog : IHousekeepingAuditLog
 {
     private readonly IDatabase _database;
+    private readonly TimeProvider _clock;
 
-    public HousekeepingAuditLog(IDatabase database) => _database = database;
+    public HousekeepingAuditLog(IDatabase database, TimeProvider clock)
+    {
+        _database = database;
+        _clock = clock;
+    }
 
     public void Write(int actorId, string actorName, string action, HousekeepingOutcome outcome)
     {
+        var createdAt = _clock.GetUtcNow().UtcDateTime;
         using var connection = _database.Connection();
         connection.Execute(
             "INSERT INTO `housekeeping_log` (`timestamp`, `actor_id`, `actor_name`, `target_type`, `target_id`, `target_label`, `action`, `detail`, `success`) " +
             "VALUES (@timestamp, @actorId, @actorName, @targetType, @targetId, @targetLabel, @action, @detail, @success)",
             new
             {
-                timestamp = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                timestamp = createdAt,
                 actorId,
                 actorName,
                 targetType = TargetTypeName(outcome.Target.Type),
@@ -53,7 +59,7 @@ public sealed class HousekeepingAuditLog : IHousekeepingAuditLog
     {
         using var connection = _database.Connection();
         return connection.Query<HousekeepingAuditEntry>(
-            "SELECT `id`, `timestamp`, `actor_id` AS ActorId, `actor_name` AS ActorName, `target_type` AS TargetType, `target_id` AS TargetId, " +
+            "SELECT `id`, `timestamp` AS CreatedAt, `actor_id` AS ActorId, `actor_name` AS ActorName, `target_type` AS TargetType, `target_id` AS TargetId, " +
             "`target_label` AS TargetLabel, `action`, `detail`, `success` FROM `housekeeping_log` ORDER BY `id` DESC LIMIT @limit",
             new { limit = Math.Clamp(limit, 1, HousekeepingLimits.MaxActionLogEntries) }).ToList();
     }

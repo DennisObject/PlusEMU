@@ -21,7 +21,7 @@ public sealed class AuthTokenCleanupDatabaseTests : IDisposable
     {
         _remember = new(_database, _time, AuthTestConfig.Options(c => c.RememberTokenLifetimeDays = 30));
         _access = new(_database, _time, AuthTestConfig.Options(c => c.AccessTokenLifetimeMinutes = 60));
-        _generations = new(_database);
+        _generations = new(_database, _time);
         _cleanup = new(_remember, _access, _generations, _time, NullLogger<AuthTokenCleanup>.Instance) { BatchSize = 2 };
     }
 
@@ -67,7 +67,7 @@ public sealed class AuthTokenCleanupDatabaseTests : IDisposable
         await issuer.Issue(userId, "x", 0, "203.0.113.8");
         var remembered = (await issuer.Issue(userId, "x", 0, "203.0.113.8", remember: true))!;
         using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString))
-            connection.Execute("UPDATE user_sessions SET created_at = created_at - 3 * 86400 WHERE user_id = @userId", new { userId });
+            connection.Execute("UPDATE user_sessions SET created_at = DATE_SUB(created_at, INTERVAL 3 DAY) WHERE user_id = @userId", new { userId });
         _time.Advance(TimeSpan.FromDays(3));
 
         await _cleanup.PruneExpired();
@@ -79,7 +79,7 @@ public sealed class AuthTokenCleanupDatabaseTests : IDisposable
     private int Count(string sql, int userId)
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        return connection.QuerySingle<int>(sql, new { userId, cutoff = _time.Now.ToUnixTimeSeconds() - 86400 });
+        return connection.QuerySingle<int>(sql, new { userId, cutoff = (_time.Now - TimeSpan.FromDays(1)).UtcDateTime });
     }
 
     private int User()

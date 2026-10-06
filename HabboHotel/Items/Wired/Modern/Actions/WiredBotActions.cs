@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
-using Dapper;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.AI;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
@@ -46,7 +46,8 @@ public static class WiredBotActions
         if (proposed.Text.Split('\t', 2)[0].Length > 64) return false;
         validated = proposed with { FurniSources = f.ToImmutable(), UserSources = u.ToImmutable() }; error = ""; return true;
     }
-    public static bool Execute(string name, WiredRuntimeContext context, WiredConfiguration config, WiredRoomMovement movement)
+    public static bool Execute(string name, WiredRuntimeContext context, WiredConfiguration config,
+        WiredRoomMovement movement, IBotManagementStore botStore)
     {
         if (!TryValidate(name, config, out config, out _)) return false;
         var parts = config.Text.Split('\t', 2); var botName = parts[0]; var text = parts.Length > 1 ? parts[1] : "";
@@ -98,9 +99,9 @@ public static class WiredBotActions
                 if (!FigureWellFormed(text)) return false;
                 foreach (var bot in bots)
                 {
-                    using var database = PlusEnvironment.DatabaseManager.Connection();
-                    database.Execute("UPDATE bots SET look=@look WHERE id=@id LIMIT 1", new { look = text, bot.BotData.Id });
-                    bot.BotData.Look = text; context.Room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(bot.BotData)));
+                    botStore.SaveAppearance(bot.BotData.Id, context.Room.RoomId, text, bot.BotData.Gender);
+                    bot.BotData.Look = text;
+                    context.Room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(bot.BotData)));
                 }
                 return true;
             case "wf_act_bot_talk": case "wf_act_bot_talk_to_avatar":

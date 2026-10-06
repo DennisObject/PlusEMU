@@ -14,22 +14,25 @@ public class SsoTicketStore : ISsoTicketStore
 
     private readonly IDatabase _database;
     private readonly TimeProvider _time;
-    private readonly int _lifetimeSeconds;
+    private readonly TimeSpan _lifetime;
 
     public SsoTicketStore(IDatabase database, TimeProvider time, IOptions<AuthApiConfiguration> options)
     {
         _database = database;
         _time = time;
-        _lifetimeSeconds = options.Value.SsoTicketLifetimeSeconds;
+        _lifetime = TimeSpan.FromSeconds(options.Value.SsoTicketLifetimeSeconds);
+        if (_lifetime <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(options), "SSO ticket lifetime must be positive.");
     }
 
     public async Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null)
     {
-        var ticket = new IssuedToken(SecureToken.Generate(), Now() + _lifetimeSeconds);
+        var now = _time.GetUtcNow();
+        var ticket = new IssuedToken(SecureToken.Generate(), now.Add(_lifetime));
         using var owned = scope == null ? _database.Connection() : null;
         await (scope?.Connection ?? owned!).ExecuteAsync(
             "UPDATE `users` SET `auth_ticket` = @ticket, `auth_ticket_expires_at` = @expiresAt, `auth_ticket_exchanged` = 0, `auth_ticket_session` = @sessionId WHERE `id` = @userId",
-            new { ticket = ticket.Value, expiresAt = ticket.ExpiresAt, sessionId, userId }, scope?.Transaction);
+            new { ticket = ticket.Value, expiresAt = ticket.ExpiresAt.UtcDateTime, sessionId, userId }, scope?.Transaction);
         return ticket;
     }
 
@@ -39,10 +42,15 @@ public class SsoTicketStore : ISsoTicketStore
     {
         if (string.IsNullOrEmpty(ticket))
             return null;
+        return await FindOwnerAt(ticket, _time.GetUtcNow());
+    }
+
+    private async Task<CredentialOwner?> FindOwnerAt(string ticket, DateTimeOffset now)
+    {
         using var connection = _database.Connection();
         return await connection.QueryFirstOrDefaultAsync<CredentialOwner>(
             $"SELECT `id` AS UserId, `auth_ticket_session` AS SessionId FROM `users` WHERE {LiveTicket} AND `auth_ticket_expires_at` >= @now LIMIT 1",
-            new { ticket, now = Now() });
+            new { ticket, now = now.UtcDateTime });
     }
 
     // The conditional clear is the atomic step: a concurrent login that read the same ticket
@@ -51,7 +59,8 @@ public class SsoTicketStore : ISsoTicketStore
 
     public async Task<CredentialOwner?> Exchange(string ticket)
     {
-        if (await FindOwner(ticket) is not { } owner)
+        var now = _time.GetUtcNow();
+        if (string.IsNullOrEmpty(ticket) || await FindOwnerAt(ticket, now) is not { } owner)
             return null;
 
         using var connection = _database.Connection();
@@ -60,7 +69,7 @@ public class SsoTicketStore : ISsoTicketStore
         await CredentialGenerations.Lock(connection, transaction, owner.UserId);
         var live = await connection.QuerySingleOrDefaultAsync<CredentialOwner>(
             $"SELECT `id` AS UserId, `auth_ticket_session` AS SessionId FROM `users` WHERE `id` = @UserId AND {LiveTicket} AND `auth_ticket_expires_at` >= @now AND `auth_ticket_exchanged` = 0",
-            new { owner.UserId, ticket, now = Now() }, transaction);
+            new { owner.UserId, ticket, now = now.UtcDateTime }, transaction);
         if (live == null)
             return null;
 
@@ -68,7 +77,7 @@ public class SsoTicketStore : ISsoTicketStore
         if (sessionId == null)
         {
             sessionId = CredentialGenerations.NewSessionId();
-            await CredentialGenerations.StartSession(connection, transaction, sessionId, live.UserId);
+            await CredentialGenerations.StartSession(connection, transaction, sessionId, live.UserId, now);
         }
         await connection.ExecuteAsync("UPDATE `users` SET `auth_ticket_exchanged` = 1, `auth_ticket_session` = @sessionId WHERE `id` = @UserId",
             new { sessionId, live.UserId }, transaction);
@@ -78,9 +87,10 @@ public class SsoTicketStore : ISsoTicketStore
 
     public async Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope)
     {
+        var now = _time.GetUtcNow();
         var owner = await scope.Connection.QuerySingleOrDefaultAsync<CredentialOwner>(
             $"SELECT `id` AS UserId, `auth_ticket_session` AS SessionId FROM `users` WHERE `id` = @userId AND {LiveTicket} AND `auth_ticket_expires_at` >= @now",
-            new { userId, ticket, now = Now() }, scope.Transaction);
+            new { userId, ticket, now = now.UtcDateTime }, scope.Transaction);
         if (owner != null)
             await scope.Connection.ExecuteAsync($"UPDATE `users` SET {Cleared} WHERE `id` = @userId", new { userId }, scope.Transaction);
         return owner;
@@ -101,16 +111,18 @@ public class SsoTicketStore : ISsoTicketStore
     /// live ticket, so exactly one concurrent caller wins.</summary>
     private async Task<CredentialOwner?> ClaimFor(string ticket, string set)
     {
-        var owner = await FindOwner(ticket);
+        var now = _time.GetUtcNow();
+        if (string.IsNullOrEmpty(ticket))
+            return null;
+        var owner = await FindOwnerAt(ticket, now);
         if (owner == null)
             return null;
 
         using var connection = _database.Connection();
         var claimed = await connection.ExecuteAsync(
             $"UPDATE `users` SET {set} WHERE `id` = @UserId AND {LiveTicket} AND `auth_ticket_expires_at` >= @now",
-            new { owner.UserId, ticket, now = Now() });
+            new { owner.UserId, ticket, now = now.UtcDateTime });
         return claimed == 1 ? owner : null;
     }
 
-    private long Now() => _time.GetUtcNow().ToUnixTimeSeconds();
 }

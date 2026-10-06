@@ -71,9 +71,9 @@ public class ClubMembershipDatabaseTests : IDisposable
     [ClubDatabaseFact]
     public void KickbackCarriesFirstPurchaseDateAndStreakDaysAcrossReloadAndRenewal()
     {
-        var first = _clock.Now.ToUnixTimeSeconds();
+        var first = _clock.Now;
         Assert.NotNull(_memberships.Purchase(_habbo, Month));
-        Assert.Equal(first, Scalar("SELECT first_started_at FROM user_club_memberships WHERE user_id = 957001"));
+        Assert.Equal(first.UtcDateTime, ScalarTime("SELECT first_started_at FROM user_club_memberships WHERE user_id = 957001"));
         var initial = _rewards.Kickback(_habbo);
         Assert.Equal("04-10-2026", initial.FirstDate);
         Assert.Equal(0, initial.Streak);
@@ -90,7 +90,7 @@ public class ClubMembershipDatabaseTests : IDisposable
 
         Assert.NotNull(_memberships.Purchase(_habbo, Month));
         Assert.Equal(12, _rewards.Kickback(_habbo).Streak);
-        _clock.Now = DateTimeOffset.FromUnixTimeSeconds(_memberships.GetExpiry(User));
+        _clock.Now = _memberships.GetExpiry(User)!.Value;
         Assert.Equal(0, _rewards.Kickback(_habbo).Streak);
         Assert.Equal("04-10-2026", _rewards.Kickback(_habbo).FirstDate);
         _clock.Now = _clock.Now.AddDays(7);
@@ -121,13 +121,13 @@ public class ClubMembershipDatabaseTests : IDisposable
     [ClubDatabaseFact]
     public void PurchaseLoadsTheSnapshotAndInsufficientFundsCommitNothing()
     {
-        var now = _clock.Now.ToUnixTimeSeconds();
-        Assert.Equal(now + 31 * ClubMembership.Day, _memberships.Purchase(_habbo, Month));
+        var now = _clock.Now;
+        Assert.Equal(now.AddDays(31), _memberships.Purchase(_habbo, Month));
         Assert.Equal(900, _habbo.Credits); Assert.Equal(2, ClubAccess.LevelFor(_habbo.Access));
         Sql("UPDATE catalog_club_offers SET credits = 10000 WHERE id = 957101");
         Assert.Null(_memberships.Purchase(_habbo, Month));
         Assert.Equal(900, Scalar("SELECT credits FROM users WHERE id = 957001"));
-        Assert.Equal(now + 31 * ClubMembership.Day, Scalar("SELECT expires_at FROM user_club_memberships WHERE user_id = 957001"));
+        Assert.Equal(now.AddDays(31).UtcDateTime, ScalarTime("SELECT expires_at FROM user_club_memberships WHERE user_id = 957001"));
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM acl_audit_log WHERE action = 'club.purchase' AND target_id = 957001"));
     }
     [ClubDatabaseFact]
@@ -137,7 +137,7 @@ public class ClubMembershipDatabaseTests : IDisposable
         await lists.Start();
         Assert.NotNull(_memberships.Purchase(_habbo, Month));
         AssertLists(2, 3);
-        _clock.Now = DateTimeOffset.FromUnixTimeSeconds(_habbo.Access.Membership.ExpiresAt);
+        _clock.Now = _habbo.Access.Membership.ExpiresAt!.Value;
         _clock.Tick();
         AssertLists(1, 1);
 
@@ -162,23 +162,32 @@ public class ClubMembershipDatabaseTests : IDisposable
         using var transaction = await account.BeginTransactionAsync();
         await account.ExecuteAsync("SELECT id FROM users FORCE INDEX(PRIMARY) WHERE id=@userId FOR UPDATE",
             new { userId = User }, transaction);
-        var refresh = Task.Run(() => _access.Refresh(User));
+        var connectionRequests = 0;
+        _database.BeforeConnection = () => Interlocked.Increment(ref connectionRequests);
+        var workerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var refresh = Task.Run(() => { workerEntered.SetResult(); _access.Refresh(User); });
         try
         {
-            using var observer = _database.Connection();
-            var deadline = DateTime.UtcNow.AddSeconds(5);
-            var waiting = false;
-            while (DateTime.UtcNow < deadline)
+            await workerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            using var observer = new MySqlConnection(account.ConnectionString);
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
+            AccountLockWait? waiting = null;
+            while (elapsed.Elapsed < TimeSpan.FromSeconds(5))
             {
-                waiting = await observer.ExecuteScalarAsync<bool>("""
-                    SELECT EXISTS(SELECT 1 FROM information_schema.INNODB_LOCK_WAITS w
-                    JOIN information_schema.INNODB_TRX t ON t.trx_id=w.requesting_trx_id
-                    WHERE t.trx_query LIKE 'UPDATE users%`rank`%' AND t.trx_query LIKE '%957001%')
-                    """);
-                if (waiting) break;
+                waiting = await observer.QuerySingleOrDefaultAsync<AccountLockWait>("""
+                    SELECT requesting.trx_query AS WaitingQuery FROM information_schema.INNODB_LOCK_WAITS w
+                    JOIN information_schema.INNODB_TRX requesting ON requesting.trx_id=w.requesting_trx_id
+                    JOIN information_schema.INNODB_TRX blocking ON blocking.trx_id=w.blocking_trx_id
+                    WHERE blocking.trx_mysql_thread_id=@blocker LIMIT 1
+                    """, new { blocker = account.ServerThread });
+                if (waiting != null) break;
                 await Task.Delay(10);
             }
-            Assert.True(waiting, "Permission refresh must reach its account row lock before the wallet write.");
+            Assert.True(waiting != null, $"Permission refresh must reach its account row lock before the wallet write. Worker entered; connection requests={connectionRequests}; MaximumPoolSize={new MySqlConnectionStringBuilder(account.ConnectionString).MaximumPoolSize}.");
+            Assert.NotNull(waiting!.WaitingQuery);
+            Assert.StartsWith("UPDATE users FORCE INDEX(PRIMARY)", waiting.WaitingQuery, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("`rank`", waiting.WaitingQuery);
+            Assert.Contains(User.ToString(System.Globalization.CultureInfo.InvariantCulture), waiting.WaitingQuery);
             // With the old secondary-index-first refresh, this write deadlocks while holding PRIMARY.
             await account.ExecuteAsync("UPDATE users SET credits=999 WHERE id=@userId",
                 new { userId = User }, transaction);
@@ -188,6 +197,7 @@ public class ClubMembershipDatabaseTests : IDisposable
         }
         finally
         {
+            _database.BeforeConnection = null;
             if (transaction.Connection != null)
                 await transaction.RollbackAsync();
             await refresh.WaitAsync(TimeSpan.FromSeconds(5));
@@ -200,14 +210,14 @@ public class ClubMembershipDatabaseTests : IDisposable
         var results = await Task.WhenAll(Enumerable.Range(0, 10).Select(_ => Task.Run(() => _memberships.Purchase(_habbo, Month))));
         Assert.All(results, result => Assert.NotNull(result));
         Assert.Equal(0, _habbo.Credits); Assert.Equal(0, Scalar("SELECT credits FROM users WHERE id = 957001"));
-        Assert.Equal(_clock.Now.ToUnixTimeSeconds() + 310 * ClubMembership.Day, _memberships.GetExpiry(User));
+        Assert.Equal(_clock.Now.AddDays(310), _memberships.GetExpiry(User));
         Assert.Null(_memberships.Purchase(_habbo, Month));
     }
     [ClubDatabaseFact]
     public void CatalogOfferMetadataComesFromTheServerAndDisabledOffersAreRefused()
     {
         var forged = new ClubOffer { Id = Offer, Days = 186, Credits = 0 };
-        Assert.Equal(_clock.Now.ToUnixTimeSeconds() + 31 * ClubMembership.Day, _memberships.Purchase(_habbo, forged));
+        Assert.Equal(_clock.Now.AddDays(31), _memberships.Purchase(_habbo, forged));
         Assert.Equal(900, _habbo.Credits);
         Sql("UPDATE catalog_club_offers SET enabled = 0 WHERE id = 957101");
         Assert.Null(_memberships.Purchase(_habbo, Month));
@@ -241,7 +251,7 @@ public class ClubMembershipDatabaseTests : IDisposable
         try { Assert.Null(_rewards.Claim(_habbo, "hc_arab_chair")); }
         finally { Sql("UPDATE club_gift_offers SET days_required = 0 WHERE catalog_item_id = 65398"); }
         _gift.ClubLevel = 3; Assert.Null(_rewards.Claim(_habbo, "hc_arab_chair")); _gift.ClubLevel = 0;
-        _clock.Now = DateTimeOffset.FromUnixTimeSeconds(_memberships.GetExpiry(User));
+        _clock.Now = _memberships.GetExpiry(User)!.Value;
         Assert.Equal(0, ClubAccess.LevelFor(_habbo.Access));
         Assert.Null(_rewards.Claim(_habbo, "hc_arab_chair"));
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM items WHERE user_id = 957001"));
@@ -304,14 +314,83 @@ public class ClubMembershipDatabaseTests : IDisposable
     {
         _memberships.Purchase(_habbo, Month); Assert.True(_rewards.Charge(_habbo, 99));
         var due = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
-        Sql($"UPDATE club_membership_intervals SET expires_at = {due.ToUnixTimeSeconds()} WHERE user_id = 957001");
+        Sql($"UPDATE club_membership_intervals SET expires_at = '{due.UtcDateTime:yyyy-MM-dd HH:mm:ss}' WHERE user_id = 957001");
         _clock.Now = due; _clients.Registered = false;
         _rewards.RunPaydays();
         Assert.Equal(801, Scalar("SELECT credits FROM users WHERE id = 957001"));
         Assert.Equal(9, _rewards.Kickback(_habbo).Missed);
     }
+    private sealed class AccountLockWait
+    {
+        public string? WaitingQuery { get; set; }
+    }
     private void Sql(string sql) { using var connection = _database.Connection(); connection.Execute(sql); }
     private long Scalar(string sql) { using var connection = _database.Connection(); return connection.ExecuteScalar<long>(sql); }
+    [ClubDatabaseFact]
+    public void FractionalGiftClaimKeepsItsMicrosecondsThroughTheRealService()
+    {
+        var purchased = new DateTimeOffset(2026, 10, 4, 10, 0, 0, TimeSpan.Zero).AddTicks(2_000_000);
+        _clock.Now = purchased;
+        _memberships.Purchase(_habbo, Month);
+        // Just before expiry, after a full month of tenure, the first gift is earned and the membership is still active.
+        var claimed = purchased.AddDays(31).AddSeconds(-1).AddTicks(3_450);
+        _clock.Now = claimed;
+        _access.Refresh(User); _habbo.Access = _access.Resolve(User);
+        Assert.Equal(1, _rewards.Gifts(_habbo).Available);
+        Assert.NotNull(_rewards.Claim(_habbo, "hc_arab_chair"));
+        using var connection = _database.Connection();
+        Assert.Equal(claimed, connection.ExecuteScalar<DateTimeOffset?>("SELECT claimed_at FROM club_gift_claims WHERE user_id = 957001"));
+    }
+
+    [ClubDatabaseFact]
+    public void RunPaydaysRoundTripsTheMonthlyKeyAsUtcDatetime6()
+    {
+        _memberships.Purchase(_habbo, Month);
+        Assert.True(_rewards.Charge(_habbo, 99));
+        _clock.Now = new(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+        _rewards.RunPaydays();
+        using var connection = _database.Connection();
+        var payday = connection.ExecuteScalar<DateTimeOffset?>("SELECT payday FROM club_paydays WHERE user_id = 957001");
+        Assert.Equal(new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero), payday);
+        Assert.Equal(TimeSpan.Zero, payday!.Value.Offset);
+        Assert.Equal("datetime(6)", connection.ExecuteScalar<string>("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'club_paydays' AND COLUMN_NAME = 'payday'"));
+    }
+
+    [ClubDatabaseFact]
+    public void FractionalPurchaseAndSpendingKeepMicrosecondsThroughStorageAndAccessResolution()
+    {
+        var instant = new DateTimeOffset(2026, 10, 4, 10, 0, 0, TimeSpan.Zero).AddTicks(1_234_560);
+        _clock.Now = instant;
+        var expiry = _memberships.Purchase(_habbo, Month);
+        Assert.Equal(instant.AddDays(31), expiry);
+        Assert.Equal(instant.AddDays(31), _memberships.GetExpiry(User));
+
+        _access.Refresh(User); _habbo.Access = _access.Resolve(User);
+        Assert.Equal(instant.AddDays(31), _habbo.Access.Membership.ExpiresAt);
+        Assert.Equal(instant, _habbo.Access.Membership.FirstStartedAt);
+
+        var spent = instant.AddSeconds(5).AddTicks(670);
+        _clock.Now = spent;
+        Assert.True(_rewards.Charge(_habbo, 99));
+        using var connection = _database.Connection();
+        Assert.Equal(spent, connection.ExecuteScalar<DateTimeOffset?>("SELECT spent_at FROM club_credit_spending WHERE user_id = 957001 ORDER BY id DESC LIMIT 1"));
+    }
+
+    [ClubDatabaseFact]
+    public void KickbackUsesTheUtcMonthForANonUtcCapturedInstant()
+    {
+        // 02:00 on 1 November at +05:00 is 21:00 UTC on 31 October; the spend below belongs to October.
+        _clock.Now = new DateTimeOffset(2026, 10, 4, 10, 0, 0, TimeSpan.Zero);
+        Assert.NotNull(_memberships.Purchase(_habbo, Month));
+        _access.Refresh(User); _habbo.Access = _access.Resolve(User);
+
+        _clock.Now = new DateTimeOffset(2026, 10, 31, 22, 0, 0, TimeSpan.Zero);
+        Assert.True(_rewards.Charge(_habbo, 40));
+        _clock.Now = new DateTimeOffset(2026, 11, 1, 2, 0, 0, TimeSpan.FromHours(5));
+        Assert.Equal(40, _rewards.Kickback(_habbo).Spent);
+    }
+
+    private DateTime? ScalarTime(string sql) { using var connection = _database.Connection(); return connection.ExecuteScalar<DateTime?>(sql); }
     private void Clean() => Sql("DROP TRIGGER IF EXISTS club_test_gift_failure; DELETE FROM user_club_memberships WHERE user_id = 957001; DELETE FROM club_membership_intervals WHERE user_id = 957001; " +
         "DELETE FROM club_credit_spending WHERE user_id = 957001; DELETE FROM club_paydays WHERE user_id = 957001; DELETE FROM club_gift_claims WHERE user_id = 957001; " +
         "DELETE FROM items WHERE user_id = 957001; DELETE FROM acl_audit_log WHERE target_id = 957001; DELETE FROM user_permissions WHERE user_id = 957001; DELETE FROM users WHERE id = 957001; DELETE FROM catalog_club_offers WHERE id = 957101");

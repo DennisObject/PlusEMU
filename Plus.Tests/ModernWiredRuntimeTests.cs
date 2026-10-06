@@ -35,6 +35,7 @@ using Plus.HabboHotel.Users.Inventory.Badges;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
+using Plus.Communication.Packets.Incoming.WiredVariables;
 
 namespace Plus.Tests;
 
@@ -44,9 +45,41 @@ public sealed class ModernWiredDatabaseCollection;
 [Collection("Modern Wired database seam")]
 public class ModernWiredRuntimeTests
 {
-    private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null) =>
+    private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null,
+        TimeProvider? clock = null, IWiredRewardService? rewards = null) =>
         new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger,
-            TimeProvider.System);
+            clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance, TestBotManagementStore.Instance);
+
+    [Fact]
+    public void TimerResetAndElapsedConditionsUseCapturedUtcInstantsAtExactBoundaries()
+    {
+        var (room, _, _) = World();
+        var instant = new DateTimeOffset(2040, 4, 5, 6, 7, 8, TimeSpan.Zero);
+        var clock = new CountingClock(instant, TimeZoneInfo.CreateCustomTimeZone("wired-plus-nine", TimeSpan.FromHours(9), "test", "test"));
+        var action = ActionBox(room, "wf_act_reset_timers", clock: clock);
+        action.ApplyConfiguration(WiredActionConfiguration.Defaults("wf_act_reset_timers"));
+        var operations = new ResetOperations();
+
+        Assert.True(action.Execute(new WiredRuntimeContext(room, new(WiredEventKind.Use), new(() => [], () => []), operations)));
+        Assert.Equal(instant, room.LastTimerResetAt);
+        Assert.Equal(1, clock.Calls);
+        Assert.Equal(1, operations.Resets);
+
+        AssertBoundary("wf_cnd_time_less_than", instant.AddMilliseconds(999).ToOffset(TimeSpan.FromHours(9)), true);
+        AssertBoundary("wf_cnd_time_less_than", instant.AddSeconds(1).ToOffset(TimeSpan.FromHours(9)), false);
+        AssertBoundary("wf_cnd_time_more_than", instant.AddSeconds(1).ToOffset(TimeSpan.FromHours(-7)), false);
+        AssertBoundary("wf_cnd_time_more_than", instant.AddMilliseconds(1001).ToOffset(TimeSpan.FromHours(-7)), true);
+
+        void AssertBoundary(string name, DateTimeOffset now, bool expected)
+        {
+            var reads = 0;
+            var condition = new WiredModernCondition(room, MakeItem(101, name), Descriptor(name), _ => null, () => { reads++; return now; });
+            Assert.True(condition.TryValidateConfiguration(new() { IntParams = [2] }, out var configuration, out var error), error);
+            condition.ApplyConfiguration(configuration);
+            Assert.Equal(expected, condition.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+            Assert.Equal(1, reads);
+        }
+    }
 
     [Fact]
     public void AllImplementedEditorsHaveValidatedDefaults()
@@ -55,7 +88,7 @@ public class ModernWiredRuntimeTests
         foreach (var name in WiredTriggerConfiguration.Events.Keys)
             Assert.True(WiredTriggerConfiguration.TryValidate(name, WiredTriggerConfiguration.Defaults(name), out _, out _), name);
         foreach (var name in WiredConditionConfiguration.PositiveNames.Concat(WiredConditionConfiguration.NegativeNames.Keys))
-            Assert.True(WiredConditionConfiguration.TryValidate(name, WiredConditionConfiguration.Defaults(name), out _, out _), name);
+            Assert.True(WiredConditionConfiguration.TryValidate(name, WiredConditionConfiguration.Defaults(name, 2040), out _, out _), name);
         foreach (var name in WiredMovementActions.Names.Concat(WiredModernAction.OtherNames).Concat(WiredBotActions.Names))
             Assert.True(ActionBox(room, name).TryValidateConfiguration(WiredActionConfiguration.Defaults(name), out _, out _), name);
     }
@@ -111,6 +144,23 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
+    public void LogActionCapturesTheRequiredClockOnce()
+    {
+        var (room, _, _) = World();
+        var instant = new DateTimeOffset(2040, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var clock = new CountingClock(instant, TimeZoneInfo.Utc);
+        var log = new WiredRoomLog();
+        var box = ActionBox(room, "wf_act_log", log: log, clock: clock);
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [1, 0], Text = "Captured" }, out var config, out _));
+        box.ApplyConfiguration(config);
+
+        Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+
+        Assert.Equal(instant, Assert.Single(log.Read(0, 10).Entries).Timestamp);
+        Assert.Equal(1, clock.Calls);
+    }
+
+    [Fact]
     public async Task FiredLogLineReachesTheLogPageAndMonitorForInspectorsOnly()
     {
         using var f = new TeleportFixture();
@@ -127,7 +177,7 @@ public class ModernWiredRuntimeTests
         f.Fire();
 
         var alice = Capture(f.Habbo.Client);
-        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, ""));
+        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, ""));
         var page = Reply(alice, 918);
         Assert.Equal((1, 1, 50, 1), (page.Int(), page.Int(), page.Int(), page.Int()));
         Assert.Equal((1d, 2, 8, "Gate opened"), (page.Long(), page.Byte(), page.Byte(), page.String()));
@@ -137,17 +187,17 @@ public class ModernWiredRuntimeTests
         Assert.Equal((false, false, false), (page.Bool(), page.Bool(), page.Bool()));
         page.End();
 
-        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(9, 50, 2, 8, " GATE "));
+        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(9, 50, 2, 8, " GATE "));
         page = Reply(alice, 918);
         Assert.Equal((1, 1, 50, 1), (page.Int(), page.Int(), page.Int(), page.Int()));
         Assert.Equal("Gate opened", page.Skip(2, 1, 1).String()); page.Skip(2).String();
         Assert.Equal((true, 2, true, 8, true, "GATE"), (page.Bool(), page.Byte(), page.Bool(), page.Byte(), page.Bool(), page.String()));
         page.End();
-        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, 4, "")); // a source Plus never writes
+        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, 4, "")); // a source Plus never writes
         page = Reply(alice, 918);
         Assert.Equal((0, 1, 50, 0), (page.Int(), page.Int(), page.Int(), page.Int()));
 
-        await new WiredMonitorRequestEvent().Parse(f.Room, f.Habbo.Client, Request(0));
+        await MonitorRequest().Parse(f.Room, f.Habbo.Client, Request(0));
         var monitor = Reply(alice, 5101);
         monitor.Skip(1); Assert.Equal(10000, monitor.Int()); Assert.False(monitor.Bool());
         monitor.Skip(1); Assert.Equal(100, monitor.Int()); monitor.Skip(3); Assert.Equal(32, monitor.Int());
@@ -168,27 +218,136 @@ public class ModernWiredRuntimeTests
         var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
         bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
         var bobReplies = Capture(bob);
-        await new WiredRoomLogsPageEvent().Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
-        await new WiredMonitorRequestEvent().Parse(f.Room, bob, Request(0));
+        await RoomLogsPage().Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
+        await MonitorRequest().Parse(f.Room, bob, Request(0));
         Assert.Empty(bobReplies);
         store.Saved = new(InspectMask: (int)WiredRoomAccess.Everyone); settings.Reload();
-        await new WiredMonitorRequestEvent().Parse(f.Room, bob, Request(1));
+        await MonitorRequest().Parse(f.Room, bob, Request(1));
         Assert.Empty(bobReplies);
-        var pages = new WiredRoomLogsPageEvent();
+        var pages = RoomLogsPage();
         await pages.Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
         await pages.Parse(f.Room, bob, Request(1, 50, -1, -1, "")); // inside the 250 ms page interval
         Assert.Equal(1, Reply(bobReplies, 918).Int());
         Assert.Empty(bobReplies);
 
-        await new WiredMonitorRequestEvent().Parse(f.Room, f.Habbo.Client, Request(1));
+        await MonitorRequest().Parse(f.Room, f.Habbo.Client, Request(1));
         monitor = Reply(alice, 5101).Skip(16, 1);
         Assert.Equal(4, monitor.Int());
         for (var i = 0; i < 4; i++) { monitor.String(); monitor.String(); Assert.Equal(0, monitor.Int()); monitor.Skip(1).String(); monitor.String(); monitor.Int(); }
         Assert.Equal(0, monitor.Int());
         monitor.End();
-        await new WiredRoomLogsPageEvent().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "x", 1)); // trailing data is malformed
+        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "x", 1)); // trailing data is malformed
         Assert.Empty(alice);
     }
+
+    [Fact]
+    public async Task UnauthorizedMenuAndMonitorRequestsNeverReadOrAnswer()
+    {
+        using var f = new TeleportFixture();
+        f.Room.OwnerName = "Alice"; f.Room.Type = "private"; f.Room.UsersWithRights = [];
+        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
+        bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
+        var replies = Capture(bob);
+        var menus = new WiredVariableMenuService();
+        var monitor = new WiredMonitorService(new WiredRequestGateService(TimeProvider.System));
+        // The fixture's database throws on any connection, so every denied request must return before a lazy read.
+        await new WiredUserVariablesRequestEvent(menus).Parse(f.Room, bob, Request());
+        await new WiredAllVariablesRequestEvent(menus).Parse(f.Room, bob, Request());
+        await new WiredVariableHashesEvent(menus).Parse(f.Room, bob, Request(0));
+        await new WiredVariableHoldersRequestEvent(menus).Parse(f.Room, bob, Request("user:10"));
+        await new WiredVariableHoldersPageEvent(menus).Parse(f.Room, bob, Request("user:10", 1, 15, 0, -1));
+        await new WiredUserVariableUpdateEvent(menus).Parse(f.Room, bob, Request(3, (int)f.Room.Id, 12, 9));
+        await new WiredUserVariableManageEvent(menus).Parse(f.Room, bob, Request(2, 0, 2, 12, 0));
+        await new WiredMonitorRequestEvent(monitor).Parse(f.Room, bob, Request(0));
+        await new WiredRoomLogsPageEvent(monitor).Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
+        Assert.Empty(replies);
+    }
+
+    [Fact]
+    public async Task DeniedMonitorClearLeavesLogsAndItsGateForTheSameSessionOnceGranted()
+    {
+        using var f = new TeleportFixture();
+        f.Room.OwnerName = "Alice"; f.Room.Type = "private"; f.Room.UsersWithRights = [];
+        var store = new MonitorSettingsStore();
+        var settings = new WiredRoomSettings(f.Room, store);
+        typeof(WiredComponent).GetField("<Settings>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(f.Room.GetWired(), settings);
+        store.Saved = new(InspectMask: (int)WiredRoomAccess.Everyone); settings.Reload();
+
+        // Seed one room log line through the real wired log action.
+        var item = MakeItem(102, "wf_act_log");
+        var box = Assert.IsType<WiredModernAction>(f.Room.GetWired().CreateConfiguredBox(item, Descriptor("wf_act_log")));
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0], Text = "Gate opened" }, out var config, out _));
+        box.ApplyConfiguration(config);
+        f.Items[102] = item; f.Engine.Add(box);
+        f.Fire();
+        Assert.Equal(1, f.Room.GetWired().ReadLogs(0, 50, -1, "", -1).Total);
+
+        // Bob can inspect but not manage, so his clear is denied and neither clears the log nor uses his clear gate.
+        var bobHabbo = new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room, Access = EditorTestSupport.Access([]) };
+        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
+        bob.SetHabbo(bobHabbo);
+        var bobReplies = Capture(bob);
+        var clear = new WiredMonitorRequestEvent(new WiredMonitorService(new WiredRequestGateService(new ManualMonotonicClock())));
+
+        await clear.Parse(f.Room, bob, Request(1));
+        Assert.Empty(bobReplies);
+        Assert.Equal(1, f.Room.GetWired().ReadLogs(0, 50, -1, "", -1).Total);
+
+        // The same session is then granted manage rights through its access seam and clears at the unchanged instant.
+        bobHabbo.Access = EditorTestSupport.Access([Plus.HabboHotel.Permissions.PermissionKeys.RoomOwnerAny]);
+        await clear.Parse(f.Room, bob, Request(1));
+        Assert.Single(bobReplies);
+        Assert.Equal(5101u, bobReplies[0].Header);
+        Assert.Equal(0, f.Room.GetWired().ReadLogs(0, 50, -1, "", -1).Total);
+    }
+
+    [Fact]
+    public async Task MonitorAndLogGatesUseTheInjectedMonotonicClockAndStayIndependent()
+    {
+        using var f = new TeleportFixture();
+        f.Room.OwnerName = "Alice"; f.Room.Type = "private"; f.Room.UsersWithRights = [];
+        var clock = new ManualMonotonicClock();
+        var monitor = new WiredMonitorService(new WiredRequestGateService(clock));
+        var fetch = new WiredMonitorRequestEvent(monitor);
+        var pages = new WiredRoomLogsPageEvent(monitor);
+        var alice = Capture(f.Habbo.Client);
+        int Monitors() => alice.Count(reply => reply.Header == 5101);
+        int Pages() => alice.Count(reply => reply.Header == 918);
+
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(0)); Assert.Equal(1, Monitors()); // the first request passes
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(0)); Assert.Equal(1, Monitors()); // a repeat at the same instant is refused
+        clock.Advance(199);
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(0)); Assert.Equal(1, Monitors());
+        clock.Advance(1);
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(0)); Assert.Equal(2, Monitors()); // exactly 200 ms passes
+
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(1)); Assert.Equal(3, Monitors()); // a clear has its own gate
+        await fetch.Parse(f.Room, f.Habbo.Client, Request(1)); Assert.Equal(3, Monitors());
+
+        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "")); Assert.Equal(1, Pages());
+        clock.Advance(249);
+        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "")); Assert.Equal(1, Pages());
+        clock.Advance(1);
+        await pages.Parse(f.Room, f.Habbo.Client, Request(0, 50, -1, -1, "")); Assert.Equal(2, Pages()); // page 0 is normalized to page 1
+
+        // Malformed requests return before the gate, so they cannot use up the interval.
+        clock.Advance(250);
+        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "x", 1)); Assert.Equal(2, Pages());
+        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "")); Assert.Equal(3, Pages());
+    }
+
+    private sealed class ManualMonotonicClock : TimeProvider
+    {
+        private long _now;
+        public override long TimestampFrequency => 1000;
+        public override long GetTimestamp() => _now;
+        public void Advance(long milliseconds) => _now += milliseconds;
+    }
+
+    // Each request source gets its own rate gates, as in production, unless a test shares one explicitly.
+    private static WiredRoomLogsPageEvent RoomLogsPage() => new(new WiredMonitorService(new WiredRequestGateService(TimeProvider.System)));
+    private static WiredMonitorRequestEvent MonitorRequest() => new(new WiredMonitorService(new WiredRequestGateService(TimeProvider.System)));
 
     private static List<(uint Header, byte[] Body)> Capture(GameClient client)
     {
@@ -566,7 +725,7 @@ public class ModernWiredRuntimeTests
         public readonly WiredStackEngine Engine; public readonly List<Exception> Errors = [];
         public IItemDataManager? DefinitionManager;
         private readonly object? _originalGame; private long _now;
-        public TeleportFixture(int cap = 100)
+        public TeleportFixture(int cap = 100, IDatabase? database = null)
         {
             (Room, _, Items) = World();
             var gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
@@ -585,7 +744,9 @@ public class ModernWiredRuntimeTests
             Habbo.Effects.CurrentEffect = 8; client.SetHabbo(Habbo); clients.RegisterClient(client, 1, "Alice");
             User = new(1, 0, 7, Room); RoomUsers(Room)[7] = User;
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
-            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
+            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance,
+                database == null ? TestWiredConfigurationStore.Instance : new WiredConfigurationStore(database),
+                database ?? TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
@@ -593,7 +754,7 @@ public class ModernWiredRuntimeTests
             Target = MakeItem(1, "test"); Target.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); Items[1] = Target;
             Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room")); Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
             Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
-                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System);
+                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance);
             Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _); Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item; Items[100] = Action.Item; Engine.Add(Trigger); Engine.Add(Action);
         }
@@ -1024,16 +1185,60 @@ public class ModernWiredRuntimeTests
     {
         using var f = new TeleportFixture(); f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
         var sent = 0; ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
-        var dbField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!; var original = dbField.GetValue(null);
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>(); ((RecordingProxy)(object)database).InvokeMethod = (_, _) => throw new InvalidOperationException("Injected SQL failure");
-        try
+        var rewards = new WiredRewardService(new WiredRewardStore(database), DispatchProxy.Create<IItemDataManager, RecordingProxy>(), TimeProvider.System, TestLogging.Rewards);
+        var action = ActionBox(f.Room, "wf_act_give_reward", rewards: rewards);
+        Assert.True(action.TryValidateConfiguration(WiredRewards.Defaults() with { Text = "1,furni#5,100" }, out var config, out _)); action.ApplyConfiguration(config);
+        var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]); ctx.Triggering.UserIds.Add(f.User.VirtualId);
+        Assert.False(action.Execute(ctx)); Assert.Equal(0, sent); Assert.Empty(f.Habbo.Inventory.Furniture.GetItems);
+    }
+
+    [Fact]
+    public void RewardServiceReadsOneInjectedClockAndPublishesOnlyAfterStoreCommit()
+    {
+        using var f = new TeleportFixture(); f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
+        var sent = 0; ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
+        var clock = new RewardClock(DateTimeOffset.FromUnixTimeSeconds(1234));
+        var store = new RecordingRewardStore(() => sent, new(4, "BADGE1"));
+        var rewards = new WiredRewardService(store, DispatchProxy.Create<IItemDataManager, RecordingProxy>(), clock, TestLogging.Rewards);
+        var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]); ctx.Triggering.UserIds.Add(f.User.VirtualId);
+        Assert.True(WiredRewards.TryValidate(WiredRewards.Defaults() with { Text = "0,BADGE1,100" }, out var config, out _));
+        Assert.True(rewards.Execute(MakeItem(100, "wf_act_give_reward"), ctx, config));
+        Assert.Equal(new long[] { 1234 }, store.Times); Assert.Equal(1, clock.Reads);
+        Assert.Equal(new[] { 0 }, store.SentAtClaim); // Nothing reaches the client before the store commits.
+        Assert.True(sent > 0); Assert.True(f.Habbo.Inventory.Badges.HasBadge("BADGE1"));
+    }
+
+    [Fact]
+    public void RewardServiceStoreFailureLogsAndPublishesNothing()
+    {
+        using var f = new TeleportFixture(); f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
+        var sent = 0; ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
+        var clock = new RewardClock(DateTimeOffset.FromUnixTimeSeconds(1234));
+        var store = new RecordingRewardStore(() => sent, null, new InvalidOperationException("Injected commit failure"));
+        var rewards = new WiredRewardService(store, DispatchProxy.Create<IItemDataManager, RecordingProxy>(), clock, TestLogging.Rewards);
+        var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]); ctx.Triggering.UserIds.Add(f.User.VirtualId);
+        Assert.True(WiredRewards.TryValidate(WiredRewards.Defaults() with { Text = "0,BADGE1,100" }, out var config, out _));
+        Assert.False(rewards.Execute(MakeItem(100, "wf_act_give_reward"), ctx, config));
+        Assert.Equal(new long[] { 1234 }, store.Times); Assert.Equal(0, sent); Assert.False(f.Habbo.Inventory.Badges.HasBadge("BADGE1"));
+    }
+
+    private sealed class RewardClock(DateTimeOffset now) : TimeProvider
+    {
+        public int Reads { get; private set; }
+        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+    }
+
+    private sealed class RecordingRewardStore(Func<int> sent, WiredRewardGrant? grant, Exception? failure = null) : IWiredRewardStore
+    {
+        public List<long> Times { get; } = [];
+        public List<int> SentAtClaim { get; } = [];
+        public WiredRewardGrant ClaimAndGrant(Item box, uint roomId, Habbo habbo, WiredConfiguration configuration, IItemDataManager definitions, long now)
         {
-            dbField.SetValue(null, database); var action = ActionBox(f.Room, "wf_act_give_reward");
-            Assert.True(action.TryValidateConfiguration(WiredRewards.Defaults() with { Text = "1,furni#5,100" }, out var config, out _)); action.ApplyConfiguration(config);
-            var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]); ctx.Triggering.UserIds.Add(f.User.VirtualId);
-            Assert.False(action.Execute(ctx)); Assert.Equal(0, sent); Assert.Empty(f.Habbo.Inventory.Furniture.GetItems);
+            Times.Add(now); SentAtClaim.Add(sent());
+            if (failure != null) throw failure;
+            return grant!;
         }
-        finally { dbField.SetValue(null, original); }
     }
 
     [WiredVariableDatabaseFact]
@@ -1120,10 +1325,10 @@ public class ModernWiredRuntimeTests
     [WiredVariableDatabaseFact]
     public void ActualSnapshotSpawnGivesTwoEphemeralVariablesAndDetachesWithoutDurableValues()
     {
-        using var f = new TeleportFixture();
-        var connectionString = ModernWiredDatabaseProbe.GuardedConnectionString(); using var admin = new MySqlConnection(connectionString); admin.Open();
+        var connectionString = ModernWiredDatabaseProbe.GuardedConnectionString();
+        using var f = new TeleportFixture(database: new ModernWiredDatabaseProbe.ProbeDatabase(connectionString));
+        using var admin = new MySqlConnection(connectionString); admin.Open();
         var userId = 0u; var roomId = 0u; var variableId = 0u; var operandId = 0u;
-        var dbField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!; var original = dbField.GetValue(null);
         try
         {
             var suffix = "WT" + Guid.NewGuid().ToString("N")[..10];
@@ -1136,7 +1341,6 @@ public class ModernWiredRuntimeTests
             f.Target.Definition.Stackable = true;
             var definition = MakeItem(baseId, "probe").Definition; definition.Id = baseId; definition.Stackable = true;
             var definitions = DispatchProxy.Create<IItemDataManager, RecordingProxy>(); ((RecordingProxy)(object)definitions).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [baseId] = definition } : null; f.DefinitionManager = definitions;
-            dbField.SetValue(null, new ModernWiredDatabaseProbe.ProbeDatabase(connectionString));
             var spawnId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
             var loadedRows = new DataTable();
             using (var reader = admin.ExecuteReader("SELECT items.*,users.username FROM items JOIN users ON users.id=items.user_id WHERE items.id=@spawnId", new { spawnId }))
@@ -1147,7 +1351,7 @@ public class ModernWiredRuntimeTests
             var removals = new List<byte[]>();
             f.Habbo.Client.SendCallback = args =>
             {
-                var packet = args.MemoryBuffer.ToArray();
+                var packet = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
                 if (FlashGameClient.DecodeInt16(packet.AsMemory(4, 2)) == ServerPacketHeader.ObjectRemoveComposer) removals.Add(packet);
                 return true;
             };
@@ -1192,7 +1396,7 @@ public class ModernWiredRuntimeTests
         }
         finally
         {
-            f.Engine.Clear(); dbField.SetValue(null, original);
+            f.Engine.Clear();
             admin.Execute("DELETE FROM wired_variable_values WHERE definition_id=@variableId", new { variableId });
             admin.Execute("DELETE FROM wired_item_configurations WHERE item_id IN (@variableId,@operandId)", new { variableId, operandId });
             admin.Execute("DELETE FROM items WHERE user_id=@userId", new { userId });
@@ -1266,6 +1470,7 @@ public class ModernWiredRuntimeTests
     private static (Room Room, Gamemap Map, ConcurrentDictionary<uint, Item> Items) World(IRoomItemStore? store = null)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        typeof(Room).GetField("_interactionClock", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, TimeProvider.System);
         var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
         var handler = new RoomItemHandling(room, store ?? TestRoomItemStore.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
@@ -1294,6 +1499,17 @@ public class ModernWiredRuntimeTests
         public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => throw new NotSupportedException();
         public void ResetTimers(IEnumerable<Item> targets) => throw new NotSupportedException();
     }
-
-
+    private sealed class ResetOperations : IWiredRuntimeOperations
+    {
+        public int Resets { get; private set; }
+        public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => throw new NotSupportedException();
+        public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => throw new NotSupportedException();
+        public void ResetTimers(IEnumerable<Item> targets) => Resets++;
+    }
+    private sealed class CountingClock(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
+    {
+        public int Calls { get; private set; }
+        public override TimeZoneInfo LocalTimeZone => zone;
+        public override DateTimeOffset GetUtcNow() { Calls++; return now; }
+    }
 }

@@ -56,14 +56,19 @@ public interface ICredentialGenerations
 
     /// <summary>Deletes up to <paramref name="batch"/> sessions created before <paramref name="cutoff"/>
     /// that no access token, remember token or unexpired ticket refers to any more.</summary>
-    Task<int> PruneSessions(long cutoff, int batch);
+    Task<int> PruneSessions(DateTimeOffset cutoff, int batch);
 }
 
 public class CredentialGenerations : ICredentialGenerations
 {
     private readonly IDatabase _database;
+    private readonly TimeProvider _time;
 
-    public CredentialGenerations(IDatabase database) => _database = database;
+    public CredentialGenerations(IDatabase database, TimeProvider time)
+    {
+        _database = database;
+        _time = time;
+    }
 
     public static string NewSessionId() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
 
@@ -109,10 +114,11 @@ public class CredentialGenerations : ICredentialGenerations
 
     public async Task Bump(int userId, CredentialScope scope)
     {
+        var now = _time.GetUtcNow();
         await scope.Connection.ExecuteAsync(new CommandDefinition("UPDATE `users` SET `credential_generation` = `credential_generation` + 1 WHERE `id` = @userId",
             new { userId }, scope.Transaction, cancellationToken: scope.CancellationToken));
-        await scope.Connection.ExecuteAsync(new CommandDefinition("UPDATE `user_sessions` SET `revoked_at` = UNIX_TIMESTAMP() WHERE `user_id` = @userId AND `revoked_at` IS NULL",
-            new { userId }, scope.Transaction, cancellationToken: scope.CancellationToken));
+        await scope.Connection.ExecuteAsync(new CommandDefinition("UPDATE `user_sessions` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
+            new { userId, now = now.UtcDateTime }, scope.Transaction, cancellationToken: scope.CancellationToken));
     }
 
     public async Task Locked(int userId, Func<CredentialScope, Task> work)
@@ -125,28 +131,35 @@ public class CredentialGenerations : ICredentialGenerations
         transaction.Commit();
     }
 
-    public Task MarkSessionRevoked(int userId, string sessionId, CredentialScope scope) =>
-        scope.Connection.ExecuteAsync("UPDATE `user_sessions` SET `revoked_at` = UNIX_TIMESTAMP() WHERE `id` = @sessionId AND `user_id` = @userId AND `revoked_at` IS NULL",
-            new { sessionId, userId }, scope.Transaction);
-
-    public Task StartSession(int userId, string sessionId, CredentialScope scope) =>
-        StartSession(scope.Connection, scope.Transaction, sessionId, userId);
-
-    public async Task<int> PruneSessions(long cutoff, int batch)
+    public Task MarkSessionRevoked(int userId, string sessionId, CredentialScope scope)
     {
+        var now = _time.GetUtcNow();
+        return scope.Connection.ExecuteAsync("UPDATE `user_sessions` SET `revoked_at` = @now WHERE `id` = @sessionId AND `user_id` = @userId AND `revoked_at` IS NULL",
+            new { sessionId, userId, now = now.UtcDateTime }, scope.Transaction);
+    }
+
+    public Task StartSession(int userId, string sessionId, CredentialScope scope)
+    {
+        var now = _time.GetUtcNow();
+        return StartSession(scope.Connection, scope.Transaction, sessionId, userId, now);
+    }
+
+    public async Task<int> PruneSessions(DateTimeOffset cutoff, int batch)
+    {
+        var now = _time.GetUtcNow();
         using var connection = _database.Connection();
         return await connection.ExecuteAsync(
             "DELETE FROM `user_sessions` WHERE `created_at` < @cutoff " +
             "AND NOT EXISTS (SELECT 1 FROM `user_access_tokens` WHERE `session_id` = `user_sessions`.`id`) " +
             "AND NOT EXISTS (SELECT 1 FROM `user_remember_tokens` WHERE `family_id` = `user_sessions`.`id`) " +
             "AND NOT EXISTS (SELECT 1 FROM `users` WHERE `users`.`id` = `user_sessions`.`user_id` AND `auth_ticket_session` = `user_sessions`.`id` " +
-            "AND `auth_ticket_expires_at` >= UNIX_TIMESTAMP()) LIMIT @batch",
-            new { cutoff, batch });
+            "AND `auth_ticket_expires_at` >= @now) LIMIT @batch",
+            new { cutoff = cutoff.UtcDateTime, now = now.UtcDateTime, batch });
     }
 
-    internal static Task StartSession(IDbConnection connection, IDbTransaction? transaction, string sessionId, int userId) =>
-        connection.ExecuteAsync("INSERT INTO `user_sessions` (`id`, `user_id`, `created_at`) VALUES (@sessionId, @userId, UNIX_TIMESTAMP())",
-            new { sessionId, userId }, transaction);
+    internal static Task StartSession(IDbConnection connection, IDbTransaction? transaction, string sessionId, int userId, DateTimeOffset now) =>
+        connection.ExecuteAsync("INSERT INTO `user_sessions` (`id`, `user_id`, `created_at`) VALUES (@sessionId, @userId, @now)",
+            new { sessionId, userId, now = now.UtcDateTime }, transaction);
 
     /// <summary>Locks the user's row and returns its generation (-1 when the user is gone).</summary>
     internal static async Task<long> Lock(IDbConnection connection, IDbTransaction transaction, int userId, CancellationToken cancellationToken = default) =>

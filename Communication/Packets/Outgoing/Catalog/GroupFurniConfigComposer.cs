@@ -8,7 +8,7 @@ public class GroupFurniConfigComposer : IServerPacket
 
     public GroupFurniConfigComposer(IReadOnlyCollection<GroupFurniConfig> groups)
     {
-        _groups = groups;
+        _groups = groups.ToArray();
     }
 
     public void Compose(IOutgoingPacket packet)

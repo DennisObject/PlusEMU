@@ -24,9 +24,9 @@ public sealed class WiredVariableCatalogTests
     public void CatalogAndPagesResolveAliasesAndRecheckOwnersOnEveryRequest()
     {
         var directory = new Directory(); var store = new MemoryWiredVariableStore();
-        var module = new WiredVariableModule(1, directory, store, () => 1000);
+        var module = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         foreach (var id in Enumerable.Range(1, 5))
-            store.Mutate(new(20, WiredVariableTarget.User, id), _ => new(id * 10, 1000, 1000));
+            store.Mutate(new(20, WiredVariableTarget.User, id), _ => new(id * 10, DateTimeOffset.FromUnixTimeMilliseconds(1000), DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var catalog = module.DescribeDefinitions([10, 10, 20, 99]);
         var alias = Assert.Single(catalog);
         Assert.Equal("user:10", alias.CatalogId); Assert.Equal(1, alias.CatalogTarget);

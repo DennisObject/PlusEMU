@@ -31,7 +31,7 @@ public sealed class AuthTokenDatabaseTests : IDisposable
         var userId = User();
 
         var ticket = await store.Issue(userId);
-        Assert.Equal(_time.Now.ToUnixTimeSeconds() + 60, ticket.ExpiresAt);
+        Assert.Equal(_time.Now.AddSeconds(60), ticket.ExpiresAt);
         Assert.Equal(userId, await store.FindUser(ticket.Value));
         Assert.Equal(userId, await store.Consume(ticket.Value));
         Assert.Null(await store.Consume(ticket.Value));
@@ -134,7 +134,7 @@ public sealed class AuthTokenDatabaseTests : IDisposable
         var userId = User();
 
         var token = await store.Issue(userId);
-        Assert.Equal(_time.Now.ToUnixTimeSeconds() + 600, token.ExpiresAt);
+        Assert.Equal(_time.Now.AddMinutes(10), token.ExpiresAt);
         using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString))
         {
             var stored = connection.QuerySingle<string>("SELECT token_hash FROM user_access_tokens WHERE user_id = @userId", new { userId });
@@ -173,7 +173,7 @@ public sealed class AuthTokenDatabaseTests : IDisposable
     public async Task LeaderboardBearerLookupResolvesTheViewerWithPlainSql()
     {
         // The query the Python badge leaderboard uses to resolve its viewer.
-        const string viewerSql = "SELECT user_id FROM user_access_tokens WHERE token_hash = SHA2(@token, 256) AND revoked_at IS NULL AND expires_at > UNIX_TIMESTAMP() LIMIT 1";
+        const string viewerSql = "SELECT user_id FROM user_access_tokens WHERE token_hash = SHA2(@token, 256) AND revoked_at IS NULL AND expires_at > UTC_TIMESTAMP(6) LIMIT 1";
         var store = new AccessTokenStore(_database, TimeProvider.System, AuthTestConfig.Options());
         var userId = User();
         var token = await store.Issue(userId);

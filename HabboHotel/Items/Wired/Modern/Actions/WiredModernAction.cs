@@ -8,6 +8,7 @@ using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Rooms.Games.Teams;
+using Plus.HabboHotel.Rooms.AI;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
@@ -20,6 +21,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     private readonly WiredDirectionalActions _directions = new();
     private readonly ILogger _logger;
     private readonly TimeProvider _clock;
+    private readonly IWiredRewardService _rewards;
+    private readonly IBotManagementStore _botStore;
     public static readonly IReadOnlySet<string> OtherNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "wf_act_control_clock", "wf_act_adjust_clock", "wf_act_reset_timers", "wf_act_call_stacks", "wf_act_neg_call_stacks",
@@ -31,13 +34,15 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     public bool IsNegative => Descriptor.CanonicalName is "wf_act_neg_call_stacks" or "wf_act_neg_send_signal" or "wf_act_neg_log";
     public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
         Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog, ILogger logger,
-        TimeProvider clock) : base(room, item, descriptor)
+        TimeProvider clock, IWiredRewardService rewards, IBotManagementStore botStore) : base(room, item, descriptor)
     {
         if (!Supports(descriptor.CanonicalName)) throw new ArgumentException("Unknown action.", nameof(descriptor));
         _clocks = clocks; _publish = publish; _movement = new(walkTransition);
         _roomLog = roomLog;
         _logger = logger;
         _clock = clock;
+        _rewards = rewards;
+        _botStore = botStore;
     }
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
@@ -116,10 +121,11 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         var config = context.ConfigurationOf(this);
         if (!TryValidateConfiguration(config, out config, out _)) return false;
         var name = Descriptor.CanonicalName;
-        if (name == "wf_act_give_reward") return WiredRewards.Execute(Item, context, config, _logger);
+        if (name == "wf_act_give_reward") return _rewards.Execute(Item, context, config);
         if (WiredTemporaryFurnitureActions.Supports(name)) return WiredTemporaryFurnitureActions.Execute(name, Item, context, config);
         if (name == "wf_act_teleport_to_room") return WiredRoomForwarding.Execute(context, config, _logger);
-        if (WiredBotActions.Names.Contains(name)) return WiredBotActions.Execute(name, context, config, _movement);
+        if (WiredBotActions.Names.Contains(name))
+            return WiredBotActions.Execute(name, context, config, _movement, _botStore);
         if (WiredMovementActions.Names.Contains(name))
             return new WiredMovementActions().Execute(name, config,
                 config.FurniSources.ContainsKey("movers") ? Furni(context, config, "movers") : [],
@@ -226,7 +232,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 foreach (var item in items) changed |= _clocks.Adjust(item, Param(config, 0), Param(config, 2), Param(config, 3));
                 return changed;
             case "wf_act_reset_timers":
-                context.Room.LastTimerReset = DateTime.Now;
+                context.Room.LastTimerResetAt = _clock.GetUtcNow();
                 context.Operations.ResetTimers(items); return true;
             case "wf_act_call_stacks": case "wf_act_neg_call_stacks":
                 return context.Operations.CallStacks(context, items.Where(item => item.GetX != Item.GetX || item.GetY != Item.GetY), IsNegative);
@@ -241,7 +247,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
             case "wf_act_log": case "wf_act_neg_log":
                 if (config.Text.Length == 0) return false;
                 var message = context.Policy.FormatText(context, config.Text);
-                _roomLog.Append(Param(config, 0), WiredLogSource.WiredLog, Item.Id, Descriptor.CanonicalName, message, DateTimeOffset.UtcNow);
+                _roomLog.Append(Param(config, 0), WiredLogSource.WiredLog, Item.Id, Descriptor.CanonicalName, message, _clock.GetUtcNow());
                 _logger.Log(Param(config, 0) switch { 0 => LogLevel.Debug, 1 => LogLevel.Information, 2 => LogLevel.Warning, _ => LogLevel.Error }, "{Message}", message);
                 return true;
             case "wf_act_show_message":

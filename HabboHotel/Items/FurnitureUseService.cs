@@ -4,12 +4,14 @@ using Plus.Communication.Packets.Outgoing.Rooms.Furni;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Items;
 
 public readonly record struct FurnitureUseRequest(uint ItemId, int Parameter);
+public readonly record struct FurnitureClickRequest(uint ItemId, bool IsWall);
 
 public interface IFurnitureUseStore
 {
@@ -32,10 +34,23 @@ public sealed class FurnitureUseStore(IDatabase database) : IFurnitureUseStore
 public interface IFurnitureUseService
 {
     void Use(Room room, GameClient session, FurnitureUseRequest request);
+    void Click(Room room, GameClient session, FurnitureClickRequest request);
 }
 
 public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager quests) : IFurnitureUseService
 {
+    public void Click(Room room, GameClient session, FurnitureClickRequest request)
+    {
+        var actor = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
+        if (actor == null || actor.IsBot) return;
+        var item = room.GetRoomItemHandler().GetItem(request.ItemId);
+        if (item == null || request.IsWall && !item.IsWallItem || !request.IsWall && !item.IsFloorItem) return;
+        if (item.IsTemporary && !room.GetRoomItemHandler().OwnsTemporary(item)) return;
+        room.GetWired().Dispatch(new(WiredEventKind.ClickFurni) { Actor = actor, EventItem = item });
+        if (!request.IsWall && string.Equals(item.Definition.InteractionName, "room_invisible_click_tile", StringComparison.OrdinalIgnoreCase))
+            room.GetWired().Dispatch(new(WiredEventKind.ClickTile) { Actor = actor, EventItem = item, X = item.GetX, Y = item.GetY });
+    }
+
     public void Use(Room room, GameClient session, FurnitureUseRequest request)
     {
         var habbo = session.GetHabbo();

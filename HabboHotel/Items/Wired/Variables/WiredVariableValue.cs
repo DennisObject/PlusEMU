@@ -1,7 +1,22 @@
 namespace Plus.HabboHotel.Items.Wired.Variables;
 
 public readonly record struct WiredVariableKey(uint DefinitionId, WiredVariableTarget Target, long HolderId);
-public sealed record WiredVariableValue(int Value, long CreatedAtMs, long UpdatedAtMs);
+public sealed record WiredVariableValue
+{
+    private DateTimeOffset? _createdAt;
+    private DateTimeOffset? _updatedAt;
+
+    public WiredVariableValue(int value, DateTimeOffset? createdAt, DateTimeOffset? updatedAt)
+    {
+        Value = value;
+        CreatedAt = createdAt?.ToUniversalTime();
+        UpdatedAt = updatedAt?.ToUniversalTime();
+    }
+
+    public int Value { get; init; }
+    public DateTimeOffset? CreatedAt { get => _createdAt; init => _createdAt = value?.ToUniversalTime(); }
+    public DateTimeOffset? UpdatedAt { get => _updatedAt; init => _updatedAt = value?.ToUniversalTime(); }
+}
 public sealed record WiredVariableWrite(WiredVariableValue? Before, WiredVariableValue? After)
 {
     public bool Changed => Before != After;

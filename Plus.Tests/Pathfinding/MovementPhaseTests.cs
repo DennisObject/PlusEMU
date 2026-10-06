@@ -70,7 +70,7 @@ public partial class PlacedFurniRoomTests
         rider.RidingHorse = horse.RidingHorse = true;
         rider.HorseId = horse.VirtualId; horse.HorseId = rider.VirtualId;
         rider.FastWalking = true;
-        await new Plus.Communication.Packets.Incoming.Rooms.Engine.MoveAvatarEvent()
+        await new Plus.Communication.Packets.Incoming.Rooms.Engine.MoveAvatarEvent(new RoomAvatarActionService(TimeProvider.System, null!, null!))
             .Parse(_client, ClientPacket(3, 1));
         ExecutorTick();
         Assert.Equal("2,1,1", rider.Statusses["mv"]);

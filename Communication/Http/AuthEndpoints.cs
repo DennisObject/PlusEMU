@@ -106,9 +106,9 @@ public class AuthEndpoints
                 userId = result.Session!.UserId,
                 username = result.Session.Username,
                 accessToken = result.Session.AccessToken.Value,
-                accessTokenExpiresAt = result.Session.AccessToken.ExpiresAt,
+                accessTokenExpiresAt = result.Session.AccessToken.ExpiresAt.ToUnixTimeSeconds(),
                 rememberToken = result.Session.RememberToken!.Value.Value,
-                rememberExpiresAt = result.Session.RememberToken.Value.ExpiresAt
+                rememberExpiresAt = result.Session.RememberToken.Value.ExpiresAt.ToUnixTimeSeconds()
             }),
             ResumeStatus.Banned => Banned(result.Ban!),
             _ => Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidRememberToken, "Please log in again.")
@@ -136,7 +136,7 @@ public class AuthEndpoints
         if (string.IsNullOrEmpty(body.SsoTicket) || await _sessions.ExchangeTicket(body.SsoTicket) is not { } token)
             return Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidTicket, "This login ticket is invalid or has expired.");
 
-        return Results.Json(new { accessToken = token.Value, accessTokenExpiresAt = token.ExpiresAt });
+        return Results.Json(new { accessToken = token.Value, accessTokenExpiresAt = token.ExpiresAt.ToUnixTimeSeconds() });
     }
 
     /// <summary>Ends this device's login session: the bearer token's, the body ticket's and the
@@ -162,9 +162,9 @@ public class AuthEndpoints
             userId = session.UserId,
             username = session.Username,
             accessToken = session.AccessToken.Value,
-            accessTokenExpiresAt = session.AccessToken.ExpiresAt,
+            accessTokenExpiresAt = session.AccessToken.ExpiresAt.ToUnixTimeSeconds(),
             rememberToken = remember.Value,
-            rememberExpiresAt = remember.ExpiresAt
+            rememberExpiresAt = remember.ExpiresAt.ToUnixTimeSeconds()
         })
         : Results.Json(new
         {
@@ -172,7 +172,7 @@ public class AuthEndpoints
             userId = session.UserId,
             username = session.Username,
             accessToken = session.AccessToken.Value,
-            accessTokenExpiresAt = session.AccessToken.ExpiresAt
+            accessTokenExpiresAt = session.AccessToken.ExpiresAt.ToUnixTimeSeconds()
         });
 
     private static IResult Banned(LoginBan ban) => Results.Json(new

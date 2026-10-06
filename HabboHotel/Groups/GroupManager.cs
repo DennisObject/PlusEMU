@@ -112,11 +112,26 @@ public class GroupManager : IGroupManager, IStartable
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
+        var ownsAvailableRoom = connection.QuerySingleOrDefault<int?>(
+            "SELECT id FROM rooms WHERE id=@roomId AND owner=@ownerId AND group_id=0 FOR UPDATE",
+            new { roomId, ownerId = player.Id }, transaction);
+        if (ownsAvailableRoom == null)
+        {
+            transaction.Rollback();
+            return false;
+        }
         var createdAt = _clock.GetUtcNow();
         connection.Execute("INSERT INTO `groups` (`name`,`desc`,badge,owner_id,created,room_id,state,colour1,colour2,admindeco) VALUES (@name,@description,@badge,@ownerId,@createdAt,@roomId,'0',@colour1,@colour2,0)", new { name, description, badge, ownerId = player.Id, createdAt = createdAt.UtcDateTime, roomId, colour1, colour2 }, transaction);
         var id = connection.ExecuteScalar<int>("SELECT LAST_INSERT_ID()", transaction: transaction);
         connection.Execute("INSERT INTO group_memberships (user_id,group_id,`rank`) VALUES (@userId,@id,1)", new { userId = player.Id, id }, transaction);
-        connection.Execute("UPDATE rooms SET group_id=@id WHERE id=@roomId LIMIT 1", new { id, roomId }, transaction);
+        var updated = connection.Execute(
+            "UPDATE rooms SET group_id=@id WHERE id=@roomId AND owner=@ownerId AND group_id=0 LIMIT 1",
+            new { id, roomId, ownerId = player.Id }, transaction);
+        if (updated != 1)
+        {
+            transaction.Rollback();
+            return false;
+        }
         connection.Execute("DELETE FROM room_rights WHERE room_id=@roomId", new { roomId }, transaction);
         transaction.Commit();
         group = new(id, name, description, badge, roomId, player.Id, createdAt, 0, colour1, colour2, 0,

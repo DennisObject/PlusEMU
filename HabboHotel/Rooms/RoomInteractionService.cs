@@ -1,5 +1,6 @@
 using Dapper;
 using Plus.Communication.Packets.Outgoing.Navigator;
+using Plus.Communication.Packets.Outgoing.Rooms.Furni.Stickys;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
@@ -10,6 +11,7 @@ public interface IRoomInteractionStore
 {
     int AddRating(uint roomId, int rating);
     void DeleteSticky(uint itemId, uint roomId);
+    void UpdateSticky(uint itemId, uint roomId, string data);
 }
 
 public sealed class RoomInteractionStore(IDatabase database) : IRoomInteractionStore
@@ -26,6 +28,13 @@ public sealed class RoomInteractionStore(IDatabase database) : IRoomInteractionS
         return score;
     }
 
+    public void UpdateSticky(uint itemId, uint roomId, string data)
+    {
+        using var connection = database.Connection();
+        if (connection.Execute("UPDATE items SET extra_data=@data WHERE id=@itemId AND room_id=@roomId LIMIT 1", new { itemId, roomId, data }) != 1)
+            throw new InvalidOperationException("Sticky note was not persisted.");
+    }
+
     public void DeleteSticky(uint itemId, uint roomId)
     {
         using var connection = database.Connection();
@@ -38,6 +47,8 @@ public interface IRoomInteractionService
 {
     void Rate(Room room, GameClient session, int rating);
     void DeleteSticky(Room room, GameClient session, uint itemId);
+    void ShowSticky(Room room, GameClient session, uint itemId);
+    void UpdateSticky(Room room, GameClient session, uint itemId, string colour, string text);
 }
 
 public sealed class RoomInteractionService(IRoomInteractionStore store) : IRoomInteractionService
@@ -53,6 +64,33 @@ public sealed class RoomInteractionService(IRoomInteractionStore store) : IRoomI
             room.Score = score;
             habbo.RatedRooms.Add(room.RoomId);
             session.Send(new RoomRatingComposer(score, false));
+        }
+    }
+
+    public void ShowSticky(Room room, GameClient session, uint itemId)
+    {
+        lock (room.NavigationSync)
+        {
+            if (session.GetHabbo().CurrentRoom != room) return;
+            var item = room.GetRoomItemHandler().GetItem(itemId);
+            if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Postit) return;
+            session.Send(new StickyNoteComposer(item.Id.ToString(), item.LegacyDataString));
+        }
+    }
+
+    public void UpdateSticky(Room room, GameClient session, uint itemId, string colour, string text)
+    {
+        lock (room.NavigationSync)
+        {
+            if (session.GetHabbo().CurrentRoom != room) return;
+            var item = room.GetRoomItemHandler().GetItem(itemId);
+            if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Postit) return;
+            if (!room.CheckRights(session) && !text.StartsWith(item.LegacyDataString)) return;
+            if (colour is not ("FFFF33" or "FF9CFF" or "9CCEFF" or "9CFF9C")) return;
+            var data = $"{colour} {text}";
+            store.UpdateSticky(item.Id, room.Id, data);
+            item.LegacyDataString = data;
+            item.UpdateState(true, true);
         }
     }
 

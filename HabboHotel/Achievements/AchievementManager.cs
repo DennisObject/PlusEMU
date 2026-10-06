@@ -35,11 +35,12 @@ public class AchievementManager : IAchievementManager, IStartable
             return false;
         var data = Achievements[group];
         if (data == null) return false;
-        var userData = session.GetHabbo().GetAchievementData(group);
+        var habbo = session.GetHabbo();
+        var userData = habbo.GetAchievementData(group);
         if (userData == null)
         {
             userData = new(group, 0, 0);
-            session.GetHabbo().Achievements.TryAdd(group, userData);
+            habbo.Achievements.TryAdd(group, userData);
         }
         var totalLevels = data.Levels.Count;
         if (userData.Level == totalLevels)
@@ -63,32 +64,31 @@ public class AchievementManager : IAchievementManager, IStartable
             newTarget++;
             newProgress = 0;
             if (targetLevel != 1)
-                session.GetHabbo().Inventory.Badges.RemoveBadge(Convert.ToString(group + (targetLevel - 1)));
-            _badgeManager.GiveBadge(session.GetHabbo(), group + targetLevel).Wait();
+                habbo.Inventory.Badges.RemoveBadge(Convert.ToString(group + (targetLevel - 1)));
+            _badgeManager.GiveBadge(habbo, group + targetLevel).Wait();
             if (newTarget > totalLevels) newTarget = totalLevels;
             session.Send(new AchievementUnlockedComposer(AchievementUnlockSnapshot.Capture(data, targetLevel, level.RewardPoints, level.RewardPixels)));
-            BroadcastAchievement(session.GetHabbo(), MessengerEventTypes.AchievementUnlocked, group + targetLevel);
+            BroadcastAchievement(habbo, MessengerEventTypes.AchievementUnlocked, group + targetLevel);
 
-            using (var connection = _database.Connection())
+            lock (habbo.WalletSync)
             {
-                connection.Execute("REPLACE INTO `user_achievements` VALUES (@habboId, @group, @newLevel, @newProgress)",
-                    new { habboId = session.GetHabbo().Id, group, newLevel, newProgress });
-            }
-
-            userData.Level = newLevel;
-            userData.Progress = newProgress;
-            lock (session.GetHabbo().WalletSync)
-            {
-                if (!session.GetHabbo().WalletClosed)
+                if (habbo.WalletClosed) return false;
+                using (var connection = _database.Connection())
                 {
-                    session.GetHabbo().Duckets += level.RewardPixels;
-                    session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, level.RewardPixels));
+                    connection.Execute("REPLACE INTO `user_achievements` VALUES (@habboId, @group, @newLevel, @newProgress)",
+                        new { habboId = habbo.Id, group, newLevel, newProgress });
                 }
+
+                userData.Level = newLevel;
+                userData.Progress = newProgress;
+                // A synchronous disconnect during Send must save both rewards.
+                habbo.Duckets += level.RewardPixels;
+                habbo.HabboStats.AchievementPoints += level.RewardPoints;
+                session.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, level.RewardPixels));
+                session.Send(new AchievementScoreComposer(habbo.HabboStats.AchievementPoints));
+                var newLevelData = data.Levels[newTarget];
+                session.Send(new AchievementProgressedComposer(AchievementNotificationSnapshot.CaptureProgress(data, newTarget, newLevelData, totalLevels, habbo.GetAchievementData(group))));
             }
-            session.GetHabbo().HabboStats.AchievementPoints += level.RewardPoints;
-            session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats.AchievementPoints));
-            var newLevelData = data.Levels[newTarget];
-            session.Send(new AchievementProgressedComposer(AchievementNotificationSnapshot.CaptureProgress(data, newTarget, newLevelData, totalLevels, session.GetHabbo().GetAchievementData(group))));
             return true;
         }
         userData.Level = newLevel;
@@ -97,10 +97,10 @@ public class AchievementManager : IAchievementManager, IStartable
         using (var connection = _database.Connection())
         {
             connection.Execute("REPLACE INTO `user_achievements` VALUES (@habboId, @group, @newLevel, @newProgress)",
-                new { habboId = session.GetHabbo().Id, group, newLevel, newProgress });
+                new { habboId = habbo.Id, group, newLevel, newProgress });
         }
 
-        session.Send(new AchievementProgressedComposer(AchievementNotificationSnapshot.CaptureProgress(data, targetLevel, level, totalLevels, session.GetHabbo().GetAchievementData(group))));
+        session.Send(new AchievementProgressedComposer(AchievementNotificationSnapshot.CaptureProgress(data, targetLevel, level, totalLevels, habbo.GetAchievementData(group))));
         return false;
     }
 

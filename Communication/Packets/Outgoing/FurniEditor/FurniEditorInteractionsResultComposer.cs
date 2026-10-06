@@ -8,7 +8,7 @@ public sealed class FurniEditorInteractionsResultComposer : IServerPacket
 
     public uint MessageId => ServerPacketHeader.FurniEditorInteractionsResultComposer;
 
-    public FurniEditorInteractionsResultComposer(IReadOnlyList<string> interactions) => _interactions = interactions;
+    public FurniEditorInteractionsResultComposer(IReadOnlyList<string> interactions) => _interactions = interactions.ToArray();
 
     public void Compose(IOutgoingPacket packet)
     {

@@ -47,7 +47,7 @@ public sealed partial class AccessControlDatabaseTests
 
     private IPacketEvent Handler(Type type)
     {
-        var runner = new HousekeepingActionRunner(new HousekeepingAuditLog(_database), NullLogger<HousekeepingActionRunner>.Instance);
+        var runner = new HousekeepingActionRunner(new HousekeepingAuditLog(_database, TimeProvider.System), NullLogger<HousekeepingActionRunner>.Instance);
         return (IPacketEvent)Activator.CreateInstance(type, type.GetConstructors()[0].GetParameters().Length == 1 ? [_access] : [_access, runner])!;
     }
 

@@ -14,7 +14,7 @@ public sealed class WiredSelectorVariableBridgeTests
         var user = new WiredVariableHolder(WiredVariableTarget.User, 999, 4);
         var furniture = new WiredVariableHolder(WiredVariableTarget.Furni, 3, 3);
         var frame = new WiredVariableFrame(1, [user, furniture]);
-        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), () => 1000);
+        var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         module.Mutate(new(user.Target, "custom:10"), user, WiredVariableMutation.Give, 5, frame);
         module.Mutate(new(furniture.Target, "custom:11"), furniture, WiredVariableMutation.Give, 8, frame);
         var queries = WiredSelectorVariableBridge.Create(module, frame);

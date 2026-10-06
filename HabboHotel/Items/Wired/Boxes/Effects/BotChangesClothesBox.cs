@@ -1,17 +1,20 @@
 ﻿using System.Collections.Concurrent;
-using Dapper;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.AI;
 
 namespace Plus.HabboHotel.Items.Wired.Boxes.Effects;
 
 internal class BotChangesClothesBox : IWiredItem
 {
-    public BotChangesClothesBox(Room instance, Item item)
+    private readonly IBotManagementStore _botStore;
+
+    public BotChangesClothesBox(Room instance, Item item, IBotManagementStore botStore)
     {
         Instance = instance;
         Item = item;
+        _botStore = botStore;
         SetItems = new();
     }
 
@@ -46,13 +49,10 @@ internal class BotChangesClothesBox : IWiredItem
         if (user == null)
             return false;
         var figure = stuff[1];
-        var userChangeComposer = new UserChangeComposer(AvatarChangeSnapshot.Capture(user.BotData));
-        Instance.SendPacket(userChangeComposer);
+        _botStore.SaveAppearance(user.BotData.Id, Instance.RoomId, figure, "M");
         user.BotData.Look = figure;
         user.BotData.Gender = "M";
-        using var connection = PlusEnvironment.DatabaseManager.Connection();
-        connection.Execute("UPDATE bots SET look=@look,gender=@gender WHERE id=@id LIMIT 1",
-            new { user.BotData.Look, user.BotData.Gender, user.BotData.Id });
+        Instance.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user.BotData)));
         return true;
     }
 }

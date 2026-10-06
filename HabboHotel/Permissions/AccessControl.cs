@@ -176,7 +176,7 @@ public sealed partial class AccessControl : IAccessControl, IDisposable, IStarta
         var client = _clients.GetClientByUserId(userId);
         if (client?.GetHabbo() is not { AccessClosed: false } habbo) return;
         habbo.Access = access;
-        client.Send(new UserRightsComposer(access));
+        client.Send(new UserRightsComposer(UserRightsSnapshot.Capture(access)));
         AccessChanged?.Invoke(habbo);
         _refreshAt[userId] = access.NextExpiry ?? DateTimeOffset.MaxValue;
     }
@@ -276,7 +276,7 @@ public sealed partial class AccessControl : IAccessControl, IDisposable, IStarta
                 assignments.Add(new(role, row.ExpiresAt));
         var overrides = connection.Query<OverrideRow>("SELECT permission_key AS PermissionKey, effect, expires_at AS ExpiresAt FROM user_permissions WHERE user_id = @userId", new { userId }, transaction)
             .Select(row => new UserPermissionOverride(row.PermissionKey, row.Effect == "deny", row.ExpiresAt));
-        var membership = connection.QuerySingleOrDefault<ClubMembership>("SELECT " + ClubMembership.Columns + " FROM user_club_memberships WHERE user_id = @userId", new { userId }, transaction);
+        var membership = connection.QuerySingleOrDefault<ClubMembershipRow>("SELECT " + ClubMembership.Columns + " FROM user_club_memberships WHERE user_id = @userId", new { userId }, transaction)?.ToMembership();
         return UserAccess.Create(assignments, overrides, _registry, _clock, membership);
     }
 

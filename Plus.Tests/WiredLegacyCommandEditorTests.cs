@@ -36,7 +36,7 @@ public class WiredLegacyCommandEditorTests
         Assert.Equal(0, descriptor.EditorCode);
         Assert.Equal(new[] { 0, 1, ownerOnly ? 1 : 0 }, configuration.IntParams);
         using var stream = PlusMemoryStream.GetStream();
-        var composer = new WiredConfiguredConfigComposer(world.Box.Item, descriptor, configuration, 0);
+        var composer = new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(world.Box.Item, descriptor, configuration, 0));
         Assert.Equal(ServerPacketHeader.WiredTriggeRconfigComposer, composer.MessageId);
         composer.Compose(new FlashOutgoingPacket(stream));
         var opened = new FlashIncomingPacket { Buffer = stream.ToArray().AsMemory(6) };
@@ -116,8 +116,8 @@ public class WiredLegacyCommandEditorTests
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.OwnerId = 42;
             var items = new RoomItemHandling(Room, TestRoomItemStore.Instance); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
-            Wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance); Set(Room, "_wiredComponent", Wired);
-            _commands = new CommandManager([new Command("first"), new Command("second")], null!, null!);
+            Wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance); Set(Room, "_wiredComponent", Wired);
+            _commands = new CommandManager([new Command("first"), new Command("second")], null!, null!, new FixedTimeProvider(FixedTimeProvider.Epoch));
             var chat = new ChatManager(null!, _commands, null!, null!, null!, null!, null!, null!);
             var game = (Game)RuntimeHelpers.GetUninitializedObject(typeof(Game)); Set(game, "_chatManager", chat);
             _gameField.SetValue(null, game);

@@ -78,9 +78,10 @@ public sealed class EffectsComponent
     /// 
     /// </summary>
     /// <param name="habbo"></param>
-    public void CheckEffectExpiry(Habbo habbo)
+    public void CheckEffectExpiry(Habbo habbo) => CheckEffectExpiryAt(habbo, _time.GetUtcNow());
+
+    public void CheckEffectExpiryAt(Habbo habbo, DateTimeOffset now)
     {
-        var now = _time.GetUtcNow();
         foreach (var effect in _effects.Values.ToList())
         {
             if (!effect.HasExpiredAt(now)) continue;

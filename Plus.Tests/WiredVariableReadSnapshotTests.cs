@@ -11,7 +11,7 @@ public sealed class WiredVariableReadSnapshotTests
     public void TwoHundredUsersAndSixFxBatchDefinitionAndValueReadsAcrossViewers()
     {
         var directory = new Directory(); var store = new CountingStore();
-        var module = new WiredVariableModule(1, directory, store, () => 1000);
+        var module = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var holders = Enumerable.Range(1, 200).Select(id => new WiredVariableHolder(WiredVariableTarget.User, 10000 + id, id)).ToArray();
         var frame = new WiredVariableFrame(1, holders);
         var bindings = Enumerable.Range(10, 6).Select(id => new WiredVariableFxBinding(
@@ -19,7 +19,7 @@ public sealed class WiredVariableReadSnapshotTests
             new(WiredVariableTarget.User, $"custom:{id}"), 2, null, 0, null, null)).ToArray();
         foreach (var binding in bindings)
             foreach (var holder in holders)
-                store.Values.Mutate(new((uint)binding.Config.Id, holder.Target, holder.StableId), _ => new(25, 1000, 1000));
+                store.Values.Mutate(new((uint)binding.Config.Id, holder.Target, holder.StableId), _ => new(25, DateTimeOffset.FromUnixTimeMilliseconds(1000), DateTimeOffset.FromUnixTimeMilliseconds(1000)));
 
         // The previous holder loop's reads: 1,200 scalar SQL reads and 3,600 directory lookups.
         foreach (var binding in bindings)
@@ -42,12 +42,12 @@ public sealed class WiredVariableReadSnapshotTests
     public void NextFlushRechecksReferenceConfigurationOwnerAndPlacement()
     {
         var directory = new Directory(); var store = new CountingStore();
-        var module = new WiredVariableModule(1, directory, store, () => 1000);
+        var module = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var holder = new WiredVariableHolder(WiredVariableTarget.User, 900, 7);
         var frame = new WiredVariableFrame(1, [holder]);
         var reference = new WiredVariableReference(holder.Target, "custom:10");
-        store.Values.Mutate(new(10, holder.Target, holder.StableId), _ => new(10, 1000, 1000));
-        store.Values.Mutate(new(11, holder.Target, holder.StableId), _ => new(11, 1000, 1000));
+        store.Values.Mutate(new(10, holder.Target, holder.StableId), _ => new(10, DateTimeOffset.FromUnixTimeMilliseconds(1000), DateTimeOffset.FromUnixTimeMilliseconds(1000)));
+        store.Values.Mutate(new(11, holder.Target, holder.StableId), _ => new(11, DateTimeOffset.FromUnixTimeMilliseconds(1000), DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         using (var reads = module.CaptureReads([reference], frame)) Assert.Equal(10, reads.Read(reference, holder, frame)!.Value);
         directory.Link = new(1, new(holder.Target, "custom:11"), true);
         using (var reads = module.CaptureReads([reference], frame)) Assert.Equal(11, reads.Read(reference, holder, frame)!.Value);

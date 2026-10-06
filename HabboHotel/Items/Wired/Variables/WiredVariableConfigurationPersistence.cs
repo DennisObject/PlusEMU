@@ -10,7 +10,7 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 internal sealed record WiredVariableDefinitionCommit(WiredVariableDefinition Definition, WiredVariableWrite? ValueWrite);
 
 /// <summary>Atomically persists a definition and its explicit global editor value before runtime publication.</summary>
-public sealed class WiredVariableConfigurationPersistence(IDatabase database, WiredVariableModule variables, Func<long> nowMs)
+public sealed class WiredVariableConfigurationPersistence(IDatabase database, WiredVariableModule variables, TimeProvider clock)
 {
     public void Persist(WiredVariableDefinitionBox box, WiredConfiguration validated)
     {
@@ -48,13 +48,18 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
             var before = active;
             if (definition.IsDurable)
             {
-                before = connection.QuerySingleOrDefault<WiredVariableValue>("""
-                    SELECT value AS Value,created_at_ms AS CreatedAtMs,updated_at_ms AS UpdatedAtMs
+                var row = connection.QuerySingleOrDefault<ValueRow>("""
+                    SELECT value AS Value,created_at AS CreatedAt,updated_at AS UpdatedAt
                     FROM wired_variable_values WHERE definition_id=@itemId AND target_kind=3 AND holder_id=0 FOR UPDATE
                     """, new { itemId }, transaction);
+                before = row is null ? null : new(row.Value, row.CreatedAt, row.UpdatedAt);
             }
-            var now = nowMs();
-            write = new(before, before?.Value == definition.InitialValue ? before : new(definition.InitialValue, before?.CreatedAtMs ?? now, now));
+            if (before?.Value == definition.InitialValue) write = new(before, before);
+            else
+            {
+                var now = clock.GetUtcNow();
+                write = new(before, new(definition.InitialValue, before is null ? now : before.CreatedAt, now));
+            }
         }
         connection.Execute("""
             INSERT INTO wired_item_configurations (item_id,box_name,schema_version,configuration)
@@ -63,10 +68,10 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
             """, new { itemId, name, proposed.Version, configuration = JsonSerializer.Serialize(proposed) }, transaction);
         if (definition.IsDurable && write is { Changed: true, After: { } after })
             connection.Execute("""
-                INSERT INTO wired_variable_values (definition_id,target_kind,holder_id,value,created_at_ms,updated_at_ms)
-                VALUES (@itemId,3,0,@Value,@CreatedAtMs,@UpdatedAtMs)
-                ON DUPLICATE KEY UPDATE value=@Value,created_at_ms=@CreatedAtMs,updated_at_ms=@UpdatedAtMs
-                """, new { itemId, after.Value, after.CreatedAtMs, after.UpdatedAtMs }, transaction);
+                INSERT INTO wired_variable_values (definition_id,target_kind,holder_id,value,created_at,updated_at)
+                VALUES (@itemId,3,0,@Value,@CreatedAt,@UpdatedAt)
+                ON DUPLICATE KEY UPDATE value=@Value,created_at=@CreatedAt,updated_at=@UpdatedAt
+                """, new { itemId, after.Value, CreatedAt = after.CreatedAt?.UtcDateTime, UpdatedAt = after.UpdatedAt?.UtcDateTime }, transaction);
         transaction.Commit();
         return new(definition, write);
     }
@@ -80,4 +85,10 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
         catch (JsonException) { return false; }
     }
     private sealed class ConfigurationRow { public string Name { get; set; } = ""; public string Configuration { get; set; } = ""; }
+    private sealed class ValueRow
+    {
+        public int Value { get; set; }
+        public DateTimeOffset? CreatedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
+    }
 }

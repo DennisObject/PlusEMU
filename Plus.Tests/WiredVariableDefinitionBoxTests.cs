@@ -21,8 +21,8 @@ public sealed class WiredVariableDefinitionBoxTests
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1;
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
-        var module = new WiredVariableModule(1, new EmptyDirectory(), new MemoryWiredVariableStore(), () => 1);
-        var box = new WiredVariableConfiguredBox(room, new Item { Id = 10 }, descriptor, new(module, () => 1));
+        var module = new WiredVariableModule(1, new EmptyDirectory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
+        var box = new WiredVariableConfiguredBox(room, new Item { Id = 10 }, descriptor, new(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1))));
         Assert.Equal(count, box.Configuration.IntParams.Length);
         Assert.False(box.HasPersistedConfiguration);
         Assert.False(box.TryValidateConfiguration(box.Configuration, out _, out _));
