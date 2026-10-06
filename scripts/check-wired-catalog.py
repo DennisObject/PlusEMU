@@ -122,6 +122,13 @@ def main():
             assert owned_page['page_strings_1'] == 'catalog_wired_header1|', 'New page does not reference the genuine wired header asset.'
             published = {r['catalog_name']: r for r in committed['catalog_items'] if r['page_id'] == owned_page['id']}
             assert all(e['name'] in published for e in result['definitions']), 'New definition is absent from Recently Added.'
+            assert all(published[e['name']]['offer_id'] == e['offer_id'] for e in manifest['entries']
+                       if e['name'] in published), 'Catalogue does not expose the reviewed purchase offer IDs.'
+            official = next((row for row in published.values() if row['offer_id'] > 0), None)
+            if official:
+                conflict = json.loads(json.dumps(committed))
+                conflict['catalog_items'].append(dict(official, id=2000000000, item_id='2000000000'))
+                fail_plan(manifest, ledger, conflict, 'Official offer ID belongs to another product')
             for entry in result['definitions']:
                 row = next(r for r in committed['furniture'] if r['item_name'] == entry['name'])
                 assert row['sprite_id'] == entry['sprite_id'] and row['interaction_type'] == entry['interaction'], 'Original canonical server identity changed.'
@@ -136,7 +143,7 @@ def main():
         db.query('START TRANSACTION;')
         missing = [e for e in manifest['entries'] if e['asset_status'] == 'verified'][:2]
         exhausted = {'new_page': False, 'page_id': owned_page['id'] if owned_page else 0, 'definitions': missing,
-                     'offers': [{'name': e['name'], 'definition_id': None} for e in missing]}
+                     'offers': [{'name': e['name'], 'definition_id': None, 'offer_id': e['offer_id']} for e in missing]}
         try:
             db.query(module.statements(exhausted))
         except ValueError:
