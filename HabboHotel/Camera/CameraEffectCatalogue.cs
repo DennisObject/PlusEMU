@@ -29,9 +29,7 @@ public sealed class CameraEffectCatalogue : ICameraEffectCatalogue, IDisposable
     private DateTimeOffset _loadedAt = DateTimeOffset.MinValue;
 
     public CameraEffectCatalogue(IOptions<CameraConfiguration> options, TimeProvider time, ILogger<CameraEffectCatalogue> logger)
-        : this(options, time, logger, CameraRendererClient.CreateHandler())
-    {
-    }
+        : this(options, time, logger, CameraRendererClient.CreateHandler()) { }
 
     internal CameraEffectCatalogue(IOptions<CameraConfiguration> options, TimeProvider time, ILogger<CameraEffectCatalogue> logger, HttpMessageHandler handler)
     {

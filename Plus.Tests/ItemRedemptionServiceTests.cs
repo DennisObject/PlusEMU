@@ -122,9 +122,7 @@ public sealed class ItemRedemptionServiceTests
     }
     private sealed class Clothing(ClothingItem? item) : IClothingManager
     {
-        public ICollection<ClothingItem> GetClothingAllParts => item == null ? [] : [item]; public void Init()
-        {
-        }
+        public ICollection<ClothingItem> GetClothingAllParts => item == null ? [] : [item]; public void Init() { }
         public bool TryGetClothing(int itemId, out ClothingItem clothing)
         {
             clothing = item!;

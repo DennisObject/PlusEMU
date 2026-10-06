@@ -5,13 +5,9 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 internal class InteractorCannon : IFurniInteractor
 {
-    public void OnPlace(GameClient? session, Item item)
-    {
-    }
+    public void OnPlace(GameClient? session, Item item) { }
 
-    public void OnRemove(GameClient? session, Item item)
-    {
-    }
+    public void OnRemove(GameClient? session, Item item) { }
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {

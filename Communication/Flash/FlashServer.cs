@@ -9,7 +9,5 @@ public class FlashServer : TcpGameServer<FlashServerConfiguration>, IFlashServer
 {
     public FlashServer(IOptions<FlashServerConfiguration> options, FlashClientFactory flashClientFactory, IPacketManager packetManager,
         IEnumerable<IIncomingPacketInjector> incomingInjectors, IEnumerable<IOutgoingPacketInjector> outgoingInjectors, ILogger<FlashServer> logger)
-        : base(options, flashClientFactory, packetManager, incomingInjectors, outgoingInjectors, logger)
-    {
-    }
+        : base(options, flashClientFactory, packetManager, incomingInjectors, outgoingInjectors, logger) { }
 }

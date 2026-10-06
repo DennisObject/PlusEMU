@@ -21,9 +21,7 @@ public class InteractorScoreCounter : IFurniInteractor
         item.UpdateState(false, true);
     }
 
-    public void OnRemove(GameClient? session, Item item)
-    {
-    }
+    public void OnRemove(GameClient? session, Item item) { }
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {

@@ -6,7 +6,5 @@ public class EmptyDataFormat : FurniObjectData
 
     public override string Serialize() => string.Empty;
 
-    public override void Store(string data)
-    {
-    }
+    public override void Store(string data) { }
 }

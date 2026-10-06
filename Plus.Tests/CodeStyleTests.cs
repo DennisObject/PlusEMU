@@ -121,7 +121,7 @@ public class CodeStyleTests
     }
 
     [Fact]
-    public void ExpandsInlineDeclarationsIncludingEmptyMethodBodies()
+    public void ExpandsNonemptyDeclarationsAndKeepsEmptyBodiesCompact()
     {
         const string source = "class Example { string Name { get; } Example() { Work(); } void Run() { Work(); return; } void Empty() { } }";
 
@@ -129,13 +129,46 @@ public class CodeStyleTests
 
         Assert.Equal("record Value(int Number);", StatementSpacing.Format("record Value(int Number);"));
         Assert.DoesNotContain("{\n\n", formatted);
-        Assert.Equal("class Empty {\n    }", StatementSpacing.Format("class Empty {\n\n    }"));
-        Assert.Equal("class Empty {\r\n}", StatementSpacing.Format("class Empty {\r\n\r\n}"));
+        Assert.Equal("class Empty { }", StatementSpacing.Format("class Empty {\n\n    }"));
+        Assert.Equal("class Empty { }", StatementSpacing.Format("class Empty {\r\n\r\n}"));
         Assert.Contains("class Example {\n", formatted);
         Assert.Contains("string Name { get; }", formatted);
         Assert.Contains("Example() {\n", formatted);
         Assert.Contains("void Run() {\n", formatted);
-        Assert.Contains("void Empty() {\n", formatted);
+        Assert.Contains("void Empty() { }", formatted);
+        Assert.Equal(Tokens(source), Tokens(formatted));
+        Assert.Equal(formatted, StatementSpacing.Format(formatted));
+    }
+
+    [Fact]
+    public void CompactsEmptyDefinitionsWithoutChangingCommentsOrControlFlow()
+    {
+        const string source = "interface Example\r\n{\r\n    void Configure()\r\n    {\r\n    }\r\n}\r\nclass Empty\r\n{\r\n}\r\nclass Other\r\n{\r\n    Other()\r\n    {\r\n    }\r\n    void Run()\r\n    {\r\n        void Local()\r\n        {\r\n        }\r\n        if (true) { }\r\n    }\r\n}\r\n";
+
+        string formatted = StatementSpacing.Format(source);
+
+        Assert.Contains("void Configure() { }", formatted);
+        Assert.Contains("class Empty { }", formatted);
+        Assert.Contains("Other() { }", formatted);
+        Assert.Contains("void Local() { }", formatted);
+        Assert.Contains("if (true) { }", formatted);
+        Assert.Equal(Tokens(source), Tokens(formatted));
+        Assert.Equal(formatted, StatementSpacing.Format(formatted));
+
+        const string commented = "class Example\n{\n    void Empty() // Keep this comment.\n    {\n    }\n    void Explained()\n    {\n        // Intentionally empty.\n    }\n}\n";
+        Assert.Equal(commented, StatementSpacing.Format(commented));
+        const string directive = "class Example\n{\n    void Empty()\n    {\n#if DEBUG\n#endif\n    }\n}\n";
+        Assert.Equal(directive, StatementSpacing.Format(directive));
+    }
+
+    [Fact]
+    public void KeepsEmptyBodySeparateFromMultilineConstructorInitializer()
+    {
+        const string source = "class Example\n{\n    Example() : this(new[] {\n        1,\n        2\n    })\n    {\n    }\n    Example(int[] values) { }\n}\n";
+
+        string formatted = StatementSpacing.Format(source);
+
+        Assert.Contains("})\n    { }", formatted);
         Assert.Equal(Tokens(source), Tokens(formatted));
         Assert.Equal(formatted, StatementSpacing.Format(formatted));
     }

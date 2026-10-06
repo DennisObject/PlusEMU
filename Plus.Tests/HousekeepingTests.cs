@@ -259,9 +259,7 @@ public class HousekeepingActionTests
         public GameClient? GetClientByUserId(int userId) => Online.GetValueOrDefault(userId);
         public GameClient? GetClientByUsername(string username) => Online.Values.FirstOrDefault(client => client.GetHabbo().Username == username);
         public void SendPacket(IServerPacket packet, PermissionDefinition? permission = null) => Broadcasts.Add(packet);
-        public void OnCycle()
-        {
-        }
+        public void OnCycle() { }
         public bool TryGetClient(Guid clientId, out GameClient client) => throw new NotSupportedException();
         public bool TryChangeClientUsername(GameClient client, string oldUsername, string newUsername, Func<bool> persist) => throw new NotSupportedException();
         public Task<string> GetNameById(int id) => throw new NotSupportedException();

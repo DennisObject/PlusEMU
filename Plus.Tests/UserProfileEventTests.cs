@@ -120,9 +120,7 @@ public sealed class UserProfileEventTests
         public int FriendBar { get; private set; }
         public bool Invites { get; private set; }
         public SoundVolumeRequest? Volumes { get; private set; }
-        public void ShowUserObject(GameClient session)
-        {
-        }
+        public void ShowUserObject(GameClient session) { }
         public Task SetChatPreference(GameClient session, bool enabled) => Task.CompletedTask;
         public Task SetMessengerInvitePreference(GameClient session, bool enabled)
         {

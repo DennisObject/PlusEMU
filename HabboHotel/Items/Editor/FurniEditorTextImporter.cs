@@ -29,9 +29,7 @@ public sealed class FurniEditorTextImporter : IFurniEditorTextImporter, IDisposa
     private (DateTimeOffset LoadedAt, Dictionary<string, (string Name, string Description)> Texts)? _cache;
 
     public FurniEditorTextImporter(IOptions<FurniEditorConfiguration> configuration, TimeProvider clock)
-        : this(configuration, clock, new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false, ConnectCallback = ConnectPublic })
-    {
-    }
+        : this(configuration, clock, new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false, ConnectCallback = ConnectPublic }) { }
 
     internal FurniEditorTextImporter(IOptions<FurniEditorConfiguration> configuration, TimeProvider clock, HttpMessageHandler handler)
     {

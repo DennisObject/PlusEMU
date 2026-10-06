@@ -6,7 +6,5 @@ public sealed class CameraPurchaseOKComposer() : IServerPacket
 {
     public uint MessageId => ServerPacketHeader.CameraPurchaseOKComposer;
 
-    public void Compose(IOutgoingPacket packet)
-    {
-    }
+    public void Compose(IOutgoingPacket packet) { }
 }

@@ -8,9 +8,7 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 public class InteractorWired : IFurniInteractor
 {
-    public void OnPlace(GameClient? session, Item item)
-    {
-    }
+    public void OnPlace(GameClient? session, Item item) { }
 
     public void OnRemove(GameClient? session, Item item)
     {
@@ -89,7 +87,5 @@ public class InteractorWired : IFurniInteractor
     }
 
 
-    public void OnWiredTrigger(Item item)
-    {
-    }
+    public void OnWiredTrigger(Item item) { }
 }

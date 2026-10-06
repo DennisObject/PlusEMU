@@ -27,7 +27,5 @@ public sealed class RoomRuntimeComponent(IRoomItemStore itemStore, Plus.HabboHot
         new(room, room.Data.Model, room.NavigationLogger, settings, groups, database, rewards), new(room, itemStore, metadata, clients, language, interactors, travelStore, rewards), new(room, userStore, clock, rewards, chatEmotions, botAiFactory, clients, travelStore),
         new(room, room.WiredLogger, clock, settings, wiredSettings, wiredConfigurations, database, wiredRewards, botStore, clients, groups, definitions, commands, access, travelStore),
         userSnapshots, clock);
-    public void Initiated()
-    {
-    }
+    public void Initiated() { }
 }

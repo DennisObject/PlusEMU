@@ -457,9 +457,7 @@ public sealed class RoomChatServiceTests
     {
         public List<ChatlogEntry> Entries { get; } = [];
         public void StoreChatlog(ChatlogEntry entry) => Entries.Add(entry);
-        public void FlushAndSave()
-        {
-        }
+        public void FlushAndSave() { }
     }
 
     private sealed class RecordingCommands : ICommandManager
@@ -486,9 +484,7 @@ public sealed class RoomChatServiceTests
     {
         public bool Banned { get; set; }
         public string Replacement { get; set; } = "";
-        public void Init()
-        {
-        }
+        public void Init() { }
         public string CheckMessage(string message) => Replacement.Length == 0 ? message : Replacement;
         public bool CheckBannedWords(string message) => Banned;
         public bool IsFiltered(string message) => Banned;
@@ -496,9 +492,7 @@ public sealed class RoomChatServiceTests
 
     private sealed class Styles : IChatStyleManager
     {
-        public void Init()
-        {
-        }
+        public void Init() { }
         public IReadOnlyList<int> GetAllowedStyleIds(Plus.HabboHotel.Permissions.UserAccess access) => [0, 1, 2, 3];
         public bool TryGetStyle(int id, out ChatStyle? style)
         {

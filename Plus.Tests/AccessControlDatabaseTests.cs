@@ -501,9 +501,7 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         private sealed class ManualTimer : ITimer
         {
             public bool Change(TimeSpan dueTime, TimeSpan period) => true;
-            public void Dispose()
-            {
-            }
+            public void Dispose() { }
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
     }

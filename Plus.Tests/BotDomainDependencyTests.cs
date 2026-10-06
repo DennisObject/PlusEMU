@@ -104,23 +104,17 @@ public class BotDomainDependencyTests
 
     private sealed class Locale : IPetLocale
     {
-        public void Init()
-        {
-        }
+        public void Init() { }
         public string[] GetValue(string key) => [key];
     }
     private sealed class Commands : IPetCommandManager
     {
-        public void Init()
-        {
-        }
+        public void Init() { }
         public int TryInvoke(string input) => input == "sit" ? 3 : 0;
     }
     private sealed class Filter : IWordFilterManager
     {
-        public void Init()
-        {
-        }
+        public void Init() { }
         public string CheckMessage(string message) => $"filtered:{message}";
         public bool CheckBannedWords(string message) => false;
         public bool IsFiltered(string message) => false;
@@ -133,38 +127,20 @@ public class BotDomainDependencyTests
 
     private sealed class TestAi : BotAi
     {
-        public override void OnSelfEnterRoom()
-        {
-        }
-        public override void OnSelfLeaveRoom(bool kicked)
-        {
-        }
-        public override void OnUserEnterRoom(RoomUser user)
-        {
-        }
-        public override void OnUserLeaveRoom(GameClient client)
-        {
-        }
-        public override void OnUserSay(RoomUser user, string message)
-        {
-        }
-        public override void OnUserShout(RoomUser user, string message)
-        {
-        }
-        public override void OnTimerTick()
-        {
-        }
+        public override void OnSelfEnterRoom() { }
+        public override void OnSelfLeaveRoom(bool kicked) { }
+        public override void OnUserEnterRoom(RoomUser user) { }
+        public override void OnUserLeaveRoom(GameClient client) { }
+        public override void OnUserSay(RoomUser user, string message) { }
+        public override void OnUserShout(RoomUser user, string message) { }
+        public override void OnTimerTick() { }
     }
 
     private sealed class Client : GameClient
     {
-        public Client() : base(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
-        {
-        }
+        public Client() : base(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { }
         internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer) =>
             (true, false, 0, 0, 0);
-        public override void CreateHeader(Memory<byte> memory, uint messageId)
-        {
-        }
+        public override void CreateHeader(Memory<byte> memory, uint messageId) { }
     }
 }

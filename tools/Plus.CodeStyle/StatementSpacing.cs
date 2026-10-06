@@ -7,7 +7,7 @@ namespace Plus.CodeStyle;
 
 public static class StatementSpacing
 {
-    // Insert trivia only: comments, directives, literals and executable tokens stay intact.
+    // Change whitespace only: comments, directives, literals and executable tokens stay intact.
     public static string Format(string source)
     {
         source = ExpandInlineBlocks(source);
@@ -42,7 +42,7 @@ public static class StatementSpacing
                     continue;
                 }
 
-                if (NormalizeEmptyBody(text, declaration.OpenBraceToken, declaration.CloseBraceToken, changes, newline)) {
+                if (CompactEmptyBody(text, declaration.OpenBraceToken, declaration.CloseBraceToken, changes)) {
                     continue;
                 }
 
@@ -59,7 +59,7 @@ public static class StatementSpacing
 
                 bool declarationBody = block.Parent is BaseMethodDeclarationSyntax or LocalFunctionStatementSyntax;
 
-                if (declarationBody && NormalizeEmptyBody(text, block.OpenBraceToken, block.CloseBraceToken, changes, newline)) {
+                if (declarationBody && CompactEmptyBody(text, block.OpenBraceToken, block.CloseBraceToken, changes)) {
                     continue;
                 }
 
@@ -83,23 +83,33 @@ public static class StatementSpacing
         return text.WithChanges(changes.DistinctBy(change => change.Span).OrderBy(change => change.Span.Start)).ToString();
     }
 
-    private static bool NormalizeEmptyBody(SourceText text, SyntaxToken open, SyntaxToken close,
-        List<TextChange> changes, string newline)
+    private static bool CompactEmptyBody(SourceText text, SyntaxToken open, SyntaxToken close,
+        List<TextChange> changes)
     {
-        var span = TextSpan.FromBounds(open.Span.End, close.SpanStart);
-        string body = text.ToString(span);
-
-        if (!string.IsNullOrWhiteSpace(body)) {
+        if (open.IsMissing || close.IsMissing) {
             return false;
         }
 
-        // Preserve the closing brace indentation; the native formatter aligns it later.
-        int lastNewline = body.LastIndexOf('\n');
-        string bodyNewline = lastNewline < 0 ? newline
-            : lastNewline > 0 && body[lastNewline - 1] == '\r' ? "\r\n" : "\n";
-        string formatted = bodyNewline + body[(lastNewline + 1)..];
+        var body = TextSpan.FromBounds(open.Span.End, close.SpanStart);
+        var beforeBrace = TextSpan.FromBounds(open.GetPreviousToken().Span.End, open.SpanStart);
 
-        if (body != formatted) {
+        if (!string.IsNullOrWhiteSpace(text.ToString(body))
+            || !string.IsNullOrWhiteSpace(text.ToString(beforeBrace))) {
+            return false;
+        }
+
+        var span = TextSpan.FromBounds(beforeBrace.Start, close.Span.End);
+        string formatted = " { }";
+
+        // The native formatter separates the body from a multiline constructor initializer.
+        if (open.Parent?.Parent is ConstructorDeclarationSyntax { Initializer: { } initializer }
+            && text.Lines.GetLineFromPosition(initializer.SpanStart).LineNumber
+            != text.Lines.GetLineFromPosition(initializer.Span.End).LineNumber) {
+            span = body;
+            formatted = " ";
+        }
+
+        if (text.ToString(span) != formatted) {
             changes.Add(new TextChange(span, formatted));
         }
 

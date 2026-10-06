@@ -397,9 +397,7 @@ public sealed class MessengerCommunicationServiceTests
             return writes;
         }
 
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
     }
 
     private sealed class FilterStub : IWordFilterManager
@@ -407,9 +405,7 @@ public sealed class MessengerCommunicationServiceTests
         public string Output { get; set; } = "";
         public Action? OnCheck { get; set; }
         public List<string> Checked { get; } = [];
-        public void Init()
-        {
-        }
+        public void Init() { }
         public string CheckMessage(string message)
         {
             Checked.Add(message);

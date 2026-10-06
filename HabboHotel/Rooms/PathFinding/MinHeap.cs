@@ -5,9 +5,7 @@ internal sealed class MinHeap<T> where T : IComparable<T>
     private T[] _array;
     private int _capacity;
 
-    public MinHeap() : this(16)
-    {
-    }
+    public MinHeap() : this(16) { }
 
     public MinHeap(int capacity)
     {

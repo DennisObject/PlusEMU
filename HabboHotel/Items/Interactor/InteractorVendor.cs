@@ -103,7 +103,5 @@ public class InteractorVendor : IFurniInteractor, IApproachInteractor
         item.UpdateState(false, true);
     }
 
-    public void OnWiredTrigger(Item item)
-    {
-    }
+    public void OnWiredTrigger(Item item) { }
 }

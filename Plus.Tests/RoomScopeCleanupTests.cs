@@ -238,9 +238,7 @@ public sealed class RoomScopeCleanupTests
             Set(room, "_wiredComponent", new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel));
             initialize?.Invoke(room);
         }
-        public void Initiated()
-        {
-        }
+        public void Initiated() { }
     }
     private static void Set(Room room, string field, object? value) =>
         typeof(Room).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, value);

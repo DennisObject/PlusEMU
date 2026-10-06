@@ -102,9 +102,7 @@ public class FurniEditorImporterTests
         public override bool CanWrite => false;
         public override long Length => throw new NotSupportedException();
         public override long Position { get => 0; set => throw new NotSupportedException(); }
-        public override void Flush()
-        {
-        }
+        public override void Flush() { }
         public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {

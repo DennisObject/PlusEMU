@@ -4,13 +4,9 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 public class InteractorScoreboard : IFurniInteractor
 {
-    public void OnPlace(GameClient? session, Item item)
-    {
-    }
+    public void OnPlace(GameClient? session, Item item) { }
 
-    public void OnRemove(GameClient? session, Item item)
-    {
-    }
+    public void OnRemove(GameClient? session, Item item) { }
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {

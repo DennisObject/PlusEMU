@@ -277,12 +277,8 @@ public sealed class TradeConfirmationServiceTests
     {
         public List<(int, int, string, string)> Logged { get; } = [];
         public Exception? LogFailure { get; set; }
-        public void DeleteItem(uint itemId)
-        {
-        }
-        public void TransferItem(uint itemId, int userId)
-        {
-        }
+        public void DeleteItem(uint itemId) { }
+        public void TransferItem(uint itemId, int userId) { }
         public void Log(int firstUserId, int secondUserId, string firstItems, string secondItems)
         {
             if (LogFailure != null) {

@@ -12,9 +12,7 @@ public class MarketOffer
         LimitedStack = limitedStack;
     }
 
-    public MarketOffer()
-    {
-    }
+    public MarketOffer() { }
 
     public uint OfferId { get; set; }
     public int ItemType { get; set; }

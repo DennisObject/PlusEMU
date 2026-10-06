@@ -73,9 +73,7 @@ public sealed class RoomBanTimeTests
     {
         public List<(uint RoomId, int UserId)> Deleted { get; } = [];
         public IEnumerable<RoomBan> Load(uint roomId) => [];
-        public void Save(uint roomId, int userId, DateTimeOffset expiresAt)
-        {
-        }
+        public void Save(uint roomId, int userId, DateTimeOffset expiresAt) { }
         public void Delete(uint roomId, int userId) => Deleted.Add((roomId, userId));
         public IEnumerable<int> ActiveUserIds(uint roomId) => [];
     }

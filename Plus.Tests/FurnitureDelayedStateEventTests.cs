@@ -413,20 +413,14 @@ public partial class PlacedFurniRoomTests
 
         private sealed class Throwing : IFurniInteractor
         {
-            public void OnPlace(GameClient? session, Item item)
-            {
-            }
-            public void OnRemove(GameClient? session, Item item)
-            {
-            }
+            public void OnPlace(GameClient? session, Item item) { }
+            public void OnRemove(GameClient? session, Item item) { }
             public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
             {
                 item.LegacyDataString = "1";
                 throw new InvalidOperationException("interactor failed");
             }
-            public void OnWiredTrigger(Item item)
-            {
-            }
+            public void OnWiredTrigger(Item item) { }
         }
     }
 }

@@ -183,9 +183,7 @@ public sealed class RoomRightsServiceTests
             return false;
         }
         public ICollection<CachedUser> GetUserCache() => [];
-        public void Init()
-        {
-        }
+        public void Init() { }
     }
 
     private sealed class RecordingRights : IRoomRightsService

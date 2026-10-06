@@ -169,16 +169,12 @@ public class OfficialUserWireTests
 
     private sealed class TestClient : GameClient
     {
-        public TestClient() : base(TestGameServer.Instance, new Plus.Communication.Flash.FlashPacketFactory(), TestLogging.GameClient)
-        {
-        }
+        public TestClient() : base(TestGameServer.Instance, new Plus.Communication.Flash.FlashPacketFactory(), TestLogging.GameClient) { }
 
         internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer) =>
             (true, false, 0, 0, 0);
 
-        public override void CreateHeader(Memory<byte> memory, uint messageId)
-        {
-        }
+        public override void CreateHeader(Memory<byte> memory, uint messageId) { }
     }
 
     private sealed class RecordingPacket : IOutgoingPacket

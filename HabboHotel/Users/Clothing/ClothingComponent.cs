@@ -13,9 +13,7 @@ public sealed class ClothingComponent
     private Habbo _habbo;
     private readonly IClothingStore? _store;
 
-    public ClothingComponent()
-    {
-    }
+    public ClothingComponent() { }
 
     internal ClothingComponent(IEnumerable<ClothingParts> clothing, Habbo habbo, IClothingStore store)
     {

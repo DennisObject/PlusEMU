@@ -285,9 +285,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         public override string DataSource => "";
         public override string ServerVersion => "";
         public override ConnectionState State => _state;
-        public override void ChangeDatabase(string databaseName)
-        {
-        }
+        public override void ChangeDatabase(string databaseName) { }
         public override void Close() => _state = ConnectionState.Closed;
         public override void Open() => _state = ConnectionState.Open;
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => new NoOpTransaction(this);
@@ -298,12 +296,8 @@ public partial class PlacedFurniRoomTests : IDisposable
     {
         public override IsolationLevel IsolationLevel => IsolationLevel.ReadCommitted;
         protected override DbConnection DbConnection => connection;
-        public override void Commit()
-        {
-        }
-        public override void Rollback()
-        {
-        }
+        public override void Commit() { }
+        public override void Rollback() { }
     }
 
     private sealed class NoOpCommand(Func<string, DataTable>? read = null, Action<string, DbParameterCollection>? write = null) : DbCommand
@@ -316,9 +310,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         protected override DbConnection? DbConnection { get; set; }
         protected override DbParameterCollection DbParameterCollection { get; } = new NoOpParameters();
         protected override DbTransaction? DbTransaction { get; set; }
-        public override void Cancel()
-        {
-        }
+        public override void Cancel() { }
         public override int ExecuteNonQuery()
         {
             write?.Invoke(CommandText, Parameters);
@@ -326,9 +318,7 @@ public partial class PlacedFurniRoomTests : IDisposable
             return 1;
         }
         public override object? ExecuteScalar() => null;
-        public override void Prepare()
-        {
-        }
+        public override void Prepare() { }
         protected override DbParameter CreateDbParameter() => new NoOpParameter();
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
@@ -360,9 +350,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         [AllowNull] public override string SourceColumn { get; set; } = "";
         public override bool SourceColumnNullMapping { get; set; }
         public override object? Value { get; set; }
-        public override void ResetDbType()
-        {
-        }
+        public override void ResetDbType() { }
     }
 
     private sealed class NoOpParameters : DbParameterCollection
@@ -402,33 +390,19 @@ public partial class PlacedFurniRoomTests : IDisposable
     private sealed class EmptyConfigurationStore : IWiredConfigurationStore
     {
         public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => null;
-        public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration)
-        {
-        }
-        public void Reset(IReadOnlyCollection<uint> itemIds)
-        {
-        }
+        public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) { }
+        public void Reset(IReadOnlyCollection<uint> itemIds) { }
     }
 
     private sealed class RecordingRoomItemStore : IRoomItemStore
     {
         public List<RoomItemSave> Saved { get; } = [];
-        public void AssignOwner(uint itemId, int userId)
-        {
-        }
-        public void ClearRoom(uint itemId)
-        {
-        }
-        public void SaveWallPosition(uint itemId, string wallPosition)
-        {
-        }
+        public void AssignOwner(uint itemId, int userId) { }
+        public void ClearRoom(uint itemId) { }
+        public void SaveWallPosition(uint itemId, string wallPosition) { }
         public void SaveMoved(IReadOnlyList<RoomItemSave> items) => Saved.AddRange(items);
-        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation)
-        {
-        }
-        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition)
-        {
-        }
+        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) { }
+        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) { }
     }
 
     private sealed class TestClient : GameClient

@@ -279,20 +279,14 @@ public partial class PlacedFurniRoomTests
         public int ClearCount { get; private set; }
         public int FloorPlacements { get; private set; }
         public int WallPlacements { get; private set; }
-        public void AssignOwner(uint itemId, int userId)
-        {
-        }
+        public void AssignOwner(uint itemId, int userId) { }
         public void ClearRoom(uint itemId)
         {
             ClearCount++;
             Clear?.Invoke(itemId);
         }
-        public void SaveWallPosition(uint itemId, string wallPosition)
-        {
-        }
-        public void SaveMoved(IReadOnlyList<RoomItemSave> items)
-        {
-        }
+        public void SaveWallPosition(uint itemId, string wallPosition) { }
+        public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
         public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) => FloorPlacements++;
         public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) => WallPlacements++;
     }

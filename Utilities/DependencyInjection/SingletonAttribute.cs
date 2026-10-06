@@ -1,5 +1,3 @@
 namespace Plus.Utilities.DependencyInjection;
 
-public class SingletonAttribute : Attribute
-{
-}
+public class SingletonAttribute : Attribute { }

@@ -5,9 +5,7 @@ public class RoomPromotion
     private readonly TimeProvider _clock;
 
     public RoomPromotion(string name, string description, int categoryId, DateTimeOffset startedAt, DateTimeOffset expiresAt, TimeProvider clock)
-        : this(name, description, (DateTimeOffset?)startedAt, expiresAt, categoryId, clock)
-    {
-    }
+        : this(name, description, (DateTimeOffset?)startedAt, expiresAt, categoryId, clock) { }
 
     public RoomPromotion(string name, string description, DateTimeOffset? startedAt, DateTimeOffset? expiresAt, int categoryId, TimeProvider clock)
     {

@@ -9,9 +9,7 @@ public sealed class UsersComposer : IServerPacket
 {
     private readonly ImmutableArray<RoomUserSnapshot> _users;
 
-    public UsersComposer(RoomUserSnapshot user) : this([user])
-    {
-    }
+    public UsersComposer(RoomUserSnapshot user) : this([user]) { }
     public UsersComposer(IReadOnlyList<RoomUserSnapshot> users) => _users = users.ToImmutableArray();
     public uint MessageId => ServerPacketHeader.UsersComposer;
 

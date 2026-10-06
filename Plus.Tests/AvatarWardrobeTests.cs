@@ -300,9 +300,7 @@ public class AvatarWardrobeTests
         public Exception? Failure { get; init; }
         // Database tests need the figure to pass through unchanged so stored rows can be checked against the input.
         public bool Echo { get; init; }
-        public void Init()
-        {
-        }
+        public void Init() { }
         public string ProcessFigure(string figure, string gender, ICollection<Plus.HabboHotel.Users.Clothing.Parts.ClothingParts>? clothingParts, int clubLevel)
         {
             Calls.Add(new object[] { figure, gender, clubLevel });

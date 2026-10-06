@@ -16,17 +16,13 @@ public class NitroServerConfiguration : IGameServerOptions
     public string Hostname { get; set; }
 }
 
-public interface INitroServer : IGameServer
-{
-}
+public interface INitroServer : IGameServer { }
 
 public class NitroServer : WebsocketGameServer<NitroServerConfiguration>, INitroServer
 {
     public NitroServer(IOptions<NitroServerConfiguration> options, NitroClientFactory clientFactory, IPacketManager packetManager,
         IEnumerable<IIncomingPacketInjector> incomingInjectors, IEnumerable<IOutgoingPacketInjector> outgoingInjectors, ILogger<NitroServer> logger)
-        : base(options, clientFactory, packetManager, incomingInjectors, outgoingInjectors, logger)
-    {
-    }
+        : base(options, clientFactory, packetManager, incomingInjectors, outgoingInjectors, logger) { }
 }
 
 

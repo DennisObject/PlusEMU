@@ -430,9 +430,7 @@ public class WiredAvatarPacketHookTests
 
     private sealed class NoQuests : IQuestManager
     {
-        public void ProgressUserQuest(GameClient session, QuestType type, int data = 0)
-        {
-        }
+        public void ProgressUserQuest(GameClient session, QuestType type, int data = 0) { }
         public void Init() => throw new NotSupportedException();
         public Quest GetQuest(int id) => throw new NotSupportedException();
         public int GetAmountOfQuestsInCategory(string category) => throw new NotSupportedException();

@@ -264,9 +264,7 @@ public class RewardTrackLiveTests
         public override string DataSource => "";
         public override string ServerVersion => "";
         public override ConnectionState State => _state;
-        public override void ChangeDatabase(string databaseName)
-        {
-        }
+        public override void ChangeDatabase(string databaseName) { }
         public override void Close() => _state = ConnectionState.Closed;
         public override void Open() => _state = ConnectionState.Open;
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => new FakeTransaction(this);
@@ -314,12 +312,8 @@ public class RewardTrackLiveTests
         protected override DbParameterCollection DbParameterCollection { get; } = new FakeParameters();
         protected override DbTransaction? DbTransaction { get; set; }
         private FakeDatabase Owner => ((FakeConnection)DbConnection!).Store;
-        public override void Cancel()
-        {
-        }
-        public override void Prepare()
-        {
-        }
+        public override void Cancel() { }
+        public override void Prepare() { }
         public override object? ExecuteScalar() => null;
         protected override DbParameter CreateDbParameter() => new FakeParameter();
 
@@ -352,9 +346,7 @@ public class RewardTrackLiveTests
         [AllowNull] public override string SourceColumn { get; set; } = "";
         public override bool SourceColumnNullMapping { get; set; }
         public override object? Value { get; set; }
-        public override void ResetDbType()
-        {
-        }
+        public override void ResetDbType() { }
     }
 
     private sealed class FakeParameters : DbParameterCollection

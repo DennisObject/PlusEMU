@@ -192,9 +192,7 @@ public sealed class WiredBotAppearancePersistenceTests
             Assert.Equal(gender, body.ReadString());
         }
 
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
     }
 
     private sealed class RecordingStore(Action beforeWrite) : IBotManagementStore

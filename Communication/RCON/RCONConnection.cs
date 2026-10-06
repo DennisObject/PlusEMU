@@ -30,9 +30,7 @@ public sealed class RconConnection : IDisposable
     private RequestState _state;
     private int _disposed;
 
-    public RconConnection(Socket socket, ILogger<RconConnection> logger) : this(socket, logger, null)
-    {
-    }
+    public RconConnection(Socket socket, ILogger<RconConnection> logger) : this(socket, logger, null) { }
 
     internal RconConnection(Socket socket, ILogger<RconConnection> logger, ICommandManager? commands)
     {

@@ -14,9 +14,7 @@ public class FlashGameClient : GameClient
                                                              "<cross-domain-policy>\r\n" +
                                                              "<allow-access-from domain=\"*\" to-ports=\"1-31111\" />\r\n" +
                                                              "</cross-domain-policy>\x0");
-    public FlashGameClient(IGameServer server, IPacketFactory packetFactory, ILogger<GameClient> logger) : base(server, packetFactory, logger)
-    {
-    }
+    public FlashGameClient(IGameServer server, IPacketFactory packetFactory, ILogger<GameClient> logger) : base(server, packetFactory, logger) { }
 
 
 

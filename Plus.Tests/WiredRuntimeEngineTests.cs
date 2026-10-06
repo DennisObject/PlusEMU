@@ -591,9 +591,7 @@ public class WiredRuntimeEngineTests
         public int TickCount { get; set; }
         public bool OnCycle() => true;
         public bool Execute(params object[] arguments) => true;
-        public void HandleSave(IIncomingPacket packet)
-        {
-        }
+        public void HandleSave(IIncomingPacket packet) { }
     }
 
     [Theory]
@@ -1028,9 +1026,7 @@ public class WiredRuntimeEngineTests
 
             return actionIds;
         }
-        public void Reset()
-        {
-        }
+        public void Reset() { }
     }
 
     private sealed class Fixture : IWiredRuntimeOperations
@@ -1138,12 +1134,8 @@ public class WiredRuntimeEngineTests
 
             return new(WiredEventKind.Periodic) { EventItem = Item };
         }
-        public void Reset(long nowMilliseconds)
-        {
-        }
-        public void ResetElapsed(long nowMilliseconds)
-        {
-        }
+        public void Reset(long nowMilliseconds) { }
+        public void ResetElapsed(long nowMilliseconds) { }
     }
     private sealed class Selector() : Box(WiredBoxCategory.Selector), IWiredContextualSelector
     {
@@ -1155,8 +1147,6 @@ public class WiredRuntimeEngineTests
         public bool AfterConditions { get; set; }
         public Func<WiredRuntimeContext, bool> ApplyBody { get; set; } = _ => true;
         public bool Apply(WiredRuntimeContext context) => ApplyBody(context);
-        public void Reset()
-        {
-        }
+        public void Reset() { }
     }
 }
