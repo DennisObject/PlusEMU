@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
@@ -7,10 +7,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Reference Include="Plus Emulator">
-			<HintPath>$(PLUS_EMULATOR_HOME)\Plus Emulator.dll</HintPath>
-			<Private>false</Private>
-			<ExcludeAssets>all</ExcludeAssets>
-		</Reference>
+		<ProjectReference Include="..\Plus Emulator.csproj" Private="false" />
 	</ItemGroup>
 </Project>

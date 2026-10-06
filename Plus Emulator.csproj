@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<Nullable>enable</Nullable>
@@ -21,6 +21,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Compile Remove="tools\**" />
 		<Compile Remove="PluginExample\**" />
 		<EmbeddedResource Remove="PluginExample\**" />
 		<None Remove="PluginExample\**" />
