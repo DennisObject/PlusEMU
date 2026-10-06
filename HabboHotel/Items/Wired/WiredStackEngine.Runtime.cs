@@ -196,13 +196,16 @@ internal sealed partial class WiredStackEngine
 
     public void ResetTimers(IEnumerable<Item> targets) => Pass(() =>
     {
-        var visited = new HashSet<uint>();
+        // One instant for the whole reset, and each stack once however many of its boxes are targeted.
+        var now = _now();
+        var tiles = new HashSet<(int X, int Y)>();
         foreach (var target in targets)
         {
-            if (!_items.TryGetValue(target.Id, out var source) || !ReferenceEquals(source.Item, target)) continue;
+            if (!_items.TryGetValue(target.Id, out var source) || !ReferenceEquals(source.Item, target)
+                || !IsAttached(source) || !tiles.Add((source.Item.GetX, source.Item.GetY))) continue;
             // The room timer only: repeaters, legacy ones included, keep their period (Turbo RoomWiredSystem.ResetTimers).
-            foreach (var box in GetStack(source).Where(x => visited.Add(x.Item.Id)))
-                if (box is IWiredTimedTrigger timer) timer.ResetElapsed(_now());
+            foreach (var box in GetStack(source))
+                if (box is IWiredTimedTrigger timer) timer.ResetElapsed(now);
         }
         return true;
     });

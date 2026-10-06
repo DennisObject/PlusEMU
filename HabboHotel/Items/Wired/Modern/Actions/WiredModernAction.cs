@@ -149,7 +149,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 GateTransitionService.For(Instance) == null ? null : (item, nextState) => GateTransitionService.ToggleState(item, nextState, GateCloseReason.Wired,
                     afterWrite: _ => _publish(new(WiredEventKind.StateChanged) { Actor = context.Event.Actor, EventItem = item }))
                     is GateTransition.Applied or GateTransition.Queued);
-        var items = config.FurniSources.ContainsKey("items") ? Furni(context, config, "items") : [];
+        // Reset timers always covers the whole room, unlimited, so it resolves its own targets.
+        var items = name != "wf_act_reset_timers" && config.FurniSources.ContainsKey("items") ? Furni(context, config, "items") : [];
         var changed = false;
         switch (name)
         {

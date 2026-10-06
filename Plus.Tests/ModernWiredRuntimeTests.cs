@@ -1076,6 +1076,32 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
+    public void RoomTimerResetStartsEveryTimerAtTheSameInstant()
+    {
+        var (room, _, items) = World();
+        long now = 0;
+        // Every reading moves the clock on, as a real one does between two calls.
+        var engine = new WiredStackEngine(() => now++, box => items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, _ => { });
+        var timers = Enumerable.Range(1, 3).Select(i =>
+        {
+            var item = MakeItem((uint)i, "wf_trg_at_given_time");
+            item.SetState(i - 1, 0, 0, Gamemap.GetAffectedTiles(1, 1, i - 1, 0, 0));
+            items[item.Id] = item;
+            var box = new WiredModernTimedTrigger(room, item, Descriptor("wf_trg_at_given_time"));
+            Assert.True(box.TryValidateConfiguration(new() { IntParams = [1] }, out var config, out _));
+            box.ApplyConfiguration(config);
+            Assert.True(engine.Add(box));
+            return box;
+        }).ToArray();
+        now = 1000;
+
+        engine.ResetTimers(items.Values.ToArray());
+
+        var firstFires = timers.Select(timer => Enumerable.Range(1400, 200).First(t => timer.Poll(t) != null)).ToArray();
+        Assert.Single(firstFires.Distinct());
+    }
+
+    [Fact]
     public void ResetTimersReachesTheWholeRoomWhateverTheFurniLimit()
     {
         var (room, _, _) = World();
