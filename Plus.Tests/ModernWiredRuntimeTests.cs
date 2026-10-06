@@ -660,7 +660,7 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
-    public void MoveToDirectionRandomTriesEveryBlockedTurnInsteadOfWaiting()
+    public void MoveToDirectionRandomRetriesEightBlockedAttempts()
     {
         var (room, map, items) = World();
         var item = MakeItem(8, "test");
